@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Project>
+
+    <Worker Name="172.20.10.5">
+        <InstallDir>/home/etejedor/COMPSs1.3/Runtime/scripts/system/</InstallDir>
+	    <WorkingDir>/scratch/hdd/galomar/tmp</WorkingDir>
+	<LimitOfTasks>4</LimitOfTasks>
+    </Worker>
+
+    <Worker Name="172.20.10.6">
+        <InstallDir>/home/etejedor/COMPSs1.3/Runtime/scripts/system/</InstallDir>
+	    <WorkingDir>/scratch/hdd/galomar/tmp</WorkingDir>
+	<LimitOfTasks>4</LimitOfTasks>
+    </Worker>
+
+    <Worker Name="172.20.10.7">
+        <InstallDir>/home/etejedor/COMPSs1.3/Runtime/scripts/system/</InstallDir>
+	    <WorkingDir>/scratch/hdd/galomar/tmp</WorkingDir>
+	<LimitOfTasks>4</LimitOfTasks>
+    </Worker>
+
+    <Worker Name="172.20.10.8">
+        <InstallDir>/home/etejedor/COMPSs1.3/Runtime/scripts/system/</InstallDir>
+	    <WorkingDir>/scratch/hdd/galomar/tmp</WorkingDir>
+	<LimitOfTasks>4</LimitOfTasks>
+    </Worker>
+
+    <Worker Name="172.20.10.9">
+        <InstallDir>/home/etejedor/COMPSs1.3/Runtime/scripts/system/</InstallDir>
+	    <WorkingDir>/scratch/hdd/galomar/tmp</WorkingDir>
+	<LimitOfTasks>4</LimitOfTasks>
+    </Worker>
+
+    <Worker Name="172.20.10.10">
+        <InstallDir>/home/etejedor/COMPSs1.3/Runtime/scripts/system/</InstallDir>
+	    <WorkingDir>/scratch/hdd/galomar/tmp</WorkingDir>
+	<LimitOfTasks>4</LimitOfTasks>
+    </Worker>
+
+    <Worker Name="172.20.10.11">
+        <InstallDir>/home/etejedor/COMPSs1.3/Runtime/scripts/system/</InstallDir>
+	    <WorkingDir>/scratch/hdd/galomar/tmp</WorkingDir>
+	<LimitOfTasks>4</LimitOfTasks>
+    </Worker>
+
+    <Worker Name="172.20.10.12">
+        <InstallDir>/home/etejedor/COMPSs1.3/Runtime/scripts/system/</InstallDir>
+	    <WorkingDir>/scratch/hdd/galomar/tmp</WorkingDir>
+	<LimitOfTasks>4</LimitOfTasks>
+    </Worker>
+    
+</Project>
+

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Project>
+
+    <Worker Name="172.20.10.1">
+        <InstallDir>/home/etejedor/COMPSs1.3/Runtime/scripts/system/</InstallDir>
+	    <WorkingDir>/tmp/tmp_guillem</WorkingDir>
+	<LimitOfTasks>16</LimitOfTasks>
+    </Worker>
+
+    <Worker Name="172.20.10.2">
+        <InstallDir>/home/etejedor/COMPSs1.3/Runtime/scripts/system/</InstallDir>
+	    <WorkingDir>/tmp/tmp_guillem</WorkingDir>
+	<LimitOfTasks>16</LimitOfTasks>
+    </Worker>
+
+    <Worker Name="172.20.10.3">
+        <InstallDir>/home/etejedor/COMPSs1.3/Runtime/scripts/system/</InstallDir>
+	    <WorkingDir>/tmp/tmp_guillem</WorkingDir>
+	<LimitOfTasks>16</LimitOfTasks>
+    </Worker>
+
+    <Worker Name="172.20.10.4">
+        <InstallDir>/home/etejedor/COMPSs1.3/Runtime/scripts/system/</InstallDir>
+	    <WorkingDir>/tmp/tmp_guillem</WorkingDir>
+	<LimitOfTasks>16</LimitOfTasks>
+    </Worker>
+    
+</Project>
+

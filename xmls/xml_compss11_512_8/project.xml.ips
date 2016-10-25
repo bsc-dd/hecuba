@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Project>
+
+    <Worker Name="172.20.10.5">
+        <InstallDir>/home/galomar/COMPSs/severo/compss/compss-rt/scripts/system/</InstallDir>
+	    <WorkingDir>/tmp/galomar_tmp</WorkingDir>
+        <User>galomar</User>
+	<LimitOfTasks>8</LimitOfTasks>
+    </Worker>
+
+    <Worker Name="172.20.10.6">
+        <InstallDir>/home/galomar/COMPSs/severo/compss/compss-rt/scripts/system/</InstallDir>
+	    <WorkingDir>/tmp/galomar_tmp</WorkingDir>
+        <User>galomar</User>
+	<LimitOfTasks>8</LimitOfTasks>
+    </Worker>
+
+    <Worker Name="172.20.10.7">
+        <InstallDir>/home/galomar/COMPSs/severo/compss/compss-rt/scripts/system/</InstallDir>
+	    <WorkingDir>/tmp/galomar_tmp</WorkingDir>
+        <User>galomar</User>
+	<LimitOfTasks>8</LimitOfTasks>
+    </Worker>
+
+    <Worker Name="172.20.10.8">
+        <InstallDir>/home/galomar/COMPSs/severo/compss/compss-rt/scripts/system/</InstallDir>
+	    <WorkingDir>/tmp/galomar_tmp</WorkingDir>
+        <User>galomar</User>
+	<LimitOfTasks>8</LimitOfTasks>
+    </Worker>
+
+    <Worker Name="172.20.10.9">
+        <InstallDir>/home/galomar/COMPSs/severo/compss/compss-rt/scripts/system/</InstallDir>
+	    <WorkingDir>/tmp/galomar_tmp</WorkingDir>
+        <User>galomar</User>
+	<LimitOfTasks>8</LimitOfTasks>
+    </Worker>
+
+    <Worker Name="172.20.10.10">
+        <InstallDir>/home/galomar/COMPSs/severo/compss/compss-rt/scripts/system/</InstallDir>
+	    <WorkingDir>/tmp/galomar_tmp</WorkingDir>
+        <User>galomar</User>
+	<LimitOfTasks>8</LimitOfTasks>
+    </Worker>
+
+    <Worker Name="172.20.10.11">
+        <InstallDir>/home/galomar/COMPSs/severo/compss/compss-rt/scripts/system/</InstallDir>
+	    <WorkingDir>/tmp/galomar_tmp</WorkingDir>
+        <User>galomar</User>
+	<LimitOfTasks>8</LimitOfTasks>
+    </Worker>
+
+    <Worker Name="172.20.10.12">
+        <InstallDir>/home/galomar/COMPSs/severo/compss/compss-rt/scripts/system/</InstallDir>
+	    <WorkingDir>/tmp/galomar_tmp</WorkingDir>
+        <User>galomar</User>
+	<LimitOfTasks>8</LimitOfTasks>
+    </Worker>
+    
+</Project>
+

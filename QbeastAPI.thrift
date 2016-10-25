@@ -1,0 +1,1 @@
+qbeast/src/main/thrift/QbeastAPI.thrift

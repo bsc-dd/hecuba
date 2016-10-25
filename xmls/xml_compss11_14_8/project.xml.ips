@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Project>
+
+    <Worker Name="172.20.10.1">
+        <InstallDir>/home/galomar/COMPSs/severo/compss/compss-rt/scripts/system/</InstallDir>
+	    <WorkingDir>/tmp/galomar_tmp</WorkingDir>
+        <User>galomar</User>
+	<LimitOfTasks>8</LimitOfTasks>
+    </Worker>
+
+    <Worker Name="172.20.10.2">
+        <InstallDir>/home/galomar/COMPSs/severo/compss/compss-rt/scripts/system/</InstallDir>
+	    <WorkingDir>/tmp/galomar_tmp</WorkingDir>
+        <User>galomar</User>
+	<LimitOfTasks>8</LimitOfTasks>
+    </Worker>
+
+    <Worker Name="172.20.10.3">
+        <InstallDir>/home/galomar/COMPSs/severo/compss/compss-rt/scripts/system/</InstallDir>
+	    <WorkingDir>/tmp/galomar_tmp</WorkingDir>
+        <User>galomar</User>
+	<LimitOfTasks>8</LimitOfTasks>
+    </Worker>
+
+    <Worker Name="172.20.10.4">
+        <InstallDir>/home/galomar/COMPSs/severo/compss/compss-rt/scripts/system/</InstallDir>
+	    <WorkingDir>/tmp/galomar_tmp</WorkingDir>
+        <User>galomar</User>
+	<LimitOfTasks>8</LimitOfTasks>
+    </Worker>
+    
+</Project>
+
