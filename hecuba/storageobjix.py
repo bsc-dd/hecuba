@@ -3,4 +3,6 @@ from hecuba.storageobj import StorageObj
 
 
 class StorageObjIx(StorageObj):
-    pass
+    def split(self):
+        indexarguments = self.indexArguments
+        print "indexarguments:", indexarguments

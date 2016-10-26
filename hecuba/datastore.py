@@ -5,20 +5,12 @@ import inspect
 from pprint import pprint
 
 def hecuba_filter(function, iterable):
-    print "datastore hecuba_filter ####################################"
-    print "function:         ", function
-    print "iterable:         ", iterable
-    print "type(iterable):   ", type(iterable)
     inspectedfunction = inspect.getsource(function)
-    print "inspectedfunction:", inspectedfunction
-    pprint (vars(iterable))
     if hasattr(iterable, 'indexed'):
-        print "indexed object"
         iterable.indexArguments = str(str(str(inspectedfunction).split(":")[1]).split(",")[0]).split(' and ')  # Args list
         print "iterable.indexArguments:", iterable.indexArguments
         return iterable
     else:
-        print "normal object"
         filtered = python_filter(function, iterable)
         return filtered
 
