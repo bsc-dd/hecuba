@@ -726,7 +726,8 @@ class PersistentDict(dict):
                         self.miss += 1
                         try:
                             item = self.readitem(key)
-                        except:
+                        except Exception as e:
+                            print "Error:", e
                             raise KeyError
                         self.dictCache[key] = [item, 'Sync']
                         return item
