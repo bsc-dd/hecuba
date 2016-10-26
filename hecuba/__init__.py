@@ -6,8 +6,10 @@ from hecuba.datastore import *
 from hecuba.storageobj import StorageObj
 from conf.hecuba_params import execution_name
 from conf.apppath import apppath
+from app.qbeastiface import *
 import glob
 
+global qbeastInterface = QbeastIface()
 
 def classfilesparser():
     classes = {}

@@ -54,7 +54,6 @@ class Block(object):
 
 class IxBlock(Block):
     def __init__(self, peer, keynames, tablename, blockkeyspace, queryLocations):
-       print "hemos llegado hasta aqui"
        super(IxBlock, self).__init__(peer, keynames, tablename, blockkeyspace)
        self.queryLocations = queryLocations
        print "sorprendentemente tambien hemos llegado hasta aqui"
@@ -272,6 +271,13 @@ class IxKeyIter(KeyIter):
     def __init__(self, iterable):
         super(IxKeyIter, self).__init__(iterable)
         print "InitQuery"
+        # selects, keyspace, table, area, precision, maxResults, tokens
+        selects = 'partind'
+        keyspace = 'qbeast'
+        table = 'MyObj'
+        area = 
+        qbeastInterface.initQuery()
+        
         self.queryLoc = 'queryLocation'
 
     def next(self):
