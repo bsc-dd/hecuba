@@ -15,12 +15,12 @@ class StorageObj(object):
     keyList = defaultdict(list)
     nextKeys = []
     cntxt = ''
-    indexed = False
 
     def __init__(self, name=None):
         #print "storageobj __init__"
         setattr(self, 'name', None)
         setattr(self, 'persistent', False)
+        setattr(self, 'indexed', False)
         self.getByName(name)
 
     def init_prefetch(self, block):
