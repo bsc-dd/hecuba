@@ -276,16 +276,15 @@ class StorageObj(object):
         exec ("self.pKeyList = PersistentKeyList(self." + str(keys[0]) + ")")
         return self # a
     '''
-    '''
     def itervalues(self):
         print "Data needs to be accessed through a block"
         return [] # self
     '''
-    
     def iteritems(self):
         keys = self.keyList[self.__class__.__name__]
         exec ("a = PersistentKeyList(self." + str(keys[0]) + ")")
         return a # self
+    '''
 
     def increment(self, target, value):
         self[target] = value
