@@ -8,6 +8,7 @@ def hecuba_filter(function, iterable):
     if hasattr(iterable, 'indexed'):
         inspectedfunction = inspect.getsource(function)
         iterable.indexArguments = str(str(str(inspectedfunction).split(":")[1]).split(",")[0]).split(' and ')  # Args list
+        print "iterable.indexArguments:", iterable.indexArguments
         return iterable
     else:
         filtered = python_filter(function, iterable)
