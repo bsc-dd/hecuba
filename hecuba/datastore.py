@@ -2,9 +2,10 @@
 from hecuba.dict import *
 from conf.apppath import apppath
 import inspect
-
+from pprint import pprint
 
 def hecuba_filter(function, iterable):
+    pprint (vars(iterable))
     if hasattr(iterable, 'indexed'):
         print "indexed object"
         inspectedfunction = inspect.getsource(function)
