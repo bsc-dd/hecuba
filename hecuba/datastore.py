@@ -7,7 +7,7 @@ from pprint import pprint
 def hecuba_filter(function, iterable):
     print "datastore hecuba_filter ####################################"
     print "iterable:", iterable
-    pprint (vars(iterable))
+    #pprint (vars(iterable))
     if hasattr(iterable, 'indexed'):
         print "indexed object"
         inspectedfunction = inspect.getsource(function)
