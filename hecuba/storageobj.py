@@ -270,8 +270,10 @@ class StorageObj(object):
     
     # new iteritems
     def iteritems(self):
+        print "storageobj iteritems"
         keys = self.keyList[self.__class__.__name__]
         exec ("a = PersistentKeyList(self." + str(keys[0]) + ")")
+        print "(self,a): ("+ str(self) + "," + str(a) + ")"
         return (self,a) # self
     
     '''
