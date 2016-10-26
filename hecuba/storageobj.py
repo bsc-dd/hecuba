@@ -18,6 +18,7 @@ class StorageObj(object):
 
     def __init__(self, name=None):
         print "storageobj __init__"
+        print self.__class__.__name__
         setattr(self, 'name', None)
         setattr(self, 'persistent', False)
         setattr(self, 'indexed', False)
@@ -33,7 +34,7 @@ class StorageObj(object):
 
     def getByName(self, name):
         print "storageobj getByName"
-        print "name of storageobj:", name
+        print self.__class__.__name__
         if name is None:
             self.persistent = False
         else:
@@ -124,7 +125,8 @@ class StorageObj(object):
         cluster.shutdown()
 
     def make_persistent(self, name):
-        #print "storageobj make_persistent"
+        print "storageobj make_persistent"
+        print self.__class__.__name__
 
         self.name = name
         cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
