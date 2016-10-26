@@ -5,6 +5,7 @@ import inspect
 from pprint import pprint
 
 def hecuba_filter(function, iterable):
+    print "iterable:", iterable
     print iterable[0].__class__.__name__
     print iterable[1].__class__.__name__
     pprint (vars(iterable[0]))
