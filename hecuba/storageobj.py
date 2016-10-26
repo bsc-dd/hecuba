@@ -256,24 +256,25 @@ class StorageObj(object):
 
         session.shutdown()
         cluster.shutdown()
-
-'''
+    
+    '''
     def iteritems(self):
         print "Data needs to be accessed through a block"
         return [] # self
-'''
-
+    '''
+    
+    # new iteritems
     def iteritems(self):
         keys = self.keyList[self.__class__.__name__]
         exec ("a = PersistentKeyList(self." + str(keys[0]) + ")")
         return a # self
-
-'''
+    
+    '''
     def itervalues(self):
         print "Data needs to be accessed through a block"
         return [] # self
-'''
-
+    '''
+    
     def iteritems(self):
         keys = self.keyList[self.__class__.__name__]
         exec ("a = PersistentKeyList(self." + str(keys[0]) + ")")
