@@ -88,9 +88,11 @@ class StorageObj(object):
             notk = notkeys.split(',')[0]
             notk = str(notk)[1:len(notk)-1]
             notkeys = notkeys[0:len(notkeys) - 2]
+            yesk = yeskeys.split(',')[0]
+            yesk = str(yesk)[1:len(yesk)-1]
             yeskeys = yeskeys[0:len(yeskeys) - 2]
             yeskeys += ")"
-            exec("self." + str(notk) + " = PersistentDict(self, (" + notkeys + "), " + yeskeys + ")")
+            exec("self." + str(yesk) + " = PersistentDict(self, (" + notkeys + "), " + yeskeys + ")")
 
         filestoparse = glob.glob(apppath + "/app/*.py")
         for ftp in filestoparse:
