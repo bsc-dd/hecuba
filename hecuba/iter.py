@@ -271,15 +271,18 @@ class IxKeyIter(KeyIter):
     blockKeySpace = ''
 
     def __init__(self, iterable):
-        print "self.indexArguments:", self.indexArguments
+        #print "self.indexArguments:", self.indexArguments
         super(IxKeyIter, self).__init__(iterable.IxPKeyList)
         print "InitQuery"
         # selects, keyspace, table, area, precision, maxResults, tokens
         selects = 'partind'
         keyspace = 'qbeast'
         table = 'MyObj'
-        #area = 
-        qbeastInterface.initQuery()
+        area = [(0,0,0),(10,10,10)]
+        precision = 90
+        maxResults = 5
+        tokens = 1
+        qbeastInterface.initQuery(selects, keyspace, table, area, precision, maxResults, tokens)
         
         self.queryLoc = 'queryLocation'
 
