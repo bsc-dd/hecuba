@@ -184,8 +184,9 @@ class StorageObj(object):
         try:
             session.execute(querytable)
         except Exception as e:
-            #print "Object", self.name, "cannot be created in persistent storage", e
-            pass
+            print "error in querytable:", querytable
+            print "Object", self.name, "cannot be created in persistent storage", e
+            #pass
 
         keys = self.keyList[self.__class__.__name__]
         for key in self.split():
