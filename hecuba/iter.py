@@ -270,7 +270,7 @@ class IxKeyIter(KeyIter):
     blockKeySpace = ''
     def __init__(self, iterable):
         print "self.indexArguments:", self.indexArguments
-        super(IxKeyIter, self).__init__(iterable)
+        super(IxKeyIter, self).__init__(iterable.IxPKeyList)
         print "InitQuery"
         # selects, keyspace, table, area, precision, maxResults, tokens
         selects = 'partind'

@@ -13,7 +13,7 @@ class StorageObjIx(StorageObj):
             exec("a = dict.keys(self." + str(keys[0]) + ")")
             return a
         else:
-            exec("a = IxPersistentKeyList(self." + str(keys[0]) + ")")
-            return a
+            exec("self.IxPKeyList = IxPersistentKeyList(self." + str(keys[0]) + ")")
+            return self
     
     #pass
