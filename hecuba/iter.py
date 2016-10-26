@@ -52,11 +52,13 @@ class Block(object):
     def iterkeys(self):
         return BlockIter(self)
 
-
-class BlockIx(Block):
-    pass
-
-
+class IxBlock(Block):
+    def __init__(self, peer, keynames, tablename, blockkeyspace, queryLocations):
+       print "hemos llegado hasta aqui"
+       super(IxBlock, self).__init__(peer, keynames, tablename, blockkeyspace)
+       self.queryLocations = queryLocations
+       print "sorprendentemente también hemos llegado hasta aqui"
+    
 class BlockIter(object):
     def __init__(self, iterable):
         self.pos = 0
@@ -263,3 +265,20 @@ class KeyIter(object):
         b = Block(self.ring[self.pos], self.mypdict.dict_keynames, self.mypdict.mypo.name, self.blockkeyspace)
         self.pos += 1
         return b
+
+
+class IxKeyIter(KeyIter):
+    blockKeySpace = ''
+    def __init__(self, iterable):
+        super(IxKeyIter, self).__init__(iterable)
+        print "InitQuery"
+        self.queryLoc = 'queryLocation'
+
+    def next(self):
+        start = self.pos
+        if start == self.num_peers:
+            raise StopIteration
+        b = IxBlock(self.ring[self.pos], self.mypdict.dict_keynames, self.mypdict.mypo.name, self.blockkeyspace, self.queryLoc)
+        self.pos += 1
+        return b
+
