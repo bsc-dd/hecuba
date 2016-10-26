@@ -23,4 +23,5 @@ class IxPersistentKeyList(KeyList):
         
 
     def __iter__(self):
+        print "IxPersistentKeyList __iter__"
         return IxKeyIter(self)

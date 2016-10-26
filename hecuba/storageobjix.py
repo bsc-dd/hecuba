@@ -11,9 +11,11 @@ class StorageObjIx(StorageObj):
         keys = self.keyList[self.__class__.__name__]
         print "keys:", keys
         if not self.persistent:
+            print "not self.persistent"
             exec("a = dict.keys(self." + str(keys[0]) + ")")
             return a
         else:
+            print "yes self.persistent"
             exec("self.IxPKeyList = IxPersistentKeyList(self." + str(keys[0]) + ")")
             return self
     
