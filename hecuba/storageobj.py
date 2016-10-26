@@ -17,7 +17,8 @@ class StorageObj(object):
     cntxt = ''
 
     def __init__(self, name=None):
-        #print "storageobj __init__"
+        print "storageobj __init__"
+        print "name of storageobj:", name
         setattr(self, 'name', None)
         setattr(self, 'persistent', False)
         setattr(self, 'indexed', False)
