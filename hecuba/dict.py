@@ -735,6 +735,7 @@ class PersistentDict(dict):
                 return item
 
     def readitem(self, key):
+        print "dict.py readitem"
         query = "SELECT "
         if type(self.dict_name) == tuple:
             for ind, val in enumerate(self.dict_name):
@@ -775,6 +776,7 @@ class PersistentDict(dict):
             sessionexecute = 0
             while sessionexecute < 5:
                 try:
+                    print "       query:", query
                     result = self.session.execute(query)
                     item = ''
                     for row in result:
