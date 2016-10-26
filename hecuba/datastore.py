@@ -1,5 +1,6 @@
 # author: G. Alomar
 from hecuba.dict import *
+from hecuba.storageobj import *
 from conf.apppath import apppath
 import inspect
 from pprint import pprint
@@ -9,6 +10,8 @@ def hecuba_filter(function, iterable):
     print iterable[0].__class__.__name__
     print iterable[1].__class__.__name__
     pprint (vars(iterable[0]))
+    print "issubclass(self, hecuba.StorageObj):", issubclass(self, hecuba.StorageObj)
+    print "issubclass(self, hecuba.dict):      ", issubclass(self, hecuba.dict)
     if hasattr(iterable[0], 'indexed'):
         print "indexed object"
         inspectedfunction = inspect.getsource(function)
