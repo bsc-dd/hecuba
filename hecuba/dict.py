@@ -781,6 +781,7 @@ class PersistentDict(dict):
                     result = self.session.execute(query)
                     item = ''
                     for row in result:
+                        print "row:", row
                         for i, val in enumerate(row):
                             if i < (len(row) - 1):
                                 item += str(val) + ", "
