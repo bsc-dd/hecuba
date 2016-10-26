@@ -175,7 +175,7 @@ class PersistentDict(dict):
             if cache_activated:
                 if not 'max_cache_size' in globals():
                     global max_cache_size
-                    max_cache_size = 10000
+                    max_cache_size = 100
                 if len(self.dictCache.cache) >= max_cache_size:
                     self.writeitem()
                     self.dictCache.cache = {}
@@ -234,6 +234,7 @@ class PersistentDict(dict):
                                         query += str(self.dict_keynames[i]) + " = ? AND "
                                     else:
                                         query += str(self.dict_keynames[i]) + " = ?"
+                            print "preparequery 237"
                             self.insert_data = self.preparequery(query)
 
                         query = "self.batch.add(self.insert_data, ("
@@ -289,6 +290,7 @@ class PersistentDict(dict):
                                     else:
                                         query += "?)"
 
+                            print "preparequery 293"
                             self.insert_data = self.preparequery(query)
 
                         query = "self.batch.add(self.insert_data, ("
@@ -515,6 +517,7 @@ class PersistentDict(dict):
                     else:
                         query += str(self.dict_keynames[i]) + " = ?"
 
+            print "preparequery 520"
             self.insert_data = self.preparequery(query)
 
             query1 = "self.batch.add(self.insert_data, ("
@@ -592,6 +595,7 @@ class PersistentDict(dict):
                         query += "%(v" + str(ind) + ")s)"
 
             query += ";"
+            print "preparequery 598"
             self.insert_data = self.preparequery(query)
 
             query1 = "self.batch.add(self.insert_data, ("
@@ -692,7 +696,7 @@ class PersistentDict(dict):
             if cache_activated:
                 if not 'max_cache_size' in globals():
                     global max_cache_size
-                    max_cache_size = 10000
+                    max_cache_size = 100
                 if len(self.dictCache.cache) >= max_cache_size:
                     self.writeitem()
                     self.dictCache.cache = {}
