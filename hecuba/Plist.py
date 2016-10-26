@@ -1,4 +1,4 @@
-from hecuba.iter import KeyIter
+from hecuba.iter import *
 from hecuba.list import KeyList
 
 class PersistentKeyList(KeyList):
