@@ -1,5 +1,6 @@
 # author: G. Alomar
 from hecuba.storageobj import StorageObj
+from hecuba.Plist import *
 
 
 class StorageObjIx(StorageObj):
