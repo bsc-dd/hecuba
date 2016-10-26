@@ -2,6 +2,7 @@
 from hecuba.datastore import *
 from cassandra.cluster import Cluster
 from hecuba.dict import *
+from app.qbeastiface import *
 from conf.hecuba_params import execution_name, ranges_per_block
 import time
 
@@ -282,6 +283,7 @@ class IxKeyIter(KeyIter):
         precision = 90
         maxResults = 5
         tokens = 1
+        qbeastInterface= QbeastIface() # this will be moved to __init__
         qbeastInterface.initQuery(selects, keyspace, table, area, precision, maxResults, tokens)
         
         self.queryLoc = 'queryLocation'
