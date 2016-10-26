@@ -677,7 +677,8 @@ class PersistentDict(dict):
                 print "Success after ", errors, " tries"
 
     def __getitem__(self, key):
-        #print "dict __getitem__"
+        print "dict __getitem__"
+        print "key:", key
         if not self.mypo.persistent:
             try:
                 return dict.__getitem__(self, key)
@@ -822,6 +823,8 @@ class PersistentDict(dict):
                 
         if errors == 1:
             print "total errors:", totalerrors
+        else:
+            print "no errors"
         if (self.types[str(self.dict_name)] == 'int') or (self.types[str(self.dict_name)] == 'counter') or (len(result) == 0):
             return int(item)
         else:
