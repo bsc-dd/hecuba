@@ -5,6 +5,7 @@ import inspect
 from pprint import pprint
 
 def hecuba_filter(function, iterable):
+    print iterable.__class__.__name__
     pprint (vars(iterable))
     if hasattr(iterable, 'indexed'):
         print "indexed object"
