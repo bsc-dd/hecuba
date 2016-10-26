@@ -17,7 +17,7 @@ class StorageObjIx(StorageObj):
             return a
         else:
             print "yes self.persistent"
-            exec("self.IxPKeyList = IxPersistentKeyList(self." + str(keys[0]) + ")")
-            return self
+            exec("a = IxPersistentKeyList(self." + str(keys[0]) + ")")
+            return a
     
     #pass

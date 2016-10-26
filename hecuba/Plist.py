@@ -20,6 +20,7 @@ class PersistentKeyList(KeyList):
 class IxPersistentKeyList(KeyList):
     
     def __init__(self, mypdict):
+        print "IxPersistentKeyList __init__ ####################################"
         self.mypdict = mypdict
         
 
