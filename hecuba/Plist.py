@@ -8,6 +8,7 @@ class PersistentKeyList(KeyList):
         
 
     def __iter__(self):
+        print "PersistentKeyList __iter__ ####################################"
         return KeyIter(self)
         
 
@@ -23,5 +24,5 @@ class IxPersistentKeyList(KeyList):
         
 
     def __iter__(self):
-        print "IxPersistentKeyList __iter__"
+        print "IxPersistentKeyList __iter__ ####################################"
         return IxKeyIter(self)

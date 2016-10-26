@@ -531,6 +531,7 @@ class StorageObj(object):
         return identifier
 
     def split(self):
+        print "StorageObj split ####################################"
         keys = self.keyList[self.__class__.__name__]
         if not self.persistent:
             exec("a = dict.keys(self." + str(keys[0]) + ")")

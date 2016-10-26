@@ -5,6 +5,7 @@ import inspect
 from pprint import pprint
 
 def hecuba_filter(function, iterable):
+        print "datastore hecuba_filter ####################################"
     inspectedfunction = inspect.getsource(function)
     if hasattr(iterable, 'indexed'):
         iterable.indexArguments = str(str(str(inspectedfunction).split(":")[1]).split(",")[0]).split(' and ')  # Args list
