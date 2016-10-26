@@ -6,3 +6,4 @@ class StorageObjIx(StorageObj):
     def split(self):
         indexarguments = self.indexArguments
         print "indexarguments:", indexarguments
+        super(StorageObjIx,self).split(self)
