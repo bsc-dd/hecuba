@@ -262,20 +262,20 @@ class StorageObj(object):
         session.shutdown()
         cluster.shutdown()
     
-    #'''
+    '''
     def iteritems(self):
         print "storageobj iteritems ####################################"
         print "Data needs to be accessed through a block"
         return [] # self
-    #'''
     '''
+    #'''
     # new iteritems
     def iteritems(self):
         print "storageobj iteritems ####################################"
         keys = self.keyList[self.__class__.__name__]
         exec ("self.pKeyList = PersistentKeyList(self." + str(keys[0]) + ")")
         return self # a
-    '''
+    #'''
     def itervalues(self):
         print "Data needs to be accessed through a block"
         return [] # self
