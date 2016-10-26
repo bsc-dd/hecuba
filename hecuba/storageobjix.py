@@ -9,6 +9,7 @@ class StorageObjIx(StorageObj):
         #print "indexarguments:", indexarguments
         #return super(StorageObjIx,self).split()
         keys = self.keyList[self.__class__.__name__]
+        print "keys:", keys
         if not self.persistent:
             exec("a = dict.keys(self." + str(keys[0]) + ")")
             return a
