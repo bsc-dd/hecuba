@@ -590,9 +590,9 @@ class PersistentDict(dict):
             else:
                 for ind, v in enumerate(self.dict_name):
                     if ind < (len(self.dict_name) - 1):
-                        query += "%(v" + str(ind) + ")s, "
+                        query += "?, "
                     else:
-                        query += "%(v" + str(ind) + ")s)"
+                        query += "?)"
 
             query += ";"
             print "preparequery 598"
