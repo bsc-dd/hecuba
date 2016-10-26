@@ -57,7 +57,7 @@ class IxBlock(Block):
        print "hemos llegado hasta aqui"
        super(IxBlock, self).__init__(peer, keynames, tablename, blockkeyspace)
        self.queryLocations = queryLocations
-       print "sorprendentemente también hemos llegado hasta aqui"
+       print "sorprendentemente tambien hemos llegado hasta aqui"
     
 class BlockIter(object):
     def __init__(self, iterable):
