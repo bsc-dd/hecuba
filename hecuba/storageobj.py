@@ -107,8 +107,10 @@ class StorageObj(object):
                             classn = line[0]
                             if classn == self.__class__.__name__:
                                 if "(StorageObj)" in completeline:
+                                    print "self.indexed = False"
                                     self.indexed = False
                                 if "(StorageObjIx)" in completeline:
+                                    print "self.indexed = True"
                                     self.indexed = True
                 if "'''" in line:
                     if classf:
