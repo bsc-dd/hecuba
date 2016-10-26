@@ -269,6 +269,7 @@ class KeyIter(object):
 class IxKeyIter(KeyIter):
     blockKeySpace = ''
     def __init__(self, iterable):
+        print "self.indexArguments:", self.indexArguments
         super(IxKeyIter, self).__init__(iterable)
         print "InitQuery"
         # selects, keyspace, table, area, precision, maxResults, tokens
