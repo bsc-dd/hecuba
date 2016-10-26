@@ -17,7 +17,7 @@ class StorageObj(object):
     cntxt = ''
 
     def __init__(self, name=None):
-        print "storageobj __init__"
+        print "storageobj __init__ ####################################"
         print self.__class__.__name__
         setattr(self, 'name', None)
         setattr(self, 'persistent', False)
@@ -33,7 +33,7 @@ class StorageObj(object):
         exec("self." + str(keys[0]) + ".end_prefetch()")
 
     def getByName(self, name):
-        print "storageobj getByName"
+        print "storageobj getByName ####################################"
         print self.__class__.__name__
         if name is None:
             self.persistent = False
@@ -125,7 +125,7 @@ class StorageObj(object):
         cluster.shutdown()
 
     def make_persistent(self, name):
-        print "storageobj make_persistent"
+        print "storageobj make_persistent ####################################"
         print self.__class__.__name__
 
         self.name = name
@@ -262,19 +262,20 @@ class StorageObj(object):
         session.shutdown()
         cluster.shutdown()
     
-    '''
+    #'''
     def iteritems(self):
+        print "storageobj iteritems ####################################"
         print "Data needs to be accessed through a block"
         return [] # self
+    #'''
     '''
-    
     # new iteritems
     def iteritems(self):
-        print "storageobj iteritems"
+        print "storageobj iteritems ####################################"
         keys = self.keyList[self.__class__.__name__]
         exec ("self.pKeyList = PersistentKeyList(self." + str(keys[0]) + ")")
         return self # a
-    
+    '''
     '''
     def itervalues(self):
         print "Data needs to be accessed through a block"
