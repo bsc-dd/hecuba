@@ -551,6 +551,7 @@ class StorageObj(object):
 
     def __getitem__(self, key):
         keys = self.keyList[self.__class__.__name__]
+        print "keys:", keys
         auxdict = {}
         if len(keys) == 1:
             exec("auxdict = self." + str(keys[0]))
