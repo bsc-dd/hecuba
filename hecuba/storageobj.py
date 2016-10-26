@@ -18,7 +18,6 @@ class StorageObj(object):
 
     def __init__(self, name=None):
         print "storageobj __init__"
-        print "name of storageobj:", name
         setattr(self, 'name', None)
         setattr(self, 'persistent', False)
         setattr(self, 'indexed', False)
@@ -33,7 +32,8 @@ class StorageObj(object):
         exec("self." + str(keys[0]) + ".end_prefetch()")
 
     def getByName(self, name):
-        #print "storageobj getByName"
+        print "storageobj getByName"
+        print "name of storageobj:", name
         if name is None:
             self.persistent = False
         else:
