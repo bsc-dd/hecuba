@@ -783,13 +783,14 @@ class PersistentDict(dict):
                     item = ''
                     for row in result:
                         print "row:", row
-                        for i, val in enumerate(row):
-                            print "i:  ", i
-                            print "val:", val
-                            if i < (len(row) - 1):
-                                item += str(val) + ", "
-                            else:
-                                item += str(val)
+                        if len(row) > 1:
+                    	    item = []
+                            for i, val in enumerate(row):
+                                print "i:  ", i
+                                print "val:", val
+                                item.append(val)
+                        else:
+                            item = str(val)
                     print "item:", item
                     sessionexecute = 5
                 except Exception as e:
@@ -827,12 +828,15 @@ class PersistentDict(dict):
             print "total errors:", totalerrors
         else:
             print "no errors"
+        return item
+        '''
         if (self.types[str(self.dict_name)] == 'int') or (self.types[str(self.dict_name)] == 'counter') or (len(result) == 0):
             print "if"
             return int(item)
         else:
             print "else"
             return item
+        '''
 
     def len(self):
         try:
