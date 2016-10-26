@@ -9,7 +9,8 @@ from conf.apppath import apppath
 from app.qbeastiface import *
 import glob
 
-global qbeastInterface = QbeastIface()
+global qbeastInterface 
+qbeastInterface= QbeastIface()
 
 def classfilesparser():
     classes = {}
