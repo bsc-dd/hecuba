@@ -784,6 +784,8 @@ class PersistentDict(dict):
                     for row in result:
                         print "row:", row
                         for i, val in enumerate(row):
+                            print "i:  ", i
+                            print "val:", val
                             if i < (len(row) - 1):
                                 item += str(val) + ", "
                             else:
@@ -826,8 +828,10 @@ class PersistentDict(dict):
         else:
             print "no errors"
         if (self.types[str(self.dict_name)] == 'int') or (self.types[str(self.dict_name)] == 'counter') or (len(result) == 0):
+            print "if"
             return int(item)
         else:
+            print "else"
             return item
 
     def len(self):
