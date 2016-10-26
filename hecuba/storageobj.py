@@ -272,7 +272,7 @@ class StorageObj(object):
     def iteritems(self):
         keys = self.keyList[self.__class__.__name__]
         exec ("a = PersistentKeyList(self." + str(keys[0]) + ")")
-        return a # self
+        return (self,a) # self
     
     '''
     def itervalues(self):
