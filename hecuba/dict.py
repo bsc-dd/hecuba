@@ -818,12 +818,12 @@ class PersistentDict(dict):
         if type(result) is list:
             if len(result) == 0:
                 item = 0
-                
+                '''
                 print "wrong query:", query
                 print "type(key):", type(key)
                 print "len(result) = 0"
                 raise KeyError
-                
+                '''
         if errors == 1:
             print "total errors:", totalerrors
         else:
