@@ -1,6 +1,5 @@
 # author: G. Alomar
 from hecuba.dict import *
-from hecuba.storageobj import *
 from conf.apppath import apppath
 import inspect
 from pprint import pprint
