@@ -152,12 +152,12 @@ for Class in classes1:
                     print "Error: Object", str(value[0]), "cannot be inserted in persistent storage.", e
 
                 keyind += 1
+                StorageObj.keyList[dictName1].append(value[0])
             if value[2] == 'n':
                 try:
                     session.execute("INSERT INTO " + keyspaceaux + ".attribs(dictName, dataName, dataType, dataValue) VALUES ( %s, %s, %s, %s)", (str(dictName1), str(value[0]), "dict", str(keyspace)+'.\"'+str(dictName1)+'\"'))
                 except Exception as e:
                     print "Error: Object", str(value[0]), "cannot be inserted in persistent storage.", e
-                StorageObj.keyList[dictName1].append(value[0])
                 try:
                     session.execute("INSERT INTO " + keyspaceaux + ".\"" + dictName1 + "\"(dictID, dataName, dataType) VALUES ( %s, %s, %s)", (str(value[3]), str(value[0]), str(valtype)))
                 except Exception as e:

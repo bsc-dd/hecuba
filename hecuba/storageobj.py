@@ -553,15 +553,18 @@ class StorageObj(object):
         keys = self.keyList[self.__class__.__name__]
         print "keys:", keys
         auxdict = {}
+        '''
         if len(keys) == 1:
             exec("auxdict = self." + str(keys[0]))
         else:
             print "StorageObj " + str(self.name) + " has more than 1 dictionary, specify which one has to be used"
             raise KeyError
+        '''
         # if (auxdict.types[str(auxdict.dict_name)] == 'counter'):
         #    #if self.adding == True:
         #    #    return 0
         #    return 0
+        exec("auxdict = self." + str(keys[0]))
         item = auxdict[key]
         return item
 
