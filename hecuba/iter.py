@@ -276,7 +276,7 @@ class IxKeyIter(KeyIter):
         selects = 'partind'
         keyspace = 'qbeast'
         table = 'MyObj'
-        area = 
+        #area = 
         qbeastInterface.initQuery()
         
         self.queryLoc = 'queryLocation'
