@@ -219,7 +219,9 @@ class KeyIter(object):
         tokentohosts = ringtokens.token_to_host_owner
         token_ranges = ''
         starttok = 0
+        self.tokenList = []
         for i, token in enumerate(ringtokens.ring):
+            self.tokenList.append(token)
             if ranges_per_block == 1:
                 if i == 0:
                     starttok = token
@@ -280,7 +282,8 @@ class IxKeyIter(KeyIter):
         print "iterable.indexArguments:", iterable.indexarguments
         #super(IxKeyIter, self).__init__(iterable.IxPKeyList)
         super(IxKeyIter, self).__init__(iterable)
-        print "self.ring:", self.ring
+        #print "self.ring:", self.ring
+        print "self.tokenList:", self.tokenList
         print "InitQuery"
         selects = 'partind'
         keyspace = 'qbeast'
