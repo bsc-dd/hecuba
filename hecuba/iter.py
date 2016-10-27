@@ -279,7 +279,7 @@ class IxKeyIter(KeyIter):
     blockKeySpace = ''
 
     def __init__(self, iterable):
-        print "iterable.indexArguments:", iterable.indexarguments
+        print "iterable.indexarguments:", iterable.indexarguments
         #super(IxKeyIter, self).__init__(iterable.IxPKeyList)
         super(IxKeyIter, self).__init__(iterable)
         #print "self.ring:", self.ring
@@ -288,12 +288,24 @@ class IxKeyIter(KeyIter):
         selects = 'partind'
         keyspace = 'qbeast'
         table = 'MyObj'
+        minarguments = {}
+        maxarguments = {}
+        for argument in iterable.indexarguments:
+            if '<' in str(argument):
+                val = str(str(argument).split('<')[0])
+                maxarguments[val].append(int(str(argument).split('<')[1]))
+            if '>' in str(argument):
+                val = str(str(argument).split('<')[0])
+                minarguments[val].append(int(str(argument).split('<')[1]))
+        print "minarguments:", minarguments
+        print "maxarguments:", maxarguments
         area = [(0,0,0),(10,10,10)]
         precision = 90
         maxResults = 5
         tokens = self.tokenList # [1]
         qbeastInterface= QbeastIface() # this will be moved to __init__
         qbeastInterface.initQuery(selects, keyspace, table, area, precision, maxResults, tokens)
+        
         
         self.queryLoc = 'queryLocation'
 
