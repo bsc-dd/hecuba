@@ -221,7 +221,7 @@ class KeyIter(object):
         starttok = 0
         self.tokenList = []
         for i, token in enumerate(ringtokens.ring):
-            self.tokenList.append(int(token))
+            self.tokenList.append(str(token))
             if ranges_per_block == 1:
                 if i == 0:
                     starttok = token
