@@ -292,12 +292,12 @@ class IxKeyIter(KeyIter):
         maxarguments = {}
         for argument in iterable.indexarguments:
             if '<' in str(argument):
-                splitarg = str(argument).split('<')
+                splitarg = (str(argument).replace(' ','')).split('<')
                 print "splitarg <:", splitarg
                 val = str(splitarg[0])
                 maxarguments[val].append(int(splitarg[1]))
             if '>' in str(argument):
-                splitarg = str(argument).split('>')
+                splitarg = (str(argument).replace(' ','')).split('>')
                 print "splitarg >:", splitarg
                 val = str(splitarg[0])
                 minarguments[val].append(int(splitarg[1]))
