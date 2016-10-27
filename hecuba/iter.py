@@ -281,37 +281,28 @@ class IxKeyIter(KeyIter):
 
     def __init__(self, iterable):
         print "iterable.indexarguments:", iterable.indexarguments
-        #super(IxKeyIter, self).__init__(iterable.IxPKeyList)
         super(IxKeyIter, self).__init__(iterable)
-        #print "self.ring:", self.ring
-        #print "self.tokenList:", self.tokenList
         print "InitQuery"
-        selects = 'partind'
-        keyspace = 'qbeast'
-        table = 'MyObj'
         minarguments = {}
         maxarguments = {}
         for argument in iterable.indexarguments:
             if '<' in str(argument):
                 splitarg = (str(argument).replace(' ','')).split('<')
-                print "splitarg <:", splitarg
                 val = str(splitarg[0])
                 maxarguments[val] = int(splitarg[1])
             if '>' in str(argument):
                 splitarg = (str(argument).replace(' ','')).split('>')
-                print "splitarg >:", splitarg
                 val = str(splitarg[0])
                 minarguments[val] = int(splitarg[1])
-        print "minarguments:", minarguments
-        print "maxarguments:", maxarguments
+        selects = 'partind'
+        keyspace = 'qbeast'
+        table = 'MyObj'
         area = [(minarguments['x'],minarguments['y'],minarguments['z']),(maxarguments['x'],maxarguments['y'],maxarguments['z'])]  #[(0,0,0),(10,10,10)]
-        print "area:", area
         precision = 90
         maxResults = 5
         tokens = self.tokenList # [1]
         qbeastInterface= QbeastIface() # this will be moved to __init__
         qbeastInterface.initQuery(selects, keyspace, table, area, precision, maxResults, tokens)
-        
         
         self.queryLoc = 'queryLocation'
 
