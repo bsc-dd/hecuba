@@ -4,6 +4,8 @@ from hecuba.Plist import *
 
 
 class StorageObjIx(StorageObj):
+
+    indexArguments = ''
     def split(self):
         print "StorageObjIx split ####################################"
         #indexarguments = self.indexArguments
