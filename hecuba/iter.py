@@ -221,7 +221,7 @@ class KeyIter(object):
         starttok = 0
         self.tokenList = []
         for i, token in enumerate(ringtokens.ring):
-            self.tokenList.append(str(token.value))
+            self.tokenList.append(int(token.value))
             if ranges_per_block == 1:
                 if i == 0:
                     starttok = token
@@ -291,7 +291,7 @@ class IxKeyIter(KeyIter):
         area = [(0,0,0),(10,10,10)]
         precision = 90
         maxResults = 5
-        tokens = [1]
+        tokens = self.tokenList # [1]
         qbeastInterface= QbeastIface() # this will be moved to __init__
         qbeastInterface.initQuery(selects, keyspace, table, area, precision, maxResults, tokens)
         
