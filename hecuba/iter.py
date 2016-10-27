@@ -304,7 +304,8 @@ class IxKeyIter(KeyIter):
                 minarguments[val].append(int(splitarg[1]))
         print "minarguments:", minarguments
         print "maxarguments:", maxarguments
-        area = [(0,0,0),(10,10,10)]
+        area = [(minarguments['x'],minarguments['y'],minarguments['z']),(maxarguments['x'],maxarguments['y'],maxarguments['z'])]  #[(0,0,0),(10,10,10)]
+        print "area:", area
         precision = 90
         maxResults = 5
         tokens = self.tokenList # [1]
