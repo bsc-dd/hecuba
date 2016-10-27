@@ -289,19 +289,19 @@ class IxKeyIter(KeyIter):
         selects = 'partind'
         keyspace = 'qbeast'
         table = 'MyObj'
-        minarguments = defaultdict(list)
-        maxarguments = defaultdict(list)
+        minarguments = {}
+        maxarguments = {}
         for argument in iterable.indexarguments:
             if '<' in str(argument):
                 splitarg = (str(argument).replace(' ','')).split('<')
                 print "splitarg <:", splitarg
                 val = str(splitarg[0])
-                maxarguments[val].append(int(splitarg[1]))
+                maxarguments[val] = int(splitarg[1])
             if '>' in str(argument):
                 splitarg = (str(argument).replace(' ','')).split('>')
                 print "splitarg >:", splitarg
                 val = str(splitarg[0])
-                minarguments[val].append(int(splitarg[1]))
+                minarguments[val] = int(splitarg[1])
         print "minarguments:", minarguments
         print "maxarguments:", maxarguments
         area = [(minarguments['x'],minarguments['y'],minarguments['z']),(maxarguments['x'],maxarguments['y'],maxarguments['z'])]  #[(0,0,0),(10,10,10)]
