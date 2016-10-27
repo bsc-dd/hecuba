@@ -309,6 +309,8 @@ class IxKeyIter(KeyIter):
                 session.execute('INSERT INTO qbeast.hecubist (workerid, tkn, entrypoint, port) VALUES (\'' + str(uuid.uuid1()) + '\', ' + str(tkn) + ', \'EntryPoint\', 1)' )
             except Exception as e:
                 print "Error:", e
+        session.shutdown()
+        cluster.shutdown()
         
     def next(self):
         start = self.pos
