@@ -283,7 +283,7 @@ class IxKeyIter(KeyIter):
         #super(IxKeyIter, self).__init__(iterable.IxPKeyList)
         super(IxKeyIter, self).__init__(iterable)
         #print "self.ring:", self.ring
-        print "self.tokenList:", self.tokenList
+        #print "self.tokenList:", self.tokenList
         print "InitQuery"
         selects = 'partind'
         keyspace = 'qbeast'
@@ -292,11 +292,15 @@ class IxKeyIter(KeyIter):
         maxarguments = {}
         for argument in iterable.indexarguments:
             if '<' in str(argument):
-                val = str(str(argument).split('<')[0])
-                maxarguments[val].append(int(str(argument).split('<')[1]))
+                splitarg = str(argument).split('<')
+                print "splitarg <:", splitarg
+                val = str(splitarg[0])
+                maxarguments[val].append(int(splitarg[1]))
             if '>' in str(argument):
-                val = str(str(argument).split('>')[0])
-                minarguments[val].append(int(str(argument).split('>')[1]))
+                splitarg = str(argument).split('>')
+                print "splitarg >:", splitarg
+                val = str(splitarg[0])
+                minarguments[val].append(int(splitarg[1]))
         print "minarguments:", minarguments
         print "maxarguments:", maxarguments
         area = [(0,0,0),(10,10,10)]
