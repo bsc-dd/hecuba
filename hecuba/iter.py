@@ -4,6 +4,7 @@ from cassandra.cluster import Cluster
 from hecuba.dict import *
 from app.qbeastiface import *
 from conf.hecuba_params import execution_name, ranges_per_block
+from collections import defaultdict
 import time
 
 
@@ -288,8 +289,8 @@ class IxKeyIter(KeyIter):
         selects = 'partind'
         keyspace = 'qbeast'
         table = 'MyObj'
-        minarguments = {}
-        maxarguments = {}
+        minarguments = defaultdict(list)
+        maxarguments = defaultdict(list)
         for argument in iterable.indexarguments:
             if '<' in str(argument):
                 splitarg = (str(argument).replace(' ','')).split('<')
