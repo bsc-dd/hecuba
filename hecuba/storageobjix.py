@@ -11,7 +11,7 @@ class StorageObjIx(StorageObj):
         setattr(self, 'name', None)
         setattr(self, 'persistent', False)
         setattr(self, 'indexed', False)
-        setattr(self, 'indexArguments', '')
+        setattr(self, 'indexarguments', '')
         #self.getByName(name)
         super(StorageObjIx, self).getByName(name)
 
