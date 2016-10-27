@@ -6,7 +6,7 @@ from app.qbeastiface import *
 from conf.hecuba_params import execution_name, ranges_per_block
 from collections import defaultdict
 import time
-
+import uuid
 
 class Block(object):
     def __init__(self, peer, keynames, tablename, blockkeyspace):
@@ -58,11 +58,9 @@ class IxBlock(Block):
     def __init__(self, peer, keynames, tablename, blockkeyspace, queryLocations):
        super(IxBlock, self).__init__(peer, keynames, tablename, blockkeyspace)
        self.queryLocations = queryLocations
-       print "sorprendentemente tambien hemos llegado hasta aqui"
    
     def getID(self):
        id = super(IxBlock, self).getID()
-       #id = id + str(self.queryLocations)
        return id 
 
 class BlockIter(object):
@@ -303,6 +301,14 @@ class IxKeyIter(KeyIter):
         tokens = self.tokenList # [1]
         qbeastInterface= QbeastIface() # this will be moved to __init__
         self.queryLoc = qbeastInterface.initQuery(selects, keyspace, table, area, precision, maxResults, tokens)
+        
+        cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
+        session = cluster.connect()
+        for tkn in tokens:
+            try:
+                session.execute('INSERT INTO qbeast.hecubist (workerid, tkn, entrypoint, port) VALUES (' + str(uuid.uuid1()) + ', ' + str(tkn) + ', \'EntryPoint\', 1)' )
+            except Exception as e:
+                print "Error:", e
         
     def next(self):
         start = self.pos
