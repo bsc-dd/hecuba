@@ -5,7 +5,16 @@ from hecuba.Plist import *
 
 class StorageObjIx(StorageObj):
 
-    indexArguments = ''
+    def __init__(self, name=None):
+        print "storageobj __init__ ####################################"
+        print self.__class__.__name__
+        setattr(self, 'name', None)
+        setattr(self, 'persistent', False)
+        setattr(self, 'indexed', False)
+        setattr(self, 'indexArguments', '')
+        #self.getByName(name)
+        super(StorageObjIx, self).getByName(name)
+
     def split(self):
         print "StorageObjIx split ####################################"
         #indexarguments = self.indexArguments
