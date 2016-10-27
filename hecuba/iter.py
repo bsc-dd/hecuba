@@ -280,6 +280,7 @@ class IxKeyIter(KeyIter):
         print "iterable.indexArguments:", iterable.indexarguments
         #super(IxKeyIter, self).__init__(iterable.IxPKeyList)
         super(IxKeyIter, self).__init__(iterable)
+        print "self.ring:", self.ring
         print "InitQuery"
         selects = 'partind'
         keyspace = 'qbeast'
@@ -287,7 +288,7 @@ class IxKeyIter(KeyIter):
         area = [(0,0,0),(10,10,10)]
         precision = 90
         maxResults = 5
-        tokens = [0,1,2,3,4,5,6,7,8,9,10]
+        tokens = [1]
         qbeastInterface= QbeastIface() # this will be moved to __init__
         qbeastInterface.initQuery(selects, keyspace, table, area, precision, maxResults, tokens)
         
