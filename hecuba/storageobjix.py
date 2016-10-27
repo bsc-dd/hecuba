@@ -17,8 +17,8 @@ class StorageObjIx(StorageObj):
 
     def split(self):
         print "StorageObjIx split ####################################"
-        #indexarguments = self.indexArguments
-        #print "indexarguments:", indexarguments
+        indexarguments = self.indexarguments
+        print "indexarguments:", indexarguments
         #return super(StorageObjIx,self).split()
         keys = self.keyList[self.__class__.__name__]
         print "keys:", keys
@@ -28,7 +28,7 @@ class StorageObjIx(StorageObj):
             return a
         else:
             print "yes self.persistent"
-            exec("a = IxPersistentKeyList(self." + str(keys[0]) + ")")
+            exec("a = IxPersistentKeyList(self." + str(keys[0]) + ", self)")
             return a
     
     #pass

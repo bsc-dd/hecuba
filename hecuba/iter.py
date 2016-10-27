@@ -272,7 +272,7 @@ class IxKeyIter(KeyIter):
     blockKeySpace = ''
 
     def __init__(self, iterable):
-        #print "self.indexArguments:", self.indexArguments
+        print "iterable.indexArguments:", iterable.indexarguments
         #super(IxKeyIter, self).__init__(iterable.IxPKeyList)
         super(IxKeyIter, self).__init__(iterable)
         print "InitQuery"

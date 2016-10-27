@@ -19,9 +19,10 @@ class PersistentKeyList(KeyList):
 
 class IxPersistentKeyList(KeyList):
     
-    def __init__(self, mypdict):
+    def __init__(self, mypdict, mystorobj):
         print "IxPersistentKeyList __init__ ####################################"
         self.mypdict = mypdict
+        self.indexed = mystorobj.indexarguments
         
 
     def __iter__(self):
