@@ -295,8 +295,8 @@ class IxKeyIter(KeyIter):
                 val = str(str(argument).split('<')[0])
                 maxarguments[val].append(int(str(argument).split('<')[1]))
             if '>' in str(argument):
-                val = str(str(argument).split('<')[0])
-                minarguments[val].append(int(str(argument).split('<')[1]))
+                val = str(str(argument).split('>')[0])
+                minarguments[val].append(int(str(argument).split('>')[1]))
         print "minarguments:", minarguments
         print "maxarguments:", maxarguments
         area = [(0,0,0),(10,10,10)]
