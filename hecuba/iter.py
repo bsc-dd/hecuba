@@ -306,7 +306,7 @@ class IxKeyIter(KeyIter):
         session = cluster.connect()
         for tkn in tokens:
             try:
-                session.execute('INSERT INTO qbeast.hecubist (workerid, tkn, entrypoint, port) VALUES (' + str(uuid.uuid1()) + ', ' + str(tkn) + ', \'EntryPoint\', 1)' )
+                session.execute('INSERT INTO qbeast.hecubist (workerid, tkn, entrypoint, port) VALUES (\'' + str(uuid.uuid1()) + '\', ' + str(tkn) + ', \'EntryPoint\', 1)' )
             except Exception as e:
                 print "Error:", e
         
