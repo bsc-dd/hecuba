@@ -302,10 +302,8 @@ class IxKeyIter(KeyIter):
         maxResults = 5
         tokens = self.tokenList # [1]
         qbeastInterface= QbeastIface() # this will be moved to __init__
-        qbeastInterface.initQuery(selects, keyspace, table, area, precision, maxResults, tokens)
+        self.queryLoc = qbeastInterface.initQuery(selects, keyspace, table, area, precision, maxResults, tokens)
         
-        self.queryLoc = 'queryLocation'
-
     def next(self):
         start = self.pos
         if start == self.num_peers:
