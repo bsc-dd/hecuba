@@ -58,7 +58,12 @@ class IxBlock(Block):
        super(IxBlock, self).__init__(peer, keynames, tablename, blockkeyspace)
        self.queryLocations = queryLocations
        print "sorprendentemente tambien hemos llegado hasta aqui"
-    
+   
+    def getID(self):
+       id = super(IxBlock, self).getID()
+       #id = id + str(self.queryLocations)
+       return id 
+
 class BlockIter(object):
     def __init__(self, iterable):
         self.pos = 0
