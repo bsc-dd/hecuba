@@ -216,6 +216,7 @@ class KeyIter(object):
     blockKeySpace = ''
 
     def __init__(self, iterable):
+        print "KeyIter - __init__ ############################################"
         self.pos = 0
         self.ring = []
         self.mypdict = iterable.mypdict
@@ -284,6 +285,7 @@ class KeyIter(object):
         cluster.shutdown()
 
     def next(self):
+        print "KeyIter - next ################################################"
         start = self.pos
         if start == self.num_peers:
             raise StopIteration
@@ -300,7 +302,10 @@ class IxKeyIter(KeyIter):
         print "IxKeyIter - __init__ ##########################################"
         print "iterable.indexarguments:", iterable.indexarguments
         super(IxKeyIter, self).__init__(iterable)
-        print "InitQuery"
+        
+    def next(self):
+        print "IxKeyIter - next ##############################################"
+
         minarguments = {}
         maxarguments = {}
         for argument in iterable.indexarguments:
@@ -318,12 +323,11 @@ class IxKeyIter(KeyIter):
         area = [(minarguments['x'],minarguments['y'],minarguments['z']),(maxarguments['x'],maxarguments['y'],maxarguments['z'])]  #[(0,0,0),(10,10,10)]
         precision = 90
         maxResults = 5
-        tokens = self.tokenList # [1]
+        currentRingPos =self.ring[self.pos]    # [1]
+        tokens = currentRingPos[1]
         qbeastInterface= QbeastIface() # this will be moved to __init__
+        print "InitQuery"
         self.queryLoc = qbeastInterface.initQuery(selects, keyspace, table, area, precision, maxResults, tokens)
-        
-    def next(self):
-        print "IxKeyIter - next ##############################################"
 
         cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
         session = cluster.connect()
@@ -334,7 +338,7 @@ class IxKeyIter(KeyIter):
         myuuid = str(uuid.uuid1())
         try:
             session.execute('INSERT INTO hecuba.blocks (blockid, tkns,           ksp,                tab,                        dict_name,              obj_type) VALUES (%s,%s,%s,%s,%s,%s)',
-                                                       [myuuid,  self.tokenList, self.blockkeyspace, self.mypdict.dict_keynames, self.mypdict.mypo.name,'qbeast'] )
+                                                       [myuuid,  tokens, self.blockkeyspace, self.mypdict.dict_keynames, self.mypdict.mypo.name,'qbeast'] )
         except Exception as e:
             print "Error:", e
         session.shutdown()
