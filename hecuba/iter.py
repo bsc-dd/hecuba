@@ -322,7 +322,7 @@ class IxKeyIter(KeyIter):
         cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
         session = cluster.connect()
         try:
-            session.execute('CREATE TABLE IF NOT EXISTS hecuba.workers (workerid text,tkn long,entryPoint text, port int, static ksp text,static tab text,static dict_name text, static obj_type text, PRIMARY KEY(workerid,token))')
+            session.execute('CREATE TABLE IF NOT EXISTS hecuba.workers (workerid text, tkn long,entryPoint text, port int, static ksp text, static tab text, static dict_name text, static obj_type text, PRIMARY KEY(workerid, tkn))')
         except Exception as e:
             print "Error:", e
         for tkn in self.tokenList:
