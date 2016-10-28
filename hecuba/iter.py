@@ -226,10 +226,17 @@ class KeyIter(object):
         ringtokens = metadata.token_map
         tokentohosts = ringtokens.token_to_host_owner
         res = defaultdict(list)
+        '''
         for tkn, hst in tokentohosts.iteritems():
             res[hst].append(long(((str(tkn).split(':')[1]).replace(' ','')).replace('>','')))
         for hst, tkn in res.iteritems():
             self.ring.append((hst, tkn))
+        '''
+        for tkn, hst in tokentohosts.iteritems():
+            res[hst].append(long(((str(tkn).split(':')[1]).replace(' ','')).replace('>','')))
+            if len(res[hst]) == ranges_per_block:
+                self.ring.append((hst, res[hst]))
+                res[hst] = []
 
         print "self.ring:", self.ring
 
@@ -348,7 +355,7 @@ class IxKeyIter(KeyIter):
         start = self.pos
         if start == self.num_peers:
             raise StopIteration
-        b = IxBlock(self.ring[self.pos], self.mypdict.dict_keynames, self.mypdict.mypo.name, self.blockkeyspace, myuuid)
+        b = IxBlock(currentRingPos, self.mypdict.dict_keynames, self.mypdict.mypo.name, self.blockkeyspace, myuuid)
         self.pos += 1
         return b
 
