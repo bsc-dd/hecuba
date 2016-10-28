@@ -88,7 +88,7 @@ def getByID(objid):
         return result
 
     else:
-        if objidsplit[len(objidsplit)-1] == 'indexed':
+        if len(objidsplit) == 1:
         	print "indexed storageobj"
                 workerid = objidsplit[len(objidsplit)-2]
 		cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
