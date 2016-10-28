@@ -90,7 +90,7 @@ def getByID(objid):
     else:
         cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
         session = cluster.connect()
-        (ksp,tab,dict_name,obj_type,entryPoint,port,tokens) = session.execute("SELECT ksp,tab,dict_name,obj_type,entryPoint,port,tkns FROM hecuba.workers WHERE workerid = %s",(objectID))[0]
+        (ksp,tab,dict_name,obj_type,entryPoint,port,tokens) = session.execute("SELECT ksp,tab,dict_name,obj_type,entryPoint,port,tkns FROM hecuba.workers WHERE workerid = %s",(objid))[0]
         if obj_type == 'qbeast':
             print "indexed storageobj"
             blockid = objid
