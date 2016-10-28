@@ -241,7 +241,7 @@ class KeyIter(object):
                     if i == (len(ringtokens.ring) - 1):
                         host = str(tokentohosts[starttok])
                         self.ring.append((host, str(i)))
-            			self.tokenList.append(int(token.value))
+                        self.tokenList.append(int(token.value))
             else:
                 if not (i + 1) % ranges_per_block == 0:
                     if i == 0:
@@ -265,7 +265,7 @@ class KeyIter(object):
                             host = str(tokentohosts[starttok])
                             token_ranges = token_ranges + '_' + str(i)
                             self.ring.append((host, token_ranges))
-            				self.tokenList.append(int(token.value))
+                            self.tokenList.append(int(token.value))
                             token_ranges = ''
                             starttok = endtok
 
