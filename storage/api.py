@@ -14,7 +14,7 @@ from conf.apppath import apppath
 def start_task(params):
     if not 'prefetch_activated' in globals():
         global prefetch_activated
-        prefetch_activated = True
+        prefetch_activated = False # modified for qbeast
     if not 'batch_activated' in globals():
         global batch_activated
         batch_activated = True
@@ -33,7 +33,7 @@ def start_task(params):
 def end_task(params):
     if not 'prefetch_activated' in globals():
         global prefetch_activated
-        prefetch_activated = True
+        prefetch_activated = False # modified for qbeast
     if not 'batch_activated' in globals():
         global batch_activated
         batch_activated = True
