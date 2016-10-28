@@ -317,6 +317,9 @@ class IxKeyIter(KeyIter):
         
     def next(self):
         print "IxKeyIter - next ##############################################"
+        start = self.pos
+        if start == self.num_peers:
+            raise StopIteration
 
         minarguments = {}
         maxarguments = {}
@@ -357,9 +360,6 @@ class IxKeyIter(KeyIter):
         session.shutdown()
         cluster.shutdown()
 
-        start = self.pos
-        if start == self.num_peers:
-            raise StopIteration
         b = IxBlock(currentRingPos, self.mypdict.dict_keynames, self.mypdict.mypo.name, self.blockkeyspace, myuuid)
         self.pos += 1
         return b
