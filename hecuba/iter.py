@@ -312,7 +312,7 @@ class IxKeyIter(KeyIter):
 
         cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
         session = cluster.connect()
-        for tkn in tokens:
+        for tkn in self.tokenList:
             myuuid = str(uuid.uuid1())
             try:
                 session.execute('INSERT INTO qbeast.hecubist (workerid, tkn, entrypoint, port) VALUES (\'' + myuuid + '\', ' + str(tkn) + ', \'EntryPoint\', 1)' )
