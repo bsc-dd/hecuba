@@ -106,11 +106,11 @@ def getByID(objid):
             odtokenmap = collections.OrderedDict(sorted(tokenmap.items()))
             if not 'prefetch_activated' in globals():
                 global prefetch_activated
-                prefetch_activated = True
+                prefetch_activated = False # this should be false, right?
             for position in tokens: 
                 for key, val in odtokenmap.iteritems():
                     # (self, peer,        keynames,           tablename,     blockkeyspace, myuuid)
-                    b = IxBlock(str(val), tab,                tab,           ksp,           objid)
+                    b = IxBlock(str(val), tab,                tab,           ksp,           objid) # the keynames vale is wrong, needs to be corrected
                     exec("b.storageobj = " + str(dict_name) + "('" + str(dict_name) + "')")
                     if prefetch_activated:
                         b.storageobj.init_prefetch(b)
