@@ -241,7 +241,8 @@ class KeyIter(object):
                 self.ring.append((hst, res[hst]))
                 res[hst] = []
 
-        print "self.ring:", self.ring
+        print "self.ring:     ", self.ring
+        print "len(self.ring):", len(self.ring)
 
         '''
         token_ranges = ''
