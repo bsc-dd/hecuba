@@ -224,6 +224,15 @@ class KeyIter(object):
         metadata = cluster.metadata
         ringtokens = metadata.token_map
         tokentohosts = ringtokens.token_to_host_owner
+        res = defaultdict(list)
+        for tkn, hst in tokentohosts.iteritems():
+            res[hst].append(tkn)
+        for hst, tkn in res.iteritems():
+            self.ring.append((hst, tkn))
+
+        print "self.ring:", self.ring
+
+        '''
         token_ranges = ''
         starttok = 0
         self.tokenList = []
@@ -268,9 +277,9 @@ class KeyIter(object):
                             self.tokenList.append(int(token.value))
                             token_ranges = ''
                             starttok = endtok
+        '''
 
         self.num_peers = len(self.ring)
-
         session.shutdown()
         cluster.shutdown()
 
@@ -288,6 +297,7 @@ class IxKeyIter(KeyIter):
     blockKeySpace = ''
 
     def __init__(self, iterable):
+        print "IxKeyIter - __init__ ##########################################"
         print "iterable.indexarguments:", iterable.indexarguments
         super(IxKeyIter, self).__init__(iterable)
         print "InitQuery"
@@ -313,6 +323,7 @@ class IxKeyIter(KeyIter):
         self.queryLoc = qbeastInterface.initQuery(selects, keyspace, table, area, precision, maxResults, tokens)
         
     def next(self):
+        print "IxKeyIter - next ##############################################"
 
         cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
         session = cluster.connect()
@@ -322,7 +333,8 @@ class IxKeyIter(KeyIter):
             print "Error:", e
         myuuid = str(uuid.uuid1())
         try:
-            session.execute('INSERT INTO hecuba.blocks (blockid, tkns,           ksp,                tab,                        dict_name,              obj_type) VALUES (%s,%s,%s,%s,%s,%s)',                                          [myuuid,  self.tokenList, self.blockkeyspace, self.mypdict.dict_keynames, self.mypdict.mypo.name,'qbeast'] )
+            session.execute('INSERT INTO hecuba.blocks (blockid, tkns,           ksp,                tab,                        dict_name,              obj_type) VALUES (%s,%s,%s,%s,%s,%s)',
+                                                       [myuuid,  self.tokenList, self.blockkeyspace, self.mypdict.dict_keynames, self.mypdict.mypo.name,'qbeast'] )
         except Exception as e:
             print "Error:", e
         session.shutdown()
@@ -334,4 +346,5 @@ class IxKeyIter(KeyIter):
         b = IxBlock(self.ring[self.pos], self.mypdict.dict_keynames, self.mypdict.mypo.name, self.blockkeyspace, myuuid)
         self.pos += 1
         return b
+
 
