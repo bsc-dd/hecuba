@@ -226,7 +226,7 @@ class KeyIter(object):
         tokentohosts = ringtokens.token_to_host_owner
         res = defaultdict(list)
         for tkn, hst in tokentohosts.iteritems():
-            res[hst].append(tkn)
+            res[hst].append(((str(tkn).split(':')[1]).replace(' ','')).replace('>',''))
         for hst, tkn in res.iteritems():
             self.ring.append((hst, tkn))
 
