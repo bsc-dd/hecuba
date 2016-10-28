@@ -236,7 +236,7 @@ class KeyIter(object):
                         endtok = token
                         host = str(tokentohosts[starttok])
                         self.ring.append((host, str(i - 1)))
-            			self.tokenList.append(int(token.value))
+                        self.tokenList.append(int(token.value))
                         starttok = endtok
                     if i == (len(ringtokens.ring) - 1):
                         host = str(tokentohosts[starttok])
