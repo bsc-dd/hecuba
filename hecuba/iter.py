@@ -324,7 +324,7 @@ class IxKeyIter(KeyIter):
         start = self.pos
         if start == self.num_peers:
             raise StopIteration
-        b = IxBlock(self.ring[self.pos], self.mypdict.dict_keynames, self.mypdict.mypo.name, self.blockkeyspace, self.queryLoc, myuuid)
+        b = IxBlock(self.ring[self.pos], self.mypdict.dict_keynames, self.mypdict.mypo.name, self.blockkeyspace, myuuid)
         self.pos += 1
         return b
 
