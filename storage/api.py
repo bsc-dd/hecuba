@@ -89,7 +89,7 @@ def getByID(objid):
 
     else:
         if objidsplit[len(objidsplit)-1] == 'indexed':
-        	print "indexed storageobj'
+        	print "indexed storageobj"
         else:
 		# blockKeyspace = objidsplit[0]
 		# blockKeyNames = str(objidsplit[1])
