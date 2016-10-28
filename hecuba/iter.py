@@ -302,13 +302,14 @@ class IxKeyIter(KeyIter):
         print "IxKeyIter - __init__ ##########################################"
         print "iterable.indexarguments:", iterable.indexarguments
         super(IxKeyIter, self).__init__(iterable)
+        self.iterable = iterable
         
     def next(self):
         print "IxKeyIter - next ##############################################"
 
         minarguments = {}
         maxarguments = {}
-        for argument in iterable.indexarguments:
+        for argument in self.iterable.indexarguments:
             if '<' in str(argument):
                 splitarg = (str(argument).replace(' ','')).split('<')
                 val = str(splitarg[0])
