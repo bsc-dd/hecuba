@@ -92,7 +92,7 @@ def getByID(objid):
         session = cluster.connect()
         #(ksp,tab,dict_name,obj_type,entryPoint,port,tokens) = session.execute("SELECT ksp,tab,dict_name,obj_type,entrypoint,port,tkns FROM hecuba.blocks WHERE blockid = %s",(objid))[0]
         try:
-            res =        session.execute("SELECT ksp FROM hecuba.blocks WHERE blockid = %s",(objid))
+            res =        session.execute("SELECT ksp FROM hecuba.blocks WHERE blockid = %s", % objid)
             for row in res:
                ksp = row[0]
             print "ksp:", ksp
