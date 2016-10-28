@@ -335,6 +335,7 @@ class IxKeyIter(KeyIter):
         area = [(minarguments['x'],minarguments['y'],minarguments['z']),(maxarguments['x'],maxarguments['y'],maxarguments['z'])]  #[(0,0,0),(10,10,10)]
         precision = 90
         maxResults = 5
+        print "self.pos:", self.pos
         currentRingPos =self.ring[self.pos]    # [1]
         tokens = currentRingPos[1]
         qbeastInterface= QbeastIface() # this will be moved to __init__
