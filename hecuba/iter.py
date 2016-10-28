@@ -55,13 +55,19 @@ class Block(object):
         return BlockIter(self)
 
 class IxBlock(Block):
-    def __init__(self, peer, keynames, tablename, blockkeyspace, queryLocations):
+    def __init__(self, peer, keynames, tablename, blockkeyspace, myuuid):
        super(IxBlock, self).__init__(peer, keynames, tablename, blockkeyspace)
-       self.queryLocations = queryLocations
+       self.myuuid = myuuid
    
     def getID(self):
        id = super(IxBlock, self).getID()
+       id += '_' + self.myuuid
+       id += '_indexed'
        return id 
+
+    def itervalues(self): #to implement
+        pass
+        #return BlockValuesIter(self)
 
 class BlockIter(object):
     def __init__(self, iterable):
@@ -292,9 +298,9 @@ class IxKeyIter(KeyIter):
                 splitarg = (str(argument).replace(' ','')).split('>')
                 val = str(splitarg[0])
                 minarguments[val] = int(splitarg[1])
-        selects = 'partind'
-        keyspace = 'qbeast'
-        table = 'MyObj'
+        selects = 'partind' # shouldnt be hardcoded
+        keyspace = 'qbeast' # shouldnt be hardcoded
+        table = self.__class__.__name__
         area = [(minarguments['x'],minarguments['y'],minarguments['z']),(maxarguments['x'],maxarguments['y'],maxarguments['z'])]  #[(0,0,0),(10,10,10)]
         precision = 90
         maxResults = 5
@@ -302,21 +308,23 @@ class IxKeyIter(KeyIter):
         qbeastInterface= QbeastIface() # this will be moved to __init__
         self.queryLoc = qbeastInterface.initQuery(selects, keyspace, table, area, precision, maxResults, tokens)
         
+    def next(self):
+
         cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
         session = cluster.connect()
         for tkn in tokens:
+            myuuid = str(uuid.uuid1())
             try:
-                session.execute('INSERT INTO qbeast.hecubist (workerid, tkn, entrypoint, port) VALUES (\'' + str(uuid.uuid1()) + '\', ' + str(tkn) + ', \'EntryPoint\', 1)' )
+                session.execute('INSERT INTO qbeast.hecubist (workerid, tkn, entrypoint, port) VALUES (\'' + myuuid + '\', ' + str(tkn) + ', \'EntryPoint\', 1)' )
             except Exception as e:
                 print "Error:", e
         session.shutdown()
         cluster.shutdown()
-        
-    def next(self):
+
         start = self.pos
         if start == self.num_peers:
             raise StopIteration
-        b = IxBlock(self.ring[self.pos], self.mypdict.dict_keynames, self.mypdict.mypo.name, self.blockkeyspace, self.queryLoc)
+        b = IxBlock(self.ring[self.pos], self.mypdict.dict_keynames, self.mypdict.mypo.name, self.blockkeyspace, self.queryLoc, myuuid)
         self.pos += 1
         return b
 
