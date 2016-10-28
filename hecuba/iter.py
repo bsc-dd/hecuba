@@ -56,14 +56,23 @@ class Block(object):
 
 class IxBlock(Block):
     def __init__(self, peer, keynames, tablename, blockkeyspace, myuuid):
-       super(IxBlock, self).__init__(peer, keynames, tablename, blockkeyspace)
-       self.myuuid = myuuid
+        self.node = peer
+        self.key_names = keynames
+        self.table_name = tablename
+        self.keyspace = blockkeyspace
+        self.storageobj = ""
+        self.cntxt = ""
+        self.myuuid = myuuid
    
     def getID(self):
-       id = super(IxBlock, self).getID()
-       id += '_' + self.myuuid
-       id += '_indexed'
-       return id 
+        self.key_names = str(self.key_names).replace('\'', '')
+        self.key_names = str(self.key_names).replace('(', '')
+        self.key_names = str(self.key_names).replace(')', '')
+        self.key_names = str(self.key_names).replace(' ', '')
+        identifier = "%s_%s_%s_%s" % (self.keyspace, self.key_names, self.table_name, self.myuuid)
+        identifier = identifier.replace(' ', '')
+        identifier += '_indexed'
+        return identifier 
 
     def itervalues(self): #to implement
         pass
