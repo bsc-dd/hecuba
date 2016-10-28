@@ -65,14 +65,7 @@ class IxBlock(Block):
         self.myuuid = myuuid
    
     def getID(self):
-        self.key_names = str(self.key_names).replace('\'', '')
-        self.key_names = str(self.key_names).replace('(', '')
-        self.key_names = str(self.key_names).replace(')', '')
-        self.key_names = str(self.key_names).replace(' ', '')
-        identifier = "%s_%s_%s_%s" % (self.keyspace, self.key_names, self.table_name, self.myuuid)
-        identifier = identifier.replace(' ', '')
-        identifier += '_indexed'
-        return identifier 
+        return self.myuuid 
 
     def itervalues(self): #to implement
         pass
@@ -328,8 +321,7 @@ class IxKeyIter(KeyIter):
         for tkn in self.tokenList:
             myuuid = str(uuid.uuid1())
             try:
-                session.execute('INSERT INTO hecuba.workers (workerid, tkn,  ksp, tab, dict_name, obj_type) VALUES (%s,%s,%s,%s,%s,%s)',
-			[myuuid,tkn,self.blockkeyspace,self.mypdict.dict_keynames,self.mypdict.mypo.name,'qbeast'] )
+                session.execute('INSERT INTO hecuba.workers (workerid, tkn,  ksp,                tab,                        dict_name,              obj_type) VALUES (%s,%s,%s,%s,%s,%s)',                                                    [myuuid,   tkn,  self.blockkeyspace, self.mypdict.dict_keynames, self.mypdict.mypo.name,'qbeast'] )
             except Exception as e:
                 print "Error:", e
         session.shutdown()
