@@ -315,15 +315,14 @@ class IxKeyIter(KeyIter):
         cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
         session = cluster.connect()
         try:
-            session.execute('CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, tkn bigint, entryPoint text, port int, ksp text static, tab text static, dict_name text static, obj_type text static, PRIMARY KEY(blockid, tkn))')
+            session.execute('CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, tkns list<bigint>, entryPoint text , port int, ksp text , tab text , dict_name text , obj_type text, PRIMARY KEY(blockid))')
         except Exception as e:
             print "Error:", e
-        for tkn in self.tokenList:
-            myuuid = str(uuid.uuid1())
-            try:
-                session.execute('INSERT INTO hecuba.blocks (blockid, tkn,  ksp,                tab,                        dict_name,              obj_type) VALUES (%s,%s,%s,%s,%s,%s)',                                                    [myuuid,   tkn,  self.blockkeyspace, self.mypdict.dict_keynames, self.mypdict.mypo.name,'qbeast'] )
-            except Exception as e:
-                print "Error:", e
+        myuuid = str(uuid.uuid1())
+        try:
+            session.execute('INSERT INTO hecuba.blocks (blockid, tkns,  ksp,                tab,                        dict_name,              obj_type) VALUES (%s,%s,%s,%s,%s,%s)',                                                    [myuuid,  tokenList,  self.blockkeyspace, self.mypdict.dict_keynames, self.mypdict.mypo.name,'qbeast'] )
+        except Exception as e:
+            print "Error:", e
         session.shutdown()
         cluster.shutdown()
 

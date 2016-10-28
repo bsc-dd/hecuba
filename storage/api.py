@@ -88,27 +88,29 @@ def getByID(objid):
         return result
 
     else:
-        if len(objidsplit) == 1:
-        	print "indexed storageobj"
-                workerid = objidsplit[len(objidsplit)-2]
 		cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
 		session = cluster.connect()
+		(ksp,tab,dict_name,obj_type,entryPoint,port,tokens) = session.execute("SELECT ksp,tab,dict_name,obj_type,entryPoint,port,tkns FROM hecuba.workers WHERE workerid = %s",(objectID))[0]
+
+        if obj_type == 'qbeast':
+        	print "indexed storageobj"
+                blockid = objid
 		metadata = cluster.metadata
 		tokenmap = metadata.token_map.token_to_host_owner
 		odtokenmap = collections.OrderedDict(sorted(tokenmap.items()))
-		position = 0
 		if not 'prefetch_activated' in globals():
 		    global prefetch_activated
-		prefetch_activated = True
-		for key, val in odtokenmap.iteritems():
-		    if str(position) == objidsplit[3]:
-		        b = IxBlock(str(val), str(objidsplit[1]), objidsplit[2], objidsplit[0], myuuid)
-		        exec("b.storageobj = " + str(objidsplit[2]) + "('" + str(objidsplit[2]) + "')")
-		        if prefetch_activated:
-		            b.storageobj.init_prefetch(b)
-		        session.shutdown()
-		        cluster.shutdown()
-		        return b
+		    prefetch_activated = True
+		for position in tokens: 
+			for key, val in odtokenmap.iteritems():
+				# (self, peer, keynames, tablename, blockkeyspace, myuuid)
+				b = IxBlock(str(val), str(objidsplit[1]), objidsplit[2], objidsplit[0], myuuid)
+				exec("b.storageobj = " + str(objidsplit[2]) + "('" + str(objidsplit[2]) + "')")
+				if prefetch_activated:
+					b.storageobj.init_prefetch(b)
+				session.shutdown()
+				cluster.shutdown()
+				return b
         else:
 		# blockKeyspace = objidsplit[0]
 		# blockKeyNames = str(objidsplit[1])
