@@ -90,7 +90,35 @@ def getByID(objid):
     else:
         cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
         session = cluster.connect()
-        (ksp,tab,dict_name,obj_type,entryPoint,port,tokens) = session.execute("SELECT ksp,tab,dict_name,obj_type,entrypoint,port,tkns FROM hecuba.blocks WHERE blockid = %s",(objid))[0]
+        #(ksp,tab,dict_name,obj_type,entryPoint,port,tokens) = session.execute("SELECT ksp,tab,dict_name,obj_type,entrypoint,port,tkns FROM hecuba.blocks WHERE blockid = %s",(objid))[0]
+        try:
+            ksp =        session.execute("SELECT ksp FROM hecuba.blocks WHERE blockid = %s",(objid))[0]
+        except Exception as e:
+            print "Error importing values in getByID:", e
+        try:
+            tab =        session.execute("SELECT tab FROM hecuba.blocks WHERE blockid = %s",(objid))[0]
+        except Exception as e:
+            print "Error importing values in getByID:", e
+        try:
+            dict_name =  session.execute("SELECT dict_name FROM hecuba.blocks WHERE blockid = %s",(objid))[0]
+        except Exception as e:
+            print "Error importing values in getByID:", e
+        try:
+            obj_type =   session.execute("SELECT obj_type FROM hecuba.blocks WHERE blockid = %s",(objid))[0]
+        except Exception as e:
+            print "Error importing values in getByID:", e
+        try:
+            entryPoint = session.execute("SELECT entrypoint FROM hecuba.blocks WHERE blockid = %s",(objid))[0]
+        except Exception as e:
+            print "Error importing values in getByID:", e
+        try:
+            port =       session.execute("SELECT port FROM hecuba.blocks WHERE blockid = %s",(objid))[0]
+        except Exception as e:
+            print "Error importing values in getByID:", e
+        try:
+            tokens =     session.execute("SELECT tkns FROM hecuba.blocks WHERE blockid = %s",(objid))[0]
+        except Exception as e:
+            print "Error importing values in getByID:", e
         if obj_type == 'qbeast':
             print "indexed storageobj"
             blockid = objid
