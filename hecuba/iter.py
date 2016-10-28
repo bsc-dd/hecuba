@@ -321,10 +321,15 @@ class IxKeyIter(KeyIter):
 
         cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
         session = cluster.connect()
+        try:
+            session.execute('CREATE TABLE IF NOT EXISTS hecuba.workers (workerid text,tkn long,entryPoint text, port int, static ksp text,static tab text,static dict_name text, static obj_type text, PRIMARY KEY(workerid,token))')
+        except Exception as e:
+            print "Error:", e
         for tkn in self.tokenList:
             myuuid = str(uuid.uuid1())
             try:
-                session.execute('INSERT INTO qbeast.hecubist (workerid, tkn, entrypoint, port) VALUES (\'' + myuuid + '\', ' + str(tkn) + ', \'EntryPoint\', 1)' )
+                session.execute('INSERT INTO hecuba.workers (workerid, tkn,  ksp, tab, dict_name, obj_type) VALUES (%s,%s,%s,%s,%s,%s)',
+			[myuuid,tkn,self.blockkeyspace,self.mypdict.dict_keynames,self.mypdict.mypo.name,'qbeast'] )
             except Exception as e:
                 print "Error:", e
         session.shutdown()
