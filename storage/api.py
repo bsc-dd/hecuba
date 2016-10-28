@@ -98,7 +98,6 @@ def getByID(objid):
         entryPoint = session.execute("SELECT entrypoint FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].entrypoint
         port =       session.execute("SELECT port FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].port
         tokens =     session.execute("SELECT tkns FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].tkns
-        print "obj_type:", obj_type
         if str(obj_type) == 'qbeast':
             print "indexed storageobj"
             blockid = objid
@@ -111,7 +110,7 @@ def getByID(objid):
             for position in tokens: 
                 for key, val in odtokenmap.iteritems():
                     # (self, peer,        keynames,           tablename,     blockkeyspace, myuuid)
-                    b = IxBlock(str(val), str(objidsplit[1]), tab,           ksp,           objid)
+                    b = IxBlock(str(val), tab,                tab,           ksp,           objid)
                     exec("b.storageobj = " + str(dict_name) + "('" + str(dict_name) + "')")
                     if prefetch_activated:
                         b.storageobj.init_prefetch(b)

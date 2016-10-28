@@ -56,6 +56,7 @@ class Block(object):
 
 class IxBlock(Block):
     def __init__(self, peer, keynames, tablename, blockkeyspace, myuuid):
+        print "IxBlock __init__ ####################################"
         self.node = peer
         self.key_names = keynames
         self.table_name = tablename
@@ -65,9 +66,11 @@ class IxBlock(Block):
         self.myuuid = myuuid
    
     def getID(self):
+        print "IxBlock getID #######################################"
         return self.myuuid 
 
     def itervalues(self): #to implement
+        print "IxBlock itervalues ##################################"
         pass
         #return BlockValuesIter(self)
 
