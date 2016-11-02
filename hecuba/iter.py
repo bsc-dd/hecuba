@@ -136,7 +136,7 @@ class IxBlockItemsIter(object):
          - metadata
          - data
         '''
-        self.result = (False, 4, {0: "BIGINT", 1: "BLOB", 2: "BOOLEAN", 3: "DOUBLE", 4: "FLOAT", 5: "INET", 6: "INT", 7: "LIST", 8: "MAP", 9: "SET", 10: "TEXT", 11: "TIMESTAMP", 12: "TIMEUUID", 13: "UUID"},[(3,pack("<d",234.324)),(10,pack("<c","c")),(10,pack("<c","h")),(10,pack("<c","b"))])
+        self.result = (False, 4, {0: "BIGINT", 1: "BLOB", 2: "BOOLEAN", 3: "DOUBLE", 4: "FLOAT", 5: "INET", 6: "INT", 7: "LIST", 8: "MAP", 9: "SET", 10: "TEXT", 11: "TIMESTAMP", 12: "TIMEUUID", 13: "UUID"},[(3,pack("<d",234.324)),(10,pack("<d",123.456)),(10,pack("<d",234.567)),(10,pack("<d",345.678))])
         self.equivs = self.result[2]
         self.toReturn = self.result[3]
         print "self.toReturn:", self.toReturn
@@ -148,9 +148,9 @@ class IxBlockItemsIter(object):
         print "IxBlockItemsIter.next"
         if self.result[0] == False and len(self.toReturn) == 0:
             raise StopIteration
-        toRet = self.toReturn.pop()[1]
+        toRet = self.toReturn.pop()
         print "toRet: ", toRet
-        return (1,unpack(toRet[0],toRet[1]))
+        return (1,unpack("<d",toRet[1]))
 
 
 class BlockItemsIter(object):
