@@ -64,6 +64,10 @@ class IxBlock(Block):
         self.storageobj = ""
         self.cntxt = ""
         self.myuuid = myuuid
+
+    def iteritems(self):
+        print "in IxBlock.iteritems()"
+        #return BlockItemsIter(self)
    
     def getID(self):
         print "IxBlock getID #######################################"
@@ -229,67 +233,12 @@ class KeyIter(object):
         ringtokens = metadata.token_map
         tokentohosts = ringtokens.token_to_host_owner
         res = defaultdict(list)
-        '''
-        for tkn, hst in tokentohosts.iteritems():
-            res[hst].append(long(((str(tkn).split(':')[1]).replace(' ','')).replace('>','')))
-        for hst, tkn in res.iteritems():
-            self.ring.append((hst, tkn))
-        '''
+
         for tkn, hst in tokentohosts.iteritems():
             res[hst].append(long(((str(tkn).split(':')[1]).replace(' ','')).replace('>','')))
             if len(res[hst]) == ranges_per_block:
                 self.ring.append((hst, res[hst]))
                 res[hst] = []
-
-        print "self.ring:     ", self.ring
-        print "len(self.ring):", len(self.ring)
-
-        '''
-        token_ranges = ''
-        starttok = 0
-        self.tokenList = []
-        for i, token in enumerate(ringtokens.ring):
-            if ranges_per_block == 1:
-                if i == 0:
-                    starttok = token
-                else:
-                    if i < (len(ringtokens.ring)):
-                        endtok = token
-                        host = str(tokentohosts[starttok])
-                        self.ring.append((host, str(i - 1)))
-                        self.tokenList.append(int(token.value))
-                        starttok = endtok
-                    if i == (len(ringtokens.ring) - 1):
-                        host = str(tokentohosts[starttok])
-                        self.ring.append((host, str(i)))
-                        self.tokenList.append(int(token.value))
-            else:
-                if not (i + 1) % ranges_per_block == 0:
-                    if i == 0:
-                        starttok = token
-                    if (i + 1) % ranges_per_block == 1:
-                        starttok = token
-                        token_ranges += str(i)
-                    else:
-                        if i < (len(ringtokens.ring)):
-                            endtok = token
-                            token_ranges = token_ranges + '_' + str(i)
-                            starttok = endtok
-                        if i == (len(ringtokens.ring) - 1):
-                            token_ranges = token_ranges + '_' + str(i)
-                else:
-                    if i == 0:
-                        starttok = token
-                    else:
-                        if i < (len(ringtokens.ring)):
-                            endtok = token
-                            host = str(tokentohosts[starttok])
-                            token_ranges = token_ranges + '_' + str(i)
-                            self.ring.append((host, token_ranges))
-                            self.tokenList.append(int(token.value))
-                            token_ranges = ''
-                            starttok = endtok
-        '''
 
         self.num_peers = len(self.ring)
         session.shutdown()
