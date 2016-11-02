@@ -12,16 +12,12 @@ from conf.apppath import apppath
 
 
 def start_task(params):
-    print "params:   ", params
-    print "params[0]:", params[0]
-    objid = params[0].myuuid
-    print "objid:", objid
     cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
     session = cluster.connect()
-    obj_type = session.execute("SELECT obj_type FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].obj_type
+    obj_type = session.execute("SELECT obj_type FROM hecuba.blocks WHERE blockid = %s",(params[0].myuuid,))[0].obj_type
     session.shutdown()
     cluster.shutdown()
-    if str(obj_type) == 'qbeast':
+    if not str(obj_type) == 'qbeast':
 		if not 'prefetch_activated' in globals():
 		    global prefetch_activated
 		    prefetch_activated = True # modified for qbeast
@@ -41,11 +37,9 @@ def start_task(params):
 		            param.cntxt.__enter__()
 
 def end_task(params):
-    print "params:   ", params
-    print "params[0]:", params[0]
     cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
     session = cluster.connect()
-    obj_type = session.execute("SELECT obj_type FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].obj_type
+    obj_type = session.execute("SELECT obj_type FROM hecuba.blocks WHERE blockid = %s",(params[0].myuuid,))[0].obj_type
     session.shutdown()
     cluster.shutdown()
     if str(obj_type) == 'qbeast':
@@ -96,19 +90,16 @@ def getByID(objid):
     for line in file:
         exec(line)
     objidsplit = objid.split("_")
-    print "objidsplit:", objidsplit
 
     if len(objidsplit) == 2:
         result = ''
         exec('result = ' + objidsplit[0] + '()')
-        print "str(objidsplit[0]):", str(objidsplit[0])
         result.getByName(str(objidsplit[0]))
         return result
 
     else:
         cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
         session = cluster.connect()
-        #(ksp,tab,dict_name,obj_type,entryPoint,port,tokens) = session.execute("SELECT ksp,tab,dict_name,obj_type,entrypoint,port,tkns FROM hecuba.blocks WHERE blockid = %s",(objid))[0]
         ksp =        session.execute("SELECT ksp FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].ksp
         tab =        session.execute("SELECT tab FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].tab
         dict_name =  session.execute("SELECT dict_name FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].dict_name
