@@ -92,14 +92,14 @@ def getByID(objid):
     else:
         cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
         session = cluster.connect()
-        ksp =        session.execute("SELECT ksp FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].ksp
-        tab =        session.execute("SELECT tab FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].tab
-        dict_name =  session.execute("SELECT dict_name FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].dict_name
-        obj_type =   session.execute("SELECT obj_type FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].obj_type
-        entryPoint = session.execute("SELECT entrypoint FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].entrypoint
-        port =       session.execute("SELECT port FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].port
-        tokens =     session.execute("SELECT tkns FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].tkns
-        if str(obj_type) == 'qbeast':
+        try:
+            obj_type =   session.execute("SELECT obj_type FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].obj_type
+            entryPoint = session.execute("SELECT entrypoint FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].entrypoint
+            port =       session.execute("SELECT port FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].port
+            tokens =     session.execute("SELECT tkns FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].tkns
+            ksp =        session.execute("SELECT ksp FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].ksp
+            tab =        session.execute("SELECT tab FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].tab
+            dict_name =  session.execute("SELECT dict_name FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].dict_name
             blockid = objid
             metadata = cluster.metadata
             tokenmap = metadata.token_map.token_to_host_owner
@@ -110,12 +110,12 @@ def getByID(objid):
             for position in tokens: 
                 for key, val in odtokenmap.iteritems():
                     # (self, peer,        keynames,           tablename,     blockkeyspace, myuuid)
-                    b = IxBlock(str(val), tab,                tab,           ksp,           objid) # the keynames vale is wrong, needs to be corrected
+                    b = IxBlock(str(val), tab,                dict_name,     ksp,           objid) # the keynames vale is wrong, needs to be corrected
                     exec("b.storageobj = " + str(dict_name) + "('" + str(dict_name) + "')")
                     session.shutdown()
                     cluster.shutdown()
                     return b
-        else:
+        except Exception:
             # blockKeyspace = objidsplit[0]
             # blockKeyNames = str(objidsplit[1])
             # blockTableName = objidsplit[2]

@@ -10,8 +10,7 @@ import uuid
 
 class Block(object):
     def __init__(self, peer, keynames, tablename, blockkeyspace):
-        self.node = peer[0]
-        self.token_ranges = ''
+        print "IxBlock __init__ ####################################"
         for ind, position in enumerate(peer):
             if ind == 0:
                 self.node = position
@@ -253,13 +252,50 @@ class KeyIter(object):
         metadata = cluster.metadata
         ringtokens = metadata.token_map
         tokentohosts = ringtokens.token_to_host_owner
-        res = defaultdict(list)
-
-        for tkn, hst in tokentohosts.iteritems():
-            res[hst].append(long(((str(tkn).split(':')[1]).replace(' ','')).replace('>','')))
-            if len(res[hst]) == ranges_per_block:
-                self.ring.append((hst, res[hst]))
-                res[hst] = []
+        token_ranges = ''
+        starttok = 0
+        self.tokenList = []
+        for i, token in enumerate(ringtokens.ring):
+            if ranges_per_block == 1:
+                if i == 0:
+                    starttok = token
+                else:
+                    if i < (len(ringtokens.ring)):
+                        endtok = token
+                        host = str(tokentohosts[starttok])
+                        self.ring.append((host, str(i - 1)))
+                        self.tokenList.append(int(token.value))
+                        starttok = endtok
+                    if i == (len(ringtokens.ring) - 1):
+                        host = str(tokentohosts[starttok])
+                        self.ring.append((host, str(i)))
+                        self.tokenList.append(int(token.value))
+            else:
+                if not (i + 1) % ranges_per_block == 0:
+                    if i == 0:
+                        starttok = token
+                    if (i + 1) % ranges_per_block == 1:
+                        starttok = token
+                        token_ranges += str(i)
+                    else:
+                        if i < (len(ringtokens.ring)):
+                            endtok = token
+                            token_ranges = token_ranges + '_' + str(i)
+                            starttok = endtok
+                        if i == (len(ringtokens.ring) - 1):
+                            token_ranges = token_ranges + '_' + str(i)
+                else:
+                    if i == 0:
+                        starttok = token
+                    else:
+                        if i < (len(ringtokens.ring)):
+                            endtok = token
+                            host = str(tokentohosts[starttok])
+                            token_ranges = token_ranges + '_' + str(i)
+                            self.ring.append((host, token_ranges))
+                            self.tokenList.append(int(token.value))
+                            token_ranges = ''
+                            starttok = endtok
 
         self.num_peers = len(self.ring)
         session.shutdown()
@@ -270,6 +306,27 @@ class KeyIter(object):
         start = self.pos
         if start == self.num_peers:
             raise StopIteration
+
+        '''
+        currentRingPos =self.ring[self.pos]    # [1]
+        tokens = currentRingPos[1]
+
+        cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
+        session = cluster.connect()
+        try:
+            session.execute('CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, tkns list<bigint>, entryPoint text , port int, ksp text , tab text , dict_name text , obj_type text, PRIMARY KEY(blockid))')
+        except Exception as e:
+            print "Error:", e
+        myuuid = str(uuid.uuid1())
+        try:
+            session.execute('INSERT INTO hecuba.blocks (blockid, tkns, ksp, tab, dict_name, obj_type, entrypoint, port) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)',
+                                                       [myuuid,  tokens, self.blockkeyspace, self.mypdict.dict_keynames, self.mypdict.mypo.name,'hecuba','localhost',1] )
+        except Exception as e:
+            print "Error:", e
+        session.shutdown()
+        cluster.shutdown()
+        '''
+
         b = Block(self.ring[self.pos], self.mypdict.dict_keynames, self.mypdict.mypo.name, self.blockkeyspace)
         self.pos += 1
         return b
@@ -321,7 +378,13 @@ class IxKeyIter(KeyIter):
             session.execute('CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, tkns list<bigint>, entryPoint text , port int, ksp text , tab text , dict_name text , obj_type text, PRIMARY KEY(blockid))')
         except Exception as e:
             print "Error:", e
+        '''
+        try:
+            session.execute('TRUNCATE hecuba.blocks')
+        except Exception as e:
+            print "Error:", e
         myuuid = str(uuid.uuid1())
+        '''
         try:
             session.execute('INSERT INTO hecuba.blocks (blockid, tkns, ksp, tab, dict_name, obj_type, entrypoint, port) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)',
                                                        [myuuid,  tokens, self.blockkeyspace, self.mypdict.dict_keynames, self.mypdict.mypo.name,'qbeast','localhost',1] )
