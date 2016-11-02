@@ -126,13 +126,17 @@ class IxBlockItemsIter(object):
         return self
 
     def __init__(self, iterable):
+        self.pos = 0
         print "IxBlockItemsIter.__init__"
 
     def next(self):
         print "IxBlockItemsIter.next"
+        if self.pos == 1:
+            raise StopIteration
         # do gets from Qbeast until done
         # for every get, iterate over results and save them in a list in the IxBlockItemsIter object
         # while the object has values in the list, pop them one by one and call next again
+        self.pos += 1
         return 1, 1
 
 
