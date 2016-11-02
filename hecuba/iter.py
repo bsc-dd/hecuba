@@ -128,7 +128,7 @@ class IxBlockItemsIter(object):
     def __init__(self, iterable):
         self.toReturn = []
         self.result = (0, 1, {0: "BIGINT", 1: "BLOB", 2: "BOOLEAN", 3: "DOUBLE", 4: "FLOAT", 5: "INET", 6: "INT", 7: "LIST", 8: "MAP", 9: "SET", 10: "TEXT", 11: "TIMESTAMP", 12: "TIMEUUID", 13: "UUID"},[(6,4),(6,5),(6,6),(6,7),(6,8)])
-        self.toReturn = result[3]
+        self.toReturn = self.result[3]
         print "IxBlockItemsIter.__init__"
 
     def next(self):
