@@ -138,7 +138,7 @@ class IxBlockItemsIter(object):
         print "IxBlockItemsIter.next"
         if self.result[0] == 0 and len(self.toReturn) == 0:
             raise StopIteration
-        return toReturn.pop()
+        return self.toReturn.pop()
 
 
 class BlockItemsIter(object):
