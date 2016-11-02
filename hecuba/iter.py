@@ -67,6 +67,7 @@ class IxBlock(Block):
 
     def iteritems(self):
         print "in IxBlock.iteritems()"
+        return 1, 1
         #return BlockItemsIter(self)
    
     def getID(self):
