@@ -138,7 +138,7 @@ class IxBlockItemsIter(object):
         '''
         self.result = (False, 4, {0: "BIGINT", 1: "BLOB", 2: "BOOLEAN", 3: "DOUBLE", 4: "FLOAT", 5: "INET", 6: "INT", 7: "LIST", 8: "MAP", 9: "SET", 10: "TEXT", 11: "TIMESTAMP", 12: "TIMEUUID", 13: "UUID"},[(3,pack("<d",234.324)),(10,pack("<s","ciao ciao ciao")),(10,pack("<s","hola hola hola")),(10,pack("<s","bye bye bye"))])
         self.toReturn = self.result[3]
-        self.equivs = self.result[1]
+        self.equivs = self.result[2]
 
     def next(self):
         # do gets from Qbeast until done
