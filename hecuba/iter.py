@@ -2,7 +2,7 @@
 from hecuba.datastore import *
 from cassandra.cluster import Cluster
 from hecuba.dict import *
-from app.qbeastiface import *
+from hecuba.qbeastiface import *
 from conf.hecuba_params import execution_name, ranges_per_block
 from collections import defaultdict
 import time
@@ -131,7 +131,8 @@ class IxBlockItemsIter(object):
     def next(self):
         print "IxBlockItemsIter.next"
         # do gets from Qbeast until done
-        # for every get, iterate over results and return value
+        # for every get, iterate over results and save them in a list in the IxBlockItemsIter object
+        # while the object has values in the list, pop them one by one and call next again
         return 1, 1
 
 

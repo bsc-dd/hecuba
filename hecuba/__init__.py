@@ -6,7 +6,7 @@ from hecuba.datastore import *
 from hecuba.storageobj import StorageObj
 from conf.hecuba_params import execution_name
 from conf.apppath import apppath
-from app.qbeastiface import *
+from hecuba.qbeastiface import *
 import glob
 
 #global qbeastInterface 
