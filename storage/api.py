@@ -12,65 +12,69 @@ from conf.apppath import apppath
 
 
 def start_task(params):
-    if not 'prefetch_activated' in globals():
-        global prefetch_activated
-        prefetch_activated = False # modified for qbeast
-    if not 'batch_activated' in globals():
-        global batch_activated
-        batch_activated = True
-    if prefetch_activated or batch_activated:
-        path = apppath + '/conf/imports.py'
-        file = open(path, 'r')
-        for line in file:
-            exec line
+    indexed = True
+    if indexed == False:
+		if not 'prefetch_activated' in globals():
+		    global prefetch_activated
+		    prefetch_activated = True # modified for qbeast
+		if not 'batch_activated' in globals():
+		    global batch_activated
+		    batch_activated = True
+		if prefetch_activated or batch_activated:
+		    path = apppath + '/conf/imports.py'
+		    file = open(path, 'r')
+		    for line in file:
+		        exec line
 
-    if batch_activated:
-        for param in params:
-            if isinstance(param, StorageObj) or isinstance(param, StorageObjIx) or isinstance(param, Block):
-                param.cntxt = context(param)
-                param.cntxt.__enter__()
+		if batch_activated:
+		    for param in params:
+		        if isinstance(param, StorageObj) or isinstance(param, StorageObjIx) or isinstance(param, Block):
+		            param.cntxt = context(param)
+		            param.cntxt.__enter__()
 
 def end_task(params):
-    if not 'prefetch_activated' in globals():
-        global prefetch_activated
-        prefetch_activated = False # modified for qbeast
-    if not 'batch_activated' in globals():
-        global batch_activated
-        batch_activated = True
-    if prefetch_activated or batch_activated:
-        path = apppath + '/conf/imports.py'
-        file = open(path, 'r')
-        for line in file:
-            exec line
+    indexed = True
+    if indexed == False:
+		if not 'prefetch_activated' in globals():
+		    global prefetch_activated
+		    prefetch_activated = True # modified for qbeast
+		if not 'batch_activated' in globals():
+		    global batch_activated
+		    batch_activated = True
+		if prefetch_activated or batch_activated:
+		    path = apppath + '/conf/imports.py'
+		    file = open(path, 'r')
+		    for line in file:
+		        exec line
 
-    if batch_activated:
-        for param in params:
-            if isinstance(param, Block) or isinstance(param, StorageObj) or isinstance(param, StorageObjIx):
-                try:
-                    param.cntxt.__exit__()
-                except Exception as e:
-                    print "error trying to exit context:", e
+		if batch_activated:
+		    for param in params:
+		        if isinstance(param, Block) or isinstance(param, StorageObj) or isinstance(param, StorageObjIx):
+		            try:
+		                param.cntxt.__exit__()
+		            except Exception as e:
+		                print "error trying to exit context:", e
 
-    if prefetch_activated:
-        for param in params:
-            if isinstance(param, Block):
-                keys = param.storageobj.keyList[param.storageobj.__class__.__name__]
-                exec("persistentdict = param.storageobj." + str(keys[0]))
-                if persistentdict.prefetch == True:
-                    try:
-                        persistentdict.end_prefetch()
-                    except Exception as e:
-                        print "error trying to prefetch:", e
+		if prefetch_activated:
+		    for param in params:
+		        if isinstance(param, Block):
+		            keys = param.storageobj.keyList[param.storageobj.__class__.__name__]
+		            exec("persistentdict = param.storageobj." + str(keys[0]))
+		            if persistentdict.prefetch == True:
+		                try:
+		                    persistentdict.end_prefetch()
+		                except Exception as e:
+		                    print "error trying to prefetch:", e
 
-    if not 'statistics_activated' in globals():
-        global statistics_activated
-        statistics_activated = True
-    if statistics_activated:
-        for param in params:
-            if isinstance(param, Block):
-                param.storageobj.statistics()
-            if isinstance(param, StorageObj) or isinstance(param, StorageObjIx):
-                param.statistics()
+		if not 'statistics_activated' in globals():
+		    global statistics_activated
+		    statistics_activated = True
+		if statistics_activated:
+		    for param in params:
+		        if isinstance(param, Block):
+		            param.storageobj.statistics()
+		        if isinstance(param, StorageObj) or isinstance(param, StorageObjIx):
+		            param.statistics()
 
 def getByID(objid):
     path = apppath + '/conf/imports.py'
