@@ -3,6 +3,7 @@ from hecuba.datastore import *
 from cassandra.cluster import Cluster
 from hecuba.dict import *
 from hecuba.qbeastiface import *
+from qbeastIntegration.ttypes import Result
 from conf.hecuba_params import execution_name, ranges_per_block
 from collections import defaultdict
 import time
@@ -125,18 +126,28 @@ class IxBlockItemsIter(object):
         return self
 
     def __init__(self, iterable):
-        self.pos = 0
+        toReturn = []
+        self.start = 1
         print "IxBlockItemsIter.__init__"
 
     def next(self):
         print "IxBlockItemsIter.next"
-        if self.pos == 1:
+        if self.start == 1:
+            result = (0, 1, {0: "BIGINT", 1: "BLOB", 2: "BOOLEAN", 3: "DOUBLE", 4: "FLOAT", 5: "INET", 6: "INT", 7: "LIST", 8: "MAP", 9: "SET", 10: "TEXT", 11: "TIMESTAMP", 12: "TIMEUUID", 13: "UUID"},[(6,4),(6,5),(6,6),(6,7),(6,8)])
+            toReturn = result[3]
+            self.start = 0
+        '''
+        (1, TType.BOOL, 'hasMore', None, None, ), # 1
+        (2, TType.I32, 'count', None, None, ), # 2
+        (3, TType.MAP, 'metadata', (TType.BYTE,None,TType.STRUCT,(DataType, DataType.thrift_spec)), None, ), # 3
+        (4, TType.LIST, 'data', (TType.MAP,(TType.BYTE,None,TType.STRING,None)), None, ), # 4
+        '''
+        if result[0] == 0 and len(toReturn) == 0:
             raise StopIteration
         # do gets from Qbeast until done
         # for every get, iterate over results and save them in a list in the IxBlockItemsIter object
         # while the object has values in the list, pop them one by one and call next again
-        self.pos += 1
-        return 1, 1
+        return toReturn.pop()
 
 
 class BlockItemsIter(object):

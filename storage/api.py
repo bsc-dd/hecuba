@@ -109,8 +109,8 @@ def getByID(objid):
                 prefetch_activated = True
             for position in tokens: 
                 for key, val in odtokenmap.iteritems():
-                    # (self, peer,        keynames,           tablename,     blockkeyspace, myuuid)
-                    b = IxBlock(str(val), tab,                dict_name,     ksp,           objid) # the keynames vale is wrong, needs to be corrected
+                    # (self, peer,        keynames, tablename, blockkeyspace, myuuid)
+                    b = IxBlock(str(val), tab,      dict_name, ksp,           objid) # the keynames vale is wrong, needs to be corrected
                     exec("b.storageobj = " + str(dict_name) + "('" + str(dict_name) + "')")
                     session.shutdown()
                     cluster.shutdown()
