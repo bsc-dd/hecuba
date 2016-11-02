@@ -14,6 +14,8 @@ from conf.apppath import apppath
 def start_task(params):
     print "params:   ", params
     print "params[0]:", params[0]
+    objid = params[0].myuuid
+    print "objid:", objid
     cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
     session = cluster.connect()
     obj_type = session.execute("SELECT obj_type FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].obj_type
