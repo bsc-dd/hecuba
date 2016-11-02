@@ -121,14 +121,14 @@ class BlockIter(object):
 
 
 class IxBlockItemsIter(object):
-    start = 1
     def __iter__(self):
         print "IxBlockItemsIter.__iter__"
         return self
 
     def __init__(self, iterable):
-        toReturn = []
-        self.start = 1
+        self.toReturn = []
+        self.result = (0, 1, {0: "BIGINT", 1: "BLOB", 2: "BOOLEAN", 3: "DOUBLE", 4: "FLOAT", 5: "INET", 6: "INT", 7: "LIST", 8: "MAP", 9: "SET", 10: "TEXT", 11: "TIMESTAMP", 12: "TIMEUUID", 13: "UUID"},[(6,4),(6,5),(6,6),(6,7),(6,8)])
+        self.toReturn = result[3]
         print "IxBlockItemsIter.__init__"
 
     def next(self):
@@ -136,11 +136,7 @@ class IxBlockItemsIter(object):
         # for every get, iterate over results and save them in a list in the IxBlockItemsIter object
         # while the object has values in the list, pop them one by one and call next again
         print "IxBlockItemsIter.next"
-        if self.start == 1:
-            result = (0, 1, {0: "BIGINT", 1: "BLOB", 2: "BOOLEAN", 3: "DOUBLE", 4: "FLOAT", 5: "INET", 6: "INT", 7: "LIST", 8: "MAP", 9: "SET", 10: "TEXT", 11: "TIMESTAMP", 12: "TIMEUUID", 13: "UUID"},[(6,4),(6,5),(6,6),(6,7),(6,8)])
-            toReturn = result[3]
-            self.start = 0
-        if result[0] == 0 and len(toReturn) == 0:
+        if self.result[0] == 0 and len(self.toReturn) == 0:
             raise StopIteration
         return toReturn.pop()
 
