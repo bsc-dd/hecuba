@@ -337,9 +337,26 @@ class IxKeyIter(KeyIter):
     blockKeySpace = ''
 
     def __init__(self, iterable):
-        print "IxKeyIter - __init__ ##########################################"
-        print "iterable.indexarguments:", iterable.indexarguments
-        super(IxKeyIter, self).__init__(iterable)
+        print "KeyIter - __init__ ############################################"
+        self.pos = 0
+        self.ring = []
+        self.mypdict = iterable.mypdict
+        cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
+        session = cluster.connect()
+        metadata = cluster.metadata
+        ringtokens = metadata.token_map
+        tokentohosts = ringtokens.token_to_host_owner
+        res = defaultdict(list)
+
+        for tkn, hst in tokentohosts.iteritems():
+            res[hst].append(long(((str(tkn).split(':')[1]).replace(' ','')).replace('>','')))
+            if len(res[hst]) == ranges_per_block:
+                self.ring.append((hst, res[hst]))
+                res[hst] = []
+
+        self.num_peers = len(self.ring)
+        session.shutdown()
+        cluster.shutdown()
         self.iterable = iterable
         
     def next(self):
