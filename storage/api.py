@@ -12,8 +12,12 @@ from conf.apppath import apppath
 
 
 def start_task(params):
-    indexed = True
-    if indexed == False:
+    cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
+    session = cluster.connect()
+    obj_type = session.execute("SELECT obj_type FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].obj_type
+    session.shutdown()
+    cluster.shutdown()
+    if str(obj_type) == 'qbeast':
 		if not 'prefetch_activated' in globals():
 		    global prefetch_activated
 		    prefetch_activated = True # modified for qbeast
@@ -33,8 +37,12 @@ def start_task(params):
 		            param.cntxt.__enter__()
 
 def end_task(params):
-    indexed = True
-    if indexed == False:
+    cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
+    session = cluster.connect()
+    obj_type = session.execute("SELECT obj_type FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].obj_type
+    session.shutdown()
+    cluster.shutdown()
+    if str(obj_type) == 'qbeast':
 		if not 'prefetch_activated' in globals():
 		    global prefetch_activated
 		    prefetch_activated = True # modified for qbeast
