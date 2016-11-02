@@ -6,6 +6,7 @@ from hecuba.qbeastiface import *
 from qbeastIntegration.ttypes import Result
 from conf.hecuba_params import execution_name, ranges_per_block
 from collections import defaultdict
+from struct import *
 import time
 import uuid
 
