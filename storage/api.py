@@ -106,7 +106,7 @@ def getByID(objid):
             odtokenmap = collections.OrderedDict(sorted(tokenmap.items()))
             if not 'prefetch_activated' in globals():
                 global prefetch_activated
-                prefetch_activated = False # this should be false, right?
+                prefetch_activated = True
             for position in tokens: 
                 for key, val in odtokenmap.iteritems():
                     # (self, peer,        keynames,           tablename,     blockkeyspace, myuuid)

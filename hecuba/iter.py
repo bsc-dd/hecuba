@@ -67,8 +67,7 @@ class IxBlock(Block):
 
     def iteritems(self):
         print "in IxBlock.iteritems()"
-        return 1, 1
-        #return BlockItemsIter(self)
+        return IxBlockItemsIter(self)
    
     def getID(self):
         print "IxBlock getID #######################################"
@@ -78,6 +77,7 @@ class IxBlock(Block):
         print "IxBlock itervalues ##################################"
         pass
         #return BlockValuesIter(self)
+
 
 class BlockIter(object):
     def __init__(self, iterable):
@@ -118,6 +118,21 @@ class BlockIter(object):
         key = self.keys[self.pos]
         self.pos += 1
         return key
+
+
+class IxBlockItemsIter(object):
+    def __iter__(self):
+        print "IxBlockItemsIter.__iter__"
+        return self
+
+    def __init__(self, iterable):
+        print "IxBlockItemsIter.__init__"
+
+    def next(self):
+        print "IxBlockItemsIter.next"
+        # do gets from Qbeast until done
+        # for every get, iterate over results and return value
+        return 1, 1
 
 
 class BlockItemsIter(object):
