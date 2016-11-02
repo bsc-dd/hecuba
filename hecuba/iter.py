@@ -135,8 +135,9 @@ class IxBlockItemsIter(object):
          - metadata
          - data
         '''
-        self.result = (False, 4, {0: "BIGINT", 1: "BLOB", 2: "BOOLEAN", 3: "DOUBLE", 4: "FLOAT", 5: "INET", 6: "INT", 7: "LIST", 8: "MAP", 9: "SET", 10: "TEXT", 11: "TIMESTAMP", 12: "TIMEUUID", 13: "UUID"},[3:struct.pack("<d",234.324),10:struct.pack("<s","ciao ciao ciao"),10:struct.pack("<s","hola hola hola"),10:struct.pack("<s","bye bye bye")])
+        self.result = (False, 4, {0: "BIGINT", 1: "BLOB", 2: "BOOLEAN", 3: "DOUBLE", 4: "FLOAT", 5: "INET", 6: "INT", 7: "LIST", 8: "MAP", 9: "SET", 10: "TEXT", 11: "TIMESTAMP", 12: "TIMEUUID", 13: "UUID"},[(3,struct.pack("<d",234.324)),(10,struct.pack("<s","ciao ciao ciao")),(10,struct.pack("<s","hola hola hola")),(10,struct.pack("<s","bye bye bye"))])
         self.toReturn = self.result[3]
+        self.equivs = self.result[1]
 
     def next(self):
         # do gets from Qbeast until done
@@ -145,7 +146,9 @@ class IxBlockItemsIter(object):
         print "IxBlockItemsIter.next"
         if self.result[0] == False and len(self.toReturn) == 0:
             raise StopIteration
-        return (1,struct.unpack(self.toReturn.pop()))
+        toRet = self.toReturn.pop()
+        print "toRet:", toRet
+        return (1,struct.unpack(self.equivs[toRet[0]],toRet[1]))
 
 
 class BlockItemsIter(object):
