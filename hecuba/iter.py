@@ -149,7 +149,7 @@ class IxBlockItemsIter(object):
             raise StopIteration
         toRet = self.toReturn.pop()
         print "toRet: ", toRet
-        return (1,unpack(toRet[1],toRet[1]))
+        return (1,unpack(toRet[0],toRet[1]))
 
 
 class BlockItemsIter(object):
