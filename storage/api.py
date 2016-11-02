@@ -54,7 +54,7 @@ def start_task(params):
     if batch_activated:
         for param in params:
             print "type(param):", type(param)
-            if not type(param) == "<class 'hecuba.iter.IxBlock'>":
+            if not str(type(param)) == "<class 'hecuba.iter.IxBlock'>":
                 if isinstance(param, StorageObj) or isinstance(param, StorageObjIx) or isinstance(param, Block):
                     param.cntxt = context(param)
                     param.cntxt.__enter__()
