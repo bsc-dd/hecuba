@@ -112,8 +112,6 @@ def getByID(objid):
                     # (self, peer,        keynames,           tablename,     blockkeyspace, myuuid)
                     b = IxBlock(str(val), tab,                tab,           ksp,           objid) # the keynames vale is wrong, needs to be corrected
                     exec("b.storageobj = " + str(dict_name) + "('" + str(dict_name) + "')")
-                    if prefetch_activated:
-                        b.storageobj.init_prefetch(b)
                     session.shutdown()
                     cluster.shutdown()
                     return b
