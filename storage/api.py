@@ -12,36 +12,9 @@ from conf.apppath import apppath
 
 
 def start_task(params):
-    '''
-    cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-    session = cluster.connect()
-    obj_type = session.execute("SELECT obj_type FROM hecuba.blocks WHERE blockid = %s",(params[0].myuuid,))[0].obj_type
-    session.shutdown()
-    cluster.shutdown()
-    if not str(obj_type) == 'qbeast':
-        if not 'prefetch_activated' in globals():
-            global prefetch_activated
-            prefetch_activated = True # modified for qbeast
-        if not 'batch_activated' in globals():
-            global batch_activated
-            batch_activated = True
-        if prefetch_activated or batch_activated:
-            path = apppath + '/conf/imports.py'
-            file = open(path, 'r')
-            for line in file:
-                exec line
-
-        if batch_activated:
-            for param in params:
-                print "type(param):", type(param)
-                if not type(param) == 'IxBlock':
-                    if isinstance(param, StorageObj) or isinstance(param, StorageObjIx) or isinstance(param, Block):
-                        param.cntxt = context(param)
-                        param.cntxt.__enter__()
-    '''
     if not 'prefetch_activated' in globals():
         global prefetch_activated
-        prefetch_activated = True # modified for qbeast
+        prefetch_activated = True
     if not 'batch_activated' in globals():
         global batch_activated
         batch_activated = True
@@ -53,41 +26,36 @@ def start_task(params):
 
     if batch_activated:
         for param in params:
-            print "type(param):", type(param)
             if not str(type(param)) == "<class 'hecuba.iter.IxBlock'>":
                 if isinstance(param, StorageObj) or isinstance(param, StorageObjIx) or isinstance(param, Block):
                     param.cntxt = context(param)
                     param.cntxt.__enter__()
 
 def end_task(params):
-    cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-    session = cluster.connect()
-    obj_type = session.execute("SELECT obj_type FROM hecuba.blocks WHERE blockid = %s",(params[0].myuuid,))[0].obj_type
-    session.shutdown()
-    cluster.shutdown()
-    if str(obj_type) == 'qbeast':
-        if not 'prefetch_activated' in globals():
-            global prefetch_activated
-            prefetch_activated = True # modified for qbeast
-        if not 'batch_activated' in globals():
-            global batch_activated
-            batch_activated = True
-        if prefetch_activated or batch_activated:
-            path = apppath + '/conf/imports.py'
-            file = open(path, 'r')
-            for line in file:
-                exec line
+    if not 'prefetch_activated' in globals():
+        global prefetch_activated
+        prefetch_activated = True
+    if not 'batch_activated' in globals():
+        global batch_activated
+        batch_activated = True
+    if prefetch_activated or batch_activated:
+        path = apppath + '/conf/imports.py'
+        file = open(path, 'r')
+        for line in file:
+            exec line
 
-        if batch_activated:
-            for param in params:
+    if batch_activated:
+        for param in params:
+            if not str(type(param)) == "<class 'hecuba.iter.IxBlock'>":
                 if isinstance(param, Block) or isinstance(param, StorageObj) or isinstance(param, StorageObjIx):
                     try:
                         param.cntxt.__exit__()
                     except Exception as e:
                         print "error trying to exit context:", e
 
-        if prefetch_activated:
-            for param in params:
+    if prefetch_activated:
+        for param in params:
+            if not str(type(param)) == "<class 'hecuba.iter.IxBlock'>":
                 if isinstance(param, Block):
                     keys = param.storageobj.keyList[param.storageobj.__class__.__name__]
                     exec("persistentdict = param.storageobj." + str(keys[0]))
@@ -97,11 +65,12 @@ def end_task(params):
                         except Exception as e:
                             print "error trying to prefetch:", e
 
-        if not 'statistics_activated' in globals():
-            global statistics_activated
-            statistics_activated = True
-        if statistics_activated:
-            for param in params:
+    if not 'statistics_activated' in globals():
+        global statistics_activated
+        statistics_activated = True
+    if statistics_activated:
+        for param in params:
+            if not str(type(param)) == "<class 'hecuba.iter.IxBlock'>":
                 if isinstance(param, Block):
                     param.storageobj.statistics()
                 if isinstance(param, StorageObj) or isinstance(param, StorageObjIx):
@@ -131,7 +100,6 @@ def getByID(objid):
         port =       session.execute("SELECT port FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].port
         tokens =     session.execute("SELECT tkns FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].tkns
         if str(obj_type) == 'qbeast':
-            print "indexed storageobj"
             blockid = objid
             metadata = cluster.metadata
             tokenmap = metadata.token_map.token_to_host_owner
@@ -150,7 +118,6 @@ def getByID(objid):
                     cluster.shutdown()
                     return b
         else:
-            print "normal storageobj"
             # blockKeyspace = objidsplit[0]
             # blockKeyNames = str(objidsplit[1])
             # blockTableName = objidsplit[2]
