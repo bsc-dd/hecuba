@@ -4,8 +4,8 @@ from hecuba.datastore import *
 from hecuba.iter import Block
 from hecuba.dict import *
 from hecuba.storageobj import *
-from hecuba.storageobjix import *
 import collections
+import hecuba
 
 from conf.hecuba_params import *
 from conf.apppath import apppath
@@ -90,10 +90,8 @@ def getByID(objid):
         return result
 
     else:
-        cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-        session = cluster.connect()
         try:
-            obj_type =   session.execute("SELECT obj_type FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].obj_type
+            obj_type = session.execute("SELECT obj_type FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].obj_type
         except Exception as e:
             print "Error:", e
         try:
@@ -128,13 +126,12 @@ def getByID(objid):
             for key, val in odtokenmap.iteritems():
                 # (self, peer,        keynames, tablename, blockkeyspace, myuuid)
                 try:
-                    b = IxBlock(str(val), tab,      dict_name, ksp,           objid) # the keynames vale is wrong, needs to be corrected
+                    # exec ("b = %d()"$(class_name))
+                    b = IxBlock(str(val), tab, dict_name, ksp, objid) # the keynames vale is wrong, needs to be corrected
                 except Exception as e:
                     print "Error:", e
                 try:
                     exec("b.storageobj = " + str(dict_name) + "('" + str(dict_name) + "')")
-                    session.shutdown()
-                    cluster.shutdown()
                     return b
                 except Exception as e:
                     # blockKeyspace = objidsplit[0]
@@ -148,8 +145,6 @@ def getByID(objid):
                             blockrangesf += str(val) + '_'
                         else:
                             blockrangesf += str(val)
-                    cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-                    session = cluster.connect()
                     metadata = cluster.metadata
                     tokenmap = metadata.token_map.token_to_host_owner
                     odtokenmap = collections.OrderedDict(sorted(tokenmap.items()))
@@ -163,7 +158,5 @@ def getByID(objid):
                             exec("b.storageobj = " + str(objidsplit[2]) + "('" + str(objidsplit[2]) + "')")
                             if prefetch_activated:
                                 b.storageobj.init_prefetch(b)
-                            session.shutdown()
-                            cluster.shutdown()
                             return b
                         position += 1

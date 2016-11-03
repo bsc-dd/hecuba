@@ -42,18 +42,6 @@ class StorageObj(object):
             self.name = name
 
         keyspace = 'config' + execution_name
-        cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-        session = ''
-        try:
-            session = cluster.connect()
-        except Exception as e:
-            print "connection could not be set", e
-
-        try:
-            session.set_keyspace(keyspace)
-        except Exception as e:
-            print "keyspace could not be set", e
-
         execution = []
 
         dictname = "\"" + self.__class__.__name__ + "\""
@@ -131,11 +119,8 @@ class StorageObj(object):
         print self.__class__.__name__
 
         self.name = name
-        cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-
         keyspace = 'config' + execution_name
 
-        session = cluster.connect(keyspace)
 
         dictname = "\"" + self.__class__.__name__ + "\""
 
@@ -223,17 +208,11 @@ class StorageObj(object):
 
         self.persistent = True
 
-        session.shutdown()
-        cluster.shutdown()
-
     def saveToDDBB(self, name):
 
         self.name = name
-        cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-
         keyspace = 'config' + execution_name
 
-        session = cluster.connect(keyspace)
 
         for key, variable in vars(self).iteritems():
             if str(type(variable)) == "<type 'int'>":
@@ -262,9 +241,7 @@ class StorageObj(object):
                         querytable = "INSERT INTO " + execution_name + ".\"" + str(self.name) + str(key) + "\" (position, type, value) VALUES ( " + str(ind) + ", \'str\', \'" + str(value) + "\');"
                     session.execute(querytable)
 
-        session.shutdown()
-        cluster.shutdown()
-    
+
     '''
     def iteritems(self):
         print "storageobj iteritems ####################################"
@@ -276,7 +253,7 @@ class StorageObj(object):
     def iteritems(self):
         print "storageobj iteritems ####################################"
         keys = self.keyList[self.__class__.__name__]
-        exec ("self.pKeyList = PersistentKeyList(self." + str(keys[0]) + ")")
+        self.pKeyList = PersistentKeyList(getattr(self, str(keys[0])))
         return self # a
     #'''
     def itervalues(self):
@@ -296,8 +273,6 @@ class StorageObj(object):
         keys = self.keyList[self.__class__.__name__]
         exec("self." + str(keys[0]) + ".dictCache.cache = {}")
 
-        cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-        session = cluster.connect(execution_name)
 
         query = "TRUNCATE %s.\"%s\";" % (execution_name, self.name)
 
@@ -316,15 +291,11 @@ class StorageObj(object):
                     raise e
                 sessionexecute += 1
 
-        session.shutdown()
-        cluster.shutdown()
 
     def delete_persistent(self):
         keys = self.keyList[self.__class__.__name__]
         exec("self." + str(keys[0]) + ".dictCache.cache = {}")
 
-        cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-        session = cluster.connect(execution_name)
         self.persistent = False
 
         query = "TRUNCATE %s.\"%s\";" % (execution_name, self.name)
@@ -341,8 +312,7 @@ class StorageObj(object):
             print "Object", str(self.name), "cannot be deleted from persistent storage:", str(e)
             return
 
-        session.shutdown()
-        cluster.shutdown()
+
 
     def __contains__(self, key):
         keys = self.keyList[self.__class__.__name__]
@@ -363,8 +333,6 @@ class StorageObj(object):
     def finalize(self):
         keyspace = 'config' + execution_name
         try:
-            cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-            session = cluster.connect()
             execution = session.execute("SELECT * FROM " + keyspace + ".\"access\";")
             for row in execution:
                 if row[1] == 0:
@@ -382,8 +350,6 @@ class StorageObj(object):
                     session.execute("DROP COLUMNFAMILY " + keyspace + ".\"access\";")
                 except Exception as e:
                     print "Error in finalize DROP 2:", e
-            session.shutdown()
-            cluster.shutdown()
         except Exception as e:
             print "Error in finalize:", e
 
@@ -402,11 +368,7 @@ class StorageObj(object):
                         raise KeyError
 
                 else:
-                    cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-
                     keyspace = 'config' + execution_name
-
-                    session = cluster.connect(keyspace)
 
                     query = "SELECT * FROM config" + str(execution_name) + ".attribs WHERE dictname = '" + self.__class__.__name__ + "' AND dataname = '" + str(key) + "';"
                     try:
@@ -433,8 +395,6 @@ class StorageObj(object):
                         else:
                             toreturn = row[3]
 
-                    session.shutdown()
-                    cluster.shutdown()
 
                     return toreturn
             else:
@@ -454,11 +414,8 @@ class StorageObj(object):
                     if not self.persistent:
                         super(StorageObj, self).__setattr__(key, value)
                     else:
-                        cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
 
                         keyspace = 'config' + execution_name
-
-                        session = cluster.connect(keyspace)
 
                         if type(value) == list:
                             querytable = "CREATE TABLE " + execution_name + ".\"" + str(self.__class__.__name__) + str(key) + "\" (position int, type text, value text, PRIMARY KEY (position));"
@@ -509,9 +466,6 @@ class StorageObj(object):
                                     except Exception as e:
                                         print "Object", str(value), "cannot be inserted in persistent storage", e
 
-                        session.shutdown()
-                        cluster.shutdown()
-
                         if hasattr(self, key):
                             try:
                                 delattr(self, key)
@@ -534,10 +488,10 @@ class StorageObj(object):
         print "StorageObj split ####################################"
         keys = self.keyList[self.__class__.__name__]
         if not self.persistent:
-            exec("a = dict.keys(self." + str(keys[0]) + ")")
+            a = dict.keys(getattr(self.str(keys[0])))
             return a
         else:
-            exec("a = PersistentKeyList(self." + str(keys[0]) + ")")
+            a = PersistentKeyList(getattr(self.str(keys[0])))
             return a
 
     def __additem__(self, key, other):

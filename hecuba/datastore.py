@@ -27,3 +27,4 @@ for line in file:
 if not filter == hecuba_filter:
     python_filter = filter
     filter = hecuba_filter
+

@@ -1,6 +1,5 @@
 # author: G. Alomar
 from hecuba.datastore import *
-from cassandra.cluster import Cluster
 from hecuba.dict import *
 from hecuba.qbeastiface import *
 from qbeastIntegration.ttypes import Result
@@ -55,31 +54,6 @@ class Block(object):
     def iterkeys(self):
         return BlockIter(self)
 
-class IxBlock(Block):
-    def __init__(self, peer, keynames, tablename, blockkeyspace, myuuid):
-        print "IxBlock __init__ ####################################"
-        self.node = peer
-        self.key_names = keynames
-        self.table_name = tablename
-        self.keyspace = blockkeyspace
-        self.storageobj = ""
-        self.cntxt = ""
-        self.myuuid = myuuid
-
-    def iteritems(self):
-        print "in IxBlock.iteritems()"
-        return IxBlockItemsIter(self)
-   
-    def getID(self):
-        print "IxBlock getID #######################################"
-        return self.myuuid 
-
-    def itervalues(self): #to implement
-        print "IxBlock itervalues ##################################"
-        pass
-        #return BlockValuesIter(self)
-
-
 class BlockIter(object):
     def __init__(self, iterable):
         self.pos = 0
@@ -119,47 +93,6 @@ class BlockIter(object):
         key = self.keys[self.pos]
         self.pos += 1
         return key
-
-
-class IxBlockItemsIter(object):
-    def __iter__(self):
-        print "IxBlockItemsIter.__iter__"
-        return self
-
-    def __init__(self, iterable):
-        print "IxBlockItemsIter.__init__"
-        self.toReturn = []
-        #Attributes: hasMore, count, metadata, data
-        self.result = (False,
-                       6,
-                       {0: "BIGINT", 1: "BLOB", 2: "BOOLEAN", 3: "DOUBLE", 4: "FLOAT", 5: "INET", 6: "INT", 7: "LIST", 8: "MAP", 9: "SET", 10: "TEXT", 11: "TIMESTAMP", 12: "TIMEUUID", 13: "UUID"},
-                       [(0,pack("<l",1234567890)),(2,pack("<?",True)),(3,pack("<d",234.567)),(4,pack("<f",345.6)),(6,pack("<b",15)) ]) #,(10,pack("I%ds" % (len('OriginalText'),),len('OriginalText'),'OriginalText'))])
-        self.equivs = self.result[2]
-        self.toReturn = self.result[3]
-        print "self.toReturn:", self.toReturn
-
-    def next(self):
-        # do gets from Qbeast until done
-        # for every get, iterate over results and save them in a list in the IxBlockItemsIter object
-        # while the object has values in the list, pop them one by one and call next again
-        print "IxBlockItemsIter.next"
-        if self.result[0] == False and len(self.toReturn) == 0:
-            raise StopIteration
-        toRet = self.toReturn.pop()
-        if toRet[0] == 0:
-            return (0,unpack("<l",toRet[1]))
-        if toRet[0] == 2:
-            return (1,unpack("<?",toRet[1]))
-        if toRet[0] == 3:
-            return (3,unpack("<d",toRet[1]))
-        if toRet[0] == 4:
-            return (4,unpack("<f",toRet[1]))
-        if toRet[0] == 6:
-            return (6,unpack("<b",toRet[1]))
-        if toRet[0] == 10:
-            size=len(toRet[1])
-            print "size:", size
-            return (10,unpack("I%ds"%(size),toRet[1]))[1]
 
 
 class BlockItemsIter(object):
@@ -270,8 +203,6 @@ class KeyIter(object):
         self.pos = 0
         self.ring = []
         self.mypdict = iterable.mypdict
-        cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-        session = cluster.connect()
         metadata = cluster.metadata
         ringtokens = metadata.token_map
         tokentohosts = ringtokens.token_to_host_owner
@@ -321,8 +252,6 @@ class KeyIter(object):
                             starttok = endtok
 
         self.num_peers = len(self.ring)
-        session.shutdown()
-        cluster.shutdown()
 
     def next(self):
         print "KeyIter - next ################################################"
@@ -353,86 +282,4 @@ class KeyIter(object):
         b = Block(self.ring[self.pos], self.mypdict.dict_keynames, self.mypdict.mypo.name, self.blockkeyspace)
         self.pos += 1
         return b
-
-
-class IxKeyIter(KeyIter):
-
-    blockKeySpace = ''
-
-    def __init__(self, iterable):
-        print "KeyIter - __init__ ############################################"
-        self.pos = 0
-        self.ring = []
-        self.mypdict = iterable.mypdict
-        cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-        session = cluster.connect()
-        metadata = cluster.metadata
-        ringtokens = metadata.token_map
-        tokentohosts = ringtokens.token_to_host_owner
-        res = defaultdict(list)
-
-        for tkn, hst in tokentohosts.iteritems():
-            res[hst].append(long(((str(tkn).split(':')[1]).replace(' ','')).replace('>','')))
-            if len(res[hst]) == ranges_per_block:
-                self.ring.append((hst, res[hst]))
-                res[hst] = []
-
-        self.num_peers = len(self.ring)
-        session.shutdown()
-        cluster.shutdown()
-        self.iterable = iterable
-        
-    def next(self):
-        print "IxKeyIter - next ##############################################"
-        start = self.pos
-        if start == self.num_peers:
-            raise StopIteration
-
-        minarguments = {}
-        maxarguments = {}
-        for argument in self.iterable.indexarguments:
-            if '<' in str(argument):
-                splitarg = (str(argument).replace(' ','')).split('<')
-                val = str(splitarg[0])
-                maxarguments[val] = int(splitarg[1])
-            if '>' in str(argument):
-                splitarg = (str(argument).replace(' ','')).split('>')
-                val = str(splitarg[0])
-                minarguments[val] = int(splitarg[1])
-        selects = 'partind' # shouldnt be hardcoded
-        keyspace = 'qbeast' # shouldnt be hardcoded
-        table = self.__class__.__name__
-        area = [(minarguments['x'],minarguments['y'],minarguments['z']),(maxarguments['x'],maxarguments['y'],maxarguments['z'])]  #[(0,0,0),(10,10,10)]
-        precision = 90
-        maxResults = 5
-        currentRingPos =self.ring[self.pos]    # [1]
-        tokens = currentRingPos[1]
-        qbeastInterface= QbeastIface() # this will be moved to __init__
-        self.queryLoc = qbeastInterface.initQuery(selects, keyspace, table, area, precision, maxResults, tokens)
-
-        cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-        session = cluster.connect()
-        try:
-            session.execute('CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, tkns list<bigint>, entryPoint text , port int, ksp text , tab text , dict_name text , obj_type text, PRIMARY KEY(blockid))')
-        except Exception as e:
-            print "Error:", e
-        '''
-        try:
-            session.execute('TRUNCATE hecuba.blocks')
-        except Exception as e:
-            print "Error:", e
-        '''
-        myuuid = str(uuid.uuid1())
-        try:
-            session.execute('INSERT INTO hecuba.blocks (blockid, tkns, ksp, tab, dict_name, obj_type, entryPoint) VALUES (%s,%s,%s,%s,%s,%s,%s)',
-                                                       [myuuid,  tokens, self.blockkeyspace, self.mypdict.dict_keynames, self.mypdict.mypo.name,'qbeast','172.20.10.1'] )
-        except Exception as e:
-            print "Error:", e
-        session.shutdown()
-        cluster.shutdown()
-
-        b = IxBlock(currentRingPos, self.mypdict.dict_keynames, self.mypdict.mypo.name, self.blockkeyspace, myuuid)
-        self.pos += 1
-        return b
-
 

@@ -1,7 +1,6 @@
 # author: G. Alomar
 from cassandra.query import BatchStatement
 from cassandra.query import BatchType
-from cassandra.cluster import Cluster
 from cassandra import ConsistencyLevel
 from hecuba.cache import PersistentDictCache
 from hecuba.prefetchmanager import PrefetchManager
@@ -60,21 +59,23 @@ class PersistentDict(dict):
 
     def init_prefetch(self, block):
         try:
-            self.session.shutdown()
+            session.shutdown()
         except Exception as e:
             print "error 1 in prefetch:", e
         try:
-            self.session.cluster.shutdown()
+            cluster.shutdown()
         except Exception as e:
             print "error 2 in prefetch:", e
         self.prefetch = True
         self.prefetchManager = PrefetchManager(1, 1, block)
         try:
-            self.cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
+            global cluster
+            cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
         except Exception as e:
             print "error 3 in prefetch:", e
         try:
-            self.session = self.cluster.connect()
+            global session
+            session = self.cluster.connect()
         except Exception as e:
             print "error 4 in prefetch:", e
 
@@ -98,15 +99,13 @@ class PersistentDict(dict):
             return prepquery
         else:
             try:
-                self.prepQueriesDict[query] = self.session.prepare(query)
+                self.prepQueriesDict[query] = session.prepare(query)
                 prepquery = self.prepQueriesDict[query]
                 return prepquery
             except Exception as e:
                 print "query in preparequery:", query
                 print "Error. Couldn't prepare query, retrying: ", e
-                cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-                self.session = cluster.connect()
-                self.prepQueriesDict[query] = self.session.prepare(query)
+                self.prepQueriesDict[query] = session.prepare(query)
                 prepquery = self.prepQueriesDict[query]
                 return prepquery
 
@@ -144,7 +143,7 @@ class PersistentDict(dict):
             yeskeys = '( key1 )'
             querytable = "CREATE TABLE " + execution_name + ".\"" + str(self.mypo.name) + "\" (%s, %s, PRIMARY KEY %s);" % (yeskeystypes, notkeystypes, yeskeys)
             try:
-                self.session.execute(querytable)
+                session.execute(querytable)
             except Exception as e:
                 print "Object", str(self.mypo.name), "cannot be created in persistent storage", e
 
@@ -343,7 +342,7 @@ class PersistentDict(dict):
                         while not done:
                             while sessionexecute < 10:
                                 try:
-                                    self.session.execute(self.batch)
+                                    session.execute(self.batch)
                                     self.firstCounterBatch = 1
                                     self.firstNonCounterBatch = 1
                                     sessionexecute = 10
@@ -467,7 +466,7 @@ class PersistentDict(dict):
                     while not done:
                         while sessionexecute < 5:
                             try:
-                                self.session.execute(query, d, timeout=10)
+                                session.execute(query, d, timeout=10)
                                 sessionexecute = 5
                             except Exception as e:
                                 if sessionexecute == 0:
@@ -652,7 +651,7 @@ class PersistentDict(dict):
         while not done:
             while sessionexecute < 5:
                 try:
-                    self.session.execute(self.batch)
+                    session.execute(self.batch)
                     self.firstCounterBatch = 1
                     self.firstNonCounterBatch = 1
                     sessionexecute = 5
@@ -783,7 +782,7 @@ class PersistentDict(dict):
             while sessionexecute < 5:
                 try:
                     print "       query:", query
-                    result = self.session.execute(query)
+                    result = session.execute(query)
                     item = ''
                     for row in result:
                         print "row:", row
@@ -802,8 +801,9 @@ class PersistentDict(dict):
                     if sessionexecute == 0:
                         print "       sessionexecute Errors in readitem----------------------------"
                         print "       query:", query
-                        self.cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-                        self.session = self.cluster.connect()
+                        global  cluster,session
+                        cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
+                        session = cluster.connect()
                         errors = 1
                     time.sleep(sleeptime)
                     if sleeptime < 3:

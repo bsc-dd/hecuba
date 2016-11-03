@@ -12,6 +12,12 @@ import glob
 #global qbeastInterface 
 #qbeastInterface= QbeastIface()
 
+from cassandra.cluster import Cluster
+global cluster
+global session
+cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
+session = cluster.connect()
+
 def classfilesparser():
     classes = {}
     filestoparse = glob.glob(apppath + "/app/*.py")
@@ -79,8 +85,6 @@ def classfilesparser():
 
 
 
-cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-session = cluster.connect()
 
 keyspace = execution_name
 keyspaceaux = 'config' + keyspace
@@ -103,12 +107,8 @@ try:
 except Exception as e:
     print "Warning: Object attribs cannot be created in persistent storage.", e
 
-session.set_keyspace(keyspaceaux)
-
 KeyIter.blockkeyspace = keyspace
 PersistentDict.keyspace = keyspace
-cluster2 = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-PersistentDict.session = cluster2.connect(keyspace)
 
 classes1 = classfilesparser()
 
@@ -187,5 +187,3 @@ for Class in classes1:
                     except Exception as e:
                         print "Error: Object", str(value[0]), "cannot be inserted in persistent storage.", e
 
-session.shutdown()
-cluster.shutdown()
