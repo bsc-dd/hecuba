@@ -434,8 +434,8 @@ class IxKeyIter(KeyIter):
         '''
         myuuid = str(uuid.uuid1())
         try:
-            session.execute('INSERT INTO hecuba.blocks (blockid, tkns, ksp, tab, dict_name, obj_type, entrypoint, port) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)',
-                                                       [myuuid,  tokens, self.blockkeyspace, self.mypdict.dict_keynames, self.mypdict.mypo.name,'qbeast','localhost',1] )
+            session.execute('INSERT INTO hecuba.blocks (blockid, tkns, ksp, tab, dict_name, obj_type) VALUES (%s,%s,%s,%s,%s,%s)',
+                                                       [myuuid,  tokens, self.blockkeyspace, self.mypdict.dict_keynames, self.mypdict.mypo.name,'qbeast'] )
         except Exception as e:
             print "Error:", e
         session.shutdown()
