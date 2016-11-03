@@ -153,7 +153,6 @@ class IxBlockItemsIter(object):
         if self.result[0] == False and len(self.toReturn) == 0:
             raise StopIteration
         toRet = self.toReturn.pop()
-        print "toRet: ", toRet
         if toRet[0] == 0:
             return (0,unpack("<l",toRet[1]))
         if toRet[0] == 2:
@@ -413,11 +412,9 @@ class IxKeyIter(KeyIter):
         area = [(minarguments['x'],minarguments['y'],minarguments['z']),(maxarguments['x'],maxarguments['y'],maxarguments['z'])]  #[(0,0,0),(10,10,10)]
         precision = 90
         maxResults = 5
-        print "self.pos:", self.pos
         currentRingPos =self.ring[self.pos]    # [1]
         tokens = currentRingPos[1]
         qbeastInterface= QbeastIface() # this will be moved to __init__
-        print "InitQuery"
         self.queryLoc = qbeastInterface.initQuery(selects, keyspace, table, area, precision, maxResults, tokens)
 
         cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
