@@ -137,9 +137,9 @@ class IxBlockItemsIter(object):
          - data
         '''
         self.result = (False,
-                       5,
+                       6,
                        {0: "BIGINT", 1: "BLOB", 2: "BOOLEAN", 3: "DOUBLE", 4: "FLOAT", 5: "INET", 6: "INT", 7: "LIST", 8: "MAP", 9: "SET", 10: "TEXT", 11: "TIMESTAMP", 12: "TIMEUUID", 13: "UUID"},
-                       [(3,pack("<d",234.324)),(3,pack("<d",123.456)),(3,pack("<d",234.567)),(3,pack("<d",345.678)),(10,pack("<s","OriginalText"))])
+                       [(0,pack("<l",1234567890)),(2,pack("<?",True)),(3,pack("<d",234.567)),(4,pack("<f",345.6)),(6,pack("<b",15)),(10,pack("<s","OriginalText"))])
         self.equivs = self.result[2]
         self.toReturn = self.result[3]
         print "self.toReturn:", self.toReturn
@@ -153,10 +153,18 @@ class IxBlockItemsIter(object):
             raise StopIteration
         toRet = self.toReturn.pop()
         print "toRet: ", toRet
+        if toRet[0] == 0:
+            return (0,unpack("<l",toRet[1]))
+        if toRet[0] == 2:
+            return (1,unpack("<?",toRet[1]))
         if toRet[0] == 3:
-            return (1,unpack("<d",toRet[1]))
+            return (3,unpack("<d",toRet[1]))
+        if toRet[0] == 4:
+            return (4,unpack("<f",toRet[1]))
+        if toRet[0] == 6:
+            return (6,unpack("<b",toRet[1]))
         if toRet[0] == 10:
-            return (1,unpack("<s",toRet[1]))
+            return (10,unpack("<s",toRet[1]))
 
 
 class BlockItemsIter(object):
