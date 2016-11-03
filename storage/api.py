@@ -129,41 +129,41 @@ def getByID(objid):
                 # (self, peer,        keynames, tablename, blockkeyspace, myuuid)
                 try:
                     b = IxBlock(str(val), tab,      dict_name, ksp,           objid) # the keynames vale is wrong, needs to be corrected
-				except Exception as e:
+                except Exception as e:
                     print "Error:", e
                 try:
-		            exec("b.storageobj = " + str(dict_name) + "('" + str(dict_name) + "')")
-		            session.shutdown()
-		            cluster.shutdown()
-		            return b
-				except Exception as e:
-				    # blockKeyspace = objidsplit[0]
-				    # blockKeyNames = str(objidsplit[1])
-				    # blockTableName = objidsplit[2]
-				    # blockRange = objidsplit[3]
-				    blockranges = objidsplit[3:len(objidsplit)]
-				    blockrangesf = ''
-				    for ind, val in enumerate(blockranges):
-				        if ind < (len(blockranges)-1):
-				            blockrangesf += str(val) + '_'
-				        else:
-				            blockrangesf += str(val)
-				    cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-				    session = cluster.connect()
-				    metadata = cluster.metadata
-				    tokenmap = metadata.token_map.token_to_host_owner
-				    odtokenmap = collections.OrderedDict(sorted(tokenmap.items()))
-				    position = 0
-				    if not 'prefetch_activated' in globals():
-				        global prefetch_activated
-				        prefetch_activated = True
-				    for key, val in odtokenmap.iteritems():
-				        if str(position) == objidsplit[3]:
-				            b = Block((str(val), blockrangesf), str(objidsplit[1]), objidsplit[2], objidsplit[0])
-				            exec("b.storageobj = " + str(objidsplit[2]) + "('" + str(objidsplit[2]) + "')")
-				            if prefetch_activated:
-				                b.storageobj.init_prefetch(b)
-				            session.shutdown()
-				            cluster.shutdown()
-				            return b
-				        position += 1
+                    exec("b.storageobj = " + str(dict_name) + "('" + str(dict_name) + "')")
+                    session.shutdown()
+                    cluster.shutdown()
+                    return b
+                except Exception as e:
+                    # blockKeyspace = objidsplit[0]
+                    # blockKeyNames = str(objidsplit[1])
+                    # blockTableName = objidsplit[2]
+                    # blockRange = objidsplit[3]
+                    blockranges = objidsplit[3:len(objidsplit)]
+                    blockrangesf = ''
+                    for ind, val in enumerate(blockranges):
+                        if ind < (len(blockranges)-1):
+                            blockrangesf += str(val) + '_'
+                        else:
+                            blockrangesf += str(val)
+                    cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
+                    session = cluster.connect()
+                    metadata = cluster.metadata
+                    tokenmap = metadata.token_map.token_to_host_owner
+                    odtokenmap = collections.OrderedDict(sorted(tokenmap.items()))
+                    position = 0
+                    if not 'prefetch_activated' in globals():
+                        global prefetch_activated
+                        prefetch_activated = True
+                    for key, val in odtokenmap.iteritems():
+                        if str(position) == objidsplit[3]:
+                            b = Block((str(val), blockrangesf), str(objidsplit[1]), objidsplit[2], objidsplit[0])
+                            exec("b.storageobj = " + str(objidsplit[2]) + "('" + str(objidsplit[2]) + "')")
+                            if prefetch_activated:
+                                b.storageobj.init_prefetch(b)
+                            session.shutdown()
+                            cluster.shutdown()
+                            return b
+                        position += 1
