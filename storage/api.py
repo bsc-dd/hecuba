@@ -94,19 +94,23 @@ def getByID(objid):
         session = cluster.connect()
         try:
             obj_type =   session.execute("SELECT obj_type FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].obj_type
+            print "obj_type:  ", obj_type
             entryPoint = session.execute("SELECT entrypoint FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].entrypoint
+            print "entryPoint:", entryPoint
             port =       session.execute("SELECT port FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].port
+            print "port:      ", port
             tokens =     session.execute("SELECT tkns FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].tkns
+            print "tokens:    ", tokens
             ksp =        session.execute("SELECT ksp FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].ksp
+            print "ksp:       ", ksp
             tab =        session.execute("SELECT tab FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].tab
+            print "tab:       ", tab
             dict_name =  session.execute("SELECT dict_name FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].dict_name
+            print "dict_name: ", dict_name
             blockid = objid
             metadata = cluster.metadata
             tokenmap = metadata.token_map.token_to_host_owner
             odtokenmap = collections.OrderedDict(sorted(tokenmap.items()))
-            if not 'prefetch_activated' in globals():
-                global prefetch_activated
-                prefetch_activated = True
             for position in tokens: 
                 for key, val in odtokenmap.iteritems():
                     # (self, peer,        keynames, tablename, blockkeyspace, myuuid)
@@ -135,7 +139,7 @@ def getByID(objid):
             position = 0
             if not 'prefetch_activated' in globals():
                 global prefetch_activated
-            prefetch_activated = True
+                prefetch_activated = True
             for key, val in odtokenmap.iteritems():
                 if str(position) == objidsplit[3]:
                     b = Block((str(val), blockrangesf), str(objidsplit[1]), objidsplit[2], objidsplit[0])

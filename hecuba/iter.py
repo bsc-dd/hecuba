@@ -129,18 +129,11 @@ class IxBlockItemsIter(object):
     def __init__(self, iterable):
         print "IxBlockItemsIter.__init__"
         self.toReturn = []
-        '''
-        Attributes:
-         - hasMore
-         - count
-         - metadata
-         - data
-        '''
-        txtToPack = 'OriginalText'
+        #Attributes: hasMore, count, metadata, data
         self.result = (False,
                        6,
-     {0: "BIGINT", 1: "BLOB", 2: "BOOLEAN", 3: "DOUBLE", 4: "FLOAT", 5: "INET", 6: "INT", 7: "LIST", 8: "MAP", 9: "SET", 10: "TEXT", 11: "TIMESTAMP", 12: "TIMEUUID", 13: "UUID"},
-     [(0,pack("<l",1234567890)),(2,pack("<?",True)),(3,pack("<d",234.567)),(4,pack("<f",345.6)),(6,pack("<b",15)) ]) #,(10,pack("I%ds" % (len(txtToPack),),len(txtToPack),txtToPack))])
+                       {0: "BIGINT", 1: "BLOB", 2: "BOOLEAN", 3: "DOUBLE", 4: "FLOAT", 5: "INET", 6: "INT", 7: "LIST", 8: "MAP", 9: "SET", 10: "TEXT", 11: "TIMESTAMP", 12: "TIMEUUID", 13: "UUID"},
+                       [(0,pack("<l",1234567890)),(2,pack("<?",True)),(3,pack("<d",234.567)),(4,pack("<f",345.6)),(6,pack("<b",15)) ]) #,(10,pack("I%ds" % (len('OriginalText'),),len('OriginalText'),'OriginalText'))])
         self.equivs = self.result[2]
         self.toReturn = self.result[3]
         print "self.toReturn:", self.toReturn
