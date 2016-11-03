@@ -164,7 +164,8 @@ class IxBlockItemsIter(object):
         if toRet[0] == 6:
             return (6,unpack("<b",toRet[1]))
         if toRet[0] == 10:
-            return (10,unpack("<s",toRet[1]))
+            size=len(toRet[1])
+            return (10,unpack("<I%ds"%(size),toRet[1]))[1]
 
 
 class BlockItemsIter(object):
