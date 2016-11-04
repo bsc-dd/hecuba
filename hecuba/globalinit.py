@@ -73,6 +73,7 @@ def classfilesparser():
 
 
 def hello_world():
+    print "@@@@@@@@@@@@@@@@@@@ HELLO WORLD @@@@@@@@@@@@@@@@@@@@@@"
 
     keyspace = execution_name
     keyspaceaux = 'config' + keyspace
