@@ -250,7 +250,7 @@ class KeyIter(object):
         try:
             session.execute('INSERT INTO hecuba.blocks (blockid, classname,tkns, ksp, tab, dict_name, obj_type)'+
                             ' VALUES (%s,%s,%s,%s,%s,%s,%s)',
-                            [myuuid, "hecuba.Block", tokens, self.blockkeyspace, self.mypdict.dict_keynames, self.mypdict.mypo.name, 'hecuba'])
+                            [myuuid, "hecuba.iter.Block", tokens, self.blockkeyspace, self.mypdict.dict_keynames, self.mypdict.mypo.name, 'hecuba'])
         except Exception as e:
             print "Error:", e
         currringpos = self.ring[self.pos]
