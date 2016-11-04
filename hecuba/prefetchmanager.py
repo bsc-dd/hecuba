@@ -77,21 +77,14 @@ def pipeloop(pipeq, piper):
                     token_ranges = []
                     metadata = cluster.metadata
                     ringtokens = metadata.token_map
-                    ranges = str(input_data[4]).split('_')
-                    for range in ranges:
-                        for i, token in enumerate(ringtokens.ring):
-                            if long(i) == long(range):
-                                if not (long(i) == len(ringtokens.ring) - 1):
-                                    start_token = token.value
-                                    end_token = (ringtokens.ring[i+1]).value
-                                    token_ranges.append((long(start_token), long(end_token)))
-                                else:
-                                    start_token = -9223372036854775808
-                                    end_token = (ringtokens.ring[0]).value
-                                    token_ranges.append((long(start_token), long(end_token)))
-                                    start_token = (ringtokens.ring[i]).value
-                                    end_token = 9223372036854775807
-                                    token_ranges.append((long(start_token), long(end_token)))
+                    ranges = input_data[4]
+                    ran = set(ranges)
+                    last = ringtokens.ring[len(ringtokens.ring)-1]
+                    for t in ringtokens.ring:
+                        if t.value in ran:
+                            token_ranges.append((last.value, t.value))
+                        last = t
+
             '''
             prepare the query and execute concurrent. Use the result in the loop implemented under the query command
             '''
