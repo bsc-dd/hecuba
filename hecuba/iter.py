@@ -267,7 +267,8 @@ class KeyIter(object):
     def createIfNot(self):
         try:
             session.execute(
-                'CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, classname text, tkns list<bigint>, entryPoint text , port int, ksp text , tab text , dict_name text , obj_type text, PRIMARY KEY(blockid))')
+                'CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, classname text, tkns list<bigint>, '+
+                'entryPoint text , port int, ksp text , tab text , dict_name text , obj_type text, PRIMARY KEY(blockid))')
         except Exception as e:
             print "Error:", e
 
@@ -277,25 +278,20 @@ class KeyIter(object):
         if start == self.num_peers:
             raise StopIteration
 
-        '''
+
         currentRingPos =self.ring[self.pos]    # [1]
         tokens = currentRingPos[1]
-
-        try:
-            session.execute('CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, tkns list<bigint>, entryPoint text , port int, ksp text , tab text , dict_name text , obj_type text, PRIMARY KEY(blockid))')
-        except Exception as e:
-            print "Error:", e
-        myuuid = str(uuid.uuid1())
-        try:
-            session.execute('INSERT INTO hecuba.blocks (blockid, tkns, ksp, tab, dict_name, obj_type, entrypoint, port) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)',
-                                                       [myuuid,  tokens, self.blockkeyspace, self.mypdict.dict_keynames, self.mypdict.mypo.name,'hecuba','localhost',1] )
-        except Exception as e:
-            print "Error:", e
-        '''
-
         import uuid
 
+
+
         myuuid = str(uuid.uuid1())
+        try:
+            session.execute('INSERT INTO hecuba.blocks (blockid, classname,tkns, ksp, tab, dict_name, obj_type)'+
+                            ' VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+                            [myuuid, "hecuba.Block", tokens, self.blockkeyspace, self.mypdict.dict_keynames, self.mypdict.mypo.name, 'hecuba'])
+        except Exception as e:
+            print "Error:", e
         currringpos = self.ring[self.pos]
         b = Block(myuuid,currringpos[0], self.mypdict.dict_keynames, self.mypdict.mypo.name, self.blockkeyspace,currringpos[1])
         self.pos += 1
