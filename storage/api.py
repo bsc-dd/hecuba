@@ -105,6 +105,10 @@ def getByID(objid):
             exec('block_class = '+cname)
 
             b=block_class.build_remotely(blockid, classname, tkns, entryPoint, port, ksp, tab, dict_name, obj_type)
+
+            if not 'prefetch_activated' in globals():
+                global prefetch_activated
+                prefetch_activated = True
             if prefetch_activated:
                 b.storageobj.init_prefetch(b)
             return b
