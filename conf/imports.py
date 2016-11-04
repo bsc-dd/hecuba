@@ -1,4 +1,2 @@
-from app.myobj import MyObj
-
-apppath = '/home/galomar/hecuba_Qbeast'
+from app.words import Words
 
