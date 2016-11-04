@@ -1,25 +1,38 @@
 # author: G. Alomar
-from hecuba.datastore import *
 from hecuba.dict import *
-from hecuba.qbeastiface import *
-from qbeastIntegration.ttypes import Result
 from conf.hecuba_params import execution_name, ranges_per_block
 from collections import defaultdict
 from struct import *
 import time
+from hecuba import *
 import uuid
 
 class Block(object):
-    def __init__(self, peer, keynames, tablename, blockkeyspace):
-        print "IxBlock __init__ ####################################"
-        for ind, position in enumerate(peer):
-            if ind == 0:
-                self.node = position
-            else:
-                self.token_ranges = position
+
+    @staticmethod
+    def build_remotely(blockid, classname, tkns, entryPoint, port, ksp, tab, dict_name, obj_type):
+        return Block(blockid, entryPoint, tab, dict_name, ksp, tkns)
+
+
+
+
+    def __init__(self,blockid, peer, keynames, tablename, blockkeyspace, tokens):
+        ''''
+        :type blockid: string an unique block identifier
+        :type peer: string hostname
+        :type keynames: string the Cassandra partition key
+        :type tablename: string the name of the collection/table
+        :type blockkeyspace: string name of the Cassandra keyspace.
+        :type tokens: list of tokens
+        '''
+        print "Block __init__ ####################################"
+        self.blockid = blockid
+        self.node = peer
+        self.token_ranges = tokens
         self.key_names = keynames
         self.table_name = tablename
         self.keyspace = blockkeyspace
+        self.needContext = True
         self.storageobj = ""
         self.cntxt = ""
 
@@ -37,13 +50,7 @@ class Block(object):
         persistentdict[key] = val
 
     def getID(self):
-        self.key_names = str(self.key_names).replace('\'', '')
-        self.key_names = str(self.key_names).replace('(', '')
-        self.key_names = str(self.key_names).replace(')', '')
-        self.key_names = str(self.key_names).replace(' ', '')
-        identifier = "%s_%s_%s_%s" % (self.keyspace, self.key_names, self.table_name, self.token_ranges)
-        identifier = identifier.replace(' ', '')
-        return identifier
+        return self.blockid
 
     def iteritems(self):
         return BlockItemsIter(self)
@@ -252,6 +259,15 @@ class KeyIter(object):
                             starttok = endtok
 
         self.num_peers = len(self.ring)
+        self.createIfNot()
+
+
+    def createIfNot(self):
+        try:
+            session.execute(
+                'CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, classname text, tkns list<bigint>, entryPoint text , port int, ksp text , tab text , dict_name text , obj_type text, PRIMARY KEY(blockid))')
+        except Exception as e:
+            print "Error:", e
 
     def next(self):
         print "KeyIter - next ################################################"
@@ -263,8 +279,6 @@ class KeyIter(object):
         currentRingPos =self.ring[self.pos]    # [1]
         tokens = currentRingPos[1]
 
-        cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-        session = cluster.connect()
         try:
             session.execute('CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, tkns list<bigint>, entryPoint text , port int, ksp text , tab text , dict_name text , obj_type text, PRIMARY KEY(blockid))')
         except Exception as e:
@@ -275,8 +289,6 @@ class KeyIter(object):
                                                        [myuuid,  tokens, self.blockkeyspace, self.mypdict.dict_keynames, self.mypdict.mypo.name,'hecuba','localhost',1] )
         except Exception as e:
             print "Error:", e
-        session.shutdown()
-        cluster.shutdown()
         '''
 
         b = Block(self.ring[self.pos], self.mypdict.dict_keynames, self.mypdict.mypo.name, self.blockkeyspace)

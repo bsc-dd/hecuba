@@ -1,5 +1,6 @@
 # author: G. Alomar
-from cassandra.cluster import Cluster
+
+from hecuba import *
 from hecuba.datastore import *
 from hecuba.iter import Block
 from hecuba.dict import *
@@ -8,7 +9,6 @@ import collections
 import hecuba
 
 from conf.hecuba_params import *
-from conf.apppath import apppath
 
 
 def start_task(params):
@@ -26,10 +26,9 @@ def start_task(params):
 
     if batch_activated:
         for param in params:
-            if not str(type(param)) == "<class 'hecuba.iter.IxBlock'>":
-                if isinstance(param, StorageObj) or isinstance(param, StorageObjIx) or isinstance(param, Block):
-                    param.cntxt = context(param)
-                    param.cntxt.__enter__()
+            if issubclass(param.__class.__, StorageObj) or issubclass(param.__class.__, Block) and param.needContext:
+                param.cntxt = context(param)
+                param.cntxt.__enter__()
 
 def end_task(params):
     if not 'prefetch_activated' in globals():
@@ -46,17 +45,16 @@ def end_task(params):
 
     if batch_activated:
         for param in params:
-            if not str(type(param)) == "<class 'hecuba.iter.IxBlock'>":
-                if isinstance(param, Block) or isinstance(param, StorageObj) or isinstance(param, StorageObjIx):
-                    try:
-                        param.cntxt.__exit__()
-                    except Exception as e:
-                        print "error trying to exit context:", e
+            if hasattr(param,'needContext') and param.needContext:
+                try:
+                    param.cntxt.__exit__()
+                except Exception as e:
+                    print "error trying to exit context:", e
 
     if prefetch_activated:
         for param in params:
-            if not str(type(param)) == "<class 'hecuba.iter.IxBlock'>":
-                if isinstance(param, Block):
+            if hasattr(param,'needContext') and param.needContext:
+                if issubclass(param.__class__, Block):
                     keys = param.storageobj.keyList[param.storageobj.__class__.__name__]
                     exec("persistentdict = param.storageobj." + str(keys[0]))
                     if persistentdict.prefetch == True:
@@ -70,11 +68,10 @@ def end_task(params):
         statistics_activated = True
     if statistics_activated:
         for param in params:
-            if not str(type(param)) == "<class 'hecuba.iter.IxBlock'>":
-                if isinstance(param, Block):
-                    param.storageobj.statistics()
-                if isinstance(param, StorageObj) or isinstance(param, StorageObjIx):
-                    param.statistics()
+            if issubclass(param.__class__, Block):
+                param.storageobj.statistics()
+            if issubclass(param.__class__, StorageObj):
+                param.statistics()
 
 def getByID(objid):
     path = apppath + '/conf/imports.py'
@@ -90,73 +87,27 @@ def getByID(objid):
         return result
 
     else:
+
         try:
-            obj_type = session.execute("SELECT obj_type FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].obj_type
+            # exec ("b = %d()"$(class_name))
+
+            (blockid, classname, tkns, entryPoint, port, ksp, tab, dict_name, obj_type) = \
+            session.execute(
+                "SELECT blockid, classname, tkns, entryPoint ,port, ksp, tab, dict_name, obj_type " +
+                "FROM hecuba.blocks WHERE blockid = %s", (objid,))[0]
+
+            last=0
+            for key, i in enumerate(classname):
+                if i == '.' and key > last:
+                    last = key
+            module=classname[:last]
+            cname=classname[last+1:]
+            exec('from %s import %s'%(module,cname))
+            exec('block_class = '+cname)
+
+            b=block_class.build_remotely(blockid, classname, tkns, entryPoint, port, ksp, tab, dict_name, obj_type)
+            exec("b.storageobj = " + str(dict_name) + "('" + str(dict_name) + "')")
+            return b
         except Exception as e:
             print "Error:", e
-        try:
-            entryPoint = session.execute("SELECT entrypoint FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].entrypoint
-        except Exception as e:
-            print "Error:", e
-        try:
-            port =       session.execute("SELECT port FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].port
-        except Exception as e:
-            print "Error:", e
-        try:
-            tokens =     session.execute("SELECT tkns FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].tkns
-        except Exception as e:
-            print "Error:", e
-        try:
-            ksp =        session.execute("SELECT ksp FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].ksp
-        except Exception as e:
-            print "Error:", e
-        try:
-            tab =        session.execute("SELECT tab FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].tab
-        except Exception as e:
-            print "Error:", e
-        try:
-            dict_name =  session.execute("SELECT dict_name FROM hecuba.blocks WHERE blockid = %s",(objid,))[0].dict_name
-        except Exception as e:
-            print "Error:", e
-        blockid = objid
-        metadata = cluster.metadata
-        tokenmap = metadata.token_map.token_to_host_owner
-        odtokenmap = collections.OrderedDict(sorted(tokenmap.items()))
-        for position in tokens: 
-            for key, val in odtokenmap.iteritems():
-                # (self, peer,        keynames, tablename, blockkeyspace, myuuid)
-                try:
-                    # exec ("b = %d()"$(class_name))
-                    b = IxBlock(str(val), tab, dict_name, ksp, objid) # the keynames vale is wrong, needs to be corrected
-                except Exception as e:
-                    print "Error:", e
-                try:
-                    exec("b.storageobj = " + str(dict_name) + "('" + str(dict_name) + "')")
-                    return b
-                except Exception as e:
-                    # blockKeyspace = objidsplit[0]
-                    # blockKeyNames = str(objidsplit[1])
-                    # blockTableName = objidsplit[2]
-                    # blockRange = objidsplit[3]
-                    blockranges = objidsplit[3:len(objidsplit)]
-                    blockrangesf = ''
-                    for ind, val in enumerate(blockranges):
-                        if ind < (len(blockranges)-1):
-                            blockrangesf += str(val) + '_'
-                        else:
-                            blockrangesf += str(val)
-                    metadata = cluster.metadata
-                    tokenmap = metadata.token_map.token_to_host_owner
-                    odtokenmap = collections.OrderedDict(sorted(tokenmap.items()))
-                    position = 0
-                    if not 'prefetch_activated' in globals():
-                        global prefetch_activated
-                        prefetch_activated = True
-                    for key, val in odtokenmap.iteritems():
-                        if str(position) == objidsplit[3]:
-                            b = Block((str(val), blockrangesf), str(objidsplit[1]), objidsplit[2], objidsplit[0])
-                            exec("b.storageobj = " + str(objidsplit[2]) + "('" + str(objidsplit[2]) + "')")
-                            if prefetch_activated:
-                                b.storageobj.init_prefetch(b)
-                            return b
-                        position += 1
+

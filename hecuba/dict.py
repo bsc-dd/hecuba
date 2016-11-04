@@ -2,9 +2,9 @@
 from cassandra.query import BatchStatement
 from cassandra.query import BatchType
 from cassandra import ConsistencyLevel
+from hecuba.settings import session,cluster
 from hecuba.cache import PersistentDictCache
 from hecuba.prefetchmanager import PrefetchManager
-from hecuba.datastore import *
 from hecuba.Plist import PersistentKeyList
 from conf.hecuba_params import * # execution_name, batch_size, max_cache_size, cache_activated
 from collections import defaultdict

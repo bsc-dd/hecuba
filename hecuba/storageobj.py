@@ -1,17 +1,12 @@
 # author: G. Alomar
-from cassandra.cluster import Cluster
-from collections import defaultdict
 from hecuba.Plist import *
-from hecuba.dict import PersistentDict
-from hecuba.datastore import *
 from conf.hecuba_params import execution_name
-from conf.apppath import apppath
+from collections import defaultdict
+from hecuba.settings import session
 import time
-import glob
-import os
+
 
 class StorageObj(object):
-
     keyList = defaultdict(list)
     nextKeys = []
     cntxt = ''
@@ -19,18 +14,18 @@ class StorageObj(object):
     def __init__(self, name=None):
         print "storageobj __init__ ####################################"
         print self.__class__.__name__
-        setattr(self, 'name', None)
-        setattr(self, 'persistent', False)
-        setattr(self, 'indexed', False)
+        self.name = None
+        self.persistent = False
+        self.needContext = True
         self.getByName(name)
 
     def init_prefetch(self, block):
         keys = self.keyList[self.__class__.__name__]
-        exec("self." + str(keys[0]) + ".init_prefetch(block)")
+        exec ("self." + str(keys[0]) + ".init_prefetch(block)")
 
     def end_prefetch(self):
         keys = self.keyList[self.__class__.__name__]
-        exec("self." + str(keys[0]) + ".end_prefetch()")
+        exec ("self." + str(keys[0]) + ".end_prefetch()")
 
     def getByName(self, name):
         print "storageobj getByName ####################################"
@@ -74,45 +69,13 @@ class StorageObj(object):
             else:
                 initial = numtables
             notk = notkeys.split(',')[0]
-            notk = str(notk)[1:len(notk)-1]
+            notk = str(notk)[1:len(notk) - 1]
             notkeys = notkeys[0:len(notkeys) - 2]
             yesk = yeskeys.split(',')[0]
-            yesk = str(yesk)[2:len(yesk)-1]
+            yesk = str(yesk)[2:len(yesk) - 1]
             yeskeys = yeskeys[0:len(yeskeys) - 2]
             yeskeys += ")"
-            exec("self." + str(yesk) + " = PersistentDict(self, (" + notkeys + "), " + yeskeys + ")")
-
-        filestoparse = glob.glob(apppath + "/app/*.py")
-        for ftp in filestoparse:
-            f = open(ftp, 'r')
-            incomment = False
-            classf = False
-            for line in f:
-                if "class " in line:
-                    if ("(StorageObj)" in line) or ("(StorageObjIx)" in line):
-                        classf = True
-                        if not incomment:
-                            completeline = str(line)
-                            line = line.split(" ")
-                            line = line[1]
-                            line = line.split("(")
-                            classn = line[0]
-                            if classn == self.__class__.__name__:
-                                if "(StorageObj)" in completeline:
-                                    print "self.indexed = False"
-                                    self.indexed = False
-                                if "(StorageObjIx)" in completeline:
-                                    print "self.indexed = True"
-                                    self.indexed = True
-                if "'''" in line:
-                    if classf:
-                        if not incomment:
-                            incomment = True
-                        else:
-                            incomment = False
-
-        session.shutdown()
-        cluster.shutdown()
+            exec ("self." + str(yesk) + " = PersistentDict(self, (" + notkeys + "), " + yeskeys + ")")
 
     def make_persistent(self, name):
         print "storageobj make_persistent ####################################"
@@ -120,7 +83,6 @@ class StorageObj(object):
 
         self.name = name
         keyspace = 'config' + execution_name
-
 
         dictname = "\"" + self.__class__.__name__ + "\""
 
@@ -139,20 +101,20 @@ class StorageObj(object):
         # Row(dictid, dataname, datatype, iskey, keyorder)
         #     row[0]   row[1]    row[2]  row[3]   row[4]
         for row in execution:
-            if row[3] == "yes":                                                             # if element is key
+            if row[3] == "yes":  # if element is key
                 if row[1] not in typesy:
                     yeskeys = yeskeys + row[1] + ", "
                     typesy.append(row[1])
-                if row[1] not in typesn:                                                    # if key name + datatype hasn't been processed yet
-                    yeskeystypes = yeskeystypes + row[1] + " " + row[2] + ", "              # save name and datatype
+                if row[1] not in typesn:  # if key name + datatype hasn't been processed yet
+                    yeskeystypes = yeskeystypes + row[1] + " " + row[2] + ", "  # save name and datatype
                     typesn.append(row[1])
-                if row[2] == 'int':                                                         # if key is an int
+                if row[2] == 'int':  # if key is an int
                     if row[1] not in atribstypes:
                         atribstypes.append(row[1])
-                if row[2] == 'text':                                                        # if key is a string
+                if row[2] == 'text':  # if key is a string
                     if row[1] not in atribstypes:
                         atribstypes.append(row[1])
-            else:                                                                           # if element is not key
+            else:  # if element is not key
                 if row[1] not in typesn:
                     notkeystypes = notkeystypes + row[1] + " " + row[2] + ", "
                     typesn.append(row[1])
@@ -167,40 +129,51 @@ class StorageObj(object):
         except Exception as e:
             print "keyspace could not be set", e
 
-        querytable = "CREATE TABLE " + execution_name + ".\"" + str(name) + "\" (%s, %s, PRIMARY KEY%s);" % (yeskeystypes, notkeystypes, yeskeys)
+        querytable = "CREATE TABLE " + execution_name + ".\"" + str(name) + "\" (%s, %s, PRIMARY KEY%s);" % (
+        yeskeystypes, notkeystypes, yeskeys)
         try:
             session.execute(querytable)
         except Exception as e:
             print "error in querytable:", querytable
             print "Object", self.name, "cannot be created in persistent storage", e
-            #pass
+            # pass
 
         keys = self.keyList[self.__class__.__name__]
         for key in self.split():
-            exec("val = self." + str(keys[0]) + "[" + str(key) + "]")
-            query = "INSERT INTO " + str(execution_name) + ".\"" + str(name) + "\"(" + str(yeskeys[1:len(yeskeys)-1]) + ", " + str(keys[0]) + ") VALUES (" + str(key) + ", " + str(val) + ");"
+            exec ("val = self." + str(keys[0]) + "[" + str(key) + "]")
+            query = "INSERT INTO " + str(execution_name) + ".\"" + str(name) + "\"(" + str(
+                yeskeys[1:len(yeskeys) - 1]) + ", " + str(keys[0]) + ") VALUES (" + str(key) + ", " + str(val) + ");"
             session.execute(query)
 
         for key, variable in vars(self).iteritems():
             if str(type(variable)) == "<type 'int'>":
-                querytable = "INSERT INTO config" + str(execution_name) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(self.name) + "\', \'" + str(key) + "\', 'int', \'" + str(variable) + "\');"
+                querytable = "INSERT INTO config" + str(
+                    execution_name) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(
+                    self.name) + "\', \'" + str(key) + "\', 'int', \'" + str(variable) + "\');"
                 session.execute(querytable)
             if str(type(variable)) == "<type 'str'>":
                 if not str(key) == 'name':
-                    querytable = "INSERT INTO config" + str(execution_name) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(self.name) + "\', \'" + str(key) + "\', 'str', \'" + str(variable) + "\');"
+                    querytable = "INSERT INTO config" + str(
+                        execution_name) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(
+                        self.name) + "\', \'" + str(key) + "\', 'str', \'" + str(variable) + "\');"
                     session.execute(querytable)
             if str(type(variable)) == "<type 'list'>":
-                querytable = "CREATE TABLE " + execution_name + ".\"" + str(name) + str(key) + "\" (position int, type text, value text, PRIMARY KEY (position));"
+                querytable = "CREATE TABLE " + execution_name + ".\"" + str(name) + str(
+                    key) + "\" (position int, type text, value text, PRIMARY KEY (position));"
                 try:
                     session.execute(querytable)
                 except Exception as e:
-                    #print "Object", self.name, "cannot be created in persistent storage", e
+                    # print "Object", self.name, "cannot be created in persistent storage", e
                     pass
                 for ind, value in enumerate(variable):
                     if str(type(value)) == "<type 'int'>":
-                        querytable = "INSERT INTO " + execution_name + ".\"" + str(name) + str(key) + "\" (position, type, value) VALUES ( " + str(ind) + ", \'int\', \'" + str(value) + "\');"
+                        querytable = "INSERT INTO " + execution_name + ".\"" + str(name) + str(
+                            key) + "\" (position, type, value) VALUES ( " + str(ind) + ", \'int\', \'" + str(
+                            value) + "\');"
                     if str(type(value)) == "<type 'str'>":
-                        querytable = "INSERT INTO " + execution_name + ".\"" + str(name) + str(key) + "\" (position, type, value) VALUES ( " + str(ind) + ", \'str\', \'" + str(value) + "\');"
+                        querytable = "INSERT INTO " + execution_name + ".\"" + str(name) + str(
+                            key) + "\" (position, type, value) VALUES ( " + str(ind) + ", \'str\', \'" + str(
+                            value) + "\');"
                     try:
                         session.execute(querytable)
                     except Exception as e:
@@ -213,14 +186,17 @@ class StorageObj(object):
         self.name = name
         keyspace = 'config' + execution_name
 
-
         for key, variable in vars(self).iteritems():
             if str(type(variable)) == "<type 'int'>":
-                querytable = "INSERT INTO config" + str(execution_name) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(self.name) + "\', \'" + str(key) + "\', 'int', \'" + str(variable) + "\');"
+                querytable = "INSERT INTO config" + str(
+                    execution_name) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(
+                    self.name) + "\', \'" + str(key) + "\', 'int', \'" + str(variable) + "\');"
                 session.execute(querytable)
             if str(type(variable)) == "<type 'str'>":
                 if not str(key) == 'name':
-                    querytable = "INSERT INTO config" + str(execution_name) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(self.name) + "\', \'" + str(key) + "\', 'str', \'" + str(variable) + "\');"
+                    querytable = "INSERT INTO config" + str(
+                        execution_name) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(
+                        self.name) + "\', \'" + str(key) + "\', 'str', \'" + str(variable) + "\');"
                     session.execute(querytable)
             if str(type(variable)) == "<type 'list'>":
                 query = "TRUNCATE %s.\"%s\";" % (execution_name, self.name + str(key))
@@ -228,19 +204,23 @@ class StorageObj(object):
                     session.execute(query)
                 except Exception as e:
                     print "Object", self.name, "cannot be emptied in persistent storage saveToDDBB:", e
-                querytable = "CREATE TABLE " + execution_name + ".\"" + str(self.name) + str(key) + "\" (position int, type text, value text, PRIMARY KEY (position));"
+                querytable = "CREATE TABLE " + execution_name + ".\"" + str(self.name) + str(
+                    key) + "\" (position int, type text, value text, PRIMARY KEY (position));"
                 try:
                     session.execute(querytable)
                 except Exception as e:
-                    #print "Object", self.name, "cannot be created in persistent storage", e
+                    # print "Object", self.name, "cannot be created in persistent storage", e
                     pass
                 for ind, value in enumerate(variable):
                     if str(type(value)) == "<type 'int'>":
-                        querytable = "INSERT INTO " + execution_name + ".\"" + str(self.name) + str(key) + "\" (position, type, value) VALUES ( " + str(ind) + ", \'int\', \'" + str(value) + "\');"
+                        querytable = "INSERT INTO " + execution_name + ".\"" + str(self.name) + str(
+                            key) + "\" (position, type, value) VALUES ( " + str(ind) + ", \'int\', \'" + str(
+                            value) + "\');"
                     if str(type(value)) == "<type 'str'>":
-                        querytable = "INSERT INTO " + execution_name + ".\"" + str(self.name) + str(key) + "\" (position, type, value) VALUES ( " + str(ind) + ", \'str\', \'" + str(value) + "\');"
+                        querytable = "INSERT INTO " + execution_name + ".\"" + str(self.name) + str(
+                            key) + "\" (position, type, value) VALUES ( " + str(ind) + ", \'str\', \'" + str(
+                            value) + "\');"
                     session.execute(querytable)
-
 
     '''
     def iteritems(self):
@@ -248,17 +228,20 @@ class StorageObj(object):
         print "Data needs to be accessed through a block"
         return [] # self
     '''
-    #'''
+
+    # '''
     # new iteritems
     def iteritems(self):
         print "storageobj iteritems ####################################"
         keys = self.keyList[self.__class__.__name__]
         self.pKeyList = PersistentKeyList(getattr(self, str(keys[0])))
-        return self # a
-    #'''
+        return self  # a
+
+    # '''
     def itervalues(self):
         print "Data needs to be accessed through a block"
-        return [] # self
+        return []  # self
+
     '''
     def iteritems(self):
         keys = self.keyList[self.__class__.__name__]
@@ -271,8 +254,7 @@ class StorageObj(object):
 
     def empty_persistent(self):
         keys = self.keyList[self.__class__.__name__]
-        exec("self." + str(keys[0]) + ".dictCache.cache = {}")
-
+        exec ("self." + str(keys[0]) + ".dictCache.cache = {}")
 
         query = "TRUNCATE %s.\"%s\";" % (execution_name, self.name)
 
@@ -287,14 +269,12 @@ class StorageObj(object):
                 sleeptime *= 2
                 if sessionexecute == 9:
                     print "Error: Cannot empty object. Exception: ", e
-                    session.shutdown()
                     raise e
                 sessionexecute += 1
 
-
     def delete_persistent(self):
         keys = self.keyList[self.__class__.__name__]
-        exec("self." + str(keys[0]) + ".dictCache.cache = {}")
+        exec ("self." + str(keys[0]) + ".dictCache.cache = {}")
 
         self.persistent = False
 
@@ -312,14 +292,12 @@ class StorageObj(object):
             print "Object", str(self.name), "cannot be deleted from persistent storage:", str(e)
             return
 
-
-
     def __contains__(self, key):
         keys = self.keyList[self.__class__.__name__]
         if len(keys) > 1:
             raise KeyError
         else:
-            exec("a = self." + str(keys[0]) + ".__contains__(key)")
+            exec ("a = self." + str(keys[0]) + ".__contains__(key)")
             return a
 
     def has_key(self, key):
@@ -327,7 +305,7 @@ class StorageObj(object):
         if len(keys) > 1:
             raise KeyError
         else:
-            exec("a = self." + str(keys[0]) + ".has_key(key)")
+            exec ("a = self." + str(keys[0]) + ".has_key(key)")
             return a
 
     def finalize(self):
@@ -341,7 +319,8 @@ class StorageObj(object):
                     except Exception as e:
                         print "Error in finalize DROP 1:", e
                     try:
-                        session.execute("DELETE FROM " + keyspace + ".\"access\" WHERE classtable = \'" + row[0] + "\';")
+                        session.execute(
+                            "DELETE FROM " + keyspace + ".\"access\" WHERE classtable = \'" + row[0] + "\';")
                     except Exception as e:
                         print "Error in finalize DELETE:", e
                 execution = session.execute("SELECT * FROM " + keyspace + ".\"access\";")
@@ -353,15 +332,15 @@ class StorageObj(object):
         except Exception as e:
             print "Error in finalize:", e
 
-    def __getattr__(self,key):
-        #print "storageobj __getattr__"
-        #print "self:                   ", self
-        #print "key:                    ", key
+    def __getattr__(self, key):
+        # print "storageobj __getattr__"
+        # print "self:                   ", self
+        # print "key:                    ", key
         toreturn = ''
         if not key == 'persistent':
             if hasattr(self, 'persistent'):
                 if not super(StorageObj, self).__getattribute__('persistent'):
-                    if hasattr(self,key):
+                    if hasattr(self, key):
                         toreturn = super(StorageObj, self).__getattribute__(key)
                         return toreturn
                     else:
@@ -370,11 +349,13 @@ class StorageObj(object):
                 else:
                     keyspace = 'config' + execution_name
 
-                    query = "SELECT * FROM config" + str(execution_name) + ".attribs WHERE dictname = '" + self.__class__.__name__ + "' AND dataname = '" + str(key) + "';"
+                    query = "SELECT * FROM config" + str(
+                        execution_name) + ".attribs WHERE dictname = '" + self.__class__.__name__ + "' AND dataname = '" + str(
+                        key) + "';"
                     try:
                         result = session.execute(query)
                     except Exception as e:
-                        #print "Object", self.name, "cannot be selected in persistent storage __getattr__:", e
+                        # print "Object", self.name, "cannot be selected in persistent storage __getattr__:", e
                         pass
 
                     for row in result:
@@ -390,11 +371,10 @@ class StorageObj(object):
                                 if str(valrow[1]) == 'str':
                                     values.append(str(valrow[2]))
                                 else:
-                                    values.append(int(str(valrow[2]).replace('\'','')))
+                                    values.append(int(str(valrow[2]).replace('\'', '')))
                             toreturn = values
                         else:
                             toreturn = row[3]
-
 
                     return toreturn
             else:
@@ -403,13 +383,13 @@ class StorageObj(object):
             return super(StorageObj, self).__getattribute__(key)
 
     def __setattr__(self, key, value):
-        #print "storageobj - __setattr__"
-        #print "self:                   ", self
-        #print "key:                    ", key
+        # print "storageobj - __setattr__"
+        # print "self:                   ", self
+        # print "key:                    ", key
         if str(type(value)) == "<class 'hecuba.dict.PersistentDict'>":
             super(StorageObj, self).__setattr__(key, value)
         else:
-            if not (str(key) == 'indexed') and not (str(key) == 'name') and not (str(key) == 'persistent') and not (str(key) == 'cntxt'):
+            if not (str(key) == 'name') and not (str(key) == 'persistent') and not (str(key) == 'cntxt'):
                 if hasattr(self, 'persistent'):
                     if not self.persistent:
                         super(StorageObj, self).__setattr__(key, value)
@@ -418,34 +398,45 @@ class StorageObj(object):
                         keyspace = 'config' + execution_name
 
                         if type(value) == list:
-                            querytable = "CREATE TABLE " + execution_name + ".\"" + str(self.__class__.__name__) + str(key) + "\" (position int, type text, value text, PRIMARY KEY (position));"
+                            querytable = "CREATE TABLE " + execution_name + ".\"" + str(self.__class__.__name__) + str(
+                                key) + "\" (position int, type text, value text, PRIMARY KEY (position));"
                             try:
                                 session.execute(querytable)
                             except Exception as e:
-                                #print "Object", self.__class__.__name__, "cannot be created in persistent storage", e
+                                # print "Object", self.__class__.__name__, "cannot be created in persistent storage", e
                                 pass
                             query = "TRUNCATE %s.\"%s\";" % (execution_name, str(self.__class__.__name__) + str(key))
                             try:
                                 session.execute(query)
                             except Exception as e:
-                                #print "Object", self.name, "cannot be emptied in persistent storage:", e
+                                # print "Object", self.name, "cannot be emptied in persistent storage:", e
                                 pass
                             strtypeval = ''
                             for ind, val in enumerate(value):
                                 if str(type(val)) == "<type 'int'>":
                                     strtypeval = 'int'
-                                    querytable = "INSERT INTO " + execution_name + ".\"" + str(self.name) + str(key) + "\" (position, type, value) VALUES ( " + str(ind) + ", \'int\', \'" + str(val) + "\');"
+                                    querytable = "INSERT INTO " + execution_name + ".\"" + str(self.name) + str(
+                                        key) + "\" (position, type, value) VALUES ( " + str(
+                                        ind) + ", \'int\', \'" + str(val) + "\');"
                                 if str(type(val)) == "<type 'str'>":
                                     strtypeval = 'str'
-                                    querytable = "INSERT INTO " + execution_name + ".\"" + str(self.name) + str(key) + "\" (position, type, value) VALUES ( " + str(ind) + ", \'str\', \'" + str(val) + "\');"
+                                    querytable = "INSERT INTO " + execution_name + ".\"" + str(self.name) + str(
+                                        key) + "\" (position, type, value) VALUES ( " + str(
+                                        ind) + ", \'str\', \'" + str(val) + "\');"
                                 try:
                                     session.execute(querytable)
                                 except Exception as e:
                                     print "Object", str(value), "cannot be inserted in persistent storage", e
                             if strtypeval == 'str':
-                                querytable = "INSERT INTO config" + str(execution_name) + ".attribs(dictName, dataName, dataType, dataValue) VALUES ( \'" + str(self.__class__.__name__) + "\', \'" + str(key) + "\', \'list_str\', \'" + str(execution_name) + ".\"" + str(self.__class__.__name__) + str(key) + "\"\')"
+                                querytable = "INSERT INTO config" + str(
+                                    execution_name) + ".attribs(dictName, dataName, dataType, dataValue) VALUES ( \'" + str(
+                                    self.__class__.__name__) + "\', \'" + str(key) + "\', \'list_str\', \'" + str(
+                                    execution_name) + ".\"" + str(self.__class__.__name__) + str(key) + "\"\')"
                             else:
-                                querytable = "INSERT INTO config" + str(execution_name) + ".attribs(dictName, dataName, dataType, dataValue) VALUES ( \'" + str(self.__class__.__name__) + "\', \'" + str(key) + "\', \'list_int\', \'" + str(execution_name) + ".\"" + str(self.__class__.__name__) + str(key) + "\"\')"
+                                querytable = "INSERT INTO config" + str(
+                                    execution_name) + ".attribs(dictName, dataName, dataType, dataValue) VALUES ( \'" + str(
+                                    self.__class__.__name__) + "\', \'" + str(key) + "\', \'list_int\', \'" + str(
+                                    execution_name) + ".\"" + str(self.__class__.__name__) + str(key) + "\"\')"
                             try:
                                 session.execute(querytable)
                             except Exception as e:
@@ -453,14 +444,20 @@ class StorageObj(object):
 
                         else:
                             if type(value) == int:
-                                querytable = "INSERT INTO config" + str(execution_name) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(self.__class__.__name__) + "\', \'" + str(key) + "\', 'int', \'" + str(value) + "\');"
+                                querytable = "INSERT INTO config" + str(
+                                    execution_name) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(
+                                    self.__class__.__name__) + "\', \'" + str(key) + "\', 'int', \'" + str(
+                                    value) + "\');"
                                 try:
                                     session.execute(querytable)
                                 except Exception as e:
                                     print "Object", str(value), "cannot be inserted in persistent storage", e
                             if type(value) == str:
                                 if not str(key) == 'name':
-                                    querytable = "INSERT INTO config" + str(execution_name) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(self.__class__.__name__) + "\', \'" + str(key) + "\', 'str', \'" + str(value) + "\');"
+                                    querytable = "INSERT INTO config" + str(
+                                        execution_name) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(
+                                        self.__class__.__name__) + "\', \'" + str(key) + "\', 'str', \'" + str(
+                                        value) + "\');"
                                     try:
                                         session.execute(querytable)
                                     except Exception as e:
@@ -499,7 +496,7 @@ class StorageObj(object):
         self.adding = True
         auxdict = {}
         if len(keys) == 1:
-            exec("auxdict = self." + str(keys[0]))
+            exec ("auxdict = self." + str(keys[0]))
         else:
             print "StorageObj " + str(self.name) + " has more than 1 dictionary, specify which one has to be used"
             raise KeyError
@@ -511,13 +508,13 @@ class StorageObj(object):
         keys = self.keyList[self.__class__.__name__]
         print "keys:", keys
         auxdict = {}
-        
+
         if len(keys) == 1:
-            exec("auxdict = self." + str(keys[0]))
+            exec ("auxdict = self." + str(keys[0]))
         else:
             print "StorageObj " + str(self.name) + " has more than 1 dictionary, specify which one has to be used"
             raise KeyError
-        
+
         # if (auxdict.types[str(auxdict.dict_name)] == 'counter'):
         #    #if self.adding == True:
         #    #    return 0
@@ -529,7 +526,7 @@ class StorageObj(object):
         keys = self.keyList[self.__class__.__name__]
         auxdict = {}
         if len(keys) == 1:
-            exec("auxdict = self." + str(keys[0]))
+            exec ("auxdict = self." + str(keys[0]))
         else:
             print "StorageObj " + str(self.name) + " has more than 1 dictionary, specify which one has to be used"
             raise KeyError
@@ -540,9 +537,9 @@ class StorageObj(object):
         keys = self.keyList[self.__class__.__name__]
 
         reads = 0
-        exec("reads = self." + str(keys[0]) + ".reads")
+        exec ("reads = self." + str(keys[0]) + ".reads")
         writes = 0
-        exec("writes = self." + str(keys[0]) + ".writes")
+        exec ("writes = self." + str(keys[0]) + ".writes")
 
         if reads > 0 or writes > 0:
             print "####################################################"
@@ -566,7 +563,7 @@ class StorageObj(object):
                             print "reads:                     ", reads
 
             chits = 0
-            exec("chits = self." + str(keys[0]) + ".cache_hits")
+            exec ("chits = self." + str(keys[0]) + ".cache_hits")
             if chits < 10:
                 print "cache_hits(X):                 ", chits
             else:
@@ -581,7 +578,7 @@ class StorageObj(object):
                         else:
                             print "cache_hits(X):             ", chits
             pendreqs = 0
-            exec("pendreqs = self." + str(keys[0]) + ".pending_requests")
+            exec ("pendreqs = self." + str(keys[0]) + ".pending_requests")
             if pendreqs > 0:
                 if pendreqs < 10:
                     print "pending_reqs:                  ", pendreqs
@@ -597,7 +594,7 @@ class StorageObj(object):
                             else:
                                 print "pending_reqs:              ", pendreqs
             dbhits = 0
-            exec("dbhits = self." + str(keys[0]) + ".miss")
+            exec ("dbhits = self." + str(keys[0]) + ".miss")
             if dbhits < 10:
                 print "miss(_):                       ", dbhits
             else:
@@ -613,13 +610,13 @@ class StorageObj(object):
                             print "miss(_):                   ", dbhits
 
             cprefetchs = 0
-            exec("cprefetchs = self." + str(keys[0]) + ".cache_prefetchs")
+            exec ("cprefetchs = self." + str(keys[0]) + ".cache_prefetchs")
             if cprefetchs > 0:
                 if cprefetchs < 10:
-                            print "cprefetchs:                    ", cprefetchs
+                    print "cprefetchs:                    ", cprefetchs
                 else:
                     if cprefetchs < 100:
-                            print "cprefetchs:                   ", cprefetchs
+                        print "cprefetchs:                   ", cprefetchs
                     else:
                         if cprefetchs < 1000:
                             print "cprefetchs:                  ", cprefetchs
@@ -630,7 +627,7 @@ class StorageObj(object):
                                 print "cprefetchs:                ", cprefetchs
 
             cachepreffails = 0
-            exec("cachepreffails = self." + str(keys[0]) + ".cache_prefetchs_fails")
+            exec ("cachepreffails = self." + str(keys[0]) + ".cache_prefetchs_fails")
             if cachepreffails < 10:
                 print "cachepreffails:                ", cachepreffails
             else:
@@ -691,7 +688,7 @@ class StorageObj(object):
                                 print "writes:                   ", writes
 
             cachewrite = 0
-            exec("cachewrite = self." + str(keys[0]) + ".cachewrite")
+            exec ("cachewrite = self." + str(keys[0]) + ".cachewrite")
             if cachewrite < 10:
                 print "cachewrite:                    ", cachewrite
             else:
@@ -710,7 +707,7 @@ class StorageObj(object):
                                 print "cachewrite:               ", cachewrite
 
             syncs = 0
-            exec("syncs = self." + str(keys[0]) + ".syncs")
+            exec ("syncs = self." + str(keys[0]) + ".syncs")
             if syncs < 10:
                 print "syncs:                         ", syncs
             else:
@@ -732,7 +729,7 @@ class StorageObj(object):
             print "------Times-----------------------------------------"
         if reads > 0:
             print "GETS"
-            exec("cache_hits_time = self." + str(keys[0]) + ".cache_hits_time")
+            exec ("cache_hits_time = self." + str(keys[0]) + ".cache_hits_time")
             print "cache_hits_time:               ", cache_hits_time
             cache_hits_time_med = 0.00000000000
             if chits > 0:
@@ -771,7 +768,7 @@ class StorageObj(object):
                 else:
                     print "pendreqfailstime:              ", pendreqfailstime
             '''
-            exec("mtime = self." + str(keys[0]) + ".miss_time")
+            exec ("mtime = self." + str(keys[0]) + ".miss_time")
             if mtime < 10:
                 print "miss_time:                     ", mtime
             else:
@@ -781,23 +778,23 @@ class StorageObj(object):
                 miss_times_med = mtime / dbhits
                 print("miss_times_med:                 %.8f" % miss_times_med)
 
-            #print "total_read_time:               ", str(cache_hits_time + pendreqsTime + mtime)
+            # print "total_read_time:               ", str(cache_hits_time + pendreqsTime + mtime)
             print "total_read_time:               ", str(cache_hits_time + mtime)
 
         if writes > 0:
             print "WRITES"
 
-            exec("syncstime = self." + str(keys[0]) + ".syncs_time")
+            exec ("syncstime = self." + str(keys[0]) + ".syncs_time")
             if syncstime < 10:
                 print "syncs_time:                    ", syncstime
             else:
                 print "syncs_time:                   ", syncstime
             syncs_times_med = 0.000000000000
             if syncs > 0:
-                exec("syncs_times_med = (self." + str(keys[0]) + ".syncs_time / syncs)")
+                exec ("syncs_times_med = (self." + str(keys[0]) + ".syncs_time / syncs)")
             print("syncs_times_med:                %.8f" % syncs_times_med)
 
-            exec("cwritetime = self." + str(keys[0]) + ".cachewrite_time")
+            exec ("cwritetime = self." + str(keys[0]) + ".cachewrite_time")
             if cwritetime < 10:
                 print "cachewrite_time:               ", cwritetime
             else:
@@ -819,6 +816,6 @@ class StorageObj(object):
 
         if reads > 0:
             print "------Graph-----------------------------------------"
-            exec("print self." + str(keys[0]) + ".cache_hits_graph")
+            exec ("print self." + str(keys[0]) + ".cache_hits_graph")
         if reads > 0 or writes > 0:
             print "####################################################"
