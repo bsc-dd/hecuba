@@ -18,6 +18,7 @@ class Block(object):
 
     def __init__(self,blockid, peer, keynames, tablename, blockkeyspace, tokens):
         ''''
+        Creates a new block.
         :type blockid: string an unique block identifier
         :type peer: string hostname
         :type keynames: string the Cassandra partition key
@@ -33,7 +34,8 @@ class Block(object):
         self.table_name = tablename
         self.keyspace = blockkeyspace
         self.needContext = True
-        self.storageobj = ""
+        exec ("from  app.%s import %s"%(tablename.lower(), tablename))
+        exec ("self.storageobj = " + str(tablename) + "('" + str(tablename) + "')")
         self.cntxt = ""
 
     def __iter__(self):
@@ -291,7 +293,11 @@ class KeyIter(object):
             print "Error:", e
         '''
 
-        b = Block(self.ring[self.pos], self.mypdict.dict_keynames, self.mypdict.mypo.name, self.blockkeyspace)
+        import uuid
+
+        myuuid = str(uuid.uuid1())
+        currringpos = self.ring[self.pos]
+        b = Block(myuuid,currringpos[0], self.mypdict.dict_keynames, self.mypdict.mypo.name, self.blockkeyspace,currringpos[1])
         self.pos += 1
         return b
 

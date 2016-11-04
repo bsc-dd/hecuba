@@ -1,8 +1,9 @@
 # author: G. Alomar
+from cassandra.cluster import Cluster
 from cassandra.query import BatchStatement
 from cassandra.query import BatchType
 from cassandra import ConsistencyLevel
-from hecuba.settings import session,cluster
+from hecuba.settings import *
 from hecuba.cache import PersistentDictCache
 from hecuba.prefetchmanager import PrefetchManager
 from hecuba.Plist import PersistentKeyList
@@ -58,26 +59,8 @@ class PersistentDict(dict):
         self.dict_keynames = dict_keynames
 
     def init_prefetch(self, block):
-        try:
-            session.shutdown()
-        except Exception as e:
-            print "error 1 in prefetch:", e
-        try:
-            cluster.shutdown()
-        except Exception as e:
-            print "error 2 in prefetch:", e
         self.prefetch = True
         self.prefetchManager = PrefetchManager(1, 1, block)
-        try:
-            global cluster
-            cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-        except Exception as e:
-            print "error 3 in prefetch:", e
-        try:
-            global session
-            session = self.cluster.connect()
-        except Exception as e:
-            print "error 4 in prefetch:", e
 
     def end_prefetch(self):
         self.prefetchManager.terminate()
@@ -233,7 +216,6 @@ class PersistentDict(dict):
                                         query += str(self.dict_keynames[i]) + " = ? AND "
                                     else:
                                         query += str(self.dict_keynames[i]) + " = ?"
-                            print "preparequery 237"
                             self.insert_data = self.preparequery(query)
 
                         query = "self.batch.add(self.insert_data, ("
@@ -289,7 +271,6 @@ class PersistentDict(dict):
                                     else:
                                         query += "?)"
 
-                            print "preparequery 293"
                             self.insert_data = self.preparequery(query)
 
                         query = "self.batch.add(self.insert_data, ("
@@ -516,7 +497,7 @@ class PersistentDict(dict):
                     else:
                         query += str(self.dict_keynames[i]) + " = ?"
 
-            print "preparequery 520"
+
             self.insert_data = self.preparequery(query)
 
             query1 = "self.batch.add(self.insert_data, ("
@@ -594,7 +575,6 @@ class PersistentDict(dict):
                         query += "?)"
 
             query += ";"
-            print "preparequery 598"
             self.insert_data = self.preparequery(query)
 
             query1 = "self.batch.add(self.insert_data, ("
@@ -801,9 +781,6 @@ class PersistentDict(dict):
                     if sessionexecute == 0:
                         print "       sessionexecute Errors in readitem----------------------------"
                         print "       query:", query
-                        global  cluster,session
-                        cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
-                        session = cluster.connect()
                         errors = 1
                     time.sleep(sleeptime)
                     if sleeptime < 3:
@@ -843,10 +820,6 @@ class PersistentDict(dict):
         '''
 
     def len(self):
-        try:
-            session = self.mypo.cluster.connect(execution_name)
-        except Exception as e:
-            print "Error connecting to cluster to obtain persistentDict length:", e
         query = "SELECT count(*) FROM " + execution_name + ".\"" + self.mypo.name + "\";"
         done = False
         item = ''
@@ -858,8 +831,6 @@ class PersistentDict(dict):
                     item = row[0]
             except Exception as e:
                 print "Error obtaining persistentDict length:", e
-            finally:
-                session.shutdown()
             done = True
         return item
 

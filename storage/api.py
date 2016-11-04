@@ -1,10 +1,9 @@
 # author: G. Alomar
 
-from hecuba import *
-from hecuba.datastore import *
 from hecuba.iter import Block
 from hecuba.dict import *
 from hecuba.storageobj import *
+from hecuba.settings import *
 import collections
 import hecuba
 
@@ -26,7 +25,7 @@ def start_task(params):
 
     if batch_activated:
         for param in params:
-            if issubclass(param.__class.__, StorageObj) or issubclass(param.__class.__, Block) and param.needContext:
+            if issubclass(param.__class__, StorageObj) or issubclass(param.__class__, Block) and param.needContext:
                 param.cntxt = context(param)
                 param.cntxt.__enter__()
 
@@ -106,7 +105,8 @@ def getByID(objid):
             exec('block_class = '+cname)
 
             b=block_class.build_remotely(blockid, classname, tkns, entryPoint, port, ksp, tab, dict_name, obj_type)
-            exec("b.storageobj = " + str(dict_name) + "('" + str(dict_name) + "')")
+            if prefetch_activated:
+                b.storageobj.init_prefetch(b)
             return b
         except Exception as e:
             print "Error:", e

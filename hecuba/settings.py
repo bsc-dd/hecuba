@@ -1,15 +1,21 @@
 def init():
     if 'apppath' not in globals():
         import os
-        global apppath
-        apppath = os.environ['APPPATH'] + '/conf/storage_params.txt'
+        global apppath, contact_names, nodePort
+        apppath = os.environ['APPPATH']
         try:
-            file = open(apppath, 'r')
-
-            for line in file:
-                exec line
+            nodePort = os.environ['NODEPORT']
         except:
-            print 'Impossible to load storage_params.'
+            print 'using default nodePort 9042'
+            nodePort = 9042
+
+        try:
+            contact_names = os.environ['CONTACT_NAMES'].split(",")
+        except:
+            print 'using default contact point localhost'
+            contact_names = ['localhost']
+
+
 
     if 'cluster' not in globals():
         global cluster, session

@@ -3,6 +3,7 @@ from hecuba.Plist import *
 from conf.hecuba_params import execution_name
 from collections import defaultdict
 from hecuba.settings import session
+from hecuba.dict import PersistentDict
 import time
 
 
@@ -21,7 +22,7 @@ class StorageObj(object):
 
     def init_prefetch(self, block):
         keys = self.keyList[self.__class__.__name__]
-        exec ("self." + str(keys[0]) + ".init_prefetch(block)")
+        getattr(self, str(keys[0])).init_prefetch(block)
 
     def end_prefetch(self):
         keys = self.keyList[self.__class__.__name__]
@@ -355,7 +356,7 @@ class StorageObj(object):
                     try:
                         result = session.execute(query)
                     except Exception as e:
-                        # print "Object", self.name, "cannot be selected in persistent storage __getattr__:", e
+                        print "Object", self.name, "cannot be selected in persistent storage __getattr__:", e
                         pass
 
                     for row in result:
@@ -484,11 +485,12 @@ class StorageObj(object):
     def split(self):
         print "StorageObj split ####################################"
         keys = self.keyList[self.__class__.__name__]
+        print "keys:", keys
         if not self.persistent:
-            a = dict.keys(getattr(self.str(keys[0])))
+            a = dict.keys(getattr(self, str(keys[0])))
             return a
         else:
-            a = PersistentKeyList(getattr(self.str(keys[0])))
+            a = PersistentKeyList(getattr(self, str(keys[0])))
             return a
 
     def __additem__(self, key, other):

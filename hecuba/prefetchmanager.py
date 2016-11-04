@@ -1,13 +1,34 @@
 # author: G. Alomar
+from cassandra.concurrent import execute_concurrent_with_args
+
 from hecuba.settings import session,cluster
+from cassandra.cluster import Cluster
 from multiprocessing import Lock
 from multiprocessing import Process
 from multiprocessing import Pipe
+from hecuba.settings import *
 import random
 import time
 
 
 def pipeloop(pipeq, piper):
+    global session, cluster
+    try:
+        session.shutdown()
+    except Exception as e:
+        print "error 1 in prefetch:", e
+    try:
+        cluster.shutdown()
+    except Exception as e:
+        print "error 2 in prefetch:", e
+    try:
+        cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
+    except Exception as e:
+        print "error 3 in prefetch:", e
+    try:
+        session = cluster.connect()
+    except Exception as e:
+        print "error 4 in prefetch:", e
 
     end = False
 
@@ -112,7 +133,8 @@ def pipeloop(pipeq, piper):
         elif input_data[0] == 'terminate':
             session.shutdown()
             cluster.shutdown()
-            exit(1)
+            import sys
+            sys.exit(1)
 
 
 class PrefetchManager(object):
@@ -133,7 +155,6 @@ class PrefetchManager(object):
         self.concurrency = concurrency
 
         self.query = "SELECT * FROM " + block.keyspace + ".\"" + block.table_name + "\" WHERE token(" + block.key_names + ") >= ? AND token(" + block.key_names + ") < ?"
-
         for i in range(0, self.concurrency):
             self.pipeq_write[i], self.pipeq_read[i] = Pipe()
             self.piper_write[i], self.piper_read[i] = Pipe()
