@@ -35,6 +35,7 @@ class Block(object):
         self.keyspace = blockkeyspace
         self.needContext = True
         self.supportsPrefetch = True
+        self.supportsStatistics = False
         exec ("from  app.%s import %s"%(tablename.lower(), tablename))
         exec ("self.storageobj = " + str(tablename) + "('" + str(tablename) + "')")
         self.cntxt = ""

@@ -63,17 +63,17 @@ def end_task(params):
                             persistentdict.end_prefetch()
                         except Exception as e:
                             print "error trying to prefetch:", e
-    '''
+
     if not 'statistics_activated' in globals():
         global statistics_activated
         statistics_activated = True
     if statistics_activated:
         for param in params:
-            if issubclass(param.__class__, Block):
+            if issubclass(param.__class__, Block) and param.supportsStatistics:
                 param.storageobj.statistics()
             if issubclass(param.__class__, StorageObj):
                 param.statistics()
-    '''
+
 
 def getByID(objid):
     path = apppath + '/conf/imports.py'
