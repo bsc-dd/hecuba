@@ -528,7 +528,7 @@ class StorageObj(object):
         keys = self.keyList[self.__class__.__name__]
         auxdict = {}
         if len(keys) == 1:
-            exec ("auxdict = self." + str(keys[0]))
+            auxdict = getattr(self,str(keys[0]))
         else:
             print "StorageObj " + str(self.name) + " has more than 1 dictionary, specify which one has to be used"
             raise KeyError
