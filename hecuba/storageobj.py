@@ -384,13 +384,14 @@ class StorageObj(object):
             return super(StorageObj, self).__getattribute__(key)
 
     def __setattr__(self, key, value):
+
         # print "storageobj - __setattr__"
         # print "self:                   ", self
         # print "key:                    ", key
         if str(type(value)) == "<class 'hecuba.dict.PersistentDict'>":
             super(StorageObj, self).__setattr__(key, value)
         else:
-            if not (str(key) == 'name') and not (str(key) == 'persistent') and not (str(key) == 'cntxt'):
+            if not (str(key) == 'name') and not (str(key) == 'persistent') and not (str(key) == 'cntxt') and not str(key)[0] == '_':
                 if hasattr(self, 'persistent'):
                     if not self.persistent:
                         super(StorageObj, self).__setattr__(key, value)
@@ -511,11 +512,11 @@ class StorageObj(object):
         print "keys:", keys
         auxdict = {}
 
-        if len(keys) == 1:
-            exec ("auxdict = self." + str(keys[0]))
-        else:
-            print "StorageObj " + str(self.name) + " has more than 1 dictionary, specify which one has to be used"
-            raise KeyError
+        #        for key in keys :
+        auxdict = getattr(self,str(keys[0]))
+        # else:
+        #     print "StorageObj " + str(self.name) + " has more than 1 dictionary, specify which one has to be used"
+        #     raise KeyError
 
         # if (auxdict.types[str(auxdict.dict_name)] == 'counter'):
         #    #if self.adding == True:

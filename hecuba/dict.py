@@ -722,23 +722,30 @@ class PersistentDict(dict):
     def readitem(self, key):
         print "dict.py readitem"
         query = "SELECT "
-        if type(self.dict_name) == tuple:
-            for ind, val in enumerate(self.dict_name):
-                if ind < (len(self.dict_name) - 1):
-                    query += str(self.dict_name[ind]) + ", "
+        columns = list(self.dict_keynames) + list(self.dict_name)
+        if len(columns) > 1:
+            for ind, val in enumerate(columns):
+                if ind < (len(columns) - 1):
+                    query += str(columns[ind]) + ", "
                 else:
-                    query += str(self.dict_name[ind])
+                    query += str(columns[ind])
         else:
-            query += str(self.dict_name)
+            query += str(columns[0])
         query += " FROM " + self.keyspace + ".\"" + self.mypo.name + "\" WHERE "
         if not type(key) is tuple:
             key = str(key).replace("[", "")
             key = str(key).replace("]", "")
             key = str(key).replace("'", "")
-            if self.types[str(self.dict_keynames)] == 'text':
-                query += self.dict_keynames + " = \'" + str(key) + "\' LIMIT 1"
+
+            if isinstance(self.dict_keynames,tuple):
+                keyname = self.dict_keynames[0]
             else:
-                query += self.dict_keynames + " = " + str(key) + " LIMIT 1"
+                keyname = self.dict_keynames
+
+            if self.types[str(keyname)] == 'text':
+                query += keyname + " = \'" + str(key)
+            else:
+                query += keyname + " = " + str(key)
         else:
             for i, k in enumerate(key):
                 if i < (len(key) - 1):
@@ -748,9 +755,9 @@ class PersistentDict(dict):
                         query += self.dict_keynames[i] + " = " + str(k) + " AND "
                 else:
                     if self.types[str(self.dict_keynames[i])] == 'text':
-                        query += self.dict_keynames[i] + " = \'" + str(k) + "\' LIMIT 1;"
+                        query += self.dict_keynames[i] + " = \'" + str(k)
                     else:
-                        query += self.dict_keynames[i] + " = " + str(k) + " LIMIT 1;"
+                        query += self.dict_keynames[i] + " = " + str(k)
         errors = 0
         totalerrors = 0
         sleeptime = 0.5
@@ -763,18 +770,21 @@ class PersistentDict(dict):
                 try:
                     print "       query:", query
                     result = session.execute(query)
-                    item = ''
-                    for row in result:
-                        print "row:", row
-                        if len(row) > 1:
-                    	    item = []
-                            for i, val in enumerate(row):
-                                print "i:  ", i
-                                print "val:", val
-                                item.append(val)
-                        else:
-                            item = str(val)
-                    print "item:", item
+                    if len(result.current_rows) > 1:
+                        item = [row for row in result]
+                    else:
+                        item = ''
+                        for row in result:
+                            print "row:", row
+                            if len(row) > 1:
+                                item = []
+                                for i, val in enumerate(row):
+                                    print "i:  ", i
+                                    print "val:", val
+                                    item.append(val)
+                            else:
+                                item = val
+                    print "item:", str(item)
                     sessionexecute = 5
                 except Exception as e:
                     print "sleeptime:", sleeptime
