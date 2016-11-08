@@ -11,6 +11,8 @@ from conf.hecuba_params import *
 
 
 def start_task(params):
+    if type(params) is not list:
+        raise ValueError('call start_task with a list of params')
     if not 'prefetch_activated' in globals():
         global prefetch_activated
         prefetch_activated = True
@@ -104,12 +106,12 @@ def getByID(objid):
             exec('from %s import %s'%(module,cname))
             exec('block_class = '+cname)
 
-            b=block_class.build_remotely(blockid, classname, tkns, entryPoint, port, ksp, tab, dict_name, obj_type)
+            b = block_class.build_remotely(blockid, classname, tkns, entryPoint, port, ksp, tab, dict_name, obj_type)
 
             if not 'prefetch_activated' in globals():
                 global prefetch_activated
                 prefetch_activated = True
-            if prefetch_activated:
+            if prefetch_activated and b.supportsPrefetch:
                 b.storageobj.init_prefetch(b)
             return b
         except Exception as e:
