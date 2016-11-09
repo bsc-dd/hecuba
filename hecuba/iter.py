@@ -257,7 +257,8 @@ class KeyIter(object):
                             ' VALUES (%s,%s,%s,%s,%s,%s)',
                             [myuuid, "hecuba.iter.Block",sclass, tokens, keyspace, table, 'hecuba'])
         except Exception as e:
-            print "Error:", e
+            print "KeyIter error:", e
+            raise e
         currringpos = self.ring[self.pos]
         b = Block(myuuid,currringpos[0], keyspace, table, self.blockkeyspace,currringpos[1], sclass)
         self.pos += 1

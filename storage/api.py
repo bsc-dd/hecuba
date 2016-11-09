@@ -124,4 +124,5 @@ def getByID(objid):
                 b.storageobj.init_prefetch(b)
         return b
     except Exception as e:
-        print "Error:", e
+        print "getByID error:", e
+        raise e
