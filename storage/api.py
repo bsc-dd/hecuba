@@ -97,7 +97,6 @@ def getByID(objid):
         objid = objidsplit[0]
 
     try:
-
         results = session.execute("SELECT * FROM hecuba.blocks WHERE blockid = %s", (objid,))[0]
 
         if len(objidsplit) == 2:

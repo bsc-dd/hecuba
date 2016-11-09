@@ -14,11 +14,27 @@ class StorageObj(object):
 
     @staticmethod
     def build_remotely(results):
-        so = StorageObj(table=results.tab, ksp=results.ksp)
+
+        classname = results.storageobj_classname
+        if classname is 'StorageObj':
+            so = StorageObj(table=results.tab, ksp=results.ksp, myuuid=results.blockid)
+
+        else:
+            last = 0
+            for key, i in enumerate(classname):
+                if i == '.' and key > last:
+                    last = key
+            module = classname[:last]
+            cname = classname[last + 1:]
+            exec ('from %s import %s' % (module, cname))
+            exec ('obj_class = ' + cname)
+
+            so = obj_class(table=results.tab, ksp=results.ksp, myuuid=results.blockid)
+
         so._objid = results.blockid
         return so
 
-    def __init__(self, ksp=None, table=None):
+    def __init__(self, ksp=None, table=None, myuuid=None):
         print "storageobj __init__ ####################################"
         if table is None:
             self._table = self.__class__.__name__
@@ -28,7 +44,20 @@ class StorageObj(object):
             self._ksp = execution_name
         else:
             self._ksp = ksp
-        self._myuuid = str(uuid.uuid1())
+
+        if myuuid is None:
+            self._myuuid = str(uuid.uuid1())
+            classname = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
+
+            try:
+                session.execute('INSERT INTO hecuba.blocks (blockid, storageobj_classname, ksp, tab, obj_type)' +
+                                ' VALUES (%s,%s,%s,%s,%s)',
+                                [self._myuuid, classname, self._ksp, self._table, 'hecuba'])
+            except Exception as e:
+                print "StorageObj init error", e
+                raise e
+        else:
+            self._myuuid = myuuid
         self.persistent = False
         self.needContext = True
         self.getByName()
@@ -91,15 +120,6 @@ class StorageObj(object):
     def make_persistent(self):
         print "storageobj make_persistent ####################################"
 
-        classname = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
-
-        try:
-            session.execute('INSERT INTO hecuba.blocks (blockid, storageobj_classname, ksp, tab, obj_type)'+
-                            ' VALUES (%s,%s,%s,%s,%s)',
-                            [self._myuuid, classname, self._ksp, self._table, 'hecuba'])
-        except Exception as e:
-            print "Error:", e
-
         keyspace = 'config' + self._ksp
 
         dictname = "\"" + self.__class__.__name__ + "\""
@@ -147,7 +167,7 @@ class StorageObj(object):
         except Exception as e:
             print "keyspace could not be set", e
 
-        querytable = "CREATE TABLE " + self._ksp + ".\"" + str(self._table) + "\" (%s, %s, PRIMARY KEY%s);" % (
+        querytable = "CREATE TABLE IF NOT EXISTS " + self._ksp + ".\"" + str(self._table) + "\" (%s, %s, PRIMARY KEY%s);" % (
         yeskeystypes, notkeystypes, yeskeys)
         try:
             session.execute(querytable)

@@ -694,7 +694,7 @@ class PersistentDict(dict):
                     query += str(columns[ind])
         else:
             query += str(columns[0])
-        query += " FROM " + self.keyspace + ".\"" + self.mypo.name + "\" WHERE "
+        query += " FROM " + self.mypo._ksp + ".\"" + self.mypo._table + "\" WHERE "
         if not type(key) is tuple:
             key = str(key).replace("[", "")
             key = str(key).replace("]", "")
