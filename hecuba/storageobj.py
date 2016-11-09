@@ -20,7 +20,10 @@ class StorageObj(object):
 
     def __init__(self, ksp=None, table=None):
         print "storageobj __init__ ####################################"
-        self._table = table
+        if table is None:
+            self._table = self.__class__.__name__
+        else:
+            self._table = table
         if ksp is None:
             self._ksp = execution_name
         else:
