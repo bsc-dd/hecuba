@@ -869,14 +869,8 @@ class context:
                 global cache_activated
                 cache_activated = True
             if cache_activated:
-                exec "micache = midict.dictCache"
-            exec("valType = self.storageObj." + str(keys[0]) + ".types[str(self.storageObj." + str(keys[0]) + ".dict_name)]")
-            exec("keynames = self.storageObj." + str(keys[0]) + ".dict_keynames")
-            keynames = str(keynames).replace('(', '')
-            keynames = str(keynames).replace(')', '')
-            keynames = str(keynames).replace('\'', '')
-            keynames = str(keynames).split(', ')
-            exec("keyType = self.storageObj." + str(keys[0]) + ".types[str(keynames[0])]")
+                micache = midict.dictCache
+
         if cache_activated:
             midict.syncs = midict.syncs + micache.sents
             midict.writeitem()
