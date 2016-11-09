@@ -14,20 +14,18 @@ def init():
         except:
             print 'using default contact point localhost'
             contact_names = ['localhost']
-        try:
-            session.execute(
-                'CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, block_classname text,storeobj_classname text, tkns list<bigint>, ' +
-                'entryPoint text , port int, ksp text , tab text , dict_name text , obj_type text, PRIMARY KEY(blockid))')
-        except Exception as e:
-            print "Error:", e
-
-
-
     if 'cluster' not in globals():
         global cluster, session
         from cassandra.cluster import Cluster
         cluster = Cluster(contact_points=contact_names, port=nodePort)
         session = cluster.connect()
+
+    try:
+        session.execute(
+            'CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, block_classname text,storeobj_classname text, tkns list<bigint>, ' +
+            'entryPoint text , port int, ksp text , tab text , dict_name text , obj_type text, PRIMARY KEY(blockid))')
+    except Exception as e:
+        print "Error:", e
 
 
 init()
