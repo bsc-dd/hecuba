@@ -28,6 +28,7 @@ class StorageObj(object):
             self._ksp = execution_name
         else:
             self._ksp = ksp
+        self._myuuid = str(uuid.uuid1())
         self.persistent = False
         self.needContext = True
         self.getByName()
@@ -91,7 +92,6 @@ class StorageObj(object):
         print "storageobj make_persistent ####################################"
         print self.__class__.__name__
 
-        self._myuuid = str(uuid.uuid1())
         try:
             session.execute('INSERT INTO hecuba.blocks (blockid, storageobj_classname, ksp, tab, obj_type)'+
                             ' VALUES (%s,%s,%s,%s,%s)',
