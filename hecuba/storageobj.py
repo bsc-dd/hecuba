@@ -91,11 +91,11 @@ class StorageObj(object):
         print "storageobj make_persistent ####################################"
         print self.__class__.__name__
 
-        myuuid = str(uuid.uuid1())
+        self._myuuid = str(uuid.uuid1())
         try:
             session.execute('INSERT INTO hecuba.blocks (blockid, storageobj_classname, ksp, tab, obj_type)'+
                             ' VALUES (%s,%s,%s,%s,%s)',
-                            [myuuid, str(self.__class__),self._ksp,self._table, 'hecuba'])
+                            [self._myuuid, str(self.__class__),self._ksp,self._table, 'hecuba'])
         except Exception as e:
             print "Error:", e
 
@@ -492,12 +492,7 @@ class StorageObj(object):
                 super(StorageObj, self).__setattr__(key, value)
 
     def getID(self):
-        identifier = "%s_%s" % (self._table, '1')
-        identifier = identifier.replace(" ", "")
-        identifier = identifier.replace("'", "")
-        identifier = identifier.replace("(", "")
-        identifier = identifier.replace(")", "")
-        return identifier
+        return '%s_1' % self._myuuid
 
     def split(self):
         print "StorageObj split ####################################"
