@@ -733,7 +733,9 @@ class PersistentDict(dict):
                 try:
                     print "       query:", query
                     result = session.execute(query)
-                    if len(result.current_rows) > 1:
+                    #two conditions different for version 2.x or 3.x of the cassandra drivers
+                    if (hasattr(result,'current_rows') and len(result.current_rows) > 1) \
+                            or (isinstance(result,list) and len(result) > 1):
                         item = [row for row in result]
                     else:
                         item = ''
