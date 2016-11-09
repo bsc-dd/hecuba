@@ -100,12 +100,16 @@ def getByID(objid):
 
         results = session.execute("SELECT * FROM hecuba.blocks WHERE blockid = %s", (objid,))[0]
 
+        if len(objidsplit) == 2:
+            classname = results.storageobj_classname
+        else:
+            classname = results.block_classname
         last = 0
-        for key, i in enumerate(results.classname):
+        for key, i in enumerate(classname):
             if i == '.' and key > last:
                 last = key
-        module = results.classname[:last]
-        cname = results.classname[last + 1:]
+        module = classname[:last]
+        cname = classname[last + 1:]
         exec ('from %s import %s' % (module, cname))
         exec ('obj_class = ' + cname)
 
