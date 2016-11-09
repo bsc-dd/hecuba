@@ -90,12 +90,13 @@ class StorageObj(object):
 
     def make_persistent(self):
         print "storageobj make_persistent ####################################"
-        print self.__class__.__name__
+
+        classname = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
 
         try:
             session.execute('INSERT INTO hecuba.blocks (blockid, storageobj_classname, ksp, tab, obj_type)'+
                             ' VALUES (%s,%s,%s,%s,%s)',
-                            [self._myuuid, str(self.__class__),self._ksp,self._table, 'hecuba'])
+                            [self._myuuid, classname, self._ksp, self._table, 'hecuba'])
         except Exception as e:
             print "Error:", e
 
