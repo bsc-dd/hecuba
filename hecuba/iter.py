@@ -11,7 +11,7 @@ class Block(object):
 
     @staticmethod
     def build_remotely(results):
-        return Block(results.blockid, results.entryPoint, results.tab, results.dict_name, results.ksp, results.tkns, results.storageobj_classname)
+        return Block(results.blockid, results.entry_point, results.tab, results.dict_name, results.ksp, results.tkns, results.storageobj_classname)
 
 
 
