@@ -11,12 +11,12 @@ class Block(object):
 
     @staticmethod
     def build_remotely(results):
-        return Block(results.blockid, results.entryPoint, results.tab, results.dict_name, results.ksp, results.tkns, results.storeobj_classname)
+        return Block(results.blockid, results.entryPoint, results.tab, results.dict_name, results.ksp, results.tkns, results.storageobj_classname)
 
 
 
 
-    def __init__(self, blockid, peer, keynames, tablename, keyspace, tokens, storeobj_classname):
+    def __init__(self, blockid, peer, keynames, tablename, keyspace, tokens, storageobj_classname):
         ''''
         Creates a new block.
         :type blockid: string an unique block identifier
@@ -37,11 +37,11 @@ class Block(object):
         self.supportsPrefetch = True
         self.supportsStatistics = False
         last = 0
-        for key, i in enumerate(storeobj_classname):
+        for key, i in enumerate(storageobj_classname):
             if i == '.' and key > last:
                 last = key
-        module = storeobj_classname[:last]
-        cname = storeobj_classname[last + 1:]
+        module = storageobj_classname[:last]
+        cname = storageobj_classname[last + 1:]
         exec ('from %s import %s' % (module, cname))
         exec ('self.storageobj = %s(table="%s",ksp="%s")' % (cname, tablename, keyspace))
         self.cntxt = ""
@@ -253,13 +253,13 @@ class KeyIter(object):
         sclass= '%s.%s'%(storeobj.__class__.__module__,storeobj.__class__.__name__)
         myuuid = str(uuid.uuid1())
         try:
-            session.execute('INSERT INTO hecuba.blocks (blockid, block_classname,storeobj_classname,tkns, ksp, tab, obj_type)'+
+            session.execute('INSERT INTO hecuba.blocks (blockid, block_classname,storageobj_classname,tkns, ksp, tab, obj_type)'+
                             ' VALUES (%s,%s,%s,%s,%s,%s)',
                             [myuuid, "hecuba.iter.Block",sclass, tokens, keyspace, table, 'hecuba'])
         except Exception as e:
             print "Error:", e
         currringpos = self.ring[self.pos]
-        b = Block(myuuid,currringpos[0], keyspace, table, self.blockkeyspace,currringpos[1],sclass)
+        b = Block(myuuid,currringpos[0], keyspace, table, self.blockkeyspace,currringpos[1], sclass)
         self.pos += 1
         return b
 

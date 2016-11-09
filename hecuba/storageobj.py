@@ -90,7 +90,7 @@ class StorageObj(object):
 
         myuuid = str(uuid.uuid1())
         try:
-            session.execute('INSERT INTO hecuba.blocks (blockid, storeobj_classname, ksp, tab, obj_type)'+
+            session.execute('INSERT INTO hecuba.blocks (blockid, storageobj_classname, ksp, tab, obj_type)'+
                             ' VALUES (%s,%s,%s,%s,%s)',
                             [myuuid, str(self.__class__),self._ksp,self._table, 'hecuba'])
         except Exception as e:
