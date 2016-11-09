@@ -92,43 +92,6 @@ class PersistentDict(dict):
                 prepquery = self.prepQueriesDict[query]
                 return prepquery
 
-    def createKeyspaceIfNeeded(self, key, val):
-        if not self.mypo.name in self.createdColumnfamiliesDict:
-            PersistentDict.createdColumnfamiliesDict[str(self.mypo.name)] = []
-            yeskeystypes = ''
-            notkeystypes = ''
-            if not type(key) == tuple:
-                if type(key) == unicode:
-                    yeskeystypes = 'key1 text'
-                    PersistentDict.createdColumnfamiliesDict[str(self.mypo.name)].append(('key1','text'))
-                if type(key) == int:
-                    yeskeystypes = 'key1 int'
-                    PersistentDict.createdColumnfamiliesDict[str(self.mypo.name)].append(('key1','int'))
-            else:
-                lenk = len(key) - 1
-                for ind, keyind in enumerate(key):
-                    yeskeystypes += 'key' + str(ind+1) + ' ' + str(type(keyind))
-                    if ind < lenk:
-                        yeskeystypes += ', '
-            if not type(val) == tuple:
-                if type(val) == unicode:
-                    notkeystypes = 'val1 text'
-                    PersistentDict.createdColumnfamiliesDict[str(self.mypo.name)].append(('val1','text'))
-                if type(val) == int:
-                    notkeystypes = 'val1 int'
-                    PersistentDict.createdColumnfamiliesDict[str(self.mypo.name)].append(('val1','int'))
-            else:
-                lenv = len(val) - 1
-                for ind, keyval in enumerate(val):
-                    notkeystypes += 'val' + str(ind+1) + ' ' + str(type(keyval))
-                    if ind < lenv:
-                        notkeystypes += ', '
-            yeskeys = '( key1 )'
-            querytable = "CREATE TABLE " + execution_name + ".\"" + str(self.mypo.name) + "\" (%s, %s, PRIMARY KEY %s);" % (yeskeystypes, notkeystypes, yeskeys)
-            try:
-                session.execute(querytable)
-            except Exception as e:
-                print "Object", str(self.mypo.name), "cannot be created in persistent storage", e
 
     def __iadd__(self, key, other):
         if type(self.dict_name) == tuple:
@@ -150,7 +113,6 @@ class PersistentDict(dict):
             except Exception as e:
                 return "Object " + str(self.dict_name) + " with key " + str(key) + " and value " + str(value) + " cannot be inserted in dict" + str(e)
         else:
-            #self.createKeyspaceIfNeeded(key,value)
             if not 'cache_activated' in globals():
                 global cache_activated
                 cache_activated = True
@@ -831,6 +793,7 @@ class PersistentDict(dict):
         '''
 
     def len(self):
+        #TODO this is gonna break. But is wrong anyway ;)
         query = "SELECT count(*) FROM " + execution_name + ".\"" + self.mypo.name + "\";"
         done = False
         item = ''

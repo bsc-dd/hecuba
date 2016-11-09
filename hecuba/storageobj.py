@@ -12,13 +12,22 @@ class StorageObj(object):
     nextKeys = []
     cntxt = ''
 
-    def __init__(self, name=None):
+    @staticmethod
+    def build_remotely(results):
+        so = StorageObj(table=results.tab, ksp=results.ksp)
+        so._objid = results.blockid
+        return so
+
+    def __init__(self, ksp=None, table=None):
         print "storageobj __init__ ####################################"
-        print self.__class__.__name__
-        self.name = None
+        self._table = table
+        if ksp is None:
+            self._ksp = execution_name
+        else:
+            self._ksp = ksp
         self.persistent = False
         self.needContext = True
-        self.getByName(name)
+        self.getByName()
 
     def init_prefetch(self, block):
         keys = self.keyList[self.__class__.__name__]
@@ -28,21 +37,20 @@ class StorageObj(object):
         keys = self.keyList[self.__class__.__name__]
         exec ("self." + str(keys[0]) + ".end_prefetch()")
 
-    def getByName(self, name):
+    def getByName(self):
         print "storageobj getByName ####################################"
         print self.__class__.__name__
-        if name is None:
+        if self._table is None:
             self.persistent = False
         else:
             self.persistent = True
-            self.name = name
 
-        keyspace = 'config' + execution_name
+        config_keyspace = 'config' + self._ksp
         execution = []
 
         dictname = "\"" + self.__class__.__name__ + "\""
 
-        query = "SELECT * FROM " + keyspace + "." + dictname + ";"
+        query = "SELECT * FROM " + config_keyspace + "." + dictname + ";"
         numtables = 0
         try:
             execution = session.execute(query)
@@ -69,8 +77,6 @@ class StorageObj(object):
                 initial = int(initial) - 1
             else:
                 initial = numtables
-            notk = notkeys.split(',')[0]
-            notk = str(notk)[1:len(notk) - 1]
             notkeys = notkeys[0:len(notkeys) - 2]
             yesk = yeskeys.split(',')[0]
             yesk = str(yesk)[2:len(yesk) - 1]
@@ -78,12 +84,19 @@ class StorageObj(object):
             yeskeys += ")"
             exec ("self." + str(yesk) + " = PersistentDict(self, (" + notkeys + "), " + yeskeys + ")")
 
-    def make_persistent(self, name):
+    def make_persistent(self):
         print "storageobj make_persistent ####################################"
         print self.__class__.__name__
 
-        self.name = name
-        keyspace = 'config' + execution_name
+        myuuid = str(uuid.uuid1())
+        try:
+            session.execute('INSERT INTO hecuba.blocks (blockid, storeobj_classname, ksp, tab, obj_type)'+
+                            ' VALUES (%s,%s,%s,%s,%s)',
+                            [myuuid, str(self.__class__),self._ksp,self._table, 'hecuba'])
+        except Exception as e:
+            print "Error:", e
+
+        keyspace = 'config' + self._ksp
 
         dictname = "\"" + self.__class__.__name__ + "\""
 
@@ -126,40 +139,41 @@ class StorageObj(object):
         yeskeys += ")"
 
         try:
-            session.set_keyspace(execution_name)
+            session.set_keyspace(self._ksp)
         except Exception as e:
             print "keyspace could not be set", e
 
-        querytable = "CREATE TABLE " + execution_name + ".\"" + str(name) + "\" (%s, %s, PRIMARY KEY%s);" % (
+        querytable = "CREATE TABLE " + self._ksp + ".\"" + str(self._table) + "\" (%s, %s, PRIMARY KEY%s);" % (
         yeskeystypes, notkeystypes, yeskeys)
         try:
             session.execute(querytable)
         except Exception as e:
             print "error in querytable:", querytable
-            print "Object", self.name, "cannot be created in persistent storage", e
+            print "Object", self._table, "cannot be created in persistent storage", e
             # pass
-
+        '''
         keys = self.keyList[self.__class__.__name__]
         for key in self.split():
             exec ("val = self." + str(keys[0]) + "[" + str(key) + "]")
-            query = "INSERT INTO " + str(execution_name) + ".\"" + str(name) + "\"(" + str(
+            query = "INSERT INTO " + str(self._ksp) + ".\"" + str(self._table) + "\"(" + str(
                 yeskeys[1:len(yeskeys) - 1]) + ", " + str(keys[0]) + ") VALUES (" + str(key) + ", " + str(val) + ");"
             session.execute(query)
+        '''
 
         for key, variable in vars(self).iteritems():
             if str(type(variable)) == "<type 'int'>":
                 querytable = "INSERT INTO config" + str(
-                    execution_name) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(
-                    self.name) + "\', \'" + str(key) + "\', 'int', \'" + str(variable) + "\');"
+                    self._ksp) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(
+                    self._table) + "\', \'" + str(key) + "\', 'int', \'" + str(variable) + "\');"
                 session.execute(querytable)
             if str(type(variable)) == "<type 'str'>":
                 if not str(key) == 'name':
                     querytable = "INSERT INTO config" + str(
-                        execution_name) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(
-                        self.name) + "\', \'" + str(key) + "\', 'str', \'" + str(variable) + "\');"
+                        self._ksp) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(
+                        self._table) + "\', \'" + str(key) + "\', 'str', \'" + str(variable) + "\');"
                     session.execute(querytable)
             if str(type(variable)) == "<type 'list'>":
-                querytable = "CREATE TABLE " + execution_name + ".\"" + str(name) + str(
+                querytable = "CREATE TABLE " + self._ksp + ".\"" + str(self._table) + str(
                     key) + "\" (position int, type text, value text, PRIMARY KEY (position));"
                 try:
                     session.execute(querytable)
@@ -168,57 +182,56 @@ class StorageObj(object):
                     pass
                 for ind, value in enumerate(variable):
                     if str(type(value)) == "<type 'int'>":
-                        querytable = "INSERT INTO " + execution_name + ".\"" + str(name) + str(
+                        querytable = "INSERT INTO " + self._ksp + ".\"" + str(self._table) + str(
                             key) + "\" (position, type, value) VALUES ( " + str(ind) + ", \'int\', \'" + str(
                             value) + "\');"
                     if str(type(value)) == "<type 'str'>":
-                        querytable = "INSERT INTO " + execution_name + ".\"" + str(name) + str(
+                        querytable = "INSERT INTO " + self._ksp + ".\"" + str(self._table) + str(
                             key) + "\" (position, type, value) VALUES ( " + str(ind) + ", \'str\', \'" + str(
                             value) + "\');"
                     try:
                         session.execute(querytable)
                     except Exception as e:
-                        print "Object", self.name, "cannot be inserted in persistent storage", e
+                        print "Object", self._table, "cannot be inserted in persistent storage", e
 
         self.persistent = True
 
-    def saveToDDBB(self, name):
+    def saveToDDBB(self):
 
-        self.name = name
-        keyspace = 'config' + execution_name
+        keyspace = 'config' + self._ksp
 
         for key, variable in vars(self).iteritems():
             if str(type(variable)) == "<type 'int'>":
                 querytable = "INSERT INTO config" + str(
-                    execution_name) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(
-                    self.name) + "\', \'" + str(key) + "\', 'int', \'" + str(variable) + "\');"
+                    self._ksp) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(
+                    self._table) + "\', \'" + str(key) + "\', 'int', \'" + str(variable) + "\');"
                 session.execute(querytable)
             if str(type(variable)) == "<type 'str'>":
                 if not str(key) == 'name':
                     querytable = "INSERT INTO config" + str(
-                        execution_name) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(
-                        self.name) + "\', \'" + str(key) + "\', 'str', \'" + str(variable) + "\');"
+                        self._ksp) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(
+                        self._table) + "\', \'" + str(key) + "\', 'str', \'" + str(variable) + "\');"
                     session.execute(querytable)
             if str(type(variable)) == "<type 'list'>":
-                query = "TRUNCATE %s.\"%s\";" % (execution_name, self.name + str(key))
+                query = "TRUNCATE %s.\"%s\";" % (self._ksp, self._table + str(key))
                 try:
                     session.execute(query)
                 except Exception as e:
-                    print "Object", self.name, "cannot be emptied in persistent storage saveToDDBB:", e
-                querytable = "CREATE TABLE " + execution_name + ".\"" + str(self.name) + str(
+                    print "Object", self._table, "cannot be emptied in persistent storage saveToDDBB:", e
+                querytable = "CREATE TABLE " + self._ksp + ".\"" + str(self._table) + str(
                     key) + "\" (position int, type text, value text, PRIMARY KEY (position));"
                 try:
                     session.execute(querytable)
                 except Exception as e:
-                    # print "Object", self.name, "cannot be created in persistent storage", e
+                    # print "Object", self._table, "cannot be created in persistent storage", e
                     pass
                 for ind, value in enumerate(variable):
                     if str(type(value)) == "<type 'int'>":
-                        querytable = "INSERT INTO " + execution_name + ".\"" + str(self.name) + str(
+                        querytable = "INSERT INTO " + self._ksp + ".\"" + str(self._table) + str(
                             key) + "\" (position, type, value) VALUES ( " + str(ind) + ", \'int\', \'" + str(
                             value) + "\');"
                     if str(type(value)) == "<type 'str'>":
-                        querytable = "INSERT INTO " + execution_name + ".\"" + str(self.name) + str(
+                        querytable = "INSERT INTO " + self._ksp + ".\"" + str(self._table) + str(
                             key) + "\" (position, type, value) VALUES ( " + str(ind) + ", \'str\', \'" + str(
                             value) + "\');"
                     session.execute(querytable)
@@ -255,9 +268,9 @@ class StorageObj(object):
 
     def empty_persistent(self):
         keys = self.keyList[self.__class__.__name__]
-        exec ("self." + str(keys[0]) + ".dictCache.cache = {}")
+        getattr(self, str(keys[0])).dictCache.cache = {}
 
-        query = "TRUNCATE %s.\"%s\";" % (execution_name, self.name)
+        query = "TRUNCATE %s.\"%s\";" % (self._ksp, self._table)
 
         sessionexecute = 0
         sleeptime = 0.05
@@ -275,22 +288,22 @@ class StorageObj(object):
 
     def delete_persistent(self):
         keys = self.keyList[self.__class__.__name__]
-        exec ("self." + str(keys[0]) + ".dictCache.cache = {}")
+        getattr(self, str(keys[0])).dictCache.cache = {}
 
         self.persistent = False
 
-        query = "TRUNCATE %s.\"%s\";" % (execution_name, self.name)
+        query = "TRUNCATE %s.\"%s\";" % (self._ksp, self._table)
         try:
             session.execute(query)
         except Exception as e:
-            print "Object", str(self.name), "cannot be emptied:", str(e)
+            print "Object", str(self._table), "cannot be emptied:", str(e)
             return
 
-        query = "DROP COLUMNFAMILY %s.\"%s\";" % (execution_name, self.name)
+        query = "DROP COLUMNFAMILY %s.\"%s\";" % (self._ksp, self._table)
         try:
             session.execute(query)
         except Exception as e:
-            print "Object", str(self.name), "cannot be deleted from persistent storage:", str(e)
+            print "Object", str(self._table), "cannot be deleted from persistent storage:", str(e)
             return
 
     def __contains__(self, key):
@@ -310,7 +323,7 @@ class StorageObj(object):
             return a
 
     def finalize(self):
-        keyspace = 'config' + execution_name
+        keyspace = 'config' + self._ksp
         try:
             execution = session.execute("SELECT * FROM " + keyspace + ".\"access\";")
             for row in execution:
@@ -348,15 +361,15 @@ class StorageObj(object):
                         raise KeyError
 
                 else:
-                    keyspace = 'config' + execution_name
+                    keyspace = 'config' + self._ksp
 
                     query = "SELECT * FROM config" + str(
-                        execution_name) + ".attribs WHERE dictname = '" + self.__class__.__name__ + "' AND dataname = '" + str(
+                        self._ksp) + ".attribs WHERE dictname = '" + self.__class__.__name__ + "' AND dataname = '" + str(
                         key) + "';"
                     try:
                         result = session.execute(query)
                     except Exception as e:
-                        print "Object", self.name, "cannot be selected in persistent storage __getattr__:", e
+                        print "Object", self._table, "cannot be selected in persistent storage __getattr__:", e
                         pass
 
                     for row in result:
@@ -397,32 +410,32 @@ class StorageObj(object):
                         super(StorageObj, self).__setattr__(key, value)
                     else:
 
-                        keyspace = 'config' + execution_name
+                        keyspace = 'config' + self._ksp
 
                         if type(value) == list:
-                            querytable = "CREATE TABLE " + execution_name + ".\"" + str(self.__class__.__name__) + str(
+                            querytable = "CREATE TABLE " + self._ksp + ".\"" + str(self.__class__.__name__) + str(
                                 key) + "\" (position int, type text, value text, PRIMARY KEY (position));"
                             try:
                                 session.execute(querytable)
                             except Exception as e:
                                 # print "Object", self.__class__.__name__, "cannot be created in persistent storage", e
                                 pass
-                            query = "TRUNCATE %s.\"%s\";" % (execution_name, str(self.__class__.__name__) + str(key))
+                            query = "TRUNCATE %s.\"%s\";" % (self._ksp, str(self.__class__.__name__) + str(key))
                             try:
                                 session.execute(query)
                             except Exception as e:
-                                # print "Object", self.name, "cannot be emptied in persistent storage:", e
+                                # print "Object", self._table, "cannot be emptied in persistent storage:", e
                                 pass
                             strtypeval = ''
                             for ind, val in enumerate(value):
                                 if str(type(val)) == "<type 'int'>":
                                     strtypeval = 'int'
-                                    querytable = "INSERT INTO " + execution_name + ".\"" + str(self.name) + str(
+                                    querytable = "INSERT INTO " + self._ksp + ".\"" + str(self._table) + str(
                                         key) + "\" (position, type, value) VALUES ( " + str(
                                         ind) + ", \'int\', \'" + str(val) + "\');"
                                 if str(type(val)) == "<type 'str'>":
                                     strtypeval = 'str'
-                                    querytable = "INSERT INTO " + execution_name + ".\"" + str(self.name) + str(
+                                    querytable = "INSERT INTO " + self._ksp + ".\"" + str(self._table) + str(
                                         key) + "\" (position, type, value) VALUES ( " + str(
                                         ind) + ", \'str\', \'" + str(val) + "\');"
                                 try:
@@ -431,14 +444,14 @@ class StorageObj(object):
                                     print "Object", str(value), "cannot be inserted in persistent storage", e
                             if strtypeval == 'str':
                                 querytable = "INSERT INTO config" + str(
-                                    execution_name) + ".attribs(dictName, dataName, dataType, dataValue) VALUES ( \'" + str(
+                                    self._ksp) + ".attribs(dictName, dataName, dataType, dataValue) VALUES ( \'" + str(
                                     self.__class__.__name__) + "\', \'" + str(key) + "\', \'list_str\', \'" + str(
-                                    execution_name) + ".\"" + str(self.__class__.__name__) + str(key) + "\"\')"
+                                    self._ksp) + ".\"" + str(self.__class__.__name__) + str(key) + "\"\')"
                             else:
                                 querytable = "INSERT INTO config" + str(
-                                    execution_name) + ".attribs(dictName, dataName, dataType, dataValue) VALUES ( \'" + str(
+                                    self._ksp) + ".attribs(dictName, dataName, dataType, dataValue) VALUES ( \'" + str(
                                     self.__class__.__name__) + "\', \'" + str(key) + "\', \'list_int\', \'" + str(
-                                    execution_name) + ".\"" + str(self.__class__.__name__) + str(key) + "\"\')"
+                                    self._ksp) + ".\"" + str(self.__class__.__name__) + str(key) + "\"\')"
                             try:
                                 session.execute(querytable)
                             except Exception as e:
@@ -447,7 +460,7 @@ class StorageObj(object):
                         else:
                             if type(value) == int:
                                 querytable = "INSERT INTO config" + str(
-                                    execution_name) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(
+                                    self._ksp) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(
                                     self.__class__.__name__) + "\', \'" + str(key) + "\', 'int', \'" + str(
                                     value) + "\');"
                                 try:
@@ -457,7 +470,7 @@ class StorageObj(object):
                             if type(value) == str:
                                 if not str(key) == 'name':
                                     querytable = "INSERT INTO config" + str(
-                                        execution_name) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(
+                                        self._ksp) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(
                                         self.__class__.__name__) + "\', \'" + str(key) + "\', 'str', \'" + str(
                                         value) + "\');"
                                     try:
@@ -476,7 +489,7 @@ class StorageObj(object):
                 super(StorageObj, self).__setattr__(key, value)
 
     def getID(self):
-        identifier = "%s_%s" % (self.name, '1')
+        identifier = "%s_%s" % (self._table, '1')
         identifier = identifier.replace(" ", "")
         identifier = identifier.replace("'", "")
         identifier = identifier.replace("(", "")
@@ -501,7 +514,7 @@ class StorageObj(object):
         if len(keys) == 1:
             exec ("auxdict = self." + str(keys[0]))
         else:
-            print "StorageObj " + str(self.name) + " has more than 1 dictionary, specify which one has to be used"
+            print "StorageObj " + str(self._table) + " has more than 1 dictionary, specify which one has to be used"
             raise KeyError
         auxdict[key] = auxdict[key] + other
         self.adding = False
@@ -515,7 +528,7 @@ class StorageObj(object):
         #        for key in keys :
         auxdict = getattr(self,str(keys[0]))
         # else:
-        #     print "StorageObj " + str(self.name) + " has more than 1 dictionary, specify which one has to be used"
+        #     print "StorageObj " + str(self._table) + " has more than 1 dictionary, specify which one has to be used"
         #     raise KeyError
 
         # if (auxdict.types[str(auxdict.dict_name)] == 'counter'):
@@ -531,7 +544,7 @@ class StorageObj(object):
         if len(keys) == 1:
             auxdict = getattr(self,str(keys[0]))
         else:
-            print "StorageObj " + str(self.name) + " has more than 1 dictionary, specify which one has to be used"
+            print "StorageObj " + str(self._table) + " has more than 1 dictionary, specify which one has to be used"
             raise KeyError
         auxdict[key] = value
 

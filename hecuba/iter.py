@@ -10,20 +10,20 @@ import uuid
 class Block(object):
 
     @staticmethod
-    def build_remotely(blockid, classname, tkns, entryPoint, port, ksp, tab, dict_name, obj_type):
-        return Block(blockid, entryPoint, tab, dict_name, ksp, tkns)
+    def build_remotely(results):
+        return Block(results.blockid, results.entryPoint, results.tab, results.dict_name, results.ksp, results.tkns, results.storeobj_classname)
 
 
 
 
-    def __init__(self,blockid, peer, keynames, tablename, blockkeyspace, tokens):
+    def __init__(self, blockid, peer, keynames, tablename, keyspace, tokens, storeobj_classname):
         ''''
         Creates a new block.
         :type blockid: string an unique block identifier
         :type peer: string hostname
         :type keynames: string the Cassandra partition key
         :type tablename: string the name of the collection/table
-        :type blockkeyspace: string name of the Cassandra keyspace.
+        :type keyspace: string name of the Cassandra keyspace.
         :type tokens: list of tokens
         '''
         print "Block __init__ ####################################"
@@ -32,12 +32,18 @@ class Block(object):
         self.token_ranges = tokens
         self.key_names = keynames
         self.table_name = tablename
-        self.keyspace = blockkeyspace
+        self.keyspace = keyspace
         self.needContext = True
         self.supportsPrefetch = True
         self.supportsStatistics = False
-        exec ("from  app.%s import %s"%(tablename.lower(), tablename))
-        exec ("self.storageobj = " + str(tablename) + "('" + str(tablename) + "')")
+        last = 0
+        for key, i in enumerate(storeobj_classname):
+            if i == '.' and key > last:
+                last = key
+        module = storeobj_classname[:last]
+        cname = storeobj_classname[last + 1:]
+        exec ('from %s import %s' % (module, cname))
+        exec ('self.storageobj = %s(table="%s",ksp="%s")' % (cname, tablename, keyspace))
         self.cntxt = ""
 
     def __iter__(self):
@@ -227,16 +233,9 @@ class KeyIter(object):
 
         self.iterable = iterable
         self.num_peers = len(self.ring)
-        self.createIfNot()
 
 
-    def createIfNot(self):
-        try:
-            session.execute(
-                'CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, classname text, tkns list<bigint>, '+
-                'entryPoint text , port int, ksp text , tab text , dict_name text , obj_type text, PRIMARY KEY(blockid))')
-        except Exception as e:
-            print "Error:", e
+
 
     def next(self):
         print "KeyIter - next ################################################"
@@ -248,15 +247,19 @@ class KeyIter(object):
         tokens = currentRingPos[1]
         import uuid
 
+        keyspace = self.mypdict.mypo._ksp
+        table = self.mypdict.mypo._table
+        storeobj = self.iterable.mypdict.mypo
+        sclass= '%s.%s'%(storeobj.__class__.__module__,storeobj.__class__.__name__)
         myuuid = str(uuid.uuid1())
         try:
-            session.execute('INSERT INTO hecuba.blocks (blockid, classname,tkns, ksp, tab, dict_name, obj_type)'+
-                            ' VALUES (%s,%s,%s,%s,%s,%s,%s)',
-                            [myuuid, "hecuba.iter.Block", tokens, self.blockkeyspace, self.mypdict.dict_keynames, self.mypdict.mypo.name, 'hecuba'])
+            session.execute('INSERT INTO hecuba.blocks (blockid, block_classname,storeobj_classname,tkns, ksp, tab, obj_type)'+
+                            ' VALUES (%s,%s,%s,%s,%s,%s)',
+                            [myuuid, "hecuba.iter.Block",sclass, tokens, keyspace, table, 'hecuba'])
         except Exception as e:
             print "Error:", e
         currringpos = self.ring[self.pos]
-        b = Block(myuuid,currringpos[0], self.mypdict.dict_keynames, self.mypdict.mypo.name, self.blockkeyspace,currringpos[1])
+        b = Block(myuuid,currringpos[0], keyspace, table, self.blockkeyspace,currringpos[1],sclass)
         self.pos += 1
         return b
 

@@ -31,6 +31,7 @@ def start_task(params):
                 param.cntxt = context(param)
                 param.cntxt.__enter__()
 
+
 def end_task(params):
     if not 'prefetch_activated' in globals():
         global prefetch_activated
@@ -46,7 +47,7 @@ def end_task(params):
 
     if batch_activated:
         for param in params:
-            if hasattr(param,'needContext') and param.needContext:
+            if hasattr(param, 'needContext') and param.needContext:
                 try:
                     param.cntxt.__exit__()
                 except Exception as e:
@@ -54,10 +55,10 @@ def end_task(params):
 
     if prefetch_activated:
         for param in params:
-            if hasattr(param,'needContext') and param.needContext:
+            if hasattr(param, 'needContext') and param.needContext:
                 if issubclass(param.__class__, Block):
                     keys = param.storageobj.keyList[param.storageobj.__class__.__name__]
-                    exec("persistentdict = param.storageobj." + str(keys[0]))
+                    exec ("persistentdict = param.storageobj." + str(keys[0]))
                     if persistentdict.prefetch == True:
                         try:
                             persistentdict.end_prefetch()
@@ -76,45 +77,47 @@ def end_task(params):
 
 
 def getByID(objid):
+    """
+    We rebuild the object from its id. The id can either be:
+    block: UUID (eg. f291f008-a520-11e6-b42e-5b582e04fd70)
+    storageobj: UUID_(version) (eg. f291f008-a520-11e6-b42e-5b582e04fd70_1)
+    Args:
+        objid: str object identifier
+
+    Returns: (Block| Storageobj)
+
+    """
     path = apppath + '/conf/imports.py'
     file = open(path, 'r')
     for line in file:
-        exec(line)
+        exec (line)
     objidsplit = objid.split("_")
 
     if len(objidsplit) == 2:
-        result = ''
-        exec('result = ' + objidsplit[0] + '()')
-        result.getByName(str(objidsplit[0]))
-        return result
+        objid = objidsplit[0]
 
-    else:
+    try:
 
-        try:
-            # exec ("b = %d()"$(class_name))
+        results = session.execute("SELECT * FROM hecuba.blocks WHERE blockid = %s", (objid,))[0]
 
-            (blockid, classname, tkns, entryPoint, port, ksp, tab, dict_name, obj_type) = \
-            session.execute(
-                "SELECT blockid, classname, tkns, entryPoint ,port, ksp, tab, dict_name, obj_type " +
-                "FROM hecuba.blocks WHERE blockid = %s", (objid,))[0]
+        last = 0
+        for key, i in enumerate(results.classname):
+            if i == '.' and key > last:
+                last = key
+        module = results.classname[:last]
+        cname = results.classname[last + 1:]
+        exec ('from %s import %s' % (module, cname))
+        exec ('obj_class = ' + cname)
 
-            last=0
-            for key, i in enumerate(classname):
-                if i == '.' and key > last:
-                    last = key
-            module=classname[:last]
-            cname=classname[last+1:]
-            exec('from %s import %s'%(module,cname))
-            exec('block_class = '+cname)
+        b = obj_class.build_remotely(results)
 
-            b = block_class.build_remotely(blockid, classname, tkns, entryPoint, port, ksp, tab, dict_name, obj_type)
-
+        if len(objidsplit) == 1:
+            #This runs only if it is a block
             if not 'prefetch_activated' in globals():
                 global prefetch_activated
                 prefetch_activated = True
             if prefetch_activated and b.supportsPrefetch:
                 b.storageobj.init_prefetch(b)
-            return b
-        except Exception as e:
-            print "Error:", e
-
+        return b
+    except Exception as e:
+        print "Error:", e
