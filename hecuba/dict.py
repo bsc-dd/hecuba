@@ -448,7 +448,7 @@ class PersistentDict(dict):
         else:
             counterdictname = self.types[str(self.dict_name)]
         if counterdictname == 'counter':
-            query = "UPDATE " + self.keyspace + ".\"" + self.mypo.name + "\" SET " + self.dict_name + " = " + self.dict_name + " + ? WHERE "
+            query = "UPDATE " + self.mypo._ksp + ".\"" + self.mypo._table + "\" SET " + self.dict_name + " = " + self.dict_name + " + ? WHERE "
             self.batch = BatchStatement(batch_type=BatchType.COUNTER)
             if not type(self.dict_keynames) is tuple:
                 query += self.dict_keynames + " = ?"
@@ -497,7 +497,7 @@ class PersistentDict(dict):
                     exec query
                     self.dictCache[k] = [value, 'Sync']
         else:
-            query = "INSERT INTO " + self.keyspace + ".\"" + self.mypo.name + "\"("
+            query = "INSERT INTO " + self.mypo._ksp + ".\"" + self.mypo._table + "\"("
             stringkeynames = str(self.dict_keynames)
             stringkeynames = stringkeynames.replace('\'', '')
             stringkeynames = stringkeynames.replace('(', '')
