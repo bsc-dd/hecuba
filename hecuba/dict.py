@@ -721,6 +721,7 @@ class PersistentDict(dict):
 
     def readitem(self, key):
         print "dict.py readitem"
+        print "key:", key
         query = "SELECT "
         columns = list(self.dict_keynames) + list(self.dict_name)
         if len(columns) > 1:
