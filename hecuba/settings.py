@@ -17,6 +17,7 @@ def init():
     if 'cluster' not in globals():
         global cluster, session
         from cassandra.cluster import Cluster
+        print 'CREATING GLOBAL SESSION'
         cluster = Cluster(contact_points=contact_names, port=nodePort)
         session = cluster.connect()
         session.execute(
