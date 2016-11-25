@@ -51,12 +51,12 @@ class Block(object):
 
     def __getitem__(self, key):
         keys = self.storageobj.keyList[self.storageobj.__class__.__name__]
-        exec ("persistentdict = self.storageobj." + str(keys[0]))
+        persistentdict = getattr(self.storageobj, str(keys[0]))
         return persistentdict[key]
 
     def __setitem__(self, key, val):
         keys = self.storageobj.keyList[self.storageobj.__class__.__name__]
-        exec ("persistentdict = self.storageobj." + str(keys[0]))
+        persistentdict = getattr(self.storageobj, str(keys[0]))
         persistentdict[key] = val
 
     def getID(self):
