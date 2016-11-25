@@ -254,7 +254,7 @@ class KeyIter(object):
         myuuid = str(uuid.uuid1())
         try:
             session.execute('INSERT INTO hecuba.blocks (blockid, block_classname,storageobj_classname,tkns, ksp, tab, obj_type)'+
-                            ' VALUES (%s,%s,%s,%s,%s,%s)',
+                            ' VALUES (%s,%s,%s,%s,%s,%s,%s)',
                             [myuuid, "hecuba.iter.Block",sclass, tokens, keyspace, table, 'hecuba'])
         except Exception as e:
             print "KeyIter error:", e
