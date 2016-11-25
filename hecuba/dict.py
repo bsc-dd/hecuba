@@ -1,5 +1,4 @@
 # author: G. Alomar
-from cassandra.cluster import Cluster
 from cassandra.query import BatchStatement
 from cassandra.query import BatchType
 from cassandra import ConsistencyLevel
@@ -11,9 +10,15 @@ from conf.hecuba_params import *  # execution_name, batch_size, max_cache_size, 
 from collections import defaultdict
 import random
 import time
+import logging
 
 
 class PersistentDict(dict):
+    """
+    This class servers as a proxy to Cassandra. You can access to this class as it was a normal python
+    dictionary while under the hood it queries Cassandra.
+    """
+
     prepQueriesDict = {}
     createdColumnfamiliesDict = {}
     keyList = defaultdict(list)
@@ -50,14 +55,35 @@ class PersistentDict(dict):
     pending_requests_time = 0.000000000
     pending_requests_time_res = 0.000000000
 
-    def __init__(self, mypo=None, dict_name=None, dict_keynames=None):
+    def __init__(self, mypo, dict_keynames):
+        """
+        Args:
+            mypo (hecuba.storageobj.StorageObj): the storage object that owns the dictionary
+            dict_keynames (list): it is a list of strings containing the names of all keys (primary + clustering).
+
+        Returns:
+            None
+
+        """
         dict.__init__(self, {})
         self.dictCache = PersistentDictCache()
         self.mypo = mypo
-        self.dict_name = dict_name
+        self.dict_name = dict_keynames[0]
+        if type(dict_keynames) is not list:
+            raise TypeError("dict_keynames should be a list")
         self.dict_keynames = dict_keynames
 
     def init_prefetch(self, block):
+        """
+        Initialized the prefetch manager
+
+        Args:
+           block (hecuba.iter.Block): the dataset partition which need to be prefetch
+
+        Returns:
+            None
+
+        """
         self.prefetch = True
         self.prefetchManager = PrefetchManager(1, 1, block)
 
@@ -77,12 +103,13 @@ class PersistentDict(dict):
 
     def _preparequery(self, query):
         """
+        Internal call for preparing the query for batch insertions
 
         Args:
-            query (str): query string
+          query (str): the query to prepare
 
-        Return:
-           cassandra.query.PreparedStatement: prepared query
+        Returns:
+            cassandra.query.PreparedStatement: the prepared statement.
 
         """
         if query in self.prepQueriesDict:
@@ -100,46 +127,18 @@ class PersistentDict(dict):
                 prepquery = self.prepQueriesDict[query]
                 return prepquery
 
-    def createKeyspaceIfNeeded(self, key, val):
-        if not self.mypo.name in self.createdColumnfamiliesDict:
-            PersistentDict.createdColumnfamiliesDict[str(self.mypo.name)] = []
-            yeskeystypes = ''
-            notkeystypes = ''
-            if not type(key) == tuple:
-                if type(key) == unicode:
-                    yeskeystypes = 'key1 text'
-                    PersistentDict.createdColumnfamiliesDict[str(self.mypo.name)].append(('key1', 'text'))
-                if type(key) == int:
-                    yeskeystypes = 'key1 int'
-                    PersistentDict.createdColumnfamiliesDict[str(self.mypo.name)].append(('key1', 'int'))
-            else:
-                lenk = len(key) - 1
-                for ind, keyind in enumerate(key):
-                    yeskeystypes += 'key' + str(ind + 1) + ' ' + str(type(keyind))
-                    if ind < lenk:
-                        yeskeystypes += ', '
-            if not type(val) == tuple:
-                if type(val) == unicode:
-                    notkeystypes = 'val1 text'
-                    PersistentDict.createdColumnfamiliesDict[str(self.mypo.name)].append(('val1', 'text'))
-                if type(val) == int:
-                    notkeystypes = 'val1 int'
-                    PersistentDict.createdColumnfamiliesDict[str(self.mypo.name)].append(('val1', 'int'))
-            else:
-                lenv = len(val) - 1
-                for ind, keyval in enumerate(val):
-                    notkeystypes += 'val' + str(ind + 1) + ' ' + str(type(keyval))
-                    if ind < lenv:
-                        notkeystypes += ', '
-            yeskeys = '( key1 )'
-            querytable = "CREATE TABLE " + execution_name + ".\"" + str(
-                self.mypo.name) + "\" (%s, %s, PRIMARY KEY %s);" % (yeskeystypes, notkeystypes, yeskeys)
-            try:
-                session.execute(querytable)
-            except Exception as e:
-                print "Object", str(self.mypo.name), "cannot be created in persistent storage", e
 
     def __iadd__(self, key, other):
+        """
+        Implements the += logic.
+        This method is consistent only if called on a counter.
+
+        Args:
+             key : the key to update
+             other: value to add
+        Returns:
+            None
+        """
         if type(self.dict_name) == tuple:
             counterdictname = self.types[str(self.dict_name[0])]
         else:
@@ -150,17 +149,27 @@ class PersistentDict(dict):
             self[key] = self[key] + other
 
     def __setitem__(self, key, value):
-        # print "dict __setitem__"
-        self.writes += 1  # STATISTICS
+        """
+        It handles the writes in the dictionary.
+        If the object is persistent, it stores the request in memory up to the point
+        they are enough for sending a batch request to Cassandra.
+        In case it is not persistent, everything is always held in memory.
+
+        Args:
+             key : the key to update
+             value: value to set
+        Returns:
+            None
+        """
+
+        self.writes += 1                                               #STATISTICS
         start = time.time()
         if not self.mypo.persistent:
             try:
                 dict.__setitem__(self, key, value)
             except Exception as e:
-                return "Object " + str(self.dict_name) + " with key " + str(key) + " and value " + str(
-                    value) + " cannot be inserted in dict" + str(e)
+                return "Object " + str(self.dict_name) + " with key " + str(key) + " and value " + str(value) + " cannot be inserted in dict" + str(e)
         else:
-            # self.createKeyspaceIfNeeded(key,value)
             if not 'cache_activated' in globals():
                 global cache_activated
                 cache_activated = True
@@ -169,13 +178,13 @@ class PersistentDict(dict):
                     global max_cache_size
                     max_cache_size = 100
                 if len(self.dictCache.cache) >= max_cache_size:
-                    self.writeitem()
+                    self._writeitem()
                     self.dictCache.cache = {}
                 if key in self.dictCache.cache:
                     val = self.dictCache.cache[key]
                     if val[0] is not None:
                         self.cache_hits += 1
-                        # Sync or Sent
+                        #Sync or Sent
                         if val[1] == 'Sync':
                             self.dictCache.sents += 1
                         if type(self.dict_name) == tuple:
@@ -187,7 +196,7 @@ class PersistentDict(dict):
                         else:
                             self.dictCache[key] = [value, 'Sent']
                     else:
-                        # Requested
+                        #Requested
                         self.dictCache[key] = [value, 'Sent']
                         self.dictCache.sents += 1
                 else:
@@ -197,14 +206,14 @@ class PersistentDict(dict):
                     global batch_size
                     batch_size = 100
                 if self.dictCache.sents == batch_size:
-                    self.syncs = self.syncs + batch_size  # STATISTICS
-                    self.writeitem()
-                    end = time.time()  # STATISTICS
-                    self.syncs_time += (end - start)  # STATISTICS
+                    self.syncs = self.syncs + batch_size                            #STATISTICS
+                    self._writeitem()
+                    end = time.time()                                               #STATISTICS
+                    self.syncs_time += (end-start)                                  #STATISTICS
                 else:
-                    self.cachewrite += 1  # STATISTICS
-                    end = time.time()  # STATISTICS
-                    self.cachewrite_time += (end - start)  # STATISTICS
+                    self.cachewrite += 1                                            #STATISTICS
+                    end = time.time()                                               #STATISTICS
+                    self.cachewrite_time += (end-start)                             #STATISTICS
 
             else:
                 if self.batchvar:
@@ -213,7 +222,7 @@ class PersistentDict(dict):
                     else:
                         counterdictname = self.types[str(self.dict_name)]
                     if counterdictname == 'counter':
-                        query = "UPDATE " + self.keyspace + ".\"" + self.mypo.name + "\" SET " + self.dict_name + " = " + self.dict_name + " + ? WHERE "
+                        query = "UPDATE " + self.mypo._ksp + ".\"" + self.mypo._table + "\" SET " + self.dict_name + " = " + self.dict_name + " + ? WHERE "
                         if self.firstCounterBatch == 1:
                             self.batchCount = 0
                             self.batch = BatchStatement(batch_type=BatchType.COUNTER)
@@ -294,7 +303,7 @@ class PersistentDict(dict):
                                     if sessionexecute == 9:
                                         print "tries:", sessionexecute
                                         print "Error: Cannot execute query in setItem. Exception: ", e
-                                        print "GREPME: The queries were %s" % (query)
+                                        print "GREPME: The queries were %s"%(query)
                                         print "GREPME: The values were " + str(d)
                                         raise e
                                     sessionexecute += 1
@@ -304,13 +313,13 @@ class PersistentDict(dict):
                                 print "Success after ", errors, " try"
                             else:
                                 print "Success after ", errors, " tries"
-                        self.syncs += batch_size  # STATISTICS
-                        end = time.time()  # STATISTICS
-                        self.syncs_time += (end - start)  # STATISTICS
+                        self.syncs += batch_size                                    #STATISTICS
+                        end = time.time()                                           #STATISTICS
+                        self.syncs_time += (end-start)                              #STATISTICS
                     else:
-                        self.cachewrite += 1  # STATISTICS
-                        end = time.time()  # STATISTICS
-                        self.cachewrite_time += (end - start)  # STATISTICS
+                        self.cachewrite += 1                                        #STATISTICS
+                        end = time.time()                                           #STATISTICS
+                        self.cachewrite_time += (end-start)                         #STATISTICS
 
                 else:
                     d = {}
@@ -426,20 +435,25 @@ class PersistentDict(dict):
                             print "Success after ", errors, " try"
                         else:
                             print "Success after ", errors, " tries"
-                    self.syncs += 1  # STATISTICS
-                    end = time.time()  # STATISTICS
-                    self.syncs_time += (end - start)  # STATISTICS
+                    self.syncs += 1                                                 #STATISTICS
+                    end = time.time()                                               #STATISTICS
+                    self.syncs_time += (end-start)                                  #STATISTICS
 
-    def writeitem(self):
+    def _writeitem(self):
+        """
+        This command force the dictionary to write into Cassandra.
+        Returns:
+            None
+        """
         if len(self.dictCache.cache) == 0:
-            # print "Nothing to write, cache empty"
+            #print "Nothing to write, cache empty"
             return
         if type(self.dict_name) == tuple:
             counterdictname = self.types[str(self.dict_name[0])]
         else:
             counterdictname = self.types[str(self.dict_name)]
         if counterdictname == 'counter':
-            query = "UPDATE " + self.keyspace + ".\"" + self.mypo.name + "\" SET " + self.dict_name + " = " + self.dict_name + " + ? WHERE "
+            query = "UPDATE " + self.mypo._ksp + ".\"" + self.mypo._table + "\" SET " + self.dict_name + " = " + self.dict_name + " + ? WHERE "
             self.batch = BatchStatement(batch_type=BatchType.COUNTER)
             if not type(self.dict_keynames) is tuple:
                 query += self.dict_keynames + " = ?"
@@ -449,6 +463,7 @@ class PersistentDict(dict):
                         query += str(self.dict_keynames[i]) + " = ? AND "
                     else:
                         query += str(self.dict_keynames[i]) + " = ?"
+
 
             self.insert_data = self._preparequery(query)
 
@@ -487,7 +502,7 @@ class PersistentDict(dict):
                     exec query
                     self.dictCache[k] = [value, 'Sync']
         else:
-            query = "INSERT INTO " + self.keyspace + ".\"" + self.mypo.name + "\"("
+            query = "INSERT INTO " + self.mypo._ksp + ".\"" + self.mypo._table + "\"("
             stringkeynames = str(self.dict_keynames)
             stringkeynames = stringkeynames.replace('\'', '')
             stringkeynames = stringkeynames.replace('(', '')
@@ -612,8 +627,13 @@ class PersistentDict(dict):
                 print "Success after ", errors, " tries"
 
     def __getitem__(self, key):
-        print "dict __getitem__"
-        print "key:", key
+        """
+        If the object is persistent, each request goes to the prefetcher.
+        Args:
+             key: the dictionary key
+        """
+        logging.debug('GET ITEM %s', key)
+
         if not self.mypo.persistent:
             try:
                 return dict.__getitem__(self, key)
@@ -629,7 +649,7 @@ class PersistentDict(dict):
                     global max_cache_size
                     max_cache_size = 100
                 if len(self.dictCache.cache) >= max_cache_size:
-                    self.writeitem()
+                    self._writeitem()
                     self.dictCache.cache = {}
                 if key in self.dictCache.cache:
                     val = self.dictCache.cache[key]
@@ -661,36 +681,44 @@ class PersistentDict(dict):
                     if askcassandra:
                         self.miss += 1
                         try:
-                            item = self.readitem(key)
+                            item = self._readitem(key)
                         except Exception as e:
                             print "Error:", e
                             raise KeyError
                         self.dictCache[key] = [item, 'Sync']
                         return item
             else:
-                item = self.readitem(key)
+                item = self._readitem(key)
                 return item
 
-    def readitem(self, key):
+    def _readitem(self, key):
         print "dict.py readitem"
+        print "key:", key
         query = "SELECT "
-        if type(self.dict_name) == tuple:
-            for ind, val in enumerate(self.dict_name):
-                if ind < (len(self.dict_name) - 1):
-                    query += str(self.dict_name[ind]) + ", "
+        columns = list(self.dict_keynames) + list(self.dict_name)
+        if len(columns) > 1:
+            for ind, val in enumerate(columns):
+                if ind < (len(columns) - 1):
+                    query += str(columns[ind]) + ", "
                 else:
-                    query += str(self.dict_name[ind])
+                    query += str(columns[ind])
         else:
-            query += str(self.dict_name)
-        query += " FROM " + self.keyspace + ".\"" + self.mypo.name + "\" WHERE "
+            query += str(columns[0])
+        query += " FROM " + self.mypo._ksp + ".\"" + self.mypo._table + "\" WHERE "
         if not type(key) is tuple:
             key = str(key).replace("[", "")
             key = str(key).replace("]", "")
             key = str(key).replace("'", "")
-            if self.types[str(self.dict_keynames)] == 'text':
-                query += self.dict_keynames + " = \'" + str(key) + "\' LIMIT 1"
+
+            if isinstance(self.dict_keynames,tuple):
+                keyname = self.dict_keynames[0]
             else:
-                query += self.dict_keynames + " = " + str(key) + " LIMIT 1"
+                keyname = self.dict_keynames
+
+            if self.types[str(keyname)] == 'text':
+                query += keyname + " = \'" + str(key)
+            else:
+                query += keyname + " = " + str(key)
         else:
             for i, k in enumerate(key):
                 if i < (len(key) - 1):
@@ -700,9 +728,9 @@ class PersistentDict(dict):
                         query += self.dict_keynames[i] + " = " + str(k) + " AND "
                 else:
                     if self.types[str(self.dict_keynames[i])] == 'text':
-                        query += self.dict_keynames[i] + " = \'" + str(k) + "\' LIMIT 1;"
+                        query += self.dict_keynames[i] + " = \'" + str(k)
                     else:
-                        query += self.dict_keynames[i] + " = " + str(k) + " LIMIT 1;"
+                        query += self.dict_keynames[i] + " = " + str(k)
         errors = 0
         totalerrors = 0
         sleeptime = 0.5
@@ -715,18 +743,23 @@ class PersistentDict(dict):
                 try:
                     print "       query:", query
                     result = session.execute(query)
-                    item = ''
-                    for row in result:
-                        print "row:", row
-                        if len(row) > 1:
-                            item = []
-                            for i, val in enumerate(row):
-                                print "i:  ", i
-                                print "val:", val
-                                item.append(val)
-                        else:
-                            item = str(val)
-                    print "item:", item
+                    #two conditions different for version 2.x or 3.x of the cassandra drivers
+                    if (hasattr(result,'current_rows') and len(result.current_rows) > 1) \
+                            or (isinstance(result,list) and len(result) > 1):
+                        item = [row for row in result]
+                    else:
+                        item = ''
+                        for row in result:
+                            print "row:", row
+                            if len(row) > 1:
+                                item = []
+                                for i, val in enumerate(row):
+                                    print "i:  ", i
+                                    print "val:", val
+                                    item.append(val)
+                            else:
+                                item = val
+                    print "item:", str(item)
                     sessionexecute = 5
                 except Exception as e:
                     print "sleeptime:", sleeptime
@@ -771,43 +804,17 @@ class PersistentDict(dict):
             return item
         '''
 
-    def len(self):
-        query = "SELECT count(*) FROM " + execution_name + ".\"" + self.mypo.name + "\";"
-        done = False
-        item = ''
-        while not done:
-            try:
-                result = session.execute(query)
-                item = 0
-                for row in result:
-                    item = row[0]
-            except Exception as e:
-                print "Error obtaining persistentDict length:", e
-            done = True
-        return item
-
     def keys(self):
+        """
+        This method return a list of all the keys.
+
+        Returns:
+          list: a list of keys
+        """
         if not self.mypo.persistent:
             return dict.keys(self)
         else:
             return PersistentKeyList(self)
-
-    def sortedkeys(self):
-        if not self.mypo.persistent:
-            return sorted(dict.keys(self))
-        else:
-            return PersistentKeyList(self)
-
-    # Make PersistentDict serializable with pickle
-    def __getstate__(self):
-        return self.mypo, self.dict_name, self.dict_keynames, dict(self)
-
-    def __setstate__(self, state):
-        self.mypo, self.dict_name, self.dict_keynames, data = state
-        self.update(data)  # will *not* call __setitem__
-
-    def __reduce__(self):
-        return PersistentDict, (), self.__getstate__()
 
     def _buildquery(self, key, value):
         """
@@ -871,7 +878,7 @@ class context:
             self.storageObj.batchvar = True
         else:
             keys = self.storageObj.keyList[self.storageObj.__class__.__name__]
-            exec ("self.storageObj." + str(keys[0]) + ".batchvar  = True")
+            exec("self.storageObj." + str(keys[0]) + ".batchvar  = True")
 
     def __exit__(self):
         if self.storageObj.__class__.__name__ == 'PersistentDict':
@@ -885,21 +892,14 @@ class context:
         else:
             keys = self.storageObj.keyList[self.storageObj.__class__.__name__]
             storobj = self.storageObj
-            exec ("midict = storobj." + str(keys[0]))
+            exec("midict = storobj." + str(keys[0]))
             midict.batchvar = False
             if not 'cache_activated' in globals():
                 global cache_activated
                 cache_activated = True
             if cache_activated:
-                exec "micache = midict.dictCache"
-            exec (
-            "valType = self.storageObj." + str(keys[0]) + ".types[str(self.storageObj." + str(keys[0]) + ".dict_name)]")
-            exec ("keynames = self.storageObj." + str(keys[0]) + ".dict_keynames")
-            keynames = str(keynames).replace('(', '')
-            keynames = str(keynames).replace(')', '')
-            keynames = str(keynames).replace('\'', '')
-            keynames = str(keynames).split(', ')
-            exec ("keyType = self.storageObj." + str(keys[0]) + ".types[str(keynames[0])]")
+                micache = midict.dictCache
+
         if cache_activated:
             midict.syncs = midict.syncs + micache.sents
             midict._writeitem()
