@@ -1,4 +1,6 @@
 # author: G. Alomar
+import string
+
 from hecuba.dict import *
 from conf.hecuba_params import execution_name, ranges_per_block
 from collections import defaultdict
@@ -7,31 +9,37 @@ import time
 from hecuba import *
 import uuid
 
-class Block(object):
 
+class Block(object):
     @staticmethod
     def build_remotely(results):
-        return Block(results.blockid, results.entry_point, results.tab, results.dict_name, results.ksp, results.tkns, results.storageobj_classname)
-
-
-
+        return Block(results.blockid, results.entry_point, results.dict_name, results.tab,  results.ksp, results.tkns,
+                     results.storageobj_classname)
 
     def __init__(self, blockid, peer, keynames, tablename, keyspace, tokens, storageobj_classname):
-        ''''
+        """
         Creates a new block.
-        :type blockid: string an unique block identifier
-        :type peer: string hostname
-        :type keynames: string the Cassandra partition key
-        :type tablename: string the name of the collection/table
-        :type keyspace: string name of the Cassandra keyspace.
-        :type tokens: list of tokens
-        '''
+
+        Args:
+            blockid (string):  an unique block identifier
+            peer (string): hostname
+            keynames (list): the Cassandra partition key
+            tablename (string): the name of the collection/table
+            keyspace (string): name of the Cassandra keyspace.
+            tokens (list): list of tokens
+            storageobj_classname (string): full class name of the storageobj
+
+        Returns:
+
+        """
         print "Block __init__ ####################################"
         self.blockid = blockid
         self.node = peer
         self.token_ranges = tokens
         self.key_names = keynames
         self.table_name = tablename
+        if type(keynames) is not list:
+            raise TypeError
         self.keyspace = keyspace
         self.needContext = True
         self.supportsPrefetch = True
@@ -70,6 +78,7 @@ class Block(object):
 
     def iterkeys(self):
         return BlockIter(self)
+
 
 class BlockIter(object):
     def __init__(self, iterable):
@@ -174,28 +183,28 @@ class BlockValuesIter(object):
         self.persistentDict.prefetchManager.pipeq_write[0].send(['query'])
 
     def next(self):
-        self.persistentDict.reads += 1                                                        #STATISTICS
+        self.persistentDict.reads += 1  # STATISTICS
         if self.pos == self.num_keys:
             if self.end:
                 raise StopIteration
             else:
                 self.persistentDict.prefetchManager.pipeq_write[0].send(['continue'])
                 usedpipe = self.persistentDict.prefetchManager.piper_read[0]
-                self.persistentDict.cache_prefetchs += 1                                      #STATISTICS
-                self.persistentDict.cache_hits_graph += 'P'                                   #STATISTICS
-                start = time.time()                                                           #STATISTICS
+                self.persistentDict.cache_prefetchs += 1  # STATISTICS
+                self.persistentDict.cache_hits_graph += 'P'  # STATISTICS
+                start = time.time()  # STATISTICS
                 results = usedpipe.recv()
-                self.persistentDict.pending_requests_time += time.time() - start              #STATISTICS
+                self.persistentDict.pending_requests_time += time.time() - start  # STATISTICS
                 if len(results) == 0:
                     raise StopIteration
                 else:
                     self.keys = []
                     for entry in results:
-                        self.persistentDict.cache_hits += 1                                   #STATISTICS
-                        self.persistentDict.cache_hits_graph += 'X'                           #STATISTICS
-                        start = time.time()                                                   #STATISTICS
+                        self.persistentDict.cache_hits += 1  # STATISTICS
+                        self.persistentDict.cache_hits_graph += 'X'  # STATISTICS
+                        start = time.time()  # STATISTICS
                         self.persistentDict.dictCache[entry[0]] = [entry[1], 'Sync']
-                        self.persistentDict.cache_hits_time += time.time() - start            #STATISTICS
+                        self.persistentDict.cache_hits_time += time.time() - start  # STATISTICS
                         self.keys.append(entry[0])
                     self.num_keys = len(self.keys)
                     self.pos = 0
@@ -203,8 +212,8 @@ class BlockValuesIter(object):
                         self.end = True
 
         if len(self.keys) == 0:
-            self.persistentDict.miss += 1                                                     #STATISTICS
-            self.persistentDict.cache_hits_graph += '_'                                       #STATISTICS
+            self.persistentDict.miss += 1  # STATISTICS
+            self.persistentDict.cache_hits_graph += '_'  # STATISTICS
             print "Error obtaining block_keys in iter.py"
 
         value = self.persistentDict.dictCache[self.keys[self.pos]]
@@ -234,33 +243,30 @@ class KeyIter(object):
         self.iterable = iterable
         self.num_peers = len(self.ring)
 
-
-
-
     def next(self):
         print "KeyIter - next ################################################"
         start = self.pos
         if start == self.num_peers:
             raise StopIteration
 
-        currentRingPos =self.ring[self.pos]    # [1]
+        currentRingPos = self.ring[self.pos]  # [1]
         tokens = currentRingPos[1]
         import uuid
 
         keyspace = self.mypdict.mypo._ksp
         table = self.mypdict.mypo._table
         storeobj = self.iterable.mypdict.mypo
-        sclass= '%s.%s'%(storeobj.__class__.__module__,storeobj.__class__.__name__)
+        sclass = '%s.%s' % (storeobj.__class__.__module__, storeobj.__class__.__name__)
         myuuid = str(uuid.uuid1())
         try:
-            session.execute('INSERT INTO hecuba.blocks (blockid, block_classname,storageobj_classname,tkns, ksp, tab, obj_type)'+
-                            ' VALUES (%s,%s,%s,%s,%s,%s,%s)',
-                            [myuuid, "hecuba.iter.Block",sclass, tokens, keyspace, table, 'hecuba'])
+            session.execute(
+                'INSERT INTO hecuba.blocks (blockid, block_classname,storageobj_classname,tkns, ksp, tab, obj_type)' +
+                ' VALUES (%s,%s,%s,%s,%s,%s,%s)',
+                [myuuid, "hecuba.iter.Block", sclass, tokens, keyspace, table, 'hecuba'])
         except Exception as e:
             print "KeyIter error:", e
             raise e
         currringpos = self.ring[self.pos]
-        b = Block(myuuid,currringpos[0], keyspace, table, self.blockkeyspace,currringpos[1], sclass)
+        b = Block(myuuid, currringpos[0], keyspace, table, self.blockkeyspace, currringpos[1], sclass)
         self.pos += 1
         return b
-
