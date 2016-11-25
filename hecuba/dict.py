@@ -22,7 +22,6 @@ class PersistentDict(dict):
 
     prepQueriesDict = {}
     createdColumnfamiliesDict = {}
-    keyList = defaultdict(list)
     types = {}
     insert_data = ''
     batchvar = ''
@@ -67,8 +66,10 @@ class PersistentDict(dict):
         self.dict_keynames = dict_keynames
         self.dict_valnames = dict_valnames
         self.insert_data = None
+        self.select_query = {}
         self.batch = None
         self.batchCount = 0
+        self.keyList = defaultdict(list)
 
       
 
@@ -177,7 +178,7 @@ class PersistentDict(dict):
                     global max_cache_size
                     max_cache_size = 100
                 if len(self.dictCache.cache) >= max_cache_size:
-                    self._writeitem()
+                    self._flush_items()
                     self.dictCache.cache = {}
                 if key in self.dictCache.cache:
                     val = self.dictCache.cache[key]
@@ -206,7 +207,7 @@ class PersistentDict(dict):
                     batch_size = 100
                 if self.dictCache.sents == batch_size:
                     self.syncs += batch_size  # STATISTICS
-                    self._writeitem()
+                    self._flush_items()
                     end = time.time()  # STATISTICS
                     self.syncs_time += (end - start)  # STATISTICS
                 else:
@@ -225,10 +226,10 @@ class PersistentDict(dict):
                         self.batchCount = 0
                         if counterdictname == 'counter':
                             self.batch = BatchStatement(batch_type=BatchType.COUNTER)
-                            self.insert_data = self._preparequery(self._buildcounterquery())
+                            self.insert_data = self._preparequery(self._build_insert_counter_query())
                         else:
                             self.batch = BatchStatement()
-                            self.insert_data = self._preparequery(self._buildquery())
+                            self.insert_data = self._preparequery(self._build_insert_query())
 
                     self.batch.add(self._bind_row(key, value))
 
@@ -251,9 +252,9 @@ class PersistentDict(dict):
                         else:
                             counterdictname = self.types[str(self.dict_name)]
                         if counterdictname == 'counter':
-                            self.insert_data = self._preparequery(self._buildcounterquery())
+                            self.insert_data = self._preparequery(self._build_insert_counter_query())
                         else:
-                            self.insert_data = self._preparequery(self._buildquery())
+                            self.insert_data = self._preparequery(self._build_insert_query())
 
                     query = self._bind_row(key, value)
                     self._exec_query(query)
@@ -318,7 +319,7 @@ class PersistentDict(dict):
         end = time.time()  # STATISTICS
         self.syncs_time += (end - start)  # STATISTICS
 
-    def _writeitem(self):
+    def _flush_items(self):
         """
         This command force the dictionary to write into Cassandra.
         Returns:
@@ -340,7 +341,7 @@ class PersistentDict(dict):
         if counterdictname == 'counter':
             batch = BatchStatement(batch_type=BatchType.COUNTER)
             if self.insert_data is None:
-                self.insert_data = self._preparequery(self._buildcounterquery())
+                self.insert_data = self._preparequery(self._build_insert_counter_query())
 
             for k, v in self.dictCache.cache.iteritems():
                 if v[1] == 'Sent':
@@ -349,7 +350,7 @@ class PersistentDict(dict):
                     self.dictCache[k] = [value, 'Sync']
         else:
             if self.insert_data is None:
-                self.insert_data = self._preparequery(self._buildquery())
+                self.insert_data = self._preparequery(self._build_insert_query())
 
             batch = BatchStatement()
 
@@ -386,7 +387,7 @@ class PersistentDict(dict):
                     max_cache_size = 100
                 if len(self.dictCache.cache) >= max_cache_size:
                     # TODO bad for performance, we should rotate aroudn the cache.
-                    self._writeitem()
+                    self._flush_items()
                     self.dictCache.cache = {}
                 if key in self.dictCache.cache:
                     val = self.dictCache.cache[key]
@@ -431,43 +432,14 @@ class PersistentDict(dict):
     def _readitem(self, key):
         print "dict.py readitem"
         print "key:", key
-        query = "SELECT "
-        columns = list(self.dict_keynames) + list(self.dict_name)
-        if len(columns) > 1:
-            for ind, val in enumerate(columns):
-                if ind < (len(columns) - 1):
-                    query += str(columns[ind]) + ", "
-                else:
-                    query += str(columns[ind])
+        if isinstance(key, tuple):
+            quid = len(key)
         else:
-            query += str(columns[0])
-        query += " FROM " + self.mypo._ksp + ".\"" + self.mypo._table + "\" WHERE "
-        if not type(key) is tuple:
-            key = str(key).replace("[", "")
-            key = str(key).replace("]", "")
-            key = str(key).replace("'", "")
+            quid=0
+        if quid not in self.select_query:
+            self.select_query[quid] = self._preparequery(self._build_select_query(key))
 
-            if isinstance(self.dict_keynames, tuple):
-                keyname = self.dict_keynames[0]
-            else:
-                keyname = self.dict_keynames
-
-            if self.types[str(keyname)] == 'text':
-                query += keyname + " = \'" + str(key)
-            else:
-                query += keyname + " = " + str(key)
-        else:
-            for i, k in enumerate(key):
-                if i < (len(key) - 1):
-                    if self.types[str(self.dict_keynames[i])] == 'text':
-                        query += self.dict_keynames[i] + " = \'" + str(k) + "\' AND "
-                    else:
-                        query += self.dict_keynames[i] + " = " + str(k) + " AND "
-                else:
-                    if self.types[str(self.dict_keynames[i])] == 'text':
-                        query += self.dict_keynames[i] + " = \'" + str(k)
-                    else:
-                        query += self.dict_keynames[i] + " = " + str(k)
+        query = self.select_query[quid].bind(key)
         errors = 0
         totalerrors = 0
         sleeptime = 0.5
@@ -485,18 +457,7 @@ class PersistentDict(dict):
                             or (isinstance(result, list) and len(result) > 1):
                         item = [row for row in result]
                     else:
-                        item = ''
-                        for row in result:
-                            print "row:", row
-                            if len(row) > 1:
-                                item = []
-                                for i, val in enumerate(row):
-                                    print "i:  ", i
-                                    print "val:", val
-                                    item.append(val)
-                            else:
-                                item = val
-                    print "item:", str(item)
+                        item = result[0]
                     sessionexecute = 5
                 except Exception as e:
                     print "sleeptime:", sleeptime
@@ -532,14 +493,7 @@ class PersistentDict(dict):
         else:
             print "no errors"
         return item
-        '''
-        if (self.types[str(self.dict_name)] == 'int') or (self.types[str(self.dict_name)] == 'counter') or (len(result) == 0):
-            print "if"
-            return int(item)
-        else:
-            print "else"
-            return item
-        '''
+
 
     def keys(self):
         """
@@ -553,7 +507,7 @@ class PersistentDict(dict):
         else:
             return PersistentKeyList(self)
 
-    def _buildquery(self):
+    def _build_insert_query(self):
         """
         This function builds the insert query
         Args:
@@ -570,7 +524,24 @@ class PersistentDict(dict):
         query += ")"
         return query
 
-    def _buildcounterquery(self):
+    def _build_select_query(self, key):
+        """
+        This function builds the insert query
+        Args:
+            key: list key
+            value: value
+        Returns:
+            str: query string
+        """
+
+        toadd = self.dict_keynames + self.dict_valnames
+        selects = str.join(',', toadd)
+
+        query = "SELECT " + selects +" FROM " + self.mypo._ksp + "." + self.mypo._table+ " WHERE "
+        query += str.join(" AND ", map(lambda k: k + " = ?", self.dict_keynames[0:len(key)]))
+        return query
+
+    def _build_insert_counter_query(self):
         """
         This function builds the insert query
         Args:
@@ -625,7 +596,7 @@ class context:
 
         if cache_activated:
             midict.syncs = midict.syncs + micache.sents
-            midict._writeitem()
+            midict._flush_items()
         else:
             midict.syncs = midict.syncs + midict.batchCount
             midict.session.execute(midict.batch)
