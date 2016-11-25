@@ -98,24 +98,20 @@ class StorageObj(object):
 
         initial = numtables
         for x in range(0, int(numtables)):
-            yeskeys = "("
-            notkeys = ""
+            yes_keys = []
+            no_keys = []
             for key, row in currtable.iteritems():
                 if int(row[0]) == int(initial):
                     if row[3] == "yes":
-                        yeskeys = yeskeys + "\'" + row[1] + "\', "
+                        yes_keys.append(row[1])
                     else:
-                        notkeys = notkeys + "\'" + row[1] + "\', "
+                        no_keys.append(row[1])
+
             if int(initial) > 0:
                 initial = int(initial) - 1
             else:
                 initial = numtables
-            notkeys = notkeys[0:len(notkeys) - 2]
-            yesk = yeskeys.split(',')[0]
-            yesk = str(yesk)[2:len(yesk) - 1]
-            yeskeys = yeskeys[0:len(yeskeys) - 2]
-            yeskeys += ")"
-            exec ("self." + str(yesk) + " = PersistentDict(self, (" + notkeys + "), " + yeskeys + ")")
+            setattr(self, yes_keys[0], PersistentDict(self, yes_keys, no_keys))
 
     def make_persistent(self):
         print "storageobj make_persistent ####################################"
@@ -167,8 +163,9 @@ class StorageObj(object):
         except Exception as e:
             print "keyspace could not be set", e
 
-        querytable = "CREATE TABLE IF NOT EXISTS " + self._ksp + ".\"" + str(self._table) + "\" (%s, %s, PRIMARY KEY%s);" % (
-        yeskeystypes, notkeystypes, yeskeys)
+        querytable = "CREATE TABLE IF NOT EXISTS " + self._ksp + ".\"" + str(
+            self._table) + "\" (%s, %s, PRIMARY KEY%s);" % (
+            yeskeystypes, notkeystypes, yeskeys)
         try:
             session.execute(querytable)
         except Exception as e:
@@ -220,72 +217,15 @@ class StorageObj(object):
 
         self.persistent = True
 
-    def saveToDDBB(self):
-
-        keyspace = 'config' + self._ksp
-
-        for key, variable in vars(self).iteritems():
-            if str(type(variable)) == "<type 'int'>":
-                querytable = "INSERT INTO config" + str(
-                    self._ksp) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(
-                    self._table) + "\', \'" + str(key) + "\', 'int', \'" + str(variable) + "\');"
-                session.execute(querytable)
-            if str(type(variable)) == "<type 'str'>":
-                if not str(key) == 'name':
-                    querytable = "INSERT INTO config" + str(
-                        self._ksp) + ".attribs(dictname, dataname, datatype, datavalue) VALUES ( \'" + str(
-                        self._table) + "\', \'" + str(key) + "\', 'str', \'" + str(variable) + "\');"
-                    session.execute(querytable)
-            if str(type(variable)) == "<type 'list'>":
-                query = "TRUNCATE %s.\"%s\";" % (self._ksp, self._table + str(key))
-                try:
-                    session.execute(query)
-                except Exception as e:
-                    print "Object", self._table, "cannot be emptied in persistent storage saveToDDBB:", e
-                querytable = "CREATE TABLE " + self._ksp + ".\"" + str(self._table) + str(
-                    key) + "\" (position int, type text, value text, PRIMARY KEY (position));"
-                try:
-                    session.execute(querytable)
-                except Exception as e:
-                    # print "Object", self._table, "cannot be created in persistent storage", e
-                    pass
-                for ind, value in enumerate(variable):
-                    if str(type(value)) == "<type 'int'>":
-                        querytable = "INSERT INTO " + self._ksp + ".\"" + str(self._table) + str(
-                            key) + "\" (position, type, value) VALUES ( " + str(ind) + ", \'int\', \'" + str(
-                            value) + "\');"
-                    if str(type(value)) == "<type 'str'>":
-                        querytable = "INSERT INTO " + self._ksp + ".\"" + str(self._table) + str(
-                            key) + "\" (position, type, value) VALUES ( " + str(ind) + ", \'str\', \'" + str(
-                            value) + "\');"
-                    session.execute(querytable)
-
-    '''
-    def iteritems(self):
-        print "storageobj iteritems ####################################"
-        print "Data needs to be accessed through a block"
-        return [] # self
-    '''
-
-    # '''
-    # new iteritems
     def iteritems(self):
         print "storageobj iteritems ####################################"
         keys = self.keyList[self.__class__.__name__]
         self.pKeyList = PersistentKeyList(getattr(self, str(keys[0])))
         return self  # a
 
-    # '''
     def itervalues(self):
         print "Data needs to be accessed through a block"
         return []  # self
-
-    '''
-    def iteritems(self):
-        keys = self.keyList[self.__class__.__name__]
-        exec ("a = PersistentKeyList(self." + str(keys[0]) + ")")
-        return a # self
-    '''
 
     def increment(self, target, value):
         self[target] = value
@@ -428,7 +368,8 @@ class StorageObj(object):
         if str(type(value)) == "<class 'hecuba.dict.PersistentDict'>":
             super(StorageObj, self).__setattr__(key, value)
         else:
-            if not (str(key) == 'name') and not (str(key) == 'persistent') and not (str(key) == 'cntxt') and not str(key)[0] == '_':
+            if not (str(key) == 'name') and not (str(key) == 'persistent') and not (str(key) == 'cntxt') and not \
+                    str(key)[0] == '_':
                 if hasattr(self, 'persistent'):
                     if not self.persistent:
                         super(StorageObj, self).__setattr__(key, value)
@@ -545,7 +486,7 @@ class StorageObj(object):
         auxdict = {}
 
         #        for key in keys :
-        auxdict = getattr(self,str(keys[0]))
+        auxdict = getattr(self, str(keys[0]))
         # else:
         #     print "StorageObj " + str(self._table) + " has more than 1 dictionary, specify which one has to be used"
         #     raise KeyError
@@ -561,7 +502,7 @@ class StorageObj(object):
         keys = self.keyList[self.__class__.__name__]
         auxdict = {}
         if len(keys) == 1:
-            auxdict = getattr(self,str(keys[0]))
+            auxdict = getattr(self, str(keys[0]))
         else:
             print "StorageObj " + str(self._table) + " has more than 1 dictionary, specify which one has to be used"
             raise KeyError
