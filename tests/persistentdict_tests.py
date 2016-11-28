@@ -41,7 +41,7 @@ class PersistentDict_Tests(unittest.TestCase):
         self.fail('to be implemented')
     '''
 
-    def test_inmemory_contains(self):
+    def inmemory_contains_test(self):
         MockStorageObj.__init__ = Mock(return_value=None)
         mypo = MockStorageObj()
         pd = PersistentDict(mypo, ['pk1'], ['val1'])
@@ -54,7 +54,7 @@ class PersistentDict_Tests(unittest.TestCase):
         self.assertEqual(False, pd.__contains__(33))
         pd.mypo.__getitem__.assert_not_called()
 
-    def test_inmemory_keys(self):
+    def inmemory_keys_test(self):
         MockStorageObj.__init__ = Mock(return_value=None)
         mypo = MockStorageObj()
         mypo.persistent = False
@@ -65,7 +65,7 @@ class PersistentDict_Tests(unittest.TestCase):
         pd[3] = '4'
         self.assertEqual([0,1,2,3], pd.keys())
 
-    def test_buildquery(self):
+    def buildquery_test(self):
         mypo = MockStorageObj()
         mypo.persistent = True
         mypo._table = "tt"
@@ -73,7 +73,7 @@ class PersistentDict_Tests(unittest.TestCase):
         pd = PersistentDict(mypo, ['pk1', 'pk2'], ['val1', 'val2'])
         self.assertEqual('INSERT INTO kksp.tt(pk1,pk2,val1,val2) VALUES (?,?,?,?)', pd._build_insert_query())
 
-    def test_buildcounterquery(self):
+    def buildcounterquery_test(self):
         mypo = MockStorageObj()
         mypo.persistent = True
         mypo._table = "tt"
@@ -81,7 +81,7 @@ class PersistentDict_Tests(unittest.TestCase):
         pd = PersistentDict(mypo, ['pk1', 'pk2'], ['val1'])
         self.assertEqual('UPDATE kksp.tt SET val1 = val1 + ? WHERE pk1 = ? AND pk2 = ?', pd._build_insert_counter_query())
 
-    def test_build_select_query(self):
+    def build_select_query_test(self):
         mypo = MockStorageObj()
         mypo.persistent = True
         mypo._table = "tt"
