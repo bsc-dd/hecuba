@@ -8,11 +8,6 @@ from hecuba.dict import PersistentDict
 
 class PersistentDict_Tests(unittest.TestCase):
     '''
-    def test_init_prefetch(self):
-        self.fail('to be implemented')
-
-    def test_end_prefetch(self):
-        self.fail('to be implemented')
 
     def test_ddbb_contains(self):
         self.fail('to be implemented')
@@ -45,6 +40,48 @@ class PersistentDict_Tests(unittest.TestCase):
 
     '''
 
+    def test_init_prefetch(self):
+        """
+        self.prefetch = True
+        self.prefetchManager = PrefetchManager(1, 1, block)
+        """
+        MockStorageObj.__init__ = Mock(return_value=None)
+        mypo = MockStorageObj()
+        pd = PersistentDict(mypo, ['pk1'], ['val1'])
+        pd.prefetch = False
+        from hecuba.prefetchmanager import PrefetchManager
+        PrefetchManager.__init__ = Mock(return_value=None)
+        from hecuba.iter import Block
+        Block.__init__ = Mock(return_value=None)
+        pd.init_prefetch(Block())
+        PrefetchManager.__init__.assert_called_once()
+        self.assertEqual(True, pd.prefetch)
+    '''
+    def test_end_prefetch(self):
+        """
+        self.prefetchManager.terminate()
+        """
+        MockStorageObj.__init__ = Mock(return_value=None)
+        mypo = MockStorageObj()
+        pd = PersistentDict(mypo, ['pk1'], ['val1'])
+        pd.KeyList = {'mydict':'myName'}
+        pd.prefetch = True
+        from hecuba.iter import Block
+        Block.__init__ = Mock(return_value=None)
+        bl = Block()
+        bl.key_names = 'ksp'
+        bl.peer = "localhost"
+        bl.blockid = 'myuuid'
+        bl.keyspace = 'ksp'
+        bl.table_name = 'tt'
+        bl.token_ranges = [1, 2]
+        bl.storageobj = pd
+        pd.init_prefetch(bl)
+        pd.prefetchmanager.__init__ = Mock(return_value=None)
+        pd.prefetchManager.terminate = Mock(return_value=None)
+        pd.end_prefetch()
+        pd.prefetchManager.terminate.assert_called_once()
+    '''
     def test_iadd(self):
         MockStorageObj.__init__ = Mock(return_value=None)
         mypo = MockStorageObj()
@@ -182,7 +219,6 @@ class PersistentDict_Tests(unittest.TestCase):
                 pd[key] = value
                 self.assertEqual(pd[key], value)
 
-    '''
     def preparequery_test(self):
         from hecuba.settings import session
         ret = 'prepared-example'
@@ -194,7 +230,6 @@ class PersistentDict_Tests(unittest.TestCase):
         session.prepare.assert_called_once()
         self.assertEqual(ret,pd._preparequery('SELECT pk1,pk2 FROM kksp.tt WHERE pk1 = ?'))
         session.prepare.assert_called_once()
-    '''
 
 if __name__ == '__main__':
     unittest.main()
