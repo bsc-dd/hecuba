@@ -69,14 +69,19 @@ class BlockTest(unittest.TestCase):
         MockStorageObj.__init__.assert_called_once_with(ksp=keyspace, table=tablename)
         b['test1'] = 123124
         self.assertEqual(123124, b['test1'])
-    '''
 
     def getID_test(self):
         """
         Check the id is the same
         :return:
         """
-        self.fail('to be implemented')
+        from hecuba.iter import Block
+        Block.__init__ = Mock(return_value=None)
+        bl = Block()
+        bl.blockid = 'myuuid'
+        self.assertEquals('myuuid', bl.getID())
+        self.assertNotEquals('myuuid2', bl.getID())
+    '''
 
     def iteritems_test(self):
         self.fail('to be implemented')
