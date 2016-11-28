@@ -36,10 +36,20 @@ class PersistentDict_Tests(unittest.TestCase):
 
     def test_ddbb_readitem(self):
         self.fail('to be implemented')
+    '''
 
     def test_readitem(self):
-        self.fail('to be implemented')
-    '''
+        MockStorageObj.__init__ = Mock(return_value=None)
+        mypo = MockStorageObj()
+        mypo._table = "tt"
+        mypo._ksp = "kksp"
+        pd = PersistentDict(mypo, ['pk1'], ['val1'])
+        pd.mypo.persistent = True
+        pd._flush_items = Mock(return_value=None)
+        pd[3] = '4'
+        pd[2] = '4'
+        self.assertEqual('4', pd._readitem(3))
+        self.assertEqual(KeyError, pd._readitem(4))
 
     def test_inmemory_contains(self):
         MockStorageObj.__init__ = Mock(return_value=None)
@@ -88,10 +98,9 @@ class PersistentDict_Tests(unittest.TestCase):
         mypo._ksp = "kksp"
         pd = PersistentDict(mypo, ['pk1', 'pk2'], ['val1'])
         self.assertEqual('SELECT pk1,pk2,val1 FROM kksp.tt WHERE pk1 = ?', pd._build_select_query(['pk1']))
-
         self.assertEqual('SELECT pk1,pk2,val1 FROM kksp.tt WHERE pk1 = ? AND pk2 = ?', pd._build_select_query(['pk1', 'pk2']))
 
-    def persistent_nocache_nobatch_setitem_test(self):
+    def persistent_nocache_batch1_setitem_test(self):
         MockStorageObj.__init__ = Mock(return_value=None)
         mypo = MockStorageObj()
         mypo.persistent = True
@@ -101,8 +110,39 @@ class PersistentDict_Tests(unittest.TestCase):
         cache_activated = False
         session.execute = Mock(return_value=None)
         pd._flush_items = Mock(return_value=None)
-
         pd[123] = 'fish'
+        pd._flush_items.assert_called_once()
+
+    def persistent_nocache_batch100_setitem_test(self):
+        MockStorageObj.__init__ = Mock(return_value=None)
+        mypo = MockStorageObj()
+        mypo.persistent = True
+        pd = PersistentDict(mypo, ['pk1'], ['val1', 'val2'])
+        from hecuba.settings import config,session
+        config.batch_size = 100
+        cache_activated = False
+        session.execute = Mock(return_value=None)
+        pd._flush_items = Mock(return_value=None)
+        for i in range(0,99):
+            pd[i] = 'fish'
+        pd._flush_items.assert_not_called()
+        pd[99] = 'fish'
+        pd._flush_items.assert_called_once()
+
+    def persistent_cache_batch100_setitem_test(self):
+        MockStorageObj.__init__ = Mock(return_value=None)
+        mypo = MockStorageObj()
+        mypo.persistent = True
+        pd = PersistentDict(mypo, ['pk1'], ['val1', 'val2'])
+        from hecuba.settings import config,session
+        config.batch_size = 100
+        cache_activated = True
+        session.execute = Mock(return_value=None)
+        pd._flush_items = Mock(return_value=None)
+        for i in range(0,99):
+            pd[i] = 'fish'
+        pd._flush_items.assert_not_called()
+        pd[99] = 'fish'
         pd._flush_items.assert_called_once()
 
     def inmemory_getitem_setitem_test(self):
