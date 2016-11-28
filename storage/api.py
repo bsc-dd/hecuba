@@ -6,11 +6,31 @@ from hecuba.storageobj import *
 from hecuba.settings import *
 import collections
 import hecuba
-
 from conf.hecuba_params import *
 
 
+def init(config_file_path=None):
+    """
+    Function that can be useful when running the application with COMPSs >= 2.0
+    It is executed at the begining of the application
+    """
+    pass
+
+
+def finish():
+    """
+    Function that can be useful when running the application with COMPSs >= 2.0
+    It is executed at the end of the application
+    """
+    pass
+
+
 def start_task(params):
+    """
+    Initializes, if needed, the global vars for prefetch and batch, and starts the context if batch is activated
+    Args:
+        params: a list of objects (Blocks, StorageObjs, strings, ints, ...)
+    """
     if type(params) is not list:
         raise ValueError('call start_task with a list of params')
     if not 'prefetch_activated' in globals():
@@ -33,6 +53,12 @@ def start_task(params):
 
 
 def end_task(params):
+    """
+    Terminates, if needed, the context (to save all data remaining in the batch) and the prefetch. It also prints
+    the statistics of the StorageObjs if desired.
+    Args:
+        params: a list of objects (Blocks, StorageObjs, strings, ints, ...)
+    """
     if not 'prefetch_activated' in globals():
         global prefetch_activated
         prefetch_activated = True
