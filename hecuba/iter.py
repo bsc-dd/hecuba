@@ -13,6 +13,11 @@ import uuid
 class Block(object):
     @staticmethod
     def build_remotely(results):
+        """
+        Launches the Block.__init__ from the api.getByID
+        Args:
+            results: a list of all information needed to create again the block
+        """
         return Block(results.blockid, results.entry_point, results.dict_name, results.tab,  results.ksp, results.tkns,
                      results.storageobj_classname)
 
@@ -53,34 +58,87 @@ class Block(object):
         exec ('self.storageobj = %s(table="%s",ksp="%s")' % (cname, tablename, keyspace))
         self.cntxt = ""
 
-    def __iter__(self):
-        return BlockIter(self)
-
     def __getitem__(self, key):
+        """
+        Launches the getitem of the dict found in the block storageobj
+        Args:
+            key: the position of the value that we're looking for
+        Returns:
+            val: the value that we're looking for
+        """
         keys = self.storageobj.keyList[self.storageobj.__class__.__name__]
         persistentdict = getattr(self.storageobj, str(keys[0]))
         return persistentdict[key]
 
     def __setitem__(self, key, val):
+        """
+        Launches the setitem of the dict found in the block storageobj
+        Args:
+            key: the position of the value that we want to save
+            val: the value that we want to save in that position
+        Returns:
+        """
         keys = self.storageobj.keyList[self.storageobj.__class__.__name__]
         persistentdict = getattr(self.storageobj, str(keys[0]))
         persistentdict[key] = val
 
     def getID(self):
+        """
+        Obtains the id of the block
+        Returns:
+            self.blockid: id of the block
+        """
         return self.blockid
 
+    def __iter__(self):
+        """
+        Obtains the iterator for the keys of the block
+        Returns:
+            BlockIter(self): list of keys
+        """
+        return BlockIter(self)
+
     def iteritems(self):
+        """
+        Obtains the iterator for the key,val pairs of the block
+        Returns:
+            BlockItemsIter(self): list of key,val pairs
+        """
         return BlockItemsIter(self)
 
     def itervalues(self):
+        """
+        Obtains the iterator for the values of the block
+        Returns:
+            BlockValuesIter(self): list of values
+        """
         return BlockValuesIter(self)
 
     def iterkeys(self):
+        """
+        Obtains the iterator for the keys of the block
+        Returns:
+            iterkeys(self): list of keys
+        """
         return BlockIter(self)
 
 
 class BlockIter(object):
+    """
+        Iterator for the keys of the block
+    """
+    def __iter__(self):
+        """
+        Needed to be considered as an iterable
+        """
+        return self
+
     def __init__(self, iterable):
+        """
+        Initializes the iterator, and its prefetcher
+        Args:
+            iterable: Block to iterate over
+        """
         self.pos = 0
         self.keys = []
         self.num_keys = 0
@@ -91,6 +149,11 @@ class BlockIter(object):
         exec ("self.iterable.storageobj." + str(keys[0]) + ".prefetchManager.pipeq_write[0].send(['query'])")
 
     def next(self):
+        """
+        Returns the keys, one by one, contained in the token ranges of the block
+        Returns:
+            key: .
+        """
         if self.pos == self.num_keys:
             if self.end:
                 raise StopIteration
@@ -121,10 +184,21 @@ class BlockIter(object):
 
 
 class BlockItemsIter(object):
+    """
+        Iterator for the key,val pairs of the block
+    """
     def __iter__(self):
+        """
+        Needed to be considered as an iterable
+        """
         return self
 
     def __init__(self, iterable):
+        """
+        Initializes the iterator, and its prefetcher
+        Args:
+            iterable: Block to iterate over
+        """
         self.pos = 0
         self.keys = []
         self.num_keys = 0
@@ -137,6 +211,11 @@ class BlockItemsIter(object):
         self.persistentDict.prefetchManager.pipeq_write[0].send(['query'])
 
     def next(self):
+        """
+        Returns the keys,value pairs, one by one, contained in the token ranges of the block
+        Returns:
+            (key,val): .
+        """
         if self.pos == self.num_keys:
             if self.end:
                 raise StopIteration
@@ -166,10 +245,21 @@ class BlockItemsIter(object):
 
 
 class BlockValuesIter(object):
+    """
+        Iterator for the values of the block
+    """
     def __iter__(self):
+        """
+        Needed to be considered as an iterable
+        """
         return self
 
     def __init__(self, iterable):
+        """
+        Initializes the iterator, and its prefetcher
+        Args:
+            iterable: Block to iterate over
+        """
         self.pos = 0
         self.keys = []
         self.num_keys = 0
@@ -182,6 +272,11 @@ class BlockValuesIter(object):
         self.persistentDict.prefetchManager.pipeq_write[0].send(['query'])
 
     def next(self):
+        """
+        Returns the values, one by one, contained in the token ranges of the block
+        Returns:
+            val: .
+        """
         self.persistentDict.reads += 1  # STATISTICS
         if self.pos == self.num_keys:
             if self.end:
@@ -221,10 +316,17 @@ class BlockValuesIter(object):
 
 
 class KeyIter(object):
+    """
+        Iterator for the blocks of the storageobj
+    """
     blockKeySpace = ''
 
     def __init__(self, iterable):
-        print "KeyIter - __init__ ############################################"
+        """
+        Initializes the iterator, and saves the information about the token ranges of each block
+        Args:
+            iterable: Block to iterate over
+        """
         self.pos = 0
         self.ring = []
         self.mypdict = iterable.mypdict
@@ -243,7 +345,11 @@ class KeyIter(object):
         self.num_peers = len(self.ring)
 
     def next(self):
-        print "KeyIter - next ################################################"
+        """
+        Returns the blocks, one by one, created from the data in the storageobj
+        Returns:
+            block: .
+        """
         start = self.pos
         if start == self.num_peers:
             raise StopIteration
