@@ -71,8 +71,6 @@ class PersistentDict(dict):
         self.batchCount = 0
         self.keyList = defaultdict(list)
 
-      
-
     def init_prefetch(self, block):
         """
         Initialized the prefetch manager
@@ -187,7 +185,8 @@ class PersistentDict(dict):
                         if counterdictname == 'counter':
                             self.dictCache[key] = [int(value) + int(val[0]), 'Sent']
                         else:
-                            self.dictCache[key] = [value, 'Sent']
+                            self.dictCache[key] = [value, ''
+                                                          '']
                     else:
                         # Requested
                         self.dictCache[key] = [value, 'Sent']
@@ -411,8 +410,6 @@ class PersistentDict(dict):
                 return item
 
     def _readitem(self, key):
-        print "dict.py readitem"
-        print "key:", key
         if isinstance(key, tuple):
             quid = len(key)
         else:
@@ -431,7 +428,6 @@ class PersistentDict(dict):
             sessionexecute = 0
             while sessionexecute < 5:
                 try:
-                    print "       query:", query
                     result = session.execute(query)
                     # two conditions different for version 2.x or 3.x of the cassandra drivers
                     if (hasattr(result, 'current_rows') and len(result.current_rows) > 1) \

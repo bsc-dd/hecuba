@@ -8,9 +8,6 @@ from hecuba.dict import PersistentDict
 
 class PersistentDict_Tests(unittest.TestCase):
     '''
-    def test_init(self):
-        self.fail('to be implemented')
-
     def test_init_prefetch(self):
         self.fail('to be implemented')
 
@@ -20,36 +17,58 @@ class PersistentDict_Tests(unittest.TestCase):
     def test_ddbb_contains(self):
         self.fail('to be implemented')
 
-    def test_iadd(self):
-        self.fail('to be implemented')
-
-    def test_getitem(self):
-        self.fail('to be implemented')
-
     def test_ddbb_getitem(self):
         self.fail('to be implemented')
+
     def test_ddbb_writeitem(self):
         self.fail('to be implemented')
 
-    def test_inmemory_writeitem(self):
-        self.fail('to be implemented')
-
     def test_ddbb_readitem(self):
-        self.fail('to be implemented')
-    '''
-
-    def test_readitem(self):
         MockStorageObj.__init__ = Mock(return_value=None)
         mypo = MockStorageObj()
-        mypo._table = "tt"
         mypo._ksp = "kksp"
-        pd = PersistentDict(mypo, ['pk1'], ['val1'])
+        mypo._table = "tt"
+        pd = PersistentDict(mypo, ['pk1'], ['pk2'])
         pd.mypo.persistent = True
         pd._flush_items = Mock(return_value=None)
-        pd[3] = '4'
-        pd[2] = '4'
-        self.assertEqual('4', pd._readitem(3))
-        self.assertEqual(KeyError, pd._readitem(4))
+        from hecuba.settings import session
+        class MyPS:pass
+        ps = MyPS()
+        class MyStatement:pass
+        st=MyStatement()
+        ps.bind = Mock(return_value=st)
+        session.prepare = Mock(return_value=ps)
+        pd._readitem([3])
+        session.prepare.assert_called_once()
+        ps.bind.assert_called_with(3)
+        session.execute.assert_called_with(st)
+
+    '''
+
+    def test_iadd(self):
+        MockStorageObj.__init__ = Mock(return_value=None)
+        mypo = MockStorageObj()
+        mypo.persistent = False
+        pd = PersistentDict(mypo, ['pk1'], ['val1'])
+        pd.types['pk1'] = "notCounter"
+        pd[3] = 0
+        pd[3] += 2
+        self.assertEqual(2, pd[3])
+        self.assertNotEquals(1, pd[3])
+        pd2 = PersistentDict(mypo, ['pk2'], ['val2'])
+        pd2.types['pk2'] = "counter"
+        pd2[3] = 3
+        pd2[3] += 2
+        self.assertEqual(2, pd[3])
+        self.assertNotEquals(5, pd[3])
+
+    def test_init(self):
+        MockStorageObj.__init__ = Mock(return_value=None)
+        mypo = MockStorageObj()
+        from hecuba.cache import PersistentDictCache
+        PersistentDictCache.__init__ = Mock(return_value=None)
+        pd = PersistentDict(mypo, ['pk1'], ['val1'])
+        pd.dictCache.__init__.assert_called_once()
 
     def test_inmemory_contains(self):
         MockStorageObj.__init__ = Mock(return_value=None)
@@ -163,6 +182,7 @@ class PersistentDict_Tests(unittest.TestCase):
                 pd[key] = value
                 self.assertEqual(pd[key], value)
 
+    '''
     def preparequery_test(self):
         from hecuba.settings import session
         ret = 'prepared-example'
@@ -174,6 +194,7 @@ class PersistentDict_Tests(unittest.TestCase):
         session.prepare.assert_called_once()
         self.assertEqual(ret,pd._preparequery('SELECT pk1,pk2 FROM kksp.tt WHERE pk1 = ?'))
         session.prepare.assert_called_once()
+    '''
 
 if __name__ == '__main__':
     unittest.main()
