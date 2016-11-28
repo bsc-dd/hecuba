@@ -112,8 +112,8 @@ def pipeloop(pipeq, piper):
                         if success:
                             for entry in result:
                                 ind += 1
-                                exec("value1 = entry." + colnames[0])
-                                exec("value2 = entry." + colnames[1])
+                                value1 = getattr(entry, colnames[0])
+                                value2 = getattr(entry, colnames[1])
                                 values.append((value1, value2))
                                 if ind == statement.fetch_size:
                                     piper.send(values)
