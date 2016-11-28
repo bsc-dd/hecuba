@@ -276,7 +276,7 @@ class PersistentDict(dict):
         while not done:
             while sessionexecute < 5:
                 try:
-                    session.execute(query, d, timeout=10)
+                    session.execute(query)
                     sessionexecute = 5
                 except Exception as e:
                     if sessionexecute == 0:
@@ -309,6 +309,9 @@ class PersistentDict(dict):
     def _flush_items(self):
         """
         This command force the dictionary to write into Cassandra.
+        This means that:
+          1. if there is insertion stored in the batch, they are executed
+          2. anything in the cache is sent to Cassandra
         Returns:
             None
         """
