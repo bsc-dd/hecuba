@@ -247,9 +247,6 @@ class PersistentDict(dict):
 
     def _bind_row(self, key, value):
         """
-        
-            
-        
         Returns:
              BoundStatement: returns a query with binded elements
         """
@@ -268,6 +265,13 @@ class PersistentDict(dict):
         return self.insert_data.bind(elements)
 
     def _exec_query(self, query):
+        """
+        This function executes an already binded query
+        Args:
+            query: binded query already with all data
+        Returns:
+            None
+        """
         done = False
         sessionexecute = 0
         errors = 0
@@ -354,6 +358,8 @@ class PersistentDict(dict):
         If the object is persistent, each request goes to the prefetcher.
         Args:
              key: the dictionary key
+        Returns
+             item: value found in position key
         """
         logging.debug('GET ITEM %s', key)
 
@@ -410,6 +416,13 @@ class PersistentDict(dict):
                 return item
 
     def _readitem(self, key):
+        """
+        This function executes de Select query to find the value in position key
+        Args:
+            key: The position where we want to find the value
+        Returns:
+            Value: .
+        """
         if isinstance(key, tuple):
             quid = len(key)
         else:
@@ -474,8 +487,7 @@ class PersistentDict(dict):
 
     def keys(self):
         """
-        This method return a list of all the keys.
-
+        This method return a list of all the keys of the PersistentDict.
         Returns:
           list: a list of keys
         """
@@ -535,7 +547,18 @@ class PersistentDict(dict):
 
 
 class context:
+    """
+    This Class is used in order to write the last elements found in batch when exiting a worker/loop
+    It will access data in a different way depending on if the context is applied on a Block or a PersistentDict:
+    If we already have a StorageObj, we'll access it's cache,
+    if not, we'll access the cache of the StorageObj of the Block
+    """
     def __init__(self, obj):
+        """
+        Saves the StorageObj in a context attribute
+        Args:
+            obj: the Block or StorageObj
+        """
         if obj.__class__.__name__ == 'Block':
             if obj.storageobj == '':
                 print "Error: Block has not a valid storage object"
@@ -545,6 +568,9 @@ class context:
             self.storageObj = obj
 
     def __enter__(self):
+        """
+        Starts the batch in the context
+        """
         if self.storageObj.__class__.__name__ == 'PersistentDict':
             self.storageObj.batchvar = True
         else:
@@ -552,6 +578,9 @@ class context:
             exec ("self.storageObj." + str(keys[0]) + ".batchvar  = True")
 
     def __exit__(self):
+        """
+        Saves the last batch data which hasn't been saved yet and closes the batch
+        """
         if self.storageObj.__class__.__name__ == 'PersistentDict':
             midict = self.storageObj
             midict.batchvar = False
