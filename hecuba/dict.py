@@ -218,7 +218,7 @@ class PersistentDict(dict):
                             self.batch = BatchStatement(batch_type=BatchType.COUNTER)
                             self.insert_data = self._preparequery(self._build_insert_counter_query())
                         else:
-                            self.batch = BatchStatement()
+                            self.batch = BatchStatement(batch_type=BatchType.UNLOGGED)
                             self.insert_data = self._preparequery(self._build_insert_query())
 
                     self.batch.add(self._bind_row(key, value))
@@ -339,7 +339,7 @@ class PersistentDict(dict):
             if self.insert_data is None:
                 self.insert_data = self._preparequery(self._build_insert_query())
 
-            batch = BatchStatement()
+            batch = BatchStatement(batch_type=BatchType.UNLOGGED)
 
             for k, v in self.dictCache.cache.iteritems():
                 if v[1] == 'Sent':
