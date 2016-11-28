@@ -32,7 +32,6 @@ class Block(object):
         Returns:
 
         """
-        print "Block __init__ ####################################"
         self.blockid = blockid
         self.node = peer
         self.token_ranges = tokens

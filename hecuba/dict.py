@@ -3,7 +3,7 @@ from cassandra.query import BatchStatement
 from cassandra.query import BatchType
 from cassandra import ConsistencyLevel
 import collections
-from hecuba.settings import *
+from hecuba.settings import session, config
 from hecuba.cache import PersistentDictCache
 from hecuba.prefetchmanager import PrefetchManager
 from hecuba.Plist import PersistentKeyList
@@ -92,7 +92,7 @@ class PersistentDict(dict):
 
     def __contains__(self, key):
         if not self.mypo.persistent:
-            return dict.__contains__(key)
+            return dict.__contains__(self, key)
         else:
             try:
                 self.__getitem__(key)
@@ -160,7 +160,6 @@ class PersistentDict(dict):
         Returns:
             None
         """
-
         self.writes += 1  # STATISTICS
         start = time.time()
         if not self.mypo.persistent:
@@ -170,14 +169,8 @@ class PersistentDict(dict):
                 return "Object " + str(self.dict_name) + " with key " + str(key) + " and value " + str(
                     value) + " cannot be inserted in dict" + str(e)
         else:
-            if not 'cache_activated' in globals():
-                global cache_activated
-                cache_activated = True
-            if cache_activated:
-                if not 'max_cache_size' in globals():
-                    global max_cache_size
-                    max_cache_size = 100
-                if len(self.dictCache.cache) >= max_cache_size:
+            if config.cache_activated:
+                if len(self.dictCache.cache) >= config.max_cache_size:
                     self._flush_items()
                     self.dictCache.cache = {}
                 if key in self.dictCache.cache:
@@ -202,11 +195,8 @@ class PersistentDict(dict):
                 else:
                     self.dictCache[key] = [value, 'Sent']
                     self.dictCache.sents += 1
-                if not 'batch_size' in globals():
-                    global batch_size
-                    batch_size = 100
-                if self.dictCache.sents == batch_size:
-                    self.syncs += batch_size  # STATISTICS
+                if self.dictCache.sents == config.batch_size:
+                    self.syncs += config.batch_size  # STATISTICS
                     self._flush_items()
                     end = time.time()  # STATISTICS
                     self.syncs_time += (end - start)  # STATISTICS
@@ -234,10 +224,7 @@ class PersistentDict(dict):
                     self.batch.add(self._bind_row(key, value))
 
                     self.batchCount += 1
-                    if not 'batch_size' in globals():
-                        global batch_size
-                        batch_size = 100
-                    if self.batchCount % batch_size == 0:
+                    if self.batchCount % config.batch_size == 0:
                         self._exec_query(self.batch)
                         self.batch = None
                     else:
@@ -378,14 +365,8 @@ class PersistentDict(dict):
                 return "Object " + str(self.dict_name) + " with key " + str(key) + " not in dict:" + str(e)
         else:
             self.reads += 1
-            if not 'cache_activated' in globals():
-                global cache_activated
-                cache_activated = True
-            if cache_activated:
-                if not 'max_cache_size' in globals():
-                    global max_cache_size
-                    max_cache_size = 100
-                if len(self.dictCache.cache) >= max_cache_size:
+            if config.cache_activated:
+                if len(self.dictCache.cache) >= config.max_cache_size:
                     # TODO bad for performance, we should rotate aroudn the cache.
                     self._flush_items()
                     self.dictCache.cache = {}
@@ -578,23 +559,17 @@ class context:
         if self.storageObj.__class__.__name__ == 'PersistentDict':
             midict = self.storageObj
             midict.batchvar = False
-            if not 'cache_activated' in globals():
-                global cache_activated
-                cache_activated = True
-            if cache_activated:
+            if config.cache_activated:
                 micache = midict.dictCache
         else:
             keys = self.storageObj.keyList[self.storageObj.__class__.__name__]
             storobj = self.storageObj
             exec ("midict = storobj." + str(keys[0]))
             midict.batchvar = False
-            if not 'cache_activated' in globals():
-                global cache_activated
-                cache_activated = True
-            if cache_activated:
+            if config.cache_activated:
                 micache = midict.dictCache
 
-        if cache_activated:
+        if config.cache_activated:
             midict.syncs = midict.syncs + micache.sents
             midict._flush_items()
         else:

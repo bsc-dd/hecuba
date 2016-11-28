@@ -37,6 +37,12 @@ def init():
 
     import logging
     logging.basicConfig()
+    class Config:pass
+    global  config
+    config=Config()
+    config.cache_activated = True
+    config.batch_size = 100
+    config.max_cache_size = 100
 
 
 init()
