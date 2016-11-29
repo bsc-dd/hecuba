@@ -54,6 +54,7 @@ class StorageObj(object):
             table (string): the name of the Cassandra collection/table where information can be found
             myuuid (string):  an unique storageobj identifier
         """
+        self._persistent_dicts = []
         if table is None:
             self._table = self.__class__.__name__
         else:
@@ -62,7 +63,6 @@ class StorageObj(object):
             self._ksp = execution_name
         else:
             self._ksp = ksp
-
         if myuuid is None:
             self._myuuid = str(uuid.uuid1())
             classname = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
@@ -106,41 +106,12 @@ class StorageObj(object):
             self.persistent = False
         else:
             self.persistent = True
-
-        config_keyspace = 'config' + self._ksp
-        execution = []
-
-        dictname = "\"" + self.__class__.__name__ + "\""
-
-        query = "SELECT * FROM " + config_keyspace + "." + dictname + ";"
-        numtables = 0
-        try:
-            execution = session.execute(query)
-        except Exception as e:
-            print "Error: Cannot retrieve data from table", dictname, ". Exception: ", e
-
-        currtable = {}
-        for ind, row in enumerate(execution):
-            currtable[ind] = row
-            if row[0] > numtables:
-                numtables = str(row[0])
-
-        initial = numtables
-        for x in range(0, int(numtables)):
-            yes_keys = []
-            no_keys = []
-            for key, row in currtable.iteritems():
-                if int(row[0]) == int(initial):
-                    if row[3] == "yes":
-                        yes_keys.append(row[1])
-                    else:
-                        no_keys.append(row[1])
-
-            if int(initial) > 0:
-                initial = int(initial) - 1
-            else:
-                initial = numtables
-            setattr(self, yes_keys[0], PersistentDict(self, yes_keys, no_keys))
+        props = self.__class__._persistent_props['storage_objs']
+        dictionaries = filter(lambda t: t['type'] == 'dict', props.iteritems())
+        for table_name, per_dict in dictionaries:
+            pd = PersistentDict(self, per_dict['primary_keys'], per_dict['columns'])
+            setattr(self, table_name, pd)
+            self._persistent_dicts.append(pd)
 
     def make_persistent(self):
         """
@@ -208,14 +179,6 @@ class StorageObj(object):
             print "error in querytable:", querytable
             print "Object", self._table, "cannot be created in persistent storage", e
             # pass
-        '''
-        keys = self.keyList[self.__class__.__name__]
-        for key in self.split():
-            exec ("val = self." + str(keys[0]) + "[" + str(key) + "]")
-            query = "INSERT INTO " + str(self._ksp) + ".\"" + str(self._table) + "\"(" + str(
-                yeskeys[1:len(yeskeys) - 1]) + ", " + str(keys[0]) + ") VALUES (" + str(key) + ", " + str(val) + ");"
-            session.execute(query)
-        '''
 
         for key, variable in vars(self).iteritems():
             if str(type(variable)) == "<type 'int'>":
@@ -280,12 +243,22 @@ class StorageObj(object):
         """
         self[target] = value
 
+    def _get_default_dict(self):
+        '''
+
+        Returns:
+             PersistentDict: the first persistent dict
+        '''
+        if len(self._persistent_dicts) == 0:
+            raise KeyError('There are no persistent dicts')
+        return self._persistent_dicts[0]
+
     def empty_persistent(self):
         """
-        Empties the Cassandra table where the persistent StorageObj stores data
+            Empties the Cassandra table where the persistent StorageObj stores data
         """
-        keys = self.keyList[self.__class__.__name__]
-        getattr(self, str(keys[0])).dictCache.cache = {}
+        def_dict = self._get_default_dict()
+        def_dict.dictCache.cache = {}
 
         query = "TRUNCATE %s.\"%s\";" % (self._ksp, self._table)
 
@@ -305,12 +278,14 @@ class StorageObj(object):
 
     def delete_persistent(self):
         """
-        Deletes the Cassandra table where the persistent StorageObj stores data
+            Deletes the Cassandra table where the persistent StorageObj stores data
         """
-        keys = self.keyList[self.__class__.__name__]
-        getattr(self, str(keys[0])).dictCache.cache = {}
+        def_dict = self._get_default_dict()
+        def_dict.dictCache.cache = {}
 
         self.persistent = False
+        for dics in self._persistent_dicts:
+            dics.is_persistent = False
 
         query = "TRUNCATE %s.\"%s\";" % (self._ksp, self._table)
         try:
@@ -328,33 +303,25 @@ class StorageObj(object):
 
     def __contains__(self, key):
         """
-        Returns True if the given key can be found in the PersistentDict, false otherwise
-        Args:
-            key: key that we are looking for in the PersistentDict
-        Returns:
-            a (boolean): True if the given key can be found in the PersistentDict, false otherwise
+           Returns True if the given key can be found in the PersistentDict, false otherwise
+           Args:
+               key: key that we are looking for in the PersistentDict
+           Returns:
+               a (boolean): True if the given key can be found in the PersistentDict, false otherwise
         """
-        keys = self.keyList[self.__class__.__name__]
-        if len(keys) > 1:
-            raise KeyError
-        else:
-            exec ("a = self." + str(keys[0]) + ".__contains__(key)")
-            return a
+        def_dict = self._get_default_dict()
+        return def_dict.__contains__(key)
 
     def has_key(self, key):
         """
-        Returns True if the given key can be found in the PersistentDict, false otherwise
-        Args:
-            key: key that we are looking for in the PersistentDict
-        Returns:
-            a (boolean): True if the given key can be found in the PersistentDict, false otherwise
+          Returns True if the given key can be found in the PersistentDict, false otherwise
+          Args:
+              key: key that we are looking for in the PersistentDict
+          Returns:
+              a (boolean): True if the given key can be found in the PersistentDict, false otherwise
         """
-        keys = self.keyList[self.__class__.__name__]
-        if len(keys) > 1:
-            raise KeyError
-        else:
-            exec ("a = self." + str(keys[0]) + ".has_key(key)")
-            return a
+        def_dict = self._get_default_dict()
+        def_dict.has_key(key)
 
     def finalize(self):
         """
@@ -544,40 +511,31 @@ class StorageObj(object):
 
     def split(self):
         """
-        Depending on if it's persistent or not, this function returns the list of keys of the PersistentDict assigned to
-        the StorageObj, or the list of keys
-        Returns:
-             a) List of keys in case that the SO is not persistent
-             b) Iterator that will return Blocks, one by one, where we can find the SO data in case it's persistent
+          Depending on if it's persistent or not, this function returns the list of keys of the PersistentDict assigned to
+          the StorageObj, or the list of keys
+          Returns:
+               a) List of keys in case that the SO is not persistent
+               b) Iterator that will return Blocks, one by one, where we can find the SO data in case it's persistent
         """
-        keys = self.keyList[self.__class__.__name__]
-        print "keys:", keys
+        auxdict = self._get_default_dict()
         if not self.persistent:
-            a = dict.keys(getattr(self, str(keys[0])))
+            a = dict.keys(getattr(self, auxdict))
             return a
         else:
-            a = PersistentKeyList(getattr(self, str(keys[0])))
+            a = PersistentKeyList(getattr(self, auxdict))
             return a
 
     def __additem__(self, key, other):
         """
-        Depending on if it's persistent or not, this function adds the given value to the given key position:
-            a) In memory
-            b) In the DDBB
-        Args:
-            key: position of the value we want to increase
-            other: quantity by which we want to increase the value stored in the key position
+           Depending on if it's persistent or not, this function adds the given value to the given key position:
+               a) In memory
+               b) In the DDBB
+           Args:
+               key: position of the value we want to increase
+               other: quantity by which we want to increase the value stored in the key position
         """
-        keys = self.keyList[self.__class__.__name__]
-        self.adding = True
-        auxdict = {}
-        if len(keys) == 1:
-            exec ("auxdict = self." + str(keys[0]))
-        else:
-            print "StorageObj " + str(self._table) + " has more than 1 dictionary, specify which one has to be used"
-            raise KeyError
+        auxdict = self._get_default_dict()
         auxdict[key] = auxdict[key] + other
-        self.adding = False
 
     def __getitem__(self, key):
         """
@@ -588,42 +546,22 @@ class StorageObj(object):
         Returns:
 
         """
-        print "key:", key
-        keys = self.keyList[self.__class__.__name__]
-        print "keys:", keys
-        auxdict = {}
-
-        #        for key in keys :
-        auxdict = getattr(self, str(keys[0]))
-        # else:
-        #     print "StorageObj " + str(self._table) + " has more than 1 dictionary, specify which one has to be used"
-        #     raise KeyError
-
-        # if (auxdict.types[str(auxdict.dict_name)] == 'counter'):
-        #    #if self.adding == True:
-        #    #    return 0
-        #    return 0
+        auxdict = self._get_default_dict()
         item = auxdict[key]
         return item
 
     def __setitem__(self, key, value):
-        keys = self.keyList[self.__class__.__name__]
-        auxdict = {}
-        if len(keys) == 1:
-            auxdict = getattr(self, str(keys[0]))
-        else:
-            print "StorageObj " + str(self._table) + " has more than 1 dictionary, specify which one has to be used"
-            raise KeyError
+        auxdict = self._get_default_dict()
         auxdict[key] = value
 
     def statistics(self):
 
-        keys = self.keyList[self.__class__.__name__]
+        keys = map(lambda a:a[0], self.__class__._persistent_props['storage_objs']['primary_keys'])
 
         reads = 0
-        exec ("reads = self." + str(keys[0]) + ".reads")
+        exec ("reads = self." + keys[0] + ".reads")
         writes = 0
-        exec ("writes = self." + str(keys[0]) + ".writes")
+        exec ("writes = self." +keys[0] + ".writes")
 
         if reads > 0 or writes > 0:
             print "####################################################"
@@ -647,7 +585,7 @@ class StorageObj(object):
                             print "reads:                     ", reads
 
             chits = 0
-            exec ("chits = self." + str(keys[0]) + ".cache_hits")
+            exec ("chits = self." + keys[0]  + ".cache_hits")
             if chits < 10:
                 print "cache_hits(X):                 ", chits
             else:
@@ -662,7 +600,7 @@ class StorageObj(object):
                         else:
                             print "cache_hits(X):             ", chits
             pendreqs = 0
-            exec ("pendreqs = self." + str(keys[0]) + ".pending_requests")
+            exec ("pendreqs = self." + keys[0]  + ".pending_requests")
             if pendreqs > 0:
                 if pendreqs < 10:
                     print "pending_reqs:                  ", pendreqs
@@ -678,7 +616,7 @@ class StorageObj(object):
                             else:
                                 print "pending_reqs:              ", pendreqs
             dbhits = 0
-            exec ("dbhits = self." + str(keys[0]) + ".miss")
+            exec ("dbhits = self." + keys[0]  + ".miss")
             if dbhits < 10:
                 print "miss(_):                       ", dbhits
             else:
@@ -694,7 +632,7 @@ class StorageObj(object):
                             print "miss(_):                   ", dbhits
 
             cprefetchs = 0
-            exec ("cprefetchs = self." + str(keys[0]) + ".cache_prefetchs")
+            exec ("cprefetchs = self." + keys[0]  + ".cache_prefetchs")
             if cprefetchs > 0:
                 if cprefetchs < 10:
                     print "cprefetchs:                    ", cprefetchs
@@ -711,7 +649,7 @@ class StorageObj(object):
                                 print "cprefetchs:                ", cprefetchs
 
             cachepreffails = 0
-            exec ("cachepreffails = self." + str(keys[0]) + ".cache_prefetchs_fails")
+            exec ("cachepreffails = self." + keys[0]  + ".cache_prefetchs_fails")
             if cachepreffails < 10:
                 print "cachepreffails:                ", cachepreffails
             else:

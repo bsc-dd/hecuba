@@ -8,14 +8,31 @@ from hecuba.dict import PersistentDict
 
 class PersistentDict_Tests(unittest.TestCase):
     '''
+    def test_init(self):
+        self.fail('to be implemented')
+
+    def test_init_prefetch(self):
+        self.fail('to be implemented')
+
+    def test_end_prefetch(self):
+        self.fail('to be implemented')
 
     def test_ddbb_contains(self):
+        self.fail('to be implemented')
+
+    def test_iadd(self):
+        self.fail('to be implemented')
+
+    def test_getitem(self):
         self.fail('to be implemented')
 
     def test_ddbb_getitem(self):
         self.fail('to be implemented')
 
     def test_ddbb_writeitem(self):
+        self.fail('to be implemented')
+
+    def test_inmemory_writeitem(self):
         self.fail('to be implemented')
 
     def test_ddbb_readitem(self):
@@ -38,6 +55,8 @@ class PersistentDict_Tests(unittest.TestCase):
         ps.bind.assert_called_with(3)
         session.execute.assert_called_with(st)
 
+    def test_readitem(self):
+        self.fail('to be implemented')
     '''
 
     def test_init_prefetch(self):
@@ -107,12 +126,21 @@ class PersistentDict_Tests(unittest.TestCase):
         pd = PersistentDict(mypo, ['pk1'], ['val1'])
         pd.dictCache.__init__.assert_called_once()
 
-    def test_inmemory_contains(self):
-        MockStorageObj.__init__ = Mock(return_value=None)
-        mypo = MockStorageObj()
-        pd = PersistentDict(mypo, ['pk1'], ['val1'])
-        pd.mypo.persistent = False
-        pd.mypo.__getitem__ = Mock(return_value=None)
+    def flush_items_cached_test(self):
+        pd = PersistentDict('ksp', 'tb1', True, [('pk1', 'int')], [('val1', 'str')])
+        from hecuba.settings import config, session
+        config.batch_size = 10
+        session.execute = Mock(return_value=None)
+        config.cache_activated = True
+        for i in range(100):
+            pd[i] = 'ciao'+str(i)
+        session.execute.assert_not_called()
+        pd._flush_items()
+        session.execute.assert_any_call(10)
+
+
+    def inmemory_contains_test(self):
+        pd = PersistentDict('ksp', 'tb1', False, [('pk1', 'int')], [('val1', 'str')])
         pd[3] = '4'
         #print "type(pd):", type(pd)
         self.assertEqual(True, pd.__contains__(3))
@@ -120,7 +148,7 @@ class PersistentDict_Tests(unittest.TestCase):
         self.assertEqual(False, pd.__contains__(33))
         pd.mypo.__getitem__.assert_not_called()
 
-    def test_inmemory_keys(self):
+    def inmemory_keys_test(self):
         MockStorageObj.__init__ = Mock(return_value=None)
         mypo = MockStorageObj()
         mypo.persistent = False
@@ -129,9 +157,9 @@ class PersistentDict_Tests(unittest.TestCase):
         pd[1] = '2'
         pd[2] = '3'
         pd[3] = '4'
-        self.assertEqual([0,1,2,3], pd.keys())
+        self.assertEqual([0, 1, 2, 3], pd.keys())
 
-    def test_buildquery(self):
+    def buildquery_test(self):
         mypo = MockStorageObj()
         mypo.persistent = True
         mypo._table = "tt"
@@ -139,7 +167,7 @@ class PersistentDict_Tests(unittest.TestCase):
         pd = PersistentDict(mypo, ['pk1', 'pk2'], ['val1', 'val2'])
         self.assertEqual('INSERT INTO kksp.tt(pk1,pk2,val1,val2) VALUES (?,?,?,?)', pd._build_insert_query())
 
-    def test_buildcounterquery(self):
+    def buildcounterquery_test(self):
         mypo = MockStorageObj()
         mypo.persistent = True
         mypo._table = "tt"
@@ -147,7 +175,7 @@ class PersistentDict_Tests(unittest.TestCase):
         pd = PersistentDict(mypo, ['pk1', 'pk2'], ['val1'])
         self.assertEqual('UPDATE kksp.tt SET val1 = val1 + ? WHERE pk1 = ? AND pk2 = ?', pd._build_insert_counter_query())
 
-    def test_build_select_query(self):
+    def build_select_query_test(self):
         mypo = MockStorageObj()
         mypo.persistent = True
         mypo._table = "tt"
@@ -163,7 +191,7 @@ class PersistentDict_Tests(unittest.TestCase):
         pd = PersistentDict(mypo, ['pk1'], ['val1', 'val2'])
         from hecuba.settings import config,session
         config.batch_size = 1
-        cache_activated = False
+        config.cache_activated = False
         session.execute = Mock(return_value=None)
         pd._flush_items = Mock(return_value=None)
         pd[123] = 'fish'

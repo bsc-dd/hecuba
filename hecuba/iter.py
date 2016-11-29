@@ -61,29 +61,28 @@ class Block(object):
         exec ('self.storageobj = %s(table="%s",ksp="%s")' % (cname, tablename, keyspace))
         self.cntxt = ""
 
+    def __iter__(self):
+        return BlockIter(self)
+
     def __getitem__(self, key):
         """
-        Launches the getitem of the dict found in the block storageobj
-        Args:
-            key: the position of the value that we're looking for
-        Returns:
-            val: the value that we're looking for
+            Launches the getitem of the dict found in the block storageobj
+            Args:
+                key: the position of the value that we're looking for
+            Returns:
+                val: the value that we're looking for
         """
-        keys = self.storageobj.keyList[self.storageobj.__class__.__name__]
-        persistentdict = getattr(self.storageobj, str(keys[0]))
-        return persistentdict[key]
+        return self.storageobj[key]
 
     def __setitem__(self, key, val):
         """
-        Launches the setitem of the dict found in the block storageobj
-        Args:
-            key: the position of the value that we want to save
-            val: the value that we want to save in that position
-        Returns:
+           Launches the setitem of the dict found in the block storageobj
+           Args:
+               key: the position of the value that we want to save
+               val: the value that we want to save in that position
+           Returns:
         """
-        keys = self.storageobj.keyList[self.storageobj.__class__.__name__]
-        persistentdict = getattr(self.storageobj, str(keys[0]))
-        persistentdict[key] = val
+        self.storageobj[key] = val
 
     def getID(self):
         """
