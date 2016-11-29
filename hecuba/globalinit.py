@@ -78,7 +78,7 @@ def hello_world():
 
     keyspace = execution_name
 
-    repl_factor = "3"
+    repl_factor = "1"
     repl_class = "SimpleStrategy"
 
     try:

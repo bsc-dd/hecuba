@@ -236,17 +236,17 @@ class PersistentDict(dict):
              BoundStatement: returns a query with binded elements
         """
         elements = []
-        if isinstance(key, collections.Iterable):
+        if isinstance(key, list) or isinstance(key, tuple):
             for val in key:
                 elements.append(val)
         else:
             elements.append(key)
 
-        if isinstance(value, collections.Iterable):
+        if isinstance(value, list) or isinstance(value, tuple):
             for val in value:
                 elements.append(val)
         else:
-            elements.append(key)
+            elements.append(value)
         return self._insert_data.bind(elements)
 
     def _exec_query(self, query):
