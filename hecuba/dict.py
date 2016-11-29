@@ -24,7 +24,6 @@ class PersistentDict(dict):
     createdColumnfamiliesDict = {}
     types = {}
     _insert_data = ''
-    batchvar = ''
     prefetchManager = ""
     blockKeys = []
     prefetch = False
@@ -198,7 +197,7 @@ class PersistentDict(dict):
                     self.cachewrite_time += (end - start)  # STATISTICS
 
             else:
-                if self.batchvar:
+                if config.batch_size > 1:
                     if self._batch is None:
                         self._batchCount = 0
                         if self.is_counter:
