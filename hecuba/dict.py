@@ -73,14 +73,11 @@ class PersistentDict(dict):
 
     def init_prefetch(self, block):
         """
-        Initialized the prefetch manager
-
+        Initializes the prefetch manager
         Args:
            block (hecuba.iter.Block): the dataset partition which need to be prefetch
-
         Returns:
             None
-
         """
         self.prefetch = True
         self.prefetchManager = PrefetchManager(1, 1, block)

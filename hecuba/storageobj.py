@@ -8,13 +8,24 @@ import time
 
 
 class StorageObj(object):
+    """
+    This class is where information will be stored in Hecuba.
+    The information can be in memory, stored in a python dictionary or local variables, or saved in a
+    DDBB(Cassandra), depending on if it's persistent or not.
+    """
     keyList = defaultdict(list)
     nextKeys = []
     cntxt = ''
 
     @staticmethod
     def build_remotely(results):
-
+        """
+        Launches the StorageObj.__init__ from the api.getByID
+        Args:
+            results: a list of all information needed to create again the storageobj
+        Returns:
+            so: the created storageobj
+        """
         classname = results.storageobj_classname
         if classname is 'StorageObj':
             so = StorageObj(table=results.tab, ksp=results.ksp, myuuid=results.blockid)
@@ -35,7 +46,14 @@ class StorageObj(object):
         return so
 
     def __init__(self, ksp=None, table=None, myuuid=None):
-        print "storageobj __init__ ####################################"
+        """
+        Creates a new storageobj.
+
+        Args:
+            ksp (string): the Cassandra keyspace where information can be found
+            table (string): the name of the Cassandra collection/table where information can be found
+            myuuid (string):  an unique storageobj identifier
+        """
         if table is None:
             self._table = self.__class__.__name__
         else:
@@ -63,15 +81,26 @@ class StorageObj(object):
         self.getByName()
 
     def init_prefetch(self, block):
+        """
+        Initializes the prefetch manager of the storageobj persistentdict
+        Args:
+           block (hecuba.iter.Block): the dataset partition which need to be prefetch
+        """
         keys = self.keyList[self.__class__.__name__]
         getattr(self, str(keys[0])).init_prefetch(block)
 
     def end_prefetch(self):
+        """
+        Terminates the prefetch manager of the storageobj persistentdict
+        """
         keys = self.keyList[self.__class__.__name__]
         exec ("self." + str(keys[0]) + ".end_prefetch()")
 
     def getByName(self):
-        print "storageobj getByName ####################################"
+        """
+        When running the StorageObj.__init__ function with parameters, it retrieves the persistent dict from the DDBB,
+        by creating a PersistentDict which links to the Cassandra columnfamily
+        """
         print self.__class__.__name__
         if self._table is None:
             self.persistent = False
@@ -114,6 +143,13 @@ class StorageObj(object):
             setattr(self, yes_keys[0], PersistentDict(self, yes_keys, no_keys))
 
     def make_persistent(self):
+        """
+        Once a StorageObj has been created, it can be made persistent. This function retrieves the information about
+        the Object class schema, and creates a Cassandra table with those parameters, where information will be saved
+        from now on, until execution finishes or StorageObj is no longer persistent.
+        It also inserts into the new table all information that was in memory assigned to the StorageObj prior to this
+        call.
+        """
         print "storageobj make_persistent ####################################"
 
         keyspace = 'config' + self._ksp
@@ -218,19 +254,36 @@ class StorageObj(object):
         self.persistent = True
 
     def iteritems(self):
-        print "storageobj iteritems ####################################"
+        """
+        Calls the iterator for the keys of the storageobj
+        Returns:
+            self: list of key,val pairs
+        """
         keys = self.keyList[self.__class__.__name__]
         self.pKeyList = PersistentKeyList(getattr(self, str(keys[0])))
         return self  # a
 
     def itervalues(self):
-        print "Data needs to be accessed through a block"
+        """
+        Calls the iterator to obtain the values of the storageobj
+        Returns:
+            self: list of keys
+        Currently blocked to avoid cache inconsistencies
+        """
+        print "Data should be accessed through a block"
         return []  # self
 
     def increment(self, target, value):
+        """
+        Instead of increasing the existing value in position target, it sets it to the desired value (only intended to
+        be used with counter tables
+        """
         self[target] = value
 
     def empty_persistent(self):
+        """
+        Empties the Cassandra table where the persistent StorageObj stores data
+        """
         keys = self.keyList[self.__class__.__name__]
         getattr(self, str(keys[0])).dictCache.cache = {}
 
@@ -251,6 +304,9 @@ class StorageObj(object):
                 sessionexecute += 1
 
     def delete_persistent(self):
+        """
+        Deletes the Cassandra table where the persistent StorageObj stores data
+        """
         keys = self.keyList[self.__class__.__name__]
         getattr(self, str(keys[0])).dictCache.cache = {}
 
@@ -271,6 +327,13 @@ class StorageObj(object):
             return
 
     def __contains__(self, key):
+        """
+        Returns True if the given key can be found in the PersistentDict, false otherwise
+        Args:
+            key: key that we are looking for in the PersistentDict
+        Returns:
+            a (boolean): True if the given key can be found in the PersistentDict, false otherwise
+        """
         keys = self.keyList[self.__class__.__name__]
         if len(keys) > 1:
             raise KeyError
@@ -279,6 +342,13 @@ class StorageObj(object):
             return a
 
     def has_key(self, key):
+        """
+        Returns True if the given key can be found in the PersistentDict, false otherwise
+        Args:
+            key: key that we are looking for in the PersistentDict
+        Returns:
+            a (boolean): True if the given key can be found in the PersistentDict, false otherwise
+        """
         keys = self.keyList[self.__class__.__name__]
         if len(keys) > 1:
             raise KeyError
@@ -287,6 +357,10 @@ class StorageObj(object):
             return a
 
     def finalize(self):
+        """
+        This function was intended to be used to allow several users using the same keyspace at the same time.
+        Currently not used.
+        """
         keyspace = 'config' + self._ksp
         try:
             execution = session.execute("SELECT * FROM " + keyspace + ".\"access\";")
@@ -311,9 +385,15 @@ class StorageObj(object):
             print "Error in finalize:", e
 
     def __getattr__(self, key):
-        # print "storageobj __getattr__"
-        # print "self:                   ", self
-        # print "key:                    ", key
+        """
+        Given a key, this function reads the configuration table in order to know if the attribute can be found:
+        a) In memory
+        b) In the DDBB
+        Args:
+            key: name of the value that we want to obtain
+        Returns:
+            value: obtained value
+        """
         toreturn = ''
         if not key == 'persistent':
             if hasattr(self, 'persistent'):
@@ -323,7 +403,6 @@ class StorageObj(object):
                         return toreturn
                     else:
                         raise KeyError
-
                 else:
                     keyspace = 'config' + self._ksp
 
@@ -361,10 +440,14 @@ class StorageObj(object):
             return super(StorageObj, self).__getattribute__(key)
 
     def __setattr__(self, key, value):
-
-        # print "storageobj - __setattr__"
-        # print "self:                   ", self
-        # print "key:                    ", key
+        """
+        Given a key and its value, this function saves it (depending on if it's persistent or not):
+            a) In memory
+            b) In the DDBB
+        Args:
+            key: name of the value that we want to obtain
+            value: value that we want to save
+        """
         if str(type(value)) == "<class 'hecuba.dict.PersistentDict'>":
             super(StorageObj, self).__setattr__(key, value)
         else:
@@ -454,10 +537,19 @@ class StorageObj(object):
                 super(StorageObj, self).__setattr__(key, value)
 
     def getID(self):
+        """
+        This function returns the ID of the StorageObj
+        """
         return '%s_1' % self._myuuid
 
     def split(self):
-        print "StorageObj split ####################################"
+        """
+        Depending on if it's persistent or not, this function returns the list of keys of the PersistentDict assigned to
+        the StorageObj, or the list of keys
+        Returns:
+             a) List of keys in case that the SO is not persistent
+             b) Iterator that will return Blocks, one by one, where we can find the SO data in case it's persistent
+        """
         keys = self.keyList[self.__class__.__name__]
         print "keys:", keys
         if not self.persistent:
@@ -468,6 +560,14 @@ class StorageObj(object):
             return a
 
     def __additem__(self, key, other):
+        """
+        Depending on if it's persistent or not, this function adds the given value to the given key position:
+            a) In memory
+            b) In the DDBB
+        Args:
+            key: position of the value we want to increase
+            other: quantity by which we want to increase the value stored in the key position
+        """
         keys = self.keyList[self.__class__.__name__]
         self.adding = True
         auxdict = {}
@@ -480,6 +580,14 @@ class StorageObj(object):
         self.adding = False
 
     def __getitem__(self, key):
+        """
+        Redirects the call to get the value at a given key position to the PersistentDict of the StorageObj
+        Args:
+            key:
+
+        Returns:
+
+        """
         print "key:", key
         keys = self.keyList[self.__class__.__name__]
         print "keys:", keys

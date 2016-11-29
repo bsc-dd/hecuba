@@ -11,6 +11,9 @@ import uuid
 
 
 class Block(object):
+    """
+    Object used to access data from workers.
+    """
     @staticmethod
     def build_remotely(results):
         """
@@ -125,7 +128,7 @@ class Block(object):
 
 class BlockIter(object):
     """
-        Iterator for the keys of the block
+    Iterator for the keys of the block
     """
     def __iter__(self):
         """
