@@ -362,9 +362,6 @@ class PersistentDict(dict):
                 if key in self.dictCache.cache:
                     val = self.dictCache.cache[key]
                     item = val[0]
-                    if len(self.dict_name) == 1:
-                        if self.types[str(self.dict_name)] == 'int':
-                            item = int(item)
                     return item
                 else:
                     if hasattr(self.prefetchManager, 'piper_read'):

@@ -1,12 +1,11 @@
 # author: G. Alomar
 from cassandra.concurrent import execute_concurrent_with_args
 
-from hecuba.settings import session,cluster
+from hecuba.settings import session, cluster, config
 from cassandra.cluster import Cluster
 from multiprocessing import Lock
 from multiprocessing import Process
 from multiprocessing import Pipe
-from hecuba.settings import *
 import random
 import time
 
@@ -22,7 +21,7 @@ def pipeloop(pipeq, piper):
     except Exception as e:
         print "error 2 in prefetch:", e
     try:
-        cluster = Cluster(contact_points=contact_names, port=nodePort, protocol_version=2)
+        cluster = Cluster(contact_points=config.contact_names, port=config.nodePort)
     except Exception as e:
         print "error 3 in prefetch:", e
     try:
@@ -47,7 +46,7 @@ def pipeloop(pipeq, piper):
             '''
             query = input_data[3]
             try:
-                cluster = Cluster(contact_points=input_data[1], port=input_data[2], protocol_version=2)
+                cluster = Cluster(contact_points=input_data[1], port=input_data[2])
             except Exception as e:
                 print "Error creating cluster in pipeloop:", e
             colnames = input_data[5]
@@ -104,8 +103,6 @@ def pipeloop(pipeq, piper):
             if end:
                 piper.send(values)
             else:
-                value1 = ''
-                value2 = ''
                 for i, val in enumerate(r):
                     ind = 0
                     for (success, result) in r[i]:
@@ -146,8 +143,9 @@ class PrefetchManager(object):
     def __init__(self, chunksize, concurrency, block):
         self.chunksize = chunksize
         self.concurrency = concurrency
+        partition_key = block.key_names[0]
 
-        self.query = "SELECT * FROM " + block.keyspace + ".\"" + block.table_name + "\" WHERE token(" + block.key_names + ") >= ? AND token(" + block.key_names + ") < ?"
+        self.query = "SELECT * FROM " + block.keyspace + ".\"" + block.table_name + "\" WHERE token(" + partition_key + ") >= ? AND token(" + partition_key + ") < ?"
         for i in range(0, self.concurrency):
             self.pipeq_write[i], self.pipeq_read[i] = Pipe()
             self.piper_write[i], self.piper_read[i] = Pipe()
@@ -157,11 +155,11 @@ class PrefetchManager(object):
             lock = Lock()
             lock.acquire()
 
-            persistentdict = block.storageobj
-            keys = persistentdict.keyList[persistentdict.__class__.__name__]
-            exec("keynames = persistentdict." + str(keys[0]) + ".dict_keynames")
-            exec("dictname = persistentdict." + str(keys[0]) + ".dict_name")
-            self.pipeq_write[i].send(['connect', contact_names, nodePort, self.query, block.token_ranges, [keynames, dictname]])
+            props = block.storageobj.__class__._persistent_props['storage_objs']
+            for dictname, dict_prop  in props.iteritems():
+                keynames = map(lambda a: a[0], dict_prop['primary_keys'])
+                self.pipeq_write[i].send(['connect', config.contact_names, config.nodePort,
+                                          self.query, block.token_ranges, [keynames, dictname]])
             lock.release()
 
     def read(self):

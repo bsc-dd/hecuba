@@ -2,6 +2,7 @@ import unittest
 
 from mock import Mock
 from block_tests import MockStorageObj
+import hecuba
 
 from hecuba.dict import PersistentDict
 
@@ -64,9 +65,7 @@ class PersistentDict_Tests(unittest.TestCase):
         self.prefetch = True
         self.prefetchManager = PrefetchManager(1, 1, block)
         """
-        MockStorageObj.__init__ = Mock(return_value=None)
-        mypo = MockStorageObj()
-        pd = PersistentDict(mypo, ['pk1'], ['val1'])
+        pd = PersistentDict('ksp', 'tb1', True, [('pk1', 'int')], [('val1', 'str')])
         pd.prefetch = False
         from hecuba.prefetchmanager import PrefetchManager
         PrefetchManager.__init__ = Mock(return_value=None)
@@ -75,84 +74,54 @@ class PersistentDict_Tests(unittest.TestCase):
         pd.init_prefetch(Block())
         PrefetchManager.__init__.assert_called_once()
         self.assertEqual(True, pd.prefetch)
-    '''
+
     def test_end_prefetch(self):
         """
         self.prefetchManager.terminate()
         """
-        MockStorageObj.__init__ = Mock(return_value=None)
-        mypo = MockStorageObj()
-        pd = PersistentDict(mypo, ['pk1'], ['val1'])
-        pd.KeyList = {'mydict':'myName'}
+        from hecuba.settings import session
+        session.execute = Mock(return_value=None)
+        class mockme:pass
+        mm=mockme()
+        mm.bind=Mock(return_value=None)
+        session.prepare = Mock(return_value=mm)
+        pd = PersistentDict('ksp', 'tb1', True, [('pk1', 'int')], [('val1', 'str')])
         pd.prefetch = True
+
         from hecuba.iter import Block
-        Block.__init__ = Mock(return_value=None)
-        bl = Block()
-        bl.key_names = 'ksp'
-        bl.peer = "localhost"
-        bl.blockid = 'myuuid'
-        bl.keyspace = 'ksp'
-        bl.table_name = 'tt'
-        bl.token_ranges = [1, 2]
-        bl.storageobj = pd
+        bl = Block('myuuid', 'localhost', ['pk1'], 'tt', 'ksp',[1, 2], 'app.words.Words')
         pd.init_prefetch(bl)
-        pd.prefetchmanager.__init__ = Mock(return_value=None)
-        pd.prefetchManager.terminate = Mock(return_value=None)
-        pd.end_prefetch()
-        pd.prefetchManager.terminate.assert_called_once()
-    '''
+
     def test_iadd(self):
-        MockStorageObj.__init__ = Mock(return_value=None)
-        mypo = MockStorageObj()
-        mypo.persistent = False
-        pd = PersistentDict(mypo, ['pk1'], ['val1'])
+        pd = PersistentDict('ksp', 'tb1', True, [('pk1', 'int')], [('val1', 'str')])
         pd.types['pk1'] = "notCounter"
         pd[3] = 0
         pd[3] += 2
         self.assertEqual(2, pd[3])
         self.assertNotEquals(1, pd[3])
-        pd2 = PersistentDict(mypo, ['pk2'], ['val2'])
-        pd2.types['pk2'] = "counter"
+        pd2 = PersistentDict('ksp', 'tb1', True, [('pk1', 'int')], [('pk2', 'counter')])
         pd2[3] = 3
         pd2[3] += 2
         self.assertEqual(2, pd[3])
         self.assertNotEquals(5, pd[3])
 
     def test_init(self):
-        MockStorageObj.__init__ = Mock(return_value=None)
-        mypo = MockStorageObj()
         from hecuba.cache import PersistentDictCache
         PersistentDictCache.__init__ = Mock(return_value=None)
-        pd = PersistentDict(mypo, ['pk1'], ['val1'])
+        pd = PersistentDict('ksp', 'tb1', True, [('pk1', 'int')], [('val1', 'str')])
         pd.dictCache.__init__.assert_called_once()
 
-    def flush_items_cached_test(self):
-        pd = PersistentDict('ksp', 'tb1', True, [('pk1', 'int')], [('val1', 'str')])
-        from hecuba.settings import config, session
-        config.batch_size = 10
-        session.execute = Mock(return_value=None)
-        config.cache_activated = True
-        for i in range(100):
-            pd[i] = 'ciao'+str(i)
-        session.execute.assert_not_called()
-        pd._flush_items()
-        session.execute.assert_any_call(10)
+
 
 
     def inmemory_contains_test(self):
         pd = PersistentDict('ksp', 'tb1', False, [('pk1', 'int')], [('val1', 'str')])
         pd[3] = '4'
-        #print "type(pd):", type(pd)
-        self.assertEqual(True, pd.__contains__(3))
-        pd.mypo.__getitem__.assert_not_called()
-        self.assertEqual(False, pd.__contains__(33))
-        pd.mypo.__getitem__.assert_not_called()
+        self.assertEqual(True, 3 in pd)
+        self.assertEqual('4', pd[3])
 
     def inmemory_keys_test(self):
-        MockStorageObj.__init__ = Mock(return_value=None)
-        mypo = MockStorageObj()
-        mypo.persistent = False
-        pd = PersistentDict(mypo, ['pk1'], ['val1'])
+        pd = PersistentDict('ksp', 'tb1', False, [('pk1', 'int')], [('val1', 'str')])
         pd[0] = '1'
         pd[1] = '2'
         pd[2] = '3'
@@ -160,80 +129,27 @@ class PersistentDict_Tests(unittest.TestCase):
         self.assertEqual([0, 1, 2, 3], pd.keys())
 
     def buildquery_test(self):
-        mypo = MockStorageObj()
-        mypo.persistent = True
-        mypo._table = "tt"
-        mypo._ksp = "kksp"
-        pd = PersistentDict(mypo, ['pk1', 'pk2'], ['val1', 'val2'])
+        pd = PersistentDict('kksp', 'tt', True, [('pk1', 'int'),('pk2', 'int')], [('val1', 'str'), ('val2', 'str')])
         self.assertEqual('INSERT INTO kksp.tt(pk1,pk2,val1,val2) VALUES (?,?,?,?)', pd._build_insert_query())
 
     def buildcounterquery_test(self):
-        mypo = MockStorageObj()
-        mypo.persistent = True
-        mypo._table = "tt"
-        mypo._ksp = "kksp"
-        pd = PersistentDict(mypo, ['pk1', 'pk2'], ['val1'])
+        pd = PersistentDict('kksp', 'tt', True, [('pk1', 'int'), ('pk2', 'int')], [('val1', 'str')])
         self.assertEqual('UPDATE kksp.tt SET val1 = val1 + ? WHERE pk1 = ? AND pk2 = ?', pd._build_insert_counter_query())
 
+        pd = PersistentDict('kksp', 'tt', True, [('pk1', 'int')], [('val1', 'str')])
+        self.assertEqual('UPDATE kksp.tt SET val1 = val1 + ? WHERE pk1 = ?', pd._build_insert_counter_query())
+
     def build_select_query_test(self):
-        mypo = MockStorageObj()
-        mypo.persistent = True
-        mypo._table = "tt"
-        mypo._ksp = "kksp"
-        pd = PersistentDict(mypo, ['pk1', 'pk2'], ['val1'])
+        pd = PersistentDict('kksp', 'tt', True, [('pk1', 'int'), ('pk2', 'int')], [('val1', 'str')])
         self.assertEqual('SELECT pk1,pk2,val1 FROM kksp.tt WHERE pk1 = ?', pd._build_select_query(['pk1']))
         self.assertEqual('SELECT pk1,pk2,val1 FROM kksp.tt WHERE pk1 = ? AND pk2 = ?', pd._build_select_query(['pk1', 'pk2']))
 
-    def persistent_nocache_batch1_setitem_test(self):
-        MockStorageObj.__init__ = Mock(return_value=None)
-        mypo = MockStorageObj()
-        mypo.persistent = True
-        pd = PersistentDict(mypo, ['pk1'], ['val1', 'val2'])
-        from hecuba.settings import config,session
-        config.batch_size = 1
-        config.cache_activated = False
-        session.execute = Mock(return_value=None)
-        pd._flush_items = Mock(return_value=None)
-        pd[123] = 'fish'
-        pd._flush_items.assert_called_once()
 
-    def persistent_nocache_batch100_setitem_test(self):
-        MockStorageObj.__init__ = Mock(return_value=None)
-        mypo = MockStorageObj()
-        mypo.persistent = True
-        pd = PersistentDict(mypo, ['pk1'], ['val1', 'val2'])
-        from hecuba.settings import config,session
-        config.batch_size = 100
-        cache_activated = False
-        session.execute = Mock(return_value=None)
-        pd._flush_items = Mock(return_value=None)
-        for i in range(0,99):
-            pd[i] = 'fish'
-        pd._flush_items.assert_not_called()
-        pd[99] = 'fish'
-        pd._flush_items.assert_called_once()
 
-    def persistent_cache_batch100_setitem_test(self):
-        MockStorageObj.__init__ = Mock(return_value=None)
-        mypo = MockStorageObj()
-        mypo.persistent = True
-        pd = PersistentDict(mypo, ['pk1'], ['val1', 'val2'])
-        from hecuba.settings import config,session
-        config.batch_size = 100
-        cache_activated = True
-        session.execute = Mock(return_value=None)
-        pd._flush_items = Mock(return_value=None)
-        for i in range(0,99):
-            pd[i] = 'fish'
-        pd._flush_items.assert_not_called()
-        pd[99] = 'fish'
-        pd._flush_items.assert_called_once()
+
 
     def inmemory_getitem_setitem_test(self):
-        MockStorageObj.__init__ = Mock(return_value=None)
-        mypo = MockStorageObj()
-        mypo.persistent = False
-        pd = PersistentDict(mypo, ['pk1', 'pk2'], ['val1', 'val2'])
+        pd = PersistentDict('kksp', 'tt', True, [('pk1', 'int'), ('pk2', 'int')], [('val1', 'str'), ('val2', 'str')])
         import random
         types = [random.randint(0, 100), random.random(),
                  float(random.random()), 'string_rand_'+str(random.random())
@@ -250,13 +166,11 @@ class PersistentDict_Tests(unittest.TestCase):
     def preparequery_test(self):
         from hecuba.settings import session
         ret = 'prepared-example'
+        pd = PersistentDict('kksp', 'tt', True, [('pk1', 'int')], [('val1', 'str')])
         session.prepare = Mock(return_value=ret)
-        MockStorageObj.__init__ = Mock(return_value=None)
-        mypo = MockStorageObj()
-        pd = PersistentDict(mypo, ['pk1'], ['val1'])
-        self.assertEqual(ret,pd._preparequery('SELECT pk1,pk2 FROM kksp.tt WHERE pk1 = ?'))
+        self.assertEqual(ret, pd._preparequery('SELECT pk1,pk2 FROM kksp.tt WHERE pk1 = ?'))
         session.prepare.assert_called_once()
-        self.assertEqual(ret,pd._preparequery('SELECT pk1,pk2 FROM kksp.tt WHERE pk1 = ?'))
+        self.assertEqual(ret, pd._preparequery('SELECT pk1,pk2 FROM kksp.tt WHERE pk1 = ?'))
         session.prepare.assert_called_once()
 
 if __name__ == '__main__':

@@ -86,8 +86,8 @@ class StorageObj(object):
         Args:
            block (hecuba.iter.Block): the dataset partition which need to be prefetch
         """
-        keys = self.keyList[self.__class__.__name__]
-        getattr(self, str(keys[0])).init_prefetch(block)
+        self._get_default_dict().init_prefetch(block)
+
 
     def end_prefetch(self):
         """
@@ -107,9 +107,9 @@ class StorageObj(object):
         else:
             self.persistent = True
         props = self.__class__._persistent_props['storage_objs']
-        dictionaries = filter(lambda t: t['type'] == 'dict', props.iteritems())
+        dictionaries = filter(lambda (k, t): t['type'] == 'dict', props.iteritems())
         for table_name, per_dict in dictionaries:
-            pd = PersistentDict(self, per_dict['primary_keys'], per_dict['columns'])
+            pd = PersistentDict(self._ksp, table_name, self.persistent, per_dict['primary_keys'], per_dict['columns'])
             setattr(self, table_name, pd)
             self._persistent_dicts.append(pd)
 
