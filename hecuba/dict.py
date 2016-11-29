@@ -23,7 +23,7 @@ class PersistentDict(dict):
     prepQueriesDict = {}
     createdColumnfamiliesDict = {}
     types = {}
-    insert_data = ''
+    _insert_data = ''
     batchvar = ''
     prefetchManager = ""
     blockKeys = []
@@ -48,12 +48,13 @@ class PersistentDict(dict):
     pending_requests_time = 0.000000000
     pending_requests_time_res = 0.000000000
 
-    def __init__(self, mypo, dict_keynames, dict_valnames):
+    def __init__(self, ksp, table, is_persistent, primary_keys, columns):
         """
         Args:
-            mypo (hecuba.storageobj.StorageObj): the storage object that owns the dictionary
-            dict_keynames (list): it is a list of strings containing the names of all keys (primary + clustering).
-            doct_valnames (list): a list of the column name of the values.
+            ksp (str): keyspace name
+            table (str): table name
+            primary_keys (list(tuple)): a list of (key,type) primary keys (primary + clustering).
+            primary_keys (list(tuple)): a list of (key,type) columns
 
         Returns:
             None
@@ -61,16 +62,16 @@ class PersistentDict(dict):
         """
         dict.__init__(self, {})
         self.dictCache = PersistentDictCache()
-        self.mypo = mypo
-        self.dict_name = dict_keynames[0]
-        self.dict_keynames = dict_keynames
-        self.dict_valnames = dict_valnames
-        self.insert_data = None
-        self.select_query = {}
-        self.batch = None
-        self.batchCount = 0
-        self.keyList = defaultdict(list)
-
+        self._ksp = ksp
+        self._table = table
+        self.is_persistent = is_persistent
+        self._primary_keys = primary_keys
+        self._columns = columns
+        self._insert_data = None
+        self._select_query = {}
+        self._batch = None
+        self._batchCount = 0
+        self.is_counter = self._primary_keys[0][1] == 'counter'
       
 
     def init_prefetch(self, block):
@@ -91,7 +92,7 @@ class PersistentDict(dict):
         self.prefetchManager.terminate()
 
     def __contains__(self, key):
-        if not self.mypo.persistent:
+        if not self.is_persistent:
             return dict.__contains__(self, key)
         else:
             try:
@@ -138,11 +139,8 @@ class PersistentDict(dict):
         Returns:
             None
         """
-        if type(self.dict_name) == tuple:
-            counterdictname = self.types[str(self.dict_name[0])]
-        else:
-            counterdictname = self.types[str(self.dict_name)]
-        if counterdictname == 'counter':
+         
+        if self.is_counter:
             self[key] = other
         else:
             self[key] = self[key] + other
@@ -162,11 +160,11 @@ class PersistentDict(dict):
         """
         self.writes += 1  # STATISTICS
         start = time.time()
-        if not self.mypo.persistent:
+        if not self.is_persistent:
             try:
                 dict.__setitem__(self, key, value)
             except Exception as e:
-                return "Object " + str(self.dict_name) + " with key " + str(key) + " and value " + str(
+                return "Object " + str(self._table) + " with key " + str(key) + " and value " + str(
                     value) + " cannot be inserted in dict" + str(e)
         else:
             if config.cache_activated:
@@ -180,11 +178,8 @@ class PersistentDict(dict):
                         # Sync or Sent
                         if val[1] == 'Sync':
                             self.dictCache.sents += 1
-                        if type(self.dict_name) == tuple:
-                            counterdictname = self.types[str(self.dict_name[0])]
-                        else:
-                            counterdictname = self.types[str(self.dict_name)]
-                        if counterdictname == 'counter':
+                     
+                        if self.is_counter:
                             self.dictCache[key] = [int(value) + int(val[0]), 'Sent']
                         else:
                             self.dictCache[key] = [value, 'Sent']
@@ -207,41 +202,33 @@ class PersistentDict(dict):
 
             else:
                 if self.batchvar:
-                    if type(self.dict_name) == tuple:
-                        counterdictname = self.types[str(self.dict_name[0])]
-                    else:
-                        counterdictname = self.types[str(self.dict_name)]
-
-                    if self.batch is None:
-                        self.batchCount = 0
-                        if counterdictname == 'counter':
-                            self.batch = BatchStatement(batch_type=BatchType.COUNTER)
-                            self.insert_data = self._preparequery(self._build_insert_counter_query())
+                    if self._batch is None:
+                        self._batchCount = 0
+                        if self.is_counter:
+                            self._batch = BatchStatement(batch_type=BatchType.COUNTER)
+                            self._insert_data = self._preparequery(self._build_insert_counter_query())
                         else:
-                            self.batch = BatchStatement(batch_type=BatchType.UNLOGGED)
-                            self.insert_data = self._preparequery(self._build_insert_query())
+                            self._batch = BatchStatement(batch_type=BatchType.UNLOGGED)
+                            self._insert_data = self._preparequery(self._build_insert_query())
 
-                    self.batch.add(self._bind_row(key, value))
+                    self._batch.add(self._bind_row(key, value))
 
-                    self.batchCount += 1
-                    if self.batchCount % config.batch_size == 0:
-                        self._exec_query(self.batch)
-                        self.batch = None
+                    self._batchCount += 1
+                    if self._batchCount % config.batch_size == 0:
+                        self._exec_query(self._batch)
+                        self._batch = None
                     else:
                         self.cachewrite += 1  # STATISTICS
                         end = time.time()  # STATISTICS
                         self.cachewrite_time += (end - start)  # STATISTICS
 
                 else:
-                    if self.insert_data is None:
-                        if type(self.dict_name) == tuple:
-                            counterdictname = self.types[str(self.dict_name[0])]
+                    if self._insert_data is None:
+                       
+                        if self.is_counter:
+                            self._insert_data = self._preparequery(self._build_insert_counter_query())
                         else:
-                            counterdictname = self.types[str(self.dict_name)]
-                        if counterdictname == 'counter':
-                            self.insert_data = self._preparequery(self._build_insert_counter_query())
-                        else:
-                            self.insert_data = self._preparequery(self._build_insert_query())
+                            self._insert_data = self._preparequery(self._build_insert_query())
 
                     query = self._bind_row(key, value)
                     self._exec_query(query)
@@ -266,7 +253,7 @@ class PersistentDict(dict):
                 elements.append(val)
         else:
             elements.append(key)
-        return self.insert_data.bind(elements)
+        return self._insert_data.bind(elements)
 
     def _exec_query(self, query):
         done = False
@@ -315,32 +302,28 @@ class PersistentDict(dict):
         Returns:
             None
         """
-        if self.batch is not None:
+        if self._batch is not None:
             """
             If there are some pending inserts, we flush them to the db. 
             """
-            self._exec_query(self.batch)
-            self.batch = None
+            self._exec_query(self._batch)
+            self._batch = None
 
         if len(self.dictCache.cache) == 0:
             return
-        if type(self.dict_name) == tuple:
-            counterdictname = self.types[str(self.dict_name[0])]
-        else:
-            counterdictname = self.types[str(self.dict_name)]
-        if counterdictname == 'counter':
+        if self.is_counter:
             batch = BatchStatement(batch_type=BatchType.COUNTER)
-            if self.insert_data is None:
-                self.insert_data = self._preparequery(self._build_insert_counter_query())
+            if self._insert_data is None:
+                self._insert_data = self._preparequery(self._build_insert_counter_query())
 
             for k, v in self.dictCache.cache.iteritems():
                 if v[1] == 'Sent':
                     value = v[0]
-                    self.batch.add(self._bind_row(k, value))
+                    self._batch.add(self._bind_row(k, value))
                     self.dictCache[k] = [value, 'Sync']
         else:
-            if self.insert_data is None:
-                self.insert_data = self._preparequery(self._build_insert_query())
+            if self._insert_data is None:
+                self._insert_data = self._preparequery(self._build_insert_query())
 
             batch = BatchStatement(batch_type=BatchType.UNLOGGED)
 
@@ -361,7 +344,7 @@ class PersistentDict(dict):
         """
         logging.debug('GET ITEM %s', key)
 
-        if not self.mypo.persistent:
+        if not self.is_persistent:
             try:
                 return dict.__getitem__(self, key)
             except Exception as e:
@@ -420,10 +403,10 @@ class PersistentDict(dict):
             quid = len(key)
         else:
             quid=0
-        if quid not in self.select_query:
-            self.select_query[quid] = self._preparequery(self._build_select_query(key))
+        if quid not in self._select_query:
+            self._select_query[quid] = self._preparequery(self._build_select_query(key))
 
-        query = self.select_query[quid].bind(key)
+        query = self._select_query[quid].bind(key)
         errors = 0
         totalerrors = 0
         sleeptime = 0.5
@@ -486,7 +469,7 @@ class PersistentDict(dict):
         Returns:
           list: a list of keys
         """
-        if not self.mypo.persistent:
+        if not self.is_persistent:
             return dict.keys(self)
         else:
             return PersistentKeyList(self)
@@ -500,8 +483,10 @@ class PersistentDict(dict):
         Returns:
             str: query string
         """
-        query = "INSERT INTO " + self.mypo._ksp + "." + self.mypo._table + "("
-        toadd = self.dict_keynames + self.dict_valnames
+        pk_names = map(lambda tupla: tupla[0], self._primary_keys)
+        col_names = map(lambda tupla: tupla[0], self._columns)
+        query = "INSERT INTO " + self._ksp + "." + self._table + "("
+        toadd = pk_names + col_names
         query += str.join(',', toadd)
         query += ") VALUES ("
         query += str.join(',', ['?' for i in toadd])
@@ -517,12 +502,11 @@ class PersistentDict(dict):
         Returns:
             str: query string
         """
-
-        toadd = self.dict_keynames + self.dict_valnames
-        selects = str.join(',', toadd)
-
-        query = "SELECT " + selects +" FROM " + self.mypo._ksp + "." + self.mypo._table+ " WHERE "
-        query += str.join(" AND ", map(lambda k: k + " = ?", self.dict_keynames[0:len(key)]))
+        pk_names = map(lambda tupla:tupla[0], self._primary_keys)
+        col_names = map(lambda tupla:tupla[0], self._columns)
+        selects = str.join(',', pk_names+col_names)
+        query = "SELECT " + selects +" FROM " + self._ksp + "." + self._table + " WHERE "
+        query += str.join(" AND ", map(lambda k: k + " = ?", pk_names[0:len(key)]))
         return query
 
     def _build_insert_counter_query(self):
@@ -535,9 +519,9 @@ class PersistentDict(dict):
             str: query string
         """
 
-        counter_name = self.dict_valnames[0]
-        query = "UPDATE " + self.mypo._ksp + "." + self.mypo._table + " SET " + counter_name + " = " + counter_name + " + ? WHERE "
-        query += str.join(" AND ", map(lambda k: k + " = ?", self.dict_keynames))
+        counter_name = self._columns[0][0]
+        query = "UPDATE " + self._ksp + "." + self._table + " SET " + counter_name + " = " + counter_name + " + ? WHERE "
+        query += str.join(" AND ", map(lambda k: k[0] + " = ?", self._primary_keys))
         return query
 
 

@@ -57,14 +57,10 @@ class Block(object):
         return BlockIter(self)
 
     def __getitem__(self, key):
-        keys = self.storageobj.keyList[self.storageobj.__class__.__name__]
-        persistentdict = getattr(self.storageobj, str(keys[0]))
-        return persistentdict[key]
+        return self.storageobj[key]
 
     def __setitem__(self, key, val):
-        keys = self.storageobj.keyList[self.storageobj.__class__.__name__]
-        persistentdict = getattr(self.storageobj, str(keys[0]))
-        persistentdict[key] = val
+        self.storageobj[key] = val
 
     def getID(self):
         return self.blockid

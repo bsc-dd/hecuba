@@ -41,12 +41,21 @@ class PersistentDict_Tests(unittest.TestCase):
         self.fail('to be implemented')
     '''
 
+    def flush_items_cached_test(self):
+        pd = PersistentDict('ksp', 'tb1', True, [('pk1', 'int')], [('val1', 'str')])
+        from hecuba.settings import config, session
+        config.batch_size = 10
+        session.execute = Mock(return_value=None)
+        config.cache_activated = True
+        for i in range(100):
+            pd[i] = 'ciao'+str(i)
+        session.execute.assert_not_called()
+        pd._flush_items()
+        session.execute.assert_any_call(10)
+
+
     def inmemory_contains_test(self):
-        MockStorageObj.__init__ = Mock(return_value=None)
-        mypo = MockStorageObj()
-        pd = PersistentDict(mypo, ['pk1'], ['val1'])
-        pd.mypo.persistent = False
-        pd.mypo.__getitem__ = Mock(return_value=None)
+        pd = PersistentDict('ksp', 'tb1', False, [('pk1', 'int')], [('val1', 'str')])
         pd[3] = '4'
         #print "type(pd):", type(pd)
         self.assertEqual(True, pd.__contains__(3))
@@ -63,7 +72,7 @@ class PersistentDict_Tests(unittest.TestCase):
         pd[1] = '2'
         pd[2] = '3'
         pd[3] = '4'
-        self.assertEqual([0,1,2,3], pd.keys())
+        self.assertEqual([0, 1, 2, 3], pd.keys())
 
     def buildquery_test(self):
         mypo = MockStorageObj()
@@ -98,7 +107,7 @@ class PersistentDict_Tests(unittest.TestCase):
         pd = PersistentDict(mypo, ['pk1'], ['val1', 'val2'])
         from hecuba.settings import config,session
         config.batch_size = 1
-        cache_activated = False
+        config.cache_activated = False
         session.execute = Mock(return_value=None)
         pd._flush_items = Mock(return_value=None)
 
