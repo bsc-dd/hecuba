@@ -1,7 +1,7 @@
 import unittest
 
 from mock import Mock
-
+from app.words import Words
 from hecuba.iter import Block
 
 
@@ -21,12 +21,12 @@ class BlockTest(unittest.TestCase):
         results.ksp = 'ksp1'
         results.tkns = [1l, 2l, 3l, 3l]
         results.storageobj_classname = 'block_tests.MockStorageObj'
-
-        MockStorageObj.__init__ = Mock(return_value=None)
+        old = Words.__init__
+        Words.__init__ = Mock(return_value=None)
         b = Block.build_remotely(results)
-        self.assertIsInstance(b.storageobj, MockStorageObj)
-        MockStorageObj.__init__.assert_called_once_with(ksp=results.ksp, table=results.tab)
-        self.fail('to be implemented')
+        self.assertIsInstance(b.storageobj, Words)
+        Words.__init__.assert_called_once_with(ksp=keyspace, table=tablename)
+        Words.__init__ = old
 
     def init_creation_test(self):
         blockid = "aaaablockid"
@@ -35,10 +35,12 @@ class BlockTest(unittest.TestCase):
         tablename = "tab1"
         keyspace = 'ksp1'
         tokens = [1l, 2l, 3l, 3l]
-        MockStorageObj.__init__ = Mock(return_value=None)
-        b = Block(blockid, peer, keynames, tablename, keyspace, tokens, 'block_tests.MockStorageObj')
-        self.assertIsInstance(b.storageobj, MockStorageObj)
-        MockStorageObj.__init__.assert_called_once_with(ksp=keyspace, table=tablename)
+        old = Words.__init__
+        Words.__init__ = Mock(return_value=None)
+        b = Block(blockid, peer, keynames, tablename, keyspace, tokens, 'app.words.Words')
+        self.assertIsInstance(b.storageobj, Words)
+        Words.__init__.assert_called_once_with(ksp=keyspace, table=tablename)
+        Words.__init__ = old
     '''
 
     def itering_test(self):
@@ -63,10 +65,12 @@ class BlockTest(unittest.TestCase):
         tablename = "tab1"
         keyspace = 'ksp1'
         tokens = [1l, 2l, 3l, 3l]
-        MockStorageObj.__init__ = Mock(return_value=None)
-        b = Block(blockid, peer, keynames, tablename, keyspace, tokens, 'block_tests.MockStorageObj')
-        self.assertIsInstance(b.storageobj, MockStorageObj)
-        MockStorageObj.__init__.assert_called_once_with(ksp=keyspace, table=tablename)
+        old = Words.__init__
+        Words.__init__ = Mock(return_value=None)
+        b = Block(blockid, peer, keynames, tablename, keyspace, tokens, 'app.words.Words')
+        self.assertIsInstance(b.storageobj, Words)
+        Words.__init__.assert_called_once_with(ksp=keyspace, table=tablename)
+        Words.__init__ = old
         b['test1'] = 123124
         self.assertEqual(123124, b['test1'])
 
