@@ -66,7 +66,14 @@ def classfilesparser():
     return classes
 
 
+
+__initialized = False
+
 def hello_world():
+    global __initialized
+    if __initialized:
+        return
+    __initialized = True
     print "@@@@@@@@@@@@@@@@@@@ HELLO WORLD @@@@@@@@@@@@@@@@@@@@@@"
 
     keyspace = execution_name
@@ -86,12 +93,9 @@ def hello_world():
 
     classes1 = classfilesparser()
     for class_name, props in classes1.iteritems():
-        try:
-            exec 'from %s import %s' % (props['module_name'], class_name)
-            exec 'so_class = ' + class_name
-            so_class._persistent_props = props
-        except Exception as e:
-            print e
+        exec 'from %s import %s' % (props['module_name'], class_name)
+        exec 'so_class = ' + class_name
+        so_class._persistent_props = props
 
 
 

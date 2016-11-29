@@ -257,39 +257,8 @@ class PersistentDict(dict):
         Returns:
             None
         """
-        done = False
-        sessionexecute = 0
-        errors = 0
-        sleeptime = 0.5
-        while not done:
-            while sessionexecute < 5:
-                try:
-                    session.execute(query)
-                    sessionexecute = 5
-                except Exception as e:
-                    if sessionexecute == 0:
-                        print "sessionexecute Errors in SetItem 2----------------------------"
-                    errors += 1
-                    time.sleep(sleeptime)
-                    if sleeptime < 10:
-                        print "sleeptime:", sleeptime, " - Increasing"
-                        sleeptime = sleeptime * 1.5 * random.uniform(1.0, 3.0)
-                    else:
-                        print "sleeptime:", sleeptime, " - Decreasing"
-                        sleeptime /= 2
-                    if sessionexecute == 4:
-                        print "tries:", sessionexecute
-                        print "Error: Cannot execute query in setItem. Exception: ", e
-                        print "GREPME: The queries were %s" % query
-                        print "GREPME: The values were " + str(d)
-                        raise e
-                    sessionexecute += 1
-            done = True
-        if errors > 0:
-            if errors == 1:
-                print "Success after ", errors, " try"
-            else:
-                print "Success after ", errors, " tries"
+        start = time.time()
+        session.execute(query)
         self.syncs += 1  # STATISTICS
         end = time.time()  # STATISTICS
         self.syncs_time += (end - start)  # STATISTICS
@@ -407,62 +376,22 @@ class PersistentDict(dict):
         if isinstance(key, tuple):
             quid = len(key)
         else:
-            quid=0
+            quid = 0
+            key = [key]
         if quid not in self._select_query:
             self._select_query[quid] = self._preparequery(self._build_select_query(key))
 
         query = self._select_query[quid].bind(key)
-        errors = 0
-        totalerrors = 0
-        sleeptime = 0.5
-        done = False
-        result = ''
-        item = ''
-        while not done:
-            sessionexecute = 0
-            while sessionexecute < 5:
-                try:
-                    result = session.execute(query)
-                    # two conditions different for version 2.x or 3.x of the cassandra drivers
-                    if (hasattr(result, 'current_rows') and len(result.current_rows) > 1) \
-                            or (isinstance(result, list) and len(result) > 1):
-                        item = [row for row in result]
-                    else:
-                        item = result[0]
-                    sessionexecute = 5
-                except Exception as e:
-                    print "sleeptime:", sleeptime
-                    if sessionexecute == 0:
-                        print "       sessionexecute Errors in readitem----------------------------"
-                        print "       query:", query
-                        errors = 1
-                    time.sleep(sleeptime)
-                    if sleeptime < 3:
-                        sleeptime = sleeptime * 1.5 * random.uniform(1.0, 3.0)
-                        totalerrors += 1
-                    else:
-                        sleeptime /= (totalerrors + 1)
-                        sleeptime *= totalerrors
-                    if sessionexecute == 4:
-                        print "       tries:", sessionexecute
-                        print "       GREPME: The queries were %s" % query
-                        print "       Error: Cannot execute query in getItem. Exception: ", e
-                        raise e
-                    sessionexecute += 1
-            done = True
+        result = session.execute(query)
+        # two conditions different for version 2.x or 3.x of the cassandra drivers
+        if (hasattr(result, 'current_rows') and len(result.current_rows) > 1) \
+                or (isinstance(result, list) and len(result) > 1):
+            item = [row for row in result]
+        else:
+            item = result[0]
         if type(result) is list:
             if len(result) == 0:
                 item = 0
-                '''
-                print "wrong query:", query
-                print "type(key):", type(key)
-                print "len(result) = 0"
-                raise KeyError
-                '''
-        if errors == 1:
-            print "total errors:", totalerrors
-        else:
-            print "no errors"
         return item
 
 
