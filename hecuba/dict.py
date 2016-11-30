@@ -1,16 +1,14 @@
 # author: G. Alomar
+import logging
+import time
+
 from cassandra.query import BatchStatement
 from cassandra.query import BatchType
-from cassandra import ConsistencyLevel
-import collections
+
 from hecuba import session, config
 from hecuba.cache import PersistentDictCache
 from hecuba.iter import KeyIter
 from hecuba.prefetchmanager import PrefetchManager
-from collections import defaultdict
-import random
-import time
-import logging
 
 
 class PersistentDict(dict):

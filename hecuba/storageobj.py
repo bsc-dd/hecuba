@@ -28,7 +28,7 @@ class StorageObj(object):
         """
         classname = results.storageobj_classname
         if classname is 'StorageObj':
-            so = StorageObj(table=results.tab, ksp=results.ksp, myuuid=results.blockid)
+            so = StorageObj(results.ksp+"."+results.tab, myuuid=results.blockid)
 
         else:
             last = 0
@@ -38,12 +38,12 @@ class StorageObj(object):
             module = classname[:last]
             cname = classname[last + 1:]
             mod = __import__(module, globals(), locals(), [cname], 0)
-            so = getattr(mod, cname)(table=results.tab, ksp=results.ksp, myuuid=results.blockid)
+            so = getattr(mod, cname)(results.ksp+"."+results.tab, myuuid=results.blockid)
 
         so._objid = results.blockid
         return so
 
-    def __init__(self, ksp=None, table=None, myuuid=None):
+    def __init__(self, name=None, myuuid=None):
         """
         Creates a new storageobj.
 
@@ -54,16 +54,21 @@ class StorageObj(object):
         """
         self._persistent_dicts = []
         self._attr_to_column = {}
-        if table is None:
+        if name is None:
+            self._ksp = config.execution_name
             self._table = self.__class__.__name__.lower()
             self._persistent = False
         else:
-            self._table = table
             self._persistent = True
-        if ksp is None:
-            self._ksp = config.execution_name
-        else:
-            self._ksp = ksp
+            sp = name.split(".")
+            if len(sp) == 2:
+                self._table = sp[1]
+                self._ksp = sp[0]
+            else:
+                self._table = name
+                self._ksp = config.execution_name
+
+
         if myuuid is None:
             self._myuuid = str(uuid.uuid1())
             classname = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
@@ -71,7 +76,6 @@ class StorageObj(object):
             session.execute('INSERT INTO hecuba.blocks (blockid, storageobj_classname, ksp, tab, obj_type)' +
                             ' VALUES (%s,%s,%s,%s,%s)',
                             [self._myuuid, classname, self._ksp, self._table, 'hecuba'])
-
         else:
             self._myuuid = myuuid
         self._needContext = True
@@ -164,29 +168,35 @@ class StorageObj(object):
         It also inserts into the new table all information that was in memory assigned to the StorageObj prior to this
         call.
         """
-        props = self.__class__._persistent_props
 
-        if len(props) > 0:
-            columns = map(lambda a: '%s %s,' % a, props['primary_keys'] + props['columns'])
+
+        for dict_name, props in self.__class__._persistent_props.iteritems():
+            columns = map(lambda a: '%s %s' % a, props['primary_keys'] + props['columns'])
             pks = map(lambda a: a[0], props['primary_keys'])
-            querytable = "CREATE TABLE IF NOT EXISTS %s.%s (%s PRIMARY KEY (%s));" % (self._ksp, self._table, columns,
+            querytable = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" % (self._ksp, dict_name,
+                                                                                      str.join(",", columns),
                                                                                       str.join(',', pks))
             session.execute(querytable)
 
-        create_attrs = "CREATE TABLE %s.%s_attrs ("% (self._ksp, self._table)+\
+        create_attrs = "CREATE TABLE IF NOT EXISTS %s.%s ("% (self._ksp, self._table)+\
             "name text PRIMARY KEY, " + \
             "intval int, " + \
             "intlist list<int>, "+\
-            "inttuple frozen<tuple<int>>, "+\
+            "inttuple list<int>, "+\
             "doubleval double, " + \
             "doublelist list<double>, " +\
-            "doubletuple frozen<tuple<double>>, "+\
+            "doubletuple list<double>, "+\
             "textval text, "+\
             "textlist list<text>, "+\
-            "texttuple frozen<tuple<text>>)"
+            "texttuple list<text>)"
 
         session.execute(create_attrs)
         self._persistent = True
+        for dict in self._persistent_dicts:
+            memory_vals = dict.iteritems()
+            dict.is_persistent = True
+            for key, val in memory_vals:
+                dict[key] = val
         for key, variable in vars(self).iteritems():
             self.__setattr__(key, variable)
 
@@ -236,8 +246,9 @@ class StorageObj(object):
 
         query = "TRUNCATE %s.%s;" % (self._ksp, self._table)
         session.execute(query)
-        query = "TRUNCATE %s.%s_attrs;" % (self._ksp, self._table)
-        session.execute(query)
+        for d in self._persistent_dicts:
+            query = "TRUNCATE %s.%s;" % (self._ksp, d._table)
+            session.execute(query)
 
     def delete_persistent(self):
         """
@@ -252,7 +263,7 @@ class StorageObj(object):
 
         query = "DROP COLUMNFAMILY %s.%s;" % (self._ksp, self._table)
         session.execute(query)
-        query = "DROP COLUMNFAMILY %s.%s_attrs;" % (self._ksp, self._table)
+        query = "DROP COLUMNFAMILY %s.%;" % (self._ksp, self._table)
         session.execute(query)
 
     def __contains__(self, key):
@@ -290,11 +301,14 @@ class StorageObj(object):
 
         if key[0] != '_' and self._persistent:
             col_name = self._attr_to_column[key]
-            query = "SELECT "+col_name+" FROM "+self._ksp+"."+self._table+"_attrs WHERE name = %s"
+            query = "SELECT "+col_name+" FROM "+self._ksp+"."+self._table+" WHERE name = %s"
             result = session.execute(query, [key])
             if len(result) == 0:
                 raise KeyError('value not found')
-            return getattr(result[0], col_name)
+            val = getattr(result[0], col_name)
+            if 'tuple' in col_name:
+                val = tuple(val)
+            return val
         else:
             return super(StorageObj, self).__getattribute__(key)
 
@@ -315,7 +329,7 @@ class StorageObj(object):
                     self._attr_to_column[key] = 'intval'
                 if type(value) == str:
                     self._attr_to_column[key] = 'textval'
-                if type(value) == list:
+                if type(value) == list or type(value) == tuple:
                     if len(value) == 0:
                         return
                     first = value[0]
@@ -335,8 +349,9 @@ class StorageObj(object):
                         self._attr_to_column[key] = 'texttuple'
                     elif type(first) == float:
                         self._attr_to_column[key] = 'doubletuple'
+                    value = list(value)
 
-                querytable = "INSERT INTO "+self._ksp+"."+self._table+"_attrs(name," + self._attr_to_column[key]+ \
+                querytable = "INSERT INTO "+self._ksp+"."+self._table+"(name," + self._attr_to_column[key]+ \
                              ") VALUES (%s,%s)"
 
 
