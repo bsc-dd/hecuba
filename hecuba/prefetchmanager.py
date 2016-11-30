@@ -155,7 +155,7 @@ class PrefetchManager(object):
             lock = Lock()
             lock.acquire()
 
-            props = block.storageobj.__class__._persistent_props['storage_objs']
+            props = block.storageobj.__class__._persistent_props
             for dictname, dict_prop  in props.iteritems():
                 keynames = map(lambda a: a[0], dict_prop['primary_keys'])
                 self.pipeq_write[i].send(['connect', config.contact_names, config.nodePort,

@@ -1,6 +1,7 @@
 # author: G. Alomar
+import uuid
 from collections import defaultdict
-from hecuba import session
+from hecuba import session, config
 from hecuba.dict import PersistentDict
 import re
 import time
@@ -38,10 +39,8 @@ class StorageObj(object):
                     last = key
             module = classname[:last]
             cname = classname[last + 1:]
-            exec ('from %s import %s' % (module, cname))
-            exec ('obj_class = ' + cname)
-
-            so = obj_class(table=results.tab, ksp=results.ksp, myuuid=results.blockid)
+            mod = __import__(module, globals(), locals(), [cname], 0)
+            so = getattr(mod, cname)(table=results.tab, ksp=results.ksp, myuuid=results.blockid)
 
         so._objid = results.blockid
         return so
@@ -61,7 +60,7 @@ class StorageObj(object):
         else:
             self._table = table
         if ksp is None:
-            self._ksp = execution_name
+            self._ksp = config.execution_name
         else:
             self._ksp = ksp
         if myuuid is None:
@@ -79,8 +78,9 @@ class StorageObj(object):
             self._myuuid = myuuid
         self.persistent = False
         self.needContext = True
+        if not hasattr(self.__class__, '_persistent_props'):
+            self.__class__._persistent_props = self._parse_comments(self.__doc__)
         self.getByName()
-        self._persistent_props = self._parse_comments(self.__doc__)
 
     _valid_type = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer|bytearray|counte)'
     _data_type = re.compile('(\w+) *: *%s' % _valid_type)
@@ -158,7 +158,7 @@ class StorageObj(object):
             self.persistent = False
         else:
             self.persistent = True
-        props = self.__class__._persistent_props['storage_objs']
+        props = self.__class__._persistent_props
         dictionaries = filter(lambda (k, t): t['type'] == 'dict', props.iteritems())
         for table_name, per_dict in dictionaries:
             pd = PersistentDict(self._ksp, table_name, self.persistent, per_dict['primary_keys'], per_dict['columns'])
@@ -421,8 +421,6 @@ class StorageObj(object):
                     else:
                         raise KeyError
                 else:
-                    keyspace = 'config' + self._ksp
-
                     query = "SELECT * FROM config" + str(
                         self._ksp) + ".attribs WHERE dictname = '" + self.__class__.__name__ + "' AND dataname = '" + str(
                         key) + "';"

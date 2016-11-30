@@ -1,15 +1,15 @@
 import unittest
 
 from mock import Mock
-from app.words import Words
 from hecuba.iter import Block
-
+from app.words import Words
+from app.result import Result
 
 class MockStorageObj:
    pass
 
 class BlockTest(unittest.TestCase):
-    def static_creation_test(self):
+    def test_static_creation(self):
         class res: pass
 
         results = res()
@@ -27,7 +27,7 @@ class BlockTest(unittest.TestCase):
         Words.__init__.assert_called_once_with(ksp=keyspace, table=tablename)
         Words.__init__ = old
 
-    def init_creation_test(self):
+    def test_init_creation(self):
         blockid = "aaaablockid"
         peer = 'localhsot'
         keynames = ['pk1']
@@ -53,7 +53,7 @@ class BlockTest(unittest.TestCase):
         self.fail('to be implemented')
     '''
 
-    def iter_and_get_sets_test(self):
+    def test_iter_and_get_sets(self):
         """
         The iterator should read the same elements I can get with a __getitem__
         :return:
@@ -64,16 +64,12 @@ class BlockTest(unittest.TestCase):
         tablename = "tab1"
         keyspace = 'ksp1'
         tokens = [1l, 2l, 3l, 3l]
-        old = Words.__init__
-        Words.__init__ = Mock(return_value=None)
         b = Block(blockid, peer, keynames, tablename, keyspace, tokens, 'app.words.Words')
         self.assertIsInstance(b.storageobj, Words)
-        Words.__init__.assert_called_once_with(ksp=keyspace, table=tablename)
-        Words.__init__ = old
         b['test1'] = 123124
         self.assertEqual(123124, b['test1'])
 
-    def getID_test(self):
+    def test_getID(self):
         """
         Check the id is the same
         :return:

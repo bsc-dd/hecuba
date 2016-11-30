@@ -40,3 +40,4 @@ class StorageObjTest(unittest.TestCase):
         p = StorageObj._parse_comments(both_comment)
         self.assertEqual(both, p)
 
+

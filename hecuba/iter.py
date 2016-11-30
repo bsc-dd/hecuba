@@ -55,9 +55,8 @@ class Block(object):
                 last = key
         module = storageobj_classname[:last]
         cname = storageobj_classname[last + 1:]
-        exec ('from %s import %s' % (module, cname))
-        exec ('self.storageobj = %s(table="%s",ksp="%s")' % (cname, tablename, keyspace))
-        print 'using storage object ',self.storageobj.__class__.__name__
+        mod = __import__(module, globals(), locals(), [cname], 0)
+        self.storageobj = getattr(mod, cname)(table=tablename, ksp=keyspace)
         self.cntxt = ""
 
     def __iter__(self):
