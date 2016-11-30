@@ -1,8 +1,6 @@
 # author: G. Alomar
 import string
 
-from hecuba.dict import *
-from conf.hecuba_params import execution_name, ranges_per_block
 from collections import defaultdict
 from struct import *
 import time
@@ -59,6 +57,7 @@ class Block(object):
         cname = storageobj_classname[last + 1:]
         exec ('from %s import %s' % (module, cname))
         exec ('self.storageobj = %s(table="%s",ksp="%s")' % (cname, tablename, keyspace))
+        print 'using storage object ',self.storageobj.__class__.__name__
         self.cntxt = ""
 
     def __iter__(self):
@@ -339,7 +338,7 @@ class KeyIter(object):
 
         for tkn, hst in tokentohosts.iteritems():
             res[hst].append(long(((str(tkn).split(':')[1]).replace(' ', '')).replace('>', '')))
-            if len(res[hst]) == ranges_per_block:
+            if len(res[hst]) == config.ranges_per_block:
                 self.ring.append((hst, res[hst]))
                 res[hst] = []
 

@@ -3,10 +3,10 @@
 from hecuba.iter import Block
 from hecuba.dict import *
 from hecuba.storageobj import *
-from hecuba.settings import *
+from hecuba import config
 import collections
 import hecuba
-from conf.hecuba_params import *
+
 
 
 def init(config_file_path=None):
@@ -33,19 +33,7 @@ def start_task(params):
     """
     if type(params) is not list:
         raise ValueError('call start_task with a list of params')
-    if not 'prefetch_activated' in globals():
-        global prefetch_activated
-        prefetch_activated = True
-    if not 'batch_activated' in globals():
-        global batch_activated
-        batch_activated = True
-    if prefetch_activated or batch_activated:
-        path = apppath + '/conf/imports.py'
-        file = open(path, 'r')
-        for line in file:
-            exec line
-
-    if batch_activated:
+    if config.batch_activated:
         for param in params:
             if issubclass(param.__class__, StorageObj) or issubclass(param.__class__, Block) and param.needContext:
                 param.cntxt = context(param)
@@ -59,19 +47,8 @@ def end_task(params):
     Args:
         params: a list of objects (Blocks, StorageObjs, strings, ints, ...)
     """
-    if not 'prefetch_activated' in globals():
-        global prefetch_activated
-        prefetch_activated = True
-    if not 'batch_activated' in globals():
-        global batch_activated
-        batch_activated = True
-    if prefetch_activated or batch_activated:
-        path = apppath + '/conf/imports.py'
-        file = open(path, 'r')
-        for line in file:
-            exec line
 
-    if batch_activated:
+    if config.batch_activated:
         for param in params:
             if hasattr(param, 'needContext') and param.needContext:
                 try:
@@ -79,7 +56,7 @@ def end_task(params):
                 except Exception as e:
                     print "error trying to exit context:", e
 
-    if prefetch_activated:
+    if config.prefetch_activated:
         for param in params:
             if hasattr(param, 'needContext') and param.needContext:
                 if issubclass(param.__class__, Block):
@@ -91,10 +68,7 @@ def end_task(params):
                         except Exception as e:
                             print "error trying to prefetch:", e
 
-    if not 'statistics_activated' in globals():
-        global statistics_activated
-        statistics_activated = True
-    if statistics_activated:
+    if config.statistics_activated:
         for param in params:
             if issubclass(param.__class__, Block) and param.supportsStatistics:
                 param.storageobj.statistics()
@@ -113,10 +87,6 @@ def getByID(objid):
     Returns: (Block| Storageobj)
 
     """
-    path = apppath + '/conf/imports.py'
-    file = open(path, 'r')
-    for line in file:
-        exec (line)
     objidsplit = objid.split("_")
 
     if len(objidsplit) == 2:

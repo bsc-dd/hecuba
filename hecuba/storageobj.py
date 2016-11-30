@@ -1,10 +1,11 @@
 # author: G. Alomar
-from hecuba.Plist import *
-from conf.hecuba_params import execution_name
 from collections import defaultdict
-from hecuba.settings import session
+from hecuba import session
 from hecuba.dict import PersistentDict
+import re
 import time
+
+from hecuba.iter import KeyIter
 
 
 class StorageObj(object):
@@ -79,6 +80,57 @@ class StorageObj(object):
         self.persistent = False
         self.needContext = True
         self.getByName()
+        self._persistent_props = self._parse_comments(self.__doc__)
+
+    _valid_type = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer|bytearray|counte)'
+    _data_type = re.compile('(\w+) *: *%s' % _valid_type)
+    _dict_case = re.compile('.*@ClassField +(\w+) +dict +< *< *([\w:]+) *> *, *([\w+:]+) *>.*')
+    _val_case = re.compile('.*@ClassField +(\w+) +(\w+) +%s' % _valid_type)
+    _conversions = {'atomicint': 'counter',
+                  'str': 'text',
+                  'bool': 'boolean',
+                  'decimal': 'decimal',
+                  'float': 'double',
+                  'int': 'int',
+                  'tuple': 'list',
+                  'list': 'list',
+                  'generator': 'list',
+                  'frozenset': 'set',
+                  'set': 'set',
+                  'dict': 'map',
+                  'long': 'bigint',
+                  'buffer': 'blob',
+                    'bytearray': 'blob',
+                  'counter': 'counter'}
+
+    @staticmethod
+    def _parse_comments(comments):
+        this = {}
+        for line in comments.split('\n'):
+            m = StorageObj._dict_case.match(line)
+            if m is not None:
+                # Matching @ClassField of a dict
+                table_name, dict_keys, dict_vals = m.groups()
+                primary_keys = []
+                for key in dict_keys.split(","):
+                    name, value = StorageObj._data_type.match(key).groups()
+                    primary_keys.append((name, StorageObj._conversions[value]))
+                columns = []
+                for val in dict_vals.split(","):
+                    name, value = StorageObj._data_type.match(val).groups()
+                    columns.append((name, StorageObj._conversions[value]))
+                this[table_name] = {
+                    'type': 'dict',
+                    'primary_keys': primary_keys,
+                    'columns': columns}
+            else:
+                m = StorageObj._val_case.match(line)
+                if m is not None:
+                    table_name, simple_type = m.groups()
+                    this[table_name] = {
+                        'type': StorageObj._conversions[simple_type]
+                    }
+        return this
 
     def init_prefetch(self, block):
         """
@@ -222,9 +274,7 @@ class StorageObj(object):
         Returns:
             self: list of key,val pairs
         """
-        keys = self.keyList[self.__class__.__name__]
-        self.pKeyList = PersistentKeyList(getattr(self, str(keys[0])))
-        return self  # a
+        raise ValueError('not yet implemented')
 
     def itervalues(self):
         """
@@ -234,7 +284,7 @@ class StorageObj(object):
         Currently blocked to avoid cache inconsistencies
         """
         print "Data should be accessed through a block"
-        return []  # self
+        raise ValueError('not yet implemented')
 
     def increment(self, target, value):
         """
@@ -425,8 +475,6 @@ class StorageObj(object):
                         super(StorageObj, self).__setattr__(key, value)
                     else:
 
-                        keyspace = 'config' + self._ksp
-
                         if type(value) == list:
                             querytable = "CREATE TABLE " + self._ksp + ".\"" + str(self.__class__.__name__) + str(
                                 key) + "\" (position int, type text, value text, PRIMARY KEY (position));"
@@ -517,13 +565,12 @@ class StorageObj(object):
                a) List of keys in case that the SO is not persistent
                b) Iterator that will return Blocks, one by one, where we can find the SO data in case it's persistent
         """
-        auxdict = self._get_default_dict()
+
         if not self.persistent:
-            a = dict.keys(getattr(self, auxdict))
-            return a
+            auxdict = self._get_default_dict()
+            return [auxdict.keys()]
         else:
-            a = PersistentKeyList(getattr(self, auxdict))
-            return a
+            return KeyIter(self)
 
     def __additem__(self, key, other):
         """

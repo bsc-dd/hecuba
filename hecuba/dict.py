@@ -3,11 +3,10 @@ from cassandra.query import BatchStatement
 from cassandra.query import BatchType
 from cassandra import ConsistencyLevel
 import collections
-from hecuba.settings import session, config
+from hecuba import session, config
 from hecuba.cache import PersistentDictCache
+from hecuba.iter import KeyIter
 from hecuba.prefetchmanager import PrefetchManager
-from hecuba.Plist import PersistentKeyList
-from conf.hecuba_params import *  # execution_name, batch_size, max_cache_size, cache_activated
 from collections import defaultdict
 import random
 import time
@@ -403,7 +402,10 @@ class PersistentDict(dict):
         if not self.is_persistent:
             return dict.keys(self)
         else:
-            return PersistentKeyList(self)
+            return self
+
+    def __iter__(self):
+        return KeyIter(self)
 
     def _build_insert_query(self):
         """

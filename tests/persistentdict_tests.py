@@ -44,7 +44,7 @@ class PersistentDict_Tests(unittest.TestCase):
         pd = PersistentDict(mypo, ['pk1'], ['pk2'])
         pd.mypo.persistent = True
         pd._flush_items = Mock(return_value=None)
-        from hecuba.settings import session
+        from hecuba import session
         class MyPS:pass
         ps = MyPS()
         class MyStatement:pass
@@ -79,7 +79,7 @@ class PersistentDict_Tests(unittest.TestCase):
         """
         self.prefetchManager.terminate()
         """
-        from hecuba.settings import session
+        from hecuba import session
         session.execute = Mock(return_value=None)
 
         class mockme: pass
@@ -161,7 +161,7 @@ class PersistentDict_Tests(unittest.TestCase):
                 self.assertEqual(pd[key], value)
 
     def preparequery_test(self):
-        from hecuba.settings import session
+        from hecuba import session
         ret = 'prepared-example'
         pd = PersistentDict('kksp', 'tt', True, [('pk1', 'int')], [('val1', 'str')])
         session.prepare = Mock(return_value=ret)

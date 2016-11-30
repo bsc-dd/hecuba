@@ -1,7 +1,6 @@
 import unittest
 
-import hecuba
-from hecuba.settings import session, config
+from hecuba import session, config
 from mock import Mock
 from tests.block_tests import MockStorageObj
 

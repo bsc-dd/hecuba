@@ -1,7 +1,7 @@
 # author: G. Alomar
 from cassandra.concurrent import execute_concurrent_with_args
 
-from hecuba.settings import session, cluster, config
+from hecuba import session, cluster, config
 from cassandra.cluster import Cluster
 from multiprocessing import Lock
 from multiprocessing import Process

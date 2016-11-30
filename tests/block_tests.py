@@ -8,7 +8,6 @@ from hecuba.iter import Block
 class MockStorageObj:
    pass
 
-
 class BlockTest(unittest.TestCase):
     def static_creation_test(self):
         class res: pass
@@ -96,3 +95,7 @@ class BlockTest(unittest.TestCase):
     def iterkeys(self):
         self.fail('to be implemented')
     '''
+
+
+if __name__ == '__main__':
+    unittest.main()
