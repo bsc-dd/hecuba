@@ -9,7 +9,7 @@ from hecuba import config
 def init(config_file_path=None):
     """
     Function that can be useful when running the application with COMPSs >= 2.0
-    It is executed at the begining of the application
+    It is executed at the beginning of the application
     """
     pass
 
