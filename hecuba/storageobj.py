@@ -1,9 +1,8 @@
 # author: G. Alomar
 import re
-import time
 import uuid
 
-from hecuba import session, config
+from hecuba import config
 from hecuba.dict import PersistentDict
 from hecuba.iter import KeyIter
 
@@ -73,7 +72,7 @@ class StorageObj(object):
             self._myuuid = str(uuid.uuid1())
             classname = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
 
-            session.execute('INSERT INTO hecuba.blocks (blockid, storageobj_classname, ksp, tab, obj_type)' +
+            config.session.execute('INSERT INTO hecuba.blocks (blockid, storageobj_classname, ksp, tab, obj_type)' +
                             ' VALUES (%s,%s,%s,%s,%s)',
                             [self._myuuid, classname, self._ksp, self._table, 'hecuba'])
         else:
@@ -179,7 +178,7 @@ class StorageObj(object):
             querytable = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" % (self._ksp, dict_name,
                                                                                       str.join(",", columns),
                                                                                       str.join(',', pks))
-            session.execute(querytable)
+            config.session.execute(querytable)
 
         create_attrs = "CREATE TABLE IF NOT EXISTS %s.%s ("% (self._ksp, self._table)+\
             "name text PRIMARY KEY, " + \
@@ -193,7 +192,7 @@ class StorageObj(object):
             "textlist list<text>, "+\
             "texttuple list<text>)"
 
-        session.execute(create_attrs)
+        config.session.execute(create_attrs)
         self._persistent = True
         for dict in self._persistent_dicts:
             memory_vals = dict.iteritems()
@@ -248,10 +247,10 @@ class StorageObj(object):
         def_dict.dictCache.cache = {}
 
         query = "TRUNCATE %s.%s;" % (self._ksp, self._table)
-        session.execute(query)
+        config.session.execute(query)
         for d in self._persistent_dicts:
             query = "TRUNCATE %s.%s;" % (self._ksp, d._table)
-            session.execute(query)
+            config.session.execute(query)
 
     def delete_persistent(self):
         """
@@ -265,9 +264,9 @@ class StorageObj(object):
             dics.is_persistent = False
 
         query = "DROP COLUMNFAMILY %s.%s;" % (self._ksp, self._table)
-        session.execute(query)
+        config.session.execute(query)
         query = "DROP COLUMNFAMILY %s.%;" % (self._ksp, self._table)
-        session.execute(query)
+        config.session.execute(query)
 
     def __contains__(self, key):
         """
@@ -305,7 +304,7 @@ class StorageObj(object):
         if key[0] != '_' and self._persistent:
             col_name = self._attr_to_column[key]
             query = "SELECT "+col_name+" FROM "+self._ksp+"."+self._table+" WHERE name = %s"
-            result = session.execute(query, [key])
+            result = config.session.execute(query, [key])
             if len(result) == 0:
                 raise KeyError('value not found')
             val = getattr(result[0], col_name)
@@ -358,7 +357,7 @@ class StorageObj(object):
                              ") VALUES (%s,%s)"
 
 
-                session.execute(querytable, [key, value])
+                config.session.execute(querytable, [key, value])
 
             else:
                 super(StorageObj, self).__setattr__(key, value)

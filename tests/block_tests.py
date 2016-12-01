@@ -5,7 +5,6 @@ from mock import Mock
 from hecuba import reset
 from hecuba.iter import Block
 from app.words import Words
-from app.result import Result
 
 
 class MockStorageObj:
@@ -47,8 +46,6 @@ class BlockTest(unittest.TestCase):
         self.assertIsInstance(b.storageobj, Words)
         Words.__init__.assert_called_once_with(keyspace + "." + tablename)
         Words.__init__ = old
-
-
 
     def test_iter_and_get_sets(self):
         """

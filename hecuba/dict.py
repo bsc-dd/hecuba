@@ -5,7 +5,7 @@ import time
 from cassandra.query import BatchStatement
 from cassandra.query import BatchType
 
-from hecuba import session, config
+from hecuba import config
 from hecuba.cache import PersistentDictCache
 from hecuba.iter import KeyIter
 from hecuba.prefetchmanager import PrefetchManager
@@ -113,13 +113,13 @@ class PersistentDict(dict):
             return prepquery
         else:
             try:
-                self.prepQueriesDict[query] = session.prepare(query)
+                self.prepQueriesDict[query] = config.session.prepare(query)
                 prepquery = self.prepQueriesDict[query]
                 return prepquery
             except Exception as e:
                 print "query in preparequery:", query
                 print "Error. Couldn't prepare query, retrying: ", e
-                self.prepQueriesDict[query] = session.prepare(query)
+                self.prepQueriesDict[query] = config.session.prepare(query)
                 prepquery = self.prepQueriesDict[query]
                 return prepquery
 
@@ -256,7 +256,7 @@ class PersistentDict(dict):
             None
         """
         start = time.time()
-        session.execute(query)
+        config.session.execute(query)
         self.syncs += 1  # STATISTICS
         end = time.time()  # STATISTICS
         self.syncs_time += (end - start)  # STATISTICS
@@ -380,7 +380,7 @@ class PersistentDict(dict):
             self._select_query[quid] = self._preparequery(self._build_select_query(key))
 
         query = self._select_query[quid].bind(key)
-        result = session.execute(query)
+        result = config.session.execute(query)
         # two conditions different for version 2.x or 3.x of the cassandra drivers
         if (hasattr(result, 'current_rows') and len(result.current_rows) > 1) \
                 or (isinstance(result, list) and len(result) > 1):
@@ -512,5 +512,5 @@ class context:
             midict._flush_items()
         else:
             midict.syncs = midict.syncs + midict.batchCount
-            midict.session.execute(midict.batch)
+            midict.config.session.execute(midict.batch)
             midict.batchvar = False

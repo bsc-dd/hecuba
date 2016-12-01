@@ -1,11 +1,9 @@
 # author: G. Alomar
-import string
 
-from collections import defaultdict
-from struct import *
 import time
-from hecuba import config, cluster, session
-import uuid
+from collections import defaultdict
+
+from hecuba import config
 
 
 class Block(object):
@@ -340,7 +338,7 @@ class KeyIter(object):
         self._table = table
         self._storage_class = storage_class
         self._primary_keys = primary_keys
-        metadata = cluster.metadata
+        metadata = config.cluster.metadata
         tokentohosts = metadata.token_map.token_to_host_owner
 
         self.ring = KeyIter._calulate_block_ranges(tokentohosts, config.number_of_blocks)
@@ -381,7 +379,7 @@ class KeyIter(object):
         import uuid
         myuuid = str(uuid.uuid1())
 
-        session.execute(
+        config.session.execute(
             'INSERT INTO hecuba.blocks (blockid, block_classname,storageobj_classname,tkns, ksp, tab, obj_type, entry_point)' +
             ' VALUES (%s,%s,%s,%s,%s,%s,%s,%s)',
             [myuuid, "hecuba.iter.Block", self._storage_class, tks, self._keyspace, self._table, 'hecuba', host])

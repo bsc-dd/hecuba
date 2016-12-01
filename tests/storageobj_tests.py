@@ -2,7 +2,7 @@ import unittest
 
 from hecuba.dict import PersistentDict
 from mock import Mock, call, MagicMock
-from hecuba import session, config
+from hecuba import  config
 
 from hecuba.storageobj import StorageObj
 
@@ -45,16 +45,16 @@ class StorageObjTest(unittest.TestCase):
 
 
     def test_init(self):
-        session.execute = Mock(return_value=None)
+        config.session.execute = Mock(return_value=None)
         nopars = StorageObj('ksp1.tt1', myuuid='ciao')
         self.assertEqual('tt1', nopars._table)
         self.assertEqual('ksp1', nopars._ksp)
         self.assertEqual('ciao', nopars._myuuid)
-        session.execute.assert_not_called()
+        config.session.execute.assert_not_called()
 
 
     def test_build_remotely(self):
-        session.execute = Mock(return_value=None)
+        config.session.execute = Mock(return_value=None)
         class res:pass
         r =res()
         r.ksp = 'ksp1'
@@ -65,11 +65,11 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual('tt1', nopars._table)
         self.assertEqual('ksp1', nopars._ksp)
         self.assertEqual('ciao', nopars._myuuid)
-        session.execute.assert_not_called()
+        config.session.execute.assert_not_called()
 
 
     def test_init_create_pdict(self):
-        session.execute = Mock(return_value=None)
+        config.session.execute = Mock(return_value=None)
         from app.result import Result
         nopars = Result('ksp1.tt1', myuuid='ciao')
         self.assertEqual('tt1', nopars._table)
@@ -78,32 +78,32 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(True, nopars._persistent)
         self.assertTrue(hasattr(nopars, 'instances'))
         self.assertIsInstance(nopars.instances, PersistentDict)
-        session.execute.assert_not_called()
+        config.session.execute.assert_not_called()
 
     def test__set_attr(self):
-        session.execute = Mock(return_value=None)
+        config.session.execute = Mock(return_value=None)
         nopars = StorageObj('ksp1.tt1', myuuid='ciao')
         nopars.ciao = 1
-        session.execute.assert_called_with('INSERT INTO ksp1.tt1(name,intval) VALUES (%s,%s)', ['ciao', 1])
+        config.session.execute.assert_called_with('INSERT INTO ksp1.tt1(name,intval) VALUES (%s,%s)', ['ciao', 1])
 
-        session.execute = Mock(return_value=None)
+        config.session.execute = Mock(return_value=None)
         nopars = StorageObj('ksp1.tt1', myuuid='ciao')
         nopars.ciao = "1"
-        session.execute.assert_called_with('INSERT INTO ksp1.tt1(name,textval) VALUES (%s,%s)', ['ciao', "1"])
+        config.session.execute.assert_called_with('INSERT INTO ksp1.tt1(name,textval) VALUES (%s,%s)', ['ciao', "1"])
 
-        session.execute = Mock(return_value=None)
+        config.session.execute = Mock(return_value=None)
         nopars = StorageObj('ksp1.tt1', myuuid='ciao')
         nopars.ciao = [1, 2, 3]
-        session.execute.assert_called_with('INSERT INTO ksp1.tt1(name,intlist) VALUES (%s,%s)', ['ciao', [1,2,3]])
+        config.session.execute.assert_called_with('INSERT INTO ksp1.tt1(name,intlist) VALUES (%s,%s)', ['ciao', [1,2,3]])
 
-        session.execute = Mock(return_value=None)
+        config.session.execute = Mock(return_value=None)
         nopars = StorageObj('ksp1.tt1', myuuid='ciao')
         nopars.ciao = (1, 2, 3)
-        session.execute.assert_called_with('INSERT INTO ksp1.tt1(name,inttuple) VALUES (%s,%s)',
+        config.session.execute.assert_called_with('INSERT INTO ksp1.tt1(name,inttuple) VALUES (%s,%s)',
                                            ['ciao', [1, 2, 3]])
 
     def test_set_and_get(self):
-        session.execute = Mock(return_value=[])
+        config.session.execute = Mock(return_value=[])
         nopars = StorageObj('ksp1.tb1', myuuid='ciao')
         self.assertTrue(nopars._persistent)
         nopars.ciao = 1
@@ -131,5 +131,5 @@ class StorageObjTest(unittest.TestCase):
                  call('SELECT inttuple FROM ksp1.tb1 WHERE name = %s', ['ciao4'])
                  ]
 
-        session.execute.assert_has_calls(calls, any_order=True)
+        config.session.execute.assert_has_calls(calls, any_order=True)
 

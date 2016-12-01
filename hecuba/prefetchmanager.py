@@ -1,8 +1,7 @@
 # author: G. Alomar
 from cassandra.concurrent import execute_concurrent_with_args
 
-from hecuba import session, cluster, config
-from cassandra.cluster import Cluster
+from hecuba import config, reset
 from multiprocessing import Lock
 from multiprocessing import Process
 from multiprocessing import Pipe
@@ -11,23 +10,7 @@ import time
 
 
 def pipeloop(pipeq, piper):
-    global session, cluster
-    try:
-        session.shutdown()
-    except Exception as e:
-        print "error 1 in prefetch:", e
-    try:
-        cluster.shutdown()
-    except Exception as e:
-        print "error 2 in prefetch:", e
-    try:
-        cluster = Cluster(contact_points=config.contact_names, port=config.nodePort)
-    except Exception as e:
-        print "error 3 in prefetch:", e
-    try:
-        session = cluster.connect()
-    except Exception as e:
-        print "error 4 in prefetch:", e
+    reset()
 
     end = False
 
@@ -70,7 +53,7 @@ def pipeloop(pipeq, piper):
                         if sessionexecute == 11:
                             raise e
                     sessionexecute += 1
-                    statement = session.prepare(query)
+                    statement = config.session.prepare(query)
                     statement.fetch_size = 100
                     # calculate ranges
                     token_ranges = []
@@ -121,8 +104,8 @@ def pipeloop(pipeq, piper):
                 piper.send(values)
 
         elif input_data[0] == 'terminate':
-            session.shutdown()
-            cluster.shutdown()
+            config.session.shutdown()
+            config.cluster.shutdown()
             import sys
             sys.exit(1)
 

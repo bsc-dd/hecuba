@@ -3,7 +3,7 @@ from collections import defaultdict
 
 from mock import Mock
 
-from hecuba import cluster, session, config, reset
+from hecuba import config, reset
 from hecuba.iter import KeyIter, Block
 from random import shuffle
 
@@ -53,12 +53,12 @@ class KeyIterTest(unittest.TestCase):
 
         f.metadata = f
         f.token_map = f
-        cluster.metadata = f
+        config.cluster.metadata = f
 
-        session.execute = Mock(return_value=None)
+        config.session.execute = Mock(return_value=None)
 
         ki = KeyIter('ksp1', 'tt1', 'hecuba.storageobj.StorageObj', ['pk1'])
 
         b = ki.next()
         self.assertIsInstance(b, Block)
-        session.execute.assert_called()
+        config.session.execute.assert_called()

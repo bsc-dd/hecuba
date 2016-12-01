@@ -1,11 +1,17 @@
 # author: G. Alomar
 
 import os
+
+
 class Config: pass
+
+
 import logging
-logging.basicConfig(    )
+
+logging.basicConfig()
 global config
 config = Config()
+
 
 def reset():
     try:
@@ -21,31 +27,34 @@ def reset():
     except KeyError:
         logging.warn('using default contact point localhost')
         config.contact_names = ['localhost']
-    global cluster, session
-    if 'cluster' in globals():
+
+    if hasattr(config, '') in globals():
         logging.warn('Shutting down pre-existent sessions and cluster')
         try:
-            session.shutdown()
-            cluster.shutdown()
+            config.session.shutdown()
+            config.cluster.shutdown()
         except:
             logging.warn('error shutting down')
     if 'TESTING' in os.environ:
-        class clusterMock: pass
+        class clusterMock:
+            pass
+
         class sessionMock:
-            def execute(self,*args,**kwargs):
+            def execute(self, *args, **kwargs):
                 logging.info('called mock.session')
                 return []
-        cluster = clusterMock()
-        session = sessionMock()
+
+        config.cluster = clusterMock()
+        config.session = sessionMock()
 
     else:
         from cassandra.cluster import Cluster
         logging.info('Initializing global session')
-        cluster = Cluster(contact_points=config.contact_names, port=config.nodePort)
-        session = cluster.connect()
-        session.execute(
+        config.cluster = Cluster(contact_points=config.contact_names, port=config.nodePort)
+        config.session = config.cluster.connect()
+        config.session.execute(
             "CREATE KEYSPACE IF NOT EXISTS hecuba WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 3 }")
-        session.execute(
+        config.session.execute(
             'CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, block_classname text,storageobj_classname text, tkns list<bigint>, ' +
             'entry_point text , port int, ksp text , tab text , dict_name text , obj_type text, PRIMARY KEY(blockid))')
 
@@ -112,13 +121,12 @@ def reset():
         config.statistics_activated = True
         logging.warn('using default STATISTICS_ACTIVATED: %s', config.statistics_activated)
 
-
     try:
-        query = "CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = { 'class' : \'%s\', 'replication_factor' : %d};"\
-                % (config.execution_name,config.repl_class,config.repl_factor)
-        session.execute(query)
+        query = "CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = { 'class' : \'%s\', 'replication_factor' : %d};" \
+                % (config.execution_name, config.repl_class, config.repl_factor)
+        config.session.execute(query)
     except Exception as e:
         print "Cannot create keyspace", e
 
-reset()
 
+reset()

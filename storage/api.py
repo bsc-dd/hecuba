@@ -4,9 +4,6 @@ from hecuba.iter import Block
 from hecuba.dict import *
 from hecuba.storageobj import *
 from hecuba import config
-import collections
-import hecuba
-
 
 
 def init(config_file_path=None):
@@ -60,13 +57,9 @@ def end_task(params):
         for param in params:
             if hasattr(param, 'needContext') and param.needContext:
                 if issubclass(param.__class__, Block):
-                    keys = param.storageobj.keyList[param.storageobj.__class__.__name__]
-                    exec ("persistentdict = param.storageobj." + str(keys[0]))
-                    if persistentdict.prefetch == True:
-                        try:
-                            persistentdict.end_prefetch()
-                        except Exception as e:
-                            print "error trying to prefetch:", e
+                    persistent_dict = param.storageobj._get_default_dict()
+                    if persistent_dict.prefetch:
+                        persistent_dict.end_prefetch()
 
     if config.statistics_activated:
         for param in params:
@@ -81,10 +74,12 @@ def getByID(objid):
     We rebuild the object from its id. The id can either be:
     block: UUID (eg. f291f008-a520-11e6-b42e-5b582e04fd70)
     storageobj: UUID_(version) (eg. f291f008-a520-11e6-b42e-5b582e04fd70_1)
-    Args:
-        objid: str object identifier
 
-    Returns: (Block| Storageobj)
+    Args:
+        objid (str):  object identifier
+
+    Returns:
+         (Block| Storageobj)
 
     """
     objidsplit = objid.split("_")
@@ -92,32 +87,22 @@ def getByID(objid):
     if len(objidsplit) == 2:
         objid = objidsplit[0]
 
-    try:
-        results = session.execute("SELECT * FROM hecuba.blocks WHERE blockid = %s", (objid,))[0]
+    results = config.session.execute("SELECT * FROM hecuba.blocks WHERE blockid = %s", (objid,))[0]
 
-        if len(objidsplit) == 2:
-            classname = results.storageobj_classname
-        else:
-            classname = results.block_classname
-        last = 0
-        for key, i in enumerate(classname):
-            if i == '.' and key > last:
-                last = key
-        module = classname[:last]
-        cname = classname[last + 1:]
-        exec ('from %s import %s' % (module, cname))
-        exec ('obj_class = ' + cname)
+    if len(objidsplit) == 2:
+        classname = results.storageobj_classname
+    else:
+        classname = results.block_classname
+    last = 0
+    for key, i in enumerate(classname):
+        if i == '.' and key > last:
+            last = key
+    module = classname[:last]
+    cname = classname[last + 1:]
+    mod = __import__(module, globals(), locals(), [cname], 0)
+    b = getattr(mod, cname)(results)
 
-        b = obj_class.build_remotely(results)
-
-        if len(objidsplit) == 1:
-            #This runs only if it is a block
-            if not 'prefetch_activated' in globals():
-                global prefetch_activated
-                prefetch_activated = True
-            if prefetch_activated and b.supportsPrefetch:
-                b.storageobj.init_prefetch(b)
-        return b
-    except Exception as e:
-        print "getByID error:", e
-        raise e
+    if len(objidsplit) == 1:
+        if config.prefetch_activated and b.supportsPrefetch:
+            b.storageobj.init_prefetch(b)
+    return b

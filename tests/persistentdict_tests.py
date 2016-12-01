@@ -1,64 +1,13 @@
 import unittest
 
-import hecuba
+from hecuba import config
 from mock import Mock
-from block_tests import MockStorageObj
+
 
 from hecuba.dict import PersistentDict
 
 
 class PersistentDict_Tests(unittest.TestCase):
-    '''
-    def test_init(self):
-        self.fail('to be implemented')
-
-    def test_init_prefetch(self):
-        self.fail('to be implemented')
-
-    def test_end_prefetch(self):
-        self.fail('to be implemented')
-
-    def test_ddbb_contains(self):
-        self.fail('to be implemented')
-
-    def test_iadd(self):
-        self.fail('to be implemented')
-
-    def test_getitem(self):
-        self.fail('to be implemented')
-
-    def test_ddbb_getitem(self):
-        self.fail('to be implemented')
-
-    def test_ddbb_writeitem(self):
-        self.fail('to be implemented')
-
-    def test_inmemory_writeitem(self):
-        self.fail('to be implemented')
-
-    def test_ddbb_readitem(self):
-        MockStorageObj.__init__ = Mock(return_value=None)
-        mypo = MockStorageObj()
-        mypo._ksp = "kksp"
-        mypo._table = "tt"
-        pd = PersistentDict(mypo, ['pk1'], ['pk2'])
-        pd.mypo.persistent = True
-        pd._flush_items = Mock(return_value=None)
-        from hecuba import session
-        class MyPS:pass
-        ps = MyPS()
-        class MyStatement:pass
-        st=MyStatement()
-        ps.bind = Mock(return_value=st)
-        session.prepare = Mock(return_value=ps)
-        pd._readitem([3])
-        session.prepare.assert_called_once()
-        ps.bind.assert_called_with(3)
-        session.execute.assert_called_with(st)
-
-    def test_readitem(self):
-        self.fail('to be implemented')
-    '''
 
     def test_init_prefetch(self):
         """
@@ -79,14 +28,14 @@ class PersistentDict_Tests(unittest.TestCase):
         """
         self.prefetchManager.terminate()
         """
-        from hecuba import session
-        session.execute = Mock(return_value=None)
+
+        config.session.execute = Mock(return_value=None)
 
         class mockme: pass
 
         mm = mockme()
         mm.bind = Mock(return_value=None)
-        session.prepare = Mock(return_value=mm)
+        config.session.prepare = Mock(return_value=mm)
         pd = PersistentDict('ksp', 'tb1', False, [('pk1', 'int')], [('val1', 'str')])
         pd.prefetch = True
 
@@ -161,11 +110,10 @@ class PersistentDict_Tests(unittest.TestCase):
                 self.assertEqual(pd[key], value)
 
     def preparequery_test(self):
-        from hecuba import session
         ret = 'prepared-example'
         pd = PersistentDict('kksp', 'tt', True, [('pk1', 'int')], [('val1', 'str')])
-        session.prepare = Mock(return_value=ret)
+        config.session.prepare = Mock(return_value=ret)
         self.assertEqual(ret, pd._preparequery('SELECT pk1,pk2 FROM kksp.tt WHERE pk1 = ?'))
-        session.prepare.assert_called_once()
+        config.session.prepare.assert_called_once()
         self.assertEqual(ret, pd._preparequery('SELECT pk1,pk2 FROM kksp.tt WHERE pk1 = ?'))
-        session.prepare.assert_called_once()
+        config.session.prepare.assert_called_once()
