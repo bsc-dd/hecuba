@@ -155,8 +155,11 @@ class StorageObj(object):
 
         props = self.__class__._persistent_props
         dictionaries = filter(lambda (k, t): t['type'] == 'dict', props.iteritems())
+        cl = self.__class__
+        so_full_class_name = cl.__module__ + "." + cl.__name__
         for table_name, per_dict in dictionaries:
-            pd = PersistentDict(self._ksp, table_name, self._persistent, per_dict['primary_keys'], per_dict['columns'])
+            pd = PersistentDict(self._ksp, table_name, self._persistent,
+                                per_dict['primary_keys'], per_dict['columns'], so_full_class_name)
             setattr(self, table_name, pd)
             self._persistent_dicts.append(pd)
 

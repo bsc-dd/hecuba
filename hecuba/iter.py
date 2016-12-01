@@ -4,7 +4,7 @@ import string
 from collections import defaultdict
 from struct import *
 import time
-from hecuba import *
+from hecuba import config, cluster, session
 import uuid
 
 
@@ -12,6 +12,7 @@ class Block(object):
     """
     Object used to access data from workers.
     """
+
     @staticmethod
     def build_remotely(results):
         """
@@ -19,7 +20,7 @@ class Block(object):
         Args:
             results: a list of all information needed to create again the block
         """
-        return Block(results.blockid, results.entry_point, results.dict_name, results.tab,  results.ksp, results.tkns,
+        return Block(results.blockid, results.entry_point, results.dict_name, results.tab, results.ksp, results.tkns,
                      results.storageobj_classname)
 
     def __init__(self, blockid, peer, keynames, tablename, keyspace, tokens, storageobj_classname):
@@ -56,7 +57,7 @@ class Block(object):
         module = storageobj_classname[:last]
         cname = storageobj_classname[last + 1:]
         mod = __import__(module, globals(), locals(), [cname], 0)
-        self.storageobj = getattr(mod, cname)(table=tablename, ksp=keyspace)
+        self.storageobj = getattr(mod, cname)(keyspace+"."+tablename)
         self.cntxt = ""
 
     def __iter__(self):
@@ -127,6 +128,7 @@ class BlockIter(object):
     """
     Iterator for the keys of the block
     """
+
     def __iter__(self):
         """
         Needed to be considered as an iterable
@@ -187,6 +189,7 @@ class BlockItemsIter(object):
     """
         Iterator for the key,val pairs of the block
     """
+
     def __iter__(self):
         """
         Needed to be considered as an iterable
@@ -248,6 +251,7 @@ class BlockValuesIter(object):
     """
         Iterator for the values of the block
     """
+
     def __iter__(self):
         """
         Needed to be considered as an iterable
@@ -321,57 +325,68 @@ class KeyIter(object):
     """
     blockKeySpace = ''
 
-    def __init__(self, iterable):
+    def __init__(self, keyspace, table, storage_class, primary_keys):
         """
         Initializes the iterator, and saves the information about the token ranges of each block
+
         Args:
-            iterable: Block to iterate over
+            iterable (hecuba.storageobj.StorageObj): Block to iterate over
+
         """
         self.pos = 0
         self.ring = []
-        self.mypdict = iterable.mypdict
+        self.n_blocks = config.number_of_blocks
+        self._keyspace = keyspace
+        self._table = table
+        self._storage_class = storage_class
+        self._primary_keys = primary_keys
         metadata = cluster.metadata
-        ringtokens = metadata.token_map
-        tokentohosts = ringtokens.token_to_host_owner
-        res = defaultdict(list)
+        tokentohosts = metadata.token_map.token_to_host_owner
 
-        for tkn, hst in tokentohosts.iteritems():
-            res[hst].append(long(((str(tkn).split(':')[1]).replace(' ', '')).replace('>', '')))
-            if len(res[hst]) == config.ranges_per_block:
-                self.ring.append((hst, res[hst]))
-                res[hst] = []
+        self.ring = KeyIter._calulate_block_ranges(tokentohosts, config.number_of_blocks)
 
-        self.iterable = iterable
-        self.num_peers = len(self.ring)
+    @staticmethod
+    def _calulate_block_ranges(token_to_host, n_blocks):
+        host_to_tokens = defaultdict(list)
+        for t, h in token_to_host.iteritems():
+            host_to_tokens[h].append((t, h))
+
+        ring = []
+        for tokens in host_to_tokens.values():
+            ring += tokens
+        tks = []
+        n_tokens = len(token_to_host)
+        if n_tokens < n_blocks:
+            raise ValueError('Use virtual tokens!')
+        elif n_tokens % n_blocks == 0:
+            token_per_block = n_tokens / n_blocks
+            tks = [[] for i in range(n_blocks)]
+            for i in range(n_tokens):
+                tks[i / token_per_block].append(ring[i])
+
+        return tks
 
     def next(self):
         """
         Returns the blocks, one by one, created from the data in the storageobj
         Returns:
-            block: .
+            block (Block): a block representing the partition of the dictionary.
         """
-        start = self.pos
-        if start == self.num_peers:
+        if self.n_blocks == self.pos:
             raise StopIteration
 
-        currentRingPos = self.ring[self.pos]  # [1]
-        tokens = currentRingPos[1]
+        current_pos = self.ring[self.pos]  # [1]
+        host = current_pos[0][1]
+        tks = map(lambda a: a[0], current_pos)
         import uuid
-
-        keyspace = self.mypdict.mypo._ksp
-        table = self.mypdict.mypo._table
-        storeobj = self.iterable.mypdict.mypo
-        sclass = '%s.%s' % (storeobj.__class__.__module__, storeobj.__class__.__name__)
         myuuid = str(uuid.uuid1())
-        try:
-            session.execute(
-                'INSERT INTO hecuba.blocks (blockid, block_classname,storageobj_classname,tkns, ksp, tab, obj_type)' +
-                ' VALUES (%s,%s,%s,%s,%s,%s,%s)',
-                [myuuid, "hecuba.iter.Block", sclass, tokens, keyspace, table, 'hecuba'])
-        except Exception as e:
-            print "KeyIter error:", e
-            raise e
-        currringpos = self.ring[self.pos]
-        b = Block(myuuid, currringpos[0], keyspace, table, self.blockkeyspace, currringpos[1], sclass)
+
+        session.execute(
+            'INSERT INTO hecuba.blocks (blockid, block_classname,storageobj_classname,tkns, ksp, tab, obj_type, entry_point)' +
+            ' VALUES (%s,%s,%s,%s,%s,%s,%s,%s)',
+            [myuuid, "hecuba.iter.Block", self._storage_class, tks, self._keyspace, self._table, 'hecuba', host])
+
+
+        b = Block(myuuid, host, self._primary_keys, self._table, self._keyspace, tks, self._storage_class)
         self.pos += 1
         return b

@@ -44,13 +44,14 @@ class PersistentDict(dict):
     pending_requests_time = 0.000000000
     pending_requests_time_res = 0.000000000
 
-    def __init__(self, ksp, table, is_persistent, primary_keys, columns):
+    def __init__(self, ksp, table, is_persistent, primary_keys, columns, storage_class='hecuba.storageobj.StorageObj'):
         """
         Args:
             ksp (str): keyspace name
             table (str): table name
             primary_keys (list(tuple)): a list of (key,type) primary keys (primary + clustering).
             primary_keys (list(tuple)): a list of (key,type) columns
+            storage_class (str): full path class name of the storage obj
 
         Returns:
             None
@@ -67,6 +68,7 @@ class PersistentDict(dict):
         self._select_query = {}
         self._batch = None
         self._batchCount = 0
+        self._storage_class = storage_class
         self.is_counter = self._primary_keys[0][1] == 'counter'
       
 
@@ -403,7 +405,8 @@ class PersistentDict(dict):
             return self
 
     def __iter__(self):
-        return KeyIter(self)
+
+        return KeyIter(self._ksp,self._table, self._storage_class , self._primary_keys)
 
     def _build_insert_query(self):
         """

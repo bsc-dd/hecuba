@@ -1,14 +1,21 @@
 import unittest
 
 from mock import Mock
+
+from hecuba import reset
 from hecuba.iter import Block
 from app.words import Words
 from app.result import Result
 
+
 class MockStorageObj:
-   pass
+    pass
+
 
 class BlockTest(unittest.TestCase):
+    def setUp(self):
+        reset()
+
     def test_static_creation(self):
         class res: pass
 
@@ -19,12 +26,12 @@ class BlockTest(unittest.TestCase):
         results.tab = "tab1"
         results.ksp = 'ksp1'
         results.tkns = [1l, 2l, 3l, 3l]
-        results.storageobj_classname = 'block_tests.MockStorageObj'
+        results.storageobj_classname = 'app.words.Words'
         old = Words.__init__
         Words.__init__ = Mock(return_value=None)
         b = Block.build_remotely(results)
         self.assertIsInstance(b.storageobj, Words)
-        Words.__init__.assert_called_once_with(ksp=keyspace, table=tablename)
+        Words.__init__.assert_called_once_with("ksp1.tab1")
         Words.__init__ = old
 
     def test_init_creation(self):
@@ -38,20 +45,10 @@ class BlockTest(unittest.TestCase):
         Words.__init__ = Mock(return_value=None)
         b = Block(blockid, peer, keynames, tablename, keyspace, tokens, 'app.words.Words')
         self.assertIsInstance(b.storageobj, Words)
-        Words.__init__.assert_called_once_with(ksp=keyspace, table=tablename)
+        Words.__init__.assert_called_once_with(keyspace + "." + tablename)
         Words.__init__ = old
-    '''
 
-    def itering_test(self):
-        """
-        Block should be iterable and return in BlockIter
-        :return:
-        """
-        self.fail('to be implemented')
 
-    def get_and_set_item_test(self):
-        self.fail('to be implemented')
-    '''
 
     def test_iter_and_get_sets(self):
         """
@@ -80,17 +77,6 @@ class BlockTest(unittest.TestCase):
         bl.blockid = 'myuuid'
         self.assertEquals('myuuid', bl.getID())
         self.assertNotEquals('myuuid2', bl.getID())
-    '''
-
-    def iteritems_test(self):
-        self.fail('to be implemented')
-
-    def itervalues(self):
-        self.fail('to be implemented')
-
-    def iterkeys(self):
-        self.fail('to be implemented')
-    '''
 
 
 if __name__ == '__main__':
