@@ -25,6 +25,7 @@ class Config:
             raise AttributeError('attribute %d not found', item)
 
     def reset(self, mock_cassandra=False):
+        self._configured = True
         if mock_cassandra:
             logging.info('configuring mock environment')
         else:
@@ -143,8 +144,6 @@ class Config:
             self.session.execute(query)
         except Exception as e:
             print "Cannot create keyspace", e
-
-        config._configured = True
 
 
 
