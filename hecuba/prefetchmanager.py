@@ -1,16 +1,14 @@
 # author: G. Alomar
+from multiprocessing import Lock
+from multiprocessing import Pipe
+from multiprocessing import Process
+
 from cassandra.concurrent import execute_concurrent_with_args
 
-from hecuba import config, reset
-from multiprocessing import Lock
-from multiprocessing import Process
-from multiprocessing import Pipe
-import random
-import time
+from hecuba import config
 
 
 def pipeloop(pipeq, piper):
-    reset()
 
     end = False
 
@@ -19,6 +17,8 @@ def pipeloop(pipeq, piper):
         input_data = pipeq.recv()
 
         if input_data[0] == 'connect':
+            config.reset()
+
             '''
             input_data[0]=command
             input_data[1]=ips
@@ -28,36 +28,17 @@ def pipeloop(pipeq, piper):
             input_data[5]=colnames (cassandra table key and value)
             '''
             query = input_data[3]
-            try:
-                cluster = Cluster(contact_points=input_data[1], port=input_data[2])
-            except Exception as e:
-                print "Error creating cluster in pipeloop:", e
             colnames = input_data[5]
             done = False
-            sleeptime = 0.5
             while not done:
                 sessionexecute = 1
                 while sessionexecute < 12:
-                    try:
-                        cluster.connect_timeout = 30
-                        cluster.control_connection_timeout = 30
-                        session = cluster.connect()
-                        sessionexecute = 12
-                        done = True
-                    except Exception as e:
-                        time.sleep(sleeptime)
-                        if sleeptime < 20:
-                            sleeptime = sleeptime * 1.5 * random.uniform(1.0, 3.0)
-                        else:
-                            sleeptime /= 2
-                        if sessionexecute == 11:
-                            raise e
                     sessionexecute += 1
                     statement = config.session.prepare(query)
                     statement.fetch_size = 100
                     # calculate ranges
                     token_ranges = []
-                    metadata = cluster.metadata
+                    metadata = config.cluster.metadata
                     ringtokens = metadata.token_map
                     ranges = input_data[4]
                     ran = set(ranges)
@@ -73,7 +54,7 @@ def pipeloop(pipeq, piper):
 
         elif input_data[0] == 'query':
             r = {}
-            r[0] = execute_concurrent_with_args(session, statement, token_ranges, 1)
+            r[0] = execute_concurrent_with_args(config.session, statement, token_ranges, 1)
 
         elif input_data[0] == 'continue':
             '''

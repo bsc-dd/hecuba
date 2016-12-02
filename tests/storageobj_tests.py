@@ -1,13 +1,18 @@
 import unittest
 
 from hecuba.dict import PersistentDict
-from mock import Mock, call, MagicMock
-from hecuba import  config
+from mock import Mock, call
+
+from hecuba import config
 
 from hecuba.storageobj import StorageObj
 
 
 class StorageObjTest(unittest.TestCase):
+
+    def setUp(self):
+        config.reset(mock_cassandra=True)
+
     def test_parse_comments(self):
         result = {'instances': {'columns': [('instances',
                                              'counter')],

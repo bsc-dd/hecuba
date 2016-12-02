@@ -1,15 +1,17 @@
 import unittest
 
 
-from hecuba import config, reset
+from hecuba import config
 
 from hecuba.storageobj import StorageObj
 from words import Words
 
 
 class StorageObjTest(unittest.TestCase):
-    def setUp(self):
-        reset()
+
+    @staticmethod
+    def setUpClass():
+        config.reset(mock_cassandra=False)
 
     def test_init_empty(self):
         nopars = StorageObj('ksp1.ttta')
@@ -22,7 +24,7 @@ class StorageObjTest(unittest.TestCase):
             self.fail('bad format myuuid')
 
 
-        res=config.session.execute(
+        res = config.session.execute(
             'SELECT  blockid, storageobj_classname, ksp, tab, obj_type FROM hecuba.blocks WHERE blockid = %s', [nopars._myuuid])[0]
         blockid, storageobj_classname, ksp, tab, obj_type = res
         self.assertEqual(blockid, nopars._myuuid)

@@ -1,6 +1,6 @@
 import unittest
 
-from hecuba import config, reset
+from hecuba import config
  
 
 from hecuba.dict import PersistentDict
@@ -8,8 +8,10 @@ from hecuba.dict import PersistentDict
 
 class PersistentDict_Tests(unittest.TestCase):
 
-    def setUp(self):
-        reset()
+    @staticmethod
+    def setUpClass():
+        config.reset(mock_cassandra=False)
+
     def flush_items_cached_test(self):
             config.session.execute('DROP KEYSPACE IF EXISTS ksp')
             config.session.execute("CREATE KEYSPACE ksp WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};")

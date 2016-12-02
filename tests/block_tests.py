@@ -2,7 +2,7 @@ import unittest
 
 from mock import Mock
 
-from hecuba import reset
+from hecuba import config
 from hecuba.iter import Block
 from app.words import Words
 
@@ -12,15 +12,16 @@ class MockStorageObj:
 
 
 class BlockTest(unittest.TestCase):
-    def setUp(self):
-        reset()
+    @staticmethod
+    def setUpClass():
+        config.reset(mock_cassandra=True)
 
     def test_static_creation(self):
         class res: pass
 
         results = res()
         results.blockid = "aaaablockid"
-        results.entry_point = 'localhsot'
+        results.entry_point = 'localhost'
         results.dict_name = ['pk1']
         results.tab = "tab1"
         results.ksp = 'ksp1'
@@ -35,7 +36,7 @@ class BlockTest(unittest.TestCase):
 
     def test_init_creation(self):
         blockid = "aaaablockid"
-        peer = 'localhsot'
+        peer = 'localhost'
         keynames = ['pk1']
         tablename = "tab1"
         keyspace = 'ksp1'
@@ -53,7 +54,7 @@ class BlockTest(unittest.TestCase):
         :return:
         """
         blockid = "aaaablockid"
-        peer = 'localhsot'
+        peer = 'localhost'
         keynames = ['pk1']
         tablename = "tab1"
         keyspace = 'ksp1'
@@ -63,17 +64,20 @@ class BlockTest(unittest.TestCase):
         b['test1'] = 123124
         self.assertEqual(123124, b['test1'])
 
+
     def test_getID(self):
         """
         Check the id is the same
         :return:
         """
         from hecuba.iter import Block
+        old = Block.__init__
         Block.__init__ = Mock(return_value=None)
         bl = Block()
         bl.blockid = 'myuuid'
         self.assertEquals('myuuid', bl.getID())
         self.assertNotEquals('myuuid2', bl.getID())
+        Block.__init__ = old
 
 
 if __name__ == '__main__':

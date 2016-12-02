@@ -3,15 +3,26 @@ from collections import defaultdict
 
 from mock import Mock
 
-from hecuba import config, reset
+from hecuba import config
 from hecuba.iter import KeyIter, Block
 from random import shuffle
 
 
+class tkn:
+    def __init__(self, val):
+        self.value = val
+
+
+class host:
+    def __init__(self, val):
+        self.address = val
+
+
 class KeyIterTest(unittest.TestCase):
 
-    def setUp(self):
-        reset()
+    @staticmethod
+    def setUpClass():
+        config.reset(mock_cassandra=True)
 
     def test_calulate_block_ranges(self):
         nodes_to_tokens = dict([(i, 'localhost%d' % (i / 32)) for i in range(128)])
@@ -49,7 +60,7 @@ class KeyIterTest(unittest.TestCase):
         class fake:pass
         f = fake()
         config.number_of_blocks = 64
-        f.token_to_host_owner = dict([(tks[i], 'localhost%d' % (i / 10)) for i in range(128)])
+        f.token_to_host_owner = dict([(tkn(tks[i]), host('localhost%d' % (i / 10))) for i in range(128)])
 
         f.metadata = f
         f.token_map = f
@@ -62,3 +73,22 @@ class KeyIterTest(unittest.TestCase):
         b = ki.next()
         self.assertIsInstance(b, Block)
         config.session.execute.assert_called()
+
+    def test_is_iterable(self):
+        tks = list(range(128))
+        shuffle(tks)
+
+        class fake: pass
+
+        f = fake()
+        config.number_of_blocks = 64
+
+        f.token_to_host_owner = dict([(tkn(tks[i]), host('localhost%d' % (i / 10))) for i in range(128)])
+
+        f.metadata = f
+        f.token_map = f
+        config.cluster.metadata = f
+        ki = KeyIter('ksp1', 'tt1', 'hecuba.storageobj.StorageObj', ['pk1'])
+        for b in ki:
+            self.assertIsInstance(b, Block)
+

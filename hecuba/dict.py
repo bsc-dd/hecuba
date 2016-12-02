@@ -406,7 +406,7 @@ class PersistentDict(dict):
 
     def __iter__(self):
 
-        return KeyIter(self._ksp,self._table, self._storage_class , self._primary_keys)
+        return KeyIter(self._ksp, self._table, self._storage_class, self._primary_keys)
 
     def _build_insert_query(self):
         """
