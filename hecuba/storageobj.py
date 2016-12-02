@@ -376,12 +376,11 @@ class StorageObj(object):
                a) List of keys in case that the SO is not persistent
                b) Iterator that will return Blocks, one by one, where we can find the SO data in case it's persistent
         """
-
+        auxdict = self._get_default_dict()
         if not self._persistent:
-            auxdict = self._get_default_dict()
             return [auxdict.keys()]
         else:
-            return KeyIter(self)
+            return auxdict.__iter__()
 
     def __additem__(self, key, other):
         """
