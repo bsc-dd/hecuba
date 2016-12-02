@@ -1,6 +1,7 @@
 # author: G. Alomar
 import os
 import logging
+
 logging.basicConfig()
 
 # Set default logging handler to avoid "No handler found" warnings.
@@ -13,6 +14,7 @@ except ImportError:
 
 logging.getLogger('hecuba').addHandler(NullHandler())
 
+
 class Config:
     def __init__(self):
         self._configured = False
@@ -20,7 +22,7 @@ class Config:
     def __getattr__(self, item):
         if not self._configured:
             self.reset()
-            return self.__getaatribute__(self, item)
+            return self.__getattribute__(self, item)
         else:
             raise AttributeError('attribute %d not found', item)
 
@@ -146,9 +148,5 @@ class Config:
             print "Cannot create keyspace", e
 
 
-
 global config
 config = Config()
-
-
-
