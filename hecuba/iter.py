@@ -339,8 +339,8 @@ class KeyIter(object):
         self._storage_class = storage_class
         self._primary_keys = primary_keys
         metadata = config.cluster.metadata
-        token_to_hosts = map(lambda (tkn, host): (tkn.value, host.address),
-                             metadata.token_map.token_to_host_owner.iteritems())
+        token_to_hosts = dict(map(lambda (tkn, host): (tkn.value, host.address),
+                             metadata.token_map.token_to_host_owner.iteritems()))
         self.ring = KeyIter._calulate_block_ranges(token_to_hosts, config.number_of_blocks)
 
     @staticmethod
