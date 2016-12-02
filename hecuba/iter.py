@@ -364,6 +364,9 @@ class KeyIter(object):
 
         return tks
 
+    def __iter__(self):
+        return self
+
     def next(self):
         """
         Returns the blocks, one by one, created from the data in the storageobj
