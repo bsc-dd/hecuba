@@ -100,7 +100,7 @@ def getByID(objid):
     module = classname[:last]
     cname = classname[last + 1:]
     mod = __import__(module, globals(), locals(), [cname], 0)
-    b = getattr(mod, cname)(results)
+    b = getattr(mod, cname).build_remotely(results)
 
     if len(objidsplit) == 1:
         if config.prefetch_activated and b.supportsPrefetch:
