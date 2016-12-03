@@ -12,7 +12,7 @@ config = {'name': 'hecuba',
           'author_email': 'guillem.alomar@bsc.es',
           'url': 'https://www.bsc.es',
           'install_requires': ['nose', 'cassandra-driver', 'mock'],
-          'packages': ['hecuba']
+          'packages': ['hecuba', 'api']
           }
 
 setup(**config)
