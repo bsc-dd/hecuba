@@ -1,6 +1,6 @@
 import unittest
 
-from hecuba import config
+from hecuba import config, Config
 from mock import Mock
 
 
@@ -10,7 +10,8 @@ from hecuba.dict import PersistentDict
 class PersistentDict_Tests(unittest.TestCase):
 
     def setUp(self):
-        config.reset(mock_cassandra=True)
+        Config.reset(mock_cassandra=True)
+
 
     def test_init_prefetch(self):
         """

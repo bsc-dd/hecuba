@@ -3,7 +3,7 @@ from collections import defaultdict
 
 from mock import Mock
 
-from hecuba import config
+from hecuba import config, Config
 from hecuba.iter import KeyIter, Block
 from random import shuffle
 
@@ -22,7 +22,7 @@ class KeyIterTest(unittest.TestCase):
 
     @staticmethod
     def setUpClass():
-        config.reset(mock_cassandra=True)
+        Config.reset(mock_cassandra=True)
 
     def test_calulate_block_ranges(self):
         nodes_to_tokens = dict([(i, 'localhost%d' % (i / 32)) for i in range(128)])

@@ -2,7 +2,7 @@ import unittest
 
 from mock import Mock
 
-from hecuba import config
+from hecuba import Config
 from hecuba.iter import Block
 from app.words import Words
 
@@ -14,7 +14,7 @@ class MockStorageObj:
 class BlockTest(unittest.TestCase):
     @staticmethod
     def setUpClass():
-        config.reset(mock_cassandra=True)
+        Config.reset(mock_cassandra=True)
 
     def test_static_creation(self):
         class res: pass
