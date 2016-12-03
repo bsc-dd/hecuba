@@ -27,7 +27,7 @@ class StorageObj(object):
         """
         classname = results.storageobj_classname
         if classname is 'StorageObj':
-            so = StorageObj(results.ksp+"."+results.tab, myuuid=results.blockid)
+            so = StorageObj(results.ksp + "." + results.tab, myuuid=results.blockid)
 
         else:
             last = 0
@@ -37,7 +37,7 @@ class StorageObj(object):
             module = classname[:last]
             cname = classname[last + 1:]
             mod = __import__(module, globals(), locals(), [cname], 0)
-            so = getattr(mod, cname)(results.ksp+"."+results.tab, myuuid=results.blockid)
+            so = getattr(mod, cname)(results.ksp + "." + results.tab, myuuid=results.blockid)
 
         so._objid = results.blockid
         return so
@@ -67,20 +67,21 @@ class StorageObj(object):
                 self._table = name
                 self._ksp = config.execution_name
 
-
         if myuuid is None:
             self._myuuid = str(uuid.uuid1())
             classname = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
 
             config.session.execute('INSERT INTO hecuba.blocks (blockid, storageobj_classname, ksp, tab, obj_type)' +
-                            ' VALUES (%s,%s,%s,%s,%s)',
-                            [self._myuuid, classname, self._ksp, self._table, 'hecuba'])
+                                   ' VALUES (%s,%s,%s,%s,%s)',
+                                   [self._myuuid, classname, self._ksp, self._table, 'hecuba'])
         else:
             self._myuuid = myuuid
         self._needContext = True
-        if not hasattr(self.__class__, '_persistent_props'):
-            self.__class__._persistent_props = self._parse_comments(self.__doc__)
+        self._persistent_props = self._parse_comments(self.__doc__)
         self.getByName()
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self.getID() == other.getID
 
     _valid_type = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer|bytearray|counte)'
     _data_type = re.compile('(\w+) *: *%s' % _valid_type)
@@ -152,7 +153,7 @@ class StorageObj(object):
         by creating a PersistentDict which links to the Cassandra columnfamily
         """
 
-        props = self.__class__._persistent_props
+        props = self._persistent_props
         dictionaries = filter(lambda (k, t): t['type'] == 'dict', props.iteritems())
         cl = self.__class__
         so_full_class_name = cl.__module__ + "." + cl.__name__
@@ -171,26 +172,25 @@ class StorageObj(object):
         call.
         """
 
-
-        for dict_name, props in self.__class__._persistent_props.iteritems():
+        for dict_name, props in self._persistent_props.iteritems():
             columns = map(lambda a: '%s %s' % a, props['primary_keys'] + props['columns'])
             pks = map(lambda a: a[0], props['primary_keys'])
             querytable = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" % (self._ksp, dict_name,
-                                                                                      str.join(",", columns),
-                                                                                      str.join(',', pks))
+                                                                                       str.join(",", columns),
+                                                                                       str.join(',', pks))
             config.session.execute(querytable)
 
-        create_attrs = "CREATE TABLE IF NOT EXISTS %s.%s ("% (self._ksp, self._table)+\
-            "name text PRIMARY KEY, " + \
-            "intval int, " + \
-            "intlist list<int>, "+\
-            "inttuple list<int>, "+\
-            "doubleval double, " + \
-            "doublelist list<double>, " +\
-            "doubletuple list<double>, "+\
-            "textval text, "+\
-            "textlist list<text>, "+\
-            "texttuple list<text>)"
+        create_attrs = "CREATE TABLE IF NOT EXISTS %s.%s (" % (self._ksp, self._table) + \
+                       "name text PRIMARY KEY, " + \
+                       "intval int, " + \
+                       "intlist list<int>, " + \
+                       "inttuple list<int>, " + \
+                       "doubleval double, " + \
+                       "doublelist list<double>, " + \
+                       "doubletuple list<double>, " + \
+                       "textval text, " + \
+                       "textlist list<text>, " + \
+                       "texttuple list<text>)"
 
         config.session.execute(create_attrs)
         self._persistent = True
@@ -201,8 +201,6 @@ class StorageObj(object):
                 dict[key] = val
         for key, variable in vars(self).iteritems():
             self.__setattr__(key, variable)
-
-
 
     def iteritems(self):
         """
@@ -303,7 +301,7 @@ class StorageObj(object):
 
         if key[0] != '_' and self._persistent:
             col_name = self._attr_to_column[key]
-            query = "SELECT "+col_name+" FROM "+self._ksp+"."+self._table+" WHERE name = %s"
+            query = "SELECT " + col_name + " FROM " + self._ksp + "." + self._table + " WHERE name = %s"
             result = config.session.execute(query, [key])
             if len(result) == 0:
                 raise KeyError('value not found')
@@ -353,9 +351,8 @@ class StorageObj(object):
                         self._attr_to_column[key] = 'doubletuple'
                     value = list(value)
 
-                querytable = "INSERT INTO "+self._ksp+"."+self._table+"(name," + self._attr_to_column[key]+ \
+                querytable = "INSERT INTO " + self._ksp + "." + self._table + "(name," + self._attr_to_column[key] + \
                              ") VALUES (%s,%s)"
-
 
                 config.session.execute(querytable, [key, value])
 
@@ -413,7 +410,7 @@ class StorageObj(object):
 
     def statistics(self):
 
-        keys = map(lambda a: a[0], self.__class__._persistent_props['primary_keys'])
+        keys = map(lambda a: a[0], self._persistent_props['primary_keys'])
 
         reads = 0
         exec ("reads = self." + keys[0] + ".reads")

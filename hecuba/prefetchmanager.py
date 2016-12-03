@@ -17,7 +17,7 @@ def pipeloop(pipeq, piper):
         input_data = pipeq.recv()
 
         if input_data[0] == 'connect':
-            config.reset()
+            config.__init__()
 
             '''
             input_data[0]=command
@@ -119,7 +119,7 @@ class PrefetchManager(object):
             lock = Lock()
             lock.acquire()
 
-            props = block.storageobj.__class__._persistent_props
+            props = block.storageobj._persistent_props
             for dictname, dict_prop  in props.iteritems():
                 keynames = map(lambda a: a[0], dict_prop['primary_keys'])
                 self.pipeq_write[i].send(['connect', config.contact_names, config.nodePort,
