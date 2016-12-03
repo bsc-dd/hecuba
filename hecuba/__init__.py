@@ -2,6 +2,7 @@
 import os
 import logging
 from cassandra.cluster import Cluster
+from cassandra.policies import RetryPolicy
 
 logging.basicConfig()
 
@@ -14,6 +15,29 @@ except ImportError:
             pass
 
 logging.getLogger('hecuba').addHandler(NullHandler())
+
+
+class _NRetry(RetryPolicy):
+    def __init__(self, time_to_retry=5):
+        self.time_to_retry = time_to_retry
+
+    def on_unavailable(self, query, consistency, required_replicas, alive_replicas, retry_num):
+        if retry_num > self.time_to_retry:
+            return self.RETHROW, None
+        else:
+            return self.RETHROW, None
+
+    def on_write_timeout(self, query, consistency, write_type, required_responses, received_responses, retry_num):
+        if retry_num > self.time_to_retry:
+            return self.RETHROW, None
+        else:
+            return self.RETHROW, None
+
+    def on_read_timeout(self, query, consistency, required_responses, received_responses, data_retrieved, retry_num):
+        if retry_num > self.time_to_retry:
+            return self.RETHROW, None
+        else:
+            return self.RETHROW, None
 
 
 class Config:
@@ -65,14 +89,28 @@ class Config:
                 singleton.cluster.shutdown()
             except:
                 logging.warn('error shutting down')
+        try:
+            singleton.repl_factor = int(os.environ['REPLICA_FACTOR'])
+            logging.info('REPLICA_FACTOR: %s', singleton.repl_factor)
+        except KeyError:
+            singleton.repl_factor = 1
+            logging.warn('using default REPLICA_FACTOR: %s', singleton.repl_factor)
+
         if mock_cassandra:
             class clusterMock:
                 pass
 
             class sessionMock:
+
                 def execute(self, *args, **kwargs):
                     logging.info('called mock.session')
                     return []
+
+                def prepare(self, *args, **kwargs):
+                    return self
+
+                def bind(self, *args, **kwargs):
+                    return self
 
             singleton.cluster = clusterMock()
             singleton.session = sessionMock()
@@ -80,13 +118,17 @@ class Config:
         else:
             logging.info('Initializing global session')
             try:
-                singleton.cluster = Cluster(contact_points=singleton.contact_names, port=singleton.nodePort)
+                singleton.cluster = Cluster(contact_points=singleton.contact_names, port=singleton.nodePort,
+                                            default_retry_policy=_NRetry(5))
                 singleton.session = singleton.cluster.connect()
                 singleton.session.execute(
-                    "CREATE KEYSPACE IF NOT EXISTS hecuba WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 3 }")
+                    "CREATE KEYSPACE IF NOT EXISTS hecuba WITH replication = {'class': 'SimpleStrategy', 'replication_factor': %d }" % singleton.repl_factor)
                 singleton.session.execute(
-                    'CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, block_classname text,storageobj_classname text, tkns list<bigint>, ' +
-                    'entry_point text , port int, ksp text , tab text , dict_name text , obj_type text, PRIMARY KEY(blockid))')
+                    'CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, class_name text,storageobj_classname text, tkns list<bigint>, ' +
+                    'entry_point text , port int, ksp text , tab text , object_id text , obj_type text, PRIMARY KEY(blockid))')
+                singleton.session.execute(
+                    'CREATE TABLE IF NOT EXISTS hecuba.storage_objs (object_id text, class_name text,  ' +
+                    'ksp text , tab text , obj_type text, PRIMARY KEY(object_id))')
             except:
                 logging.error('Exception creating cluster session. Are you in a testing env?')
 
@@ -131,13 +173,6 @@ class Config:
         except KeyError:
             singleton.max_cache_size = 100
             logging.warn('using default MAX_CACHE_SIZE: %s', singleton.max_cache_size)
-
-        try:
-            singleton.repl_factor = int(os.environ['REPLICA_FACTOR'])
-            logging.info('REPLICA_FACTOR: %s', singleton.repl_factor)
-        except KeyError:
-            singleton.repl_factor = 1
-            logging.warn('using default REPLICA_FACTOR: %s', singleton.repl_factor)
 
         try:
             singleton.repl_class = os.environ['REPLICATION_STRATEGY']
