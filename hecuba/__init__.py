@@ -154,6 +154,12 @@ class Config:
             logging.warn('using default STATISTICS_ACTIVATED: %s', singleton.statistics_activated)
 
         try:
+            singleton.prefetch_activated = os.environ['PREFETCH_ACTIVATED'].lower() == 'true'
+        except KeyError:
+            singleton.prefetch_activated = True
+            logging.warn('using default PREFETCH_ACTIVATED: %s', singleton.prefetch_activated)
+
+        try:
             query = "CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = { 'class' : \'%s\', 'replication_factor' : %d};" \
                     % (singleton.execution_name, singleton.repl_class, singleton.repl_factor)
             singleton.session.execute(query)
