@@ -1,32 +1,29 @@
 import unittest
 
-from hecuba.iter import Block
-from storage.api import getByID, start_task,end_task
-import uuid
+from app.words import Words
+from hecuba import Config, config
+from hecuba.iter import KeyIter
+from storage.api import getByID
 
-from setup import config
 
+class StorageTests(unittest.TestCase):
 
-class ApiTest(unittest.TestCase):
-    @staticmethod
-    def setUpClass():
-        config.reset(mock_cassandra=False)
-
-    def test_end_task(self):
-        self.fail('to be done')
-    def test_start_task(self):
-        self.fail('to be done')
+    def setUp(self):
+        Config.reset(mock_cassandra=False)
 
     def test_getByID_block(self):
-        bid = str(uuid.uuid1())
-        b = Block(bid, 'localhost', ['pk1'], [1, 3], 'hecuba.storageobj.StorageObj')
-        self.assertEqual(b.getID(), bid)
-        newBlock = getByID(b.getID())
-        self.assertEqual(b, newBlock)
-
-
-
-        pass
+        config.number_of_blocks = 32
+        ki = KeyIter('testspace', 'tt', 'app.words.Words', 'fake-id', ['position'])
+        b = ki.next()
+        new_block = getByID(b.getID())
+        self.assertEqual(b.storageobj.getID(), new_block.storageobj.getID())
+        self.assertEqual(b, new_block)
 
     def test_getByID_storage_obj(self):
-        pass
+        b = Words('testspace.tt')
+        self.assertRegexpMatches(b.getID(), '.*_1')
+        new_block = getByID(b.getID())
+        self.assertEqual(b, new_block)
+
+if __name__ == '__main__':
+    unittest.main()

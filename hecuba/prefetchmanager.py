@@ -107,7 +107,7 @@ class PrefetchManager(object):
     def __init__(self, chunksize, concurrency, block):
         self.chunksize = chunksize
         self.concurrency = concurrency
-        partition_key = block.key_names[0]
+        partition_key = block.storageobj._get_default_dict()._primary_keys[0][0]
 
         self.query = "SELECT * FROM " + block.keyspace + ".\"" + block.table_name + "\" WHERE token(" + partition_key + ") >= ? AND token(" + partition_key + ") < ?"
         for i in range(0, self.concurrency):

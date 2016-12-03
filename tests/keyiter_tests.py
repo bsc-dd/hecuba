@@ -68,7 +68,7 @@ class KeyIterTest(unittest.TestCase):
 
         config.session.execute = Mock(return_value=None)
 
-        ki = KeyIter('ksp1', 'tt1', 'hecuba.storageobj.StorageObj', ['pk1'])
+        ki = KeyIter('ksp1', 'tt1', 'hecuba.storageobj.StorageObj', 'fake-id', ['pk1'])
 
         b = ki.next()
         self.assertIsInstance(b, Block)
@@ -88,7 +88,7 @@ class KeyIterTest(unittest.TestCase):
         f.metadata = f
         f.token_map = f
         config.cluster.metadata = f
-        ki = KeyIter('ksp1', 'tt1', 'hecuba.storageobj.StorageObj', ['pk1'])
+        ki = KeyIter('ksp1', 'tt1', 'hecuba.storageobj.StorageObj', 'fake-id', ['pk1'])
         for b in ki:
             self.assertIsInstance(b, Block)
 

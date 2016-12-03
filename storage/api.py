@@ -87,18 +87,19 @@ def getByID(objid):
     if len(objidsplit) == 2:
         objid = objidsplit[0]
 
-    results = config.session.execute("SELECT * FROM hecuba.blocks WHERE blockid = %s", (objid,))[0]
 
     if len(objidsplit) == 2:
-        classname = results.storageobj_classname
+        results = config.session.execute("SELECT * FROM hecuba.storage_objs WHERE object_id = %s", (objid,))[0]
+        class_name = results.class_name
     else:
-        classname = results.block_classname
+        results = config.session.execute("SELECT * FROM hecuba.blocks WHERE blockid = %s", (objid,))[0]
+        class_name = results.class_name
     last = 0
-    for key, i in enumerate(classname):
+    for key, i in enumerate(class_name):
         if i == '.' and key > last:
             last = key
-    module = classname[:last]
-    cname = classname[last + 1:]
+    module = class_name[:last]
+    cname = class_name[last + 1:]
     mod = __import__(module, globals(), locals(), [cname], 0)
     b = getattr(mod, cname).build_remotely(results)
 

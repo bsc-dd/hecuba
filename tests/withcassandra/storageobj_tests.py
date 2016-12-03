@@ -9,9 +9,6 @@ from words import Words
 
 class StorageObjTest(unittest.TestCase):
 
-    @staticmethod
-    def setUpClass():
-        config.reset(mock_cassandra=False)
 
     def test_init_empty(self):
         nopars = StorageObj('ksp1.ttta')
@@ -25,9 +22,9 @@ class StorageObjTest(unittest.TestCase):
 
 
         res = config.session.execute(
-            'SELECT  blockid, storageobj_classname, ksp, tab, obj_type FROM hecuba.blocks WHERE blockid = %s', [nopars._myuuid])[0]
-        blockid, storageobj_classname, ksp, tab, obj_type = res
-        self.assertEqual(blockid, nopars._myuuid)
+            'SELECT object_id, class_name, ksp, tab, obj_type FROM hecuba.storage_objs WHERE object_id = %s', [nopars._myuuid])[0]
+        object_id, storageobj_classname, ksp, tab, obj_type = res
+        self.assertEqual(object_id, nopars._myuuid)
         self.assertEqual(storageobj_classname, 'hecuba.storageobj.StorageObj')
         self.assertEqual(ksp, nopars._ksp)
         self.assertEqual(tab, nopars._table)
@@ -36,7 +33,7 @@ class StorageObjTest(unittest.TestCase):
         rebuild = StorageObj.build_remotely(res)
         self.assertEqual('ttta', rebuild._table)
         self.assertEqual('ksp1', rebuild._ksp)
-        self.assertEqual(blockid, rebuild._myuuid)
+        self.assertEqual(object_id, rebuild._myuuid)
 
         self.assertEqual(nopars._persistent, rebuild._persistent)
         #self.assertEqual(vars(nopars), vars(rebuild))
@@ -99,3 +96,5 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(0, count)
 
 
+if __name__ == '__main__':
+    unittest.main()

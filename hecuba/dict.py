@@ -44,7 +44,7 @@ class PersistentDict(dict):
     pending_requests_time = 0.000000000
     pending_requests_time_res = 0.000000000
 
-    def __init__(self, ksp, table, is_persistent, primary_keys, columns, storage_class='hecuba.storageobj.StorageObj'):
+    def __init__(self, ksp, table, is_persistent, primary_keys, columns, storage_id=None, storage_class='hecuba.storageobj.StorageObj'):
         """
         Args:
             ksp (str): keyspace name
@@ -58,6 +58,7 @@ class PersistentDict(dict):
 
         """
         dict.__init__(self, {})
+        self._storage_id = storage_id
         self.dictCache = PersistentDictCache()
         self._ksp = ksp
         self._table = table
@@ -406,7 +407,7 @@ class PersistentDict(dict):
 
     def __iter__(self):
 
-        return KeyIter(self._ksp, self._table, self._storage_class, self._primary_keys)
+        return KeyIter(self._ksp, self._table, self._storage_class, self._storage_id, self._primary_keys)
 
     def _build_insert_query(self):
         """

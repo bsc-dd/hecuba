@@ -78,10 +78,10 @@ class StorageObjTest(unittest.TestCase):
         class res: pass
 
         r = res()
-        r.ksp = 'ksp1'
-        r.tab = 'tt1'
-        r.blockid = 'ciao'
-        r.storageobj_classname = "hecuba.storageobj.StorageObj"
+        r.ksp = u'ksp1'
+        r.tab = u'tt1'
+        r.class_name = u"hecuba.storageobj.StorageObj"
+        r.object_id = u'ciao'
         nopars = StorageObj.build_remotely(r)
         self.assertEqual('tt1', nopars._table)
         self.assertEqual('ksp1', nopars._ksp)

@@ -44,7 +44,7 @@ class PersistentDict_Tests(unittest.TestCase):
         pd.prefetch = True
 
         from hecuba.iter import Block
-        bl = Block('myuuid', 'localhost', ['pk1'], 'tt', 'ksp', [1, 2], 'app.words.Words')
+        bl = Block('myuuid', 'localhost', 'tt', 'ksp', [1, 2], 'app.words.Words')
         pd.init_prefetch(bl)
 
     def test_iadd(self):

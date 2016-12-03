@@ -18,10 +18,11 @@ class Block(object):
         Args:
             results: a list of all information needed to create again the block
         """
-        return Block(results.blockid, results.entry_point, results.dict_name, results.tab, results.ksp, results.tkns,
-                     results.storageobj_classname)
+        return Block(results.blockid.encode('utf8'), results.entry_point.encode('utf8'), results.tab.encode('utf8'),
+                     results.ksp.encode('utf8'), results.tkns, results.storageobj_classname.encode('utf8'),
+                     results.object_id.encode('utf8'))
 
-    def __init__(self, blockid, peer, keynames, tablename, keyspace, tokens, storageobj_classname):
+    def __init__(self, blockid, peer, tablename, keyspace, tokens, storageobj_classname, storage_obj_id=None):
         """
         Creates a new block.
 
@@ -34,16 +35,11 @@ class Block(object):
             tokens (list): list of tokens
             storageobj_classname (string): full class name of the storageobj
 
-        Returns:
-
         """
         self.blockid = blockid
         self.node = peer
         self.token_ranges = tokens
-        self.key_names = keynames
         self.table_name = tablename
-        if type(keynames) is not list:
-            raise TypeError
         self.keyspace = keyspace
         self.needContext = True
         self.supportsPrefetch = True
@@ -55,12 +51,12 @@ class Block(object):
         module = storageobj_classname[:last]
         cname = storageobj_classname[last + 1:]
         mod = __import__(module, globals(), locals(), [cname], 0)
-        self.storageobj = getattr(mod, cname)(keyspace + "." + tablename)
+        self.storageobj = getattr(mod, cname)(keyspace + "." + tablename, myuuid=storage_obj_id)
         self.cntxt = ""
 
     def __eq__(self, other):
         return self.blockid == other.blockid and self.node == other.node and \
-               self.token_ranges == other.token_ranges and self.key_names == other.key_names \
+               self.token_ranges == other.token_ranges \
                and self.table_name == other.table_name and self.keyspace == other.keyspace \
                and self.needContext == other.needContext and self.supportsPrefetch == other.supportsPrefetch \
                and self.supportsStatistics == other.supportsStatistics and self.storageobj == other.storageobj \
@@ -329,16 +325,20 @@ class KeyIter(object):
     """
         Iterator for the blocks of the storageobj
     """
-    blockKeySpace = ''
 
-    def __init__(self, keyspace, table, storage_class, primary_keys):
+    def __init__(self, keyspace, table, storage_class, object_id, primary_keys):
         """
         Initializes the iterator, and saves the information about the token ranges of each block
 
         Args:
-            iterable (hecuba.storageobj.StorageObj): Block to iterate over
+            keyspace (str) : Cassandra keyspace
+            table (str): Cassandra table
+            storage_class (str): the full class name of the storage object
+            object_id (str): the storage object id
+            primary_keys (list(str)): a list of primary keys
 
         """
+        self._storage_id = object_id
         self.pos = 0
         self.ring = []
         self.n_blocks = config.number_of_blocks
@@ -391,10 +391,10 @@ class KeyIter(object):
         myuuid = str(uuid.uuid1())
 
         config.session.execute(
-            'INSERT INTO hecuba.blocks (blockid, block_classname,storageobj_classname,tkns, ksp, tab, obj_type, entry_point)' +
-            ' VALUES (%s,%s,%s,%s,%s,%s,%s,%s)',
-            [myuuid, "hecuba.iter.Block", self._storage_class, tks, self._keyspace, self._table, 'hecuba', host])
+            'INSERT INTO hecuba.blocks (blockid,class_name,storageobj_classname,tkns, ksp, tab, obj_type, entry_point,object_id)' +
+            ' VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+            [myuuid, "hecuba.iter.Block", self._storage_class, tks, self._keyspace, self._table, 'hecuba', host, self._storage_id])
 
-        b = Block(myuuid, host, self._primary_keys, self._table, self._keyspace, tks, self._storage_class)
+        b = Block(myuuid, host, self._table, self._keyspace, tks, self._storage_class, self._storage_id)
         self.pos += 1
         return b

@@ -4,7 +4,6 @@ import uuid
 
 from hecuba import config
 from hecuba.dict import PersistentDict
-from hecuba.iter import KeyIter
 
 
 class StorageObj(object):
@@ -25,9 +24,9 @@ class StorageObj(object):
         Returns:
             so: the created storageobj
         """
-        classname = results.storageobj_classname
+        classname = results.class_name
         if classname is 'StorageObj':
-            so = StorageObj(results.ksp + "." + results.tab, myuuid=results.blockid)
+            so = StorageObj(results.ksp + "." + results.tab, myuuid=results.blockid.encode('utf8'))
 
         else:
             last = 0
@@ -37,9 +36,10 @@ class StorageObj(object):
             module = classname[:last]
             cname = classname[last + 1:]
             mod = __import__(module, globals(), locals(), [cname], 0)
-            so = getattr(mod, cname)(results.ksp + "." + results.tab, myuuid=results.blockid)
+            so = getattr(mod, cname)(results.ksp.encode('utf8') + "." + results.tab.encode('utf8'),
+                                     myuuid=results.object_id.encode('utf8'))
 
-        so._objid = results.blockid
+        so._objid = results.object_id.encode('utf8')
         return so
 
     def __init__(self, name=None, myuuid=None):
@@ -71,7 +71,7 @@ class StorageObj(object):
             self._myuuid = str(uuid.uuid1())
             classname = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
 
-            config.session.execute('INSERT INTO hecuba.blocks (blockid, storageobj_classname, ksp, tab, obj_type)' +
+            config.session.execute('INSERT INTO hecuba.storage_objs (object_id, class_name, ksp, tab, obj_type)' +
                                    ' VALUES (%s,%s,%s,%s,%s)',
                                    [self._myuuid, classname, self._ksp, self._table, 'hecuba'])
         else:
@@ -81,7 +81,7 @@ class StorageObj(object):
         self.getByName()
 
     def __eq__(self, other):
-        return self.__class__ == other.__class__ and self.getID() == other.getID
+        return self.__class__ == other.__class__ and self.getID() == other.getID()
 
     _valid_type = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer|bytearray|counte)'
     _data_type = re.compile('(\w+) *: *%s' % _valid_type)
@@ -159,7 +159,7 @@ class StorageObj(object):
         so_full_class_name = cl.__module__ + "." + cl.__name__
         for table_name, per_dict in dictionaries:
             pd = PersistentDict(self._ksp, table_name, self._persistent,
-                                per_dict['primary_keys'], per_dict['columns'], so_full_class_name)
+                                per_dict['primary_keys'], per_dict['columns'], self._myuuid, so_full_class_name)
             setattr(self, table_name, pd)
             self._persistent_dicts.append(pd)
 
