@@ -257,7 +257,17 @@ class PersistentDict(dict):
             None
         """
         start = time.time()
-        config.session.execute(query)
+        retry = 5
+        while retry > 0:
+            try:
+                config.session.execute(query)
+                retry = 0
+            except Exception as e:
+                retry -= 1
+                logging.warn('retrying  %s', 5 - retry)
+                if retry == 0:
+                    raise e
+
         self.syncs += 1  # STATISTICS
         end = time.time()  # STATISTICS
         self.syncs_time += (end - start)  # STATISTICS
