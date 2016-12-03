@@ -28,7 +28,7 @@ class Block(object):
         Args:
             blockid (string):  an unique block identifier
             peer (string): hostname
-            keynames (list): the Cassandra partition key
+            keynames (list): the Cassandra partition keys
             tablename (string): the name of the collection/table
             keyspace (string): name of the Cassandra keyspace.
             tokens (list): list of tokens
@@ -55,8 +55,16 @@ class Block(object):
         module = storageobj_classname[:last]
         cname = storageobj_classname[last + 1:]
         mod = __import__(module, globals(), locals(), [cname], 0)
-        self.storageobj = getattr(mod, cname)(keyspace+"."+tablename)
+        self.storageobj = getattr(mod, cname)(keyspace + "." + tablename)
         self.cntxt = ""
+
+    def __eq__(self, other):
+        return self.blockid == other.blockid and self.node == other.node and \
+               self.token_ranges == other.token_ranges and self.key_names == other.key_names \
+               and self.table_name == other.table_name and self.keyspace == other.keyspace \
+               and self.needContext == other.needContext and self.supportsPrefetch == other.supportsPrefetch \
+               and self.supportsStatistics == other.supportsStatistics and self.storageobj == other.storageobj \
+               and self.cntxt == other.cntxt
 
     def __iter__(self):
         return BlockIter(self)
@@ -340,7 +348,7 @@ class KeyIter(object):
         self._primary_keys = primary_keys
         metadata = config.cluster.metadata
         token_to_hosts = dict(map(lambda (tkn, host): (tkn.value, host.address),
-                             metadata.token_map.token_to_host_owner.iteritems()))
+                                  metadata.token_map.token_to_host_owner.iteritems()))
         self.ring = KeyIter._calulate_block_ranges(token_to_hosts, config.number_of_blocks)
 
     @staticmethod
@@ -386,7 +394,6 @@ class KeyIter(object):
             'INSERT INTO hecuba.blocks (blockid, block_classname,storageobj_classname,tkns, ksp, tab, obj_type, entry_point)' +
             ' VALUES (%s,%s,%s,%s,%s,%s,%s,%s)',
             [myuuid, "hecuba.iter.Block", self._storage_class, tks, self._keyspace, self._table, 'hecuba', host])
-
 
         b = Block(myuuid, host, self._primary_keys, self._table, self._keyspace, tks, self._storage_class)
         self.pos += 1
