@@ -115,7 +115,12 @@ class Block(object):
         Returns:
             BlockValuesIter(self): list of values
         """
-        return BlockValuesIter(self)
+        if config.prefetch_activated:
+            return BlockValuesIterPrefetch(self.storageobj._get_default_dict())
+
+        else:
+            partition_key = self.storageobj._get_default_dict()._primary_keys[0][0]
+            return BlockValuesIter(partition_key, self.keyspace, self.table_name, self.token_ranges)
 
     def iterkeys(self):
         """
@@ -260,7 +265,80 @@ class BlockValuesIter(object):
         """
         return self
 
-    def __init__(self, iterable):
+    def __init__(self, partition_key, keyspace, table, block_tokens):
+        """
+        Initializes the iterator, and its prefetcher
+        Args:
+            iterable: Block to iterate over
+        """
+        self._token_pos = 0
+        #print 'this block has %d tokens' % (len(block_tokens))
+        # TODO this does not work if the primary key is composed
+        self._query = config.session.prepare(
+            "SELECT * FROM " + keyspace + "." + table + " WHERE token(" + partition_key + ") >= ? AND token(" + partition_key + ") < ?")
+        metadata = config.cluster.metadata
+        ringtokens = metadata.token_map
+        ran = set(block_tokens)
+        last = ringtokens.ring[len(ringtokens.ring) - 1]
+        self._token_ranges = []
+        max_token = 0
+        min_token = 0
+        for t in ringtokens.ring:
+            if t.value > max_token:
+                max_token = t.value
+            if t.value < min_token:
+                min_token = t.value
+
+        for t in ringtokens.ring:
+            if t.value in ran:
+                if t.value == min_token:
+                    print 'this block is the first one. '
+                    self._token_ranges.append((-9223372036854775808, min_token))
+                    self._token_ranges.append((max_token, 9223372036854775807))
+                else:
+                    self._token_ranges.append((last.value, t.value))
+            last = t
+
+        #for a in self._token_ranges:
+        #    print "TOKENRANGE\t%d\t%d" % a
+        #print 'last tokening with %d %d' % self._token_ranges[len(self._token_ranges)-1]
+        self._current_iterator = None
+
+    def next(self):
+        """
+        Returns the values, one by one, contained in the token ranges of the block
+        Returns:
+            val: .
+        """
+
+        if self._current_iterator is not None:
+            try:
+                return self._current_iterator.next()
+            except StopIteration:
+                # If the current iterator is empty, we try the next token range.
+                pass
+
+        if self._token_pos < len(self._token_ranges):
+            query = self._query.bind(self._token_ranges[self._token_pos])
+            self._current_iterator = iter(config.session.execute(query))
+            self._token_pos += 1
+            return self.next()
+        else:
+            raise StopIteration
+
+
+class BlockValuesIterPrefetch(object):
+    """
+        Iterator for the values of the block
+    """
+
+    def __iter__(self):
+        """
+        Needed to be considered as an iterable
+        """
+        return self
+
+    def __init__(self, default_dict):
         """
         Initializes the iterator, and its prefetcher
         Args:
@@ -269,13 +347,10 @@ class BlockValuesIter(object):
         self.pos = 0
         self.keys = []
         self.num_keys = 0
-        self.iterable = iterable
         self.end = False
-        self.persistentDict = ""
 
-        keys = self.iterable.storageobj.keyList[self.iterable.storageobj.__class__.__name__]
-        exec ("self.persistentDict = self.iterable.storageobj." + str(keys[0]))
-        self.persistentDict.prefetchManager.pipeq_write[0].send(['query'])
+        self._persistentDict = default_dict
+        self._persistentDict.prefetchManager.pipeq_write[0].send(['query'])
 
     def next(self):
         """
@@ -283,40 +358,40 @@ class BlockValuesIter(object):
         Returns:
             val: .
         """
-        self.persistentDict.reads += 1  # STATISTICS
+        self._persistentDict.reads += 1  # STATISTICS
         if self.pos == self.num_keys:
             if self.end:
                 raise StopIteration
             else:
-                self.persistentDict.prefetchManager.pipeq_write[0].send(['continue'])
-                usedpipe = self.persistentDict.prefetchManager.piper_read[0]
-                self.persistentDict.cache_prefetchs += 1  # STATISTICS
-                self.persistentDict.cache_hits_graph += 'P'  # STATISTICS
+                self._persistentDict.prefetchManager.pipeq_write[0].send(['continue'])
+                usedpipe = self._persistentDict.prefetchManager.piper_read[0]
+                self._persistentDict.cache_prefetchs += 1  # STATISTICS
+                self._persistentDict.cache_hits_graph += 'P'  # STATISTICS
                 start = time.time()  # STATISTICS
                 results = usedpipe.recv()
-                self.persistentDict.pending_requests_time += time.time() - start  # STATISTICS
+                self._persistentDict.pending_requests_time += time.time() - start  # STATISTICS
                 if len(results) == 0:
                     raise StopIteration
                 else:
                     self.keys = []
                     for entry in results:
-                        self.persistentDict.cache_hits += 1  # STATISTICS
-                        self.persistentDict.cache_hits_graph += 'X'  # STATISTICS
+                        self._persistentDict.cache_hits += 1  # STATISTICS
+                        self._persistentDict.cache_hits_graph += 'X'  # STATISTICS
                         start = time.time()  # STATISTICS
-                        self.persistentDict.dictCache[entry[0]] = [entry[1], 'Sync']
-                        self.persistentDict.cache_hits_time += time.time() - start  # STATISTICS
+                        self._persistentDict.dictCache[entry[0]] = [entry[1], 'Sync']
+                        self._persistentDict.cache_hits_time += time.time() - start  # STATISTICS
                         self.keys.append(entry[0])
                     self.num_keys = len(self.keys)
                     self.pos = 0
-                    if len(results) < 100:
+                    if len(results) < config.batch_size:
                         self.end = True
 
         if len(self.keys) == 0:
-            self.persistentDict.miss += 1  # STATISTICS
-            self.persistentDict.cache_hits_graph += '_'  # STATISTICS
+            self._persistentDict.miss += 1  # STATISTICS
+            self._persistentDict.cache_hits_graph += '_'  # STATISTICS
             print "Error obtaining block_keys in iter.py"
 
-        value = self.persistentDict.dictCache[self.keys[self.pos]]
+        value = self._persistentDict.dictCache[self.keys[self.pos]]
         self.pos += 1
         return value[0]
 
@@ -349,10 +424,10 @@ class KeyIter(object):
         metadata = config.cluster.metadata
         token_to_hosts = dict(map(lambda (tkn, host): (tkn.value, host.address),
                                   metadata.token_map.token_to_host_owner.iteritems()))
-        self.ring = KeyIter._calulate_block_ranges(token_to_hosts, config.number_of_blocks)
+        self.ring = KeyIter._calculate_block_ranges(token_to_hosts, config.number_of_blocks)
 
     @staticmethod
-    def _calulate_block_ranges(token_to_host, n_blocks):
+    def _calculate_block_ranges(token_to_host, n_blocks):
         host_to_tokens = defaultdict(list)
         for t, h in token_to_host.iteritems():
             host_to_tokens[h].append((t, h))
@@ -366,7 +441,7 @@ class KeyIter(object):
             raise ValueError('Use virtual tokens!')
         elif n_tokens % n_blocks == 0:
             token_per_block = n_tokens / n_blocks
-            tks = [[] for i in range(n_blocks)]
+            tks = [[] for _ in range(n_blocks)]
             for i in range(n_tokens):
                 tks[i / token_per_block].append(ring[i])
 
@@ -393,7 +468,8 @@ class KeyIter(object):
         config.session.execute(
             'INSERT INTO hecuba.blocks (blockid,class_name,storageobj_classname,tkns, ksp, tab, obj_type, entry_point,object_id)' +
             ' VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)',
-            [myuuid, "hecuba.iter.Block", self._storage_class, tks, self._keyspace, self._table, 'hecuba', host, self._storage_id])
+            [myuuid, "hecuba.iter.Block", self._storage_class, tks, self._keyspace, self._table, 'hecuba', host,
+             self._storage_id])
 
         b = Block(myuuid, host, self._table, self._keyspace, tks, self._storage_class, self._storage_id)
         self.pos += 1
