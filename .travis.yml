@@ -1,4 +1,5 @@
 language: python
+sudo: required
 python:
   - "2.6"
   - "2.7"
@@ -12,4 +13,5 @@ cache: bundler
 jdk:
   - oraclejdk8
 before_install:
-  - wget http://apache.rediris.es/cassandra/3.0.10/apache-cassandra-3.0.10-bin.tar.gz && tar -xvzf apache-cassandra-3.0.10-bin.tar.gz && sh apache-cassandra-3.0.10/bin/cassandra
+  - sudo apt-get -y install  openjdk-8-jdk
+  - wget http://apache.rediris.es/cassandra/3.0.10/apache-cassandra-3.0.10-bin.tar.gz && tar -xvzf apache-cassandra-3.0.10-bin.tar.gz && sudo apache-cassandra-3.0.10/bin/cassandra
