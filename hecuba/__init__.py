@@ -191,7 +191,7 @@ class Config:
         try:
             singleton.prefetch_activated = os.environ['PREFETCH_ACTIVATED'].lower() == 'true'
         except KeyError:
-            singleton.prefetch_activated = True
+            singleton.prefetch_activated = False
             logging.warn('using default PREFETCH_ACTIVATED: %s', singleton.prefetch_activated)
 
         try:
