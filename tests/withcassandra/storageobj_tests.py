@@ -4,7 +4,7 @@ import unittest
 from hecuba import config
 
 from hecuba.storageobj import StorageObj
-from words import Words
+from app.words import Words
 
 
 class StorageObjTest(unittest.TestCase):
