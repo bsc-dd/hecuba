@@ -26,7 +26,7 @@ class KeyIterTest(unittest.TestCase):
 
     def test_calulate_block_ranges(self):
         nodes_to_tokens = dict([(i, 'localhost%d' % (i / 32)) for i in range(128)])
-        res = KeyIter._calulate_block_ranges(nodes_to_tokens, 64)
+        res = KeyIter._calculate_block_ranges(nodes_to_tokens, 64)
         for el in res:
             self.assertEqual(len(el), 2)
             self.assertEqual(len(set(dict(el).values())), 1)
@@ -34,16 +34,16 @@ class KeyIterTest(unittest.TestCase):
         tks = list(range(128))
         shuffle(tks)
         nodes_to_tokens = dict([(tks[i], 'localhost%d' % (i / 32)) for i in range(128)])
-        res = KeyIter._calulate_block_ranges(nodes_to_tokens, 64)
+        res = KeyIter._calculate_block_ranges(nodes_to_tokens, 64)
         for el in res:
             self.assertEqual(len(el), 2)
             self.assertEqual(len(set(dict(el).values())), 1)
 
-    def test_calulate_block_ODD_ranges(self):
+    def test_calculate_block_ODD_ranges(self):
         tks = list(range(128))
         shuffle(tks)
         nodes_to_tokens = dict([(tks[i], 'localhost%d' % (i / 10)) for i in range(128)])
-        res = KeyIter._calulate_block_ranges(nodes_to_tokens, 64)
+        res = KeyIter._calculate_block_ranges(nodes_to_tokens, 64)
         self.assertEqual(len(res), 64)
         for el in res:
             self.assertEqual(len(el), 2)
