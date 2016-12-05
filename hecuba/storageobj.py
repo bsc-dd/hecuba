@@ -13,7 +13,7 @@ class StorageObj(object):
     DDBB(Cassandra), depending on if it's persistent or not.
     """
     nextKeys = []
-    cntxt = ''
+    _cntxt = ''
 
     @staticmethod
     def build_remotely(results):

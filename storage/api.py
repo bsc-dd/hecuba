@@ -33,8 +33,8 @@ def start_task(params):
     if config.batch_size > 1:
         for param in params:
             if issubclass(param.__class__, StorageObj) or issubclass(param.__class__, Block) and param.needContext:
-                param.cntxt = context(param)
-                param.cntxt.__enter__()
+                param._cntxt = context(param)
+                param._cntxt.__enter__()
 
 
 def end_task(params):
@@ -49,7 +49,7 @@ def end_task(params):
         for param in params:
             if hasattr(param, 'needContext') and param.needContext:
                 try:
-                    param.cntxt.__exit__()
+                    param._cntxt.__exit__()
                 except Exception as e:
                     print "error trying to exit context:", e
 
