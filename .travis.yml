@@ -6,4 +6,9 @@ python:
 install: "pip install -r requirements.txt"
 # command to run tests
 script: nosetests
-services: cassandra
+
+#caches dependencies
+cache: bundler
+
+before_install:
+  - wget http://apache.rediris.es/cassandra/3.0.10/apache-cassandra-3.0.10-bin.tar.gz && tar -xvzf apache-cassandra-3.0.10-bin.tar.gz && sh apache-cassandra-3.0.10/bin/cassandra
