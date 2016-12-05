@@ -30,7 +30,7 @@ def start_task(params):
     """
     if type(params) is not list:
         raise ValueError('call start_task with a list of params')
-    if config.batch_activated:
+    if config.batch_size > 1:
         for param in params:
             if issubclass(param.__class__, StorageObj) or issubclass(param.__class__, Block) and param.needContext:
                 param.cntxt = context(param)
@@ -45,7 +45,7 @@ def end_task(params):
         params: a list of objects (Blocks, StorageObjs, strings, ints, ...)
     """
 
-    if config.batch_activated:
+    if config.batch_size > 1:
         for param in params:
             if hasattr(param, 'needContext') and param.needContext:
                 try:
