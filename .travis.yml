@@ -13,5 +13,9 @@ addons:
   apt:
     packages:
       - oracle-java8-installer
+env:
+  global:
+    - JAVA_HOME=/usr/lib/jvm/java-8-oracle
 before_install:
+  - java -version
   - wget http://apache.rediris.es/cassandra/3.0.10/apache-cassandra-3.0.10-bin.tar.gz && tar -xvzf apache-cassandra-3.0.10-bin.tar.gz && apache-cassandra-3.0.10/bin/cassandra
