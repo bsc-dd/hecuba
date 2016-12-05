@@ -110,11 +110,13 @@ class Block(object):
         return BlockItemsIter(self)
 
     def itervalues(self):
+        print "Block itervalues"
         """
         Obtains the iterator for the values of the block
         Returns:
             BlockValuesIter(self): list of values
         """
+        print "config.prefetch_activated:", config.prefetch_activated
         if config.prefetch_activated:
             return BlockValuesIterPrefetch(self.storageobj._get_default_dict())
 
@@ -266,13 +268,14 @@ class BlockValuesIter(object):
         return self
 
     def __init__(self, partition_key, keyspace, table, block_tokens):
+        print "BlockValuesIter __init__"
         """
         Initializes the iterator, and its prefetcher
         Args:
             iterable: Block to iterate over
         """
         self._token_pos = 0
-        #print 'this block has %d tokens' % (len(block_tokens))
+        # print 'this block has %d tokens' % (len(block_tokens))
         # TODO this does not work if the primary key is composed
         self._query = config.session.prepare(
             "SELECT * FROM " + keyspace + "." + table + " WHERE token(" + partition_key + ") >= ? AND token(" + partition_key + ") < ?")
@@ -305,6 +308,7 @@ class BlockValuesIter(object):
         self._current_iterator = None
 
     def next(self):
+        print "BlockValuesIter next"
         """
         Returns the values, one by one, contained in the token ranges of the block
         Returns:

@@ -70,7 +70,7 @@ class PersistentDict(dict):
         self._batch = None
         self._batchCount = 0
         self._storage_class = storage_class
-        self.is_counter = self._primary_keys[0][1] == 'counter'
+        self.is_counter = self._columns[0][1] == 'counter'
       
 
     def init_prefetch(self, block):
@@ -220,7 +220,6 @@ class PersistentDict(dict):
 
                 else:
                     if self._insert_data is None:
-
                         if self.is_counter:
                             self._insert_data = self._preparequery(self._build_insert_counter_query())
                         else:
@@ -235,17 +234,28 @@ class PersistentDict(dict):
              BoundStatement: returns a query with binded elements
         """
         elements = []
-        if isinstance(key, list) or isinstance(key, tuple):
-            for val in key:
-                elements.append(val)
-        else:
-            elements.append(key)
+        if self.is_counter:
 
-        if isinstance(value, list) or isinstance(value, tuple):
-            for val in value:
-                elements.append(val)
+            elements.append(int(value))
+
+            if isinstance(key, list) or isinstance(key, tuple):
+                for val in key:
+                    elements.append(val)
+            else:
+                elements.append(key)
         else:
-            elements.append(value)
+            if isinstance(key, list) or isinstance(key, tuple):
+                for val in key:
+                    elements.append(val)
+            else:
+                elements.append(key)
+
+            if isinstance(value, list) or isinstance(value, tuple):
+                for val in value:
+                    elements.append(val)
+            else:
+                elements.append(value)
+        print "elements:", elements
         return self._insert_data.bind(elements)
 
     def _exec_query(self, query):
@@ -298,7 +308,7 @@ class PersistentDict(dict):
             for k, v in self.dictCache.cache.iteritems():
                 if v[1] == 'Sent':
                     value = v[0]
-                    self._batch.add(self._bind_row(k, value))
+                    batch.add(self._bind_row(k, int(value)))
                     self.dictCache[k] = [value, 'Sync']
         else:
             if self._insert_data is None:
@@ -498,8 +508,8 @@ class context:
         if self.storageObj.__class__.__name__ == 'PersistentDict':
             self.storageObj.batchvar = True
         else:
-            keys = self.storageObj.keyList[self.storageObj.__class__.__name__]
-            exec ("self.storageObj." + str(keys[0]) + ".batchvar  = True")
+            cntxt_dict = self.storageObj._get_default_dict()
+            cntxt_dict.batchvar = True
 
     def __exit__(self):
         """
@@ -511,9 +521,7 @@ class context:
             if config.cache_activated:
                 micache = midict.dictCache
         else:
-            keys = self.storageObj.keyList[self.storageObj.__class__.__name__]
-            storobj = self.storageObj
-            exec ("midict = storobj." + str(keys[0]))
+            midict = self.storageObj._get_default_dict()
             midict.batchvar = False
             if config.cache_activated:
                 micache = midict.dictCache
