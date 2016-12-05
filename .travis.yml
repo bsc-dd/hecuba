@@ -9,6 +9,7 @@ script: nosetests
 
 #caches dependencies
 cache: bundler
-
+jdk:
+  - oraclejdk8
 before_install:
   - wget http://apache.rediris.es/cassandra/3.0.10/apache-cassandra-3.0.10-bin.tar.gz && tar -xvzf apache-cassandra-3.0.10-bin.tar.gz && sh apache-cassandra-3.0.10/bin/cassandra
