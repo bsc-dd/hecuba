@@ -158,7 +158,7 @@ class Config:
             logging.info('CACHE_ACTIVATED: %s', singleton.cache_activated)
         except KeyError:
             singleton.cache_activated = True
-            logging.warn('using default RANGES_PER_BLOCK: %s', singleton.cache_activated)
+            logging.warn('using default CACHE_ACTIVATED: %s', singleton.cache_activated)
 
         try:
             singleton.batch_size = int(os.environ['BATCH_SIZE'])
