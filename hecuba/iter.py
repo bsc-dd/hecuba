@@ -138,11 +138,11 @@ class Block(object):
         """
         print "Block itervalues"
         print "config.prefetch_activated:", config.prefetch_activated
+        my_dict = self.storageobj._get_default_dict()
         if config.prefetch_activated:
-            return BlockValuesIterPrefetch(self.storageobj._get_default_dict())
+            return BlockValuesIterPrefetch(my_dict)
         else:
-            partition_key = self.storageobj._get_default_dict()._primary_keys[0][0]
-            return BlockValuesIter(partition_key, self.keyspace, self.table_name, self.token_ranges)
+            return BlockValuesIter(my_dict._primary_keys[0][0], self.keyspace, self.table_name, self.token_ranges)
 
 
 class BlockIter(object):
@@ -449,7 +449,6 @@ class BlockValuesIter(object):
         return self
 
     def __init__(self, partition_key, keyspace, table, block_tokens):
-        print "BlockValuesIter __init__"
         """
         Initializes the iterator
         Args:
@@ -458,19 +457,21 @@ class BlockValuesIter(object):
             table (String):
             block_tokens (String):
         """
+        # print "BlockValuesIter __init__"
         self._token_pos = 0
         # print 'this block has %d tokens' % (len(block_tokens))
         # TODO this does not work if the primary key is composed
         self._query = config.session.prepare(
-            "SELECT * FROM " + keyspace + "." + table + " WHERE token(" + partition_key + ") >= ? AND " +
+            "SELECT * FROM " + keyspace + "." + table + " WHERE " +
+            "token(" + partition_key + ") >= ? AND " +
             "token(" + partition_key + ") < ?")
         metadata = config.cluster.metadata
         ringtokens = metadata.token_map
         ran = set(block_tokens)
         last = ringtokens.ring[len(ringtokens.ring) - 1]
         self._token_ranges = []
-        max_token = 0
-        min_token = 0
+        max_token = -9223372036854775808
+        min_token = 9223372036854775807
         for t in ringtokens.ring:
             if t.value > max_token:
                 max_token = t.value
@@ -489,13 +490,12 @@ class BlockValuesIter(object):
         self._current_iterator = None
 
     def next(self):
-        print "BlockValuesIter next"
         """
         Returns the values, one by one, contained in the token ranges of the block
         Returns:
             val: .
         """
-
+        # print "BlockValuesIter next"
         if self._current_iterator is not None:
             try:
                 return self._current_iterator.next()
@@ -536,26 +536,31 @@ class BlockValuesIterPrefetch(object):
         self.end = False
 
         self._persistentDict = default_dict
+        print "self._persistentDict.prefetchManager:", self._persistentDict.prefetchManager
         self._persistentDict.prefetchManager.pipeq_write[0].send(['query'])
+        print "blockValuesIterPrefetch __init__ query"
 
     def next(self):
-        print "blockValuesIterPrefetch next"
         """
         Returns the values, one by one, contained in the token ranges of the block
         Returns:
             val: .
         """
+        print "blockValuesIterPrefetch next"
         self._persistentDict.reads += 1  # STATISTICS
         if self.pos == self.num_keys:
             if self.end:
                 raise StopIteration
             else:
                 self._persistentDict.prefetchManager.pipeq_write[0].send(['continue'])
+                print "blockValuesIterPrefetch next continue"
                 usedpipe = self._persistentDict.prefetchManager.piper_read[0]
+                print "blockValuesIterPrefetch next piper_read"
                 self._persistentDict.cache_prefetchs += 1  # STATISTICS
                 self._persistentDict.cache_hits_graph += 'P'  # STATISTICS
                 start = time.time()  # STATISTICS
                 results = usedpipe.recv()
+                print "blockValuesIterPrefetch next results"
                 self._persistentDict.pending_requests_time += time.time() - start  # STATISTICS
                 if len(results) == 0:
                     raise StopIteration
