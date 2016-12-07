@@ -119,7 +119,6 @@ class Block(object):
         print "config.prefetch_activated:", config.prefetch_activated
         if config.prefetch_activated:
             return BlockValuesIterPrefetch(self.storageobj._get_default_dict())
-
         else:
             partition_key = self.storageobj._get_default_dict()._primary_keys[0][0]
             return BlockValuesIter(partition_key, self.keyspace, self.table_name, self.token_ranges)
@@ -268,7 +267,7 @@ class BlockValuesIter(object):
         return self
 
     def __init__(self, partition_key, keyspace, table, block_tokens):
-        print "BlockValuesIter __init__"
+        #print "BlockValuesIter __init__"
         """
         Initializes the iterator, and its prefetcher
         Args:
@@ -295,7 +294,7 @@ class BlockValuesIter(object):
         for t in ringtokens.ring:
             if t.value in ran:
                 if t.value == min_token:
-                    print 'this block is the first one. '
+                    #print 'this block is the first one. '
                     self._token_ranges.append((-9223372036854775808, min_token))
                     self._token_ranges.append((max_token, 9223372036854775807))
                 else:
@@ -308,7 +307,7 @@ class BlockValuesIter(object):
         self._current_iterator = None
 
     def next(self):
-        print "BlockValuesIter next"
+        #print "BlockValuesIter next"
         """
         Returns the values, one by one, contained in the token ranges of the block
         Returns:
@@ -348,6 +347,7 @@ class BlockValuesIterPrefetch(object):
         Args:
             iterable: Block to iterate over
         """
+        print "blockValuesIterPrefetch __init__"
         self.pos = 0
         self.keys = []
         self.num_keys = 0
@@ -357,6 +357,7 @@ class BlockValuesIterPrefetch(object):
         self._persistentDict.prefetchManager.pipeq_write[0].send(['query'])
 
     def next(self):
+        print "blockValuesIterPrefetch next"
         """
         Returns the values, one by one, contained in the token ranges of the block
         Returns:

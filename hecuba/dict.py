@@ -255,7 +255,6 @@ class PersistentDict(dict):
                     elements.append(val)
             else:
                 elements.append(value)
-        print "elements:", elements
         return self._insert_data.bind(elements)
 
     def _exec_query(self, query):

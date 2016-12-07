@@ -28,6 +28,7 @@ def start_task(params):
     Args:
         params: a list of objects (Blocks, StorageObjs, strings, ints, ...)
     """
+    print "in start_task"
     if type(params) is not list:
         raise ValueError('call start_task with a list of params')
     if config.batch_size > 1:
@@ -82,6 +83,7 @@ def getByID(objid):
          (Block| Storageobj)
 
     """
+    print "in getByID"
     objidsplit = objid.split("_")
 
     if len(objidsplit) == 2:

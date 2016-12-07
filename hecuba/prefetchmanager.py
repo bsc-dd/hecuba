@@ -53,10 +53,12 @@ def pipeloop(pipeq, piper):
             '''
 
         elif input_data[0] == 'query':
+            "print PrefetchManager query received"
             r = {}
             r[0] = execute_concurrent_with_args(config.session, statement, token_ranges, 1)
 
         elif input_data[0] == 'continue':
+            "print PrefetchManager continue received"
             '''
             input_data[0]='query'
             implements the loop to access the result of the query executed in the connect command.
@@ -105,6 +107,7 @@ class PrefetchManager(object):
     query2 = ''
 
     def __init__(self, chunksize, concurrency, block):
+        print "prefetch Manager __init__"
         self.chunksize = chunksize
         self.concurrency = concurrency
         partition_key = block.storageobj._get_default_dict()._primary_keys[0][0]
