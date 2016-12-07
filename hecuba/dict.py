@@ -71,7 +71,6 @@ class PersistentDict(dict):
         self._batchCount = 0
         self._storage_class = storage_class
         self.is_counter = self._columns[0][1] == 'counter'
-      
 
     def init_prefetch(self, block):
         """

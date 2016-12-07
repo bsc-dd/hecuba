@@ -45,7 +45,7 @@ def end_task(params):
     Args:
         params: a list of objects (Blocks, StorageObjs, strings, ints, ...)
     """
-
+    print "in end_task"
     if config.batch_size > 1:
         for param in params:
             if hasattr(param, 'needContext') and param.needContext:
@@ -88,7 +88,6 @@ def getByID(objid):
 
     if len(objidsplit) == 2:
         objid = objidsplit[0]
-
 
     if len(objidsplit) == 2:
         results = config.session.execute("SELECT * FROM hecuba.storage_objs WHERE object_id = %s", (objid,))[0]

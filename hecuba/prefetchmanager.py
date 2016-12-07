@@ -17,6 +17,7 @@ def pipeloop(pipeq, piper):
         input_data = pipeq.recv()
 
         if input_data[0] == 'connect':
+            print "prefetchManager connect"
             config.__init__()
 
             '''
@@ -53,12 +54,12 @@ def pipeloop(pipeq, piper):
             '''
 
         elif input_data[0] == 'query':
-            "print PrefetchManager query received"
+            print "prefetchManager query"
             r = {}
             r[0] = execute_concurrent_with_args(config.session, statement, token_ranges, 1)
 
         elif input_data[0] == 'continue':
-            "print PrefetchManager continue received"
+            print "prefetchManager continue"
             '''
             input_data[0]='query'
             implements the loop to access the result of the query executed in the connect command.
