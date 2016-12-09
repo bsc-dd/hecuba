@@ -129,8 +129,8 @@ class Config:
                 singleton.session.execute(
                     'CREATE TABLE IF NOT EXISTS hecuba.storage_objs (object_id text, class_name text,  ' +
                     'ksp text , tab text , obj_type text, PRIMARY KEY(object_id))')
-            except:
-                logging.error('Exception creating cluster session. Are you in a testing env?')
+            except Exception as e:
+                logging.error('Exception creating cluster session. Are you in a testing env?', e)
 
         try:
             singleton.execution_name = os.environ['EXECUTION_NAME']
