@@ -47,8 +47,7 @@ class StorageObj(object):
         Creates a new storageobj.
 
         Args:
-            ksp (string): the Cassandra keyspace where information can be found
-            table (string): the name of the Cassandra collection/table where information can be found
+            name (string): the name of the Cassandra Keyspace + table where information can be found
             myuuid (string):  an unique storageobj identifier
         """
         self._persistent_dicts = []
@@ -85,7 +84,7 @@ class StorageObj(object):
 
     _valid_type = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer|bytearray|counte)'
     _data_type = re.compile('(\w+) *: *%s' % _valid_type)
-    _dict_case = re.compile('.*@ClassField +(\w+) +dict +< *< *([\w:]+) *> *, *([\w+:]+) *>.*')
+    _dict_case = re.compile('.*@ClassField +(\w+) +dict +< *< *([\w:,]+)+ *> *, *([\w+:,]+)+ *>.*')
     _val_case = re.compile('.*@ClassField +(\w+) +(\w+) +%s' % _valid_type)
     _conversions = {'atomicint': 'counter',
                     'str': 'text',
@@ -208,7 +207,8 @@ class StorageObj(object):
         Returns:
             self: list of key,val pairs
         """
-        raise ValueError('not yet implemented')
+        #raise ValueError('not yet implemented')
+        return self
 
     def itervalues(self):
         """
