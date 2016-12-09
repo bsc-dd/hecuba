@@ -57,7 +57,7 @@ class StorageObjTest(unittest.TestCase):
         }}
         self.assertEquals(p,should_be)
 
-    def test_parse_2(self):
+    def test_parse_3(self):
         comment = "     @ClassField particles dict <<partid:int,part2:str>,x:int,y:int,z:int>"
         p = StorageObj._parse_comments(comment)
         should_be = {'particles': {
