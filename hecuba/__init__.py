@@ -70,7 +70,7 @@ class Config:
             logging.info('configuring production environment')
         try:
             singleton.nodePort = int(os.environ['NODE_PORT'])
-            logging.info('NODE_PORT: %s', singleton.nodePort)
+            logging.info('NODE_PORT: %d', singleton.nodePort)
         except KeyError:
             logging.warn('using default NODE_PORT 9042')
             singleton.nodePort = 9042
@@ -91,10 +91,10 @@ class Config:
                 logging.warn('error shutting down')
         try:
             singleton.repl_factor = int(os.environ['REPLICA_FACTOR'])
-            logging.info('REPLICA_FACTOR: %s', singleton.repl_factor)
+            logging.info('REPLICA_FACTOR: %d', singleton.repl_factor)
         except KeyError:
             singleton.repl_factor = 1
-            logging.warn('using default REPLICA_FACTOR: %s', singleton.repl_factor)
+            logging.warn('using default REPLICA_FACTOR: %d', singleton.repl_factor)
 
         if mock_cassandra:
             class clusterMock:
@@ -122,10 +122,12 @@ class Config:
                                             default_retry_policy=_NRetry(5))
                 singleton.session = singleton.cluster.connect()
                 singleton.session.execute(
-                    "CREATE KEYSPACE IF NOT EXISTS hecuba WITH replication = {'class': 'SimpleStrategy', 'replication_factor': %d }" % singleton.repl_factor)
+                    "CREATE KEYSPACE IF NOT EXISTS hecuba WITH replication = {'class': 'SimpleStrategy',"
+                    "'replication_factor': %d }" % singleton.repl_factor)
                 singleton.session.execute(
-                    'CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, class_name text,storageobj_classname text, tkns list<bigint>, ' +
-                    'entry_point text , port int, ksp text , tab text , object_id text , obj_type text, PRIMARY KEY(blockid))')
+                    'CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, class_name text,storageobj_classname text,'
+                    'tkns list<bigint>, entry_point text , port int, ksp text , tab text , object_id text ,'
+                    'obj_type text, PRIMARY KEY(blockid))')
                 singleton.session.execute(
                     'CREATE TABLE IF NOT EXISTS hecuba.storage_objs (object_id text, class_name text,  ' +
                     'ksp text , tab text , obj_type text, PRIMARY KEY(object_id))')
@@ -141,17 +143,17 @@ class Config:
 
         try:
             singleton.workers_per_node = int(os.environ['WORKERS_PER_NODE'])
-            logging.info('WORKERS_PER_NODE: %s', singleton.workers_per_node)
+            logging.info('WORKERS_PER_NODE: %d', singleton.workers_per_node)
         except KeyError:
             singleton.workers_per_node = 8
-            logging.warn('using default WORKERS_PER_NODE: %s', singleton.workers_per_node)
+            logging.warn('using default WORKERS_PER_NODE: %d', singleton.workers_per_node)
 
         try:
             singleton.number_of_blocks = int(os.environ['NUMBER_OF_BLOCKS'])
-            logging.info('NUMBER_OF_BLOCKS: %s', singleton.number_of_blocks)
+            logging.info('NUMBER_OF_BLOCKS: %d', singleton.number_of_blocks)
         except KeyError:
             singleton.number_of_blocks = 1024
-            logging.warn('using default NUMBER_OF_BLOCKS: %s', singleton.number_of_blocks)
+            logging.warn('using default NUMBER_OF_BLOCKS: %d', singleton.number_of_blocks)
 
         try:
             singleton.cache_activated = os.environ['CACHE_ACTIVATED'].lower() == 'true'
@@ -162,17 +164,17 @@ class Config:
 
         try:
             singleton.batch_size = int(os.environ['BATCH_SIZE'])
-            logging.info('BATCH_SIZE: %s', singleton.batch_size)
+            logging.info('BATCH_SIZE: %d', singleton.batch_size)
         except KeyError:
             singleton.batch_size = 100
-            logging.warn('using default BATCH_SIZE: %s', singleton.batch_size)
+            logging.warn('using default BATCH_SIZE: %d', singleton.batch_size)
 
         try:
             singleton.max_cache_size = int(os.environ['MAX_CACHE_SIZE'])
-            logging.info('MAX_CACHE_SIZE: %s', singleton.max_cache_size)
+            logging.info('MAX_CACHE_SIZE: %d', singleton.max_cache_size)
         except KeyError:
             singleton.max_cache_size = 100
-            logging.warn('using default MAX_CACHE_SIZE: %s', singleton.max_cache_size)
+            logging.warn('using default MAX_CACHE_SIZE: %d', singleton.max_cache_size)
 
         try:
             singleton.repl_class = os.environ['REPLICATION_STRATEGY']
@@ -195,7 +197,8 @@ class Config:
             logging.warn('using default PREFETCH_ACTIVATED: %s', singleton.prefetch_activated)
 
         try:
-            query = "CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = { 'class' : \'%s\', 'replication_factor' : %d};" \
+            query = "CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = { 'class' : \'%s\'," \
+                    "'replication_factor' : %d};" \
                     % (singleton.execution_name, singleton.repl_class, singleton.repl_factor)
             singleton.session.execute(query)
         except Exception as e:
