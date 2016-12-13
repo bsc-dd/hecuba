@@ -4,7 +4,6 @@ import logging
 from cassandra.cluster import Cluster
 from cassandra.policies import RetryPolicy
 
-logging.basicConfig()
 
 # Set default logging handler to avoid "No handler found" warnings.
 try:  # Python 2.7+
