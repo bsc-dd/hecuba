@@ -86,6 +86,8 @@ class StorageObj(object):
     _data_type = re.compile('(\w+) *: *%s' % _valid_type)
     _dict_case = re.compile('.*@ClassField +(\w+) +dict +< *< *([\w:,]+)+ *> *, *([\w+:,]+)+ *>.*')
     _val_case = re.compile('.*@ClassField +(\w+) +(\w+) +%s' % _valid_type)
+    # Here the Indexed attributes should be defined after an @Indexed
+    # example: @Indexed x, y, z
     _conversions = {'atomicint': 'counter',
                     'str': 'text',
                     'bool': 'boolean',
