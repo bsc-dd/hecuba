@@ -117,7 +117,6 @@ class PersistentDict(dict):
                 prepquery = self.prepQueriesDict[query]
                 return prepquery
             except Exception as e:
-                print "query in preparequery:", query
                 print "Error. Couldn't prepare query, retrying: ", e
                 self.prepQueriesDict[query] = config.session.prepare(query)
                 prepquery = self.prepQueriesDict[query]
