@@ -121,10 +121,15 @@ class StorageObj(object):
                 for val in dict_vals.split(","):
                     name, value = StorageObj._data_type.match(val).groups()
                     columns.append((name, StorageObj._conversions[value]))
-                this[table_name] = {
-                    'type': 'dict',
-                    'primary_keys': primary_keys,
-                    'columns': columns}
+                if table_name in this:
+                    this[table_name].update({'type': 'dict',
+                                            'primary_keys': primary_keys,
+                                            'columns': columns})
+                else:
+                    this[table_name] = {
+                        'type': 'dict',
+                        'primary_keys': primary_keys,
+                        'columns': columns}
             else:
                 m = StorageObj._val_case.match(line)
                 if m is not None:
@@ -132,6 +137,14 @@ class StorageObj(object):
                     this[table_name] = {
                         'type': StorageObj._conversions[simple_type]
                     }
+            m = StorageObj._index_vars.match(line)
+            if m is not None:
+                table_name, indexed_values = m.groups()
+                indexed_values = indexed_values.replace(' ', '').split(',')
+                if table_name in this:
+                    this[table_name].update({'indexed_values': indexed_values})
+                else:
+                    this[table_name] = {'indexed_values': indexed_values}
         return this
 
     def init_prefetch(self, block):
