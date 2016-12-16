@@ -20,4 +20,4 @@ before_install:
   - java -version
   - wget http://apache.rediris.es/cassandra/3.0.10/apache-cassandra-3.0.10-bin.tar.gz
   - tar -xzf apache-cassandra-3.0.10-bin.tar.gz
-  - apache-cassandra-3.0.10/bin/cassandra
+  - apache-cassandra-3.0.10/bin/cassandra & disown
