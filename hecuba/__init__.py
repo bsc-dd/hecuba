@@ -71,8 +71,8 @@ class Config:
             singleton.nodePort = int(os.environ['NODE_PORT'])
             logging.info('NODE_PORT: %d', singleton.nodePort)
         except KeyError:
-            logging.warn('using default NODE_PORT 9042')
-            singleton.nodePort = 9042
+            logging.warn('using default NODE_PORT 19042')
+            singleton.nodePort = 19042
 
         try:
             singleton.contact_names = os.environ['CONTACT_NAMES'].split(",")
@@ -131,7 +131,7 @@ class Config:
                     'CREATE TABLE IF NOT EXISTS hecuba.storage_objs (object_id text, class_name text,  ' +
                     'ksp text , tab text , obj_type text, PRIMARY KEY(object_id))')
             except Exception as e:
-                logging.error('Exception creating cluster session. Are you in a testing env?', e)
+                logging.error('Exception creating cluster session. Are you in a testing env? %s', e)
 
         try:
             singleton.execution_name = os.environ['EXECUTION_NAME']
