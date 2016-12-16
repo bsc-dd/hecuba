@@ -165,7 +165,7 @@ class Config:
             singleton.batch_size = int(os.environ['BATCH_SIZE'])
             logging.info('BATCH_SIZE: %d', singleton.batch_size)
         except KeyError:
-            singleton.batch_size = 100
+            singleton.batch_size = 1
             logging.warn('using default BATCH_SIZE: %d', singleton.batch_size)
 
         try:
