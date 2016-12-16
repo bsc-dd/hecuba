@@ -71,8 +71,8 @@ class Config:
             singleton.nodePort = int(os.environ['NODE_PORT'])
             logging.info('NODE_PORT: %d', singleton.nodePort)
         except KeyError:
-            logging.warn('using default NODE_PORT 19042')
-            singleton.nodePort = 19042
+            logging.warn('using default NODE_PORT 9042')
+            singleton.nodePort = 9042
 
         try:
             singleton.contact_names = os.environ['CONTACT_NAMES'].split(",")
