@@ -123,10 +123,11 @@ class Config:
                 singleton.session.execute(
                     "CREATE KEYSPACE IF NOT EXISTS hecuba WITH replication = {'class': 'SimpleStrategy',"
                     "'replication_factor': %d }" % singleton.repl_factor)
+                print 'CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, class_name text,storageobj_classname text, tkns list<bigint>, entry_point text, port int, ksp text, tab text, object_id text, obj_type text, indexed_args list<text>, nonindexed_args list<text>, PRIMARY KEY(blockid))'
                 singleton.session.execute(
                     'CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, class_name text,storageobj_classname text,'
                     'tkns list<bigint>, entry_point text , port int, ksp text , tab text , object_id text ,'
-                    'obj_type text, PRIMARY KEY(blockid))')
+                    'obj_type text, indexed_args list<text>, nonindexed_args list<text>, PRIMARY KEY(blockid))')
                 singleton.session.execute(
                     'CREATE TABLE IF NOT EXISTS hecuba.storage_objs (object_id text, class_name text,  ' +
                     'ksp text , tab text , obj_type text, PRIMARY KEY(object_id))')
@@ -167,6 +168,13 @@ class Config:
         except KeyError:
             singleton.batch_size = 1
             logging.warn('using default BATCH_SIZE: %d', singleton.batch_size)
+
+        try:
+            singleton.ranges_per_block = int(os.environ['RANGES_PER_BLOCK:'])
+            logging.info('RANGES_PER_BLOCK:: %d', singleton.ranges_per_block)
+        except KeyError:
+            singleton.ranges_per_block = 1
+            logging.warn('using default RANGES_PER_BLOCK: %d', singleton.ranges_per_block)
 
         try:
             singleton.max_cache_size = int(os.environ['MAX_CACHE_SIZE'])

@@ -52,38 +52,42 @@ class StorageObj(object):
         """
         self._persistent_dicts = []
         self._attr_to_column = {}
+
+        self._needContext = True
+        self._persistent_props = self._parse_comments(self.__doc__)
+
+        if myuuid is None:
+            self._myuuid = str(uuid.uuid1())
+        else:
+            self._myuuid = myuuid
+
         if name is None:
-            self._ksp = config.execution_name
-            self._table = self.__class__.__name__.lower()
             self._persistent = False
         else:
             self._persistent = True
             sp = name.split(".")
             if len(sp) == 2:
-                self._table = sp[1]
                 self._ksp = sp[0]
+                self._table = sp[1]
+                props = list(self._persistent_props)
+                self._persistent_props[sp[1]] = self._persistent_props.pop(props[0])
             else:
-                self._table = name
                 self._ksp = config.execution_name
-
-        if myuuid is None:
-            self._myuuid = str(uuid.uuid1())
+                self._table = name
             classname = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
 
             config.session.execute('INSERT INTO hecuba.storage_objs (object_id, class_name, ksp, tab, obj_type)' +
                                    ' VALUES (%s,%s,%s,%s,%s)',
                                    [self._myuuid, classname, self._ksp, self._table, 'hecuba'])
-        else:
-            self._myuuid = myuuid
-        self._needContext = True
-        self._persistent_props = self._parse_comments(self.__doc__)
-        self.getByName()
+            self.getByName()
 
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.getID() == other.getID()
 
     _valid_type = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer|bytearray|counte)'
     _data_type = re.compile('(\w+) *: *%s' % _valid_type)
+    # names should be optional
+    # _dict_case = re.compile('.*@ClassField +(\w+) +dict +< *< *([\w:?,]+)+ *> *, *([\w+:?,]+)+ *>.*')
     _dict_case = re.compile('.*@ClassField +(\w+) +dict +< *< *([\w:,]+)+ *> *, *([\w+:,]+)+ *>.*')
     _val_case = re.compile('.*@ClassField +(\w+) +(\w+) +%s' % _valid_type)
     _index_vars = re.compile('.*@Index_on+\s*([A-z,]+)+([A-z, ]+)')
@@ -171,12 +175,12 @@ class StorageObj(object):
         cl = self.__class__
         so_full_class_name = cl.__module__ + "." + cl.__name__
         for table_name, per_dict in dictionaries:
-            pd = PersistentDict(self._ksp, table_name, self._persistent,
+            pd = PersistentDict(self._ksp, self._table, self._persistent,
                                 per_dict['primary_keys'], per_dict['columns'], self._myuuid, so_full_class_name)
             setattr(self, table_name, pd)
             self._persistent_dicts.append(pd)
 
-    def make_persistent(self):
+    def make_persistent(self, name):
         """
         Once a StorageObj has been created, it can be made persistent. This function retrieves the information about
         the Object class schema, and creates a Cassandra table with those parameters, where information will be saved
@@ -184,16 +188,36 @@ class StorageObj(object):
         It also inserts into the new table all information that was in memory assigned to the StorageObj prior to this
         call.
         """
+        # this function must receive a string as parameter, always, being keyspace.table or only table (so it will use the default keyspace defined in hecuba/__init__.py
+
+        sp = name.split(".")
+        if len(sp) == 2:
+            self._ksp = sp[0]
+            self._table = sp[1]
+        else:
+            self._ksp = config.execution_name
+            self._table = name
+
+        props = list(self._persistent_props)
+        self._persistent_props[self._table] = self._persistent_props.pop(props[0])
+
+        self.getByName()
+
+        classname = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
+
+        config.session.execute('INSERT INTO hecuba.storage_objs (object_id, class_name, ksp, tab, obj_type)' +
+                               ' VALUES (%s,%s,%s,%s,%s)',
+                               [self._myuuid, classname, self._ksp, self._table, 'hecuba'])
 
         for dict_name, props in self._persistent_props.iteritems():
             columns = map(lambda a: '%s %s' % a, props['primary_keys'] + props['columns'])
             pks = map(lambda a: a[0], props['primary_keys'])
-            querytable = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" % (self._ksp, dict_name,
+            querytable = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" % (self._ksp, self._table,
                                                                                        str.join(",", columns),
                                                                                        str.join(',', pks))
             config.session.execute(querytable)
 
-        create_attrs = "CREATE TABLE IF NOT EXISTS %s.%s (" % (self._ksp, self._table) + \
+        create_attrs = "CREATE TABLE IF NOT EXISTS %s.%s_attribs (" % (self._ksp, self._table) + \
                        "name text PRIMARY KEY, " + \
                        "intval int, " + \
                        "intlist list<int>, " + \
@@ -264,7 +288,7 @@ class StorageObj(object):
             query = "TRUNCATE %s.%s;" % (self._ksp, d._table)
             config.session.execute(query)
 
-    def delete_persistent(self):
+    def del_persistent(self):
         """
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
@@ -276,8 +300,6 @@ class StorageObj(object):
             dics.is_persistent = False
 
         query = "DROP COLUMNFAMILY %s.%s;" % (self._ksp, self._table)
-        config.session.execute(query)
-        query = "DROP COLUMNFAMILY %s.%;" % (self._ksp, self._table)
         config.session.execute(query)
 
     def __contains__(self, key):
