@@ -53,7 +53,6 @@ class StorageObj(object):
         self._attr_to_column = {}
 
         self._needContext = True
-        print "self.__doc__:", self.__doc__
         self._persistent_props = self._parse_comments(self.__doc__)
 
         if myuuid is None:
@@ -69,9 +68,7 @@ class StorageObj(object):
             if len(sp) == 2:
                 self._ksp = sp[0]
                 self._table = sp[1]
-                print "self._persistent_props:", self._persistent_props
                 props = list(self._persistent_props)
-                print "props:", props
                 self._persistent_props[sp[1]] = self._persistent_props.pop(props[0])
             else:
                 self._ksp = config.execution_name
@@ -242,8 +239,6 @@ class StorageObj(object):
         cl = self.__class__
         so_full_class_name = cl.__module__ + "." + cl.__name__
         for table_name, per_dict in dictionaries:
-            print "table_name: ", table_name
-            print "per_dict:   ", per_dict
             pd = PersistentDict(self._ksp, self._table, self._persistent,
                                 per_dict['primary_keys'], per_dict['columns'], self._myuuid, so_full_class_name)
             setattr(self, table_name, pd)
