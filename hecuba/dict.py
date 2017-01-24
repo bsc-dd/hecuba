@@ -70,7 +70,10 @@ class PersistentDict(dict):
         self._batch = None
         self._batchCount = 0
         self._storage_class = storage_class
-        self.is_counter = self._columns[0][1] == 'counter'
+        if 'type' in self._columns and self._columns['type'] == 'dict':
+            self.is_counter = False
+        else:
+            self.is_counter = self._columns[0][1] == 'counter'
 
     def init_prefetch(self, block):
         """
@@ -410,7 +413,6 @@ class PersistentDict(dict):
                 item = 0
         return item
 
-
     def keys(self):
         """
         This method return a list of all the keys of the PersistentDict.
@@ -430,19 +432,25 @@ class PersistentDict(dict):
         """
         This function builds the insert query
         Args:
-            key: dictionary key
-            value: value
+            self: dictionary
         Returns:
             str: query string
         """
+        print "self._primary_keys:", self._primary_keys
+        print "self._columns:     ", self._columns
         pk_names = map(lambda tupla: tupla[0], self._primary_keys)
-        col_names = map(lambda tupla: tupla[0], self._columns)
         query = "INSERT INTO " + self._ksp + "." + self._table + "("
-        toadd = pk_names + col_names
-        query += str.join(',', toadd)
-        query += ") VALUES ("
-        query += str.join(',', ['?' for i in toadd])
-        query += ")"
+        if 'type' in self._columns and self._columns['type'] == 'dict':
+            print "it's a dict"
+            query = ''
+        else:
+            col_names = map(lambda tupla: tupla[0], self._columns)
+            toadd = pk_names + col_names
+            query += str.join(',', toadd)
+            query += ") VALUES ("
+            query += str.join(',', ['?' for i in toadd])
+            query += ")"
+        print "query:", query
         return query
 
     def _build_select_query(self, key):
@@ -450,29 +458,35 @@ class PersistentDict(dict):
         This function builds the insert query
         Args:
             key: list key
-            value: value
         Returns:
             str: query string
         """
-        pk_names = map(lambda tupla:tupla[0], self._primary_keys)
-        col_names = map(lambda tupla:tupla[0], self._columns)
-        selects = str.join(',', pk_names+col_names)
-        query = "SELECT " + selects +" FROM " + self._ksp + "." + self._table + " WHERE "
-        query += str.join(" AND ", map(lambda k: k + " = ?", pk_names[0:len(key)]))
+        print "self._primary_keys:", self._primary_keys
+        print "self._columns:     ", self._columns
+        pk_names = map(lambda tupla: tupla[0], self._primary_keys)
+        if 'type' in self._columns and self._columns['type'] == 'dict':
+            print "here we have to create the query to select the dicts of a dict"
+            query = "SELECT * FROM " + self._ksp + "." + self._table + " WHERE "
+            query += str.join(" AND ", map(lambda k: k + " = ?", pk_names[0:len(key)]))
+        else:
+            col_names = map(lambda tupla: tupla[0], self._columns)
+            selects = str.join(',', pk_names+col_names)
+            query = "SELECT " + selects + " FROM " + self._ksp + "." + self._table + " WHERE "
+            query += str.join(" AND ", map(lambda k: k + " = ?", pk_names[0:len(key)]))
         return query
 
     def _build_insert_counter_query(self):
         """
         This function builds the insert query
         Args:
-            key: dictionary key
-            value: value
+            self: dictionary
         Returns:
             str: query string
         """
 
         counter_name = self._columns[0][0]
-        query = "UPDATE " + self._ksp + "." + self._table + " SET " + counter_name + " = " + counter_name + " + ? WHERE "
+        query = "UPDATE " + self._ksp + "." + self._table + \
+                " SET " + counter_name + " = " + counter_name + " + ? WHERE "
         query += str.join(" AND ", map(lambda k: k[0] + " = ?", self._primary_keys))
         return query
 

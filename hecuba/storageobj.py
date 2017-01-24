@@ -45,46 +45,55 @@ class StorageObj(object):
     def __init__(self, name=None, myuuid=None):
         """
         Creates a new storageobj.
-
         Args:
             name (string): the name of the Cassandra Keyspace + table where information can be found
             myuuid (string):  an unique storageobj identifier
         """
         self._persistent_dicts = []
         self._attr_to_column = {}
+
+        self._needContext = True
+        print "self.__doc__:", self.__doc__
+        self._persistent_props = self._parse_comments(self.__doc__)
+
+        if myuuid is None:
+            self._myuuid = str(uuid.uuid1())
+        else:
+            self._myuuid = myuuid
+
         if name is None:
-            self._ksp = config.execution_name
-            self._table = self.__class__.__name__.lower()
             self._persistent = False
         else:
             self._persistent = True
             sp = name.split(".")
             if len(sp) == 2:
-                self._table = sp[1]
                 self._ksp = sp[0]
+                self._table = sp[1]
+                print "self._persistent_props:", self._persistent_props
+                props = list(self._persistent_props)
+                print "props:", props
+                self._persistent_props[sp[1]] = self._persistent_props.pop(props[0])
             else:
-                self._table = name
                 self._ksp = config.execution_name
-
-        if myuuid is None:
-            self._myuuid = str(uuid.uuid1())
+                self._table = name
             classname = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
 
             config.session.execute('INSERT INTO hecuba.storage_objs (object_id, class_name, ksp, tab, obj_type)' +
                                    ' VALUES (%s,%s,%s,%s,%s)',
                                    [self._myuuid, classname, self._ksp, self._table, 'hecuba'])
-        else:
-            self._myuuid = myuuid
-        self._needContext = True
-        self._persistent_props = self._parse_comments(self.__doc__)
-        self.getByName()
+            self.getByName()
 
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.getID() == other.getID()
 
-    _valid_type = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer|bytearray|counte)'
+    _valid_type = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer|' \
+                  'bytearray|counter)'
     _data_type = re.compile('(\w+) *: *%s' % _valid_type)
-    _dict_case = re.compile('.*@ClassField +(\w+) +dict +< *< *([\w:,]+)+ *> *, *([\w+:,]+)+ *>.*')
+    # names should be optional
+    # _dict_case = re.compile('.*@ClassField +(\w+) +dict +< *< *([\w:?,]+)+ *> *, *([\w+:?,]+)+ *>.*')
+    _dict_case = re.compile('.*@ClassField +(\w+) +dict +< *< *([\w:, ]+)+ *> *, *([\w+:, <>]+) *>')
+    _sub_dict_case = re.compile(' *< *< *([\w:, ]+)+ *> *, *([\w+:, <>]+) *>')
+    _sub_tuple_case = re.compile(' *< *([\w:, ]+)+ *>')
     _val_case = re.compile('.*@ClassField +(\w+) +(\w+) +%s' % _valid_type)
     _index_vars = re.compile('.*@Index_on+\s*([A-z,]+)+([A-z, ]+)')
     _conversions = {'atomicint': 'counter',
@@ -106,6 +115,11 @@ class StorageObj(object):
 
     @staticmethod
     def _parse_comments(comments):
+        """
+        Parses de comments in a class file to save them in the class information
+        Args:
+           comments: the comment in the class file
+        """
         this = {}
         for line in comments.split('\n'):
             m = StorageObj._dict_case.match(line)
@@ -113,17 +127,73 @@ class StorageObj(object):
                 # Matching @ClassField of a dict
                 table_name, dict_keys, dict_vals = m.groups()
                 primary_keys = []
-                for key in dict_keys.split(","):
-                    name, value = StorageObj._data_type.match(key).groups()
+                for ind, key in enumerate(dict_keys.split(",")):
+                    try:
+                        name, value = StorageObj._data_type.match(key).groups()
+                    except Exception:
+                        if ':' in key:
+                            raise SyntaxError
+                        else:
+                            name = "key" + str(ind)
+                            value = key
                     primary_keys.append((name, StorageObj._conversions[value]))
-                columns = []
-                for val in dict_vals.split(","):
-                    name, value = StorageObj._data_type.match(val).groups()
-                    columns.append((name, StorageObj._conversions[value]))
+                if dict_vals[:4] == 'dict':
+                    n = StorageObj._sub_dict_case.match(dict_vals[5:])
+                    dict_keys2, dict_vals2 = n.groups()
+                    primary_keys2 = []
+                    for ind, key in enumerate(dict_keys2.split(",")):
+                        try:
+                            name, value = StorageObj._data_type.match(key).groups()
+                        except Exception:
+                            if ':' in key:
+                                raise SyntaxError
+                            else:
+                                name = "key" + str(ind)
+                                value = key
+                        primary_keys2.append((name, StorageObj._conversions[value]))
+                    columns2 = []
+                    for ind, val in enumerate(dict_vals2.split(",")):
+                        try:
+                            name, value = StorageObj._data_type.match(val).groups()
+                        except Exception:
+                            if ':' in key:
+                                raise SyntaxError
+                            else:
+                                name = "val" + str(ind)
+                                value = val
+                        columns2.append((name, StorageObj._conversions[value]))
+                    columns = {
+                        'type': 'dict',
+                        'primary_keys': primary_keys2,
+                        'columns': columns2}
+                elif dict_vals[:5] == 'tuple':
+                    n = StorageObj._sub_tuple_case.match(dict_vals[6:])
+                    tuple_vals = list(n.groups())[0]
+                    columns = []
+                    for ind, val in enumerate(tuple_vals.split(",")):
+                        try:
+                            name, value = val.split(':')
+                        except Exception:
+                            if ':' in key:
+                                raise SyntaxError
+                            else:
+                                name = "val" + str(ind)
+                                value = val
+                        columns.append((name, StorageObj._conversions[value]))
+                else:
+                    columns = []
+                    for ind, val in enumerate(dict_vals.split(",")):
+                        try:
+                            name, value = StorageObj._data_type.match(val).groups()
+                        except Exception:
+                            if ':' in key:
+                                raise SyntaxError
+                            else:
+                                name = "val" + str(ind)
+                                value = val
+                        columns.append((name, StorageObj._conversions[value]))
                 if table_name in this:
-                    this[table_name].update({'type': 'dict',
-                                            'primary_keys': primary_keys,
-                                            'columns': columns})
+                    this[table_name].update({'type': 'dict', 'primary_keys': primary_keys, 'columns': columns})
                 else:
                     this[table_name] = {
                         'type': 'dict',
@@ -144,6 +214,7 @@ class StorageObj(object):
                     this[table_name].update({'indexed_values': indexed_values})
                 else:
                     this[table_name] = {'indexed_values': indexed_values}
+        print "this:", this
         return this
 
     def init_prefetch(self, block):
@@ -171,12 +242,14 @@ class StorageObj(object):
         cl = self.__class__
         so_full_class_name = cl.__module__ + "." + cl.__name__
         for table_name, per_dict in dictionaries:
-            pd = PersistentDict(self._ksp, table_name, self._persistent,
+            print "table_name: ", table_name
+            print "per_dict:   ", per_dict
+            pd = PersistentDict(self._ksp, self._table, self._persistent,
                                 per_dict['primary_keys'], per_dict['columns'], self._myuuid, so_full_class_name)
             setattr(self, table_name, pd)
             self._persistent_dicts.append(pd)
 
-    def make_persistent(self):
+    def make_persistent(self, name):
         """
         Once a StorageObj has been created, it can be made persistent. This function retrieves the information about
         the Object class schema, and creates a Cassandra table with those parameters, where information will be saved
@@ -184,16 +257,37 @@ class StorageObj(object):
         It also inserts into the new table all information that was in memory assigned to the StorageObj prior to this
         call.
         """
+        # this function must receive a string as parameter, always, being keyspace.table or only table (so it will use
+        # the default keyspace defined in hecuba/__init__.py
+
+        sp = name.split(".")
+        if len(sp) == 2:
+            self._ksp = sp[0]
+            self._table = sp[1]
+        else:
+            self._ksp = config.execution_name
+            self._table = name
+
+        props = list(self._persistent_props)
+        self._persistent_props[self._table] = self._persistent_props.pop(props[0])
+
+        self.getByName()
+
+        classname = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
+
+        config.session.execute('INSERT INTO hecuba.storage_objs (object_id, class_name, ksp, tab, obj_type)' +
+                               ' VALUES (%s,%s,%s,%s,%s)',
+                               [self._myuuid, classname, self._ksp, self._table, 'hecuba'])
 
         for dict_name, props in self._persistent_props.iteritems():
             columns = map(lambda a: '%s %s' % a, props['primary_keys'] + props['columns'])
             pks = map(lambda a: a[0], props['primary_keys'])
-            querytable = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" % (self._ksp, dict_name,
+            querytable = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" % (self._ksp, self._table,
                                                                                        str.join(",", columns),
                                                                                        str.join(',', pks))
             config.session.execute(querytable)
 
-        create_attrs = "CREATE TABLE IF NOT EXISTS %s.%s (" % (self._ksp, self._table) + \
+        create_attrs = "CREATE TABLE IF NOT EXISTS %s.%s_attribs (" % (self._ksp, self._table) + \
                        "name text PRIMARY KEY, " + \
                        "intval int, " + \
                        "intlist list<int>, " + \
@@ -221,7 +315,7 @@ class StorageObj(object):
         Returns:
             self: list of key,val pairs
         """
-        #raise ValueError('not yet implemented')
+        # raise ValueError('not yet implemented')
         return self
 
     def itervalues(self):
@@ -242,11 +336,10 @@ class StorageObj(object):
         self[target] = value
 
     def _get_default_dict(self):
-        '''
-
+        """
         Returns:
              PersistentDict: the first persistent dict
-        '''
+        """
         if len(self._persistent_dicts) == 0:
             raise KeyError('There are no persistent dicts')
         return self._persistent_dicts[0]
@@ -264,7 +357,7 @@ class StorageObj(object):
             query = "TRUNCATE %s.%s;" % (self._ksp, d._table)
             config.session.execute(query)
 
-    def delete_persistent(self):
+    def del_persistent(self):
         """
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
@@ -277,8 +370,6 @@ class StorageObj(object):
 
         query = "DROP COLUMNFAMILY %s.%s;" % (self._ksp, self._table)
         config.session.execute(query)
-        query = "DROP COLUMNFAMILY %s.%;" % (self._ksp, self._table)
-        config.session.execute(query)
 
     def __contains__(self, key):
         """
@@ -290,17 +381,6 @@ class StorageObj(object):
         """
         def_dict = self._get_default_dict()
         return def_dict.__contains__(key)
-
-    def has_key(self, key):
-        """
-          Returns True if the given key can be found in the PersistentDict, false otherwise
-          Args:
-              key: key that we are looking for in the PersistentDict
-          Returns:
-              a (boolean): True if the given key can be found in the PersistentDict, false otherwise
-        """
-        def_dict = self._get_default_dict()
-        def_dict.has_key(key)
 
     def __getattr__(self, key):
         """
@@ -381,8 +461,8 @@ class StorageObj(object):
 
     def split(self):
         """
-          Depending on if it's persistent or not, this function returns the list of keys of the PersistentDict assigned to
-          the StorageObj, or the list of keys
+          Depending on if it's persistent or not, this function returns the list of keys of the PersistentDict
+          assigned to the StorageObj, or the list of keys
           Returns:
                a) List of keys in case that the SO is not persistent
                b) Iterator that will return Blocks, one by one, where we can find the SO data in case it's persistent
@@ -410,9 +490,7 @@ class StorageObj(object):
         Redirects the call to get the value at a given key position to the PersistentDict of the StorageObj
         Args:
             key:
-
         Returns:
-
         """
         auxdict = self._get_default_dict()
         item = auxdict[key]
@@ -437,6 +515,7 @@ class StorageObj(object):
             print "Object:", self.__class__.__name__
             print "----------------------------------------------------"
 
+        chits = 0
         if reads > 0:
             if reads < 10:
                 print "reads:                         ", reads
@@ -452,7 +531,6 @@ class StorageObj(object):
                         else:
                             print "reads:                     ", reads
 
-            chits = 0
             exec ("chits = self." + keys[0] + ".cache_hits")
             if chits < 10:
                 print "cache_hits(X):                 ", chits
@@ -526,7 +604,6 @@ class StorageObj(object):
                 else:
                     print "cachepreffails:                ", cachepreffails
 
-            cache_usage = 0
             if reads > 0:
                 cache_usage = (float(chits) / float(reads)) * 100
                 if cache_usage < 10:
@@ -619,9 +696,8 @@ class StorageObj(object):
             print "------Times-----------------------------------------"
         if reads > 0:
             print "GETS"
-            exec ("cache_hits_time = self." + str(keys[0]) + ".cache_hits_time")
+            cache_hits_time = getattr(self, str(keys[0])).cache_hits_time
             print "cache_hits_time:               ", cache_hits_time
-            cache_hits_time_med = 0.00000000000
             if chits > 0:
                 cache_hits_time_med = cache_hits_time / chits
                 print("cache_hits_time_med:            %.8f" % cache_hits_time_med)
