@@ -40,7 +40,7 @@ class Block(object):
         self.token_ranges = tokens
         self.table_name = tablename
         self.keyspace = keyspace
-        self.needContext = True
+        self._needContext = True
         self.supportsPrefetch = True
         self.supportsStatistics = False
         last = 0
@@ -629,6 +629,8 @@ class KeyIter(object):
             ring += tokens
         tks = []
         n_tokens = len(token_to_host)
+        print "n_tokens:", n_tokens
+        print "n_blocks:", n_blocks
         if n_tokens < n_blocks:
             raise ValueError('Use virtual tokens!')
         elif n_tokens % n_blocks == 0:
