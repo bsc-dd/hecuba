@@ -243,6 +243,7 @@ class StorageObj(object):
                     this[table_name].update({'indexed_values': indexed_values})
                 else:
                     this[table_name] = {'indexed_values': indexed_values}
+        print "this:", this
         return this
 
     def init_prefetch(self, block):
@@ -298,13 +299,10 @@ class StorageObj(object):
         self._persistent_props[self._table] = self._persistent_props.pop(props[0])
 
         self.getByName()
-
         classname = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
-
         config.session.execute('INSERT INTO hecuba.storage_objs (object_id, class_name, ksp, tab, obj_type)' +
                                ' VALUES (%s,%s,%s,%s,%s)',
                                [self._myuuid, classname, self._ksp, self._table, 'hecuba'])
-
         create_attrs = "CREATE TABLE IF NOT EXISTS %s.%s_attribs (" % (self._ksp, self._table) + \
                        "name text PRIMARY KEY, " + \
                        "intval int, " + \
