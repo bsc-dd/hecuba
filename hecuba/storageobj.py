@@ -243,6 +243,7 @@ class StorageObj(object):
                     this[table_name].update({'indexed_values': indexed_values})
                 else:
                     this[table_name] = {'indexed_values': indexed_values}
+        print "this:", this
         return this
 
     def init_prefetch(self, block):

@@ -189,6 +189,7 @@ class PersistentDict(dict):
                     self.dictCache.sents += 1
                 if self.dictCache.sents == config.batch_size:
                     self.syncs += config.batch_size  # STATISTICS
+                    print "self.dictCache:", self.dictCache
                     self._flush_items()
                     end = time.time()  # STATISTICS
                     self.syncs_time += (end - start)  # STATISTICS

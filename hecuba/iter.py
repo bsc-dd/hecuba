@@ -658,6 +658,8 @@ class KeyIter(object):
             ring += tokens
         tks = []
         n_tokens = len(token_to_host)
+        print "n_tokens:", n_tokens
+        print "n_blocks:", n_blocks
         if n_tokens < n_blocks:
             raise ValueError('Use virtual tokens!')
         elif n_tokens % n_blocks == 0:
