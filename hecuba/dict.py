@@ -70,7 +70,10 @@ class PersistentDict(dict):
         self._batch = None
         self._batchCount = 0
         self._storage_class = storage_class
-        self.is_counter = self._columns[0][1] == 'counter'
+        if 'type' in self._columns and self._columns['type'] == 'dict':
+            self.is_counter = False
+        else:
+            self.is_counter = self._columns[0][1] == 'counter'
 
     def init_prefetch(self, block):
         """
@@ -341,7 +344,7 @@ class PersistentDict(dict):
             self.reads += 1
             if config.cache_activated:
                 if len(self.dictCache.cache) >= config.max_cache_size:
-                    # TODO bad for performance, we should rotate aroudn the cache.
+                    # TODO bad for performance, we should rotate around the cache.
                     self._flush_items()
                     self.dictCache.cache = {}
                 if key in self.dictCache.cache:
@@ -376,7 +379,59 @@ class PersistentDict(dict):
                             print "Error:", e
                             raise KeyError
                         self.dictCache[key] = [item, 'Sync']
-                        return item
+                        our_dict = self._persistent_props.itervalues().next()
+                        other_values = our_dict['columns']
+                        if 'type' in other_values:
+                            if other_values['type'] == 'dict':
+                                items_dict = {}
+                                key_names = map(lambda tupla: tupla[0], other_values['primary_keys'])
+                                col_names = map(lambda tupla: tupla[0], other_values['columns'])
+                                for entry in item:
+                                    key_tuple = []
+                                    for val in key_names:
+                                        found = getattr(entry, val)
+                                        key_tuple.append(found)
+                                    if len(key_tuple) == 1:
+                                        key_tuple = key_tuple[0]
+                                    else:
+                                        key_tuple = tuple(key_tuple)
+                                    val_tuple = []
+                                    for val in col_names:
+                                        found = getattr(entry, val)
+                                        val_tuple.append(found)
+                                    if len(val_tuple) == 1:
+                                        val_tuple = val_tuple[0]
+                                    else:
+                                        val_tuple = tuple(val_tuple)
+                                    items_dict[key_tuple] = val_tuple
+                            elif other_values['type'] == 'tuple':
+                                items_dict = []
+                                col_names = map(lambda tupla: tupla[0], other_values)
+                                val_tuple = []
+                                for entry in item:
+                                    for val in col_names:
+                                        found = getattr(entry, val)
+                                        val_tuple.append(found)
+                                    if len(val_tuple) == 1:
+                                        val_tuple = val_tuple[0]
+                                    else:
+                                        val_tuple = tuple(val_tuple)
+                                    items_dict.append(val_tuple)
+                        else:
+                            items_dict = []
+                            col_names = map(lambda tupla: tupla[0], other_values)
+                            for entry in item:
+                                val_tuple = []
+                                for val in col_names:
+                                    found = getattr(entry, val)
+                                    val_tuple.append(found)
+                                if len(val_tuple) == 1:
+                                    val_tuple = val_tuple[0]
+                                else:
+                                    val_tuple = tuple(val_tuple)
+                                items_dict.append(val_tuple)
+                        return items_dict
+                        # return item
             else:
                 item = self._readitem(key)
                 return item
@@ -410,7 +465,6 @@ class PersistentDict(dict):
                 item = 0
         return item
 
-
     def keys(self):
         """
         This method return a list of all the keys of the PersistentDict.
@@ -424,25 +478,33 @@ class PersistentDict(dict):
 
     def __iter__(self):
 
-        return KeyIter(self._ksp, self._table, self._storage_class, self._storage_id, self._primary_keys)
+        return KeyIter(self._ksp, self._table, self._storage_class, self._storage_id, self._primary_keys, self._columns)
 
     def _build_insert_query(self):
         """
         This function builds the insert query
         Args:
-            key: dictionary key
-            value: value
+            self: dictionary
         Returns:
             str: query string
         """
-        pk_names = map(lambda tupla: tupla[0], self._primary_keys)
-        col_names = map(lambda tupla: tupla[0], self._columns)
         query = "INSERT INTO " + self._ksp + "." + self._table + "("
-        toadd = pk_names + col_names
-        query += str.join(',', toadd)
-        query += ") VALUES ("
-        query += str.join(',', ['?' for i in toadd])
-        query += ")"
+        pk_names = map(lambda tupla: tupla[0], self._primary_keys)
+        if 'type' in self._columns and self._columns['type'] == 'dict':
+            col_names = map(lambda tupla: tupla[0], self._columns['primary_keys']) +\
+                        map(lambda tupla: tupla[0], self._columns['columns'])
+            toadd = pk_names + col_names
+            query += str.join(',', toadd)
+            query += ") VALUES ("
+            query += str.join(',', ['?' for i in toadd])
+            query += ")"
+        else:
+            col_names = map(lambda tupla: tupla[0], self._columns)
+            toadd = pk_names + col_names
+            query += str.join(',', toadd)
+            query += ") VALUES ("
+            query += str.join(',', ['?' for i in toadd])
+            query += ")"
         return query
 
     def _build_select_query(self, key):
@@ -450,29 +512,32 @@ class PersistentDict(dict):
         This function builds the insert query
         Args:
             key: list key
-            value: value
         Returns:
             str: query string
         """
-        pk_names = map(lambda tupla:tupla[0], self._primary_keys)
-        col_names = map(lambda tupla:tupla[0], self._columns)
-        selects = str.join(',', pk_names+col_names)
-        query = "SELECT " + selects +" FROM " + self._ksp + "." + self._table + " WHERE "
-        query += str.join(" AND ", map(lambda k: k + " = ?", pk_names[0:len(key)]))
+        pk_names = map(lambda tupla: tupla[0], self._primary_keys)
+        if 'type' in self._columns and self._columns['type'] == 'dict':
+            query = "SELECT * FROM " + self._ksp + "." + self._table + " WHERE "
+            query += str.join(" AND ", map(lambda k: k + " = ?", pk_names[0:len(key)]))
+        else:
+            col_names = map(lambda tupla: tupla[0], self._columns)
+            selects = str.join(',', pk_names+col_names)
+            query = "SELECT " + selects + " FROM " + self._ksp + "." + self._table + " WHERE "
+            query += str.join(" AND ", map(lambda k: k + " = ?", pk_names[0:len(key)]))
         return query
 
     def _build_insert_counter_query(self):
         """
         This function builds the insert query
         Args:
-            key: dictionary key
-            value: value
+            self: dictionary
         Returns:
             str: query string
         """
 
         counter_name = self._columns[0][0]
-        query = "UPDATE " + self._ksp + "." + self._table + " SET " + counter_name + " = " + counter_name + " + ? WHERE "
+        query = "UPDATE " + self._ksp + "." + self._table + \
+                " SET " + counter_name + " = " + counter_name + " + ? WHERE "
         query += str.join(" AND ", map(lambda k: k[0] + " = ?", self._primary_keys))
         return query
 
