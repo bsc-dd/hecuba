@@ -518,10 +518,8 @@ class BlockValuesIter(object):
         if self._current_iterator is not None:
             try:
                 to_return = self._current_iterator.next()
-                print "to_return:", to_return
                 values = []
                 for v in self.block.values:
-                    print "v:", v
                     try:
                         values.append(getattr(to_return, str(v.encode('utf8'))))
                     except Exception:
@@ -660,6 +658,8 @@ class KeyIter(object):
             ring += tokens
         tks = []
         n_tokens = len(token_to_host)
+        print "n_tokens:", n_tokens
+        print "n_blocks:", n_blocks
         if n_tokens < n_blocks:
             raise ValueError('Use virtual tokens!')
         elif n_tokens % n_blocks == 0:

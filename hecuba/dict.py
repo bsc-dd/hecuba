@@ -191,6 +191,7 @@ class PersistentDict(dict):
                     self.dictCache.sents += 1
                 if self.dictCache.sents == config.batch_size:
                     self.syncs += config.batch_size  # STATISTICS
+                    print "self.dictCache:", self.dictCache
                     self._flush_items()
                     end = time.time()  # STATISTICS
                     self.syncs_time += (end - start)  # STATISTICS
@@ -383,14 +384,11 @@ class PersistentDict(dict):
                         self.dictCache[key] = [item, 'Sync']
                         our_dict = self._persistent_props.itervalues().next()
                         other_values = our_dict['columns']
-                        print "other_values:", other_values
                         if 'type' in other_values:
                             if other_values['type'] == 'dict':
                                 items_dict = {}
                                 key_names = map(lambda tupla: tupla[0], other_values['primary_keys'])
                                 col_names = map(lambda tupla: tupla[0], other_values['columns'])
-                                print "key_names:", key_names
-                                print "col_names:", col_names
                                 for entry in item:
                                     key_tuple = []
                                     for val in key_names:
@@ -421,7 +419,6 @@ class PersistentDict(dict):
                                         val_tuple = val_tuple[0]
                                     else:
                                         val_tuple = tuple(val_tuple)
-                                    print "val_tuple:", val_tuple
                                     items_dict.append(val_tuple)
                         else:
                             items_dict = []
@@ -436,9 +433,7 @@ class PersistentDict(dict):
                                 else:
                                     val_tuple = tuple(val_tuple)
                                 items_dict.append(val_tuple)
-                        print items_dict
                         return items_dict
-                        # return item
             else:
                 self.miss += 1
                 try:

@@ -101,7 +101,7 @@ class StorageObj(object):
                                                                                                 str.join(',', pks))
                     try:
                         config.session.execute(query_table)
-                    except config.cluster.NoHostAvailable:
+                    except Exception:
                         print "Error executing query:", query_table
 
                 class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
@@ -155,7 +155,7 @@ class StorageObj(object):
                 for ind, key in enumerate(dict_keys.split(",")):
                     try:
                         name, value = StorageObj._data_type.match(key).groups()
-                    except ValueError:
+                    except Exception:
                         if ':' in key:
                             raise SyntaxError
                         else:
@@ -177,7 +177,6 @@ class StorageObj(object):
                             else:
                                 name = "key" + str(ind)
                                 value = key
-                        name = name.replace(' ', '')
                         primary_keys2.append((name, StorageObj._conversions[value]))
                     columns2 = []
                     dict_vals2 = dict_vals2.replace(' ', '')
@@ -199,7 +198,6 @@ class StorageObj(object):
                         'columns': columns2}
                 elif dict_vals.startswith('tuple'):
                     n = StorageObj._sub_tuple_case.match(dict_vals[5:])
-                    print "dict_vals[6:]:", dict_vals[5:]
                     tuple_vals = list(n.groups())[0]
                     columns = []
                     for ind, val in enumerate(tuple_vals.split(",")):
