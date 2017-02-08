@@ -168,7 +168,7 @@ class StorageObj(object):
                 for ind, key in enumerate(dict_keys.split(",")):
                     try:
                         name, value = StorageObj._data_type.match(key).groups()
-                    except ValueError:
+                    except Exception:
                         if ':' in key:
                             raise SyntaxError
                         else:
@@ -212,7 +212,6 @@ class StorageObj(object):
                         'columns': columns2}
                 elif dict_vals.startswith('tuple'):
                     n = StorageObj._sub_tuple_case.match(dict_vals[5:])
-                    print "dict_vals[6:]:", dict_vals[5:]
                     tuple_vals = list(n.groups())[0]
                     columns = []
                     for ind, val in enumerate(tuple_vals.split(",")):
