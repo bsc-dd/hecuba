@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.3)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -fPIC")
 SET( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fPIC")
+
+
 list(APPEND CMAKE_MODULE_PATH cmake)
 set(CMAKE_POSITION_INDEPENDENT_CODE YES)
 
@@ -25,7 +27,7 @@ project(prefetcher)
 #hunter_add_package(Cassandra)
 
 include(ExternalProject) # ExternalProject_Add
-message( installing libs into ${CMAKE_CURRENT_LIST_DIR}/_install)
+message(installing libs into ${CMAKE_CURRENT_LIST_DIR}/_install)
 
 ExternalProject_Add(
     PocoALL
@@ -35,7 +37,7 @@ ExternalProject_Add(
     -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_LIST_DIR}/_install -DENABLE_CPPUNIT=OFF -DENABLE_XML=OFF -DENABLE_JSON=OFF -DENABLE_MONGODB=OFF -DENABLE_PDF=OFF -DENABLE_UTIL=OFF -DENABLE_NET=OFF -DENABLE_NETSSL=OFF -DENABLE_NETSSL_WIN=OFF -DENABLE_CRYPTO=OFF -DENABLE_DATA=OFF -DENABLE_DATA_SQLITE=OFF -DENABLE_DATA_MYSQL=OFF -DENABLE_DATA_POSTGRESQL=OFF -DENABLE_DATA_ODBC=OFF -DENABLE_SEVENZIP=OFF -DENABLE_ZIP=OFF -DENABLE_APACHECONNECTOR=OFF -DENABLE_CPPPARSER=OFF -DENABLE_POCODOC=OFF -DENABLE_PAGECOMPILER=OFF -DENABLE_PAGECOMPILER_FILE2PAGE=OFF -DENABLE_REDIS=OFF -DENABLE_TESTS=OFF -DENABLE_SAMPLES=OFF -DENABLE_MSVC_MP=OFF
 )
 
-FIND_LIBRARY(supercali NAMES PocoFoundation PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/)
+FIND_LIBRARY(Poco NAMES PocoFoundation PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 
 
 ExternalProject_Add(
@@ -45,7 +47,7 @@ ExternalProject_Add(
         CMAKE_ARGS
         -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_LIST_DIR}/_install -DCASS_USE_LIBSSH2=OFF -DCASS_USE_OPENSSL=OFF
 )
-FIND_LIBRARY(css NAMES cassandra PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib/)
+FIND_LIBRARY(cass NAMES cassandra PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 #set(Css ${CMAKE_CURRENT_LIST_DIR}/_install/lib/libcassandra_static.a)
 #hunter_add_package(TBB)
 
@@ -60,20 +62,31 @@ if (NOT TBB_FOUND)
             CMAKE_COMMAND echo
             BUILD_COMMAND make tbb
             BUILD_IN_SOURCE 1
-            INSTALL_COMMAND cp -r build/linux_intel64_gcc_cc4.8_libc2.19_kernel4.1.36_release/  ${CMAKE_CURRENT_LIST_DIR}/_install/lib
+            INSTALL_COMMAND cp -r build/linux_intel64_gcc_cc4.8_libc2.19_kernel4.1.12_release/  ${CMAKE_CURRENT_LIST_DIR}/_install/lib
     )
-    find_package(TBB NAMES tbb PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
-
-
+#    find_package(TBB NAMES tbb PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 endif()
 
-set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp TupleRowFactory.h)
+
+find_package(TBB NAMES tbb2017 PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
+
+
 
 
 find_package(PythonLibs REQUIRED)
 
-add_library(prefetcher SHARED ${SOURCE_FILES})
 include_directories(${PYTHON_INCLUDE_DIRS} ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
+
+#End of dependencies
+
+
+
+set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp TupleRowFactory.h)
+
+
+
+add_library(prefetcher SHARED ${SOURCE_FILES})
+
 target_include_directories(prefetcher PRIVATE ${TBB_INCLUDE_DIRS} ${CMAKE_CURRENT_LIST_DIR}/_install/include/ )
 target_compile_definitions(prefetcher PRIVATE ${TBB_DEFINITIONS})
 
@@ -83,10 +96,6 @@ target_link_libraries( prefetcher PocoFoundation ${css} ${PYTHON_LIBRARIES} ${TB
 
 #FIND_LIBRARY(PT NAMES pthread  PATHS /lib)
 
-#enable_testing()
-#add_executable(prefetcher_test tests/runtests.cpp)
-#target_link_libraries( prefetcher_test GTest::main ${ALL_LIBS} ${PT}  prefetcher )
-#add_test(test prefetcher_test)
 
 
 
