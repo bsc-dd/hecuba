@@ -56,7 +56,7 @@ FIND_LIBRARY(cass NAMES cassandra PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 #hunter_add_package(TBB)
 
 
-FIND_LIBRARY(TBB tbb PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib) # searches for the system TBB
+FIND_PACKAGE(TBB PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib) # searches for the system TBB
 
 if (NOT TBB_FOUND)
     message(Downloading our own TBB)
@@ -68,7 +68,7 @@ if (NOT TBB_FOUND)
             BUILD_IN_SOURCE 1
             INSTALL_COMMAND cp -r build/linux_intel64_gcc_cc4.8_libc2.19_kernel4.1.12_release/  ${CMAKE_CURRENT_LIST_DIR}/_install/lib
     )
-    FIND_LIBRARY(TBB NAMES tbb PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
+    FIND_PACKAGE(TBB NAMES tbb PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 endif()
 
 
@@ -94,7 +94,7 @@ target_include_directories(prefetcher PRIVATE ${TBB_INCLUDE_DIRS} ${CMAKE_CURREN
 target_compile_definitions(prefetcher PRIVATE ${TBB_DEFINITIONS})
 
 
-target_link_libraries( prefetcher PocoFoundation ${css} ${PYTHON_LIBRARIES} ${TBB})
+target_link_libraries( prefetcher ${Poco} ${css} ${PYTHON_LIBRARIES} ${TBB})
 
 
 #FIND_LIBRARY(PT NAMES pthread  PATHS /lib)
