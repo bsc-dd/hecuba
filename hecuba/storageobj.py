@@ -49,6 +49,9 @@ class StorageObj(object):
             name (string): the name of the Cassandra Keyspace + table where information can be found
             myuuid (string):  an unique storageobj identifier
         """
+        print "__init__"
+        print "name:  ", name
+        print "myuuid:", myuuid
         self._persistent_dicts = []
         self._attr_to_column = {}
 

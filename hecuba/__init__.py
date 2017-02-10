@@ -128,7 +128,7 @@ class Config:
                     "'replication_factor': %d }" % singleton.repl_factor)
                 singleton.session.execute(
                     'CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, class_name text,storageobj_classname text,'
-                    'tkns list<bigint>, entry_point text , port int, ksp text , tab text , object_id text ,'
+                    'tkns list<bigint>, entry_point text, port int, ksp text, tab text, object_id text,'
                     'obj_type text, indexed_args list<text>, nonindexed_args list<text>, key_list list<text>,'
                     'value_list list<text>, mem_filter text, PRIMARY KEY(blockid))')
                 singleton.session.execute(
@@ -141,7 +141,7 @@ class Config:
             singleton.execution_name = os.environ['EXECUTION_NAME']
             logging.info('EXECUTION_NAME: %s', singleton.execution_name)
         except KeyError:
-            singleton.execution_name = 'hecuba_app'
+            singleton.execution_name = 'hecuba'
             logging.warn('using default EXECUTION_NAME: %s', singleton.execution_name)
 
         try:
