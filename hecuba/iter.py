@@ -1,9 +1,51 @@
 # author: G. Alomar
 
-import time
 from collections import defaultdict
+from collections import namedtuple
+
+from hfetch import Hcache
 
 from hecuba import config
+
+
+class NamedIterator:
+    def __init__(self, hiterator, builder):
+        self.hiterator = hiterator
+        self.builder = builder
+
+    def next(self):
+        n = self.hiterator.get_next()
+        if n is None:
+            raise StopIteration
+        elif self.builder is not None:
+            return self.builder(n)
+        else:
+            return n[0]
+
+
+class NamedItemsIterator:
+    builder = namedtuple('row', 'key, value')
+
+    def __init__(self, key_builder, column_builder, k_size, hiterator):
+        self.key_builder = key_builder
+        self.k_size = k_size
+        self.column_builder = column_builder
+        self.hiterator = hiterator
+
+    def next(self):
+        n = self.hiterator.get_next()
+        if n is None:
+            raise StopIteration
+        else:
+            if self.key_builder is None:
+                k = n[0]
+            else:
+                k = self.key_builder(*n[0:self.k_size])
+            if self.column_builder is None:
+                v = n[self.k_size]
+            else:
+                v = self.column_builder(*n[self.k_size:])
+            return self.builder(k, v)
 
 
 class Block(object):
@@ -23,7 +65,8 @@ class Block(object):
                      results.key_list, results.value_list,
                      results.object_id.encode('utf8'))
 
-    def __init__(self, blockid, peer, tablename, keyspace, tokens, storageobj_classname, primary_keys, columns, storage_obj_id=None):
+    def __init__(self, blockid, peer, tablename, keyspace, tokens, storageobj_classname, primary_keys, columns,
+                 storage_obj_id=None):
         """
         Creates a new block.
 
@@ -55,6 +98,23 @@ class Block(object):
         mod = __import__(module, globals(), locals(), [cname], 0)
         self.storageobj = getattr(mod, cname)(keyspace + "." + tablename, myuuid=storage_obj_id)
         self.cntxt = ""
+        pdict = self.storageobj._get_default_dict()
+        primary_keys = map(lambda a: a[0], pdict._primary_keys)
+        columns_keys = map(lambda a: a[0], pdict._columns)
+        tknp = "token(%s)" % pdict._primary_keys[0]
+        self.hcache = Hcache(config.max_cache_size, keyspace, tablename,
+                             "WHERE %d>=? AND %d<?;" % (tknp, tknp),
+                             tokens, primary_keys, columns_keys)
+        self._item_builder = namedtuple('row', primary_keys + columns_keys)
+        if len(primary_keys) > 1:
+            self._key_builder = namedtuple('row', primary_keys)
+        else:
+            self._key_builder = None
+        if len(columns_keys) > 1:
+            self._column_builder = namedtuple('row', columns_keys)
+        else:
+            self._column_builder = None
+        self._k_size = len(primary_keys)
 
     def __eq__(self, other):
         return self.blockid == other.blockid and self.node == other.node and \
@@ -98,11 +158,7 @@ class Block(object):
         Returns:
             iterkeys(self): list of keys
         """
-        if config.prefetch_activated:
-            print "Not Yet Implemented"
-        else:
-            partition_key = map(lambda(x,y):(x), self.storageobj._get_default_dict()._primary_keys)
-            return BlockIter(self, partition_key, self.keyspace, self.table_name, self.token_ranges, 1)
+        return self.iterkeys()
 
     def iterkeys(self):
         """
@@ -111,9 +167,10 @@ class Block(object):
             iterkeys(self): list of keys
         """
         if config.prefetch_activated:
-            print "Not Yet Implemented"
+            ik = self.hcache.iterkeys()
+            return NamedIterator(ik, self._key_builder)
         else:
-            partition_key = map(lambda(x,y):(x), self.storageobj._get_default_dict()._primary_keys)
+            partition_key = map(lambda (x, y): (x), self.storageobj._get_default_dict()._primary_keys)
             return BlockIter(self, partition_key, self.keyspace, self.table_name, self.token_ranges, 1)
 
     def iteritems(self):
@@ -123,9 +180,10 @@ class Block(object):
             BlockItemsIter(self): list of key,val pairs
         """
         if config.prefetch_activated:
-            print "Not Yet Implemented"
+            ik = self.hcache.iteritems()
+            return NamedItemsIterator(self._key_builder, self._column_builder, self._k_size, ik)
         else:
-            partition_key = map(lambda(x,y):(x), self.storageobj._get_default_dict()._primary_keys)
+            partition_key = map(lambda (x, y): (x), self.storageobj._get_default_dict()._primary_keys)
             return BlockIter(self, partition_key, self.keyspace, self.table_name, self.token_ranges, 2)
 
     def itervalues(self):
@@ -135,10 +193,12 @@ class Block(object):
             BlockValuesIter(self): list of values
         """
         if config.prefetch_activated:
-            print "Not Yet Implemented"
+            ik = self.hcache.itervalues()
+            return NamedIterator(ik, self._column_builder)
         else:
-            partition_key = map(lambda(x,y):(x), self.storageobj._get_default_dict()._primary_keys)
+            partition_key = map(lambda (x, y): (x), self.storageobj._get_default_dict()._primary_keys)
             return BlockIter(self, partition_key, self.keyspace, self.table_name, self.token_ranges, 3)
+
 
 class BlockIter(object):
     """
@@ -184,18 +244,18 @@ class BlockIter(object):
         for ind, t in enumerate(ran):
             if ind == 0:
                 if len(ran) > 1:
-                    tok_dist = ran[ind+1] - ran[ind]
+                    tok_dist = ran[ind + 1] - ran[ind]
                 else:
                     for ind2, r in enumerate(ringtokens.ring):
                         if r.value == t:
                             if ind2 < len(ringtokens.ring) - 1:
-                                tok_dist = ringtokens.ring[ind2+1].value - ran[ind]
+                                tok_dist = ringtokens.ring[ind2 + 1].value - ran[ind]
                             else:
                                 tok_dist = 9223372036854775807 - ran[ind]
-            if ind < len(ran) -1:
+            if ind < len(ran) - 1:
                 if t == min_token:
-                    self._token_ranges.append((9223372036854775807,-9223372036854775808))
-                self._token_ranges.append((t, ran[ind+1]))
+                    self._token_ranges.append((9223372036854775807, -9223372036854775808))
+                self._token_ranges.append((t, ran[ind + 1]))
             else:
                 self._token_ranges.append((t, t + tok_dist))
         self._current_iterator = None
@@ -249,6 +309,7 @@ class BlockIter(object):
         else:
             raise StopIteration
 
+
 class KeyIter(object):
     """
         Iterator for the blocks of the storageobj
@@ -276,7 +337,7 @@ class KeyIter(object):
         primary_keys = map(lambda tupla: tupla[0], primary_keys)
         self._primary_keys = primary_keys
         if 'type' in columns and columns['type'] == 'dict':
-            columns = map(lambda tupla: tupla[0], columns['primary_keys']) +\
+            columns = map(lambda tupla: tupla[0], columns['primary_keys']) + \
                       map(lambda tupla: tupla[0], columns['columns'])
         else:
             columns = map(lambda tupla: tupla[0], columns)
@@ -295,8 +356,9 @@ class KeyIter(object):
         ring = []
         for tokens in host_to_tokens.values():
             ring += tokens
-        
-        size_query = "SELECT mean_partition_size, partitions_count FROM system.size_estimates WHERE keyspace_name = \'" + str(self._keyspace) + "\' AND table_name = \'" + str(self._table) + "\';"
+
+        size_query = "SELECT mean_partition_size, partitions_count FROM system.size_estimates WHERE keyspace_name = \'" + str(
+            self._keyspace) + "\' AND table_name = \'" + str(self._table) + "\';"
         table_size_results = config.session.execute(size_query)
         for row in table_size_results:
             mean_part_size = row.mean_partition_size
@@ -322,10 +384,10 @@ class KeyIter(object):
             tks = [[] for _ in range(len(ring))]
             for i in range(len(tokens)):
                 if i == 0:
-                    tokdist = (tokens[1][0]-tokens[0][0])/ranges_per_token
-                for j in range(0,ranges_per_token):
+                    tokdist = (tokens[1][0] - tokens[0][0]) / ranges_per_token
+                for j in range(0, ranges_per_token):
                     tok = tokens[i][0] + (j * tokdist)
-                    tks[i].append((tok,ring[i][1]))
+                    tks[i].append((tok, ring[i][1]))
         return tks
 
     def __iter__(self):

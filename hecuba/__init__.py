@@ -207,6 +207,12 @@ class Config:
             logging.warn('using default PREFETCH_ACTIVATED: %s', singleton.prefetch_activated)
 
         try:
+            singleton.prefetch_size = os.environ['PREFETCH_SIZE']
+        except KeyError:
+            singleton.prefetch_size = 10000
+            logging.warn('using default PREFETCH_SIZE: %s', singleton.prefetch_activated)
+
+        try:
             query = "CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = { 'class' : \'%s\'," \
                     "'replication_factor' : %d};" \
                     % (singleton.execution_name, singleton.repl_class, singleton.repl_factor)
