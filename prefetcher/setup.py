@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 from distutils.core import setup, Extension
 
 import os
@@ -13,6 +12,8 @@ c11_flag = '-std=c++11'
 
 
 hfetch_module = Extension('hfetch',
+    'version': '0.1',
+    3
     define_macros = [('MAJOR_VERSION', '1'), ('MINOR_VERSION', '0')],
     include_dirs = ['/usr/local/include','/usr/include',home_path+'/local/include'],
     libraries = ['cassandra','PocoFoundation','tbb'],
@@ -30,7 +31,7 @@ setup (name = 'Hecuba',
     author_email = '{guillem.alomar,cesare.cugnasco,pol.santamaria,yolanda.becerra}@bsc.es',
     url = 'https://www.bsc.es',
     install_requires = ['nose', 'cassandra-driver', 'mock'],
-    packages = ['hecuba', 'storage'],
+    packages = ['hecuba', 'api'],
     long_description = '''Cache and prefetch for Hecuba.''',
     ext_modules = [hfetch_module]
 )
