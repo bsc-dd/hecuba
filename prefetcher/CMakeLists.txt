@@ -27,18 +27,22 @@ project(prefetcher)
 #hunter_add_package(Cassandra)
 
 include(ExternalProject) # ExternalProject_Add
-message(installing libs into ${CMAKE_CURRENT_LIST_DIR}/_install)
+message("installing libs into" ${CMAKE_CURRENT_LIST_DIR}/_install)
 
 ExternalProject_Add(
-    PocoALL
+    Poco
     URL https://pocoproject.org/releases/poco-1.7.7/poco-1.7.7.tar.gz
     URL_HASH SHA1=bdac2ff5cb2bea078cc71f1d85704bbeba7e14c9
     CMAKE_ARGS
     -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_LIST_DIR}/_install -DENABLE_CPPUNIT=OFF -DENABLE_XML=OFF -DENABLE_JSON=OFF -DENABLE_MONGODB=OFF -DENABLE_PDF=OFF -DENABLE_UTIL=OFF -DENABLE_NET=OFF -DENABLE_NETSSL=OFF -DENABLE_NETSSL_WIN=OFF -DENABLE_CRYPTO=OFF -DENABLE_DATA=OFF -DENABLE_DATA_SQLITE=OFF -DENABLE_DATA_MYSQL=OFF -DENABLE_DATA_POSTGRESQL=OFF -DENABLE_DATA_ODBC=OFF -DENABLE_SEVENZIP=OFF -DENABLE_ZIP=OFF -DENABLE_APACHECONNECTOR=OFF -DENABLE_CPPPARSER=OFF -DENABLE_POCODOC=OFF -DENABLE_PAGECOMPILER=OFF -DENABLE_PAGECOMPILER_FILE2PAGE=OFF -DENABLE_REDIS=OFF -DENABLE_TESTS=OFF -DENABLE_SAMPLES=OFF -DENABLE_MSVC_MP=OFF
 )
 
-FIND_LIBRARY(Poco NAMES PocoFoundation PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 
+message("poco path looking" ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
+
+include_directories( ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
+
+FIND_LIBRARY(Poco NAMES PocoFoundation PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 
 ExternalProject_Add(
         Cassandra
@@ -52,7 +56,7 @@ FIND_LIBRARY(cass NAMES cassandra PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 #hunter_add_package(TBB)
 
 
-find_package(TBB) # searches for the system TBB
+FIND_LIBRARY(TBB tbb PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib) # searches for the system TBB
 
 if (NOT TBB_FOUND)
     message(Downloading our own TBB)
@@ -64,11 +68,10 @@ if (NOT TBB_FOUND)
             BUILD_IN_SOURCE 1
             INSTALL_COMMAND cp -r build/linux_intel64_gcc_cc4.8_libc2.19_kernel4.1.12_release/  ${CMAKE_CURRENT_LIST_DIR}/_install/lib
     )
-#    find_package(TBB NAMES tbb PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
+    FIND_LIBRARY(TBB NAMES tbb PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 endif()
 
 
-find_package(TBB NAMES tbb2017 PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 
 
 
