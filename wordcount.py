@@ -7,7 +7,6 @@ from app.result import Result
 
 #@task(returns = dict)
 def wordcountTask(block, words):
-    block.storageobj.init_prefetch(block)
     from storage.api import start_task, end_task
     start_task([block, words])
     partialResult = {}

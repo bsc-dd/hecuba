@@ -120,6 +120,9 @@ class Config:
                 singleton.cluster = Cluster(contact_points=singleton.contact_names, port=singleton.nodePort,
                                             default_retry_policy=_NRetry(5))
                 singleton.session = singleton.cluster.connect()
+                from hfetch import connectCassandra
+                #connecting c++ bindings
+                connectCassandra(singleton.contact_names, singleton.nodePort)
                 singleton.session.execute(
                     "CREATE KEYSPACE IF NOT EXISTS hecuba WITH replication = {'class': 'SimpleStrategy',"
                     "'replication_factor': %d }" % singleton.repl_factor)
