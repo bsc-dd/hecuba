@@ -99,10 +99,10 @@ class Block(object):
             iterkeys(self): list of keys
         """
         if config.prefetch_activated:
-            return BlockIterPrefetch(self.storageobj._get_default_dict())
+            print "Not Yet Implemented"
         else:
-            partition_key = self.storageobj._get_default_dict()._primary_keys[0]
-            return BlockIter(self, partition_key, self.keyspace, self.table_name, self.token_ranges)
+            partition_key = map(lambda(x,y):(x), self.storageobj._get_default_dict()._primary_keys)
+            return BlockIter(self, partition_key, self.keyspace, self.table_name, self.token_ranges, 1)
 
     def iterkeys(self):
         """
@@ -111,11 +111,10 @@ class Block(object):
             iterkeys(self): list of keys
         """
         if config.prefetch_activated:
-            return BlockIterPrefetch(self.storageobj._get_default_dict())
+            print "Not Yet Implemented"
         else:
-            # partition_key = self.storageobj._get_default_dict()._primary_keys[0]
             partition_key = map(lambda(x,y):(x), self.storageobj._get_default_dict()._primary_keys)
-            return BlockIter(self, partition_key, self.keyspace, self.table_name, self.token_ranges)
+            return BlockIter(self, partition_key, self.keyspace, self.table_name, self.token_ranges, 1)
 
     def iteritems(self):
         """
@@ -124,11 +123,10 @@ class Block(object):
             BlockItemsIter(self): list of key,val pairs
         """
         if config.prefetch_activated:
-            return BlockItemsIterPrefetch(self.storageobj._get_default_dict())
+            print "Not Yet Implemented"
         else:
-            # partition_key = self.storageobj._get_default_dict()._primary_keys[0]
             partition_key = map(lambda(x,y):(x), self.storageobj._get_default_dict()._primary_keys)
-            return BlockItemsIter(self, partition_key, self.keyspace, self.table_name, self.token_ranges)
+            return BlockIter(self, partition_key, self.keyspace, self.table_name, self.token_ranges, 2)
 
     def itervalues(self):
         """
@@ -137,329 +135,12 @@ class Block(object):
             BlockValuesIter(self): list of values
         """
         if config.prefetch_activated:
-            return BlockValuesIterPrefetch(self.storageobj._get_default_dict())
+            print "Not Yet Implemented"
         else:
-            # partition_key = self.storageobj._get_default_dict()._primary_keys[0]
             partition_key = map(lambda(x,y):(x), self.storageobj._get_default_dict()._primary_keys)
-            return BlockValuesIter(self, partition_key, self.keyspace, self.table_name, self.token_ranges)
-
+            return BlockIter(self, partition_key, self.keyspace, self.table_name, self.token_ranges, 3)
 
 class BlockIter(object):
-    """
-    Iterator for the keys of the block
-    """
-
-    def __iter__(self):
-        """
-        Needed to be considered as an iterable
-        """
-        return self
-
-    def __init__(self, block, partition_key, keyspace, table, block_tokens):
-        """
-        Initializes the iterator
-        Args:
-            partition_key list(String):
-            keyspace (String):
-            table (String):
-            block_tokens (String):
-        """
-        self._token_pos = 0
-        self.block = block
-        self._query = config.session.prepare(
-            "SELECT * FROM " + keyspace + "." + table + " WHERE token(" + ",".join(partition_key) + ") >= ? AND " +
-            "token(" + ",".join(partition_key) + ") < ?")
-        metadata = config.cluster.metadata
-        ringtokens = metadata.token_map
-        ran = set(block_tokens)
-        last = ringtokens.ring[len(ringtokens.ring) - 1]
-        self._token_ranges = []
-        max_token = 0
-        min_token = 0
-        for t in ringtokens.ring:
-            if t.value > max_token:
-                max_token = t.value
-            if t.value < min_token:
-                min_token = t.value
-
-        for t in ringtokens.ring:
-            if t.value in ran:
-                if t.value == min_token:
-                    self._token_ranges.append((-9223372036854775808, min_token))
-                    self._token_ranges.append((max_token, 9223372036854775807))
-                else:
-                    self._token_ranges.append((last.value, t.value))
-            last = t
-
-        self._current_iterator = None
-
-    def next(self):
-        """
-        Returns the values, one by one, contained in the token ranges of the block
-        Returns:
-            val: .
-        """
-        if self._current_iterator is not None:
-            try:
-                to_return = self._current_iterator.next()
-                keys = []
-                for k in self.block.keys:
-                    try:
-                        keys.append(getattr(to_return, str(k)))
-                    except Exception:
-                        pass
-                if len(keys) == 1:
-                    keys = keys[0]
-                else:
-                    keys = tuple(keys)
-                return keys
-            except StopIteration:
-                # If the current iterator is empty, we try the next token range.
-                pass
-
-        if self._token_pos < len(self._token_ranges):
-            query = self._query.bind(self._token_ranges[self._token_pos])
-            self._current_iterator = iter(config.session.execute(query))
-            self._token_pos += 1
-            return self.next()
-        else:
-            raise StopIteration
-
-
-class BlockIterPrefetch(object):
-    """
-        Iterator for the keys of the block
-    """
-
-    def __iter__(self):
-        """
-        Needed to be considered as an iterable
-        """
-        return self
-
-    def __init__(self, default_dict):
-        """
-        Initializes the iterator, and its prefetcher
-        Args:
-            default_dict: Block to iterate over
-        """
-        self.pos = 0
-        self.keys = []
-        self.num_keys = 0
-        self.end = False
-
-        self._persistentDict = default_dict
-        self._persistentDict.prefetchManager.pipeq_write[0].send(['query'])
-
-    def next(self):
-        """
-        Returns the values, one by one, contained in the token ranges of the block
-        Returns:
-            val: .
-        """
-        self._persistentDict.reads += 1  # STATISTICS
-        if self.pos == self.num_keys:
-            if self.end:
-                raise StopIteration
-            else:
-                self._persistentDict.prefetchManager.pipeq_write[0].send(['continue'])
-                usedpipe = self._persistentDict.prefetchManager.piper_read[0]
-                self._persistentDict.cache_prefetchs += 1  # STATISTICS
-                self._persistentDict.cache_hits_graph += 'P'  # STATISTICS
-                start = time.time()  # STATISTICS
-                results = usedpipe.recv()
-                self._persistentDict.pending_requests_time += time.time() - start  # STATISTICS
-                if len(results) == 0:
-                    raise StopIteration
-                else:
-                    self.keys = []
-                    for entry in results:
-                        self._persistentDict.cache_hits += 1  # STATISTICS
-                        self._persistentDict.cache_hits_graph += 'X'  # STATISTICS
-                        start = time.time()  # STATISTICS
-                        self._persistentDict.dictCache[entry[0]] = [entry[1], 'Sync']
-                        self._persistentDict.cache_hits_time += time.time() - start  # STATISTICS
-                        self.keys.append(entry[0])
-                    self.num_keys = len(self.keys)
-                    self.pos = 0
-                    if len(results) < config.batch_size:
-                        self.end = True
-
-        if len(self.keys) == 0:
-            self._persistentDict.miss += 1  # STATISTICS
-            self._persistentDict.cache_hits_graph += '_'  # STATISTICS
-            print "Error obtaining block_keys in iter.py"
-
-        key = self.keys[self.pos]
-        self.pos += 1
-        return key
-
-
-class BlockItemsIter(object):
-    """
-        Iterator for the key,value pairs of the block
-    """
-
-    def __iter__(self):
-        """
-        Needed to be considered as an iterable
-        """
-        return self
-
-    def __init__(self, block, partition_key, keyspace, table, block_tokens):
-        """
-        Initializes the iterator
-        Args:
-            partition_key (String):
-            keyspace (String):
-            table (String):
-            block_tokens (String):
-        """
-        self._token_pos = 0
-        self.block = block
-        # TODO this does not work if the primary key is composed
-        self._query = config.session.prepare(
-            "SELECT * FROM " + keyspace + "." + table + " WHERE token(" + ",".join(partition_key) + ") >= ? AND " +
-            "token(" + ",".join(partition_key) + ") < ?")
-        metadata = config.cluster.metadata
-        ringtokens = metadata.token_map
-        ran = set(block_tokens)
-        last = ringtokens.ring[len(ringtokens.ring) - 1]
-        self._token_ranges = []
-        max_token = 0
-        min_token = 0
-        for t in ringtokens.ring:
-            if t.value > max_token:
-                max_token = t.value
-            if t.value < min_token:
-                min_token = t.value
-
-        for t in ringtokens.ring:
-            if t.value in ran:
-                if t.value == min_token:
-                    self._token_ranges.append((-9223372036854775808, min_token))
-                    self._token_ranges.append((max_token, 9223372036854775807))
-                else:
-                    self._token_ranges.append((last.value, t.value))
-            last = t
-
-        self._current_iterator = None
-
-    def next(self):
-        """
-        Returns the values, one by one, contained in the token ranges of the block
-        Returns:
-            val: .
-        """
-
-        if self._current_iterator is not None:
-            try:
-                to_return = self._current_iterator.next()
-                keys = []
-                for k in self.block.keys:
-                    try:
-                        keys.append(getattr(to_return, str(k.encode('utf8'))))
-                    except Exception:
-                        pass
-                if len(keys) == 1:
-                    keys = keys[0]
-                else:
-                    keys = tuple(keys)
-                values = []
-                for v in self.block.values:
-                    try:
-                        values.append(getattr(to_return, str(v.encode('utf8'))))
-                    except Exception:
-                        pass
-                if len(values) == 1:
-                    values = values[0]
-                else:
-                    values = tuple(values)
-                return keys, values
-            except StopIteration:
-                # If the current iterator is empty, we try the next token range.
-                pass
-
-        if self._token_pos < len(self._token_ranges):
-            query = self._query.bind(self._token_ranges[self._token_pos])
-            self._current_iterator = iter(config.session.execute(query))
-            self._token_pos += 1
-            return self.next()
-        else:
-            raise StopIteration
-
-
-class BlockItemsIterPrefetch(object):
-    """
-        Iterator for the key,val pairs of the block
-    """
-
-    def __iter__(self):
-        """
-        Needed to be considered as an iterable
-        """
-        return self
-
-    def __init__(self, default_dict):
-        """
-        Initializes the iterator, and its prefetcher
-        Args:
-            default_dict: Block to iterate over
-        """
-        self.pos = 0
-        self.keys = []
-        self.num_keys = 0
-        self.end = False
-
-        self._persistentDict = default_dict
-        self._persistentDict.prefetchManager.pipeq_write[0].send(['query'])
-
-    def next(self):
-        """
-        Returns the values, one by one, contained in the token ranges of the block
-        Returns:
-            val: .
-        """
-        self._persistentDict.reads += 1  # STATISTICS
-        if self.pos == self.num_keys:
-            if self.end:
-                raise StopIteration
-            else:
-                self._persistentDict.prefetchManager.pipeq_write[0].send(['continue'])
-                usedpipe = self._persistentDict.prefetchManager.piper_read[0]
-                self._persistentDict.cache_prefetchs += 1  # STATISTICS
-                self._persistentDict.cache_hits_graph += 'P'  # STATISTICS
-                start = time.time()  # STATISTICS
-                results = usedpipe.recv()
-                self._persistentDict.pending_requests_time += time.time() - start  # STATISTICS
-                if len(results) == 0:
-                    raise StopIteration
-                else:
-                    self.keys = []
-                    for entry in results:
-                        self._persistentDict.cache_hits += 1  # STATISTICS
-                        self._persistentDict.cache_hits_graph += 'X'  # STATISTICS
-                        start = time.time()  # STATISTICS
-                        self._persistentDict.dictCache[entry[0]] = [entry[1], 'Sync']
-                        self._persistentDict.cache_hits_time += time.time() - start  # STATISTICS
-                        self.keys.append(entry[0])
-                    self.num_keys = len(self.keys)
-                    self.pos = 0
-                    if len(results) < config.batch_size:
-                        self.end = True
-
-        if len(self.keys) == 0:
-            self._persistentDict.miss += 1  # STATISTICS
-            self._persistentDict.cache_hits_graph += '_'  # STATISTICS
-            print "Error obtaining block_keys in iter.py"
-
-        value = self._persistentDict.dictCache[self.keys[self.pos]]
-        key = self.keys[self.pos]
-        self.pos += 1
-        return key, value[0]
-
-
-class BlockValuesIter(object):
     """
         Iterator for the values of the block
     """
@@ -470,7 +151,7 @@ class BlockValuesIter(object):
         """
         return self
 
-    def __init__(self, block, partition_key, keyspace, table, block_tokens):
+    def __init__(self, block, partition_key, keyspace, table, block_tokens, mode):
         """
         Initializes the iterator
         Args:
@@ -481,7 +162,7 @@ class BlockValuesIter(object):
         """
         self._token_pos = 0
         self.block = block
-        # TODO this does not work if the primary key is composed
+        self.mode = mode
         self._query = config.session.prepare(
             "SELECT * FROM " + keyspace + "." + table + " WHERE " +
             "token(" + ",".join(partition_key) + ") >= ? AND " +
@@ -490,7 +171,6 @@ class BlockValuesIter(object):
         ringtokens = metadata.token_map
         ran = block_tokens
         ran.sort()
-        print "ran:", ran
         last = ringtokens.ring[len(ringtokens.ring) - 1]
         self._token_ranges = []
         max_token = -9223372036854775808
@@ -501,19 +181,7 @@ class BlockValuesIter(object):
             if t.value < min_token:
                 min_token = t.value
 
-        '''
-        for t in ringtokens.ring:
-            if t.value in ran:
-                if t.value == min_token:
-                    self._token_ranges.append((-9223372036854775808, min_token))
-                    self._token_ranges.append((max_token, 9223372036854775807))
-                else:
-                    self._token_ranges.append((last.value, t.value))
-            last = t
-        '''
-        print "ringtokens.ring:", ringtokens.ring
         for ind, t in enumerate(ran):
-            print "t:", t
             if ind == 0:
                 if len(ran) > 1:
                     tok_dist = ran[ind+1] - ran[ind]
@@ -541,98 +209,45 @@ class BlockValuesIter(object):
         if self._current_iterator is not None:
             try:
                 to_return = self._current_iterator.next()
-                values = []
-                for v in self.block.values:
-                    try:
-                        values.append(getattr(to_return, str(v.encode('utf8'))))
-                    except Exception:
-                        pass
-                if len(values) == 1:
-                    values = values[0]
-                else:
-                    values = tuple(values)
-                return values
+                if self.mode < 3:
+                    keys = []
+                    for k in self.block.keys:
+                        try:
+                            keys.append(getattr(to_return, str(k.encode('utf8'))))
+                        except Exception:
+                            pass
+                    if len(keys) == 1:
+                        keys = keys[0]
+                    else:
+                        keys = tuple(keys)
+                if self.mode > 1:
+                    values = []
+                    for v in self.block.values:
+                        try:
+                            values.append(getattr(to_return, str(v.encode('utf8'))))
+                        except Exception:
+                            pass
+                    if len(values) == 1:
+                        values = values[0]
+                    else:
+                        values = tuple(values)
+                if self.mode == 1:
+                    return keys
+                if self.mode == 2:
+                    return keys, values
+                if self.mode == 3:
+                    return values
             except StopIteration:
                 # If the current iterator is empty, we try the next token range.
                 pass
 
         if self._token_pos < len(self._token_ranges):
             query = self._query.bind(self._token_ranges[self._token_pos])
-            print "query:", query
             self._current_iterator = iter(config.session.execute(query))
             self._token_pos += 1
             return self.next()
         else:
             raise StopIteration
-
-
-class BlockValuesIterPrefetch(object):
-    """
-        Iterator for the values of the block
-    """
-
-    def __iter__(self):
-        """
-        Needed to be considered as an iterable
-        """
-        return self
-
-    def __init__(self, default_dict):
-        """
-        Initializes the iterator, and its prefetcher
-        Args:
-            default_dict: Block to iterate over
-        """
-        self.pos = 0
-        self.keys = []
-        self.num_keys = 0
-        self.end = False
-
-        self._persistentDict = default_dict
-        self._persistentDict.prefetchManager.pipeq_write[0].send(['query'])
-
-    def next(self):
-        """
-        Returns the values, one by one, contained in the token ranges of the block
-        Returns:
-            val: .
-        """
-        self._persistentDict.reads += 1  # STATISTICS
-        if self.pos == self.num_keys:
-            if self.end:
-                raise StopIteration
-            else:
-                self._persistentDict.prefetchManager.pipeq_write[0].send(['continue'])
-                usedpipe = self._persistentDict.prefetchManager.piper_read[0]
-                self._persistentDict.cache_prefetchs += 1  # STATISTICS
-                self._persistentDict.cache_hits_graph += 'P'  # STATISTICS
-                start = time.time()  # STATISTICS
-                results = usedpipe.recv()
-                self._persistentDict.pending_requests_time += time.time() - start  # STATISTICS
-                if len(results) == 0:
-                    raise StopIteration
-                else:
-                    self.keys = []
-                    for entry in results:
-                        self._persistentDict.cache_hits += 1  # STATISTICS
-                        self._persistentDict.cache_hits_graph += 'X'  # STATISTICS
-                        start = time.time()  # STATISTICS
-                        self._persistentDict.dictCache[entry[0]] = [entry[1], 'Sync']
-                        self._persistentDict.cache_hits_time += time.time() - start  # STATISTICS
-                        self.keys.append(entry[0])
-                    self.num_keys = len(self.keys)
-                    self.pos = 0
-                    if len(results) < config.batch_size:
-                        self.end = True
-
-        if len(self.keys) == 0:
-            self._persistentDict.miss += 1  # STATISTICS
-            self._persistentDict.cache_hits_graph += '_'  # STATISTICS
-
-        value = self._persistentDict.dictCache[self.keys[self.pos]]
-        self.pos += 1
-        return value[0]
-
 
 class KeyIter(object):
     """
@@ -682,7 +297,6 @@ class KeyIter(object):
             ring += tokens
         
         size_query = "SELECT mean_partition_size, partitions_count FROM system.size_estimates WHERE keyspace_name = \'" + str(self._keyspace) + "\' AND table_name = \'" + str(self._table) + "\';"
-        print "size_query:", size_query
         table_size_results = config.session.execute(size_query)
         for row in table_size_results:
             mean_part_size = row.mean_partition_size
@@ -696,7 +310,6 @@ class KeyIter(object):
             ranges_per_token = 1
         else:
             ranges_per_token = int(mean_part_size / 300)
-        print "ranges_per_token:", ranges_per_token
         tks = []
         n_tokens = len(token_to_host)
         if n_tokens % n_blocks == 0:

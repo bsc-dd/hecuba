@@ -171,7 +171,7 @@ class StorageObj(object):
                 for ind, key in enumerate(dict_keys.split(",")):
                     try:
                         name, value = StorageObj._data_type.match(key).groups()
-                    except ValueError:
+                    except Exception:
                         if ':' in key:
                             raise SyntaxError
                         else:
