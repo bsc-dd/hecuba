@@ -57,8 +57,6 @@ def end_task(params):
             if hasattr(param, '_needContext') and param._needContext:
                 if issubclass(param.__class__, Block):
                     persistent_dict = param.storageobj._get_default_dict()
-                    if persistent_dict.prefetch:
-                        persistent_dict.end_prefetch()
 
     if config.statistics_activated:
         for param in params:
@@ -101,7 +99,4 @@ def getByID(objid):
     mod = __import__(module, globals(), locals(), [cname], 0)
     b = getattr(mod, cname).build_remotely(results)
 
-    if len(objidsplit) == 1:
-        if config.prefetch_activated and b.supportsPrefetch:
-            b.storageobj.init_prefetch(b)
     return b

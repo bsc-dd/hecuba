@@ -49,6 +49,9 @@ class StorageObj(object):
             name (string): the name of the Cassandra Keyspace + table where information can be found
             myuuid (string):  an unique storageobj identifier
         """
+        print "__init__"
+        print "name:  ", name
+        print "myuuid:", myuuid
         self._persistent_dicts = []
         self._attr_to_column = {}
 
@@ -262,19 +265,6 @@ class StorageObj(object):
                     this[table_name] = {'indexed_values': indexed_values}
         return this
 
-    def init_prefetch(self, block):
-        """
-        Initializes the prefetch manager of the storageobj persistentdict
-        Args:
-           block (hecuba.iter.Block): the dataset partition which need to be prefetch
-        """
-        self._get_default_dict().init_prefetch(block)
-
-    def end_prefetch(self):
-        """
-        Terminates the prefetch manager of the storageobj persistentdict
-        """
-        self._get_default_dict().end_prefetch()
 
     def getByName(self):
         """
@@ -683,31 +673,6 @@ class StorageObj(object):
                         else:
                             print "miss(_):                   ", dbhits
 
-            cprefetchs = getattr(self, str(keys[0])).cache_prefetchs
-            if cprefetchs > 0:
-                if cprefetchs < 10:
-                    print "cprefetchs:                    ", cprefetchs
-                else:
-                    if cprefetchs < 100:
-                        print "cprefetchs:                   ", cprefetchs
-                    else:
-                        if cprefetchs < 1000:
-                            print "cprefetchs:                  ", cprefetchs
-                        else:
-                            if cprefetchs < 10000:
-                                print "cprefetchs:                 ", cprefetchs
-                            else:
-                                print "cprefetchs:                ", cprefetchs
-
-            cachepreffails = getattr(self, str(keys[0])).cache_prefetchs_fails
-            if cachepreffails < 10:
-                print "cachepreffails:                ", cachepreffails
-            else:
-                if cachepreffails < 100:
-                    print "cachepreffails:                 ", cachepreffails
-                else:
-                    print "cachepreffails:                ", cachepreffails
-
             if reads > 0:
                 cache_usage = (float(chits) / float(reads)) * 100
                 if cache_usage < 10:
@@ -717,28 +682,7 @@ class StorageObj(object):
                         print("cache_usage(cache hits/reads): %.2f%%" % cache_usage)
                     else:
                         print("cache_usage(cache hits/reads):%.2f%%" % cache_usage)
-            '''
-            if cprefetchs > 0:
-                used_prefetchs = (float(chits) / float(cprefetchs)) * 100
-                if used_prefetchs < 10:
-                    print("used_prefetchs (cache hits/cprefetchs):    %.2f%%" % used_prefetchs)
-                else:
-                    if used_prefetchs < 100:
-                        print("used_prefetchs (cache hits/cprefetchs):   %.2f%%" % used_prefetchs)
-                    else:
-                        print("used_prefetchs (cache hits/cprefetchs):  %.2f%%" % used_prefetchs)
-            '''
-            '''
-            if reads > 0:
-                pendreqstotal = (float(pendreqs) / float(reads)) * 100
-                if pendreqstotal < 10:
-                    print("pending reqs(pendreqs/reads):   %.2f%%" % pendreqstotal)
-                else:
-                    if pendreqstotal < 100:
-                        print("pending reqs(pendreqs/reads):  %.2f%%" % pendreqstotal)
-                    else:
-                        print("pending reqs(pendreqs/reads): %.2f%%" % pendreqstotal)
-            '''
+
 
         if writes > 0:
             if writes < 10:
@@ -757,24 +701,6 @@ class StorageObj(object):
                                 print "writes:                    ", writes
                             else:
                                 print "writes:                   ", writes
-
-            cachewrite = getattr(self, str(keys[0])).cachewrite
-            if cachewrite < 10:
-                print "cachewrite:                    ", cachewrite
-            else:
-                if cachewrite < 100:
-                    print "cachewrite:                   ", cachewrite
-                else:
-                    if cachewrite < 1000:
-                        print "cachewrite:                  ", cachewrite
-                    else:
-                        if cachewrite < 10000:
-                            print "cachewrite:                 ", cachewrite
-                        else:
-                            if cachewrite < 100000:
-                                print "cachewrite:                ", cachewrite
-                            else:
-                                print "cachewrite:               ", cachewrite
 
             syncs = getattr(self, str(keys[0])).syncs
             if syncs < 10:
@@ -797,12 +723,6 @@ class StorageObj(object):
         if reads > 0 or writes > 0:
             print "------Times-----------------------------------------"
         if reads > 0:
-            print "GETS"
-            cache_hits_time = getattr(self, str(keys[0])).cache_hits_time
-            print "cache_hits_time:               ", cache_hits_time
-            if chits > 0:
-                cache_hits_time_med = cache_hits_time / chits
-                print("cache_hits_time_med:            %.8f" % cache_hits_time_med)
             '''
             exec("pendreqsTimeRes = self." + str(keys[0]) + ".pending_requests_time_res")
             if pendreqsTimeRes < 10:

@@ -13,39 +13,13 @@ class PersistentDict_Tests(unittest.TestCase):
         Config.reset(mock_cassandra=True)
 
 
-    def test_init_prefetch(self):
-        """
-        self.prefetch = True
-        self.prefetchManager = PrefetchManager(1, 1, block)
-        """
-        pd = PersistentDict('ksp', 'tb1', True, [('pk1', 'int')], [('val1', 'str')])
-        pd.prefetch = False
-        from hecuba.prefetchmanager import PrefetchManager
-        PrefetchManager.__init__ = Mock(return_value=None)
-        from hecuba.iter import Block
-        Block.__init__ = Mock(return_value=None)
-        pd.init_prefetch(Block())
-        PrefetchManager.__init__.assert_called_once()
-        self.assertEqual(True, pd.prefetch)
-
+    #TODO to be written
     def test_end_prefetch(self):
         """
         self.prefetchManager.terminate()
         """
 
-        config.session.execute = Mock(return_value=None)
 
-        class mockme: pass
-
-        mm = mockme()
-        mm.bind = Mock(return_value=None)
-        config.session.prepare = Mock(return_value=mm)
-        pd = PersistentDict('ksp', 'tb1', False, [('pk1', 'int')], [('val1', 'str')])
-        pd.prefetch = True
-
-        from hecuba.iter import Block
-        bl = Block('myuuid', 'localhost', 'tt', 'ksp', [1, 2], 'app.words.Words')
-        pd.init_prefetch(bl)
 
     def test_iadd(self):
         pd = PersistentDict('ksp', 'tb1', False, [('pk1', 'int')], [('val1', 'int')])

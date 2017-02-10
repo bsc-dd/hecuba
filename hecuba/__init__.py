@@ -120,12 +120,15 @@ class Config:
                 singleton.cluster = Cluster(contact_points=singleton.contact_names, port=singleton.nodePort,
                                             default_retry_policy=_NRetry(5))
                 singleton.session = singleton.cluster.connect()
+                from hfetch import connectCassandra
+                #connecting c++ bindings
+                connectCassandra(singleton.contact_names, singleton.nodePort)
                 singleton.session.execute(
                     "CREATE KEYSPACE IF NOT EXISTS hecuba WITH replication = {'class': 'SimpleStrategy',"
                     "'replication_factor': %d }" % singleton.repl_factor)
                 singleton.session.execute(
                     'CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, class_name text,storageobj_classname text,'
-                    'tkns list<bigint>, entry_point text , port int, ksp text , tab text , object_id text ,'
+                    'tkns list<bigint>, entry_point text, port int, ksp text, tab text, object_id text,'
                     'obj_type text, indexed_args list<text>, nonindexed_args list<text>, key_list list<text>,'
                     'value_list list<text>, mem_filter text, PRIMARY KEY(blockid))')
                 singleton.session.execute(
@@ -138,7 +141,7 @@ class Config:
             singleton.execution_name = os.environ['EXECUTION_NAME']
             logging.info('EXECUTION_NAME: %s', singleton.execution_name)
         except KeyError:
-            singleton.execution_name = 'hecuba_app'
+            singleton.execution_name = 'hecuba'
             logging.warn('using default EXECUTION_NAME: %s', singleton.execution_name)
 
         try:
@@ -202,6 +205,12 @@ class Config:
         except KeyError:
             singleton.prefetch_activated = False
             logging.warn('using default PREFETCH_ACTIVATED: %s', singleton.prefetch_activated)
+
+        try:
+            singleton.prefetch_size = os.environ['PREFETCH_SIZE']
+        except KeyError:
+            singleton.prefetch_size = 10000
+            logging.warn('using default PREFETCH_SIZE: %s', singleton.prefetch_activated)
 
         try:
             query = "CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = { 'class' : \'%s\'," \

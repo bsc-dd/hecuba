@@ -4,11 +4,9 @@ import time
 
 from cassandra.query import BatchStatement
 from cassandra.query import BatchType
-
 from hecuba import config
 from hecuba.cache import PersistentDictCache
 from hecuba.iter import KeyIter
-from hecuba.prefetchmanager import PrefetchManager
 
 
 class PersistentDict(dict):
@@ -24,27 +22,11 @@ class PersistentDict(dict):
     prefetchManager = ""
     blockKeys = []
     prefetch = False
-    prefetch_execs = 0
-    cache_prefetchs = 0
-    cache_hits = 0
-    cache_hits_graph = ''
-    miss = 0
-    reads = 0
-    pending_requests = 0
-    writes = 0
-    cache_prefetchs_fails = 0
-    syncs = 0
-    cachewrite = 0
-    curr_exec_asyncs = 0
     pending_requests_fails_time = 0.000000000
     syncs_time = 0.000000000
-    cachewrite_time = 0.000000000
-    miss_time = 0.000000000
-    cache_hits_time = 0.000000000
-    pending_requests_time = 0.000000000
-    pending_requests_time_res = 0.000000000
 
-    def __init__(self, ksp, table, is_persistent, primary_keys, columns, storage_id=None, storage_class='hecuba.storageobj.StorageObj'):
+    def __init__(self, ksp, table, is_persistent, primary_keys, columns, storage_id=None,
+                 storage_class='hecuba.storageobj.StorageObj'):
         """
         Args:
             ksp (str): keyspace name
@@ -63,6 +45,8 @@ class PersistentDict(dict):
         self._ksp = ksp
         self._table = table
         self.is_persistent = is_persistent
+        if is_persistent:
+            self._make_persistent()
         self._primary_keys = primary_keys
         self._columns = columns
         self._insert_data = None
@@ -75,19 +59,6 @@ class PersistentDict(dict):
         else:
             self.is_counter = self._columns[0][1] == 'counter'
 
-    def init_prefetch(self, block):
-        """
-        Initializes the prefetch manager
-        Args:
-           block (hecuba.iter.Block): the dataset partition which need to be prefetch
-        Returns:
-            None
-        """
-        self.prefetch = True
-        self.prefetchManager = PrefetchManager(1, 1, block)
-
-    def end_prefetch(self):
-        self.prefetchManager.terminate()
 
     def __contains__(self, key):
         if not self.is_persistent:
@@ -158,7 +129,7 @@ class PersistentDict(dict):
         print "key:", key
         print "value:", value
         self.writes += 1  # STATISTICS
-        start = time.time()
+
         if not self.is_persistent:
             try:
                 dict.__setitem__(self, key, value)
@@ -166,73 +137,10 @@ class PersistentDict(dict):
                 return "Object " + str(self._table) + " with key " + str(key) + " and value " + str(
                     value) + " cannot be inserted in dict" + str(e)
         else:
-            if config.cache_activated:
-                if len(self.dictCache.cache) >= config.max_cache_size:
-                    self._flush_items()
-                    self.dictCache.cache = {}
-                if key in self.dictCache.cache:
-                    val = self.dictCache.cache[key]
-                    if val[0] is not None:
-                        self.cache_hits += 1
-                        # Sync or Sent
-                        if val[1] == 'Sync':
-                            self.dictCache.sents += 1
+            self.hcache.put_row(self._bind_values(key, value))
+            pass
 
-                        if self.is_counter:
-                            self.dictCache[key] = [int(value) + int(val[0]), 'Sent']
-                        else:
-                            self.dictCache[key] = [value, 'Sent']
-                    else:
-                        # Requested
-                        self.dictCache[key] = [value, 'Sent']
-                        self.dictCache.sents += 1
-                else:
-                    self.dictCache[key] = [value, 'Sent']
-                    self.dictCache.sents += 1
-                if self.dictCache.sents == config.batch_size:
-                    self.syncs += config.batch_size  # STATISTICS
-                    print "self.dictCache:", self.dictCache
-                    self._flush_items()
-                    end = time.time()  # STATISTICS
-                    self.syncs_time += (end - start)  # STATISTICS
-                else:
-                    self.cachewrite += 1  # STATISTICS
-                    end = time.time()  # STATISTICS
-                    self.cachewrite_time += (end - start)  # STATISTICS
-
-            else:
-                if config.batch_size > 1:
-                    if self._batch is None:
-                        self._batchCount = 0
-                        if self.is_counter:
-                            self._batch = BatchStatement(batch_type=BatchType.COUNTER)
-                            self._insert_data = self._preparequery(self._build_insert_counter_query())
-                        else:
-                            self._batch = BatchStatement(batch_type=BatchType.UNLOGGED)
-                            self._insert_data = self._preparequery(self._build_insert_query())
-
-                    self._batch.add(self._bind_row(key, value))
-
-                    self._batchCount += 1
-                    if self._batchCount % config.batch_size == 0:
-                        self._exec_query(self._batch)
-                        self._batch = None
-                    else:
-                        self.cachewrite += 1  # STATISTICS
-                        end = time.time()  # STATISTICS
-                        self.cachewrite_time += (end - start)  # STATISTICS
-
-                else:
-                    if self._insert_data is None:
-                        if self.is_counter:
-                            self._insert_data = self._preparequery(self._build_insert_counter_query())
-                        else:
-                            self._insert_data = self._preparequery(self._build_insert_query())
-
-                    query = self._bind_row(key, value)
-                    self._exec_query(query)
-
-    def _bind_row(self, key, value):
+    def _bind_values(self, key, value):
         """
         Returns:
              BoundStatement: returns a query with binded elements
@@ -259,7 +167,9 @@ class PersistentDict(dict):
                     elements.append(val)
             else:
                 elements.append(value)
-        return self._insert_data.bind(elements)
+
+    def _bind_row(self,key, value):
+        return self._insert_data.bind(self._bind_values(key, value))
 
     def _exec_query(self, query):
         """
@@ -618,6 +528,22 @@ class PersistentDict(dict):
                 " SET " + counter_name + " = " + counter_name + " + ? WHERE "
         query += str.join(" AND ", map(lambda k: k[0] + " = ?", self._primary_keys))
         return query
+
+    def make_persistent(self):
+        from hfetch import Hcache
+
+
+
+    def umake_persistent(self):
+        self.hcache = None
+
+    def delete_persistent(self):
+        self.umake_persistent()
+
+
+
+
+
 
 
 class context:
