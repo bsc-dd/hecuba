@@ -28,7 +28,6 @@ def start_task(params):
     Args:
         params: a list of objects (Blocks, StorageObjs, strings, ints, ...)
     """
-    print "in start_task"
     if type(params) is not list:
         raise ValueError('call start_task with a list of params')
     if config.batch_size > 1:
@@ -45,7 +44,6 @@ def end_task(params):
     Args:
         params: a list of objects (Blocks, StorageObjs, strings, ints, ...)
     """
-    print "in end_task"
     if config.batch_size > 1:
         for param in params:
             if hasattr(param, '_needContext') and param._needContext:
@@ -83,7 +81,6 @@ def getByID(objid):
          (Block| Storageobj)
 
     """
-    print "in getByID"
     objidsplit = objid.split("_")
 
     if len(objidsplit) == 2:
