@@ -3,7 +3,7 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -fPIC")
 SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fPIC")
 set(CMAKE_POSITION_INDEPENDENT_CODE YES)
-project(prefetcher)
+project(hfetch)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 include_directories( ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
@@ -80,12 +80,13 @@ include_directories(${PYTHON_INCLUDE_DIRS} ${CMAKE_CURRENT_LIST_DIR}/_install/li
 set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp TupleRowFactory.h)
 
 
-add_library(prefetcher SHARED ${SOURCE_FILES})
+add_library(hfetch SHARED ${SOURCE_FILES})
 
 find_library(TBB_LIB NAMES tbb PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
-target_include_directories(prefetcher PRIVATE ${TBB_INCLUDE_DIRS} ${CMAKE_CURRENT_LIST_DIR}/_install/include/ )
-target_compile_definitions(prefetcher PRIVATE ${TBB_DEFINITIONS})
-target_link_libraries(prefetcher ${POCO} ${CASS} ${PYTHON_LIBRARIES} ${TBB_LIBRARY}/libtbb.so ${TBB_LIB})
+target_include_directories(hfetch PRIVATE ${TBB_INCLUDE_DIRS} ${CMAKE_CURRENT_LIST_DIR}/_install/include/ )
+target_compile_definitions(hfetch PRIVATE ${TBB_DEFINITIONS})
+set_target_properties(hfetch PROPERTIES PREFIX "")
+target_link_libraries(hfetch ${POCO} ${CASS} ${PYTHON_LIBRARIES} ${TBB_LIBRARY}/libtbb.so ${TBB_LIB})
 
 
 #End of dependencies
