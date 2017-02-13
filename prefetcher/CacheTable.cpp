@@ -1,55 +1,110 @@
 #include "CacheTable.h"
 
 
-CacheTable::CacheTable(uint32_t size, const char * table, const char * keyspace, const char* query, CassSession* session) {
-
-
-    this->myCache=new Poco::LRUCache<TupleRow,TupleRow>(size);
-
-    CassFuture* future=cass_session_prepare(session,query);
-    CassError   rc = cass_future_error_code(future);
-    if(rc!=CASS_OK){
-        throw new std::runtime_error(cass_error_desc(rc));
+/***
+ * Constructs a cache which takes and returns data encapsulated as pointers to TupleRow or PyObject
+ * Follows Least Recently Used replacement strategy
+ * @param size Max elements the cache will hold, afterwards replacement takes place
+ * @param table Name of the table being represented
+ * @param keyspace Name of the keyspace whose table belongs to
+ * @param query Query ready to be bind with the keys
+ * @param session
+ */
+CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string &keyspace,
+                       const std::vector<std::string> &keyn,
+                       const std::vector<std::string> &columns_n,
+                       const std::string &token_range_pred,
+                       const std::vector<std::pair<int64_t, int64_t>> &tkns,
+                       CassSession *session) {
+    columns_names = columns_n;
+    key_names = keyn;
+    tokens=tkns;
+    token_predicate = "FROM " + keyspace + "." + table + " " + token_range_pred;
+    get_predicate = "FROM " + keyspace + "." + table + " WHERE " + key_names[0] + "=?";
+    select_keys = "SELECT " + key_names[0];
+    for (uint16_t i = 1; i < key_names.size(); i++) {
+        get_predicate += " AND " + key_names[i] + "=?";
+        select_keys += "," + key_names[i];
     }
+
+    select_values = columns_names[0];
+    for (uint16_t i = 1; i < columns_names.size(); i++) {
+        select_values += "," + columns_names[i];
+    }
+    select_values+=" ";
+    select_keys+=" ";
+
+    select_all = select_keys + "," + select_values;
+
+    select_values = "SELECT " + select_values;
+
+    this->myCache = new Poco::LRUCache<TupleRow, TupleRow>(size);
+    cache_query = select_values + get_predicate;
+    CassFuture *future = cass_session_prepare(session, cache_query.c_str());
+    CassError rc = cass_future_error_code(future);
+    assert(rc == CASS_OK && "can't connect");
     prepared_query = cass_future_get_prepared(future);
 
-    this->session=session;
+    this->session = session;
+    cass_future_free(future);
     //lacks free future (future)
     const CassSchemaMeta *schema_meta = cass_session_get_schema_meta(session);
-    assert(schema_meta != NULL &&  "error on schema");
-    const CassKeyspaceMeta *keyspace_meta = cass_schema_meta_keyspace_by_name(schema_meta, keyspace);
+    assert(schema_meta != NULL && "error on schema");
+    const CassKeyspaceMeta *keyspace_meta = cass_schema_meta_keyspace_by_name(schema_meta, keyspace.c_str());
 
     assert(keyspace_meta != NULL && "error on keyspace");
-    const CassTableMeta *table_meta = cass_keyspace_meta_table_by_name(keyspace_meta,table);
-    t_factory = new TupleRowFactory(table_meta);
+    const CassTableMeta *table_meta = cass_keyspace_meta_table_by_name(keyspace_meta, table.c_str());
+
+
+    all_names.reserve(key_names.size() + columns_names.size());
+    all_names.insert(all_names.end(), key_names.begin(), key_names.end());
+    all_names.insert(all_names.end(), columns_names.begin(), columns_names.end());
+
+    keys_factory = new TupleRowFactory(table_meta, key_names);
+    values_factory = new TupleRowFactory(table_meta, columns_names);
+    items_factory = new TupleRowFactory(table_meta, all_names);
     cass_schema_meta_free(schema_meta);
+
+
 };
-
-
-
 
 
 CacheTable::~CacheTable() {
     cass_prepared_free(prepared_query);
     //stl tree calls deallocate for cache nodes on clear()->erase(), and later on destroy, which ends up calling the deleters
     myCache->clear();
-    delete(t_factory);
+    delete(myCache);
+    delete (keys_factory);
+    delete (values_factory);
+    delete (items_factory);
+    session=NULL;
 }
 
 
 
-TupleRowFactory* CacheTable::get_tuple_f() {
-    return this->t_factory;
+
+Prefetch* CacheTable::get_keys_iter(uint32_t prefetch_size) {
+    return new Prefetch(&tokens, prefetch_size, keys_factory, session, select_keys + token_predicate);
+}
+
+Prefetch* CacheTable::get_values_iter(uint32_t prefetch_size) {
+    return new Prefetch(&tokens, prefetch_size, values_factory, session, select_values + token_predicate);
+}
+
+Prefetch* CacheTable::get_items_iter(uint32_t prefetch_size) {
+    return new Prefetch(&tokens, prefetch_size, items_factory, session, select_all + token_predicate);
 }
 
 
 
-void CacheTable::bind_keys(CassStatement *statement, TupleRow* keys) {
 
-    for (uint16_t i = 0; i < keys->size(); ++i) {
+
+void CacheTable::bind_keys(CassStatement *statement, TupleRow *keys) {
+
+    for (uint16_t i = 0; i < keys->n_elem(); ++i) {
         const void *key = keys->get_element(i);
         uint16_t bind_pos = i;
-        switch (t_factory->get_key_type(i)) {
+        switch (keys_factory->get_type(i)) {
             case CASS_VALUE_TYPE_VARCHAR:
             case CASS_VALUE_TYPE_TEXT:
             case CASS_VALUE_TYPE_ASCII: {
@@ -64,7 +119,7 @@ void CacheTable::bind_keys(CassStatement *statement, TupleRow* keys) {
                 break;
             }
             case CASS_VALUE_TYPE_BLOB: {
-                //cass_statement_bind_bytes(statement,bind_pos,key,size);
+                //cass_statement_bind_bytes(statement,bind_pos,key,n_elem);
                 break;
             }
             case CASS_VALUE_TYPE_BOOLEAN: {
@@ -162,21 +217,13 @@ void CacheTable::bind_keys(CassStatement *statement, TupleRow* keys) {
  * @return
  */
 
-int CacheTable::put_row(PyObject *row) {
-    TupleRow* t = t_factory->make_tuple(row);
-    TupleRow* keys = t_factory->extract_key_tuple(row);
+void CacheTable::put_row(PyObject *key, PyObject *value) {
+    TupleRow *k = keys_factory->make_tuple(key);
+    TupleRow *v = values_factory->make_tuple(value);
     //Inserts if not present, otherwise replaces
-    myCache->update(*keys,t);
-    return 0;
-}
+    myCache->update(*k, v);
+    delete (k);
 
-
-int CacheTable::put_row(const CassRow *row) {
-    TupleRow* t = t_factory->make_tuple(row);
-    TupleRow* keys = t_factory->extract_key_tuple(row);
-    //Inserts if not present, otherwise replaces
-    myCache->update(*keys,t);
-    return 0;
 }
 
 
@@ -191,23 +238,15 @@ int CacheTable::put_row(const CassRow *row) {
  * @param py_keys
  * @return
  */
-//#define bm
 PyObject *CacheTable::get_row(PyObject *py_keys) {
 
-    TupleRow *keys;
-#ifndef bm
-    keys = t_factory->make_key_tuple(py_keys);
+    TupleRow *keys = keys_factory->make_tuple(py_keys);
 
     Poco::SharedPtr<TupleRow> ptrElem = myCache->get(*keys);
     if (!ptrElem.isNull()) {
-
-        return t_factory->tuple_as_py(ptrElem.get());
+        delete (keys);
+        return values_factory->tuple_as_py(ptrElem.get());
     }
-#endif
-
-#ifdef bm
-    Py_RETURN_TRUE;
-#endif
     /* Not present on cache, a query is performed */
     CassStatement *statement = cass_prepared_bind(prepared_query);
 
@@ -225,57 +264,19 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
 
     cass_future_free(query_future);
     cass_statement_free(statement);
-    if (0==cass_result_row_count(result)) //or retry 2 times
+    if (0 == cass_result_row_count(result)) //or retry 2 times
         return NULL;
-    const CassRow* row = cass_result_first_row(result);
+    const CassRow *row = cass_result_first_row(result);
 
     //Store result to cache
-    TupleRow* values = t_factory->make_tuple(row);
+    TupleRow *values = values_factory->make_tuple(row);
 
-    myCache->add(*keys,values);
+    myCache->add(*keys, values);
+    delete (keys);
     cass_result_free(result);
-    return t_factory->tuple_as_py(values);
+    return values_factory->tuple_as_py(values);
 }
 
 
 //https://github.com/pocoproject/poco/blob/develop/Foundation/include/Poco/AbstractCache.h#L218
 //Cache allocates space for each insert
-
-
-
-/* *********** DEBUG PURPOSES **************/
-/*
-int temp = 123;
-TupleRow *CacheTable::get_row_debug(int pkey) {
-    temp=pkey;
-    TupleRow *keys = new TupleRow(1,&elem_sizes);
-    keys->set_element(&temp,0);
-
-    Poco::SharedPtr<TupleRow*> ptrElem = myCache.get(*keys);
-    if (!ptrElem.isNull()) {
-        std::cout << "PRESENT" << std::endl;
-        return *ptrElem.get_row();
-    }
-    CassStatement *statement = cass_statement_new("SELECT * FROM particle WHERE partid = 123 LIMIT 1;", 0);
-
-//    cass_statement_bind_int32(statement,temp,0);
-    CassFuture *query_future = cass_session_execute(session, statement);
-
-    const CassResult *result = cass_future_get_result(query_future);
-    CassError rc = cass_future_error_code(query_future);
-    if (result == NULL) {
-        printf("%s\n", cass_error_desc(rc));
-        return NULL;
-    }
-    cass_future_free(query_future);
-
-    cass_statement_free(statement);
-    const CassRow* row = cass_result_first_row(result);
-
-
-    TupleRow* resp = insert_row(row);
-
-    cass_result_free(result);
-    return resp; //result lost in memory
-}
-*/

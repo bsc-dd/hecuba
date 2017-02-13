@@ -10,75 +10,53 @@
  * extracting the information from Cassandra to decide the types to be used
  * @param table_meta Holds the table information
  */
-TupleRowFactory::TupleRowFactory(const CassTableMeta *table_meta) {
+TupleRowFactory::TupleRowFactory(const CassTableMeta *table_meta, const std::vector<std::string> &col_names) {
 
     assert (table_meta != 0);
     CassIterator *iterator = cass_iterator_columns_from_table_meta(table_meta);
 
-    uint32_t ncols = (uint32_t) cass_table_meta_column_count(table_meta);
-    assert(ncols>0);
+    uint32_t ncols = (uint32_t) col_names.size();
+    if (col_names[0] == "*") ncols = (uint32_t) cass_table_meta_column_count(table_meta);
+    assert(ncols > 0);
 
     type_array = std::vector<CassValueType>(ncols);
     name_map = std::vector<std::string>(ncols);
 
-    this->offsets=std::vector<uint16_t >(ncols);
+    this->offsets = std::vector<uint16_t>(ncols);
 
-    std::vector<uint16_t> elem_sizes = std::vector<uint16_t >(ncols);
+    std::vector<uint16_t> elem_sizes = std::vector<uint16_t>(ncols);
 
-    partition_cols=std::vector<int16_t >();
     uint16_t i = 0;
 
     while (cass_iterator_next(iterator)) {
         const CassColumnMeta *cmeta = cass_iterator_get_column_meta(iterator);
         const char *value;
         size_t length;
-
         cass_column_meta_name(cmeta, &value, &length);
-
         const CassDataType *type = cass_column_meta_data_type(cmeta);
 
-        type_array[i]= cass_data_type_type(type);
-        name_map[i]=value;
-        elem_sizes[i]=compute_size_of( type_array[i]);
-
-        if (cass_column_meta_type(cmeta) == CASS_COLUMN_TYPE_PARTITION_KEY ||
-            cass_column_meta_type(cmeta) == CASS_COLUMN_TYPE_CLUSTERING_KEY) {
-            partition_cols.emplace_back(i);
+        std::string meta_col_name(value);
+        for (const std::string &ss: col_names) {
+            if (meta_col_name == ss) {
+                type_array[i] = cass_data_type_type(type);
+                name_map[i] = value;
+                elem_sizes[i] = compute_size_of(type_array[i]);
+                ++i;
+                //break;
+            }
         }
-        ++i;
+
     }
     cass_iterator_free(iterator);
 
-    assert(partition_cols.size()<=ncols);
-
-    offsets[0]=0;
+    offsets[0] = 0;
     i = 1;
-    while (i<ncols) {
-        offsets[i]=offsets[i-1]+elem_sizes[i-1];
+    while (i < ncols) {
+        offsets[i] = offsets[i - 1] + elem_sizes[i - 1];
         ++i;
     }
 
-    this->total_bytes = offsets[ncols-1]+elem_sizes[ncols-1];
-
-    /*** key factory ***/
-
-    std::vector<uint16_t > key_offsets = std::vector<uint16_t >(partition_cols.size());
-    std::vector<CassValueType> key_types = std::vector<CassValueType>(partition_cols.size());
-
-    key_offsets[0] = 0;
-    key_types[0]=type_array[partition_cols[0]];
-    uint32_t nkeys = partition_cols.size();
-    for (i=1; i<nkeys; ++i) {
-        key_offsets[i]=key_offsets[i-1]+elem_sizes[partition_cols[i]];
-        key_types[i]=type_array[partition_cols[i]];
-    }
-
-    this->keyFactory= new TupleRowFactory();
-    this->keyFactory->type_array=key_types;
-    this->keyFactory->offsets=key_offsets;
-    this->keyFactory-> total_bytes=key_offsets[nkeys-1]+elem_sizes[partition_cols[nkeys-1]];
-
-
+    this->total_bytes = offsets[ncols - 1] + elem_sizes[ncols - 1];
 }
 
 
@@ -88,14 +66,14 @@ uint16_t TupleRowFactory::compute_size_of(const CassValueType VT) const {
         case CASS_VALUE_TYPE_TEXT:
         case CASS_VALUE_TYPE_VARCHAR:
         case CASS_VALUE_TYPE_ASCII: {
-            return sizeof(char*);
+            return sizeof(char *);
         }
         case CASS_VALUE_TYPE_VARINT:
         case CASS_VALUE_TYPE_BIGINT: {
             return sizeof(int64_t);
         }
         case CASS_VALUE_TYPE_BLOB: {
-            return sizeof(unsigned char*);
+            return sizeof(unsigned char *);
         }
         case CASS_VALUE_TYPE_BOOLEAN: {
             return sizeof(bool);
@@ -170,76 +148,36 @@ uint16_t TupleRowFactory::compute_size_of(const CassValueType VT) const {
 }
 
 
-TupleRow* TupleRowFactory::make_tuple(const CassRow* row) {
+TupleRow *TupleRowFactory::make_tuple(const CassRow *row) {
     if (!row) return 0;
 
-    char * buffer= (char *) malloc(total_bytes);
+    char *buffer = (char *) malloc(total_bytes);
     uint16_t i = 0;
     CassIterator *it = cass_iterator_from_row(row);
     while (cass_iterator_next(it)) {
-        cass_to_c(cass_iterator_get_column(it),buffer+offsets[i],i);
-        if (i>offsets.size()) throw std::runtime_error("query has more columns than the ones retrieved from Cassandra");
+        cass_to_c(cass_iterator_get_column(it), buffer + offsets[i], i);
+        if (i > offsets.size())
+            throw std::runtime_error("query has more columns than the ones retrieved from Cassandra");
         ++i;
     }
-    TupleRow *t= new TupleRow(&offsets,total_bytes,buffer);
+    cass_iterator_free(it);
+    TupleRow *t = new TupleRow(&offsets, total_bytes, buffer);
     return t;
 }
 
 
-TupleRow* TupleRowFactory::make_key_tuple(PyObject* obj) {
-    assert(keyFactory!=0);
-    return keyFactory->make_tuple(obj);
-}
+TupleRow *TupleRowFactory::make_tuple(PyObject *obj) {
+    char *buffer = (char *) malloc(total_bytes);
 
-
-TupleRow* TupleRowFactory::extract_key_tuple(PyObject* row) {
-    assert(keyFactory!=0);
-    PyObject *key_list = PyList_New(partition_cols.size());
-    for (uint16_t i = 0; i<partition_cols.size(); ++i) PyList_SetItem(key_list,i,PyList_GetItem(row,partition_cols[i]));
-
-    return keyFactory->make_tuple(key_list);
-}
-
-
-
-TupleRow* TupleRowFactory::make_key_tuple(std::vector<const CassValue *>keys) {
-
-    if (keys.empty()) return 0;
-
-    char * buffer= (char *) malloc(total_bytes);
-    uint16_t i = 0;
-
-    while (i<this->offsets.size()) {
-        cass_to_c(keys[i],buffer+offsets[i],i);
-        if (i>offsets.size()) throw std::runtime_error("query has more columns than the ones retrieved from Cassandra");
-        ++i;
-    }
-    TupleRow *t= new TupleRow(&offsets,total_bytes,buffer);
-    return t;
-}
-
-
-TupleRow* TupleRowFactory::extract_key_tuple(const CassRow* row) {
-    assert(keyFactory!=0);
-    if (!row) return 0;
-    std::vector <const CassValue*> keys;
-    for (uint16_t i = 0; i<partition_cols.size(); ++i) keys.emplace_back(cass_row_get_column(row,partition_cols[i]));
-    return keyFactory->make_key_tuple(keys);
-}
-
-
-
-TupleRow* TupleRowFactory::make_tuple(PyObject *obj) {
-    char * buffer= (char *) malloc(total_bytes);
-
-    for(uint16_t i =0; i<PyList_Size(obj); ++i){
-        PyObject* obj_to_conver=PyList_GetItem(obj,i);
-        py_to_c(obj_to_conver,buffer+offsets[i],i);
+    for (uint16_t i = 0; i < PyList_Size(obj); ++i) {
+        PyObject *obj_to_conver = PyList_GetItem(obj, i);
+        py_to_c(obj_to_conver, buffer + offsets[i], i);
     }
 
-    TupleRow *t= new TupleRow(&offsets,total_bytes,buffer);
+    TupleRow *t = new TupleRow(&offsets, total_bytes, buffer);
     return t;
 }
+
 /***
  * PRE: Already owns the GIL lock
  * POST: Writes on the memory pointed by data the python object key parse using the type specified by type_array[col]
@@ -249,91 +187,112 @@ TupleRow* TupleRowFactory::make_tuple(PyObject *obj) {
  * @return 0 if succeeds
  */
 
-int TupleRowFactory::py_to_c(PyObject *key, void* data, int32_t col) const {
-    assert(col>=0 && col < (int32_t) type_array.size());
-    if (key==Py_None) return 0;
+int TupleRowFactory::py_to_c(PyObject *key, void *data, int32_t col) const {
+    assert(col >= 0 && col < (int32_t) type_array.size());
+    if (key == Py_None) return 0;
     int ok = -1;
     switch (type_array[col]) {
         case CASS_VALUE_TYPE_TEXT:
         case CASS_VALUE_TYPE_VARCHAR:
         case CASS_VALUE_TYPE_ASCII: {
-            const char * text;
+            const char *text;
             ok = PyArg_Parse(key, "s", text);
-            memcpy(data,&text,sizeof(text));
+            memcpy(data, &text, sizeof(text));
             break;
-        }case CASS_VALUE_TYPE_BIGINT:{
+        }
+        case CASS_VALUE_TYPE_BIGINT: {
             ok = PyArg_Parse(key, "L", data);
             break;
-        }case CASS_VALUE_TYPE_BLOB:{
-            PyObject* size= PyInt_FromSsize_t(PyByteArray_Size(key));
+        }
+        case CASS_VALUE_TYPE_BLOB: {
+            PyObject *size = PyInt_FromSsize_t(PyByteArray_Size(key));
             int32_t c_size;
-            PyArg_Parse(size,Py_INT,&c_size);;
-            const char * bytes = PyByteArray_AsString(key);
-            memcpy(data,&bytes,sizeof(bytes));
+            PyArg_Parse(size, Py_INT, &c_size);;
+            const char *bytes = PyByteArray_AsString(key);
+            memcpy(data, &bytes, sizeof(bytes));
             break;
-        }case CASS_VALUE_TYPE_BOOLEAN:{
-            bool* temp = static_cast<bool*>(data);
-            if (key==Py_True) *temp = true;
+        }
+        case CASS_VALUE_TYPE_BOOLEAN: {
+            bool *temp = static_cast<bool *>(data);
+            if (key == Py_True) *temp = true;
             else *temp = false;
             break;
-        }case CASS_VALUE_TYPE_COUNTER:{
+        }
+        case CASS_VALUE_TYPE_COUNTER: {
             ok = PyArg_Parse(key, Py_U_LONGLONG, data);
             break;
-        }case CASS_VALUE_TYPE_DECIMAL:{
+        }
+        case CASS_VALUE_TYPE_DECIMAL: {
             //decimal.Decimal
             return 0;
-        }case CASS_VALUE_TYPE_DOUBLE:{
+        }
+        case CASS_VALUE_TYPE_DOUBLE: {
             cass_double_t t;
             ok = PyArg_Parse(key, Py_DOUBLE, &t);
-            memcpy(data,&t,sizeof(t));
+            memcpy(data, &t, sizeof(t));
 
             break;
-        }case CASS_VALUE_TYPE_FLOAT:{
+        }
+        case CASS_VALUE_TYPE_FLOAT: {
             cass_float_t t = 0.003;
             ok = PyArg_Parse(key, Py_FLOAT, &t); /* A string */
-            memcpy(data,&t,sizeof(t));
+            memcpy(data, &t, sizeof(t));
             break;
-        }case CASS_VALUE_TYPE_INT:{
+        }
+        case CASS_VALUE_TYPE_INT: {
             int32_t t;
             ok = PyArg_Parse(key, Py_INT, &t); /* A string */
-            memcpy(data,&t,sizeof(t));
+            memcpy(data, &t, sizeof(t));
             break;
-        }case CASS_VALUE_TYPE_TIMESTAMP:{
+        }
+        case CASS_VALUE_TYPE_TIMESTAMP: {
 
             return 0;
-        }case CASS_VALUE_TYPE_UUID:{
+        }
+        case CASS_VALUE_TYPE_UUID: {
 
             return 0;
-        }case CASS_VALUE_TYPE_VARINT:{
+        }
+        case CASS_VALUE_TYPE_VARINT: {
             ok = PyArg_Parse(key, Py_LONG, data);
             break;
-        }case CASS_VALUE_TYPE_TIMEUUID:{
+        }
+        case CASS_VALUE_TYPE_TIMEUUID: {
 
             break;
-        }case CASS_VALUE_TYPE_INET:{
+        }
+        case CASS_VALUE_TYPE_INET: {
 
             break;
-        }case CASS_VALUE_TYPE_DATE:{
+        }
+        case CASS_VALUE_TYPE_DATE: {
 
             break;
-        }case CASS_VALUE_TYPE_TIME:{
+        }
+        case CASS_VALUE_TYPE_TIME: {
 
             break;
-        }case CASS_VALUE_TYPE_SMALL_INT:{
+        }
+        case CASS_VALUE_TYPE_SMALL_INT: {
             ok = PyArg_Parse(key, Py_INT, data);
             break;
-        }case CASS_VALUE_TYPE_TINY_INT:{
-            ok = PyArg_Parse(key,  Py_SHORT_INT, data);
+        }
+        case CASS_VALUE_TYPE_TINY_INT: {
+            ok = PyArg_Parse(key, Py_SHORT_INT, data);
             break;
-        }case CASS_VALUE_TYPE_LIST:{
+        }
+        case CASS_VALUE_TYPE_LIST: {
             break;
-        }case CASS_VALUE_TYPE_MAP:{
+        }
+        case CASS_VALUE_TYPE_MAP: {
 
             break;
-        }case CASS_VALUE_TYPE_SET:{
+        }
+        case CASS_VALUE_TYPE_SET: {
 
             break;
-        }case CASS_VALUE_TYPE_TUPLE: {
+        }
+        case CASS_VALUE_TYPE_TUPLE: {
 
             break;
         }
@@ -342,11 +301,10 @@ int TupleRowFactory::py_to_c(PyObject *key, void* data, int32_t col) const {
         case CASS_VALUE_TYPE_UNKNOWN:
             break;
         default:
-            assert(false &&"UNKNOWN TYPE");
+            assert(false && "UNKNOWN TYPE");
     }
     return ok;
 }
-
 
 
 /***
@@ -358,10 +316,10 @@ int TupleRowFactory::py_to_c(PyObject *key, void* data, int32_t col) const {
  * @param col Indicates which column, thus, which data type are we processing
  * @return 0 if succeeds
  */
-int TupleRowFactory::cass_to_c(const CassValue *lhs,void * data, int16_t col) const {
-    assert(col>=0 && col < (int32_t) type_array.size());
+int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) const {
+    assert(col >= 0 && col < (int32_t) type_array.size());
     if (cass_value_is_null(lhs)) {
-        memset(data,0,compute_size_of(type_array[col]));
+        memset(data, 0, compute_size_of(type_array[col]));
         return 0;
     }
 
@@ -372,32 +330,32 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs,void * data, int16_t col) co
             const char *l_temp;
             size_t l_size;
             cass_value_get_string(lhs, &l_temp, &l_size);
-            memcpy(data,&l_temp,sizeof(l_temp));
+            memcpy(data, &l_temp, sizeof(l_temp));
             return 0;
         }
         case CASS_VALUE_TYPE_VARINT:
         case CASS_VALUE_TYPE_BIGINT: {
-            int64_t *p = static_cast<int64_t* >(data);
-            cass_value_get_int64(lhs,p);
+            int64_t *p = static_cast<int64_t * >(data);
+            cass_value_get_int64(lhs, p);
             return 0;
         }
         case CASS_VALUE_TYPE_BLOB: {
             const unsigned char *l_temp;
             size_t l_size;
             cass_value_get_bytes(lhs, &l_temp, &l_size);
-            memcpy(data,&l_temp,sizeof(l_temp));
+            memcpy(data, &l_temp, sizeof(l_temp));
             return 0;
         }
         case CASS_VALUE_TYPE_BOOLEAN: {
             cass_bool_t b;
             cass_value_get_bool(lhs, &b);
-            bool *p = static_cast<bool*>(data);
-            if (b==cass_true) *p = true;
+            bool *p = static_cast<bool *>(data);
+            if (b == cass_true) *p = true;
             else *p = false;
             return 0;
         }
         case CASS_VALUE_TYPE_COUNTER: {
-            cass_value_get_uint32(lhs, reinterpret_cast<uint32_t*>(data));
+            cass_value_get_uint32(lhs, reinterpret_cast<uint32_t *>(data));
             return 0;
         }
         case CASS_VALUE_TYPE_DECIMAL: {
@@ -409,11 +367,11 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs,void * data, int16_t col) co
             return 0;
         }
         case CASS_VALUE_TYPE_FLOAT: {
-            cass_value_get_float(lhs, reinterpret_cast<float* >(data));
+            cass_value_get_float(lhs, reinterpret_cast<float * >(data));
             return 0;
         }
         case CASS_VALUE_TYPE_INT: {
-            cass_value_get_int32(lhs, reinterpret_cast<int32_t* >(data));
+            cass_value_get_int32(lhs, reinterpret_cast<int32_t * >(data));
             return 0;
         }
         case CASS_VALUE_TYPE_TIMESTAMP: {
@@ -441,10 +399,10 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs,void * data, int16_t col) co
             break;
         }
         case CASS_VALUE_TYPE_SMALL_INT: {
-            cass_value_get_int16(lhs, reinterpret_cast<int16_t* >(data));
+            cass_value_get_int16(lhs, reinterpret_cast<int16_t * >(data));
         }
         case CASS_VALUE_TYPE_TINY_INT: {
-            cass_value_get_int8(lhs, reinterpret_cast<int8_t* >(data));
+            cass_value_get_int8(lhs, reinterpret_cast<int8_t * >(data));
         }
         case CASS_VALUE_TYPE_LIST: {
             break;
@@ -473,12 +431,12 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs,void * data, int16_t col) co
  * @return A list with the information from tuple preserving its order
  */
 
-PyObject* TupleRowFactory::tuple_as_py(TupleRow* tuple) const{
-    assert(tuple!=0);
-    PyObject* list= PyList_New(0);
+PyObject *TupleRowFactory::tuple_as_py(TupleRow *tuple) const {
+    assert(tuple != 0);
+    PyObject *list = PyList_New(0);
 
-    for(uint16_t i=0; i<tuple->size();i++){
-        PyList_Append(list,c_to_py(tuple->get_element(i),type_array[i]));
+    for (uint16_t i = 0; i < tuple->n_elem(); i++) {
+        PyList_Append(list, c_to_py(tuple->get_element(i), type_array[i]));
     }
     return list;
 
@@ -492,7 +450,7 @@ PyObject* TupleRowFactory::tuple_as_py(TupleRow* tuple) const{
  * @return The equivalent object V in Python using the Cassandra Value type to choose the correct transformation
  */
 
-PyObject* TupleRowFactory::c_to_py(const void *V, CassValueType VT) const{
+PyObject *TupleRowFactory::c_to_py(const void *V, CassValueType VT) const {
 
     char const *py_flag = 0;
     PyObject *py_value = Py_None;

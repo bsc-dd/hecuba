@@ -42,7 +42,7 @@ public:
         this->positions = t.positions;
     }
 
-    inline uint16_t size() {
+    inline uint16_t n_elem() {
         if (!positions || (*positions).empty()) return 0;
         return (uint16_t) positions->size();
     }
