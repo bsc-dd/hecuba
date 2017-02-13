@@ -4,6 +4,8 @@ from collections import Iterable
 from collections import namedtuple
 
 import logging
+from types import NoneType
+
 from hfetch import Hcache
 
 from IStorage import IStorage
@@ -14,6 +16,9 @@ class NamedIterator:
     def __init__(self, hiterator, builder):
         self.hiterator = hiterator
         self.builder = builder
+
+    def __iter__(self):
+        return self
 
     def next(self):
         n = self.hiterator.get_next()
@@ -33,6 +38,9 @@ class NamedItemsIterator:
         self.k_size = k_size
         self.column_builder = column_builder
         self.hiterator = hiterator
+
+    def __iter__(self):
+        return self
 
     def next(self):
         n = self.hiterator.get_next()
@@ -100,7 +108,12 @@ class StorageDict(dict, IStorage):
 
         if tokens is None:
             print 'using all tokens'
-            self.tokens = map(lambda a: a.value, config.cluster.metadata.token_map.ring)
+            tokens = map(lambda a: a.value, config.cluster.metadata.token_map.ring)
+            tokens.sort()
+            self.tokens = []
+            n_tns = len(tokens)
+            for i in range(0, n_tns):
+                self.tokens.append((tokens[i], tokens[(i + 1) % n_tns]))
         else:
             self.tokens = tokens
 
@@ -224,10 +237,11 @@ class StorageDict(dict, IStorage):
         self._hcache_params = (config.max_cache_size, self._ksp, self._table,
                                "WHERE %s>=? AND %s<?;" % (tknp, tknp),
                                self.tokens, key_names, column_names)
+        print "HCACHE paramets", self._hcache_params
         self.hcache = Hcache(*self._hcache_params)
         # Storing all in-memory values to cassandra
-        for key, value in self.itervalues():
-            self.hcache.put_row(self._make_key(key) + self._make_value(value))
+        for key, value in self.iteritems():
+            self.hcache.put_row(self._make_key(key), self._make_value(value))
         self._is_persistent = True
 
     def stop_persistent(self):
@@ -254,10 +268,14 @@ class StorageDict(dict, IStorage):
 
         else:
             cres = self.hcache.get_row(self._make_key(key))
-            if cres is None:
+            print cres, "-->", cres.__class__
+
+            if issubclass(cres.__class__, NoneType):
                 return None
-            else:
+            elif self._column_builder is not None:
                 return self._column_builder(cres)
+            else:
+                return cres
 
     def __setitem__(self, key, val):
         """
@@ -287,7 +305,7 @@ class StorageDict(dict, IStorage):
             iterkeys(self): list of keys
         """
         if self._is_persistent:
-            ik = self.hcache.iterkeys()
+            ik = self.hcache.iterkeys(config.prefetch_size)
             return NamedIterator(ik, self._key_builder)
         else:
             return dict.iterkeys(self)
@@ -299,7 +317,7 @@ class StorageDict(dict, IStorage):
             BlockItemsIter(self): list of key,val pairs
         """
         if self._is_persistent:
-            ik = self.hcache.iteritems()
+            ik = self.hcache.iteritems(config.prefetch_size)
             return NamedItemsIterator(self._key_builder, self._column_builder, self._k_size, ik)
         else:
             return dict.iteritems(self)
@@ -311,7 +329,7 @@ class StorageDict(dict, IStorage):
             BlockValuesIter(self): list of values
         """
         if self._is_persistent:
-            ik = self.hcache.itervalues()
+            ik = self.hcache.itervalues(config.prefetch_size)
             return NamedIterator(ik, self._column_builder)
         else:
             return dict.itervalues(self)
