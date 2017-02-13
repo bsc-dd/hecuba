@@ -9,11 +9,19 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 include_directories( ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 include(ExternalProject) # ExternalProject_Add
 
+set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp TupleRowFactory.h)
+
+add_library(hfetch SHARED ${SOURCE_FILES})
+
+
+
+
 
 FIND_LIBRARY(POCO NAMES PocoFoundation PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 FIND_LIBRARY(CASS NAMES cassandra PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 
 message("DIR: " ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
+
 
 if(NOT POCO)
     message("Downloading our own POCO LIB " ${POCO})
@@ -25,6 +33,7 @@ if(NOT POCO)
             CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_LIST_DIR}/_install -DENABLE_CPPUNIT=OFF -DENABLE_XML=OFF -DENABLE_JSON=OFF -DENABLE_MONGODB=OFF -DENABLE_PDF=OFF -DENABLE_UTIL=OFF -DENABLE_NET=OFF -DENABLE_NETSSL=OFF -DENABLE_NETSSL_WIN=OFF -DENABLE_CRYPTO=OFF -DENABLE_DATA=OFF -DENABLE_DATA_SQLITE=OFF -DENABLE_DATA_MYSQL=OFF -DENABLE_DATA_POSTGRESQL=OFF -DENABLE_DATA_ODBC=OFF -DENABLE_SEVENZIP=OFF -DENABLE_ZIP=OFF -DENABLE_APACHECONNECTOR=OFF -DENABLE_CPPPARSER=OFF -DENABLE_POCODOC=OFF -DENABLE_PAGECOMPILER=OFF -DENABLE_PAGECOMPILER_FILE2PAGE=OFF -DENABLE_REDIS=OFF -DENABLE_TESTS=OFF -DENABLE_SAMPLES=OFF -DENABLE_MSVC_MP=OFF
     )
     set(ENV{POCO_PATH} ${CMAKE_CURRENT_LIST_DIR}/_install)
+    add_dependencies(hfetch POCO)
     #set(ALL_LIBS ${ALL_LIBS} POCO)
 else()
 
@@ -42,6 +51,7 @@ if (NOT CASS)
             CMAKE_ARGS
             -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_LIST_DIR}/_install -DCASS_USE_LIBSSH2=OFF -DCASS_USE_OPENSSL=OFF
     )
+    add_dependencies(hfetch CASS)
    # set(ALL_LIBS ${ALL_LIBS} CASS)
     set(ENV{CASS_PATH} ${CMAKE_CURRENT_LIST_DIR}/_install)
 else()
@@ -70,7 +80,7 @@ if (NOT TBB_FOUND)
             BUILD_IN_SOURCE 1
             INSTALL_COMMAND cp -r build/linux_intel64_gcc_cc4.8_libc2.19_kernel4.1.12_release/libtbb.so build/linux_intel64_gcc_cc4.8_libc2.19_kernel4.1.12_release/libtbb.so.2  ${CMAKE_CURRENT_LIST_DIR}/_install/lib && cp -r include/tbb ${CMAKE_CURRENT_LIST_DIR}/_install/include
     )
-    #set(ALL_LIBS ${ALL_LIBS} TBB)
+    add_dependencies(hfetch TBB)    #set(ALL_LIBS ${ALL_LIBS} TBB)
     #set(ENV{TBB_PATH} ${CMAKE_CURRENT_LIST_DIR}/_install)
 else()
     find_library(TBB_LIB NAMES tbb PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
@@ -83,13 +93,10 @@ LINK_DIRECTORIES(${CMAKE_BINARY_DIR}/_install)
 #Python setup
 
 find_package(PythonLibs REQUIRED)
-include_directories(${PYTHON_INCLUDE_DIRS} ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
-
-set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp TupleRowFactory.h)
+include_directories(${PYTHON_INCLUDE_DIRS} ${CMAKE_CURRENT_LIST_DIR}/_install/include)
 
 set(ALL_LIBS ${ALL_LIBS} ${PYTHON_LIBRARIES})
 
-add_library(hfetch SHARED ${SOURCE_FILES})
 
 target_include_directories(hfetch PRIVATE ${CMAKE_CURRENT_LIST_DIR}/_install/include/ )
 target_compile_definitions(hfetch PRIVATE ${TBB_DEFINITIONS})
