@@ -95,8 +95,6 @@ TEST(TestingCacheTable, SingleQ) {
 
     cass_future_free(connect_future);
 
-    const char* query = "SELECT * FROM particle WHERE partid=? AND time=?;";
-
     /** SETUP PY **/
     Py_Initialize();
     PyEval_InitThreads();
@@ -118,9 +116,11 @@ TEST(TestingCacheTable, SingleQ) {
     PyList_SetItem(list,0,Py_BuildValue("i",key1));
     PyList_SetItem(list,1,Py_BuildValue("f",key2));
     PyGILState_Release(gstate);
-
-
-    std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(new CacheTable(max_items,table,keyspace, query, test_session));
+    std::vector<std::string> keysnames = {"partid","time"};
+    std::vector<std::string> colsnames = {"x","xa","family"};
+    std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
+    std::vector<std::pair<int64_t,int64_t > > tokens = {std::pair<int64_t,int64_t >(-10000,10000)};
+   std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(new CacheTable(max_items,table,keyspace, keysnames,colsnames,token_pred,tokens, test_session));
 
 
     PyObject* result = T.get()->get_row(list);
@@ -128,7 +128,7 @@ TEST(TestingCacheTable, SingleQ) {
     EXPECT_FALSE(result==0);
     gstate = PyGILState_Ensure();
 
-    EXPECT_EQ(PyList_Size(result),16);
+    EXPECT_EQ(PyList_Size(result),colsnames.size());
     for ( int i = 0; i<PyList_Size(result); ++i) {
         EXPECT_FALSE(Py_None==PyList_GetItem(result,i));
     }
@@ -165,8 +165,6 @@ TEST(TestingCacheTable, PutRow) {
 
     cass_future_free(connect_future);
 
-    const char* query = "SELECT * FROM particle WHERE partid=? AND time=?;";
-
     /** SETUP PY **/
     Py_Initialize();
     PyEval_InitThreads();
@@ -188,9 +186,12 @@ TEST(TestingCacheTable, PutRow) {
     PyList_SetItem(list,0,Py_BuildValue("i",key1));
     PyList_SetItem(list,1,Py_BuildValue("f",key2));
     PyGILState_Release(gstate);
+    std::vector<std::string> keysnames = {"partid","time"};
+    std::vector<std::string> colsnames = {"x","xa","family"};
+    std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
+    std::vector<std::pair<int64_t,int64_t > > tokens = {std::pair<int64_t,int64_t >(-10000,10000)};
+    std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(new CacheTable(max_items,table,keyspace, keysnames,colsnames,token_pred,tokens, test_session));
 
-
-    std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(new CacheTable(max_items,table,keyspace, query, test_session));
     EXPECT_FALSE(T==0);
 
 
@@ -199,14 +200,13 @@ TEST(TestingCacheTable, PutRow) {
     EXPECT_FALSE(result==0);
     gstate = PyGILState_Ensure();
 
-    EXPECT_EQ(PyList_Size(result),16);
+    EXPECT_EQ(PyList_Size(result),colsnames.size());
     for ( int i = 0; i<PyList_Size(result); ++i) {
         EXPECT_FALSE(Py_None==PyList_GetItem(result,i));
     }
     PyGILState_Release(gstate);
 
-    int ret = T.get()->put_row(result);
-    EXPECT_FALSE(ret);
+    T.get()->put_row(list,result);
 
     CassFuture *close_future = cass_session_close(test_session);
     cass_future_wait(close_future);
@@ -272,8 +272,6 @@ TEST(TestingCacheTable, MultiQ) {
 
     cass_future_free(connect_future);
 
-    const char* query = "SELECT * FROM particle WHERE partid=? AND time=?;";
-
 /** INITIALIZE PYTHON **/
     Py_Initialize();
     PyEval_InitThreads();
@@ -293,8 +291,11 @@ TEST(TestingCacheTable, MultiQ) {
     PyGILState_Release(gstate);
 
 
-
-    std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(new CacheTable(max_items,table,keyspace, query, test_session));
+    std::vector<std::string> keysnames = {"partid","time"};
+    std::vector<std::string> colsnames = {"x","xa","family"};
+    std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
+    std::vector<std::pair<int64_t,int64_t > > tokens = {std::pair<int64_t,int64_t >(-10000,10000)};
+    std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(new CacheTable(max_items,table,keyspace, keysnames,colsnames,token_pred,tokens, test_session));
 
     PyObject* result = T.get()->get_row(list);
 
@@ -325,10 +326,9 @@ TEST(TestingCacheTable, MultiQ) {
 
 
 
-
+/*
 
 TEST(TestingPrefetch,Worker) {
-    /** CONNECT **/
     CassSession *test_session = NULL;
     CassCluster *test_cluster = NULL;
     uint32_t max_items = 100;
@@ -351,11 +351,8 @@ TEST(TestingPrefetch,Worker) {
     const char* query = "SELECT * FROM particle WHERE partid=? AND time=?;";
 
 
-    /** CREATE CACHE TABLE **/
-
     std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(new CacheTable(max_items,table,keyspace, query, test_session));
 
-    /** CREATE PREFETCH **/
 
     const char* query_prefetch = "SELECT * FROM case18.particle WHERE token(partid)>? AND token(partid)<? ;";
     uint32_t num_ranges = 1;
@@ -371,3 +368,4 @@ TEST(TestingPrefetch,Worker) {
     EXPECT_EQ(num_elem,84);
     delete(P);
 }
+*/

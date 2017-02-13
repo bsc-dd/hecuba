@@ -12,10 +12,11 @@ token_ranges = [(8070430489100699999,8070450532247928832)]
 num_keys = 1024
 size = 1024
 
-success = connectCassandra(nodePort, contact_names)
+success = connectCassandra(contact_names,nodePort)
 assert (success)
 
-cache = hcache(size,table,keyspace,query_get,[(8070430489100699999,8070450532247928832)],100,query_token)
+cache = Hcache(size,keyspace,table,query_get,[(8070430489100699999,8070450532247928832)],100,query_token)
+
 
 
 #clustering key
