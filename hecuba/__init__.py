@@ -129,7 +129,7 @@ class Config:
                 singleton.session.execute(
                     'CREATE TABLE IF NOT EXISTS hecuba.istorage (storage_id text, '
                     'class_name text,name text,'
-                    'tokens list<bigint>, entry_point text, port int, '
+                    'tokens list<frozen<tuple<bigint,bigint>>>, entry_point text, port int, '
                     'indexed_args list<text>, nonindexed_args list<text>, '
                     'dict_pks list<frozen<tuple<text,text>>>,'
                     'dict_columns list<frozen<tuple<text,text>>>,'
@@ -209,7 +209,7 @@ class Config:
             logging.warn('using default PREFETCH_ACTIVATED: %s', singleton.prefetch_activated)
 
         try:
-            singleton.prefetch_size = os.environ['PREFETCH_SIZE']
+            singleton.prefetch_size = int(os.environ['PREFETCH_SIZE'])
         except KeyError:
             singleton.prefetch_size = 10000
             logging.warn('using default PREFETCH_SIZE: %s', singleton.prefetch_activated)
