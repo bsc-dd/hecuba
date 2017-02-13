@@ -10,8 +10,6 @@ include_directories( ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 include(ExternalProject) # ExternalProject_Add
 
 
-
-
 FIND_LIBRARY(POCO NAMES PocoFoundation PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 FIND_LIBRARY(CASS NAMES cassandra PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 
@@ -19,7 +17,7 @@ message("DIR: " ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 
 if(NOT POCO)
     message("Downloading our own POCO LIB " ${POCO})
-
+    unset(POCO)
     ExternalProject_Add(
             POCO
             URL https://pocoproject.org/releases/poco-1.7.7/poco-1.7.7.tar.gz
@@ -27,13 +25,16 @@ if(NOT POCO)
             CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_LIST_DIR}/_install -DENABLE_CPPUNIT=OFF -DENABLE_XML=OFF -DENABLE_JSON=OFF -DENABLE_MONGODB=OFF -DENABLE_PDF=OFF -DENABLE_UTIL=OFF -DENABLE_NET=OFF -DENABLE_NETSSL=OFF -DENABLE_NETSSL_WIN=OFF -DENABLE_CRYPTO=OFF -DENABLE_DATA=OFF -DENABLE_DATA_SQLITE=OFF -DENABLE_DATA_MYSQL=OFF -DENABLE_DATA_POSTGRESQL=OFF -DENABLE_DATA_ODBC=OFF -DENABLE_SEVENZIP=OFF -DENABLE_ZIP=OFF -DENABLE_APACHECONNECTOR=OFF -DENABLE_CPPPARSER=OFF -DENABLE_POCODOC=OFF -DENABLE_PAGECOMPILER=OFF -DENABLE_PAGECOMPILER_FILE2PAGE=OFF -DENABLE_REDIS=OFF -DENABLE_TESTS=OFF -DENABLE_SAMPLES=OFF -DENABLE_MSVC_MP=OFF
     )
     set(ENV{POCO_PATH} ${CMAKE_CURRENT_LIST_DIR}/_install)
+    #set(ALL_LIBS ${ALL_LIBS} POCO)
 else()
+
+    set(ALL_LIBS ${ALL_LIBS} ${POCO})
     set(ENV{POCO_PATH} ${POCO})
 endif()
 
 if (NOT CASS)
     message("Downloading our own CASS DRIVER")
-
+    unset(CASS)
     ExternalProject_Add(
             CASS
             URL https://github.com/datastax/cpp-driver/archive/2.5.0.tar.gz
@@ -41,8 +42,11 @@ if (NOT CASS)
             CMAKE_ARGS
             -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_LIST_DIR}/_install -DCASS_USE_LIBSSH2=OFF -DCASS_USE_OPENSSL=OFF
     )
+   # set(ALL_LIBS ${ALL_LIBS} CASS)
     set(ENV{CASS_PATH} ${CMAKE_CURRENT_LIST_DIR}/_install)
 else()
+
+    set(ALL_LIBS ${ALL_LIBS} ${PYTHON_LIBRARIES} ${CASS})
     set(ENV{CASS_PATH} ${CASS})
 endif()
 
@@ -57,16 +61,20 @@ FIND_PACKAGE(TBB) # searches for the system TBB
 
 if (NOT TBB_FOUND)
     message(Downloading our own TBB)
+    unset(TBB)
     ExternalProject_Add(
             TBB
             URL "https://www.threadingbuildingblocks.org/sites/default/files/software_releases/source/tbb2017_20161128oss_src.tgz"
             CMAKE_COMMAND echo
             BUILD_COMMAND make tbb
             BUILD_IN_SOURCE 1
-            INSTALL_COMMAND cp -r build/linux_intel64_gcc_cc4.8_libc2.19_kernel4.1.12_release/libtbb.so build/linux_intel64_gcc_cc4.8_libc2.19_kernel4.1.12_release/libtbb.so.2  ${CMAKE_CURRENT_LIST_DIR}/_install/lib
+            INSTALL_COMMAND cp -r build/linux_intel64_gcc_cc4.8_libc2.19_kernel4.1.12_release/libtbb.so build/linux_intel64_gcc_cc4.8_libc2.19_kernel4.1.12_release/libtbb.so.2  ${CMAKE_CURRENT_LIST_DIR}/_install/lib && cp -r include/tbb ${CMAKE_CURRENT_LIST_DIR}/_install/include
     )
-    set(ENV{TBB_PATH} ${CMAKE_CURRENT_LIST_DIR}/_install)
+    #set(ALL_LIBS ${ALL_LIBS} TBB)
+    #set(ENV{TBB_PATH} ${CMAKE_CURRENT_LIST_DIR}/_install)
 else()
+    find_library(TBB_LIB NAMES tbb PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
+    set(ALL_LIBS ${ALL_LIBS} ${TBB_LIBRARY}/libtbb.so ${TBB_LIB})
     set(ENV{TBB_PATH} ${TBB})
 endif()
 
@@ -79,14 +87,14 @@ include_directories(${PYTHON_INCLUDE_DIRS} ${CMAKE_CURRENT_LIST_DIR}/_install/li
 
 set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp TupleRowFactory.h)
 
+set(ALL_LIBS ${ALL_LIBS} ${PYTHON_LIBRARIES})
 
 add_library(hfetch SHARED ${SOURCE_FILES})
 
-find_library(TBB_LIB NAMES tbb PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
-target_include_directories(hfetch PRIVATE ${TBB_INCLUDE_DIRS} ${CMAKE_CURRENT_LIST_DIR}/_install/include/ )
+target_include_directories(hfetch PRIVATE ${CMAKE_CURRENT_LIST_DIR}/_install/include/ )
 target_compile_definitions(hfetch PRIVATE ${TBB_DEFINITIONS})
 set_target_properties(hfetch PROPERTIES PREFIX "")
-target_link_libraries(hfetch ${POCO} ${CASS} ${PYTHON_LIBRARIES} ${TBB_LIBRARY}/libtbb.so ${TBB_LIB})
+target_link_libraries(hfetch ${ALL_LIBS})
 
 
 #End of dependencies
