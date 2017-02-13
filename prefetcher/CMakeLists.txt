@@ -41,7 +41,10 @@ else()
     set(ENV{POCO_PATH} ${POCO})
 endif()
 
-if (NOT CASS)
+if (CASS)
+    message("Using system c++ cassandra driver")
+    set(ALL_LIBS ${ALL_LIBS}  ${CASS})
+else()
     message("Downloading our own CASS DRIVER")
     unset(CASS)
     ExternalProject_Add(
@@ -52,12 +55,9 @@ if (NOT CASS)
             -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_LIST_DIR}/_install -DCASS_USE_LIBSSH2=OFF -DCASS_USE_OPENSSL=OFF
     )
     add_dependencies(hfetch CASS)
-   # set(ALL_LIBS ${ALL_LIBS} CASS)
-    set(ENV{CASS_PATH} ${CMAKE_CURRENT_LIST_DIR}/_install)
-else()
+    # set(ALL_LIBS ${ALL_LIBS} CASS)
 
-    set(ALL_LIBS ${ALL_LIBS} ${PYTHON_LIBRARIES} ${CASS})
-    set(ENV{CASS_PATH} ${CASS})
+
 endif()
 
 #
