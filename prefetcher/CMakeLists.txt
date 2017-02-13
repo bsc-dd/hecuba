@@ -83,9 +83,8 @@ if (NOT TBB_FOUND)
     add_dependencies(hfetch TBB)    #set(ALL_LIBS ${ALL_LIBS} TBB)
     #set(ENV{TBB_PATH} ${CMAKE_CURRENT_LIST_DIR}/_install)
 else()
-    find_library(TBB_LIB NAMES tbb PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
-    set(ALL_LIBS ${ALL_LIBS} ${TBB_LIBRARY}/libtbb.so ${TBB_LIB})
-    set(ENV{TBB_PATH} ${TBB})
+    set(ALL_LIBS ${ALL_LIBS} ${TBB_LIBRARIES})
+    set(ALL_INCLUDE ${ALL_INCLUDE} ${TBB_INCLUDE_DIRS})
 endif()
 
 
@@ -93,7 +92,7 @@ LINK_DIRECTORIES(${CMAKE_BINARY_DIR}/_install)
 #Python setup
 
 find_package(PythonLibs REQUIRED)
-include_directories(${PYTHON_INCLUDE_DIRS} ${CMAKE_CURRENT_LIST_DIR}/_install/include)
+include_directories(${PYTHON_INCLUDE_DIRS} ${CMAKE_CURRENT_LIST_DIR}/_install/include ${ALL_INCLUDE})
 
 set(ALL_LIBS ${ALL_LIBS} ${PYTHON_LIBRARIES})
 
