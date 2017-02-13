@@ -1,19 +1,17 @@
-# author: G. Alomar
 import re
 import uuid
 
+from IStorage import IStorage
 from hecuba import config
-from hecuba.dict import PersistentDict
+from hdict import StorageDict
 
 
-class StorageObj(object):
+class StorageObj(object, IStorage):
     """
     This class is where information will be stored in Hecuba.
     The information can be in memory, stored in a python dictionary or local variables, or saved in a
     DDBB(Cassandra), depending on if it's persistent or not.
     """
-    nextKeys = []
-    _cntxt = ''
 
     @staticmethod
     def build_remotely(results):
@@ -49,9 +47,6 @@ class StorageObj(object):
             name (string): the name of the Cassandra Keyspace + table where information can be found
             myuuid (string):  an unique storageobj identifier
         """
-        print "__init__"
-        print "name:  ", name
-        print "myuuid:", myuuid
         self._persistent_dicts = []
         self._attr_to_column = {}
 
@@ -81,7 +76,7 @@ class StorageObj(object):
             config.session.execute('INSERT INTO hecuba.storage_objs (object_id, class_name, ksp, tab, obj_type)' +
                                    ' VALUES (%s,%s,%s,%s,%s)',
                                    [self._myuuid, class_name, self._ksp, self._table, 'hecuba'])
-            self.getByName()
+            self._get_by_name()
             if myuuid is None:
                 query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy'," \
                                  "'replication_factor': %d }" % (self._ksp, config.repl_factor)
@@ -265,8 +260,7 @@ class StorageObj(object):
                     this[table_name] = {'indexed_values': indexed_values}
         return this
 
-
-    def getByName(self):
+    def _get_by_name(self):
         """
         When running the StorageObj.__init__ function with parameters, it retrieves the persistent dict from the DDBB,
         by creating a PersistentDict which links to the Cassandra columnfamily
@@ -274,11 +268,10 @@ class StorageObj(object):
 
         props = self._persistent_props
         dictionaries = filter(lambda (k, t): t['type'] == 'dict', props.iteritems())
-        cl = self.__class__
-        so_full_class_name = cl.__module__ + "." + cl.__name__
         for table_name, per_dict in dictionaries:
-            pd = PersistentDict(self._ksp, self._table, self._persistent,
-                                per_dict['primary_keys'], per_dict['columns'], self._myuuid, so_full_class_name)
+            pk_names = map(lambda a: a[0], per_dict['primary_keys'])
+            col_names = map(lambda a: a[0], per_dict['columns'])
+            pd = StorageDict(self._ksp, self._table, pk_names, col_names, is_persistent=self._persistent)
             setattr(self, table_name, pd)
             self._persistent_dicts.append(pd)
 
@@ -301,7 +294,7 @@ class StorageObj(object):
         props = list(self._persistent_props)
         self._persistent_props[self._table] = self._persistent_props.pop(props[0])
 
-        self.getByName()
+        self._get_by_name()
 
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy'," \
                          "'replication_factor': %d }" % (self._ksp, config.repl_factor)
@@ -393,25 +386,6 @@ class StorageObj(object):
                         insert_query += 'textval) VALUES (\'' + str(key) + '\', \'' + str(variable) + '\')'
                         config.session.execute(insert_query)
 
-    def iteritems(self):
-        """
-        Calls the iterator for the keys of the storageobj
-        Returns:
-            self: list of key,val pairs
-        """
-        # raise ValueError('not yet implemented')
-        return self
-
-    def itervalues(self):
-        """
-        Calls the iterator to obtain the values of the storageobj
-        Returns:
-            self: list of keys
-        Currently blocked to avoid cache inconsistencies
-        """
-        print "Data should be accessed through a block"
-        raise ValueError('not yet implemented')
-
     def increment(self, target, value):
         """
         Instead of increasing the existing value in position target, it sets it to the desired value (only intended to
@@ -419,16 +393,7 @@ class StorageObj(object):
         """
         self[target] = value
 
-    def _get_default_dict(self):
-        """
-        Returns:
-             PersistentDict: the first persistent dict
-        """
-        if len(self._persistent_dicts) == 0:
-            raise KeyError('There are no persistent dicts')
-        return self._persistent_dicts[0]
-
-    def empty_persistent(self):
+    def stop_persistent(self):
         """
             Empties the Cassandra table where the persistent StorageObj stores data
         """
@@ -441,7 +406,7 @@ class StorageObj(object):
             query = "TRUNCATE %s.%s;" % (self._ksp, d._table)
             config.session.execute(query)
 
-    def del_persistent(self):
+    def delete_persistent(self):
         """
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
@@ -454,17 +419,6 @@ class StorageObj(object):
 
         query = "DROP COLUMNFAMILY %s.%s;" % (self._ksp, self._table)
         config.session.execute(query)
-
-    def __contains__(self, key):
-        """
-           Returns True if the given key can be found in the PersistentDict, false otherwise
-           Args:
-               key: key that we are looking for in the PersistentDict
-           Returns:
-               a (boolean): True if the given key can be found in the PersistentDict, false otherwise
-        """
-        def_dict = self._get_default_dict()
-        return def_dict.__contains__(key)
 
     def __getattr__(self, key):
         """
@@ -479,7 +433,9 @@ class StorageObj(object):
 
         if key[0] != '_' and self._persistent:
             try:
-                result = config.session.execute("SELECT * FROM " + str(self._ksp) + "." + str(self._table) + "_attribs WHERE name = \'" + str(key) + "\';")
+                result = config.session.execute(
+                    "SELECT * FROM " + str(self._ksp) + "." + str(self._table) + "_attribs WHERE name = \'" + str(
+                        key) + "\';")
                 for row in result:
                     for rowkey, rowvar in vars(row).iteritems():
                         if not rowkey == 'name':
@@ -510,43 +466,42 @@ class StorageObj(object):
             key: name of the value that we want to obtain
             value: value that we want to save
         """
-        if issubclass(PersistentDict, value.__class__):
-            super(StorageObj, self).__setattr__(key, value)
+
+        if key[0] is not '_' and self._persistent:
+            if type(value) == int:
+                self._attr_to_column[key] = 'intval'
+            if type(value) == str:
+                self._attr_to_column[key] = 'textval'
+            if type(value) == list or type(value) == tuple:
+                if len(value) == 0:
+                    return
+                first = value[0]
+                if type(first) == int:
+                    self._attr_to_column[key] = 'intlist'
+                elif type(first) == str:
+                    self._attr_to_column[key] = 'textlist'
+                elif type(first) == float:
+                    self._attr_to_column[key] = 'doublelist'
+            if type(value) == tuple:
+                if len(value) == 0:
+                    return
+                first = value[0]
+                if type(first) == int:
+                    self._attr_to_column[key] = 'inttuple'
+                elif type(first) == str:
+                    self._attr_to_column[key] = 'texttuple'
+                elif type(first) == float:
+                    self._attr_to_column[key] = 'doubletuple'
+                value = list(value)
+
+            querytable = "INSERT INTO " + self._ksp + "." + self._table + "_attribs (name," + self._attr_to_column[
+                key] + \
+                         ") VALUES (%s,%s)"
+
+            config.session.execute(querytable, [key, value])
+
         else:
-            if key[0] is not '_' and self._persistent:
-                if type(value) == int:
-                    self._attr_to_column[key] = 'intval'
-                if type(value) == str:
-                    self._attr_to_column[key] = 'textval'
-                if type(value) == list or type(value) == tuple:
-                    if len(value) == 0:
-                        return
-                    first = value[0]
-                    if type(first) == int:
-                        self._attr_to_column[key] = 'intlist'
-                    elif type(first) == str:
-                        self._attr_to_column[key] = 'textlist'
-                    elif type(first) == float:
-                        self._attr_to_column[key] = 'doublelist'
-                if type(value) == tuple:
-                    if len(value) == 0:
-                        return
-                    first = value[0]
-                    if type(first) == int:
-                        self._attr_to_column[key] = 'inttuple'
-                    elif type(first) == str:
-                        self._attr_to_column[key] = 'texttuple'
-                    elif type(first) == float:
-                        self._attr_to_column[key] = 'doubletuple'
-                    value = list(value)
-
-                querytable = "INSERT INTO " + self._ksp + "." + self._table + "_attribs (name," + self._attr_to_column[key] + \
-                             ") VALUES (%s,%s)"
-
-                config.session.execute(querytable, [key, value])
-
-            else:
-                super(StorageObj, self).__setattr__(key, value)
+            super(StorageObj, self).__setattr__(key, value)
 
     def getID(self):
         """
@@ -562,245 +517,5 @@ class StorageObj(object):
                a) List of keys in case that the SO is not persistent
                b) Iterator that will return Blocks, one by one, where we can find the SO data in case it's persistent
         """
-        auxdict = self._get_default_dict()
-        if not self._persistent:
-            return [auxdict.keys()]
-        else:
-            return list(auxdict.__iter__())
 
-    def __additem__(self, key, other):
-        """
-           Depending on if it's persistent or not, this function adds the given value to the given key position:
-               a) In memory
-               b) In the DDBB
-           Args:
-               key: position of the value we want to increase
-               other: quantity by which we want to increase the value stored in the key position
-        """
-        auxdict = self._get_default_dict()
-        auxdict[key] += other
-
-    def __getitem__(self, key):
-        """
-        Redirects the call to get the value at a given key position to the PersistentDict of the StorageObj
-        Args:
-            key:
-        Returns:
-        """
-        auxdict = self._get_default_dict()
-        auxdict._persistent_props = self._persistent_props
-        item = auxdict[key]
-        return item
-
-    def __setitem__(self, key, value):
-        auxdict = self._get_default_dict()
-        auxdict[key] = value
-
-    def statistics(self):
-
-        keys = map(lambda a: a[0], self._persistent_props['primary_keys'])
-
-        reads = 0
-        exec ("reads = self." + keys[0] + ".reads")
-        writes = 0
-        exec ("writes = self." + keys[0] + ".writes")
-
-        if reads > 0 or writes > 0:
-            print "####################################################"
-            print "STATISTICS"
-            print "Object:", self.__class__.__name__
-            print "----------------------------------------------------"
-
-        chits = 0
-        if reads > 0:
-            if reads < 10:
-                print "reads:                         ", reads
-            else:
-                if reads < 100:
-                    print "reads:                        ", reads
-                else:
-                    if reads < 1000:
-                        print "reads:                       ", reads
-                    else:
-                        if reads < 10000:
-                            print "reads:                      ", reads
-                        else:
-                            print "reads:                     ", reads
-
-            chits = getattr(self, str(keys[0])).cache_hits
-            if chits < 10:
-                print "cache_hits(X):                 ", chits
-            else:
-                if chits < 100:
-                    print "cache_hits(X):                ", chits
-                else:
-                    if chits < 1000:
-                        print "cache_hits(X):               ", chits
-                    else:
-                        if chits < 10000:
-                            print "cache_hits(X):              ", chits
-                        else:
-                            print "cache_hits(X):             ", chits
-
-            pendreqs = getattr(self, str(keys[0])).pending_requests
-            if pendreqs > 0:
-                if pendreqs < 10:
-                    print "pending_reqs:                  ", pendreqs
-                else:
-                    if pendreqs < 100:
-                        print "pending_reqs:                 ", pendreqs
-                    else:
-                        if pendreqs < 1000:
-                            print "pending_reqs:                ", pendreqs
-                        else:
-                            if pendreqs < 10000:
-                                print "pending_reqs:               ", pendreqs
-                            else:
-                                print "pending_reqs:              ", pendreqs
-
-            dbhits = getattr(self, str(keys[0])).miss
-            if dbhits < 10:
-                print "miss(_):                       ", dbhits
-            else:
-                if dbhits < 100:
-                    print "miss(_):                      ", dbhits
-                else:
-                    if dbhits < 1000:
-                        print "miss(_):                     ", dbhits
-                    else:
-                        if dbhits < 10000:
-                            print "miss(_):                    ", dbhits
-                        else:
-                            print "miss(_):                   ", dbhits
-
-            if reads > 0:
-                cache_usage = (float(chits) / float(reads)) * 100
-                if cache_usage < 10:
-                    print("cache_usage(cache hits/reads):  %.2f%%" % cache_usage)
-                else:
-                    if cache_usage < 100:
-                        print("cache_usage(cache hits/reads): %.2f%%" % cache_usage)
-                    else:
-                        print("cache_usage(cache hits/reads):%.2f%%" % cache_usage)
-
-
-        if writes > 0:
-            if writes < 10:
-                print "writes:                        ", writes
-            else:
-                if writes < 100:
-                    print "writes:                       ", writes
-                else:
-                    if writes < 1000:
-                        print "writes:                      ", writes
-                    else:
-                        if writes < 10000:
-                            print "writes:                     ", writes
-                        else:
-                            if writes < 100000:
-                                print "writes:                    ", writes
-                            else:
-                                print "writes:                   ", writes
-
-            syncs = getattr(self, str(keys[0])).syncs
-            if syncs < 10:
-                print "syncs:                         ", syncs
-            else:
-                if syncs < 100:
-                    print "syncs:                        ", syncs
-                else:
-                    if syncs < 1000:
-                        print "syncs:                       ", syncs
-                    else:
-                        if syncs < 10000:
-                            print "syncs:                      ", syncs
-                        else:
-                            if syncs < 100000:
-                                print "syncs:                     ", syncs
-                            else:
-                                print "syncs:                    ", syncs
-
-        if reads > 0 or writes > 0:
-            print "------Times-----------------------------------------"
-        if reads > 0:
-            '''
-            exec("pendreqsTimeRes = self." + str(keys[0]) + ".pending_requests_time_res")
-            if pendreqsTimeRes < 10:
-                print "pending_requests_time_res:     ", pendreqsTimeRes
-            else:
-                print "pending_requests_time_res:    ", pendreqsTimeRes
-            pending_requests_time_med_res = 0.000000000000
-            if pendreqs > 0:
-                pending_requests_time_med_res = pendreqsTimeRes / pendreqs
-                print("pending_requests_time_med_res:  %.8f" % pending_requests_time_med_res)
-            '''
-            '''
-            exec("pendreqsTime = self." + str(keys[0]) + ".pending_requests_time")
-            if pendreqsTime < 10:
-                print "pending_requests_time:         ", pendreqsTime
-            else:
-                print "pending_requests_time:        ", pendreqsTime
-            pending_requests_time_med = 0.000000000000
-            if pendreqs > 0:
-                pending_requests_time_med = pendreqsTime / pendreqs
-                print("pending_requests_time_med:      %.8f" % pending_requests_time_med)
-            '''
-            '''
-            pendreqfailstime = 0
-            exec("pendreqfailstime = self." + str(keys[0]) + ".pending_requests_fails_time")
-            if pendreqfailstime < 10:
-                print "pendreqfailstime:              ", pendreqfailstime
-            else:
-                if pendreqfailstime < 100:
-                    print "pendreqfailstime:               ", pendreqfailstime
-                else:
-                    print "pendreqfailstime:              ", pendreqfailstime
-            '''
-            mtime = getattr(self, str(keys[0])).miss_time
-            if mtime < 10:
-                print "miss_time:                     ", mtime
-            else:
-                print "miss_time:                    ", mtime
-            if dbhits > 0:
-                miss_times_med = mtime / dbhits
-                print("miss_times_med:                 %.8f" % miss_times_med)
-
-            print "total_read_time:               ", str(cache_hits_time + mtime)
-
-        if writes > 0:
-            print "WRITES"
-
-            syncstime = getattr(self, str(keys[0])).syncs_time
-            if syncstime < 10:
-                print "syncs_time:                    ", syncstime
-            else:
-                print "syncs_time:                   ", syncstime
-            if syncs > 0:
-                syncs_times_med = getattr(self, str(keys[0])).syncs_time / syncs
-            else:
-                syncs_times_med = 0.000000000000
-            print("syncs_times_med:                %.8f" % syncs_times_med)
-
-            cwritetime = getattr(self, str(keys[0])).cachewrite_time
-            if cwritetime < 10:
-                print "cachewrite_time:               ", cwritetime
-            else:
-                print "cachewrite_time:              ", cwritetime
-            if cachewrite > 0:
-                cachewrite_times_med = cwritetime / cachewrite
-                print("cachewrite_times_med:           %.8f" % cachewrite_times_med)
-
-            totalWritesTime = cwritetime + syncstime
-            if totalWritesTime < 10:
-                print "write_time:                    ", totalWritesTime
-            else:
-                print "write_time:                   ", totalWritesTime
-            if writes > 0:
-                write_times_med = (totalWritesTime / writes)
-                print("write_times_med:                %.8f" % write_times_med)
-
-        if reads > 0:
-            print "------Graph-----------------------------------------"
-            print getattr(self, str(keys[0])).cache_hits_graph
-        if reads > 0 or writes > 0:
-            print "####################################################"
+        return self

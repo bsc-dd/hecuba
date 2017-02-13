@@ -2,7 +2,7 @@ import unittest
 
 from app.words import Words
 from hecuba import Config, config
-from hecuba.iter import KeyIter
+from hecuba.hdict import KeyIter
 from storage.api import getByID
 
 

@@ -28,7 +28,7 @@ def runme():
     words = Words('Words')
     result = Result()
     result.make_persistent('Result')
-    result.empty_persistent()
+    result.stop_persistent()
 
     localResults = {}
     for ind, block in enumerate(words.split()):

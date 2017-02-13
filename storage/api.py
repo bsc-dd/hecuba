@@ -1,7 +1,7 @@
 # author: G. Alomar
 
-from hecuba.iter import Block
-from hecuba.dict import *
+from hecuba.hdict import StorageDict
+from hecuba.hdict import *
 from hecuba.storageobj import *
 from hecuba import config
 
@@ -32,7 +32,7 @@ def start_task(params):
         raise ValueError('call start_task with a list of params')
     if config.batch_size > 1:
         for param in params:
-            if issubclass(param.__class__, StorageObj) or issubclass(param.__class__, Block) and param._needContext:
+            if issubclass(param.__class__, StorageObj) or issubclass(param.__class__, StorageDict) and param._needContext:
                 param._cntxt = context(param)
                 param._cntxt.__enter__()
 
@@ -55,12 +55,12 @@ def end_task(params):
     if config.prefetch_activated:
         for param in params:
             if hasattr(param, '_needContext') and param._needContext:
-                if issubclass(param.__class__, Block):
+                if issubclass(param.__class__, StorageDict):
                     persistent_dict = param.storageobj._get_default_dict()
 
     if config.statistics_activated:
         for param in params:
-            if issubclass(param.__class__, Block) and param.supportsStatistics:
+            if issubclass(param.__class__, StorageDict) and param.supportsStatistics:
                 param.storageobj.statistics()
             if issubclass(param.__class__, StorageObj):
                 param.statistics()

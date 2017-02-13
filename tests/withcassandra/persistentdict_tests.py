@@ -3,7 +3,7 @@ import unittest
 from hecuba import config
  
 
-from hecuba.dict import PersistentDict
+from hecuba.hdict import PersistentDict
 
 
 class PersistentDict_Tests(unittest.TestCase):

@@ -4,7 +4,7 @@ from collections import defaultdict
 from mock import Mock
 
 from hecuba import config, Config
-from hecuba.iter import KeyIter, Block
+from hecuba.hdict import KeyIter, StorageDict
 from random import shuffle
 
 
@@ -71,7 +71,7 @@ class KeyIterTest(unittest.TestCase):
         ki = KeyIter('ksp1', 'tt1', 'hecuba.storageobj.StorageObj', 'fake-id', ['pk1'])
 
         b = ki.next()
-        self.assertIsInstance(b, Block)
+        self.assertIsInstance(b, StorageDict)
         config.session.execute.assert_called()
 
     def test_is_iterable(self):
@@ -90,5 +90,5 @@ class KeyIterTest(unittest.TestCase):
         config.cluster.metadata = f
         ki = KeyIter('ksp1', 'tt1', 'hecuba.storageobj.StorageObj', 'fake-id', ['pk1'])
         for b in ki:
-            self.assertIsInstance(b, Block)
+            self.assertIsInstance(b, StorageDict)
 

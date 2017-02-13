@@ -3,7 +3,7 @@ import unittest
 from mock import Mock
 
 from hecuba import Config, config
-from hecuba.iter import Block
+from hecuba.hdict import StorageDict
 from app.words import Words
 
 
@@ -30,7 +30,7 @@ class BlockTest(unittest.TestCase):
         results.object_id =u'test_id'
         old = Words.__init__
         Words.__init__ = Mock(return_value=None)
-        b = Block.build_remotely(results)
+        b = StorageDict.build_remotely(results)
         self.assertIsInstance(b.storageobj, Words)
         Words.__init__.assert_called_once_with("ksp1.tab1", myuuid='test_id')
         Words.__init__ = old
@@ -43,7 +43,7 @@ class BlockTest(unittest.TestCase):
         tokens = [1l, 2l, 3l, 3l]
         old = Words.__init__
         Words.__init__ = Mock(return_value=None)
-        b = Block(blockid, peer, tablename, keyspace, tokens, 'app.words.Words')
+        b = StorageDict(blockid, peer, tablename, keyspace, tokens, 'app.words.Words')
         self.assertIsInstance(b.storageobj, Words)
         Words.__init__.assert_called_once_with(keyspace + "." + tablename, myuuid=None)
         Words.__init__ = old
@@ -58,7 +58,7 @@ class BlockTest(unittest.TestCase):
         tablename = "tab1"
         keyspace = 'ksp1'
         tokens = [1l, 2l, 3l, 3l]
-        b = Block(blockid, peer, tablename, keyspace, tokens, 'app.words.Words')
+        b = StorageDict(blockid, peer, tablename, keyspace, tokens, 'app.words.Words')
         b.storageobj._get_default_dict().is_persistent = False
         self.assertIsInstance(b.storageobj, Words)
 
@@ -71,14 +71,14 @@ class BlockTest(unittest.TestCase):
         Check the id is the same
         :return:
         """
-        from hecuba.iter import Block
-        old = Block.__init__
-        Block.__init__ = Mock(return_value=None)
-        bl = Block()
-        bl.blockid = 'myuuid'
+        from hecuba.hdict import StorageDict
+        old = StorageDict.__init__
+        StorageDict.__init__ = Mock(return_value=None)
+        bl = StorageDict()
+        bl.dict_id = 'myuuid'
         self.assertEquals('myuuid', bl.getID())
         self.assertNotEquals('myuuid2', bl.getID())
-        Block.__init__ = old
+        StorageDict.__init__ = old
 
 
 if __name__ == '__main__':

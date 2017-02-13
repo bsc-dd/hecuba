@@ -88,7 +88,7 @@ class StorageObjTest(unittest.TestCase):
         count, = config.session.execute('SELECT count(*) FROM hecuba_app.words')[0]
         self.assertEqual(2, count)
 
-        so.empty_persistent()
+        so.stop_persistent()
 
         count, = config.session.execute('SELECT count(*) FROM hecuba_app.wordinfo')[0]
         self.assertEqual(0, count)

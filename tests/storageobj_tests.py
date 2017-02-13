@@ -1,6 +1,6 @@
 import unittest
 
-from hecuba.dict import PersistentDict
+from hecuba.hdict import PersistentDict
 from mock import Mock, call
 
 from hecuba import config, Config
