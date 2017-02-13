@@ -1,26 +1,31 @@
- #include "HCache.h"
+#include "HCache.h"
 
 
-typedef struct {
-    PyObject_HEAD
-    CacheTable *T;
-    Prefetch *P;
-} HCache;
+/** MODULE METHODS **/
 
-
-
-static PyObject *connectCassandra(PyObject * self,PyObject *args) {
+static PyObject *connectCassandra(PyObject *self, PyObject *args) {
     int nodePort;
-    char *contact_points;
+    std::string contact_points="";
+    PyObject* py_contact_points;
 
-    int ok=  PyArg_ParseTuple(args, "is", &nodePort, &contact_points);
+    int ok = PyArg_ParseTuple(args, "Oi", &py_contact_points, &nodePort);
     assert(ok);
+
+    uint16_t contact_p_len= (uint16_t ) PyList_Size(py_contact_points);
+
+    for (uint16_t i = 0; i < contact_p_len; ++i) {
+        PyObject *obj_to_convert = PyList_GetItem(py_contact_points, i);
+        char *str_temp;
+        ok = PyArg_Parse(obj_to_convert, "s", &str_temp);
+        assert(ok);
+        contact_points += std::string(str_temp)+" ";
+    }
 
     CassFuture *connect_future = NULL;
     cluster = cass_cluster_new();
     session = cass_session_new();
     // add contact points
-    cass_cluster_set_contact_points(cluster, contact_points);
+    cass_cluster_set_contact_points(cluster, contact_points.c_str());
     cass_cluster_set_port(cluster, nodePort);
     // Provide the cluster object as configuration to connect the session
     connect_future = cass_session_connect(session, cluster);
@@ -33,108 +38,119 @@ static PyObject *connectCassandra(PyObject * self,PyObject *args) {
 }
 
 
-static PyObject *disconnectCassandra(PyObject * self) {
-
-/* IF SETUP SUCCESSFUL */
+static PyObject *disconnectCassandra(PyObject *self) {
     if (session != NULL) {
         CassFuture *close_future = cass_session_close(session);
-        cass_future_wait(close_future);
         cass_future_free(close_future);
+        cass_session_free(session);
+        cass_cluster_free(cluster);
+        session=NULL;
     }
-
-/* ALWAYS */
-    cass_cluster_free(cluster);
-    cass_session_free(session);
     Py_RETURN_TRUE;
 }
 
 
-
-/*** MODULE SETUP ***/
-
+/*** HCACHE DATA TYPE METHODS AND SETUP ***/
 
 
-
-static PyObject* put_row(HCache * self, PyObject *args) {
-    PyObject *py_row;
-    int ok = PyArg_ParseTuple(args, "O", &py_row);
+static PyObject *put_row(HCache *self, PyObject *args) {
+    PyObject *py_keys,*py_values;
+    int ok = PyArg_ParseTuple(args, "OO", &py_keys,&py_values);
     assert(ok);
-    int success = self->T->put_row(py_row);
-     assert(success);
-     Py_RETURN_NONE;
+    self->T->put_row(py_keys,py_values);
+    Py_RETURN_NONE;
 }
 
 
- static PyObject *get_row(HCache * self, PyObject *args) {
-     PyObject *py_keys;
-     int ok= PyArg_ParseTuple(args, "O", &py_keys);
-     assert(ok);
-     return  self->T->get_row(py_keys);
- }
-
-
-
- static PyObject *get_next(HCache * self) {
-     return  self->P->get_next();
- }
-
-
- static void
-Cache_dealloc(HCache* self)
-{
-    delete(self->T);
-    delete(self->P);
-    self->ob_type->tp_free((PyObject*)self);
+static PyObject *get_row(HCache *self, PyObject *args) {
+    PyObject *py_keys;
+    int ok = PyArg_ParseTuple(args, "O", &py_keys);
+    assert(ok);
+    return self->T->get_row(py_keys);
 }
 
- static PyObject* Cache_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
- {
-     HCache *self;
-     self = (HCache *)type->tp_alloc(type, 0);
-     return (PyObject *) self;
- }
 
- static int Cache_init(HCache *self, PyObject *args, PyObject *kwds)
- {
-     const char *table, *keyspace, *query_get,*query_token;
-     uint32_t cache_size, prefetch_size;
-     PyObject *py_tokens;
-     int ok = PyArg_ParseTuple(args, "IsssOIs", &cache_size, &table, &keyspace, &query_get,&py_tokens,&prefetch_size,&query_token);
-     assert(ok);
+static void hcache_dealloc(HCache *self) {
+    delete (self->T);
+    self->ob_type->tp_free((PyObject *) self);
+}
 
-     std::pair<uint64_t,uint64_t> *token_ranges = new std::pair<uint64_t ,uint64_t >[PyList_Size(py_tokens)];
-     for(uint16_t i =0; i<PyList_Size(py_tokens); ++i){
-         PyObject* obj_to_convert=PyList_GetItem(py_tokens,i);
-         uint64_t t_a,t_b;
-         ok = PyArg_ParseTuple(obj_to_convert,"KK",&t_a,&t_b);
-         token_ranges[i]=std::make_pair(t_a,t_b);
-     }
-     self->T = new CacheTable((uint32_t) cache_size, table, keyspace, query_get, session);
-     self->P = new Prefetch(token_ranges,prefetch_size,self->T,session,query_token,PyList_Size(py_tokens));
-     return 0;
- }
+static PyObject *hcache_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+    HCache *self;
+    self = (HCache *) type->tp_alloc(type, 0);
+    return (PyObject *) self;
+}
 
 
-static PyMethodDef type_methods[] = {
-        {"get_row",             (PyCFunction) get_row,             METH_VARARGS, NULL},
-        {"put_row",             (PyCFunction) put_row,             METH_VARARGS, NULL},
-        {"get_next",             (PyCFunction) get_next,             METH_VARARGS, NULL},
-        {NULL, NULL, 0,                                                          NULL}
+
+
+static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
+    const char *table, *keyspace,*token_range_pred;
+    uint32_t cache_size;
+    PyObject *py_tokens, *py_keys_names, *py_cols_names;
+
+    int ok = PyArg_ParseTuple(args, "IsssOOO", &cache_size, &keyspace, &table, &token_range_pred, &py_tokens, &py_keys_names,
+                              &py_cols_names);
+    assert(ok);
+    uint16_t tokens_size= (uint16_t ) PyList_Size(py_tokens);
+    uint16_t  keys_size= (uint16_t ) PyList_Size(py_keys_names);
+    uint16_t  cols_size= (uint16_t ) PyList_Size(py_cols_names);
+
+    std::vector<std::pair<int64_t, int64_t>> token_ranges = std::vector<std::pair<int64_t, int64_t>>(tokens_size);
+    for (uint16_t i = 0; i < tokens_size; ++i) {
+        PyObject *obj_to_convert = PyList_GetItem(py_tokens, i);
+        int64_t t_a, t_b;
+        ok = PyArg_ParseTuple(obj_to_convert, "LL", &t_a, &t_b);
+        assert(ok);
+        token_ranges[i] = std::make_pair(t_a, t_b);
+    }
+
+
+    std::vector<std::string> keys_names = std::vector<std::string>(keys_size);
+
+    for (uint16_t i = 0; i < keys_size; ++i) {
+        PyObject *obj_to_convert = PyList_GetItem(py_keys_names, i);
+        char* str_temp;
+        ok = PyArg_Parse(obj_to_convert, "s", &str_temp);
+        assert(ok);
+        keys_names[i] = std::string(str_temp);
+
+    }
+
+    std::vector<std::string> columns_names = std::vector<std::string>(cols_size);
+    for (uint16_t i = 0; i < cols_size; ++i) {
+        PyObject *obj_to_convert = PyList_GetItem(py_cols_names, i);
+        char* str_temp;
+        ok = PyArg_Parse(obj_to_convert, "s", &str_temp);
+        assert(ok);
+        columns_names[i] = std::string(str_temp);
+    }
+
+    self->T = new CacheTable((uint32_t) cache_size, std::string(table), std::string(keyspace) ,keys_names,columns_names,std::string(token_range_pred), token_ranges, session);
+    return 0;
+}
+
+
+
+
+static PyMethodDef hcache_type_methods[] = {
+        {"get_row",  (PyCFunction) get_row,  METH_VARARGS, NULL},
+        {"put_row",  (PyCFunction) put_row,  METH_VARARGS, NULL},
+        {"iterkeys", (PyCFunction) create_iter_keys, METH_VARARGS, NULL},
+        {"iteritems", (PyCFunction) create_iter_items, METH_VARARGS, NULL},
+        {"itervalues", (PyCFunction) create_iter_values, METH_VARARGS, NULL},
+        {NULL, NULL, 0,                                    NULL}
 };
 
-static PyMethodDef module_methods[] = {
-        {"connectCassandra",    (PyCFunction) connectCassandra,    METH_VARARGS, NULL},
-        {"disconnectCassandra", (PyCFunction) disconnectCassandra, METH_NOARGS,  NULL},
-        {NULL, NULL, 0,                                                          NULL}
-};
 
 
-static PyTypeObject hfetch_CacheType = {
+
+static PyTypeObject hfetch_HCacheType = {
         PyVarObject_HEAD_INIT(NULL, 0)
-        "hfetch.cache",             /* tp_name */
+        "hfetch.Hcache",             /* tp_name */
         sizeof(HCache), /* tp_basicsize */
         0,                         /*tp_itemsize*/
-        (destructor)Cache_dealloc, /*tp_dealloc*/
+        (destructor) hcache_dealloc, /*tp_dealloc*/
         0,                         /*tp_print*/
         0,                         /*tp_getattr*/
         0,                         /*tp_setattr*/
@@ -151,13 +167,13 @@ static PyTypeObject hfetch_CacheType = {
         0,                         /*tp_as_buffer*/
         Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
         "Cassandra rows",           /* tp_doc */
-        0,		               /* tp_traverse */
-        0,		               /* tp_clear */
-        0,		               /* tp_richcompare */
-        0,		               /* tp_weaklistoffset */
-        0,		               /* tp_iter */
-        0,		               /* tp_iternext */
-        type_methods,             /* tp_methods */
+        0,                       /* tp_traverse */
+        0,                       /* tp_clear */
+        0,                       /* tp_richcompare */
+        0,                       /* tp_weaklistoffset */
+        0,                       /* tp_iter */
+        0,                       /* tp_iternext */
+        hcache_type_methods,             /* tp_methods */
         0,             /* tp_members */
         0,                         /* tp_getset */
         0,                         /* tp_base */
@@ -165,22 +181,160 @@ static PyTypeObject hfetch_CacheType = {
         0,                         /* tp_descr_get */
         0,                         /* tp_descr_set */
         0,                         /* tp_dictoffset */
-        (initproc)Cache_init,      /* tp_init */
+        (initproc) hcache_init,      /* tp_init */
         0,                         /* tp_alloc */
-        Cache_new,                 /* tp_new */
+        hcache_new,                 /* tp_new */
 };
 
 
+
+
+
+/*** ITERATOR METHODS AND SETUP ***/
+
+
+static PyObject *hiter_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+    HIterator *self;
+    self = (HIterator *) type->tp_alloc(type, 0);
+    return (PyObject *) self;
+}
+
+
+
+static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
+    //self->P = 0;// new prefetch
+    return 0;
+}
+
+
+static PyObject *get_next(HIterator *self) {
+    return self->P->get_next();
+}
+
+static void hiter_dealloc(HIterator *self) {
+    delete (self->P);
+    self->ob_type->tp_free((PyObject *) self);
+}
+
+
+
+
+static PyMethodDef hiter_type_methods[] = {
+        {"get_next",  (PyCFunction) get_next,  METH_NOARGS, NULL},
+        {NULL, NULL, 0,                                    NULL}
+};
+
+
+static PyTypeObject hfetch_HIterType = {
+        PyVarObject_HEAD_INIT(NULL, 0)
+        "hfetch.HIter",             /* tp_name */
+        sizeof(HIterator), /* tp_basicsize */
+        0,                         /*tp_itemsize*/
+        (destructor) hiter_dealloc, /*tp_dealloc*/
+        0,                         /*tp_print*/
+        0,                         /*tp_getattr*/
+        0,                         /*tp_setattr*/
+        0,                         /*tp_compare*/
+        0,                         /*tp_repr*/
+        0,                         /*tp_as_number*/
+        0,                         /*tp_as_sequence*/
+        0,                         /*tp_as_mapping*/
+        0,                         /*tp_hash */
+        0,                         /*tp_call*/
+        0,                         /*tp_str*/
+        0,                         /*tp_getattro*/
+        0,                         /*tp_setattro*/
+        0,                         /*tp_as_buffer*/
+        Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+        "Cassandra iter",           /* tp_doc */
+        0,                       /* tp_traverse */
+        0,                       /* tp_clear */
+        0,                       /* tp_richcompare */
+        0,                       /* tp_weaklistoffset */
+        0,                       /* tp_iter */
+        0,                       /* tp_iternext */
+        hiter_type_methods,             /* tp_methods */
+        0,             /* tp_members */
+        0,                         /* tp_getset */
+        0,                         /* tp_base */
+        0,                         /* tp_dict */
+        0,                         /* tp_descr_get */
+        0,                         /* tp_descr_set */
+        0,                         /* tp_dictoffset */
+        (initproc) hiter_init,      /* tp_init */
+        0,                         /* tp_alloc */
+        hiter_new,                 /* tp_new */
+};
+
+
+/*** MODULE SETUP ****/
+
+
+
+static PyMethodDef module_methods[] = {
+        {"connectCassandra",    (PyCFunction) connectCassandra,    METH_VARARGS, NULL},
+        {NULL, NULL, 0,                                                          NULL}
+};
+
+
+
+
+static PyObject* create_iter_keys(HCache *self, PyObject* args){
+    int prefetch_size;
+    int ok = PyArg_ParseTuple(args, "i", &prefetch_size);
+    assert(ok);
+
+    HIterator *iter = (HIterator*) hiter_new(&hfetch_HIterType,args,args);
+    hiter_init(iter,args,args);
+    iter->P = self->T->get_keys_iter(prefetch_size);
+    return (PyObject *)iter;
+}
+static PyObject* create_iter_items(HCache *self, PyObject* args){
+    int prefetch_size;
+    int ok = PyArg_ParseTuple(args, "i", &prefetch_size);
+    assert(ok);
+    HIterator *iter = (HIterator*) hiter_new(&hfetch_HIterType,args,args);
+    hiter_init(iter,args,args);
+    iter->P = self->T->get_items_iter(prefetch_size);
+    return (PyObject *)iter;
+}
+static PyObject* create_iter_values(HCache *self, PyObject* args){
+    int prefetch_size;
+    int ok = PyArg_ParseTuple(args, "i", &prefetch_size);
+    assert(ok);
+    HIterator *iter = (HIterator*) hiter_new(&hfetch_HIterType,args,args);
+    hiter_init(iter,args,args);
+    iter->P = self->T->get_values_iter(prefetch_size);
+    return (PyObject *)iter;
+}
+
+
+void (*f)(PyObject*) = NULL;
+
+static void module_dealloc(PyObject* self) {
+    disconnectCassandra(self);
+    if (f) f(self);
+}
+
 PyMODINIT_FUNC
-inithfetch(void)
-{
-    PyObject* m;
-    hfetch_CacheType.tp_new = PyType_GenericNew;
-    if (PyType_Ready(&hfetch_CacheType) < 0)
+inithfetch(void) {
+    PyObject *m;
+    hfetch_HIterType.tp_new = PyType_GenericNew;
+    if (PyType_Ready(&hfetch_HIterType) < 0)
         return;
 
-    m = Py_InitModule3("hfetch", module_methods, "docstring...");
+    Py_INCREF(&hfetch_HIterType);
+    hfetch_HCacheType.tp_new = PyType_GenericNew;
+    if (PyType_Ready(&hfetch_HCacheType) < 0)
+        return;
 
-    Py_INCREF(&hfetch_CacheType);
-    PyModule_AddObject(m, "hcache", (PyObject *)&hfetch_CacheType);
+    Py_INCREF(&hfetch_HCacheType);
+
+    m = Py_InitModule3("hfetch", module_methods, "c++ bindings for hecuba cache & prefetch");
+    f=m->ob_type->tp_dealloc;
+    m->ob_type->tp_dealloc=module_dealloc;
+
+    PyModule_AddObject(m, "Hcache", (PyObject *) &hfetch_HCacheType);
+    PyModule_AddObject(m, "HIterator", (PyObject *) &hfetch_HIterType);
+
 }

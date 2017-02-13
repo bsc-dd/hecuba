@@ -37,32 +37,14 @@
 class TupleRowFactory{
 
 public:
-    TupleRowFactory(const CassTableMeta *table_meta);
+    TupleRowFactory(const CassTableMeta *table_meta, const std::vector<std::string> &col_names);
 
-    inline TupleRowFactory* getKeyFactory() {
-        return  keyFactory;
-    }
-
-    ~TupleRowFactory() {
-        if (keyFactory!=NULL) {
-            delete(keyFactory);
-        }
-
+     ~TupleRowFactory() {
     }
 
     TupleRow* make_tuple(PyObject* obj);
 
     TupleRow* make_tuple(const CassRow* row);
-
-    //std::shared_ptr<TupleRow> make_key_tuple(const CassRow* row);
-    TupleRow* extract_key_tuple(PyObject* row);
-
-
-    TupleRow* extract_key_tuple(const CassRow* row);
-
-    TupleRow* make_key_tuple(std::vector<const CassValue *>keys);
-
-    TupleRow* make_key_tuple(PyObject* obj);
 
     PyObject* tuple_as_py(TupleRow* tuple) const;
 
@@ -70,10 +52,9 @@ public:
         return type_array[pos];
     }
 
-    inline CassValueType get_key_type(uint16_t pos){
-        return keyFactory->get_type(pos);
+    inline uint16_t n_elements(){
+        return (uint16_t) this->type_array.size();
     }
-
     TupleRowFactory(){};
 
 private:
@@ -81,10 +62,6 @@ private:
     std::vector<CassValueType> type_array;
     std::vector<std::string> name_map;
     uint16_t total_bytes;
-    std::vector<int16_t> partition_cols;
-
-    TupleRowFactory* keyFactory=NULL; //doesnt work on minerva, remove NULL
-
 
     uint16_t compute_size_of(const CassValueType VT) const;
 

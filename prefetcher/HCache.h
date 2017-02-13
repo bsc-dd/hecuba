@@ -17,19 +17,25 @@
 #include "structmember.h"
 #include "Prefetch.h"
 
+
+
 CassSession *session = NULL;
 CassCluster *cluster = NULL;
 
-
-/*static PyObject* put_row(PyObject* self, PyObject* args);
-
-static PyObject *get_row(PyObject* self, PyObject* args);
-
-static PyObject* connectCassandra(PyObject* self, PyObject* args);
+typedef struct {
+    PyObject_HEAD
+    CacheTable *T;
+} HCache;
 
 
-static PyObject* disconnectCassandra(PyObject* self);
+typedef struct {
+    PyObject_HEAD
+    Prefetch *P;
+} HIterator;
 
-static PyObject* addCacheTable(PyObject* self, PyObject* args);
-*/
+static PyObject* create_iter_keys(HCache *self, PyObject* args);
+static PyObject* create_iter_items(HCache *self, PyObject* args);
+static PyObject* create_iter_values(HCache *self, PyObject* args);
+
+
 #endif //PREFETCHER_PREFETCHER_IMP_H
