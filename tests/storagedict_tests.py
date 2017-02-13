@@ -7,17 +7,11 @@ from mock import Mock
 from hecuba.hdict import PersistentDict
 
 
-class PersistentDict_Tests(unittest.TestCase):
+class StorageDict_Tests(unittest.TestCase):
 
     def setUp(self):
         Config.reset(mock_cassandra=True)
 
-
-    #TODO to be written
-    def test_end_prefetch(self):
-        """
-        self.prefetchManager.terminate()
-        """
 
 
 

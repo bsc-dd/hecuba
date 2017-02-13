@@ -91,7 +91,7 @@ class StorageObjTest(unittest.TestCase):
 
     def est_init(self):
         config.session.execute = Mock(return_value=None)
-        nopars = StorageObj('ksp1.tt1', myuuid='ciao')
+        nopars = StorageObj('ksp1.tt1', storage_id='ciao')
         self.assertEqual('tt1', nopars._table)
         self.assertEqual('ksp1', nopars._ksp)
         self.assertEqual('ciao', nopars._myuuid)
@@ -135,38 +135,38 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual('tt1', nopars._table)
         self.assertEqual('ksp1', nopars._ksp)
         self.assertEqual('ciao', nopars._myuuid)
-        self.assertEqual(True, nopars._persistent)
+        self.assertEqual(True, nopars._is_persistent)
         self.assertTrue(hasattr(nopars, 'instances'))
         self.assertIsInstance(nopars.instances, PersistentDict)
         config.session.execute.assert_not_called()
 
     def est__set_attr(self):
         config.session.execute = Mock(return_value=None)
-        nopars = StorageObj('ksp1.tt1', myuuid='ciao')
+        nopars = StorageObj('ksp1.tt1', storage_id='ciao')
         nopars.ciao = 1
         config.session.execute.assert_called_with('INSERT INTO ksp1.tt1(name,intval) VALUES (%s,%s)', ['ciao', 1])
 
         config.session.execute = Mock(return_value=None)
-        nopars = StorageObj('ksp1.tt1', myuuid='ciao')
+        nopars = StorageObj('ksp1.tt1', storage_id='ciao')
         nopars.ciao = "1"
         config.session.execute.assert_called_with('INSERT INTO ksp1.tt1(name,textval) VALUES (%s,%s)', ['ciao', "1"])
 
         config.session.execute = Mock(return_value=None)
-        nopars = StorageObj('ksp1.tt1', myuuid='ciao')
+        nopars = StorageObj('ksp1.tt1', storage_id='ciao')
         nopars.ciao = [1, 2, 3]
         config.session.execute.assert_called_with('INSERT INTO ksp1.tt1(name,intlist) VALUES (%s,%s)',
                                                   ['ciao', [1, 2, 3]])
 
         config.session.execute = Mock(return_value=None)
-        nopars = StorageObj('ksp1.tt1', myuuid='ciao')
+        nopars = StorageObj('ksp1.tt1', storage_id='ciao')
         nopars.ciao = (1, 2, 3)
         config.session.execute.assert_called_with('INSERT INTO ksp1.tt1(name,inttuple) VALUES (%s,%s)',
                                                   ['ciao', [1, 2, 3]])
 
     def test_set_and_get(self):
         config.session.execute = Mock(return_value=[])
-        nopars = StorageObj('ksp1.tb1', myuuid='ciao')
-        self.assertTrue(nopars._persistent)
+        nopars = StorageObj('ksp1.tb1', storage_id='ciao')
+        self.assertTrue(nopars._is_persistent)
         nopars.ciao = 1
         nopars.ciao2 = "1"
         nopars.ciao3 = [1, 2, 3]

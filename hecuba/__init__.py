@@ -127,13 +127,15 @@ class Config:
                     "CREATE KEYSPACE IF NOT EXISTS hecuba WITH replication = {'class': 'SimpleStrategy',"
                     "'replication_factor': %d }" % singleton.repl_factor)
                 singleton.session.execute(
-                    'CREATE TABLE IF NOT EXISTS hecuba.blocks (blockid text, class_name text,storageobj_classname text,'
-                    'tkns list<bigint>, entry_point text, port int, ksp text, tab text, object_id text,'
-                    'obj_type text, indexed_args list<text>, nonindexed_args list<text>, key_list list<text>,'
-                    'value_list list<text>, mem_filter text, PRIMARY KEY(blockid))')
-                singleton.session.execute(
-                    'CREATE TABLE IF NOT EXISTS hecuba.storage_objs (object_id text, class_name text,  ' +
-                    'ksp text , tab text , obj_type text, PRIMARY KEY(object_id))')
+                    'CREATE TABLE IF NOT EXISTS hecuba.istorage (storage_id text, '
+                    'class_name text,name text,'
+                    'tokens list<bigint>, entry_point text, port int, '
+                    'indexed_args list<text>, nonindexed_args list<text>, '
+                    'dict_pks list<frozen<tuple<text,text>>>,'
+                    'dict_columns list<frozen<tuple<text,text>>>,'
+                    'value_list list<text>, mem_filter text, '
+                    'PRIMARY KEY(storage_id))')
+
             except Exception as e:
                 logging.error('Exception creating cluster session. Are you in a testing env? %s', e)
 

@@ -35,7 +35,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual('ksp1', rebuild._ksp)
         self.assertEqual(object_id, rebuild._myuuid)
 
-        self.assertEqual(nopars._persistent, rebuild._persistent)
+        self.assertEqual(nopars._is_persistent, rebuild._persistent)
         #self.assertEqual(vars(nopars), vars(rebuild))
 
 
@@ -45,7 +45,7 @@ class StorageObjTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS hecuba_app.wordinfo")
         config.session.execute("DROP TABLE IF EXISTS hecuba_app.words")
         nopars = Words()
-        self.assertFalse(nopars._persistent)
+        self.assertFalse(nopars._is_persistent)
         config.batch_size = 1
         config.cache_activated = False
         nopars.ciao = 1

@@ -32,7 +32,7 @@ class BlockTest(unittest.TestCase):
         Words.__init__ = Mock(return_value=None)
         b = StorageDict.build_remotely(results)
         self.assertIsInstance(b.storageobj, Words)
-        Words.__init__.assert_called_once_with("ksp1.tab1", myuuid='test_id')
+        Words.__init__.assert_called_once_with("ksp1.tab1", storage_id='test_id')
         Words.__init__ = old
 
     def test_init_creation(self):
@@ -45,7 +45,7 @@ class BlockTest(unittest.TestCase):
         Words.__init__ = Mock(return_value=None)
         b = StorageDict(blockid, peer, tablename, keyspace, tokens, 'app.words.Words')
         self.assertIsInstance(b.storageobj, Words)
-        Words.__init__.assert_called_once_with(keyspace + "." + tablename, myuuid=None)
+        Words.__init__.assert_called_once_with(keyspace + "." + tablename, storage_id=None)
         Words.__init__ = old
 
     def test_iter_and_get_sets(self):

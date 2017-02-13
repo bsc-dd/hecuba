@@ -84,12 +84,9 @@ def getByID(objid):
     if len(objidsplit) == 2:
         objid = objidsplit[0]
 
-    if len(objidsplit) == 2:
-        results = config.session.execute("SELECT * FROM hecuba.storage_objs WHERE object_id = %s", (objid,))[0]
-        class_name = results.class_name
-    else:
-        results = config.session.execute("SELECT * FROM hecuba.blocks WHERE blockid = %s", (objid,))[0]
-        class_name = results.class_name
+    results = config.session.execute("SELECT * FROM hecuba.istorage WHERE object_id = %s", (objid,))[0]
+    class_name = results.class_name
+
     last = 0
     for key, i in enumerate(class_name):
         if i == '.' and key > last:
@@ -98,5 +95,5 @@ def getByID(objid):
     cname = class_name[last + 1:]
     mod = __import__(module, globals(), locals(), [cname], 0)
     b = getattr(mod, cname).build_remotely(results)
-
+    b.storage_id = objid
     return b
