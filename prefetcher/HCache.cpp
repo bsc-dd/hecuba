@@ -5,20 +5,23 @@
 
 static PyObject *connectCassandra(PyObject *self, PyObject *args) {
     int nodePort;
-    std::string contact_points="";
-    PyObject* py_contact_points;
+    std::string contact_points = "";
+    PyObject *py_contact_points;
 
-    int ok = PyArg_ParseTuple(args, "Oi", &py_contact_points, &nodePort);
-    assert(ok);
+    if(!PyArg_ParseTuple(args, "Oi", &py_contact_points, &nodePort)){
+        return NULL;
+    }
 
-    uint16_t contact_p_len= (uint16_t ) PyList_Size(py_contact_points);
+
+    uint16_t contact_p_len = (uint16_t) PyList_Size(py_contact_points);
 
     for (uint16_t i = 0; i < contact_p_len; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_contact_points, i);
         char *str_temp;
-        ok = PyArg_Parse(obj_to_convert, "s", &str_temp);
-        assert(ok);
-        contact_points += std::string(str_temp)+" ";
+        if(! PyArg_Parse(obj_to_convert, "s", &str_temp)){
+            return NULL;
+        };
+        contact_points += std::string(str_temp) + " ";
     }
 
     CassFuture *connect_future = NULL;
@@ -31,10 +34,11 @@ static PyObject *connectCassandra(PyObject *self, PyObject *args) {
     connect_future = cass_session_connect(session, cluster);
     CassError rc = cass_future_error_code(connect_future);
     if (rc != CASS_OK) {
-        throw std::runtime_error(cass_error_desc(rc));
+        PyErr_SetString(PyExc_RuntimeError, cass_error_desc(rc));
+        return NULL;
     }
     cass_future_free(connect_future);
-    Py_RETURN_TRUE;
+    Py_RETURN_NONE;
 }
 
 
@@ -44,7 +48,7 @@ static PyObject *disconnectCassandra(PyObject *self) {
         cass_future_free(close_future);
         cass_session_free(session);
         cass_cluster_free(cluster);
-        session=NULL;
+        session = NULL;
     }
     Py_RETURN_TRUE;
 }
@@ -54,18 +58,22 @@ static PyObject *disconnectCassandra(PyObject *self) {
 
 
 static PyObject *put_row(HCache *self, PyObject *args) {
-    PyObject *py_keys,*py_values;
-    int ok = PyArg_ParseTuple(args, "OO", &py_keys,&py_values);
-    assert(ok);
-    self->T->put_row(py_keys,py_values);
+    PyObject *py_keys, *py_values;
+    if(!PyArg_ParseTuple(args, "OO", &py_keys, &py_values)){
+        return NULL;
+    }
+
+    self->T->put_row(py_keys, py_values);
     Py_RETURN_NONE;
 }
 
 
 static PyObject *get_row(HCache *self, PyObject *args) {
     PyObject *py_keys;
-    int ok = PyArg_ParseTuple(args, "O", &py_keys);
-    assert(ok);
+    if(!PyArg_ParseTuple(args, "O", &py_keys)){
+        return NULL;
+    }
+
     return self->T->get_row(py_keys);
 }
 
@@ -82,26 +90,30 @@ static PyObject *hcache_new(PyTypeObject *type, PyObject *args, PyObject *kwds) 
 }
 
 
-
-
-static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
-    const char *table, *keyspace,*token_range_pred;
+static PyObject * hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
+    const char *table, *keyspace, *token_range_pred;
     uint32_t cache_size;
     PyObject *py_tokens, *py_keys_names, *py_cols_names;
 
-    int ok = PyArg_ParseTuple(args, "IsssOOO", &cache_size, &keyspace, &table, &token_range_pred, &py_tokens, &py_keys_names,
-                              &py_cols_names);
-    assert(ok);
-    uint16_t tokens_size= (uint16_t ) PyList_Size(py_tokens);
-    uint16_t  keys_size= (uint16_t ) PyList_Size(py_keys_names);
-    uint16_t  cols_size= (uint16_t ) PyList_Size(py_cols_names);
+    if (!PyArg_ParseTuple(args, "IsssOOO", &cache_size, &keyspace, &table, &token_range_pred, &py_tokens,
+                          &py_keys_names,
+                          &py_cols_names)) {
+        return NULL;
+    };
+
+
+    uint16_t tokens_size = (uint16_t) PyList_Size(py_tokens);
+    uint16_t keys_size = (uint16_t) PyList_Size(py_keys_names);
+    uint16_t cols_size = (uint16_t) PyList_Size(py_cols_names);
 
     std::vector<std::pair<int64_t, int64_t>> token_ranges = std::vector<std::pair<int64_t, int64_t>>(tokens_size);
     for (uint16_t i = 0; i < tokens_size; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_tokens, i);
         int64_t t_a, t_b;
-        ok = PyArg_ParseTuple(obj_to_convert, "LL", &t_a, &t_b);
-        assert(ok);
+        if (!PyArg_ParseTuple(obj_to_convert, "LL", &t_a, &t_b)) {
+            return NULL;
+        };
+
         token_ranges[i] = std::make_pair(t_a, t_b);
     }
 
@@ -110,9 +122,11 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
 
     for (uint16_t i = 0; i < keys_size; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_keys_names, i);
-        char* str_temp;
-        ok = PyArg_Parse(obj_to_convert, "s", &str_temp);
-        assert(ok);
+        char *str_temp;
+        if (!PyArg_Parse(obj_to_convert, "s", &str_temp)){
+            return NULL;
+        }
+
         keys_names[i] = std::string(str_temp);
 
     }
@@ -120,29 +134,29 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     std::vector<std::string> columns_names = std::vector<std::string>(cols_size);
     for (uint16_t i = 0; i < cols_size; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_cols_names, i);
-        char* str_temp;
-        ok = PyArg_Parse(obj_to_convert, "s", &str_temp);
-        assert(ok);
+        char *str_temp;
+        if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
+            return NULL;
+        };
         columns_names[i] = std::string(str_temp);
     }
 
-    self->T = new CacheTable((uint32_t) cache_size, std::string(table), std::string(keyspace) ,keys_names,columns_names,std::string(token_range_pred), token_ranges, session);
-    return 0;
+    self->T = new CacheTable((uint32_t) cache_size, std::string(table), std::string(keyspace), keys_names,
+                             columns_names, std::string(token_range_pred), token_ranges, session);
+
+    return (PyObject *) self;
+    //Py_RETURN_NONE;
 }
 
 
-
-
 static PyMethodDef hcache_type_methods[] = {
-        {"get_row",  (PyCFunction) get_row,  METH_VARARGS, NULL},
-        {"put_row",  (PyCFunction) put_row,  METH_VARARGS, NULL},
-        {"iterkeys", (PyCFunction) create_iter_keys, METH_VARARGS, NULL},
-        {"iteritems", (PyCFunction) create_iter_items, METH_VARARGS, NULL},
+        {"get_row",    (PyCFunction) get_row,            METH_VARARGS, NULL},
+        {"put_row",    (PyCFunction) put_row,            METH_VARARGS, NULL},
+        {"iterkeys",   (PyCFunction) create_iter_keys,   METH_VARARGS, NULL},
+        {"iteritems",  (PyCFunction) create_iter_items,  METH_VARARGS, NULL},
         {"itervalues", (PyCFunction) create_iter_values, METH_VARARGS, NULL},
-        {NULL, NULL, 0,                                    NULL}
+        {NULL, NULL, 0,                                                NULL}
 };
-
-
 
 
 static PyTypeObject hfetch_HCacheType = {
@@ -187,9 +201,6 @@ static PyTypeObject hfetch_HCacheType = {
 };
 
 
-
-
-
 /*** ITERATOR METHODS AND SETUP ***/
 
 
@@ -198,7 +209,6 @@ static PyObject *hiter_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     self = (HIterator *) type->tp_alloc(type, 0);
     return (PyObject *) self;
 }
-
 
 
 static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
@@ -217,11 +227,9 @@ static void hiter_dealloc(HIterator *self) {
 }
 
 
-
-
 static PyMethodDef hiter_type_methods[] = {
-        {"get_next",  (PyCFunction) get_next,  METH_NOARGS, NULL},
-        {NULL, NULL, 0,                                    NULL}
+        {"get_next", (PyCFunction) get_next, METH_NOARGS, NULL},
+        {NULL, NULL, 0,                                   NULL}
 };
 
 
@@ -272,46 +280,46 @@ static PyTypeObject hfetch_HIterType = {
 
 
 static PyMethodDef module_methods[] = {
-        {"connectCassandra",    (PyCFunction) connectCassandra,    METH_VARARGS, NULL},
-        {NULL, NULL, 0,                                                          NULL}
+        {"connectCassandra", (PyCFunction) connectCassandra, METH_VARARGS, NULL},
+        {NULL, NULL, 0,                                                    NULL}
 };
 
 
-
-
-static PyObject* create_iter_keys(HCache *self, PyObject* args){
+static PyObject *create_iter_keys(HCache *self, PyObject *args) {
     int prefetch_size;
     int ok = PyArg_ParseTuple(args, "i", &prefetch_size);
     assert(ok);
 
-    HIterator *iter = (HIterator*) hiter_new(&hfetch_HIterType,args,args);
-    hiter_init(iter,args,args);
+    HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
+    hiter_init(iter, args, args);
     iter->P = self->T->get_keys_iter(prefetch_size);
-    return (PyObject *)iter;
+    return (PyObject *) iter;
 }
-static PyObject* create_iter_items(HCache *self, PyObject* args){
+
+static PyObject *create_iter_items(HCache *self, PyObject *args) {
     int prefetch_size;
     int ok = PyArg_ParseTuple(args, "i", &prefetch_size);
     assert(ok);
-    HIterator *iter = (HIterator*) hiter_new(&hfetch_HIterType,args,args);
-    hiter_init(iter,args,args);
+    HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
+    hiter_init(iter, args, args);
     iter->P = self->T->get_items_iter(prefetch_size);
-    return (PyObject *)iter;
+    return (PyObject *) iter;
 }
-static PyObject* create_iter_values(HCache *self, PyObject* args){
+
+static PyObject *create_iter_values(HCache *self, PyObject *args) {
     int prefetch_size;
     int ok = PyArg_ParseTuple(args, "i", &prefetch_size);
     assert(ok);
-    HIterator *iter = (HIterator*) hiter_new(&hfetch_HIterType,args,args);
-    hiter_init(iter,args,args);
+    HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
+    hiter_init(iter, args, args);
     iter->P = self->T->get_values_iter(prefetch_size);
-    return (PyObject *)iter;
+    return (PyObject *) iter;
 }
 
 
-void (*f)(PyObject*) = NULL;
+void (*f)(PyObject *) = NULL;
 
-static void module_dealloc(PyObject* self) {
+static void module_dealloc(PyObject *self) {
     disconnectCassandra(self);
     if (f) f(self);
 }
@@ -330,9 +338,11 @@ inithfetch(void) {
 
     Py_INCREF(&hfetch_HCacheType);
 
+
+
     m = Py_InitModule3("hfetch", module_methods, "c++ bindings for hecuba cache & prefetch");
-    f=m->ob_type->tp_dealloc;
-    m->ob_type->tp_dealloc=module_dealloc;
+    f = m->ob_type->tp_dealloc;
+    m->ob_type->tp_dealloc = module_dealloc;
 
     PyModule_AddObject(m, "Hcache", (PyObject *) &hfetch_HCacheType);
     PyModule_AddObject(m, "HIterator", (PyObject *) &hfetch_HIterType);
