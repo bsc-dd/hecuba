@@ -2,7 +2,6 @@
 // Created by bscuser on 1/26/17.
 //
 
-#include <memory>
 #include "TupleRowFactory.h"
 
 /***
@@ -329,8 +328,12 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
         case CASS_VALUE_TYPE_ASCII: {
             const char *l_temp;
             size_t l_size;
-            cass_value_get_string(lhs, &l_temp, &l_size);
-            memcpy(data, &l_temp, sizeof(l_temp));
+            cass_value_get_string(lhs,&l_temp , &l_size);
+            char *permanent = (char*) malloc(l_size);
+            memcpy(permanent, l_temp,l_size);
+            memcpy(data,&permanent,sizeof(char*));
+      //      std::cout << "OUT " << std::string(reinterpret_cast<const char*>(permanent),l_size) << std
+            //  printf("%s\n",permanent);::endl;
             return 0;
         }
         case CASS_VALUE_TYPE_VARINT:
@@ -461,8 +464,12 @@ PyObject *TupleRowFactory::c_to_py(const void *V, CassValueType VT) const {
         case CASS_VALUE_TYPE_TEXT:
         case CASS_VALUE_TYPE_ASCII: {
             py_flag = Py_STRING;
-            const char *temp = reinterpret_cast<const char *>(V);
-            py_value = Py_BuildValue(py_flag, temp);
+
+            uint64_t addr;
+            memcpy(&addr,V,sizeof(char*));
+            char *d = reinterpret_cast<char *>(addr);
+
+            py_value = Py_BuildValue(py_flag, d);
             break;
         }
         case CASS_VALUE_TYPE_BIGINT: {

@@ -18,6 +18,9 @@
 
 #include "TupleRow.h"
 #include <stdexcept>
+#include <memory>
+
+#include <stdlib.h>
 
 #define Py_STRING "s"
 #define Py_U_LONGLONG "K"

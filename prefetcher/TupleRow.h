@@ -6,7 +6,7 @@
 #include <cstring>
 #include <string>
 #include <iostream>
-
+#include "stdlib.h"
 #include <vector>
 #include <cassandra.h>
 #include <python2.7/Python.h>
