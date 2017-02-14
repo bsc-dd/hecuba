@@ -27,7 +27,7 @@ PyObject* Prefetch::get_next(){
     }
     TupleRow *response = NULL;
     data.pop(response);
-    if (!response) {
+    if (!response||response->n_elem()==0) {
         completed = true;
         PyErr_SetNone(PyExc_StopIteration);
         return NULL;
