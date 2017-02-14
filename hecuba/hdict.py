@@ -22,10 +22,8 @@ class NamedIterator:
 
     def next(self):
         n = self.hiterator.get_next()
-        if n is None:
-            raise StopIteration
-        elif self.builder is not None:
-            return self.builder(n)
+        if self.builder is not None:
+            return self.builder(*n)
         else:
             return n[0]
 
@@ -44,18 +42,15 @@ class NamedItemsIterator:
 
     def next(self):
         n = self.hiterator.get_next()
-        if n is None:
-            raise StopIteration
+        if self.key_builder is None:
+            k = n[0]
         else:
-            if self.key_builder is None:
-                k = n[0]
-            else:
-                k = self.key_builder(*n[0:self.k_size])
-            if self.column_builder is None:
-                v = n[self.k_size]
-            else:
-                v = self.column_builder(*n[self.k_size:])
-            return self.builder(k, v)
+            k = self.key_builder(*n[0:self.k_size])
+        if self.column_builder is None:
+            v = n[self.k_size]
+        else:
+            v = self.column_builder(*n[self.k_size:])
+        return self.builder(k, v)
 
 
 class StorageDict(dict, IStorage):
@@ -63,10 +58,10 @@ class StorageDict(dict, IStorage):
     Object used to access data from workers.
     """
 
-    args_names = ["primary_keys", "columns", "name", "tokens","storage_id"]
+    args_names = ["primary_keys", "columns", "name", "tokens", "storage_id"]
     args = namedtuple('StorageDictArgs', args_names)
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage (storage_id, class_name,'
-                                       ' name, tokens,dict_pks,dict_columns)  VALUES (?,?,?,?,?,?)')
+                                                  ' name, tokens,dict_pks,dict_columns)  VALUES (?,?,?,?,?,?)')
 
     @staticmethod
     def build_remotely(storage_id):
@@ -81,6 +76,7 @@ class StorageDict(dict, IStorage):
                            storage_id.name,
                            storage_id.tokens
                            )
+
     @staticmethod
     def _store_meta(storage_args):
         class_name = '%s.%s' % (StorageDict.__class__.__module__, StorageDict.__class__.__name__)
