@@ -6,14 +6,12 @@ set(CMAKE_POSITION_INDEPENDENT_CODE YES)
 project(hfetch)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
-include_directories( ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
+include_directories( ${CMAKE_CURRENT_LIST_DIR}/_install/ /usr/include)
 include(ExternalProject) # ExternalProject_Add
 
-set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp TupleRowFactory.h)
+set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp)
 
 add_library(hfetch SHARED ${SOURCE_FILES})
-
-
 
 
 
@@ -78,7 +76,7 @@ if (NOT TBB_FOUND)
             CMAKE_COMMAND echo
             BUILD_COMMAND make tbb
             BUILD_IN_SOURCE 1
-            INSTALL_COMMAND cp -r build/linux_intel64_gcc_cc4.8_libc2.19_kernel4.1.12_release/libtbb.so build/linux_intel64_gcc_cc4.8_libc2.19_kernel4.1.12_release/libtbb.so.2  ${CMAKE_CURRENT_LIST_DIR}/_install/lib && cp -r include/tbb ${CMAKE_CURRENT_LIST_DIR}/_install/include
+            INSTALL_COMMAND cp -r build/linux_intel64_gcc_cc6.3.1_libc2.23_kernel4.9.8_release/libtbb.so build/linux_intel64_gcc_cc6.3.1_libc2.23_kernel4.9.8_release/libtbb.so.2  ${CMAKE_CURRENT_LIST_DIR}/_install/lib && cp -r include/tbb ${CMAKE_CURRENT_LIST_DIR}/_install/include
     )
     add_dependencies(hfetch TBB)    #set(ALL_LIBS ${ALL_LIBS} TBB)
     #set(ENV{TBB_PATH} ${CMAKE_CURRENT_LIST_DIR}/_install)
@@ -103,6 +101,17 @@ set_target_properties(hfetch PROPERTIES PREFIX "")
 target_link_libraries(hfetch ${ALL_LIBS})
 
 
+
+FIND_LIBRARY(PT NAMES pthread PATHS /lib)
+
+find_package(GTest)
+include_directories(${GTEST_INCLUDE_DIRS})
+
+enable_testing()
+add_executable(hfetch_test tests/runtests.cpp)
+
+target_link_libraries( hfetch_test ${ALL_LIBS} ${PT}  ${GTEST_BOTH_LIBRARIES} ${hfecth} )
+add_test(test hfetch_test)
 #End of dependencies
 
 
