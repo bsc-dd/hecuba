@@ -23,16 +23,8 @@ public:
     void consume_tokens();
 
 
-    inline PyObject* get_next(){
-        TupleRow *response = NULL;
-        if (data.capacity()>=0) data.pop(response);
-        if (!response) {
-            Py_RETURN_NONE;
-        }
-        PyObject* toberet= t_factory->tuple_as_py(response);
-        delete(response);
-        return toberet;
-    }
+
+    PyObject* get_next();
 
     inline TupleRow* get_next_tuple(){
         TupleRow *response;
@@ -48,8 +40,6 @@ public:
     }
 
     ~Prefetch() {
-        //we ensure Worker sets data.cap to 0
-        while (data.capacity()>0) data.abort();
 
         //clear calls items destructors
         data.clear();
@@ -65,6 +55,7 @@ private:
 /** no ownership **/
     CassSession* session;
     TupleRowFactory *t_factory;
+    bool completed = false;
 
 /** ownership **/
     std::thread* worker;

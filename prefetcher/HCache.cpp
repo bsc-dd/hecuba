@@ -8,7 +8,7 @@ static PyObject *connectCassandra(PyObject *self, PyObject *args) {
     std::string contact_points = "";
     PyObject *py_contact_points;
 
-    if(!PyArg_ParseTuple(args, "Oi", &py_contact_points, &nodePort)){
+    if (!PyArg_ParseTuple(args, "Oi", &py_contact_points, &nodePort)) {
         return NULL;
     }
 
@@ -18,7 +18,7 @@ static PyObject *connectCassandra(PyObject *self, PyObject *args) {
     for (uint16_t i = 0; i < contact_p_len; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_contact_points, i);
         char *str_temp;
-        if(! PyArg_Parse(obj_to_convert, "s", &str_temp)){
+        if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
             return NULL;
         };
         contact_points += std::string(str_temp) + " ";
@@ -59,7 +59,7 @@ static PyObject *disconnectCassandra(PyObject *self) {
 
 static PyObject *put_row(HCache *self, PyObject *args) {
     PyObject *py_keys, *py_values;
-    if(!PyArg_ParseTuple(args, "OO", &py_keys, &py_values)){
+    if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_values)) {
         return NULL;
     }
 
@@ -70,7 +70,7 @@ static PyObject *put_row(HCache *self, PyObject *args) {
 
 static PyObject *get_row(HCache *self, PyObject *args) {
     PyObject *py_keys;
-    if(!PyArg_ParseTuple(args, "O", &py_keys)){
+    if (!PyArg_ParseTuple(args, "O", &py_keys)) {
         return NULL;
     }
 
@@ -90,7 +90,7 @@ static PyObject *hcache_new(PyTypeObject *type, PyObject *args, PyObject *kwds) 
 }
 
 
-static PyObject * hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
+static PyObject *hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     const char *table, *keyspace, *token_range_pred;
     uint32_t cache_size;
     PyObject *py_tokens, *py_keys_names, *py_cols_names;
@@ -123,7 +123,7 @@ static PyObject * hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     for (uint16_t i = 0; i < keys_size; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_keys_names, i);
         char *str_temp;
-        if (!PyArg_Parse(obj_to_convert, "s", &str_temp)){
+        if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
             return NULL;
         }
 
@@ -145,7 +145,6 @@ static PyObject * hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
                              columns_names, std::string(token_range_pred), token_ranges, session);
 
     return (PyObject *) self;
-    //Py_RETURN_NONE;
 }
 
 
@@ -287,8 +286,9 @@ static PyMethodDef module_methods[] = {
 
 static PyObject *create_iter_keys(HCache *self, PyObject *args) {
     int prefetch_size;
-    int ok = PyArg_ParseTuple(args, "i", &prefetch_size);
-    assert(ok);
+    if (!PyArg_ParseTuple(args, "i", &prefetch_size)) {
+        return NULL;
+    }
 
     HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
     hiter_init(iter, args, args);
@@ -298,8 +298,9 @@ static PyObject *create_iter_keys(HCache *self, PyObject *args) {
 
 static PyObject *create_iter_items(HCache *self, PyObject *args) {
     int prefetch_size;
-    int ok = PyArg_ParseTuple(args, "i", &prefetch_size);
-    assert(ok);
+    if (!PyArg_ParseTuple(args, "i", &prefetch_size)){
+        return NULL;
+    }
     HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
     hiter_init(iter, args, args);
     iter->P = self->T->get_items_iter(prefetch_size);
@@ -308,8 +309,9 @@ static PyObject *create_iter_items(HCache *self, PyObject *args) {
 
 static PyObject *create_iter_values(HCache *self, PyObject *args) {
     int prefetch_size;
-    int ok = PyArg_ParseTuple(args, "i", &prefetch_size);
-    assert(ok);
+    if (!PyArg_ParseTuple(args, "i", &prefetch_size)){
+        return NULL;
+    }
     HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
     hiter_init(iter, args, args);
     iter->P = self->T->get_values_iter(prefetch_size);
@@ -337,7 +339,6 @@ inithfetch(void) {
         return;
 
     Py_INCREF(&hfetch_HCacheType);
-
 
 
     m = Py_InitModule3("hfetch", module_methods, "c++ bindings for hecuba cache & prefetch");

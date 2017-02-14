@@ -264,8 +264,11 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
 
     cass_future_free(query_future);
     cass_statement_free(statement);
-    if (0 == cass_result_row_count(result)) //or retry 2 times
+    if (0 == cass_result_row_count(result)) {
+        PyErr_SetString(PyExc_KeyError,"key not found");
         return NULL;
+    }
+
     const CassRow *row = cass_result_first_row(result);
 
     //Store result to cache

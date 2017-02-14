@@ -10,7 +10,6 @@ Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> *token_ranges,
     this->session = session;
     this->t_factory = tuple_factory;
     this->tokens = token_ranges;
-    std::cout << "preparing query: " << query << std::endl;
     CassFuture *future = cass_session_prepare(session, query.c_str());
     CassError rc = cass_future_error_code(future);
     CHECK_CASS("prefetch cannot prepare");
@@ -21,7 +20,22 @@ Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> *token_ranges,
 
 }
 
-
+PyObject* Prefetch::get_next(){
+    if(completed){
+        PyErr_SetNone(PyExc_StopIteration);
+        return NULL;
+    }
+    TupleRow *response = NULL;
+    data.pop(response);
+    if (!response) {
+        completed = true;
+        PyErr_SetNone(PyExc_StopIteration);
+        return NULL;
+    }
+    PyObject* toberet= t_factory->tuple_as_py(response);
+    delete(response);
+    return toberet;
+}
 
 void Prefetch::consume_tokens() {
     for (std::pair<int64_t, int64_t> range : *tokens) {
@@ -51,7 +65,6 @@ void Prefetch::consume_tokens() {
                         data.push(t); //blocking operation
                     }
                     catch (tbb::user_abort &e) {
-                        data.set_capacity(0);
                         delete(t);
                         cass_iterator_free(iterator);
                         cass_result_free(result);
@@ -66,10 +79,9 @@ void Prefetch::consume_tokens() {
     }
     try {
         data.push(NULL);
-        data.set_capacity(0);
     }
     catch (tbb::user_abort &e) {
-        data.set_capacity(0);
+
         return;
     }
 }
