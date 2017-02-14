@@ -79,7 +79,7 @@ class Config:
             logging.info('CONTACT_NAMES: %s', str.join(" ", singleton.contact_names))
         except KeyError:
             logging.warn('using default contact point localhost')
-            singleton.contact_names = ['localhost']
+            singleton.contact_names = ['127.0.0.1']
 
         if hasattr(singleton, 'session'):
             logging.warn('Shutting down pre-existent sessions and cluster')
