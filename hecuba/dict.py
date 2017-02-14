@@ -155,8 +155,6 @@ class PersistentDict(dict):
         Returns:
             None
         """
-        print "key:", key
-        print "value:", value
         self.writes += 1  # STATISTICS
         start = time.time()
         if not self.is_persistent:

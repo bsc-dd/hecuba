@@ -1,8 +1,6 @@
 # author: G. Alomar
 
-import time
 from collections import defaultdict
-
 from hecuba import config
 
 
@@ -167,37 +165,14 @@ class BlockIter(object):
             "SELECT * FROM " + keyspace + "." + table + " WHERE " +
             "token(" + ",".join(partition_key) + ") >= ? AND " +
             "token(" + ",".join(partition_key) + ") < ?")
-        metadata = config.cluster.metadata
-        ringtokens = metadata.token_map
         ran = block_tokens
-        ran.sort()
-        last = ringtokens.ring[len(ringtokens.ring) - 1]
         self._token_ranges = []
-        max_token = -9223372036854775808
-        min_token = 9223372036854775807
-        for t in ringtokens.ring:
-            if t.value > max_token:
-                max_token = t.value
-            if t.value < min_token:
-                min_token = t.value
+        min_token = -9223372036854775808
 
         for ind, t in enumerate(ran):
-            if ind == 0:
-                if len(ran) > 1:
-                    tok_dist = ran[ind+1] - ran[ind]
-                else:
-                    for ind2, r in enumerate(ringtokens.ring):
-                        if r.value == t:
-                            if ind2 < len(ringtokens.ring) - 1:
-                                tok_dist = ringtokens.ring[ind2+1].value - ran[ind]
-                            else:
-                                tok_dist = 9223372036854775807 - ran[ind]
-            if ind < len(ran) -1:
-                if t == min_token:
-                    self._token_ranges.append((9223372036854775807,-9223372036854775808))
-                self._token_ranges.append((t, ran[ind+1]))
-            else:
-                self._token_ranges.append((t, t + tok_dist))
+            if t[0] == min_token:
+                self._token_ranges.append((9223372036854775807, -9223372036854775808))
+            self._token_ranges.append(t)
         self._current_iterator = None
 
     def next(self):
@@ -286,6 +261,11 @@ class KeyIter(object):
                                   metadata.token_map.token_to_host_owner.iteritems()))
         self.ring = KeyIter._calculate_block_ranges(self, token_to_hosts, config.number_of_blocks)
 
+        self._query = config.session.prepare(
+            'INSERT INTO ' +
+            'hecuba.blocks (blockid,class_name,storageobj_classname, tkns, ksp, tab, obj_type, entry_point, key_list, '
+            'value_list, object_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+
     @staticmethod
     def _calculate_block_ranges(self, token_to_host, n_blocks):
         host_to_tokens = defaultdict(list)
@@ -295,8 +275,11 @@ class KeyIter(object):
         ring = []
         for tokens in host_to_tokens.values():
             ring += tokens
-        
-        size_query = "SELECT mean_partition_size, partitions_count FROM system.size_estimates WHERE keyspace_name = \'" + str(self._keyspace) + "\' AND table_name = \'" + str(self._table) + "\';"
+
+        '''
+        size_query = "SELECT mean_partition_size, partitions_count FROM system.size_estimates WHERE" \
+                     "keyspace_name = \'" + str(self._keyspace) + "\' AND " \
+                     "table_name = \'" + str(self._table) + "\';"
         table_size_results = config.session.execute(size_query)
         for row in table_size_results:
             mean_part_size = row.mean_partition_size
@@ -310,22 +293,28 @@ class KeyIter(object):
             ranges_per_token = 1
         else:
             ranges_per_token = int(mean_part_size / 300)
-        tks = []
+        '''
+        ranges_per_token = 20
         n_tokens = len(token_to_host)
-        if n_tokens % n_blocks == 0:
-            token_per_block = n_tokens / n_blocks
-            tks = [[] for _ in range(n_blocks)]
-            for i in range(n_tokens):
-                tks[i / token_per_block].append(ring[i])
-        elif n_blocks > n_tokens:
-            tokens = sorted(ring, key=lambda ring: ring[0])
-            tks = [[] for _ in range(len(ring))]
+        tokens = sorted(ring, key=lambda ring: ring[0])
+        tks = [[] for _ in range(len(ring))]
+        if n_blocks >= n_tokens:
             for i in range(len(tokens)):
-                if i == 0:
-                    tokdist = (tokens[1][0]-tokens[0][0])/ranges_per_token
-                for j in range(0,ranges_per_token):
-                    tok = tokens[i][0] + (j * tokdist)
-                    tks[i].append((tok,ring[i][1]))
+                for j in range(1, ranges_per_token + 1):
+                    if j == 1:
+                        if i < len(tokens) - 1:
+                            tok_dist = (tokens[i + 1][0] - tokens[i][0]) / ranges_per_token
+                        else:
+                            tok_dist = (9223372036854775807 - tokens[i][0]) / ranges_per_token
+                        first_tok = tokens[i][0]
+                    last_tok = first_tok + tok_dist
+                    if last_tok > 9223372036854775807:
+                        last_tok = 9223372036854775807
+                    tks[i].append(((int(first_tok), int(last_tok)), ring[i][1]))
+                    first_tok = last_tok
+        else:
+            # TODO : think about merging tokens when we have less blocks than tokens
+            pass
         return tks
 
     def __iter__(self):
@@ -342,16 +331,14 @@ class KeyIter(object):
 
         current_pos = self.ring[self.pos]  # [1]
         host = current_pos[0][1]
-        tks = map(lambda a: a[0], current_pos)
+        tks = map(lambda a: (a[0][0], a[0][1]), current_pos)
         import uuid
         myuuid = str(uuid.uuid1())
 
-        config.session.execute(
-            'INSERT INTO ' +
-            'hecuba.blocks (blockid,class_name,storageobj_classname,tkns, ksp, tab, obj_type, entry_point, key_list, '
-            'value_list, object_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',
-            [myuuid, "hecuba.iter.Block", self._storage_class, tks, self._keyspace, self._table, 'hecuba', host,
-             self._primary_keys, self._columns, self._storage_id])
+        query = self._query.bind([myuuid, "hecuba.iter.Block", self._storage_class, tks, self._keyspace, self._table,
+                                  'hecuba', host, self._primary_keys, self._columns, self._storage_id])
+        config.session.execute(query)
+
         b = Block(myuuid, host, self._table, self._keyspace, tks, self._storage_class, self._primary_keys,
                   self._columns, self._storage_id)
         self.pos += 1
