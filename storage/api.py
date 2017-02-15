@@ -52,18 +52,6 @@ def end_task(params):
                 except Exception as e:
                     print "error trying to exit context:", e
 
-    if config.prefetch_activated:
-        for param in params:
-            if hasattr(param, '_needContext') and param._needContext:
-                if issubclass(param.__class__, StorageDict):
-                    persistent_dict = param.storageobj._get_default_dict()
-
-    if config.statistics_activated:
-        for param in params:
-            if issubclass(param.__class__, StorageDict) and param.supportsStatistics:
-                param.storageobj.statistics()
-            if issubclass(param.__class__, StorageObj):
-                param.statistics()
 
 
 def getByID(objid):
