@@ -238,7 +238,6 @@ class StorageDict(dict, IStorage):
         self._hcache = None
 
     def delete_persistent(self):
-        self.stop_persistent()
         query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
         log.debug('DELETE PERSISTENCE: %s', query)
         config.session.execute(query)
