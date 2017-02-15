@@ -163,7 +163,7 @@ TupleRow *TupleRowFactory::make_tuple(const CassRow *row) {
     while (cass_iterator_next(it)) {
         cass_to_c(cass_iterator_get_column(it), buffer + offsets[i], i);
         if (i > offsets.size())
-            throw std::runtime_error("query has more columns than the ones retrieved from Cassandra");
+            throw ModuleException("TupleRowFactory: Query has more columns than the ones retrieved from Cassandra");
         ++i;
     }
     cass_iterator_free(it);
@@ -194,7 +194,9 @@ TupleRow *TupleRowFactory::make_tuple(PyObject *obj) {
  */
 
 int TupleRowFactory::py_to_c(PyObject *key, void *data, int32_t col) const {
-    assert(col >= 0 && col < (int32_t) type_array.size());
+    if (col < 0 && col > (int32_t) type_array.size()) {
+        throw ModuleException("TupleRowFactory: Asked for column "+std::to_string(col)+" but only "+std::to_string(type_array.size())+" are present");
+    }
     if (key == Py_None) return 0;
     int ok = -1;
     switch (type_array[col]) {
@@ -307,7 +309,7 @@ int TupleRowFactory::py_to_c(PyObject *key, void *data, int32_t col) const {
         case CASS_VALUE_TYPE_UNKNOWN:
             break;
         default:
-            assert(false && "UNKNOWN TYPE");
+            throw ModuleException("TupleRowFactory: Marshall from Py to C: Unsupported type not recognized by Cassandra");
     }
     return ok;
 }
@@ -323,7 +325,11 @@ int TupleRowFactory::py_to_c(PyObject *key, void *data, int32_t col) const {
  * @return 0 if succeeds
  */
 int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) const {
-    assert(col >= 0 && col < (int32_t) type_array.size());
+
+    if (col >= 0 && col < (int32_t) type_array.size()) {
+        throw ModuleException("TupleRowFactory: Asked for column "+std::to_string(col)+" but only "+std::to_string(type_array.size())+" are present");
+    }
+
     if (cass_value_is_null(lhs)) {
         memset(data, 0, compute_size_of(type_array[col]));
         return 0;
@@ -442,9 +448,9 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
  */
 
 PyObject *TupleRowFactory::tuple_as_py(TupleRow *tuple) const {
-    assert(tuple != 0);
+    if (tuple != 0) throw ModuleException("TupleRowFactory: Marshalling from c to python a NULL tuple, unsupported");
     PyObject *list = PyList_New(0);
-    if (tuple->n_elem()==0) throw std::runtime_error("Tuple as py, has 0 elem");
+    if (tuple->n_elem()==0) throw ModuleException("TupleRowFactory: Tuple as py, has 0 elem");
     for (uint16_t i = 0; i < tuple->n_elem(); i++) {
         PyList_Append(list, c_to_py(tuple->get_element(i), type_array[i]));
     }
