@@ -162,7 +162,7 @@ class StorageDict(dict, IStorage):
                 return False
 
     def _make_key(self, key):
-        if isinstance(key, str) or not isinstance(key, Iterable):
+        if isinstance(key, str) or isinstance(key, unicode) or not isinstance(key, Iterable):
             if len(self._primary_keys) == 1:
                 return [key]
             else:
@@ -175,7 +175,7 @@ class StorageDict(dict, IStorage):
 
     @staticmethod
     def _make_value(key):
-        if isinstance(key, str) or not isinstance(key, Iterable):
+        if isinstance(key, str) or isinstance(key, unicode) or not isinstance(key, Iterable):
             return [key]
         else:
             return list(key)
