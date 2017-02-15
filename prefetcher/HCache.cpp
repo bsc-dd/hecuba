@@ -19,7 +19,7 @@ static PyObject *connectCassandra(PyObject *self, PyObject *args) {
         PyObject *obj_to_convert = PyList_GetItem(py_contact_points, i);
         char *str_temp;
         if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
-            return NULL;
+            throw ModuleException("invalid contact points");
         };
         contact_points += std::string(str_temp) + " ";
     }
@@ -98,7 +98,7 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     if (!PyArg_ParseTuple(args, "IsssOOO", &cache_size, &keyspace, &table, &token_range_pred, &py_tokens,
                           &py_keys_names,
                           &py_cols_names)) {
-        return -1;
+         return -1;
     };
 
 
@@ -141,10 +141,14 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
         columns_names[i] = std::string(str_temp);
     }
 
-    self->T = new CacheTable((uint32_t) cache_size, std::string(table), std::string(keyspace), keys_names,
-                             columns_names, std::string(token_range_pred), token_ranges, session);
+    try {
+        self->T = new CacheTable((uint32_t) cache_size, std::string(table), std::string(keyspace), keys_names,
+                                 columns_names, std::string(token_range_pred), token_ranges, session);
 
-    
+      }catch (ModuleException e) {
+        PyErr_SetString(PyExc_RuntimeError,e.what());
+        return -1;
+    }
     return 0;
 }
 

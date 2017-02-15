@@ -16,6 +16,7 @@
 #include <cassandra.h>
 #include <python2.7/Python.h>
 
+#include "ModuleException.h"
 #include "TupleRow.h"
 #include <stdexcept>
 #include <memory>
