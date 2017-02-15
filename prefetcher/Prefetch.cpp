@@ -1,10 +1,6 @@
 #include "Prefetch.h"
 
 
-#define CHECK_CASS(msg) if(rc != CASS_OK){ \
-std::cerr<<msg<<std::endl; };\
-//throw ModuleException(msg); };
-
 Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> *token_ranges, uint32_t buff_size,
                    TupleRowFactory *tuple_factory, CassSession *session, std::string query) {
     this->session = session;
@@ -19,6 +15,7 @@ Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> *token_ranges,
     cass_future_free(future);
     this->data.set_capacity(buff_size);
     this->worker = new std::thread{&Prefetch::consume_tokens, this};
+    this->completed = false;
 
 }
 
@@ -29,7 +26,7 @@ PyObject *Prefetch::get_next() {
     }
     TupleRow *response = NULL;
     data.pop(response);
-    if (!response || response->n_elem() == 0) {
+    if (response == 0) {
         completed = true;
         if (error_msg == NULL) {
             PyErr_SetNone(PyExc_StopIteration);
@@ -40,7 +37,6 @@ PyObject *Prefetch::get_next() {
 
         }
     }
-
     PyObject *toberet = t_factory->tuple_as_py(response);
     delete (response);
 
