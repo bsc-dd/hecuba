@@ -278,7 +278,6 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
     delete (keys);
     cass_result_free(result);
     PyObject* temp = values_factory->tuple_as_py(values);
-    if (PyList_Size(temp)==0) std::cout << "IS EMPTY CACHET" << std::string(reinterpret_cast<const char*>(values->get_element(0))) << std::endl;
 return temp;
 }
 
