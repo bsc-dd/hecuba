@@ -18,6 +18,7 @@
 #include "TupleRowFactory.h"
 
 #include "Prefetch.h"
+#include "Writer.h"
 
 
 class CacheTable {
@@ -72,6 +73,9 @@ private:
     TupleRowFactory *keys_factory;
     TupleRowFactory *values_factory;
     TupleRowFactory *items_factory;
+
+
+    Writer *writer;
 
     void bind_keys(CassStatement *statement, TupleRow *keys);
 };

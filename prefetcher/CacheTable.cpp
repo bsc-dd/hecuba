@@ -1,5 +1,7 @@
 #include "CacheTable.h"
 
+#define writer_buff_size 100
+#define max_write_callbacks 4
 
 /***
  * Constructs a cache which takes and returns data encapsulated as pointers to TupleRow or PyObject
@@ -20,7 +22,7 @@ CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string
     key_names = keyn;
     tokens=tkns;
     token_predicate = "FROM " + keyspace + "." + table + " " + token_range_pred;
-    get_predicate = "FROM " + keyspace + "." + table + " WHERE " + key_names[0] + "=?";
+    get_predi   cate = "FROM " + keyspace + "." + table + " WHERE " + key_names[0] + "=?";
     select_keys = "SELECT " + key_names[0];
     for (uint16_t i = 1; i < key_names.size(); i++) {
         get_predicate += " AND " + key_names[i] + "=?";
@@ -43,7 +45,8 @@ CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string
     CassFuture *future = cass_session_prepare(session, cache_query.c_str());
     CassError rc = cass_future_error_code(future);
     if (rc!=CASS_OK) {
-        throw ModuleException("Cache table: Can't connect to contact points");
+        std::string error = cass_error_desc(rc);
+        throw ModuleException("Cache table: Preparing query: "+cache_query+ " REPORTED ERROR: "+error);
     }
 
     prepared_query = cass_future_get_prepared(future);
@@ -79,8 +82,19 @@ CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string
         throw e;
     }
     cass_schema_meta_free(schema_meta);
+    std::string write_query = "INSERT INTO "+keyspace+"."+table+"(";
 
-
+    write_query+=all_names[0];
+    for (uint16_t i = 1;i<all_names.size(); ++i) {
+        write_query+=","+all_names[i];
+    }
+    write_query+=") VALUES (?";
+    for (uint16_t i = 1; i<all_names.size();++i) {
+        write_query+=",?";
+    }
+    write_query+=");";
+    std::cout << "INSERT Q: " << write_query << std::endl;
+    writer = new Writer((uint16_t )writer_buff_size,(uint16_t )max_write_callbacks,keys_factory,values_factory,session,write_query);
 };
 
 
@@ -237,6 +251,7 @@ void CacheTable::put_row(PyObject *key, PyObject *value) {
     TupleRow *v = values_factory->make_tuple(value);
     //Inserts if not present, otherwise replaces
     myCache->update(*k, v);
+    writer->write_to_cassandra(key,value);
     delete (k);
 
 }
