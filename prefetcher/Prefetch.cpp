@@ -10,6 +10,8 @@ Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> *token_ranges,
     this->session = session;
     this->t_factory = tuple_factory;
     this->tokens = token_ranges;
+    this->completed = false;
+    this->error_msg = NULL;
     CassFuture *future = cass_session_prepare(session, query.c_str());
     CassError rc = cass_future_error_code(future);
     CHECK_CASS("prefetch cannot prepare");
@@ -20,21 +22,27 @@ Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> *token_ranges,
 
 }
 
-PyObject* Prefetch::get_next(){
-    if(completed){
+PyObject *Prefetch::get_next() {
+    if (completed) {
         PyErr_SetNone(PyExc_StopIteration);
         return NULL;
     }
     TupleRow *response = NULL;
     data.pop(response);
-    if (!response||response->n_elem()==0) {
+    if (!response || response->n_elem() == 0) {
         completed = true;
-        PyErr_SetNone(PyExc_StopIteration);
-        return NULL;
+        if (error_msg == NULL) {
+            PyErr_SetNone(PyExc_StopIteration);
+            return NULL;
+        } else {
+            PyErr_SetString(PyExc_RuntimeError, error_msg);
+            return NULL;
+
+        }
     }
 
-    PyObject* toberet= t_factory->tuple_as_py(response);
-    delete(response);
+    PyObject *toberet = t_factory->tuple_as_py(response);
+    delete (response);
 
     return toberet;
 }
@@ -66,8 +74,9 @@ void Prefetch::consume_tokens() {
                     try {
                         data.push(t); //blocking operation
                     }
-                    catch (tbb::user_abort &e) {
-                        delete(t);
+                    catch (std::exception &e) {
+                        std::cerr << "killing the thread" << std::endl;
+                        delete (t);
                         cass_iterator_free(iterator);
                         cass_result_free(result);
                         return;
@@ -78,12 +87,16 @@ void Prefetch::consume_tokens() {
                 cass_result_free(result);
             }
         }
-    }
-    try {
-        data.push(NULL);
-    }
-    catch (tbb::user_abort &e) {
+        try {
+            if (tries == 10)
+                this->error_msg = "impossible to get data";
+            data.push(NULL);
+        }
+        catch (tbb::user_abort &e) {
 
-        return;
+            return;
+
+        }
     }
+
 }
