@@ -38,7 +38,7 @@ class IStorage:
             new_args = self._build_args._replace(tokens=tokens[i:i + splits], storage_id=storage_id)
             self.__class__._store_meta(new_args)
 
-            yield self.__class__.build_remotely(storage_id)
+            yield self.__class__.build_remotely(new_args)
     @staticmethod
     def _store_meta(storage_args):
         raise Exception("to be implemented")
