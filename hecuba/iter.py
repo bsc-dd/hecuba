@@ -276,29 +276,19 @@ class KeyIter(object):
         for tokens in host_to_tokens.values():
             ring += tokens
 
-        '''
-        size_query = "SELECT mean_partition_size, partitions_count FROM system.size_estimates WHERE" \
-                     "keyspace_name = \'" + str(self._keyspace) + "\' AND " \
-                     "table_name = \'" + str(self._table) + "\';"
-        table_size_results = config.session.execute(size_query)
-        for row in table_size_results:
-            mean_part_size = row.mean_partition_size
-            partitions_count = row.partitions_count
-        print "##################################################"
-        print "Cassandra table:     " + str(self._keyspace) + "." + str(self._table)
-        print "mean_partition_size:", mean_part_size
-        print "partitions_count:   ", partitions_count
-        print "##################################################"
-        if mean_part_size == 0:
-            ranges_per_token = 1
-        else:
-            ranges_per_token = int(mean_part_size / 300)
-        '''
-        ranges_per_token = 20
         n_tokens = len(token_to_host)
         tokens = sorted(ring, key=lambda ring: ring[0])
-        tks = [[] for _ in range(len(ring))]
-        if n_blocks >= n_tokens:
+        ranges_per_block = config.ranges_per_block
+        self.blocks_to_ips = []
+        print "tokens:     ", tokens
+        print "len(tokens):", len(tokens)
+        print "n_blocks:        ", n_blocks
+        print "ranges_per_token:", ranges_per_block
+        total_tokens = ranges_per_block * n_blocks
+        print "total_tokens:    ", total_tokens
+        if total_tokens > len(tokens):
+            ranges_per_token = total_tokens / len(tokens)
+            tks = defaultdict(list)
             for i in range(len(tokens)):
                 for j in range(1, ranges_per_token + 1):
                     if j == 1:
@@ -310,11 +300,86 @@ class KeyIter(object):
                     last_tok = first_tok + tok_dist
                     if last_tok > 9223372036854775807:
                         last_tok = 9223372036854775807
+                    tks[str(i), str(ring[i][1])].append((int(first_tok), int(last_tok)))
+                    if (str(i), str(ring[i][1])) not in self.blocks_to_ips:
+                        self.blocks_to_ips.append((str(i), str(ring[i][1])))
+                    first_tok = last_tok + 1
+        else:
+            tks = defaultdict(list)
+            merge_quantity = (len(tokens) / total_tokens) + 1
+            print "merge_quantity:", merge_quantity
+            for i in range(len(tokens)):
+                if i < len(tokens) - 1:
+                    print "ring[i][1]:", ring[i][1]
+                    if i % merge_quantity == 0:
+                        first_tok = tokens[i][0]
+                    elif i % merge_quantity == merge_quantity - 1:
+                        last_tok = tokens[i+1][0] - 1
+                        if last_tok > 9223372036854775807:
+                            last_tok = 9223372036854775807
+                        print str(first_tok) + ", " + str(last_tok) + ", " + str(ring[i][1])
+                        tks[str(i), str(ring[i][1])].append((int(first_tok), int(last_tok)))
+                        if (str(i), str(ring[i][1])) not in self.blocks_to_ips:
+                            self.blocks_to_ips.append((str(i), str(ring[i][1])))
+                else:
+                    if i % merge_quantity == 0:
+                        first_tok = tokens[i][0]
+                    elif i % merge_quantity == merge_quantity - 1:
+                        last_tok = 9223372036854775807
+                        print str(first_tok) + ", " + str(last_tok) + ", " + str(ring[i][1])
+                        tks[str(i), str(ring[i][1])].append((int(first_tok), int(last_tok)))
+                        if (str(i), str(ring[i][1])) not in self.blocks_to_ips:
+                            self.blocks_to_ips.append((str(i), str(ring[i][1])))
+
+
+
+        '''
+        if n_blocks >= n_tokens:
+            tks = [[] for _ in range(len(ring))]
+            for i in range(len(tokens)):
+                for j in range(1, ranges_per_token + 1):
+                    if j == 1:
+                        if i < len(tokens) - 1:
+                            tok_dist = (tokens[i + 1][0] - tokens[i][0]) / ranges_per_block
+                        else:
+                            tok_dist = (9223372036854775807 - tokens[i][0]) / ranges_per_block
+                        first_tok = tokens[i][0]
+                    last_tok = first_tok + tok_dist
+                    if last_tok > 9223372036854775807:
+                        last_tok = 9223372036854775807
                     tks[i].append(((int(first_tok), int(last_tok)), ring[i][1]))
                     first_tok = last_tok
         else:
-            # TODO : think about merging tokens when we have less blocks than tokens
-            pass
+            merge_quantity = 2
+            ranges_per_block = len(tokens) / 2
+            print "merge_quantity:  ", merge_quantity
+            print "len(tokens):     ", len(tokens)
+            print "ranges_per_block:", ranges_per_block
+            print "ring:            ", ring
+            tks = [[] for _ in range(ranges_per_block)]
+            inserted = 0
+            for i in range(len(tokens)):
+                if i < len(tokens) - 1:
+                    print "ring[i][1]:", ring[i][1]
+                    if i % merge_quantity == 0:
+                        first_tok = tokens[i][0]
+                    elif i % merge_quantity == merge_quantity - 1:
+                        last_tok = tokens[i+1][0] - 1
+                        if last_tok > 9223372036854775807:
+                            last_tok = 9223372036854775807
+                        print str(first_tok) + ", " + str(last_tok) + ", " + str(ring[i][1])
+                        tks[inserted].append(((int(first_tok), int(last_tok)), ring[i][1]))
+                        inserted += 1
+                else:
+                    if i % merge_quantity == 0:
+                        first_tok = tokens[i][0]
+                    elif i % merge_quantity == merge_quantity - 1:
+                        last_tok = 9223372036854775807
+                        print str(first_tok) + ", " + str(last_tok) + ", " + str(ring[i][1])
+                        tks[inserted].append(((int(first_tok), int(last_tok)), ring[i][1]))
+                        inserted += 1
+        '''
+        print "tks:", tks
         return tks
 
     def __iter__(self):
@@ -329,9 +394,11 @@ class KeyIter(object):
         if len(self.ring) == self.pos:
             raise StopIteration
 
-        current_pos = self.ring[self.pos]  # [1]
-        host = current_pos[0][1]
-        tks = map(lambda a: (a[0][0], a[0][1]), current_pos)
+        curr_key = self.blocks_to_ips[self.pos]
+        current_pos = self.ring[curr_key]  # [1]
+        print "current_pos:", current_pos
+        host = curr_key[1]
+        tks = map(lambda a: (a[0], a[1]), current_pos)
         import uuid
         myuuid = str(uuid.uuid1())
 
