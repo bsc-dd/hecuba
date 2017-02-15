@@ -2,8 +2,8 @@
 
 
 #define CHECK_CASS(msg) if(rc != CASS_OK){ \
-std::cerr<<msg<<std::endl; \
-throw std::runtime_error(msg); };
+std::cerr<<msg<<std::endl; };\
+//throw ModuleException(msg); };
 
 Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> *token_ranges, uint32_t buff_size,
                    TupleRowFactory *tuple_factory, CassSession *session, std::string query) {

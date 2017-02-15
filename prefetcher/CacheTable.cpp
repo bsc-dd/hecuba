@@ -42,27 +42,42 @@ CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string
     cache_query = select_values + get_predicate;
     CassFuture *future = cass_session_prepare(session, cache_query.c_str());
     CassError rc = cass_future_error_code(future);
-    assert(rc == CASS_OK && "can't connect");
+    if (rc!=CASS_OK) {
+        throw ModuleException("Cache table: Can't connect to contact points");
+    }
+
     prepared_query = cass_future_get_prepared(future);
 
     this->session = session;
     cass_future_free(future);
     //lacks free future (future)
     const CassSchemaMeta *schema_meta = cass_session_get_schema_meta(session);
-    assert(schema_meta != NULL && "error on schema");
+    if (!schema_meta) {
+        throw ModuleException("Cache table: constructor: Schema meta is NULL");
+    }
+
     const CassKeyspaceMeta *keyspace_meta = cass_schema_meta_keyspace_by_name(schema_meta, keyspace.c_str());
+    if (!keyspace_meta) {
+        throw ModuleException("Keyspace table: constructor: Schema meta is NULL");
+    }
 
-    assert(keyspace_meta != NULL && "error on keyspace");
+
     const CassTableMeta *table_meta = cass_keyspace_meta_table_by_name(keyspace_meta, table.c_str());
-
+    if (!table_meta || (cass_table_meta_column_count(table_meta)==0)) {
+        throw ModuleException("Cache table: constructor: Table meta is NULL");
+    }
 
     all_names.reserve(key_names.size() + columns_names.size());
     all_names.insert(all_names.end(), key_names.begin(), key_names.end());
     all_names.insert(all_names.end(), columns_names.begin(), columns_names.end());
-
+    try {
     keys_factory = new TupleRowFactory(table_meta, key_names);
     values_factory = new TupleRowFactory(table_meta, columns_names);
     items_factory = new TupleRowFactory(table_meta, all_names);
+    }
+    catch (ModuleException e) {
+        throw e;
+    }
     cass_schema_meta_free(schema_meta);
 
 

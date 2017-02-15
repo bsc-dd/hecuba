@@ -19,7 +19,7 @@ static PyObject *connectCassandra(PyObject *self, PyObject *args) {
         PyObject *obj_to_convert = PyList_GetItem(py_contact_points, i);
         char *str_temp;
         if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
-            return NULL;
+            throw ModuleException("invalid contact points");
         };
         contact_points += std::string(str_temp) + " ";
     }
@@ -90,7 +90,7 @@ static PyObject *hcache_new(PyTypeObject *type, PyObject *args, PyObject *kwds) 
 }
 
 
-static PyObject *hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
+static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     const char *table, *keyspace, *token_range_pred;
     uint32_t cache_size;
     PyObject *py_tokens, *py_keys_names, *py_cols_names;
@@ -98,7 +98,8 @@ static PyObject *hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     if (!PyArg_ParseTuple(args, "IsssOOO", &cache_size, &keyspace, &table, &token_range_pred, &py_tokens,
                           &py_keys_names,
                           &py_cols_names)) {
-        return NULL;
+
+        return -1;
     };
 
 
@@ -111,7 +112,7 @@ static PyObject *hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
         PyObject *obj_to_convert = PyList_GetItem(py_tokens, i);
         int64_t t_a, t_b;
         if (!PyArg_ParseTuple(obj_to_convert, "LL", &t_a, &t_b)) {
-            return NULL;
+            return -1;
         };
 
         token_ranges[i] = std::make_pair(t_a, t_b);
@@ -124,7 +125,7 @@ static PyObject *hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
         PyObject *obj_to_convert = PyList_GetItem(py_keys_names, i);
         char *str_temp;
         if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
-            return NULL;
+            return -1;
         }
 
         keys_names[i] = std::string(str_temp);
@@ -136,16 +137,20 @@ static PyObject *hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
         PyObject *obj_to_convert = PyList_GetItem(py_cols_names, i);
         char *str_temp;
         if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
-            return NULL;
+            return -1;
         };
         columns_names[i] = std::string(str_temp);
     }
 
+    try {
     self->T = new CacheTable((uint32_t) cache_size, std::string(table), std::string(keyspace), keys_names,
                              columns_names, std::string(token_range_pred), token_ranges, session);
-
-    //return (PyObject *) self;
-    Py_RETURN_NONE;
+    }
+    catch (ModuleException e) {
+        PyErr_SetString(PyExc_RuntimeError,e.what());
+        return -1;
+    }
+    return 0;
 }
 
 

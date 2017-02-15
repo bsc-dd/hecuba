@@ -11,7 +11,7 @@
 #include "tbb/concurrent_queue.h"
 
 #include "TupleRowFactory.h"
-
+#include "ModuleException.h"
 
 class Prefetch {
 

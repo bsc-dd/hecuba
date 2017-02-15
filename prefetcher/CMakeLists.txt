@@ -9,7 +9,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 include_directories( ${CMAKE_CURRENT_LIST_DIR}/_install/ /usr/include)
 include(ExternalProject) # ExternalProject_Add
 
-set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp)
+set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp)
 
 add_library(hfetch SHARED ${SOURCE_FILES})
 
@@ -105,13 +105,15 @@ target_link_libraries(hfetch ${ALL_LIBS})
 FIND_LIBRARY(PT NAMES pthread PATHS /lib)
 
 find_package(GTest)
+if (GTest_FOUND)
 include_directories(${GTEST_INCLUDE_DIRS})
 
 enable_testing()
 add_executable(hfetch_test tests/runtests.cpp)
 
-target_link_libraries( hfetch_test ${ALL_LIBS} ${PT}  ${GTEST_BOTH_LIBRARIES} ${hfecth} )
+target_link_libraries( hfetch_test ${ALL_LIBS} ${PT}  ${GTEST_BOTH_LIBRARIES} hfetch )
 add_test(test hfetch_test)
+endif()
 #End of dependencies
 
 

@@ -11,12 +11,19 @@
  */
 TupleRowFactory::TupleRowFactory(const CassTableMeta *table_meta, const std::vector<std::string> &col_names) {
 
-    assert (table_meta != 0);
+    if (!table_meta) {
+        throw ModuleException("Tuple factory: Table metadata NULL");
+    }
+
     CassIterator *iterator = cass_iterator_columns_from_table_meta(table_meta);
 
     uint32_t ncols = (uint32_t) col_names.size();
     if (col_names[0] == "*") ncols = (uint32_t) cass_table_meta_column_count(table_meta);
-    assert(ncols > 0);
+
+    if (ncols==0) {
+        throw ModuleException("Tuple factory: 0 columns metadata");
+    }
+
 
     type_array = std::vector<CassValueType>(ncols);
     name_map = std::vector<std::string>(ncols);
