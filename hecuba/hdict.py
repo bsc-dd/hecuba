@@ -9,7 +9,7 @@ from types import NoneType
 from hfetch import Hcache
 
 from IStorage import IStorage
-from hecuba import config
+from hecuba import config, log
 
 
 class NamedIterator:
@@ -64,17 +64,17 @@ class StorageDict(dict, IStorage):
                                                   ' name, tokens,dict_pks,dict_columns)  VALUES (?,?,?,?,?,?)')
 
     @staticmethod
-    def build_remotely(storage_id):
+    def build_remotely(result):
         """
         Launches the Block.__init__ from the api.getByID
         Args:
-            storage_id: a list of all information needed to create again the block
+            result: a namedtuple with all  the information needed to create again the block
         """
 
-        return StorageDict(storage_id.primary_keys,
-                           storage_id.columns,
-                           storage_id.name,
-                           storage_id.tokens
+        return StorageDict(result.primary_keys,
+                           result.columns,
+                           result.name,
+                           result.tokens
                            )
 
     @staticmethod
@@ -86,10 +86,10 @@ class StorageDict(dict, IStorage):
                                    [storage_args.storage_id, class_name, storage_args.name,
                                     storage_args.tokens, storage_args.primary_keys, storage_args.columns])
         except Exception as ex:
-            print "Error creating the StorageDict metadata:", storage_args, ex
+            log.error("Error creating the StorageDict metadata: %s %s", storage_args, ex)
             raise ex
 
-    def __init__(self, primary_keys, columns, name=None, tokens=None):
+    def __init__(self, primary_keys, columns, name=None, tokens=None, **kwargs):
         """
         Creates a new block.
 
@@ -102,8 +102,11 @@ class StorageDict(dict, IStorage):
             storage_id (string): the storage id identifier
         """
 
+        super(StorageDict, self).__init__(**kwargs)
+        log.debug("CREATED StorageDict(%s,%s,%s,%s,%s)", primary_keys, columns, name, tokens, kwargs)
+
         if tokens is None:
-            print 'using all tokens'
+            log.info('using all tokens')
             tokens = map(lambda a: a.value, config.cluster.metadata.token_map.ring)
             tokens.sort()
             self.tokens = []
@@ -118,11 +121,6 @@ class StorageDict(dict, IStorage):
         self._columns = columns
 
         self.values = columns
-        if name is not None:
-            self._is_persistent = True
-            self.make_persistent(name)
-        else:
-            self._is_persistent = False
         key_names = map(lambda a: a[0], self._primary_keys)
         column_names = map(lambda a: a[0], self._columns)
         self._item_builder = namedtuple('row', map(lambda a: a[0], primary_keys + columns))
@@ -135,7 +133,17 @@ class StorageDict(dict, IStorage):
             self._column_builder = namedtuple('row', column_names)
         else:
             self._column_builder = None
+
         self._k_size = len(key_names)
+
+
+        if name is not None:
+            self.make_persistent(name)
+        else:
+            self._is_persistent = False
+
+
+
 
     def __eq__(self, other):
         return self.dict_id == other.blockid and \
@@ -147,7 +155,7 @@ class StorageDict(dict, IStorage):
             return dict.__contains__(self, key)
         else:
             try:
-                self.hcache.get_row(self._make_key(key))
+                self._hcache.get_row(self._make_key(key))
                 return True
             except Exception as e:
                 print "Exception in persistentDict.__contains__:", e
@@ -172,23 +180,6 @@ class StorageDict(dict, IStorage):
         else:
             return list(key)
 
-    def __iadd__(self, key, other):
-        """
-        Implements the += logic.
-        This method is consistent only if called on a counter.
-
-        Args:
-             key : the key to update
-             other: value to add
-        Returns:
-            None
-        """
-
-        if self.is_counter:
-            self[key] = other
-        else:
-            self[key] = self[key] + other
-
     def keys(self):
         """
         This method return a list of all the keys of the PersistentDict.
@@ -202,6 +193,7 @@ class StorageDict(dict, IStorage):
 
     def make_persistent(self, name):
         (self._ksp, self._table) = self._extract_ks_tab(name)
+        self._build_args = self._build_args._replace(name=name)
 
         if not hasattr(self, 'storage_id'):
             self.storage_id = str(uuid.uuid1())
@@ -220,10 +212,11 @@ class StorageDict(dict, IStorage):
         query_table = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" % (self._ksp, self._table,
                                                                                     str.join(',', columns),
                                                                                     str.join(',', pks))
+        log.debug('MAKE PERSISTENCE: %s', query_table)
         try:
             config.session.execute(query_table)
         except Exception as ex:
-            print "Error creating the StorageDict table:", query_table, ex
+            log.error("Error creating the StorageDict table: %s %s", query_table, ex)
             raise ex
 
         self._store_meta(self._build_args)
@@ -233,20 +226,21 @@ class StorageDict(dict, IStorage):
         self._hcache_params = (config.max_cache_size, self._ksp, self._table,
                                "WHERE %s>=? AND %s<?;" % (tknp, tknp),
                                self.tokens, key_names, column_names)
-        print "HCACHE paramets", self._hcache_params
-        self.hcache = Hcache(*self._hcache_params)
+        log.debug("HCACHE params %s", self._hcache_params)
+        self._hcache = Hcache(*self._hcache_params)
         # Storing all in-memory values to cassandra
-        for key, value in self.iteritems():
-            self.hcache.put_row(self._make_key(key), self._make_value(value))
+        for key, value in dict.iteritems(self):
+            self._hcache.put_row(self._make_key(key), self._make_value(value))
         self._is_persistent = True
 
     def stop_persistent(self):
         self._is_persistent = True
-        self.hcache = None
+        self._hcache = None
 
     def delete_persistent(self):
         self.stop_persistent()
-        query = "DROP TABLE IF EXISTS %s.%s;" % (self._ksp, self._table)
+        query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
+        log.debug('DELETE PERSISTENCE: %s', query)
         config.session.execute(query)
 
     def __getitem__(self, key):
@@ -257,14 +251,14 @@ class StorageDict(dict, IStorage):
         Returns
              item: value found in position key
         """
-        logging.debug('GET ITEM %s', key)
+        log.debug('GET ITEM %s', key)
 
         if not self._is_persistent:
             return dict.__getitem__(self, key)
 
         else:
-            cres = self.hcache.get_row(self._make_key(key))
-            print cres, "-->", cres.__class__
+            cres = self._hcache.get_row(self._make_key(key))
+            log.debug("GET ITEM %s[%s]", cres, cres.__class__)
 
             if issubclass(cres.__class__, NoneType):
                 return None
@@ -281,10 +275,11 @@ class StorageDict(dict, IStorage):
                val: the value that we want to save in that position
            Returns:
         """
+        log.debug('SET ITEM %s->%s', key, val)
         if not self._is_persistent:
-            return dict.__setitem__(self, key, val)
+            dict.__setitem__(self, key, val)
         else:
-            return self.hcache.put_row(self._make_key(key) + self._make_value(val))
+            self._hcache.put_row(self._make_key(key), self._make_value(val))
 
     def getID(self):
         """
@@ -301,7 +296,7 @@ class StorageDict(dict, IStorage):
             iterkeys(self): list of keys
         """
         if self._is_persistent:
-            ik = self.hcache.iterkeys(config.prefetch_size)
+            ik = self._hcache.iterkeys(config.prefetch_size)
             return NamedIterator(ik, self._key_builder)
         else:
             return dict.iterkeys(self)
@@ -313,7 +308,7 @@ class StorageDict(dict, IStorage):
             BlockItemsIter(self): list of key,val pairs
         """
         if self._is_persistent:
-            ik = self.hcache.iteritems(config.prefetch_size)
+            ik = self._hcache.iteritems(config.prefetch_size)
             return NamedItemsIterator(self._key_builder, self._column_builder, self._k_size, ik)
         else:
             return dict.iteritems(self)
@@ -325,7 +320,7 @@ class StorageDict(dict, IStorage):
             BlockValuesIter(self): list of values
         """
         if self._is_persistent:
-            ik = self.hcache.itervalues(config.prefetch_size)
+            ik = self._hcache.itervalues(config.prefetch_size)
             return NamedIterator(ik, self._column_builder)
         else:
             return dict.itervalues(self)
