@@ -251,7 +251,6 @@ void CacheTable::put_row(PyObject *key, PyObject *value) {
     TupleRow *v = values_factory->make_tuple(value);
     //Inserts if not present, otherwise replaces
     myCache->update(*k, v);
-    writer->write_to_cassandra(key,value);
     delete (k);
 
 }

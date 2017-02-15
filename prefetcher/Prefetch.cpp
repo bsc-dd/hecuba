@@ -1,6 +1,10 @@
 #include "Prefetch.h"
 
 
+#define CHECK_CASS(msg) if(rc != CASS_OK){ \
+std::cerr<<msg<<std::endl; \
+throw std::runtime_error(msg); };
+
 Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> *token_ranges, uint32_t buff_size,
                    TupleRowFactory *tuple_factory, CassSession *session, std::string query) {
     this->session = session;
@@ -15,7 +19,6 @@ Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> *token_ranges,
     cass_future_free(future);
     this->data.set_capacity(buff_size);
     this->worker = new std::thread{&Prefetch::consume_tokens, this};
-    this->completed = false;
 
 }
 
@@ -84,7 +87,6 @@ void Prefetch::consume_tokens() {
                         data.push(t); //blocking operation
                     }
                     catch (std::exception &e) {
-                        std::cerr << "killing the thread" << std::endl;
                         delete (t);
                         cass_iterator_free(iterator);
                         cass_result_free(result);

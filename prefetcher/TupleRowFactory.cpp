@@ -163,7 +163,7 @@ TupleRow *TupleRowFactory::make_tuple(const CassRow *row) {
     while (cass_iterator_next(it)) {
         cass_to_c(cass_iterator_get_column(it), buffer + offsets[i], i);
         if (i > offsets.size())
-            throw ModuleException("TupleRowFactory: Query has more columns than the ones retrieved from Cassandra");
+            throw std::runtime_error("query has more columns than the ones retrieved from Cassandra");
         ++i;
     }
     cass_iterator_free(it);
@@ -194,9 +194,7 @@ TupleRow *TupleRowFactory::make_tuple(PyObject *obj) {
  */
 
 int TupleRowFactory::py_to_c(PyObject *key, void *data, int32_t col) const {
-    if (col < 0 || col >= (int32_t) type_array.size()) {
-        throw ModuleException("TupleRowFactory: Asked for column "+std::to_string(col)+" but only "+std::to_string(type_array.size())+" are present");
-    }
+    assert(col >= 0 && col < (int32_t) type_array.size());
     if (key == Py_None) return 0;
     int ok = -1;
     switch (type_array[col]) {
@@ -468,9 +466,7 @@ PyObject *TupleRowFactory::c_to_py(const void *V, CassValueType VT) const {
 
     char const *py_flag = 0;
     PyObject *py_value = Py_None;
-    if (V == 0) {
-        return py_value;
-    }
+    if (V == 0) return py_value;
 
     switch (VT) {
         case CASS_VALUE_TYPE_VARCHAR:
@@ -480,7 +476,6 @@ PyObject *TupleRowFactory::c_to_py(const void *V, CassValueType VT) const {
             memcpy(&addr,V,sizeof(char*));
             char *d = reinterpret_cast<char *>(addr);
             py_value = PyUnicode_FromString(d);
-            //py_value = Py_BuildValue(py_flag, d);
             break;
         }
         case CASS_VALUE_TYPE_BIGINT: {
