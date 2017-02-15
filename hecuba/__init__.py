@@ -153,7 +153,7 @@ class Config:
             singleton.number_of_blocks = int(os.environ['NUMBER_OF_BLOCKS'])
             logging.info('NUMBER_OF_BLOCKS: %d', singleton.number_of_blocks)
         except KeyError:
-            singleton.number_of_blocks = 1024
+            singleton.number_of_blocks = 32
             logging.warn('using default NUMBER_OF_BLOCKS: %d', singleton.number_of_blocks)
 
         try:
@@ -171,10 +171,10 @@ class Config:
             logging.warn('using default BATCH_SIZE: %d', singleton.batch_size)
 
         try:
-            singleton.ranges_per_block = int(os.environ['RANGES_PER_BLOCK:'])
-            logging.info('RANGES_PER_BLOCK:: %d', singleton.ranges_per_block)
+            singleton.ranges_per_block = int(os.environ['RANGES_PER_BLOCK'])
+            logging.info('RANGES_PER_BLOCK: %d', singleton.ranges_per_block)
         except KeyError:
-            singleton.ranges_per_block = 1
+            singleton.ranges_per_block = 10
             logging.warn('using default RANGES_PER_BLOCK: %d', singleton.ranges_per_block)
 
         try:
