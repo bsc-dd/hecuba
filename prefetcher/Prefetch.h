@@ -55,7 +55,7 @@ private:
 /** no ownership **/
     CassSession* session;
     TupleRowFactory *t_factory;
-    bool completed = false;
+    bool completed;
 
 /** ownership **/
     std::thread* worker;
