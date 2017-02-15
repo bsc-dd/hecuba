@@ -144,7 +144,8 @@ static PyObject *hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     self->T = new CacheTable((uint32_t) cache_size, std::string(table), std::string(keyspace), keys_names,
                              columns_names, std::string(token_range_pred), token_ranges, session);
 
-    return (PyObject *) self;
+    //return (PyObject *) self;
+    Py_RETURN_NONE;
 }
 
 
