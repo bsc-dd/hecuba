@@ -329,11 +329,11 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             const char *l_temp;
             size_t l_size;
             cass_value_get_string(lhs,&l_temp , &l_size);
-            char *permanent = (char*) malloc(l_size);
+            char *permanent = (char*) malloc(l_size+1);
             memcpy(permanent, l_temp,l_size);
             memcpy(data,&permanent,sizeof(char*));
       //      std::cout << "OUT " << std::string(reinterpret_cast<const char*>(permanent),l_size) << std
-            //  printf("%s\n",permanent);::endl;
+            printf("%s\n",permanent);
             return 0;
         }
         case CASS_VALUE_TYPE_VARINT:
@@ -437,7 +437,7 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
 PyObject *TupleRowFactory::tuple_as_py(TupleRow *tuple) const {
     assert(tuple != 0);
     PyObject *list = PyList_New(0);
-
+    if (tuple->n_elem()==0) throw std::runtime_error("Tuple as py, has 0 elem");
     for (uint16_t i = 0; i < tuple->n_elem(); i++) {
         PyList_Append(list, c_to_py(tuple->get_element(i), type_array[i]));
     }
@@ -457,19 +457,19 @@ PyObject *TupleRowFactory::c_to_py(const void *V, CassValueType VT) const {
 
     char const *py_flag = 0;
     PyObject *py_value = Py_None;
-    if (V == 0) return py_value;
+    if (V == 0) {
+        return py_value;
+    }
 
     switch (VT) {
         case CASS_VALUE_TYPE_VARCHAR:
         case CASS_VALUE_TYPE_TEXT:
         case CASS_VALUE_TYPE_ASCII: {
-            py_flag = Py_STRING;
-
             uint64_t addr;
             memcpy(&addr,V,sizeof(char*));
             char *d = reinterpret_cast<char *>(addr);
-
-            py_value = Py_BuildValue(py_flag, d);
+            py_value = PyUnicode_FromString(d);
+            //py_value = Py_BuildValue(py_flag, d);
             break;
         }
         case CASS_VALUE_TYPE_BIGINT: {

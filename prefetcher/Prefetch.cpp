@@ -32,8 +32,10 @@ PyObject* Prefetch::get_next(){
         PyErr_SetNone(PyExc_StopIteration);
         return NULL;
     }
+
     PyObject* toberet= t_factory->tuple_as_py(response);
     delete(response);
+
     return toberet;
 }
 
