@@ -4,7 +4,7 @@ from uuid import uuid1
 
 from IStorage import IStorage
 from hdict import StorageDict
-from hecuba import config
+from hecuba import config, log
 
 
 class StorageObj(object, IStorage):
@@ -57,6 +57,7 @@ class StorageObj(object, IStorage):
             name (string): the name of the Cassandra Keyspace + table where information can be found
             storage_id (string):  an unique storageobj identifier
         """
+        log.debug("CREATED StorageObj(%s)", name)
         self._persistent_dicts = []
         self._attr_to_column = {}
 
@@ -65,10 +66,7 @@ class StorageObj(object, IStorage):
         self._is_persistent = False
         dictionaries = filter(lambda (k, t): t['type'] == 'dict', self._persistent_props.iteritems())
         for table_name, per_dict in dictionaries:
-            if name is None:
-                pd = StorageDict(per_dict['primary_keys'], per_dict['columns'])
-            else:
-                pd = StorageDict(per_dict['primary_keys'], per_dict['columns'], table_name)
+            pd = StorageDict(per_dict['primary_keys'], per_dict['columns'])
             setattr(self, table_name, pd)
             self._persistent_dicts.append(pd)
 
@@ -207,6 +205,7 @@ class StorageObj(object, IStorage):
         call.
         """
         (self._ksp, self._table) = self._extract_ks_tab(name)
+        log.info("PERSISTING DATA INTO %s %s", self._ksp, self._table)
 
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy'," \
                          "'replication_factor': %d }" % (self._ksp, config.repl_factor)
@@ -218,7 +217,7 @@ class StorageObj(object, IStorage):
 
         dictionaries = filter(lambda (k, t): t['type'] == 'dict', self._persistent_props.iteritems())
         for table_name, _ in dictionaries:
-            getattr(self, table_name).make_persistent(table_name)
+            getattr(self, table_name).make_persistent(self._ksp + "." + table_name)
 
         create_attrs = "CREATE TABLE IF NOT EXISTS %s.%s (" % (self._ksp, self._table) + \
                        "name text PRIMARY KEY, " + \
@@ -269,38 +268,25 @@ class StorageObj(object, IStorage):
                         insert_query += 'textval) VALUES (\'' + str(key) + '\', \'' + str(variable) + '\')'
                         config.session.execute(insert_query)
 
-    def increment(self, target, value):
-        """
-        Instead of increasing the existing value in position target, it sets it to the desired value (only intended to
-        be used with counter tables
-        """
-        self[target] = value
-
     def stop_persistent(self):
         """
             Empties the Cassandra table where the persistent StorageObj stores data
         """
-        def_dict = self._get_default_dict()
-        def_dict.dictCache.cache = {}
 
-        query = "TRUNCATE %s.%s;" % (self._ksp, self._table)
-        config.session.execute(query)
-        for d in self._persistent_dicts:
-            query = "TRUNCATE %s.%s;" % (self._ksp, d._table)
-            config.session.execute(query)
+        log.debug("STOP PERSISTENT")
+        for pdict in self._persistent_dicts:
+            pdict.stop_persistent()
 
     def delete_persistent(self):
         """
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
-        def_dict = self._get_default_dict()
-        def_dict.dictCache.cache = {}
-
         self._is_persistent = False
-        for dics in self._persistent_dicts:
-            dics.is_persistent = False
+        for pdict in self._persistent_dicts:
+            pdict.delete_persistent()
 
-        query = "DROP TABLE IF EXISTS %s.%s;" % (self._ksp, self._table)
+        query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
+        log.debug("DELETE PERSISTENT: %s", query)
         config.session.execute(query)
 
     def __getattr__(self, key):
@@ -316,9 +302,9 @@ class StorageObj(object, IStorage):
 
         if key[0] != '_' and self._is_persistent:
             try:
-                result = config.session.execute(
-                    "SELECT * FROM " + str(self._ksp) + "." + str(self._table) + "_attribs WHERE name = \'" + str(
-                        key) + "\';")
+                query = "SELECT * FROM %s.%s WHERE name = '%s';" % (self._ksp, self._table, key)
+                log.debug("GETATTR: ", query)
+                result = config.session.execute(query)
                 for row in result:
                     for rowkey, rowvar in vars(row).iteritems():
                         if not rowkey == 'name':
@@ -327,9 +313,11 @@ class StorageObj(object, IStorage):
                                     return tuple(rowvar)
                                 else:
                                     return rowvar
-            except:
+            except Exception as ex:
+                log.warn("GETATTR ex %s", ex)
                 col_name = self._attr_to_column[key]
-                query = "SELECT " + col_name + " FROM " + self._ksp + "." + self._table + " WHERE name = %s"
+                query = "SELECT %s FROM %s.%s" % (col_name, self._ksp, self._table) + "WHERE name = %s"
+                log.debug("GETATTR2: ", query)
                 result = config.session.execute(query, [key])
                 if len(result) == 0:
                     raise KeyError('value not found')
@@ -351,7 +339,7 @@ class StorageObj(object, IStorage):
         """
         if issubclass(value.__class__, IStorage):
             super(StorageObj, self).__setattr__(key, value)
-        if key[0] is '_':
+        elif key[0] is '_':
             object.__setattr__(self, key, value)
 
         elif self._is_persistent:
@@ -381,10 +369,10 @@ class StorageObj(object, IStorage):
                     self._attr_to_column[key] = 'doubletuple'
                 value = list(value)
 
-            querytable = "INSERT INTO %s.%s (name,%s)" % (self._ksp, self._table, self._attr_to_column[key]) + \
-                         "VALUES (%s,%s)"
-
-            config.session.execute(querytable, [key, value])
+            query = "INSERT INTO %s.%s (name,%s)" % (self._ksp, self._table, self._attr_to_column[key])
+            query += "VALUES (%s,%s)"
+            log.debug("SETATTR: ", query)
+            config.session.execute(query, [key, value])
         else:
             super(StorageObj, self).__setattr__(key, value)
 
@@ -404,6 +392,7 @@ class StorageObj(object, IStorage):
                a) List of keys in case that the SO is not persistent
                b) Iterator that will return Blocks, one by one, where we can find the SO data in case it's persistent
         """
+        log.debug("SPLITTING StorageObj")
         props = self._persistent_props
         dictionaries = filter(lambda (k, t): t['type'] == 'dict', props.iteritems())
         dicts = []
@@ -413,5 +402,5 @@ class StorageObj(object, IStorage):
         for split_dicts in zip(*dicts):
             new_me = copy(self)
             for table_name, istorage in split_dicts:
-                new_me[table_name] = istorage
+                setattr(new_me, table_name, istorage)
             yield new_me
