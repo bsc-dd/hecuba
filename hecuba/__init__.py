@@ -172,13 +172,6 @@ class Config:
             log.warn('using default MIN_NUMBER_OF_TOKENS: %d', singleton.min_number_of_tokens)
 
         try:
-            singleton.cache_activated = os.environ['CACHE_ACTIVATED'].lower() == 'true'
-            log.info('CACHE_ACTIVATED: %s', singleton.cache_activated)
-        except KeyError:
-            singleton.cache_activated = True
-            log.warn('using default CACHE_ACTIVATED: %s', singleton.cache_activated)
-
-        try:
             singleton.batch_size = int(os.environ['BATCH_SIZE'])
             log.info('BATCH_SIZE: %d', singleton.batch_size)
         except KeyError:
@@ -214,17 +207,11 @@ class Config:
             log.warn('using default STATISTICS_ACTIVATED: %s', singleton.statistics_activated)
 
         try:
-            singleton.prefetch_activated = os.environ['PREFETCH_ACTIVATED'].lower() == 'true'
-        except KeyError:
-            singleton.prefetch_activated = False
-            log.warn('using default PREFETCH_ACTIVATED: %s', singleton.prefetch_activated)
-
-        try:
             singleton.prefetch_size = int(os.environ['PREFETCH_SIZE'])
             log.info('PREFETCH_SIZE: %s', singleton.prefetch_size)
         except KeyError:
             singleton.prefetch_size = 10000
-            log.warn('using default PREFETCH_SIZE: %s', singleton.prefetch_activated)
+            log.warn('using default PREFETCH_SIZE: %s', singleton.prefetch_size)
 
         try:
             query = "CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = { 'class' : \'%s\'," \
