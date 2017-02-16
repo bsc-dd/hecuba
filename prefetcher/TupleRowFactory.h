@@ -9,7 +9,7 @@
 
 #define CHECK_CASS(msg) if(rc != CASS_OK){ \
 std::cerr<<msg<<std::endl; };\
-//throw ModuleException(msg); };
+
 
 
 #include <cassert>
