@@ -1,9 +1,10 @@
 #include <iostream>
 
+#include <random>
 #include <cassandra.h>
 #include "gtest/gtest.h"
-#include "../HCache.cpp"
-
+//#include "../HCache.cpp"
+#include "../CacheTable.h"
 
 using namespace std;
 
@@ -38,13 +39,23 @@ TEST(TestPyParse,SizeOfTypes) {
     PyGILState_Release(gstate);
 
     EXPECT_EQ(memcmp(data_a,data_b,data_size),0);
-    free(data_a);
+    std::free(data_a);
     free(data_b);
 
 }
 
 
+TEST(TestTBBQueue,try_pop){
+    PyObject* key = PyInt_FromSize_t(123);
+    PyObject* value = PyInt_FromSize_t(233);
+    tbb::concurrent_bounded_queue<std::pair<PyObject*,PyObject*>> data;
+    data.push(std::make_pair(key,value));
 
+    std::pair<PyObject*,PyObject*> item;
+    EXPECT_TRUE(data.try_pop(item));
+    EXPECT_EQ(PyInt_AsLong(item.first),123);
+    EXPECT_EQ(PyInt_AsLong(item.second),233);
+}
 
 
 const uint16_t i = 123;
@@ -206,7 +217,7 @@ TEST(TestingCacheTable, PutRow) {
     }
     PyGILState_Release(gstate);
 
-    T.get()->put_row(list,result);
+    //T.get()->put_row(list,result);
 
     CassFuture *close_future = cass_session_close(test_session);
     cass_future_wait(close_future);
@@ -322,6 +333,97 @@ TEST(TestingCacheTable, MultiQ) {
     cass_cluster_free(test_cluster);
     cass_session_free(test_session);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+TEST(TestinhMarshall, SingleQ) {
+    /** CONNECT **/
+    CassSession *test_session = NULL;
+    CassCluster *test_cluster = NULL;
+    uint32_t max_items = 100;
+    const char * keyspace = "wordcount";
+    const char * table = "words";
+    const char * contact_p = "minerva-5";
+    CassFuture *connect_future = NULL;
+    test_cluster = cass_cluster_new();
+    test_session = cass_session_new();
+
+    cass_cluster_set_contact_points(test_cluster, contact_p);
+    cass_cluster_set_port(test_cluster, 9042);
+
+    connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
+    CassError rc = cass_future_error_code(connect_future);
+    EXPECT_TRUE(rc == CASS_OK);
+
+    cass_future_free(connect_future);
+
+    /** SETUP PY **/
+    Py_Initialize();
+    PyEval_InitThreads();
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
+
+    /** RANDOM  GENERATOR **/
+    std::random_device r;
+    std::seed_seq seed{r(), r(), r(), r(), r(), r(), r(), r()};
+    std::mt19937 eng{seed};
+
+    // a distribution that takes randomness and produces values in specified range
+    std::uniform_int_distribution<> dist(1,20000);
+    /** KEYS **/
+    uint32_t key1 = (uint32_t) dist(eng);
+
+    PyObject* list = PyList_New(1);
+    PyList_SetItem(list,0,Py_BuildValue("i",key1));
+
+    PyGILState_Release(gstate);
+    std::vector<std::string> keysnames = {"position"};
+    std::vector<std::string> colsnames = {"wordinfo"};
+    std::string token_pred = "WHERE token(position)>=? AND token(position)<?";
+    std::vector<std::pair<int64_t,int64_t > > tokens = {std::pair<int64_t,int64_t >(-10000,10000)};
+    std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(new CacheTable(max_items,table,keyspace, keysnames,colsnames,token_pred,tokens, test_session));
+
+
+    PyObject* result = T.get()->get_row(list);
+
+    EXPECT_FALSE(result==0);
+    gstate = PyGILState_Ensure();
+
+    EXPECT_EQ(PyList_Size(result),colsnames.size());
+    for ( int i = 0; i<PyList_Size(result); ++i) {
+        EXPECT_FALSE(Py_None==PyList_GetItem(result,i));
+    }
+    PyGILState_Release(gstate);
+
+    CassFuture *close_future = cass_session_close(test_session);
+    cass_future_wait(close_future);
+    cass_future_free(close_future);
+
+    cass_cluster_free(test_cluster);
+    cass_session_free(test_session);
+}
+
+
+
 
 
 
