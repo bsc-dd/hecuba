@@ -9,7 +9,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 include_directories( ${CMAKE_CURRENT_LIST_DIR}/_install/ /usr/include)
 include(ExternalProject) # ExternalProject_Add
 
-set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp)
+set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp)
 
 add_library(hfetch SHARED ${SOURCE_FILES})
 
@@ -89,7 +89,7 @@ endif()
 LINK_DIRECTORIES(${CMAKE_BINARY_DIR}/_install)
 #Python setup
 
-find_package(PythonLibs REQUIRED)
+find_package(PythonLibs 2.7 REQUIRED)
 include_directories(${PYTHON_INCLUDE_DIRS} ${CMAKE_CURRENT_LIST_DIR}/_install/include ${ALL_INCLUDE})
 
 set(ALL_LIBS ${ALL_LIBS} ${PYTHON_LIBRARIES})
