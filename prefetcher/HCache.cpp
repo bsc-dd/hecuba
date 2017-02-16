@@ -64,6 +64,8 @@ static PyObject *put_row(HCache *self, PyObject *args) {
     }
 
     self->T->put_row(py_keys, py_values);
+    Py_DecRef(py_keys);
+    Py_DecRef(py_values);
     Py_RETURN_NONE;
 }
 

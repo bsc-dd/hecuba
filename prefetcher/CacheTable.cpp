@@ -22,7 +22,7 @@ CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string
     key_names = keyn;
     tokens=tkns;
     token_predicate = "FROM " + keyspace + "." + table + " " + token_range_pred;
-    get_predi   cate = "FROM " + keyspace + "." + table + " WHERE " + key_names[0] + "=?";
+    get_predicate = "FROM " + keyspace + "." + table + " WHERE " + key_names[0] + "=?";
     select_keys = "SELECT " + key_names[0];
     for (uint16_t i = 1; i < key_names.size(); i++) {
         get_predicate += " AND " + key_names[i] + "=?";
@@ -93,7 +93,6 @@ CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string
         write_query+=",?";
     }
     write_query+=");";
-    std::cout << "INSERT Q: " << write_query << std::endl;
     writer = new Writer((uint16_t )writer_buff_size,(uint16_t )max_write_callbacks,keys_factory,values_factory,session,write_query);
 };
 
@@ -106,6 +105,7 @@ CacheTable::~CacheTable() {
     delete (keys_factory);
     delete (values_factory);
     delete (items_factory);
+    delete(writer);
     session=NULL;
 }
 
