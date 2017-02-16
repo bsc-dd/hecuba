@@ -36,6 +36,13 @@ Prefetch::~Prefetch() {
 
 
 PyObject *Prefetch::get_next() {
+    TupleRow* response =get_cnext();
+    PyObject *toberet = t_factory->tuple_as_py(response);
+    delete (response);
+    return toberet;
+}
+
+TupleRow *Prefetch::get_cnext() {
     if (completed) {
         PyErr_SetNone(PyExc_StopIteration);
         return NULL;
@@ -53,10 +60,8 @@ PyObject *Prefetch::get_next() {
 
         }
     }
-    PyObject *toberet = t_factory->tuple_as_py(response);
-    delete (response);
 
-    return toberet;
+    return response;
 }
 
 void Prefetch::consume_tokens() {

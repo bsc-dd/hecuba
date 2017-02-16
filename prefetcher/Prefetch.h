@@ -35,6 +35,8 @@ private:
     tbb::concurrent_bounded_queue<TupleRow*> data;
     const std::vector<std::pair<int64_t, int64_t>> *tokens;
     const CassPrepared *prepared_query;
+
+    TupleRow *get_cnext();
 };
 
 #endif //PREFETCHER_PREFETCHER_H
