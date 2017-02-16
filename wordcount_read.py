@@ -18,7 +18,7 @@ def wordcountTask(block, words):
     return partialResult
 
 #@task()
-def reduceTask(localResults, result):
+def reduceTask(localResults):
     total = 0
     for word, instances in localResults.iteritems():
         total += instances
@@ -28,16 +28,13 @@ def reduceTask(localResults, result):
 def runme():
 
     words = Words('wordcount.wordobj')
-    result = Result()
-    result.make_persistent('result')
-    result.delete_persistent()
     localResults = {}
     totals = []
     for ind, block in enumerate(words.split()):
         localResults[ind] = wordcountTask(block, words)
-        totals.append(reduceTask(localResults[ind], result))
+        totals.append(reduceTask(localResults[ind]))
     print totals
-    print "TOTAL",reduce(lambda a, b: a+b, totals)
+    print "TOTAL", reduce(lambda a, b: a+b, totals)
 
 #if __name__ == "__main__":
 runme()
