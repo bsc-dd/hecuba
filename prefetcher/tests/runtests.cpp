@@ -1,6 +1,5 @@
 #include <iostream>
 
-#include <random>
 #include <cassandra.h>
 #include "gtest/gtest.h"
 //#include "../HCache.cpp"
@@ -8,53 +7,128 @@
 
 using namespace std;
 
+
+const char *keyspace = "test";
+const char *table = "particle";
+const char *contact_p = "127.0.0.1";
+
+void fireandforget(const char *query, CassSession *session) {
+    std::cout << "EXECUTING " << query << std::endl;
+    CassStatement *statement = cass_statement_new(query, 0);
+    CassFuture *connect_future = cass_session_execute(session, statement);
+    CassError rc = cass_future_error_code(connect_future);
+    EXPECT_TRUE(rc == CASS_OK);
+    cass_future_free(connect_future);
+    cass_statement_free(statement);
+}
+
+
+void setupcassandra() {
+
+    CassSession *test_session = NULL;
+    CassCluster *test_cluster = NULL;
+    const char *contact_p = "127.0.0.1";
+    CassFuture *connect_future = NULL;
+    test_cluster = cass_cluster_new();
+    test_session = cass_session_new();
+
+    cass_cluster_set_contact_points(test_cluster, contact_p);
+    cass_cluster_set_port(test_cluster, 9042);
+
+    connect_future = cass_session_connect(test_session, test_cluster);
+    CassError rc = cass_future_error_code(connect_future);
+    cass_future_free(connect_future);
+
+    EXPECT_TRUE(rc == CASS_OK);
+
+    fireandforget("DROP KEYSPACE IF EXISTS test;", test_session);
+    fireandforget("CREATE KEYSPACE test WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};",
+                  test_session);
+    fireandforget(
+            "CREATE TABLE test.particle( partid int,time float,x float,y float,z float,ciao text,PRIMARY KEY(partid,time));",
+            test_session);
+
+    CassFuture *prepare_future
+            = cass_session_prepare(test_session,
+                                   "INSERT INTO test.particle(partid , time , x, y , z,ciao ) VALUES (?, ?, ?, ?, ?,?)");
+    rc = cass_future_error_code(prepare_future);
+    EXPECT_TRUE(rc == CASS_OK);
+    const CassPrepared *prepared = cass_future_get_prepared(prepare_future);
+    cass_future_free(prepare_future);
+
+    for (int i = 0; i <= 10000; i++) {
+        CassStatement *stm = cass_prepared_bind(prepared);
+        cass_statement_bind_int32(stm, 0, (cass_int16_t) i);
+        cass_statement_bind_float(stm, 1, (cass_float_t) (i / .1));
+        cass_statement_bind_float(stm, 2, (cass_float_t) (i / .2));
+        cass_statement_bind_float(stm, 3, (cass_float_t) (i / .3));
+        cass_statement_bind_float(stm, 4, (cass_float_t) (i / .4));
+        cass_statement_bind_string(stm, 5, std::to_string(i * 60).c_str());
+        CassFuture *f = cass_session_execute(test_session, stm);
+        CassError rc = cass_future_error_code(f);
+        EXPECT_TRUE(rc == CASS_OK);
+        if (rc != CASS_OK) {
+            std::cout << cass_error_desc(rc) << std::endl;
+        }
+        cass_future_free(f);
+        cass_statement_free(stm);
+
+    }
+
+    CassFuture *close_future = cass_session_close(test_session);
+    cass_future_wait(close_future);
+    cass_future_free(close_future);
+
+    cass_cluster_free(test_cluster);
+    cass_session_free(test_session);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
+    std::cout << "SETTING UP CASSANDRA" << std::endl;
+    setupcassandra();
+    std::cout << "DONE, CASSANDRA IS UP" << std::endl;
     return RUN_ALL_TESTS();
 
 }
 
-
-
-
-TEST(TestPyParse,SizeOfTypes) {
+TEST(TestPyParse, SizeOfTypes) {
     Py_Initialize();
     PyEval_InitThreads();
-    PyGILState_STATE gstate;
-    gstate = PyGILState_Ensure();
+
 
     PyObject *key = PyLong_FromDouble(0.12);
     int ok = 0;
 
-    size_t data_size=sizeof(cass_double_t);
+    size_t data_size = sizeof(cass_double_t);
     void *data_a = malloc(data_size);
     void *data_b = malloc(data_size);
 
     cass_double_t t;
     ok = PyArg_Parse(key, Py_DOUBLE, &t);
-    EXPECT_EQ(ok,1);
-    memcpy(data_a,&t,sizeof(t));
+    EXPECT_EQ(ok, 1);
+    memcpy(data_a, &t, sizeof(t));
     ok = PyArg_Parse(key, Py_DOUBLE, data_b);
-    EXPECT_EQ(ok,1);
-    PyGILState_Release(gstate);
+    EXPECT_EQ(ok, 1);
 
-    EXPECT_EQ(memcmp(data_a,data_b,data_size),0);
+
+    EXPECT_EQ(memcmp(data_a, data_b, data_size), 0);
     std::free(data_a);
     free(data_b);
 
 }
 
 
-TEST(TestTBBQueue,try_pop){
-    PyObject* key = PyInt_FromSize_t(123);
-    PyObject* value = PyInt_FromSize_t(233);
-    tbb::concurrent_bounded_queue<std::pair<PyObject*,PyObject*>> data;
-    data.push(std::make_pair(key,value));
+TEST(TestTBBQueue, try_pop) {
+    PyObject *key = PyInt_FromSize_t(123);
+    PyObject *value = PyInt_FromSize_t(233);
+    tbb::concurrent_bounded_queue<std::pair<PyObject *, PyObject *>> data;
+    data.push(std::make_pair(key, value));
 
-    std::pair<PyObject*,PyObject*> item;
+    std::pair<PyObject *, PyObject *> item;
     EXPECT_TRUE(data.try_pop(item));
-    EXPECT_EQ(PyInt_AsLong(item.first),123);
-    EXPECT_EQ(PyInt_AsLong(item.second),233);
+    EXPECT_EQ(PyInt_AsLong(item.first), 123);
+    EXPECT_EQ(PyInt_AsLong(item.second), 233);
 }
 
 
@@ -65,24 +139,23 @@ const uint16_t j = 456;
  */
 
 TEST(TupleTest, TupleOps) {
-    size_t size=sizeof(uint16_t);
-    auto sizes= vector<uint16_t>(2,size);
-    char * buffer= (char *) malloc(size * 2);
-    char * buffer2= (char *) malloc(size * 2);
-    memcpy(buffer,&i,size);
-    memcpy(buffer+size,&j,size);
-    memcpy(buffer2,&i,size);
-    memcpy(buffer2+size,&j,size);
-    TupleRow t1 = TupleRow(&sizes,sizeof(uint16_t)*2,buffer);
-    TupleRow t2 = TupleRow(&sizes,sizeof(uint16_t)*2,buffer2);
+    size_t size = sizeof(uint16_t);
+    auto sizes = vector<uint16_t>(2, size);
+    char *buffer = (char *) malloc(size * 2);
+    char *buffer2 = (char *) malloc(size * 2);
+    memcpy(buffer, &i, size);
+    memcpy(buffer + size, &j, size);
+    memcpy(buffer2, &i, size);
+    memcpy(buffer2 + size, &j, size);
+    TupleRow t1 = TupleRow(&sizes, sizeof(uint16_t) * 2, buffer);
+    TupleRow t2 = TupleRow(&sizes, sizeof(uint16_t) * 2, buffer2);
 
     //Equality
-    EXPECT_TRUE(!(t1<t2)&&!(t2<t1));
-    EXPECT_TRUE(!(t1>t2)&&!(t2>t1));
+    EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
+    EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
 
 
 }
-
 
 
 TEST(TestingCacheTable, SingleQ) {
@@ -90,9 +163,6 @@ TEST(TestingCacheTable, SingleQ) {
     CassSession *test_session = NULL;
     CassCluster *test_cluster = NULL;
     uint32_t max_items = 100;
-    const char * keyspace = "case18";
-    const char * table = "particle";
-    const char * contact_p = "minerva-5";
     CassFuture *connect_future = NULL;
     test_cluster = cass_cluster_new();
     test_session = cass_session_new();
@@ -109,41 +179,39 @@ TEST(TestingCacheTable, SingleQ) {
     /** SETUP PY **/
     Py_Initialize();
     PyEval_InitThreads();
-    PyGILState_STATE gstate;
-    gstate = PyGILState_Ensure();
+
+
 
     /** RANDOM  GENERATOR **/
-    std::random_device r;
-    std::seed_seq seed{r(), r(), r(), r(), r(), r(), r(), r()};
-    std::mt19937 eng{seed};
-
     // a distribution that takes randomness and produces values in specified range
-    std::uniform_int_distribution<> dist(1,8000);
+
     /** KEYS **/
-    uint32_t key1 = (uint32_t) dist(eng);
-    float key2 = 0.003;
+    uint32_t key1 = 50;
+    float key2 = 500;
 
-    PyObject* list = PyList_New(2);
-    PyList_SetItem(list,0,Py_BuildValue("i",key1));
-    PyList_SetItem(list,1,Py_BuildValue("f",key2));
-    PyGILState_Release(gstate);
-    std::vector<std::string> keysnames = {"partid","time"};
-    std::vector<std::string> colsnames = {"x","xa","family"};
+    PyObject *list = PyList_New(2);
+    PyList_SetItem(list, 0, Py_BuildValue("i", key1));
+    PyList_SetItem(list, 1, Py_BuildValue("f", key2));
+
+    std::vector<std::string> keysnames = {"partid", "time"};
+    std::vector<std::string> colsnames = {"x", "y", "z", "ciao"};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
-    std::vector<std::pair<int64_t,int64_t > > tokens = {std::pair<int64_t,int64_t >(-10000,10000)};
-   std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(new CacheTable(max_items,table,keyspace, keysnames,colsnames,token_pred,tokens, test_session));
+    std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
+    std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(new CacheTable(max_items, table, keyspace,
+                                                                               keysnames, colsnames, token_pred, tokens,
+                                                                               test_session));
 
 
-    PyObject* result = T.get()->get_row(list);
+    PyObject *result = T.get()->get_row(list);
 
-    EXPECT_FALSE(result==0);
-    gstate = PyGILState_Ensure();
+    EXPECT_FALSE(result == 0);
 
-    EXPECT_EQ(PyList_Size(result),colsnames.size());
-    for ( int i = 0; i<PyList_Size(result); ++i) {
-        EXPECT_FALSE(Py_None==PyList_GetItem(result,i));
+
+    EXPECT_EQ(PyList_Size(result), colsnames.size());
+    for (int i = 0; i < PyList_Size(result); ++i) {
+        EXPECT_FALSE(Py_None == PyList_GetItem(result, i));
     }
-    PyGILState_Release(gstate);
+
 
     CassFuture *close_future = cass_session_close(test_session);
     cass_future_wait(close_future);
@@ -152,7 +220,6 @@ TEST(TestingCacheTable, SingleQ) {
     cass_cluster_free(test_cluster);
     cass_session_free(test_session);
 }
-
 
 
 TEST(TestingCacheTable, PutRow) {
@@ -160,9 +227,6 @@ TEST(TestingCacheTable, PutRow) {
     CassSession *test_session = NULL;
     CassCluster *test_cluster = NULL;
     uint32_t max_items = 100;
-    const char * keyspace = "case18";
-    const char * table = "particle";
-    const char * contact_p = "minerva-5";
     CassFuture *connect_future = NULL;
     test_cluster = cass_cluster_new();
     test_session = cass_session_new();
@@ -179,45 +243,100 @@ TEST(TestingCacheTable, PutRow) {
     /** SETUP PY **/
     Py_Initialize();
     PyEval_InitThreads();
-    PyGILState_STATE gstate;
-    gstate = PyGILState_Ensure();
 
     /** RANDOM NUMBERS **/
-    std::random_device r;
-    std::seed_seq seed{r(), r(), r(), r(), r(), r(), r(), r()};
-    std::mt19937 eng{seed};
 
     // a distribution that takes randomness and produces values in specified range
-    std::uniform_int_distribution<> dist(1,8000);
+
     /** KEYS **/
-    uint32_t key1 = (uint32_t) dist(eng);
-    float key2 = 0.003;
 
-    PyObject* list = PyList_New(2);
-    PyList_SetItem(list,0,Py_BuildValue("i",key1));
-    PyList_SetItem(list,1,Py_BuildValue("f",key2));
-    PyGILState_Release(gstate);
-    std::vector<std::string> keysnames = {"partid","time"};
-    std::vector<std::string> colsnames = {"x","xa","family"};
+
+    PyObject *list = PyList_New(2);
+    PyList_SetItem(list, 0, Py_BuildValue("i", 232));
+    PyList_SetItem(list, 1, Py_BuildValue("f", 2320.0));
+    std::vector<std::string> keysnames = {"partid", "time"};
+    std::vector<std::string> colsnames = {"x", "y", "z", "ciao"};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
-    std::vector<std::pair<int64_t,int64_t > > tokens = {std::pair<int64_t,int64_t >(-10000,10000)};
-    std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(new CacheTable(max_items,table,keyspace, keysnames,colsnames,token_pred,tokens, test_session));
+    std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
+    CacheTable T = CacheTable(max_items, table, keyspace, keysnames, colsnames, token_pred, tokens, test_session);
 
-    EXPECT_FALSE(T==0);
+    PyObject *result = T.get_row(list);
 
+    EXPECT_FALSE(result == 0);
 
-    PyObject* result = T.get()->get_row(list);
-
-    EXPECT_FALSE(result==0);
-    gstate = PyGILState_Ensure();
-
-    EXPECT_EQ(PyList_Size(result),colsnames.size());
-    for ( int i = 0; i<PyList_Size(result); ++i) {
-        EXPECT_FALSE(Py_None==PyList_GetItem(result,i));
+    if (result != 0) {
+        EXPECT_EQ(PyArg_Parse(PyList_GetItem(result, 0), "f"), 1160);
+        EXPECT_EQ(PyList_Size(result), colsnames.size());
+        for (int i = 0; i < PyList_Size(result); ++i) {
+            EXPECT_FALSE(Py_None == PyList_GetItem(result, i));
+        }
     }
-    PyGILState_Release(gstate);
 
-    //T.get()->put_row(list,result);
+    CassFuture *close_future = cass_session_close(test_session);
+    cass_future_wait(close_future);
+    cass_future_free(close_future);
+
+    cass_cluster_free(test_cluster);
+    cass_session_free(test_session);
+}
+
+TEST(TestingCacheTable, CGETRowC) {
+    /** CONNECT **/
+    CassSession *test_session = NULL;
+    CassCluster *test_cluster = NULL;
+    uint32_t max_items = 100;
+    CassFuture *connect_future = NULL;
+    test_cluster = cass_cluster_new();
+    test_session = cass_session_new();
+
+    cass_cluster_set_contact_points(test_cluster, contact_p);
+    cass_cluster_set_port(test_cluster, 9042);
+
+    connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
+    CassError rc = cass_future_error_code(connect_future);
+    EXPECT_TRUE(rc == CASS_OK);
+
+    cass_future_free(connect_future);
+
+    char *buffer = (char *) malloc(sizeof(int) + sizeof(float));
+
+    int val = 1234;
+    memcpy(buffer, &val, sizeof(int));
+
+    float f = 12340;
+    memcpy(buffer + sizeof(int), &f, sizeof(float));
+
+    std::vector<uint16_t> offsets = {0, sizeof(int)};
+    TupleRow *t = new TupleRow(&offsets, sizeof(int) + sizeof(float), buffer);
+
+    std::vector<std::string> keysnames = {"partid", "time"};
+    std::vector<std::string> colsnames = {"x", "y", "z", "ciao"};
+    std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
+    std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
+    CacheTable T = CacheTable(max_items, table, keyspace, keysnames, colsnames, token_pred, tokens, test_session);
+
+    TupleRow *result = T.get_crow(t);
+
+    EXPECT_FALSE(result == 0);
+
+    if (result != 0) {
+        float *p = (float *) result->get_element(0);
+        EXPECT_FLOAT_EQ((float) (*p), 6170);
+
+        p = (float *) result->get_element(1);
+        EXPECT_FLOAT_EQ((float) (*p), 4113.3335);
+
+        p = (float *) result->get_element(2);
+        EXPECT_FLOAT_EQ((float) (*p), 3085);
+
+        const void *v=result->get_element(3);
+        int64_t  addr;
+        memcpy(&addr,v,sizeof(char*));
+        char *d = reinterpret_cast<char *>(addr);
+
+        EXPECT_STREQ(d, "74040");
+
+    }
 
     CassFuture *close_future = cass_session_close(test_session);
     cass_future_wait(close_future);
@@ -228,24 +347,81 @@ TEST(TestingCacheTable, PutRow) {
 }
 
 
+TEST(TestingCacheTable, CGETRowJUSTSTRING) {
+    /** CONNECT **/
+    CassSession *test_session = NULL;
+    CassCluster *test_cluster = NULL;
+    uint32_t max_items = 100;
+    CassFuture *connect_future = NULL;
+    test_cluster = cass_cluster_new();
+    test_session = cass_session_new();
+
+    cass_cluster_set_contact_points(test_cluster, contact_p);
+    cass_cluster_set_port(test_cluster, 9042);
+
+    connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
+    CassError rc = cass_future_error_code(connect_future);
+    EXPECT_TRUE(rc == CASS_OK);
+
+    cass_future_free(connect_future);
+
+    char *buffer = (char *) malloc(sizeof(int) + sizeof(float));
+
+    int val = 1234;
+    memcpy(buffer, &val, sizeof(int));
+
+    float f = 12340;
+    memcpy(buffer + sizeof(int), &f, sizeof(float));
+
+    std::vector<uint16_t> offsets = {0, sizeof(int)};
+    TupleRow *t = new TupleRow(&offsets, sizeof(int) + sizeof(float), buffer);
+
+    std::vector<std::string> keysnames = {"partid", "time"};
+    std::vector<std::string> colsnames = {"ciao"};
+    std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
+    std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
+    CacheTable T = CacheTable(max_items, table, keyspace, keysnames, colsnames, token_pred, tokens, test_session);
+
+    TupleRow *result = T.get_crow(t);
+
+    EXPECT_FALSE(result == 0);
+
+    if (result != 0) {
+
+        const void *v=result->get_element(0);
+        int64_t  addr;
+        memcpy(&addr,v,sizeof(char*));
+        char *d = reinterpret_cast<char *>(addr);
+
+        EXPECT_STREQ(d, "74040");
+
+    }
+
+    CassFuture *close_future = cass_session_close(test_session);
+    cass_future_wait(close_future);
+    cass_future_free(close_future);
+
+    cass_cluster_free(test_cluster);
+    cass_session_free(test_session);
+}
 
 TEST(TestingCacheTable, DeleteElem) {
 
-    size_t ss=sizeof(uint16_t)*2;
+    size_t ss = sizeof(uint16_t) * 2;
     Poco::LRUCache<TupleRow, TupleRow> myCache(2);
     auto size = vector<uint16_t>(2, sizeof(uint16_t));
-    char * b2= (char *) malloc(ss);
+    char *b2 = (char *) malloc(ss);
     memcpy(b2, &i, sizeof(uint16_t));
-    memcpy(b2+sizeof(uint16_t ), &j, sizeof(uint16_t));
-    TupleRow *t1 = new TupleRow(&size, sizeof(uint16_t) * 2,b2);
+    memcpy(b2 + sizeof(uint16_t), &j, sizeof(uint16_t));
+    TupleRow *t1 = new TupleRow(&size, sizeof(uint16_t) * 2, b2);
 
     uint16_t ka = 64;
     uint16_t kb = 128;
-    b2= (char *) malloc(ss);
+    b2 = (char *) malloc(ss);
     memcpy(b2, &ka, sizeof(uint16_t));
-    memcpy(b2 +sizeof(uint16_t), &kb, sizeof(uint16_t));
+    memcpy(b2 + sizeof(uint16_t), &kb, sizeof(uint16_t));
 
-    TupleRow *key1 = new TupleRow(&size, sizeof(uint16_t) * 2,b2);
+    TupleRow *key1 = new TupleRow(&size, sizeof(uint16_t) * 2, b2);
     myCache.add(*key1, t1);
 
     EXPECT_EQ(myCache.getAllKeys().size(), 1);
@@ -257,9 +433,8 @@ TEST(TestingCacheTable, DeleteElem) {
      **/
     myCache.clear();
     //Removes all references, and deletes all objects. Key1 is still active thanks to our ref
-    delete(key1);
+    delete (key1);
 }
-
 
 
 TEST(TestingCacheTable, MultiQ) {
@@ -267,9 +442,7 @@ TEST(TestingCacheTable, MultiQ) {
     CassSession *test_session = NULL;
     CassCluster *test_cluster = NULL;
     uint32_t max_items = 100;
-    const char * keyspace = "case18";
-    const char * table = "particle";
-    const char * contact_p = "minerva-5";
+
     CassFuture *connect_future = NULL;
     test_cluster = cass_cluster_new();
     test_session = cass_session_new();
@@ -286,29 +459,28 @@ TEST(TestingCacheTable, MultiQ) {
 /** INITIALIZE PYTHON **/
     Py_Initialize();
     PyEval_InitThreads();
-    PyGILState_STATE gstate;
-    gstate = PyGILState_Ensure();
-
-    PyObject* list = PyList_New(2);
-    PyList_SetItem(list,0,Py_BuildValue("i",123));
-    PyList_SetItem(list,1,Py_BuildValue("f",0.003));
-    PyObject* list2 = PyList_New(2);
-    PyList_SetItem(list2,0,Py_BuildValue("i",543));
-    PyList_SetItem(list2,1,Py_BuildValue("f",0.003));
-
-    PyObject* list3 = PyList_New(2);
-    PyList_SetItem(list3,0,Py_BuildValue("i",323));
-    PyList_SetItem(list3,1,Py_BuildValue("f",0.003));
-    PyGILState_Release(gstate);
 
 
-    std::vector<std::string> keysnames = {"partid","time"};
-    std::vector<std::string> colsnames = {"x","xa","family"};
+    PyObject *list = PyList_New(2);
+    PyList_SetItem(list, 0, Py_BuildValue("i", 123));
+    PyList_SetItem(list, 1, Py_BuildValue("f", 0.003));
+    PyObject *list2 = PyList_New(2);
+    PyList_SetItem(list2, 0, Py_BuildValue("i", 543));
+    PyList_SetItem(list2, 1, Py_BuildValue("f", 0.003));
+
+    PyObject *list3 = PyList_New(2);
+    PyList_SetItem(list3, 0, Py_BuildValue("i", 323));
+    PyList_SetItem(list3, 1, Py_BuildValue("f", 0.003));
+
+
+    std::vector<std::string> keysnames = {"partid", "time"};
+    std::vector<std::string> colsnames = {"x", "y", "z", "ciao"};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
-    std::vector<std::pair<int64_t,int64_t > > tokens = {std::pair<int64_t,int64_t >(-10000,10000)};
-    std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(new CacheTable(max_items,table,keyspace, keysnames,colsnames,token_pred,tokens, test_session));
+    std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
+    std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(
+            new CacheTable(max_items, table, keyspace, keysnames, colsnames, token_pred, tokens, test_session));
 
-    PyObject* result = T.get()->get_row(list);
+    PyObject *result = T.get()->get_row(list);
 
     result = T.get()->get_row(list2);
     result = T.get()->get_row(list3);
@@ -317,12 +489,10 @@ TEST(TestingCacheTable, MultiQ) {
     result = T.get()->get_row(list3);
     result = T.get()->get_row(list);
 
-    gstate = PyGILState_Ensure();
 
-    for ( int i = 0; i<PyList_Size(result); ++i) {
-        PyList_GetItem(result,i);
+    for (int i = 0; i < PyList_Size(result); ++i) {
+        PyList_GetItem(result, i);
     }
-    PyGILState_Release(gstate);
 
 
     CassFuture *close_future = cass_session_close(test_session);
@@ -335,34 +505,11 @@ TEST(TestingCacheTable, MultiQ) {
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-TEST(TestinhMarshall, SingleQ) {
+TEST(TestinhMarshallCC, SingleQ) {
     /** CONNECT **/
     CassSession *test_session = NULL;
     CassCluster *test_cluster = NULL;
     uint32_t max_items = 100;
-    const char * keyspace = "wordcount";
-    const char * table = "words";
-    const char * contact_p = "minerva-5";
     CassFuture *connect_future = NULL;
     test_cluster = cass_cluster_new();
     test_session = cass_session_new();
@@ -379,40 +526,88 @@ TEST(TestinhMarshall, SingleQ) {
     /** SETUP PY **/
     Py_Initialize();
     PyEval_InitThreads();
-    PyGILState_STATE gstate;
-    gstate = PyGILState_Ensure();
 
     /** RANDOM  GENERATOR **/
-    std::random_device r;
-    std::seed_seq seed{r(), r(), r(), r(), r(), r(), r(), r()};
-    std::mt19937 eng{seed};
-
-    // a distribution that takes randomness and produces values in specified range
-    std::uniform_int_distribution<> dist(1,20000);
     /** KEYS **/
-    uint32_t key1 = (uint32_t) dist(eng);
 
-    PyObject* list = PyList_New(1);
-    PyList_SetItem(list,0,Py_BuildValue("i",key1));
 
-    PyGILState_Release(gstate);
+    PyObject *list = PyList_New(1);
+    PyList_SetItem(list, 0, Py_BuildValue("i", 432));
+
+
     std::vector<std::string> keysnames = {"position"};
     std::vector<std::string> colsnames = {"wordinfo"};
     std::string token_pred = "WHERE token(position)>=? AND token(position)<?";
-    std::vector<std::pair<int64_t,int64_t > > tokens = {std::pair<int64_t,int64_t >(-10000,10000)};
-    std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(new CacheTable(max_items,table,keyspace, keysnames,colsnames,token_pred,tokens, test_session));
+    std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
+    std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(
+            new CacheTable(max_items, table, keyspace, keysnames, colsnames, token_pred, tokens, test_session));
 
 
-    PyObject* result = T.get()->get_row(list);
+    PyObject *result = T.get()->get_row(list);
 
-    EXPECT_FALSE(result==0);
-    gstate = PyGILState_Ensure();
+    EXPECT_FALSE(result == 0);
 
-    EXPECT_EQ(PyList_Size(result),colsnames.size());
-    for ( int i = 0; i<PyList_Size(result); ++i) {
-        EXPECT_FALSE(Py_None==PyList_GetItem(result,i));
+
+    EXPECT_EQ(PyList_Size(result), colsnames.size());
+    for (int i = 0; i < PyList_Size(result); ++i) {
+        EXPECT_FALSE(Py_None == PyList_GetItem(result, i));
     }
-    PyGILState_Release(gstate);
+
+
+    CassFuture *close_future = cass_session_close(test_session);
+    cass_future_wait(close_future);
+    cass_future_free(close_future);
+
+    cass_cluster_free(test_cluster);
+    cass_session_free(test_session);
+}
+
+
+TEST(TestinhMarshall, SingleQ) {
+    /** CONNECT **/
+    CassSession *test_session = NULL;
+    CassCluster *test_cluster = NULL;
+    uint32_t max_items = 100;
+    CassFuture *connect_future = NULL;
+    test_cluster = cass_cluster_new();
+    test_session = cass_session_new();
+
+    cass_cluster_set_contact_points(test_cluster, contact_p);
+    cass_cluster_set_port(test_cluster, 9042);
+
+    connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
+    CassError rc = cass_future_error_code(connect_future);
+    EXPECT_TRUE(rc == CASS_OK);
+
+    cass_future_free(connect_future);
+
+    /** SETUP PY **/
+    Py_Initialize();
+    PyEval_InitThreads();
+
+
+    PyObject *list = PyList_New(1);
+    PyList_SetItem(list, 0, Py_BuildValue("i", 645));
+
+
+    std::vector<std::string> keysnames = {"partid", "time"};
+    std::vector<std::string> colsnames = {"ciao"};
+    std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
+    std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
+    std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(
+            new CacheTable(max_items, table, keyspace, keysnames, colsnames, token_pred, tokens, test_session));
+
+
+    PyObject *result = T.get()->get_row(list);
+
+    EXPECT_FALSE(result == 0);
+
+
+    EXPECT_EQ(PyList_Size(result), colsnames.size());
+    for (int i = 0; i < PyList_Size(result); ++i) {
+        EXPECT_FALSE(Py_None == PyList_GetItem(result, i));
+    }
+
 
     CassFuture *close_future = cass_session_close(test_session);
     cass_future_wait(close_future);
