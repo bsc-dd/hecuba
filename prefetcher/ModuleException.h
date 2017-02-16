@@ -9,6 +9,7 @@ public:
 
     explicit ModuleException(const std::string& message);
 
+    virtual ~ModuleException() throw() {}
 
         virtual const char* what() const throw()
         {

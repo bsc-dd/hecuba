@@ -8,13 +8,16 @@ from cassandra.policies import RetryPolicy
 # Set default log.handler to avoid "No handler found" warnings.
 
 stderrLogger = logging.StreamHandler()
-f='%(filename)s: %(levelname)s: %(funcName)s(): %(lineno)d:\t%(message)s'
+f = '%(filename)s: %(levelname)s: %(funcName)s(): %(lineno)d:\t%(message)s'
 stderrLogger.setFormatter(logging.Formatter(f))
 
 log = logging.getLogger('hecuba')
 log.addHandler(stderrLogger)
-#log.setLevel(logging.INFO)
-log.setLevel(logging.DEBUG)
+
+if 'DEBUG' in os.environ and os.environ['DEBUG'].lower() is "true":
+    log.setLevel(logging.DEBUG)
+else:
+    log.setLevel(logging.INFO)
 
 
 class _NRetry(RetryPolicy):
