@@ -14,7 +14,7 @@ stderrLogger.setFormatter(logging.Formatter(f))
 log = logging.getLogger('hecuba')
 log.addHandler(stderrLogger)
 
-if 'DEBUG' in os.environ and os.environ['DEBUG'].lower() is "true":
+if 'DEBUG' in os.environ and os.environ['DEBUG'].lower() == "true":
     log.setLevel(logging.DEBUG)
 else:
     log.setLevel(logging.INFO)
@@ -163,6 +163,13 @@ class Config:
         except KeyError:
             singleton.number_of_blocks = 1024
             log.warn('using default NUMBER_OF_BLOCKS: %d', singleton.number_of_blocks)
+
+        try:
+            singleton.min_number_of_tokens = int(os.environ['MIN_NUMBER_OF_TOKENS'])
+            log.info('MIN_NUMBER_OF_TOKENS: %d', singleton.min_number_of_tokens)
+        except KeyError:
+            singleton.min_number_of_tokens = 2048
+            log.warn('using default MIN_NUMBER_OF_TOKENS: %d', singleton.min_number_of_tokens)
 
         try:
             singleton.cache_activated = os.environ['CACHE_ACTIVATED'].lower() == 'true'

@@ -344,6 +344,7 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             cass_value_get_string(lhs,&l_temp , &l_size);
             char *permanent = (char*) malloc(l_size+1);
             memcpy(permanent, l_temp,l_size);
+            permanent[l_size] = '\0';
             memcpy(data,&permanent,sizeof(char*));
             return 0;
         }
@@ -479,7 +480,6 @@ PyObject *TupleRowFactory::c_to_py(const void *V, CassValueType VT) const {
             memcpy(&addr,V,sizeof(char*));
             char *d = reinterpret_cast<char *>(addr);
             py_value = PyUnicode_FromString(d);
-            //py_value = Py_BuildValue(py_flag, d);
             break;
         }
         case CASS_VALUE_TYPE_BIGINT: {
