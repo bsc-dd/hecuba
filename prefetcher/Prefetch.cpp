@@ -68,13 +68,15 @@ void Prefetch::consume_tokens() {
         int tries = 0;
         while (result == NULL && tries < 10) {
             result = cass_future_get_result(future);
-            cass_future_free(future);
+
             if (result == NULL) {
                 CassError rc = cass_future_error_code(future);
                 std::cout << cass_error_desc(rc) << std::endl;
                 tries++;
+                std::cout << "Retry " << tries << std::endl;
 
             } else {
+                cass_future_free(future);
                 CassIterator *iterator = cass_iterator_from_result(result);
 
                 while (cass_iterator_next(iterator)) {
@@ -97,8 +99,10 @@ void Prefetch::consume_tokens() {
             }
         }
         try {
-            if (tries == 10)
+            if (tries == 10) {
                 this->error_msg = "impossible to get data";
+                cass_future_free(future);
+            }
             data.push(NULL);
         }
         catch (tbb::user_abort &e) {
