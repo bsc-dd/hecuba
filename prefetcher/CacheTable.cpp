@@ -174,11 +174,13 @@ void CacheTable::bind_keys(CassStatement *statement, TupleRow *keys) {
             }
             case CASS_VALUE_TYPE_FLOAT: {
                 const float *data = static_cast<const float *>(key);
+                //std::cout<<"binding float" <<*data<<std::endl;
                 cass_statement_bind_float(statement, bind_pos, *data);
                 break;
             }
             case CASS_VALUE_TYPE_INT: {
                 const int32_t *data = static_cast<const int32_t *>(key);
+                //std::cout<<"binding int" <<*data<<std::endl;
                 cass_statement_bind_int32(statement, bind_pos, *data);
                 break;
             }
@@ -271,10 +273,22 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
 
     TupleRow *keys = keys_factory->make_tuple(py_keys);
 
+    TupleRow *values = get_crow(keys);
+    if(values==NULL){
+        PyErr_SetString(PyExc_KeyError,"key not found");
+        return NULL;
+    }
+
+    PyObject* temp = values_factory->tuple_as_py(values);
+return temp;
+}
+
+TupleRow *CacheTable::get_crow(TupleRow *keys) {
+
     Poco::SharedPtr<TupleRow> ptrElem = myCache->get(*keys);
     if (!ptrElem.isNull()) {
         delete (keys);
-        return values_factory->tuple_as_py(ptrElem.get());
+        return ptrElem.get();
     }
     /* Not present on cache, a query is performed */
     CassStatement *statement = cass_prepared_bind(prepared_query);
@@ -288,13 +302,13 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
         /* Handle error */
         printf("%s\n", cass_error_desc(rc));
         cass_future_free(query_future);
+        cass_statement_free(statement);
         return NULL;
     }
 
     cass_future_free(query_future);
     cass_statement_free(statement);
     if (0 == cass_result_row_count(result)) {
-        PyErr_SetString(PyExc_KeyError,"key not found");
         return NULL;
     }
 
@@ -306,8 +320,8 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
     myCache->add(*keys, values);
     delete (keys);
     cass_result_free(result);
-    PyObject* temp = values_factory->tuple_as_py(values);
-return temp;
+    return values;
+
 }
 
 
