@@ -195,7 +195,7 @@ TupleRow *TupleRowFactory::make_tuple(PyObject *obj) {
 
 int TupleRowFactory::py_to_c(PyObject *key, void *data, int32_t col) const {
     if (col < 0 || col >= (int32_t) type_array.size()) {
-        throw ModuleException("TupleRowFactory: Asked for column "+std::to_string(col)+" but only "+std::to_string(type_array.size())+" are present");
+        throw ModuleException("TupleRowFactory: Py to C: Asked for column "+std::to_string(col)+" but only "+std::to_string(type_array.size())+" are present");
     }
     if (key == Py_None) return 0;
     int ok = -1;
@@ -242,7 +242,7 @@ int TupleRowFactory::py_to_c(PyObject *key, void *data, int32_t col) const {
             break;
         }
         case CASS_VALUE_TYPE_FLOAT: {
-            cass_float_t t = 0.003;
+            cass_float_t t;
             ok = PyArg_Parse(key, Py_FLOAT, &t); /* A string */
             memcpy(data, &t, sizeof(t));
             break;
@@ -327,7 +327,7 @@ int TupleRowFactory::py_to_c(PyObject *key, void *data, int32_t col) const {
 int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) const {
 
     if (col < 0 || col >= (int32_t) type_array.size()) {
-        throw ModuleException("TupleRowFactory: Asked for column "+std::to_string(col)+" but only "+std::to_string(type_array.size())+" are present");
+        throw ModuleException("TupleRowFactory: Cass to C: Asked for column "+std::to_string(col)+" but only "+std::to_string(type_array.size())+" are present");
     }
 
     if (cass_value_is_null(lhs)) {
