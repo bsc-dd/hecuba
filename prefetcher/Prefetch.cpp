@@ -23,20 +23,29 @@ Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> *token_ranges,
 }
 
 Prefetch::~Prefetch() {
-    TupleRow* to_delete;
+    TupleRow *to_delete;
     data.abort();
     data.set_capacity(0);
-    while (data.try_pop(to_delete)) delete(to_delete);
+    while (data.try_pop(to_delete)) delete (to_delete);
 
     worker->join();
-    delete(worker);
+    delete (worker);
 
-    if (this->prepared_query!=NULL) cass_prepared_free(this->prepared_query);
+    if (this->prepared_query != NULL) cass_prepared_free(this->prepared_query);
 }
 
 
 PyObject *Prefetch::get_next() {
-    TupleRow* response =get_cnext();
+    TupleRow *response = get_cnext();
+    if (response == NULL) {
+        if (error_msg == NULL) {
+            PyErr_SetNone(PyExc_StopIteration);
+            return NULL;
+        } else {
+            PyErr_SetString(PyExc_RuntimeError, error_msg);
+            return NULL;
+        }
+    }
     PyObject *toberet = t_factory->tuple_as_py(response);
     delete (response);
     return toberet;
@@ -44,23 +53,14 @@ PyObject *Prefetch::get_next() {
 
 TupleRow *Prefetch::get_cnext() {
     if (completed) {
-        PyErr_SetNone(PyExc_StopIteration);
         return NULL;
     }
     TupleRow *response = NULL;
     data.pop(response);
-    if (response == 0) {
+    if (response == NULL) {
         completed = true;
-        if (error_msg == NULL) {
-            PyErr_SetNone(PyExc_StopIteration);
-            return NULL;
-        } else {
-            PyErr_SetString(PyExc_RuntimeError, error_msg);
-            return NULL;
-
-        }
+        return NULL;
     }
-
     return response;
 }
 
