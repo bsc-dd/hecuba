@@ -19,6 +19,19 @@ Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> *token_ranges,
 
 }
 
+Prefetch::~Prefetch() {
+    TupleRow* to_delete;
+    data.abort();
+    data.set_capacity(0);
+    while (data.try_pop(to_delete)) delete(to_delete);
+
+    worker->join();
+    delete(worker);
+
+    if (this->prepared_query!=NULL) cass_prepared_free(this->prepared_query);
+}
+
+
 PyObject *Prefetch::get_next() {
     if (completed) {
         PyErr_SetNone(PyExc_StopIteration);
