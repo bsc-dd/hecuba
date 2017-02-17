@@ -1,9 +1,6 @@
 #include "Prefetch.h"
 
-
-#define CHECK_CASS(msg) if(rc != CASS_OK){ \
-std::cerr<<msg<<std::endl; \
-throw std::runtime_error(msg); };
+#define MAX_TRIES 10
 
 Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> *token_ranges, uint32_t buff_size,
                    TupleRowFactory *tuple_factory, CassSession *session, std::string query) {
@@ -23,13 +20,15 @@ Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> *token_ranges,
 }
 
 Prefetch::~Prefetch() {
-    TupleRow *to_delete;
-    data.abort();
     data.set_capacity(0);
-    while (data.try_pop(to_delete)) delete (to_delete);
+
+    while (!completed) data.abort();
 
     worker->join();
     delete (worker);
+
+    TupleRow *to_delete;
+    while (data.try_pop(to_delete)) delete (to_delete);
 
     if (this->prepared_query != NULL) cass_prepared_free(this->prepared_query);
 }
@@ -52,13 +51,12 @@ PyObject *Prefetch::get_next() {
 }
 
 TupleRow *Prefetch::get_cnext() {
-    if (completed) {
-        return NULL;
+    if (completed) return NULL;
+    TupleRow *response;
+    try {
+        data.pop(response);
     }
-    TupleRow *response = NULL;
-    data.pop(response);
-    if (response == NULL) {
-        completed = true;
+    catch (std::exception &e) {
         return NULL;
     }
     return response;
@@ -66,57 +64,79 @@ TupleRow *Prefetch::get_cnext() {
 
 void Prefetch::consume_tokens() {
     for (std::pair<int64_t, int64_t> range : *tokens) {
+        //If Consumer sets capacity 0, we stop fetching data
+        if (data.capacity() == 0) {
+            completed = true;
+            data.abort();
+            return;
+        }
+
+        //Bind tokens and execute
         CassStatement *statement = cass_prepared_bind(this->prepared_query);
         cass_statement_bind_int64(statement, 0, range.first);
         cass_statement_bind_int64(statement, 1, range.second);
-
         CassFuture *future = cass_session_execute(session, statement);
         cass_statement_free(statement);
+
         const CassResult *result = NULL;
         int tries = 0;
-        while (result == NULL && tries < 10) {
+
+        while (result == NULL) {
+            //If Consumer sets capacity 0, we stop fetching data
+            if (data.capacity() == 0) {
+                completed=true;
+                data.abort();
+                return;
+            }
+
             result = cass_future_get_result(future);
+            CassError rc = cass_future_error_code(future);
 
-            if (result == NULL) {
-                CassError rc = cass_future_error_code(future);
-                std::cout << cass_error_desc(rc) << std::endl;
+            if (rc != CASS_OK) {
+                std::cerr << "Prefetch action failed: " << cass_error_desc(rc) << " Try #" << tries << std::endl;
                 tries++;
-                std::cout << "Retry " << tries << std::endl;
-
-            } else {
-                cass_future_free(future);
-                CassIterator *iterator = cass_iterator_from_result(result);
-
-                while (cass_iterator_next(iterator)) {
-                    const CassRow *row = cass_iterator_get_row(iterator);
-                    TupleRow *t = t_factory->make_tuple(row);
-                    try {
-                        data.push(t); //blocking operation
-                    }
-                    catch (std::exception &e) {
-                        delete (t);
-                        cass_iterator_free(iterator);
-                        cass_result_free(result);
-                        return;
-
-                    }
+                if (tries > MAX_TRIES) {
+                    completed = true;
+                    data.abort();
+                    std::cerr << "Prefetch reached max connection attempts " << MAX_TRIES << std::endl;
+                    return;
                 }
+            }
+        }
+
+
+        //PRE: Result != NULL, future != NULL, completed = false
+        cass_future_free(future);
+
+        CassIterator *iterator = cass_iterator_from_result(result);
+        while (cass_iterator_next(iterator)) {
+            if (data.capacity() == 0) {
+                completed = true;
+                data.abort();
                 cass_iterator_free(iterator);
                 cass_result_free(result);
+                return;
+            }
+
+            const CassRow *row = cass_iterator_get_row(iterator);
+            TupleRow *t = t_factory->make_tuple(row);
+            try {
+                data.push(t); //blocking operation
+            }
+            catch (std::exception &e) {
+                completed = true;
+                data.abort();
+                delete (t);
+                cass_iterator_free(iterator);
+                cass_result_free(result);
+                return;
             }
         }
-        try {
-            if (tries == 10) {
-                this->error_msg = "impossible to get data";
-                cass_future_free(future);
-            }
-            data.push(NULL);
-        }
-        catch (tbb::user_abort &e) {
-
-            return;
-
-        }
+        //Done fetching current token range
+        cass_iterator_free(iterator);
+        cass_result_free(result);
     }
-
+    //All token ranges fetched
+    completed = true;
+    data.abort();
 }

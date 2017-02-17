@@ -3,7 +3,7 @@
 #define  TBB_USE_EXCEPTIONS 1
 
 #include <thread>
-
+#include <atomic>
 #include "tbb/concurrent_queue.h"
 
 #include "TupleRowFactory.h"
@@ -27,7 +27,7 @@ private:
 /** no ownership **/
     CassSession* session;
     TupleRowFactory *t_factory;
-    bool completed;
+    std::atomic<bool> completed;
     const char *error_msg;
 
 /** ownership **/
