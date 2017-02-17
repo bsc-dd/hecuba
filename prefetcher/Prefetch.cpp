@@ -84,6 +84,7 @@ void Prefetch::consume_tokens() {
         while (result == NULL) {
             //If Consumer sets capacity 0, we stop fetching data
             if (data.capacity() == 0) {
+                cass_future_free(future);
                 completed=true;
                 data.abort();
                 return;
@@ -96,6 +97,7 @@ void Prefetch::consume_tokens() {
                 std::cerr << "Prefetch action failed: " << cass_error_desc(rc) << " Try #" << tries << std::endl;
                 tries++;
                 if (tries > MAX_TRIES) {
+                    cass_future_free(future);
                     completed = true;
                     data.abort();
                     std::cerr << "Prefetch reached max connection attempts " << MAX_TRIES << std::endl;
