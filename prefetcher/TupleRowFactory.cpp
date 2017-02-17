@@ -14,26 +14,22 @@ TupleRowFactory::TupleRowFactory(const CassTableMeta *table_meta, const std::vec
     if (!table_meta) {
         throw ModuleException("Tuple factory: Table metadata NULL");
     }
-
-    CassIterator *iterator = cass_iterator_columns_from_table_meta(table_meta);
-
     uint32_t ncols = (uint32_t) col_names.size();
-    if (col_names[0] == "*") ncols = (uint32_t) cass_table_meta_column_count(table_meta);
-
     if (ncols==0) {
         throw ModuleException("Tuple factory: 0 columns metadata");
     }
 
+    //SELECT ALL
+    if (col_names[0] == "*") ncols = (uint32_t) cass_table_meta_column_count(table_meta);
 
-    type_array = std::vector<CassValueType>(ncols);
-    name_map = std::vector<std::string>(ncols);
 
+    this->type_array = std::vector<CassValueType>(ncols);
+    this->name_map = std::vector<std::string>(ncols);
     this->offsets = std::vector<uint16_t>(ncols);
 
     std::vector<uint16_t> elem_sizes = std::vector<uint16_t>(ncols);
 
-    uint16_t i = 0;
-
+    CassIterator *iterator = cass_iterator_columns_from_table_meta(table_meta);
     while (cass_iterator_next(iterator)) {
         const CassColumnMeta *cmeta = cass_iterator_get_column_meta(iterator);
         const char *value;
@@ -42,13 +38,14 @@ TupleRowFactory::TupleRowFactory(const CassTableMeta *table_meta, const std::vec
         const CassDataType *type = cass_column_meta_data_type(cmeta);
 
         std::string meta_col_name(value);
-        for (const std::string &ss: col_names) {
+
+        for (uint16_t j=0; j<col_names.size(); ++j) {
+            const std::string ss = col_names[j];
             if (meta_col_name == ss) {
-                type_array[i] = cass_data_type_type(type);
-                name_map[i] = value;
-                elem_sizes[i] = compute_size_of(type_array[i]);
-                ++i;
-                //break;
+                type_array[j] = cass_data_type_type(type);
+                name_map[j] = value;
+                elem_sizes[j] = compute_size_of(type_array[j]);
+                break;
             }
         }
 
@@ -56,7 +53,7 @@ TupleRowFactory::TupleRowFactory(const CassTableMeta *table_meta, const std::vec
     cass_iterator_free(iterator);
 
     offsets[0] = 0;
-    i = 1;
+    uint16_t i = 1;
     while (i < ncols) {
         offsets[i] = offsets[i - 1] + elem_sizes[i - 1];
         ++i;
@@ -197,7 +194,7 @@ int TupleRowFactory::py_to_c(PyObject *key, void *data, int32_t col) const {
     if (col < 0 || col >= (int32_t) type_array.size()) {
         throw ModuleException("TupleRowFactory: Py to C: Asked for column "+std::to_string(col)+" but only "+std::to_string(type_array.size())+" are present");
     }
-    if (key == Py_None) return 0;
+    if (key == Py_None) return NULL;
     int ok = -1;
     switch (type_array[col]) {
         case CASS_VALUE_TYPE_TEXT:
@@ -476,9 +473,9 @@ PyObject *TupleRowFactory::c_to_py(const void *V, CassValueType VT) const {
         case CASS_VALUE_TYPE_VARCHAR:
         case CASS_VALUE_TYPE_TEXT:
         case CASS_VALUE_TYPE_ASCII: {
-            uint64_t addr;
-            memcpy(&addr,V,sizeof(char*));
-            char *d = reinterpret_cast<char *>(addr);
+
+            int64_t  *addr = (int64_t*) V;
+            char *d = reinterpret_cast<char *>(*addr);
             py_value = PyUnicode_FromString(d);
             break;
         }
