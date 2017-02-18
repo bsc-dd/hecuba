@@ -46,7 +46,7 @@ CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string
     CassError rc = cass_future_error_code(future);
     if (rc!=CASS_OK) {
         std::string error = cass_error_desc(rc);
-        throw ModuleException("Cache table: Preparing query: "+cache_query+ " REPORTED ERROR: "+error);
+        throw ModuleException("Cache particles_table: Preparing query: "+cache_query+ " REPORTED ERROR: "+error);
     }
 
     prepared_query = cass_future_get_prepared(future);
@@ -56,18 +56,18 @@ CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string
     //lacks free future (future)
     const CassSchemaMeta *schema_meta = cass_session_get_schema_meta(session);
     if (!schema_meta) {
-        throw ModuleException("Cache table: constructor: Schema meta is NULL");
+        throw ModuleException("Cache particles_table: constructor: Schema meta is NULL");
     }
 
     const CassKeyspaceMeta *keyspace_meta = cass_schema_meta_keyspace_by_name(schema_meta, keyspace.c_str());
     if (!keyspace_meta) {
-        throw ModuleException("Keyspace table: constructor: Schema meta is NULL");
+        throw ModuleException("Keyspace particles_table: constructor: Schema meta is NULL");
     }
 
 
     const CassTableMeta *table_meta = cass_keyspace_meta_table_by_name(keyspace_meta, table.c_str());
     if (!table_meta || (cass_table_meta_column_count(table_meta)==0)) {
-        throw ModuleException("Cache table: constructor: Table meta is NULL");
+        throw ModuleException("Cache particles_table: constructor: Table meta is NULL");
     }
 
     all_names.reserve(key_names.size() + columns_names.size());
@@ -252,30 +252,21 @@ void CacheTable::put_row(PyObject *key, PyObject *value) {
     TupleRow *k = keys_factory->make_tuple(key);
     TupleRow *v = values_factory->make_tuple(value);
     //Inserts if not present, otherwise replaces
-    myCache->update(*k, v);
+    //Object will be deleted when the cache is destroyed or by the replacement algorithm
+    this->myCache->update(*k, v);
+    this->writer->write_to_cassandra(k,v);
     delete (k);
 
 }
 
 
-/***
- * This method  does:
- * 1. converts the python object to C
- * 2. check if it is present in cache. If yes, returns it
- * 3. otherwise, queries Cassandra
- * 4. If a value is returned, it is put into the Cache, converted to Python and returned to the user.
- *
- * //TODO to be moved somewhere else :)
- * @param py_keys
- * @return
- */
 PyObject *CacheTable::get_row(PyObject *py_keys) {
 
     TupleRow *keys = keys_factory->make_tuple(py_keys);
 
     TupleRow *values = get_crow(keys);
     if(values==NULL){
-        PyErr_SetString(PyExc_KeyError,"key not found");
+        PyErr_SetString(PyExc_KeyError,"Get row: key not found");
         return NULL;
     }
 
