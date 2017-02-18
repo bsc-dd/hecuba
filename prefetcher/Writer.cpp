@@ -20,9 +20,6 @@ Writer::Writer(uint16_t buff_size, uint16_t max_callbacks, TupleRowFactory *key_
 
 
 Writer::~Writer() {
-
-    //clear calls items destructors
-    std::cout << "DESTR " << std::endl;
     flush_elements();
     if (this->prepared_query!=NULL) cass_prepared_free(this->prepared_query);
 }
@@ -52,7 +49,7 @@ static void callback(CassFuture *future, void *ptr) {
 }
 
 
-void Writer::write_to_cassandra(PyObject *keys, PyObject *values) {
+void Writer::write_to_cassandra(TupleRow *keys, TupleRow *values) {
     if (ncallbacks < max_calls) {
         ncallbacks++;
         auto item = std::make_pair(keys,values);
@@ -66,17 +63,13 @@ void Writer::write_to_cassandra(PyObject *keys, PyObject *values) {
 
 
 void Writer::call_async() {
-    std::pair<PyObject*,PyObject*> item;
-    std::cout << "SIZE " << data.size() << " EMPT " << std::endl;
+    std::pair<TupleRow*,TupleRow*> item;
     if (!data.try_pop(item)) {
         ncallbacks--;
         return;
     }
-
     CassStatement *statement = cass_prepared_bind(prepared_query);
-    std::cout << "KEYS: " << PyFloat_AsDouble(PyList_GetItem(item.first,0)) << " - " << PyFloat_AsDouble(PyList_GetItem(item.first,1)) << std::endl;
-    std::cout << "KEYS SIZE: " << PyList_Size(item.first) << " Fact expects: " << k_factory->n_elements() << std::endl;
-    std::cout << "VALUES SIZE: " << PyList_Size(item.second) << " Fact expects: " << v_factory->n_elements() << std::endl;
+
     bind(statement, item.first, k_factory, 0);
     bind(statement, item.second, v_factory, k_factory->n_elements());
     CassFuture *query_future = cass_session_execute(session, statement);
@@ -91,8 +84,7 @@ void Writer::call_async() {
 
 //Same as CacheTable.cpp
 
-void Writer::bind(CassStatement *statement, PyObject *item, TupleRowFactory *factory, uint16_t offset) {
-    TupleRow *tuple_row = factory->make_tuple(item);
+void Writer::bind(CassStatement *statement, TupleRow *tuple_row, TupleRowFactory *factory, uint16_t offset) {
     for (uint16_t i = 0; i < tuple_row->n_elem(); ++i) {
         const void *key = tuple_row->get_element(i);
         uint16_t bind_pos = i + offset;
@@ -197,5 +189,4 @@ void Writer::bind(CassStatement *statement, PyObject *item, TupleRowFactory *fac
                 break;
         }
     }
-    delete(tuple_row);
 }

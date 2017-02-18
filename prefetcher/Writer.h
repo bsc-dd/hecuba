@@ -23,11 +23,11 @@ public:
 
     void flush_elements();
 
-    void write_to_cassandra(PyObject* keys, PyObject* values);
+    void write_to_cassandra(TupleRow* keys, TupleRow* values);
 
 private:
 
-    void bind(CassStatement *statement,PyObject* item, TupleRowFactory* factory, uint16_t offset);
+    void bind(CassStatement *statement,TupleRow *tuple_row , TupleRowFactory* factory, uint16_t offset);
 
     CassSession* session;
 
@@ -39,7 +39,7 @@ private:
 
 /** ownership **/
     const CassPrepared *prepared_query;
-    tbb::concurrent_bounded_queue<std::pair<PyObject*,PyObject*>> data;
+    tbb::concurrent_bounded_queue<std::pair<TupleRow*,TupleRow*>> data;
     std::atomic <uint16_t > ncallbacks;
 };
 
