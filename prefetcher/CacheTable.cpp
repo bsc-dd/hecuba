@@ -113,15 +113,15 @@ CacheTable::~CacheTable() {
 
 
 Prefetch* CacheTable::get_keys_iter(uint32_t prefetch_size) {
-    return new Prefetch(&tokens, prefetch_size, keys_factory, session, select_keys + token_predicate);
+    return new Prefetch(&tokens, prefetch_size, *keys_factory, session, select_keys + token_predicate);
 }
 
 Prefetch* CacheTable::get_values_iter(uint32_t prefetch_size) {
-    return new Prefetch(&tokens, prefetch_size, values_factory, session, select_values + token_predicate);
+    return new Prefetch(&tokens, prefetch_size, *values_factory, session, select_values + token_predicate);
 }
 
 Prefetch* CacheTable::get_items_iter(uint32_t prefetch_size) {
-    return new Prefetch(&tokens, prefetch_size, items_factory, session, select_all + token_predicate);
+    return new Prefetch(&tokens, prefetch_size, *items_factory, session, select_all + token_predicate);
 }
 
 

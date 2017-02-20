@@ -13,7 +13,7 @@ class Prefetch {
 
 public:
 
-    Prefetch(const std::vector<std::pair<int64_t, int64_t>> *tokens, uint32_t buff_size, TupleRowFactory* tuple_factory,
+    Prefetch(const std::vector<std::pair<int64_t, int64_t>> *tokens, uint32_t buff_size, TupleRowFactory& tuple_factory,
              CassSession* session,std::string query);
 
     ~Prefetch();
@@ -27,7 +27,7 @@ private:
 
 /** no ownership **/
     CassSession* session;
-    TupleRowFactory *t_factory;
+    TupleRowFactory t_factory;
     std::atomic<bool> completed;
     const char *error_msg;
 
