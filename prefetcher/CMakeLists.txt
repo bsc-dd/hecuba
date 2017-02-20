@@ -5,8 +5,6 @@ SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fPIC")
 set(CMAKE_POSITION_INDEPENDENT_CODE YES)
 project(hfetch)
 
-add_subdirectory(tests)
-
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 include_directories( ${CMAKE_CURRENT_LIST_DIR}/_install/ /usr/include)
 include(ExternalProject) # ExternalProject_Add
@@ -109,9 +107,22 @@ include_directories(${PYTHON_INCLUDE_DIRS} ${CMAKE_CURRENT_LIST_DIR}/_install/in
 set(ALL_LIBS ${ALL_LIBS} ${PYTHON_LIBRARIES})
 
 
-#target_include_directories(hfetch PRIVATE ${CMAKE_CURRENT_LIST_DIR}/_install/include/ )
-#target_compile_definitions(hfetch PRIVATE ${TBB_DEFINITIONS})
+target_include_directories(hfetch PRIVATE ${CMAKE_CURRENT_LIST_DIR}/_install/include/ )
+target_compile_definitions(hfetch PRIVATE ${TBB_DEFINITIONS})
 set_target_properties(hfetch PROPERTIES PREFIX "")
 target_link_libraries(hfetch ${ALL_LIBS})
 
+
+FIND_LIBRARY(PT NAMES pthread PATHS /lib)
+
+find_package(GTest)
+if (GTest_FOUND)
+    include_directories(${PYTHON_INCLUDE_DIRS} ${CMAKE_CURRENT_LIST_DIR}/_install/include ${ALL_INCLUDE})
+
+    enable_testing()
+    add_executable(hfetch_test tests/runtests.cpp)
+
+    target_link_libraries( hfetch_test ${ALL_LIBS} ${PT}  ${GTEST_BOTH_LIBRARIES} hfetch )
+    add_test(test hfetch_test)
+endif()
 
