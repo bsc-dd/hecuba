@@ -51,16 +51,18 @@ PyObject *Prefetch::get_next() {
 }
 
 TupleRow *Prefetch::get_cnext() {
-    if (completed) return NULL;
+    if (completed&&data.empty()) return NULL;
     TupleRow *response;
     try {
         data.pop(response);
     }
     catch (std::exception &e) {
-        return NULL;
+        if (data.empty()) return NULL;
+        else return get_cnext();
     }
     return response;
 }
+
 
 void Prefetch::consume_tokens() {
     for (std::pair<int64_t, int64_t> range : *tokens) {
@@ -119,7 +121,6 @@ void Prefetch::consume_tokens() {
                 cass_result_free(result);
                 return;
             }
-
             const CassRow *row = cass_iterator_get_row(iterator);
             TupleRow *t = t_factory->make_tuple(row);
             try {
