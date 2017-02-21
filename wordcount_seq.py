@@ -6,12 +6,16 @@ from app.words import Words
 
 def runme():
 
-    words = Words('wordcount.wordobj')
+    words = Words()#'wordcount.wordobj')
+    words.words.make_persistent("wordcount.words")
     totals = 0
-    for words in words.words.itervalues():
-        parsedWords = words.split(',')
-        for word in parsedWords:
-            totals += 1
+    for key, words in words.words.iteritems():
+        if words is None:
+            print 'key', key, 'is none'
+        else:
+            parsedWords = words.split(',')
+            for word in parsedWords:
+                totals += 1
 
     print totals
 
