@@ -2,7 +2,7 @@
 
 #define MAX_TRIES 10
 
-Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> *token_ranges, uint32_t buff_size,
+Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges, uint32_t buff_size,
                    TupleRowFactory& tuple_factory, CassSession *session, std::string query) {
     this->session = session;
     this->t_factory = tuple_factory;
@@ -65,7 +65,7 @@ TupleRow *Prefetch::get_cnext() {
 
 
 void Prefetch::consume_tokens() {
-    for (std::pair<int64_t, int64_t> range : *tokens) {
+    for (std::pair<int64_t, int64_t> &range : tokens) {
         //If Consumer sets capacity 0, we stop fetching data
         if (data.capacity() == 0) {
             completed = true;

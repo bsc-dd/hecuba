@@ -14,7 +14,7 @@
 
 class Writer {
 public:
-    Writer(uint16_t buff_size, uint16_t max_callbacks, TupleRowFactory *key_factory, TupleRowFactory *value_factory, CassSession *session,
+    Writer(uint16_t buff_size, uint16_t max_callbacks, TupleRowFactory &key_factory, TupleRowFactory &value_factory, CassSession *session,
             std::string query);
 
     ~Writer();
@@ -27,12 +27,12 @@ public:
 
 private:
 
-    void bind(CassStatement *statement,const TupleRow *tuple_row , const TupleRowFactory* factory, uint16_t offset);
+    void bind(CassStatement *statement,const TupleRow *tuple_row , const TupleRowFactory& factory, uint16_t offset);
 
     CassSession* session;
 
-    TupleRowFactory *k_factory;
-    TupleRowFactory *v_factory;
+    TupleRowFactory k_factory;
+    TupleRowFactory v_factory;
 
     uint16_t max_calls;
 

@@ -1,6 +1,6 @@
 #include "Writer.h"
 
-Writer::Writer(uint16_t buff_size, uint16_t max_callbacks, TupleRowFactory *key_factory, TupleRowFactory *value_factory,
+Writer::Writer(uint16_t buff_size, uint16_t max_callbacks, TupleRowFactory &key_factory, TupleRowFactory &value_factory,
                CassSession *session,
                std::string query) {
     this->session = session;
@@ -73,7 +73,7 @@ void Writer::call_async() {
     CassStatement *statement = cass_prepared_bind(prepared_query);
 
     bind(statement, item.first, k_factory, 0);
-    bind(statement, item.second, v_factory, k_factory->n_elements());
+    bind(statement, item.second, v_factory, k_factory.n_elements());
 
     CassFuture *query_future = cass_session_execute(session, statement);
 
@@ -86,12 +86,12 @@ void Writer::call_async() {
 
 
 //Same as CacheTable.cpp
-void Writer::bind(CassStatement *statement, const TupleRow *tuple_row, const TupleRowFactory *factory, uint16_t offset) {
+void Writer::bind(CassStatement *statement, const TupleRow *tuple_row, const TupleRowFactory &factory, uint16_t offset) {
     for (uint16_t i = 0; i < tuple_row->n_elem(); ++i) {
 
         const void *key = tuple_row->get_element(i);
         uint16_t bind_pos = i + offset;
-        switch (factory->get_type(i)) {
+        switch (factory.get_type(i)) {
             case CASS_VALUE_TYPE_VARCHAR:
             case CASS_VALUE_TYPE_TEXT:
             case CASS_VALUE_TYPE_ASCII: {

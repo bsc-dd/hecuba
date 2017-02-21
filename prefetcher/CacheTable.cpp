@@ -93,7 +93,7 @@ CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string
         write_query+=",?";
     }
     write_query+=");";
-    writer = new Writer((uint16_t )writer_buff_size,(uint16_t )max_write_callbacks,keys_factory,values_factory,session,write_query);
+    writer = new Writer((uint16_t )writer_buff_size,(uint16_t )max_write_callbacks,*keys_factory,*values_factory,session,write_query);
 };
 
 
@@ -114,15 +114,15 @@ CacheTable::~CacheTable() {
 
 
 Prefetch* CacheTable::get_keys_iter(uint32_t prefetch_size) {
-    return new Prefetch(&tokens, prefetch_size, *keys_factory, session, select_keys + token_predicate);
+    return new Prefetch(tokens, prefetch_size, *keys_factory, session, select_keys + token_predicate);
 }
 
 Prefetch* CacheTable::get_values_iter(uint32_t prefetch_size) {
-    return new Prefetch(&tokens, prefetch_size, *values_factory, session, select_values + token_predicate);
+    return new Prefetch(tokens, prefetch_size, *values_factory, session, select_values + token_predicate);
 }
 
 Prefetch* CacheTable::get_items_iter(uint32_t prefetch_size) {
-    return new Prefetch(&tokens, prefetch_size, *items_factory, session, select_all + token_predicate);
+    return new Prefetch(tokens, prefetch_size, *items_factory, session, select_all + token_predicate);
 }
 
 
