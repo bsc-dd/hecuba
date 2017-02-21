@@ -100,12 +100,13 @@ CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string
 CacheTable::~CacheTable() {
     cass_prepared_free(prepared_query);
     //stl tree calls deallocate for cache nodes on clear()->erase(), and later on destroy, which ends up calling the deleters
-    myCache->clear();
+    delete(writer); //First of all, needs to flush the data using the key and values factory
+    myCache->clear();// destroys keys
     delete(myCache);
     delete (keys_factory);
     delete (values_factory);
     delete (items_factory);
-    delete(writer);
+
     session=NULL;
 }
 
@@ -250,31 +251,28 @@ void CacheTable::bind_keys(CassStatement *statement, TupleRow *keys) {
 
 void CacheTable::put_row(PyObject *key, PyObject *value) {
     TupleRow *k = keys_factory->make_tuple(key);
-    TupleRow *v = values_factory->make_tuple(value);
+    const TupleRow *v = values_factory->make_tuple(value);
     //Inserts if not present, otherwise replaces
-    //Object will be deleted when the cache is destroyed or by the replacement algorithm
     this->myCache->update(*k, v);
     this->writer->write_to_cassandra(k,v);
-    delete (k);
-
 }
 
 
 PyObject *CacheTable::get_row(PyObject *py_keys) {
 
     TupleRow *keys = keys_factory->make_tuple(py_keys);
+    const TupleRow *values = get_crow(keys);
 
-    TupleRow *values = get_crow(keys);
     if(values==NULL){
         PyErr_SetString(PyExc_KeyError,"Get row: key not found");
         return NULL;
     }
 
     PyObject* temp = values_factory->tuple_as_py(values);
-return temp;
+    return temp;
 }
 
-TupleRow *CacheTable::get_crow(TupleRow *keys) {
+const TupleRow *CacheTable::get_crow(TupleRow *keys) {
 
     Poco::SharedPtr<TupleRow> ptrElem = myCache->get(*keys);
     if (!ptrElem.isNull()) {
@@ -306,15 +304,10 @@ TupleRow *CacheTable::get_crow(TupleRow *keys) {
     const CassRow *row = cass_result_first_row(result);
 
     //Store result to cache
-    TupleRow *values = values_factory->make_tuple(row);
+    const TupleRow *values = values_factory->make_tuple(row);
 
     myCache->add(*keys, values);
     delete (keys);
     cass_result_free(result);
     return values;
-
 }
-
-
-//https://github.com/pocoproject/poco/blob/develop/Foundation/include/Poco/AbstractCache.h#L218
-//Cache allocates space for each insert

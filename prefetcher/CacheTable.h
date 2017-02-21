@@ -46,7 +46,7 @@ public:
     Prefetch* get_values_iter(uint32_t prefetch_size);
 
     Prefetch* get_items_iter(uint32_t prefetch_size);
-    TupleRow *get_crow(TupleRow *py_keys);
+    const TupleRow *get_crow(TupleRow *py_keys);
 
 private:
 

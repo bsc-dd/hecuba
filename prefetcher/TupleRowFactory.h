@@ -57,9 +57,9 @@ public:
 
     TupleRow* make_tuple(const CassRow* row);
 
-    PyObject* tuple_as_py(TupleRow* tuple) const;
+    PyObject* tuple_as_py(const TupleRow* tuple) const;
 
-    inline CassValueType get_type(uint16_t pos) {
+    inline const CassValueType get_type(uint16_t pos) const {
         return type_array[pos];
     }
 

@@ -194,15 +194,23 @@ int TupleRowFactory::py_to_c(PyObject *key, void *data, int32_t col) const {
     if (col < 0 || col >= (int32_t) type_array.size()) {
         throw ModuleException("TupleRowFactory: Py to C: Asked for column "+std::to_string(col)+" but only "+std::to_string(type_array.size())+" are present");
     }
-    if (key == Py_None) return NULL;
+    if (key == Py_None) {
+        memset(data,0,compute_size_of(type_array[col]));
+        return 0;
+    }
     int ok = -1;
     switch (type_array[col]) {
         case CASS_VALUE_TYPE_TEXT:
         case CASS_VALUE_TYPE_VARCHAR:
         case CASS_VALUE_TYPE_ASCII: {
-            const char *text;
-            ok = PyArg_Parse(key, "s", text);
-            memcpy(data, &text, sizeof(text));
+            char *l_temp;
+            Py_ssize_t l_size;
+            PyString_AsStringAndSize(key,&l_temp,&l_size);
+
+            char *permanent = (char*) malloc(l_size+1);
+            memcpy(permanent, l_temp,l_size);
+            permanent[l_size] = '\0';
+            memcpy(data,&permanent,sizeof(char*));
             break;
         }
         case CASS_VALUE_TYPE_BIGINT: {
@@ -443,7 +451,7 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
  * @return A list with the information from tuple preserving its order
  */
 
-PyObject *TupleRowFactory::tuple_as_py(TupleRow *tuple) const {
+PyObject *TupleRowFactory::tuple_as_py(const TupleRow *tuple) const {
     if (tuple == 0) throw ModuleException("TupleRowFactory: Marshalling from c to python a NULL tuple, unsupported");
     PyObject *list = PyList_New(0);
     for (uint16_t i = 0; i < tuple->n_elem(); i++) {
