@@ -875,6 +875,11 @@ TEST(TestingCacheTable, PutTextRow) {
         ++it;
     }
 
+//    WriteTable.flush_elements(); //Blocking OP
+    //Handle correctly who destroys the data inserted in cassandra
+
+
+
     delete(P);
     delete(WriteTable);
     PY_ERR_CHECK

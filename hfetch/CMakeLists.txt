@@ -6,7 +6,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE YES)
 project(hfetch)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
-include_directories( ${CMAKE_CURRENT_LIST_DIR}/_install/ /usr/include)
+include_directories( ${CMAKE_CURRENT_LIST_DIR}/_install/ /usr/include $ENV{HOME}/local/include)
 include(ExternalProject) # ExternalProject_Add
 
 set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp)
@@ -114,6 +114,8 @@ target_link_libraries(hfetch ${ALL_LIBS})
 
 
 FIND_LIBRARY(PT NAMES pthread PATHS /lib)
+
+set(GTEST_ROOT $ENV{HOME}/local)
 
 find_package(GTest)
 if (GTest_FOUND)
