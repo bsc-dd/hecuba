@@ -1,10 +1,8 @@
 #include "Writer.h"
 
-
 Writer::Writer(uint16_t buff_size, uint16_t max_callbacks, TupleRowFactory *key_factory, TupleRowFactory *value_factory,
                CassSession *session,
                std::string query) {
-
     this->session = session;
     this->k_factory = key_factory;
     this->v_factory = value_factory;
@@ -32,7 +30,8 @@ void Writer::flush_elements() {
             call_async();
         }
     }
-   if (ncallbacks>0) std::cerr << "Writer: Destroyed while callbacks were running" << std::endl;
+
+   while (ncallbacks>0) std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 
@@ -40,8 +39,11 @@ static void callback(CassFuture *future, void *ptr) {
     CassError rc = cass_future_error_code(future);
     if (rc != CASS_OK) {
         std::string message(cass_error_desc(rc));
-
-        throw ModuleException("Writer callback: " + message);
+        const char *dmsg;
+        size_t l;
+        cass_future_error_message(future, &dmsg, &l);
+        std::string msg2(dmsg,l);
+        throw ModuleException("Writer callback: " + message +"  "+msg2);
     }
 
     Writer *W = (Writer*) ptr;
@@ -49,7 +51,7 @@ static void callback(CassFuture *future, void *ptr) {
 }
 
 
-void Writer::write_to_cassandra(TupleRow *keys, TupleRow *values) {
+void Writer::write_to_cassandra(const TupleRow *keys,const TupleRow *values) {
     if (ncallbacks < max_calls) {
         ncallbacks++;
         auto item = std::make_pair(keys,values);
@@ -63,7 +65,7 @@ void Writer::write_to_cassandra(TupleRow *keys, TupleRow *values) {
 
 
 void Writer::call_async() {
-    std::pair<TupleRow*,TupleRow*> item;
+    std::pair<const TupleRow*,const TupleRow*> item;
     if (!data.try_pop(item)) {
         ncallbacks--;
         return;
@@ -72,6 +74,7 @@ void Writer::call_async() {
 
     bind(statement, item.first, k_factory, 0);
     bind(statement, item.second, v_factory, k_factory->n_elements());
+
     CassFuture *query_future = cass_session_execute(session, statement);
 
     cass_statement_free(statement);
@@ -83,17 +86,18 @@ void Writer::call_async() {
 
 
 //Same as CacheTable.cpp
-
-void Writer::bind(CassStatement *statement, TupleRow *tuple_row, TupleRowFactory *factory, uint16_t offset) {
+void Writer::bind(CassStatement *statement, const TupleRow *tuple_row, const TupleRowFactory *factory, uint16_t offset) {
     for (uint16_t i = 0; i < tuple_row->n_elem(); ++i) {
+
         const void *key = tuple_row->get_element(i);
         uint16_t bind_pos = i + offset;
         switch (factory->get_type(i)) {
             case CASS_VALUE_TYPE_VARCHAR:
             case CASS_VALUE_TYPE_TEXT:
             case CASS_VALUE_TYPE_ASCII: {
-                const char *temp = static_cast<const char *>(key);
-                cass_statement_bind_string(statement, bind_pos, temp);
+                int64_t  *addr = (int64_t*) key;
+                const char *d = reinterpret_cast<char *>(*addr);
+                cass_statement_bind_string(statement, bind_pos, d);
                 break;
             }
             case CASS_VALUE_TYPE_VARINT:
