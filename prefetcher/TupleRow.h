@@ -34,20 +34,24 @@ public:
         positions = 0;
     }
 
-    //this shouldn't be used
     TupleRow(const TupleRow &t) {
-        //  throw std::runtime_error("Copy constructor called");
         this->payload = t.payload;
         this->payload_size = t.payload_size;
         this->positions = t.positions;
     }
 
-    inline uint16_t n_elem() {
+    TupleRow(const TupleRow *t) {
+        this->payload = t->payload;
+        this->payload_size = t->payload_size;
+        this->positions = t->positions;
+    }
+    
+    inline const uint16_t n_elem() const {
         if (!positions || (*positions).empty()) return 0;
         return (uint16_t) positions->size();
     }
 
-    const void* get_element(int32_t position) {
+    const void* get_element(int32_t position) const {
         if (position < 0 || payload.get() == 0) return 0;
         return (const char *) payload.get() + (*positions)[position];
     }
