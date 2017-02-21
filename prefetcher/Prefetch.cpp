@@ -3,7 +3,7 @@
 #define MAX_TRIES 10
 
 Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> *token_ranges, uint32_t buff_size,
-                   TupleRowFactory *tuple_factory, CassSession *session, std::string query) {
+                   TupleRowFactory& tuple_factory, CassSession *session, std::string query) {
     this->session = session;
     this->t_factory = tuple_factory;
     this->tokens = token_ranges;
@@ -45,7 +45,7 @@ PyObject *Prefetch::get_next() {
             return NULL;
         }
     }
-    PyObject *toberet = t_factory->tuple_as_py(response);
+    PyObject *toberet = t_factory.tuple_as_py(response);
     delete (response);
     return toberet;
 }
@@ -122,7 +122,7 @@ void Prefetch::consume_tokens() {
                 return;
             }
             const CassRow *row = cass_iterator_get_row(iterator);
-            TupleRow *t = t_factory->make_tuple(row);
+            TupleRow *t = t_factory.make_tuple(row);
             try {
                 data.push(t); //blocking operation
             }
