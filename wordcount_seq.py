@@ -9,11 +9,11 @@ def runme():
     words = Words()#'wordcount.wordobj')
     words.words.make_persistent("wordcount.words")
     totals = 0
-    for key, words in words.words.iteritems():
-        if words is None:
+    for key, row in words.words.iteritems():
+        if row is None:
             print 'key', key, 'is none'
         else:
-            parsedWords = words.split(',')
+            parsedWords = row.split(',')
             for word in parsedWords:
                 totals += 1
 
