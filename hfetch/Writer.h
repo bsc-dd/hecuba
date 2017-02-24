@@ -14,8 +14,9 @@
 
 class Writer {
 public:
-    Writer(uint16_t buff_size, uint16_t max_callbacks, TupleRowFactory &key_factory, TupleRowFactory &value_factory, CassSession *session,
-            std::string query);
+    Writer(uint16_t buff_size, uint16_t max_callbacks, const TupleRowFactory &key_factory,
+           const TupleRowFactory &value_factory, CassSession *session,
+           std::string query);
 
     ~Writer();
 
@@ -23,13 +24,11 @@ public:
 
     void flush_elements();
 
-    void write_to_cassandra(const TupleRow* keys, const TupleRow* values);
+    void write_to_cassandra(const TupleRow *keys, const TupleRow *values);
 
 private:
 
-    void bind(CassStatement *statement,const TupleRow *tuple_row , const TupleRowFactory& factory, uint16_t offset);
-
-    CassSession* session;
+    CassSession *session;
 
     TupleRowFactory k_factory;
     TupleRowFactory v_factory;
@@ -39,8 +38,8 @@ private:
 
 /** ownership **/
     const CassPrepared *prepared_query;
-    tbb::concurrent_bounded_queue<std::pair<const TupleRow*,const TupleRow*>> data;
-    std::atomic <uint16_t > ncallbacks;
+    tbb::concurrent_bounded_queue<std::pair<const TupleRow *, const TupleRow *>> data;
+    std::atomic<uint16_t> ncallbacks;
 };
 
 static void callback(CassFuture *future, void *ptr);

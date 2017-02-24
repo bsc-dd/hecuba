@@ -17,35 +17,17 @@ private:
     std::shared_ptr<const void> payload;
     const std::vector<uint16_t> *positions;
     uint16_t payload_size;
-/*
 
-    inline void *get_element(int32_t position) const {
-        if (position < 0 || payload.get() == 0) return 0;
-        return (char *) payload.get() + (*positions)[position];
-    }
-*/
 public:
 
     TupleRow(const std::vector<uint16_t> *size_elem, uint16_t payload_size,void *free);
 
-    ~TupleRow() {
-        //payload is freed by shared pointer deleter
-        payload_size = 0;
-        positions = 0;
-    }
+    ~TupleRow();
 
-    TupleRow(const TupleRow &t) {
-        this->payload = t.payload;
-        this->payload_size = t.payload_size;
-        this->positions = t.positions;
-    }
+    TupleRow(const TupleRow &t) ;
 
-    TupleRow(const TupleRow *t) {
-        this->payload = t->payload;
-        this->payload_size = t->payload_size;
-        this->positions = t->positions;
-    }
-    
+    TupleRow(const TupleRow *t);
+
     inline const uint16_t n_elem() const {
         if (!positions || (*positions).empty()) return 0;
         return (uint16_t) positions->size();

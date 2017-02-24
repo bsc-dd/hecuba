@@ -77,7 +77,6 @@ private:
 
     Writer *writer;
 
-    void bind_keys(CassStatement *statement, TupleRow *keys);
 };
 
 #endif //PREFETCHER_CACHE_TABLE_H

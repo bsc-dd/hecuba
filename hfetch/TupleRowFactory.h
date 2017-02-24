@@ -1,33 +1,20 @@
-//
-// Created by bscuser on 1/26/17.
-//
-
 #ifndef PREFETCHER_MY_TUPLE_FACTORY_H
 #define PREFETCHER_MY_TUPLE_FACTORY_H
-
-
 
 #define CHECK_CASS(msg) if(rc != CASS_OK){ \
 std::cerr<<msg<<std::endl; };\
 
-
-
 #include <cassert>
-
-
 #include <cstring>
 #include <string>
 #include <iostream>
-
 #include <vector>
 #include <cassandra.h>
 #include <python2.7/Python.h>
-
 #include "ModuleException.h"
 #include "TupleRow.h"
 #include <stdexcept>
 #include <memory>
-
 #include <stdlib.h>
 
 #define Py_STRING "s"
@@ -44,20 +31,18 @@ std::cerr<<msg<<std::endl; };\
 
 
 
-
 class TupleRowFactory{
 
 public:
     TupleRowFactory(const CassTableMeta *table_meta, const std::vector<std::string> &col_names);
-
-     ~TupleRowFactory() {
-    }
 
     TupleRow* make_tuple(PyObject* obj);
 
     TupleRow* make_tuple(const CassRow* row);
 
     PyObject* tuple_as_py(const TupleRow* tuple) const;
+
+    void bind( CassStatement *statement,const  TupleRow *row,  u_int16_t offset) const ;
 
     inline const CassValueType get_type(uint16_t pos) const {
         return type_array[pos];
