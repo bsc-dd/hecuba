@@ -453,9 +453,10 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
 
 PyObject *TupleRowFactory::tuple_as_py(const TupleRow *tuple) const {
     if (tuple == 0) throw ModuleException("TupleRowFactory: Marshalling from c to python a NULL tuple, unsupported");
-    PyObject *list = PyList_New(0);
+    PyObject *list = PyList_New(tuple->n_elem());
     for (uint16_t i = 0; i < tuple->n_elem(); i++) {
-        PyList_Append(list, c_to_py(tuple->get_element(i), type_array[i]));
+        PyObject *inte=c_to_py(tuple->get_element(i), type_array[i]);
+        PyList_SetItem(list, i,inte);
     }
     return list;
 
