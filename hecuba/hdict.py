@@ -181,7 +181,7 @@ class StorageDict(dict, IStorage):
 
     def make_persistent(self, name):
         (self._ksp, self._table) = self._extract_ks_tab(name)
-        self._build_args = self._build_args._replace(name=name)
+        self._build_args = self._build_args._replace(name=self._ksp+"."+self._table)
 
         if not hasattr(self, 'storage_id'):
             self.storage_id = str(uuid.uuid1())
