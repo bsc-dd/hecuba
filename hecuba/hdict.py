@@ -75,7 +75,7 @@ class StorageDict(dict, IStorage):
 
     @staticmethod
     def _store_meta(storage_args):
-        class_name = '%s.%s' % (StorageDict.__class__.__module__, StorageDict.__class__.__name__)
+        class_name = '%s.%s' % (StorageDict.__module__, StorageDict.__name__)
 
         try:
             config.session.execute(StorageDict._prepared_store_meta,

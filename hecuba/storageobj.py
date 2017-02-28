@@ -41,7 +41,7 @@ class StorageObj(object, IStorage):
 
     @staticmethod
     def _store_meta(storage_args):
-        class_name = '%s.%s' % (StorageDict.__class__.__module__, StorageDict.__class__.__name__)
+        class_name = '%s.%s' % (StorageObj.__module__, StorageObj.__name__)
 
         try:
             config.session.execute('INSERT INTO hecuba.istorage (storage_id, class_name, name)  VALUES (%s,%s,%s)',
