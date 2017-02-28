@@ -1,7 +1,3 @@
-//
-// Created by bscuser on 1/26/17.
-//
-
 #ifndef PREFETCHER_MY_TUPLE_FACTORY_H
 #define PREFETCHER_MY_TUPLE_FACTORY_H
 
@@ -11,25 +7,19 @@
 #define CHECK_CASS(msg) if(rc != CASS_OK){ \
 std::cerr<<msg<<std::endl; };\
 
-
-
 #include <cassert>
-
-
 #include <cstring>
 #include <string>
 #include <iostream>
-
 #include <vector>
 #include <cassandra.h>
 #include <python2.7/Python.h>
-
 #include "ModuleException.h"
 #include "TupleRow.h"
 #include <stdexcept>
 #include <memory>
-
 #include <stdlib.h>
+#include "metadata.h"
 
 #define Py_STRING "s"
 #define Py_U_LONGLONG "K"
@@ -51,7 +41,8 @@ class TupleRowFactory{
 public:
     TupleRowFactory(const CassTableMeta *table_meta, const std::vector< std::vector<std::string> > &col_names);
 
-     ~TupleRowFactory() {
+    ~TupleRowFactory() {
+        metadata = NULL;
     }
 
     TupleRow* make_tuple(PyObject* obj);
@@ -60,26 +51,25 @@ public:
 
     PyObject* tuple_as_py(const TupleRow* tuple) const;
 
+    void bind( CassStatement *statement,const  TupleRow *row,  u_int16_t offset) const ;
+
     inline const CassValueType get_type(uint16_t pos) const {
-        return type_array[pos];
+        return metadata.get()->at(pos).type;
     }
 
     inline uint16_t n_elements(){
-        return (uint16_t) this->type_array.size();
+        return (uint16_t) this->metadata.get()->size();
     }
     TupleRowFactory(){};
 
+    std::shared_ptr<std::vector<ColumnMeta>> get_metadata() const{
+        return metadata;
+
+    }
+
 private:
-    struct array_meta{
-
-    };
-
-    std::vector<uint16_t> offsets;
-    std::vector<CassValueType> type_array;
-    std::vector<std::string> name_map;
+    std::shared_ptr<std::vector<ColumnMeta>> metadata;
     uint16_t total_bytes;
-
-    std::vector<array_meta> arrays_info;
 
     uint16_t compute_size_of(const CassValueType VT) const;
 

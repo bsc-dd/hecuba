@@ -339,7 +339,7 @@ class StorageObj(object, IStorage):
         """
         if issubclass(value.__class__, IStorage):
             super(StorageObj, self).__setattr__(key, value)
-        elif key[0] is '_':
+        elif key[0] is '_' or key is 'storage_id':
             object.__setattr__(self, key, value)
 
         elif self._is_persistent:

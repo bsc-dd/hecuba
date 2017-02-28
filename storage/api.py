@@ -72,7 +72,7 @@ def getByID(objid):
     if len(objidsplit) == 2:
         objid = objidsplit[0]
 
-    results = config.session.execute("SELECT * FROM hecuba.istorage WHERE object_id = %s", (objid,))[0]
+    results = config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id = %s", (objid,))[0]
     class_name = results.class_name
 
     last = 0

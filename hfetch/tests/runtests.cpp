@@ -14,7 +14,6 @@ using namespace std;
 #define PY_ERR_CHECK if (PyErr_Occurred()){PyErr_Print(); PyErr_Clear();}
 
 const char *keyspace = "test";
-
 const char *particles_table = "particle";
 const char *particles_wr_table = "particle_write";
 const char *words_wr_table = "words_write";
@@ -40,7 +39,6 @@ void fireandforget(const char *query, CassSession *session) {
 
 
 void setupcassandra() {
-
     CassSession *test_session = NULL;
     CassCluster *test_cluster = NULL;
     const char *contact_p = "127.0.0.1";
@@ -71,7 +69,7 @@ void setupcassandra() {
     const CassPrepared *prepared = cass_future_get_prepared(prepare_future);
     cass_future_free(prepare_future);
 
-    for (int i = 0; i <= 1000000; i++) {
+    for (int i = 0; i <= 10000; i++) {
         CassStatement *stm = cass_prepared_bind(prepared);
         cass_statement_bind_int32(stm, 0, (cass_int16_t) i);
         cass_statement_bind_float(stm, 1, (cass_float_t) (i / .1));
@@ -88,6 +86,7 @@ void setupcassandra() {
         cass_future_free(f);
         cass_statement_free(stm);
     }
+    cass_prepared_free(prepared);
 
     fireandforget("CREATE TABLE test.words( position int PRIMARY KEY, wordinfo text);", test_session);
 
@@ -115,6 +114,7 @@ void setupcassandra() {
     }
 
 
+    cass_prepared_free(prepared);
     fireandforget(
             "CREATE TABLE test.particle_write( partid int,time float,x float,y float,z float, PRIMARY KEY(partid,time));",
             test_session);
@@ -190,13 +190,8 @@ void setupcassandra() {
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
-
-
-
-
     std::cout << "SETTING UP CASSANDRA" << std::endl;
-
-    //setupcassandra();
+    setupcassandra();
     std::cout << "DONE, CASSANDRA IS UP" << std::endl;
 
     return RUN_ALL_TESTS();
@@ -225,11 +220,18 @@ TEST(TestingPocoCache, InsertGetDeleteOps) {
     const uint16_t j = 456;
     size_t ss = sizeof(uint16_t) * 2;
     Poco::LRUCache<TupleRow, TupleRow> myCache(2);
-    auto size = vector<uint16_t>(2, sizeof(uint16_t));
+
+    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,"ciao"};
+    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,"ciaociao"};
+    std::vector<ColumnMeta> v = {cm1,cm2};
+    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
+
+
+
     char *b2 = (char *) malloc(ss);
     memcpy(b2, &i, sizeof(uint16_t));
     memcpy(b2 + sizeof(uint16_t), &j, sizeof(uint16_t));
-    const TupleRow *t1 = new TupleRow(&size, sizeof(uint16_t) * 2, b2);
+    const TupleRow *t1 = new TupleRow(metas,sizeof(uint16_t)*2,b2);
 
     uint16_t ka = 64;
     uint16_t kb = 128;
@@ -237,7 +239,8 @@ TEST(TestingPocoCache, InsertGetDeleteOps) {
     memcpy(b2, &ka, sizeof(uint16_t));
     memcpy(b2 + sizeof(uint16_t), &kb, sizeof(uint16_t));
 
-    TupleRow *key1 = new TupleRow(&size, sizeof(uint16_t) * 2, b2);
+
+    TupleRow *key1 = new TupleRow( metas,sizeof(uint16_t) * 2, b2);
     myCache.add(*key1, t1);
 
     EXPECT_EQ(myCache.getAllKeys().size(), 1);
@@ -265,19 +268,39 @@ TEST(TupleTest, TupleOps) {
     memcpy(buffer + size, &j, size);
     memcpy(buffer2, &i, size);
     memcpy(buffer2 + size, &j, size);
-    TupleRow t1 = TupleRow(&sizes, sizeof(uint16_t) * 2, buffer);
-    TupleRow t2 = TupleRow(&sizes, sizeof(uint16_t) * 2, buffer2);
+
+    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,"ciao"};
+    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,"ciaociao"};
+    std::vector<ColumnMeta> v = {cm1,cm2};
+    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
+
+
+
+    TupleRow t1 = TupleRow(metas,sizeof(uint16_t) * 2, buffer);
+    TupleRow t2 = TupleRow(metas,sizeof(uint16_t) * 2, buffer2);
 
     //Equality
     EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
     EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
+
+    cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,"ciaocia"};
+    std::vector<ColumnMeta> v2 = {cm1,cm2};
+    std::shared_ptr<std::vector<ColumnMeta>> metas2=std::make_shared<std::vector<ColumnMeta>>(v2);
+
+
+    char *buffer3 = (char *) malloc(size * 2);
+    memcpy(buffer3, &i, size);
+    memcpy(buffer3 + size, &j, size);
+    //Though their inner Metadata has the same values, they are different objects
+    TupleRow t3 = TupleRow(metas2,sizeof(uint16_t) * 2, buffer3);
+    EXPECT_FALSE(!(t1 < t3) && !(t3 < t1));
+    EXPECT_FALSE(!(t1 > t3) && !(t3 > t1));
+
 }
 
 
 
 /** PURE C++ TESTS **/
-
-
 
 TEST(TestingCacheTable, GetRowC) {
     /** CONNECT **/
@@ -305,8 +328,6 @@ TEST(TestingCacheTable, GetRowC) {
     float f = 12340;
     memcpy(buffer + sizeof(int), &f, sizeof(float));
 
-    std::vector<uint16_t> offsets = {0, sizeof(int)};
-    TupleRow *t = new TupleRow(&offsets, sizeof(int) + sizeof(float), buffer);
 
     std::vector<std::string> keysnames = {"partid", "time"};
     std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"x"}, std::vector<std::string>{"y"},
@@ -314,10 +335,12 @@ TEST(TestingCacheTable, GetRowC) {
                                                         std::vector<std::string>{"ciao"}};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
-    CacheTable T = CacheTable(max_items, particles_table, keyspace, keysnames, colsnames, token_pred, tokens,
+    CacheTable *CTable = new CacheTable(max_items, particles_table, keyspace, keysnames, colsnames, token_pred, tokens,
                               test_session);
+    TupleRow *t = new TupleRow(CTable->_test_get_keys_factory()->get_metadata(), sizeof(int) + sizeof(float), buffer);
 
-    const TupleRow *result = T.get_crow(t);
+
+    const TupleRow *result = CTable->get_crow(t);
 
     EXPECT_FALSE(result == NULL);
 
@@ -339,6 +362,11 @@ TEST(TestingCacheTable, GetRowC) {
         EXPECT_STREQ(d, "74040");
 
     }
+
+    delete(t);
+    delete(result);
+    delete(CTable);
+
 
     CassFuture *close_future = cass_session_close(test_session);
     cass_future_wait(close_future);
@@ -377,15 +405,18 @@ TEST(TestingCacheTable, GetRowStringC) {
     memcpy(buffer + sizeof(int), &f, sizeof(float));
 
     std::vector<uint16_t> offsets = {0, sizeof(int)};
-    TupleRow *t = new TupleRow(&offsets, sizeof(int) + sizeof(float), buffer);
+
 
     std::vector<std::string> keysnames = {"partid", "time"};
-
-    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"ciao"}};
+    std::vector<std::string> colsnames = {"ciao"};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
     CacheTable T = CacheTable(max_items, particles_table, keyspace, keysnames, colsnames, token_pred, tokens,
                               test_session);
+
+
+
+    TupleRow *t = new TupleRow(T._test_get_keys_factory()->get_metadata(), sizeof(int) + sizeof(float), buffer);
 
     const TupleRow *result = T.get_crow(t);
 
@@ -420,50 +451,45 @@ TEST(TestingPrefetch, GetNextC) {
     test_cluster = cass_cluster_new();
     test_session = cass_session_new();
 
-    cass_cluster_set_contact_points(test_cluster, "minerva-5");
+    cass_cluster_set_contact_points(test_cluster, contact_p);
     cass_cluster_set_port(test_cluster, 9042);
 
-    connect_future = cass_session_connect_keyspace(test_session, test_cluster, "wordcount");
+    connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
     CassError rc = cass_future_error_code(connect_future);
     EXPECT_TRUE(rc == CASS_OK);
 
     cass_future_free(connect_future);
 
-    std::vector<std::string> keysnames = {"position"};
+    char *buffer = (char *) malloc(sizeof(int) + sizeof(float));
 
-    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"wordinfo"}};
-    std::string token_pred = "WHERE token(position)>=? AND token(position)<?";
-    int64_t bigi = 9223372036854775807;
+    int val = 1234;
+    memcpy(buffer, &val, sizeof(int));
+
+    float f = 12340;
+    memcpy(buffer + sizeof(int), &f, sizeof(float));
+
+    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,"partid"};
+    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_FLOAT,"time"};
+    std::vector<ColumnMeta> v = {cm1,cm2};
+    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
+
+    TupleRow *t = new TupleRow(metas, sizeof(int) + sizeof(float), buffer);
+
+    std::vector<std::string> keysnames = {"partid", "time"};
+    std::vector<std::string> colsnames = {"ciao"};
+    std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
+    int64_t bigi= 9223372036854775807;
     std::vector<std::pair<int64_t, int64_t> > tokens = {
-            std::pair<int64_t, int64_t>(-bigi - 1, -bigi / 2),
-            std::pair<int64_t, int64_t>(-bigi / 2, 0),
-            std::pair<int64_t, int64_t>(0, bigi / 2),
-            std::pair<int64_t, int64_t>(bigi / 2, bigi)
+            std::pair<int64_t, int64_t>(-bigi -1,  -bigi/2),
+            std::pair<int64_t, int64_t>(-bigi/2,0),
+            std::pair<int64_t, int64_t>(0,bigi/2),
+            std::pair<int64_t, int64_t>(bigi/2, bigi)
     };
-
-    tokens = {
-            std::pair<int64_t, int64_t>(-bigi - 1, -9023372036854775807),
-            std::pair<int64_t, int64_t>(-9023372036854775807, -8823372036854775807),
-            std::pair<int64_t, int64_t>(-8823372036854775807, -8623372036854775807),
-            std::pair<int64_t, int64_t>(-8623372036854775807, -8423372036854775807)
-    };
-
-    tokens = {
-            std::pair<int64_t, int64_t>(-9070430489100700000,-8900450532247928832),
-            std::pair<int64_t, int64_t>(-8900450532247928832,-8800450532247928832),
-            std::pair<int64_t, int64_t>(-8670430489100700000,-8500450532247928832),
-            std::pair<int64_t, int64_t>(-8570430489100700000,-8400450532247928832),
-            std::pair<int64_t, int64_t>(-8370430489100700000,-8270430489100700000),
-            std::pair<int64_t, int64_t>(-8270430489100700000,-8100450532247928832),
-            std::pair<int64_t, int64_t>(-8100430489100700000,-8000430489100700000),
-            std::pair<int64_t, int64_t>(-8000430489100700000,-7950450532247928832)
-
-    };
-    CacheTable T = CacheTable(10, words_table, "wordcount", keysnames, colsnames, token_pred, tokens,
+    CacheTable T = CacheTable(max_items, particles_table, keyspace, keysnames, colsnames, token_pred, tokens,
                               test_session);
 
 
-    Prefetch *P = T.get_items_iter(10);
+    Prefetch *P = T.get_values_iter(100);
 
 
     TupleRow *result = P->get_cnext();
@@ -471,21 +497,20 @@ TEST(TestingPrefetch, GetNextC) {
     uint16_t it = 1;
 
 
-    while ((result = P->get_cnext()) != NULL) {
-       /* const void *v = result->get_element(0);
+    while ((result = P->get_cnext())!=NULL) {
+        const void *v = result->get_element(0);
         int64_t addr;
         memcpy(&addr, v, sizeof(char *));
         char *d = reinterpret_cast<char *>(addr);
-        std::string empty_str = "";
+        std::string empty_str="";
         std::string result_str(d);
-        EXPECT_TRUE(result_str > empty_str);*/
-        for (int i = 0; i<1000; ++i) ;;
+        EXPECT_TRUE(result_str>empty_str);
         ++it;
     }
 
-    EXPECT_EQ(it, 10001);
+    EXPECT_EQ(it,10001);
 
-    delete (P);
+    delete(P);
 
     CassFuture *close_future = cass_session_close(test_session);
     cass_future_wait(close_future);
@@ -616,12 +641,12 @@ TEST(TestingCacheTable, GetRow) {
                                                         std::vector<std::string>{"ciao"}};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
-    std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(new CacheTable(max_items, particles_table, keyspace,
-                                                                               keysnames, colsnames, token_pred, tokens,
-                                                                               test_session));
+    CacheTable T =CacheTable(max_items, particles_table, keyspace,
+                             keysnames, colsnames, token_pred, tokens,
+                                                                               test_session);
 
 
-    PyObject *result = T.get()->get_row(list);
+    PyObject *result = T.get_row(list);
 
 
     EXPECT_FALSE(result == 0);
@@ -952,7 +977,7 @@ TEST(TestinhMarshall, SingleQ) {
 
 
     PY_ERR_CHECK
-    EXPECT_FLOAT_EQ(PyFloat_AsDouble(PyList_GetItem(list, 1)), key2);
+    EXPECT_FLOAT_EQ(PyFloat_AsDouble(PyList_GetItem(list,1)),key2);
 
 
     PY_ERR_CHECK
@@ -1085,12 +1110,12 @@ TEST(TestingCacheTable, PutTextRow) {
 
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
 
-    int64_t bigi = 9223372036854775807;
+    int64_t bigi= 9223372036854775807;
     std::vector<std::pair<int64_t, int64_t> > tokens = {
-            std::pair<int64_t, int64_t>(-bigi - 1, -bigi / 2),
-            std::pair<int64_t, int64_t>(-bigi / 2, 0),
-            std::pair<int64_t, int64_t>(0, bigi / 2),
-            std::pair<int64_t, int64_t>(bigi / 2, bigi)
+            std::pair<int64_t, int64_t>(-bigi -1,  -bigi/2),
+            std::pair<int64_t, int64_t>(-bigi/2,0),
+            std::pair<int64_t, int64_t>(0,bigi/2),
+            std::pair<int64_t, int64_t>(bigi/2, bigi)
     };
 
 
@@ -1102,6 +1127,10 @@ TEST(TestingCacheTable, PutTextRow) {
     CacheTable *WriteTable = new CacheTable(max_items, words_wr_table, keyspace, keysnames, write_colsnames, token_pred,
                                             tokens,
                                             test_session);
+
+
+
+
 
 
     Prefetch *P = ReadTable.get_values_iter(100);

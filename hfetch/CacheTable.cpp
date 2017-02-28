@@ -14,7 +14,7 @@
  */
 CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string &keyspace,
                        const std::vector<std::string> &keyn,
-                       const std::vector< std::vector<std::string>>  &columns_n ,
+                       const std::vector<std::string> &columns_n,
                        const std::string &token_range_pred,
                        const std::vector<std::pair<int64_t, int64_t>> &tkns,
                        CassSession *session) {
@@ -29,8 +29,7 @@ CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string
         select_keys += "," + key_names[i];
     }
 
-
-    select_values = columns_names[0][0];
+    select_values = columns_names[0];
     for (uint16_t i = 1; i < columns_names.size(); i++) {
         select_values += "," + columns_names[i][0];
     }
@@ -113,7 +112,7 @@ CacheTable::~CacheTable() {
     delete (keys_factory);
     delete (values_factory);
     delete (items_factory);
-
+    prepared_query=NULL;
     session=NULL;
 }
 
@@ -133,120 +132,6 @@ Prefetch* CacheTable::get_items_iter(uint32_t prefetch_size) {
 }
 
 
-
-
-
-void CacheTable::bind_keys(CassStatement *statement, TupleRow *keys) {
-
-    for (uint16_t i = 0; i < keys->n_elem(); ++i) {
-        const void *key = keys->get_element(i);
-        uint16_t bind_pos = i;
-        switch (keys_factory->get_type(i)) {
-            case CASS_VALUE_TYPE_VARCHAR:
-            case CASS_VALUE_TYPE_TEXT:
-            case CASS_VALUE_TYPE_ASCII: {
-                const char *temp = static_cast<const char *>(key);
-                cass_statement_bind_string(statement, bind_pos, temp);
-                break;
-            }
-            case CASS_VALUE_TYPE_VARINT:
-            case CASS_VALUE_TYPE_BIGINT: {
-                const int64_t *data = static_cast<const int64_t *>(key);
-                cass_statement_bind_int64(statement, bind_pos, *data);//L means long long, K unsigned long long
-                break;
-            }
-            case CASS_VALUE_TYPE_BLOB: {
-                const unsigned char *temp = static_cast<const unsigned char *>(key);
-                cass_statement_bind_bytes(statement,bind_pos,temp,sizeof(*temp));
-                break;
-            }
-            case CASS_VALUE_TYPE_BOOLEAN: {
-                cass_bool_t b = cass_false;
-                const bool *bindbool = static_cast<const bool *>(key);
-                if (*bindbool) b = cass_true;
-                cass_statement_bind_bool(statement, bind_pos, b);
-                break;
-            }
-            case CASS_VALUE_TYPE_COUNTER: {
-                const uint64_t *data = static_cast<const uint64_t *>(key);
-                cass_statement_bind_int64(statement, bind_pos, *data);//L means long long, K unsigned long long
-                break;
-            }
-            case CASS_VALUE_TYPE_DECIMAL: {
-                //decimal.Decimal
-                break;
-            }
-            case CASS_VALUE_TYPE_DOUBLE: {
-                const double *data = static_cast<const double *>(key);
-                cass_statement_bind_double(statement, bind_pos, *data);
-                break;
-            }
-            case CASS_VALUE_TYPE_FLOAT: {
-                const float *data = static_cast<const float *>(key);
-                //std::cout<<"binding float" <<*data<<std::endl;
-                cass_statement_bind_float(statement, bind_pos, *data);
-                break;
-            }
-            case CASS_VALUE_TYPE_INT: {
-                const int32_t *data = static_cast<const int32_t *>(key);
-                //std::cout<<"binding int" <<*data<<std::endl;
-                cass_statement_bind_int32(statement, bind_pos, *data);
-                break;
-            }
-            case CASS_VALUE_TYPE_TIMESTAMP: {
-
-                break;
-            }
-            case CASS_VALUE_TYPE_UUID: {
-
-                break;
-            }
-            case CASS_VALUE_TYPE_TIMEUUID: {
-
-                break;
-            }
-            case CASS_VALUE_TYPE_INET: {
-
-                break;
-            }
-            case CASS_VALUE_TYPE_DATE: {
-
-                break;
-            }
-            case CASS_VALUE_TYPE_TIME: {
-
-                break;
-            }
-            case CASS_VALUE_TYPE_SMALL_INT: {
-                const int16_t *data = static_cast<const int16_t *>(key);
-                cass_statement_bind_int16(statement, bind_pos, *data);
-                break;
-            }
-            case CASS_VALUE_TYPE_TINY_INT: {
-                const int8_t *data = static_cast<const int8_t *>(key);
-                cass_statement_bind_int8(statement, bind_pos, *data);
-                break;
-            }
-            case CASS_VALUE_TYPE_LIST: {
-                break;
-            }
-            case CASS_VALUE_TYPE_MAP: {
-
-                break;
-            }
-            case CASS_VALUE_TYPE_SET: {
-
-                break;
-            }
-            case CASS_VALUE_TYPE_TUPLE: {
-                break;
-            }
-            default://CASS_VALUE_TYPE_UDT|CASS_VALUE_TYPE_CUSTOM|CASS_VALUE_TYPE_UNKNOWN:
-                break;
-        }
-    }
-
-}
 
 
 /***
@@ -270,6 +155,7 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
 
     TupleRow *keys = keys_factory->make_tuple(py_keys);
     const TupleRow *values = get_crow(keys);
+    delete(keys);
 
     if(values==NULL){
         PyErr_SetString(PyExc_KeyError,"Get row: key not found");
@@ -284,13 +170,12 @@ const TupleRow *CacheTable::get_crow(TupleRow *keys) {
 
     Poco::SharedPtr<TupleRow> ptrElem = myCache->get(*keys);
     if (!ptrElem.isNull()) {
-        delete (keys);
         return ptrElem.get();
     }
     /* Not present on cache, a query is performed */
     CassStatement *statement = cass_prepared_bind(prepared_query);
 
-    bind_keys(statement, keys);
+    this->keys_factory->bind(statement,keys,0);
 
     CassFuture *query_future = cass_session_execute(session, statement);
     const CassResult *result = cass_future_get_result(query_future);
@@ -315,7 +200,6 @@ const TupleRow *CacheTable::get_crow(TupleRow *keys) {
     const TupleRow *values = values_factory->make_tuple(row);
 
     myCache->add(*keys, values);
-    delete (keys);
     cass_result_free(result);
     return values;
 }
