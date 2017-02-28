@@ -6,7 +6,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE YES)
 project(hfetch)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
-include_directories( ${CMAKE_CURRENT_LIST_DIR}/_install/ /usr/include $ENV{HOME}/local/include)
+include_directories( ${CMAKE_CURRENT_LIST_DIR}/_install/include /usr/include /usr/lib64/python2.7/site-packages/numpy/core/include $ENV{HOME}/local/include)
 include(ExternalProject) # ExternalProject_Add
 
 set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp)
@@ -101,7 +101,9 @@ endif()
 
 LINK_DIRECTORIES(${CMAKE_BINARY_DIR}/_install/lib)
 
-find_package(PythonLibs 2.7 REQUIRED)
+
+
+find_package(PythonLibs 2.7.12 REQUIRED)
 include_directories(${PYTHON_INCLUDE_DIRS} ${CMAKE_CURRENT_LIST_DIR}/_install/include ${ALL_INCLUDE})
 
 set(ALL_LIBS ${ALL_LIBS} ${PYTHON_LIBRARIES})

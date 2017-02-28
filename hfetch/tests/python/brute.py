@@ -1,5 +1,5 @@
 from hfetch import *
-
+import gc
 connectCassandra(["minerva-5"],9042)
 nparts=6000000
 p=1000
@@ -16,6 +16,7 @@ def readAll(iter):
         count +=1
 	if count%100000==0:
             print count
+            #gc.collect()
     print "iter has %d elements"%count
  
 from time import time

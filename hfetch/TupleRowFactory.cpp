@@ -1,7 +1,3 @@
-//
-// Created by bscuser on 1/26/17.
-//
-
 #include "TupleRowFactory.h"
 
 /***
@@ -9,7 +5,7 @@
  * extracting the information from Cassandra to decide the types to be used
  * @param table_meta Holds the table information
  */
-TupleRowFactory::TupleRowFactory(const CassTableMeta *table_meta, const std::vector<std::string> &col_names) {
+TupleRowFactory::TupleRowFactory(const CassTableMeta *table_meta, const std::vector< std::vector<std::string> > &col_names) {
 
     if (!table_meta) {
         throw ModuleException("Tuple factory: Table metadata NULL");
@@ -20,7 +16,7 @@ TupleRowFactory::TupleRowFactory(const CassTableMeta *table_meta, const std::vec
     }
 
     //SELECT ALL
-    if (col_names[0] == "*") ncols = (uint32_t) cass_table_meta_column_count(table_meta);
+    if (col_names[0][0] == "*") ncols = (uint32_t) cass_table_meta_column_count(table_meta);
 
 
     this->type_array = std::vector<CassValueType>(ncols);
@@ -40,7 +36,7 @@ TupleRowFactory::TupleRowFactory(const CassTableMeta *table_meta, const std::vec
         std::string meta_col_name(value);
 
         for (uint16_t j=0; j<col_names.size(); ++j) {
-            const std::string ss = col_names[j];
+            const std::string ss = col_names[j][0];
             if (meta_col_name == ss) {
                 type_array[j] = cass_data_type_type(type);
                 name_map[j] = value;
@@ -190,6 +186,8 @@ TupleRow *TupleRowFactory::make_tuple(PyObject *obj) {
  * @return 0 if succeeds
  */
 
+
+
 int TupleRowFactory::py_to_c(PyObject *key, void *data, int32_t col) const {
     if (col < 0 || col >= (int32_t) type_array.size()) {
         throw ModuleException("TupleRowFactory: Py to C: Asked for column "+std::to_string(col)+" but only "+std::to_string(type_array.size())+" are present");
@@ -218,11 +216,25 @@ int TupleRowFactory::py_to_c(PyObject *key, void *data, int32_t col) const {
             break;
         }
         case CASS_VALUE_TYPE_BLOB: {
-            PyObject *size = PyInt_FromSsize_t(PyByteArray_Size(key));
-            int32_t c_size;
-            PyArg_Parse(size, Py_INT, &c_size);;
-            const char *bytes = PyByteArray_AsString(key);
-            memcpy(data, &bytes, sizeof(bytes));
+            /** interface receives key **/
+
+           // _import_array();
+            PyArrayObject *arr;
+            ok =PyArray_OutputConverter(key,&arr);
+            if (!ok) throw ModuleException("error parsing PyArray to obj");
+            /** transform to bytes **/
+            PyObject* bytes = PyArray_ToString(arr, NPY_KEEPORDER);
+            /** encode as Hex **/
+            PyObject *encoded= PyString_AsEncodedObject(bytes,"hex",NULL);
+
+
+            Py_ssize_t l_size;
+            char *l_temp;
+            ok = PyString_AsStringAndSize(encoded,&l_temp,&l_size);
+            char *permanent = (char*) malloc(l_size+1);
+            memcpy(permanent, l_temp,l_size);
+            permanent[l_size] = '\0';
+            memcpy(data,&permanent,sizeof(char*));
             break;
         }
         case CASS_VALUE_TYPE_BOOLEAN: {
@@ -360,11 +372,22 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             return 0;
         }
         case CASS_VALUE_TYPE_BLOB: {
-            const unsigned char *l_temp;
+
+
+
+
+            const cass_byte_t *l_temp;
             size_t l_size;
-            cass_value_get_bytes(lhs, &l_temp, &l_size);
-            memcpy(data, &l_temp, sizeof(l_temp));
+            cass_value_get_bytes(lhs,&l_temp , &l_size);
+            char *permanent = (char*) malloc(l_size);
+
+            memcpy(permanent, l_temp,l_size);
+            permanent[l_size]='\0';
+
+            memcpy(data,&permanent,sizeof(char*));
             return 0;
+
+
         }
         case CASS_VALUE_TYPE_BOOLEAN: {
             cass_bool_t b;
@@ -481,7 +504,6 @@ PyObject *TupleRowFactory::c_to_py(const void *V, CassValueType VT) const {
         case CASS_VALUE_TYPE_VARCHAR:
         case CASS_VALUE_TYPE_TEXT:
         case CASS_VALUE_TYPE_ASCII: {
-
             int64_t  *addr = (int64_t*) V;
             char *d = reinterpret_cast<char *>(*addr);
             py_value = PyUnicode_FromString(d);
@@ -494,6 +516,27 @@ PyObject *TupleRowFactory::c_to_py(const void *V, CassValueType VT) const {
             break;
         }
         case CASS_VALUE_TYPE_BLOB: {//bytes
+
+            int64_t  *addr = (int64_t*) V;
+            char *d = reinterpret_cast<char *>(*addr);
+
+           // _import_array();
+            PyObject*bytes=PyString_FromString(d);
+            PyObject* decoded=PyString_AsDecodedObject(bytes,"hex",NULL);
+            PyErr_Print();
+
+            char *dec = PyString_AsString(decoded);
+            py_value = PyArray_FromString(dec,PyString_GET_SIZE(decoded),PyArray_DescrNewFromType(NPY_DOUBLE),-1,NULL);
+
+            PyArrayObject *arr;
+            int ok =PyArray_OutputConverter(py_value,&arr);
+
+            PyObject *nonsense = PyList_New(2);
+            PyList_SetItem(nonsense,0,PyInt_FromLong(2));
+            PyList_SetItem(nonsense,1,PyInt_FromLong(2));
+            py_value = PyArray_Reshape (arr, nonsense);
+
+            PyErr_Print();
             break;
         }
         case CASS_VALUE_TYPE_BOOLEAN: {//bool

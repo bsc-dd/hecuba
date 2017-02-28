@@ -88,6 +88,7 @@ static void hcache_dealloc(HCache *self) {
 static PyObject *hcache_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     HCache *self;
     self = (HCache *) type->tp_alloc(type, 0);
+    //_import_array();
     return (PyObject *) self;
 }
 
@@ -100,7 +101,7 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     if (!PyArg_ParseTuple(args, "IsssOOO", &cache_size, &keyspace, &table, &token_range_pred, &py_tokens,
                           &py_keys_names,
                           &py_cols_names)) {
-         return -1;
+        return -1;
     };
 
 
@@ -133,22 +134,57 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
 
     }
 
-    std::vector<std::string> columns_names = std::vector<std::string>(cols_size);
+
+    std::vector<std::vector<std::string>> columns_names = std::vector<std::vector<std::string>>(cols_size);
     for (uint16_t i = 0; i < cols_size; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_cols_names, i);
-        char *str_temp;
-        if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
-            return -1;
-        };
-        columns_names[i] = std::string(str_temp);
+        int type_check = PyString_Check(obj_to_convert);
+        if (type_check) {
+            char *str_temp;
+            if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
+                return -1;
+            };
+            columns_names[i] = std::vector<std::string>(1);
+            columns_names[i][0] = std::string(str_temp);
+        }
+        type_check = PyDict_Check(obj_to_convert);
+        if (type_check) {
+            PyObject *dict;
+            if (!PyArg_Parse(obj_to_convert, "O", &dict)) {
+                return -1;
+            };
+
+            PyDict_GetItem(dict, PyString_FromString("asd"));
+            columns_names[i] = std::vector<std::string>(1);
+            columns_names[i][0] = std::string("someValue");
+
+            /*
+            PyObject *key, *value;
+            Py_ssize_t pos = 0;
+
+            while (PyDict_Next(dict, &pos, &key, &value)) {
+                int i = PyInt_AS_LONG(value) + 1;
+                PyObject *o = PyInt_FromLong(i);
+                if (o == NULL)
+                    return -1;
+                if (PyDict_SetItem(dict, key, o) < 0) {
+                    Py_DECREF(o);
+                    return -1;
+                }
+                Py_DECREF(o);
+            }
+*/
+        }
+
+
     }
 
     try {
         self->T = new CacheTable((uint32_t) cache_size, std::string(table), std::string(keyspace), keys_names,
                                  columns_names, std::string(token_range_pred), token_ranges, session);
 
-      }catch (ModuleException e) {
-        PyErr_SetString(PyExc_RuntimeError,e.what());
+    } catch (ModuleException e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
         return -1;
     }
     return 0;
@@ -213,6 +249,7 @@ static PyTypeObject hfetch_HCacheType = {
 static PyObject *hiter_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     HIterator *self;
     self = (HIterator *) type->tp_alloc(type, 0);
+    //_import_array();
     return (PyObject *) self;
 }
 
@@ -305,7 +342,7 @@ static PyObject *create_iter_keys(HCache *self, PyObject *args) {
 
 static PyObject *create_iter_items(HCache *self, PyObject *args) {
     int prefetch_size;
-    if (!PyArg_ParseTuple(args, "i", &prefetch_size)){
+    if (!PyArg_ParseTuple(args, "i", &prefetch_size)) {
         return NULL;
     }
     HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
@@ -316,7 +353,7 @@ static PyObject *create_iter_items(HCache *self, PyObject *args) {
 
 static PyObject *create_iter_values(HCache *self, PyObject *args) {
     int prefetch_size;
-    if (!PyArg_ParseTuple(args, "i", &prefetch_size)){
+    if (!PyArg_ParseTuple(args, "i", &prefetch_size)) {
         return NULL;
     }
     HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
@@ -346,7 +383,6 @@ inithfetch(void) {
         return;
 
     Py_INCREF(&hfetch_HCacheType);
-
 
     m = Py_InitModule3("hfetch", module_methods, "c++ bindings for hecuba cache & prefetch");
     f = m->ob_type->tp_dealloc;

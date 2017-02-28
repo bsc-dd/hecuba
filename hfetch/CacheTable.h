@@ -5,6 +5,8 @@
 #ifndef PREFETCHER_CACHE_TABLE_H
 #define PREFETCHER_CACHE_TABLE_H
 
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+
 #include <iostream>
 #include <python2.7/Python.h>
 #include "Poco/LRUCache.h"
@@ -27,7 +29,7 @@ public:
 
     CacheTable(uint32_t size, const std::string &table, const std::string &keyspace,
                const std::vector<std::string> &keyn,
-               const std::vector<std::string> &columns_n,
+               const std::vector< std::vector<std::string>>  &columns_n ,
                const std::string &token_range_pred,
                const std::vector<std::pair<int64_t, int64_t>> &tkns,
                CassSession *session);
@@ -58,8 +60,8 @@ private:
     std::string cache_query;
 
     std::vector<std::string> key_names;
-    std::vector<std::string> columns_names;
-    std::vector<std::string> all_names;
+    std::vector< std::vector<std::string>> columns_names;
+    std::vector< std::vector<std::string>> all_names;
     std::vector<std::pair<int64_t, int64_t>> tokens;
 
 

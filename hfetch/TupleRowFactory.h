@@ -5,6 +5,7 @@
 #ifndef PREFETCHER_MY_TUPLE_FACTORY_H
 #define PREFETCHER_MY_TUPLE_FACTORY_H
 
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 
 
 #define CHECK_CASS(msg) if(rc != CASS_OK){ \
@@ -48,7 +49,7 @@ std::cerr<<msg<<std::endl; };\
 class TupleRowFactory{
 
 public:
-    TupleRowFactory(const CassTableMeta *table_meta, const std::vector<std::string> &col_names);
+    TupleRowFactory(const CassTableMeta *table_meta, const std::vector< std::vector<std::string> > &col_names);
 
      ~TupleRowFactory() {
     }
@@ -69,10 +70,16 @@ public:
     TupleRowFactory(){};
 
 private:
+    struct array_meta{
+
+    };
+
     std::vector<uint16_t> offsets;
     std::vector<CassValueType> type_array;
     std::vector<std::string> name_map;
     uint16_t total_bytes;
+
+    std::vector<array_meta> arrays_info;
 
     uint16_t compute_size_of(const CassValueType VT) const;
 

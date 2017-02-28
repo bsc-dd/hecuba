@@ -14,7 +14,7 @@
  */
 CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string &keyspace,
                        const std::vector<std::string> &keyn,
-                       const std::vector<std::string> &columns_n,
+                       const std::vector< std::vector<std::string>>  &columns_n ,
                        const std::string &token_range_pred,
                        const std::vector<std::pair<int64_t, int64_t>> &tkns,
                        CassSession *session) {
@@ -29,9 +29,10 @@ CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string
         select_keys += "," + key_names[i];
     }
 
-    select_values = columns_names[0];
+
+    select_values = columns_names[0][0];
     for (uint16_t i = 1; i < columns_names.size(); i++) {
-        select_values += "," + columns_names[i];
+        select_values += "," + columns_names[i][0];
     }
     select_values+=" ";
     select_keys+=" ";
@@ -70,11 +71,17 @@ CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string
         throw ModuleException("Cache particles_table: constructor: Table meta is NULL");
     }
 
+    std::vector < std::vector< std::string > > keys_copy(key_names.size(),std::vector< std::string>(1));
+
+    for (int i = 0; i<key_names.size(); ++i) {
+        keys_copy[i][0]=key_names[i];
+    }
+
     all_names.reserve(key_names.size() + columns_names.size());
-    all_names.insert(all_names.end(), key_names.begin(), key_names.end());
+    all_names.insert(all_names.end(), keys_copy.begin(), keys_copy.end());
     all_names.insert(all_names.end(), columns_names.begin(), columns_names.end());
     try {
-    keys_factory = new TupleRowFactory(table_meta, key_names);
+    keys_factory = new TupleRowFactory(table_meta, keys_copy);
     values_factory = new TupleRowFactory(table_meta, columns_names);
     items_factory = new TupleRowFactory(table_meta, all_names);
     }
@@ -84,9 +91,9 @@ CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string
     cass_schema_meta_free(schema_meta);
     std::string write_query = "INSERT INTO "+keyspace+"."+table+"(";
 
-    write_query+=all_names[0];
+    write_query+=all_names[0][0];
     for (uint16_t i = 1;i<all_names.size(); ++i) {
-        write_query+=","+all_names[i];
+        write_query+=","+all_names[i][0];
     }
     write_query+=") VALUES (?";
     for (uint16_t i = 1; i<all_names.size();++i) {
@@ -149,7 +156,8 @@ void CacheTable::bind_keys(CassStatement *statement, TupleRow *keys) {
                 break;
             }
             case CASS_VALUE_TYPE_BLOB: {
-                //cass_statement_bind_bytes(statement,bind_pos,key,n_elem);
+                const unsigned char *temp = static_cast<const unsigned char *>(key);
+                cass_statement_bind_bytes(statement,bind_pos,temp,sizeof(*temp));
                 break;
             }
             case CASS_VALUE_TYPE_BOOLEAN: {
