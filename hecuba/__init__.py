@@ -221,6 +221,8 @@ class Config:
         except Exception as e:
             print "Cannot create keyspace", e
 
+        singleton.create_cache = set()
+
 
 global config
 config = Config()

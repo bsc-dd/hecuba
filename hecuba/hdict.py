@@ -2,12 +2,8 @@
 import uuid
 from collections import Iterable
 from collections import namedtuple
-
-import logging
 from types import NoneType
-
 from hfetch import Hcache
-
 from IStorage import IStorage
 from hecuba import config, log
 
@@ -132,14 +128,10 @@ class StorageDict(dict, IStorage):
 
         self._k_size = len(key_names)
 
-
         if name is not None:
             self.make_persistent(name)
         else:
             self._is_persistent = False
-
-
-
 
     def __eq__(self, other):
         return self.dict_id == other.blockid and \
@@ -197,23 +189,28 @@ class StorageDict(dict, IStorage):
 
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy'," \
                          "'replication_factor': %d }" % (self._ksp, config.repl_factor)
-        try:
-            config.session.execute(query_keyspace)
-        except Exception as ex:
-            print "Error creating the StorageDict keyspace:", query_keyspace, ex
-            raise ex
+        if query_keyspace not in config.create_cache:
+            try:
+                log.debug('MAKE PERSISTENCE: %s', query_keyspace)
+                config.session.execute(query_keyspace)
+                config.create_cache.add(query_keyspace)
+            except Exception as ex:
+                print "Error creating the StorageDict keyspace:", query_keyspace, ex
+                raise ex
 
         columns = map(lambda a: a[0] + " " + a[1], self._primary_keys + self._columns)
         pks = map(lambda a: a[0], self._primary_keys)
         query_table = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" % (self._ksp, self._table,
-                                                                                    str.join(',', columns),
+                                                                                 str.join(',', columns),
                                                                                     str.join(',', pks))
-        log.debug('MAKE PERSISTENCE: %s', query_table)
-        try:
-            config.session.execute(query_table)
-        except Exception as ex:
-            log.error("Error creating the StorageDict table: %s %s", query_table, ex)
-            raise ex
+        if query_table not in config.create_cache:
+            try:
+                log.debug('MAKE PERSISTENCE: %s', query_table)
+                config.session.execute(query_table)
+                config.create_cache.add(query_table)
+            except Exception as ex:
+                log.error("Error creating the StorageDict table: %s %s", query_table, ex)
+                raise ex
 
         self._store_meta(self._build_args)
         key_names = map(lambda a: a[0], self._primary_keys)
