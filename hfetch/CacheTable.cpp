@@ -149,6 +149,7 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
 
     TupleRow *keys = keys_factory->make_tuple(py_keys);
     const TupleRow *values = get_crow(keys);
+    delete(keys);
 
     if(values==NULL){
         PyErr_SetString(PyExc_KeyError,"Get row: key not found");
@@ -160,10 +161,10 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
 }
 
 const TupleRow *CacheTable::get_crow(TupleRow *keys) {
+    TupleRow k=*keys;
 
-    Poco::SharedPtr<TupleRow> ptrElem = myCache->get(*keys);
+    Poco::SharedPtr<TupleRow> ptrElem = myCache->get(k);
     if (!ptrElem.isNull()) {
-        delete (keys);
         return ptrElem.get();
     }
     /* Not present on cache, a query is performed */
@@ -193,8 +194,7 @@ const TupleRow *CacheTable::get_crow(TupleRow *keys) {
     //Store result to cache
     const TupleRow *values = values_factory->make_tuple(row);
 
-    myCache->add(*keys, values);
-    delete (keys);
+    myCache->add(k, values);
     cass_result_free(result);
     return values;
 }

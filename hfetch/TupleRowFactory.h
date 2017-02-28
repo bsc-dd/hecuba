@@ -16,6 +16,7 @@ std::cerr<<msg<<std::endl; };\
 #include <stdexcept>
 #include <memory>
 #include <stdlib.h>
+#include "metadata.h"
 
 #define Py_STRING "s"
 #define Py_U_LONGLONG "K"
@@ -28,6 +29,7 @@ std::cerr<<msg<<std::endl; };\
 #define Py_FLOAT "f"
 #define Py_DOUBLE "d"
 #define Py_SHORT_INT "h"
+
 
 
 
@@ -45,18 +47,21 @@ public:
     void bind( CassStatement *statement,const  TupleRow *row,  u_int16_t offset) const ;
 
     inline const CassValueType get_type(uint16_t pos) const {
-        return type_array[pos];
+        return metadata.get()->at(pos).type;
     }
 
     inline uint16_t n_elements(){
-        return (uint16_t) this->type_array.size();
+        return (uint16_t) this->metadata.get()->size();
     }
     TupleRowFactory(){};
 
+    std::shared_ptr<std::vector<ColumnMeta>> get_metadata() const{
+        return metadata;
+
+    }
+
 private:
-    std::vector<uint16_t> offsets;
-    std::vector<CassValueType> type_array;
-    std::vector<std::string> name_map;
+    std::shared_ptr<std::vector<ColumnMeta>> metadata;
     uint16_t total_bytes;
 
     uint16_t compute_size_of(const CassValueType VT) const;

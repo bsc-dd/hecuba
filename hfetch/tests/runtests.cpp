@@ -160,11 +160,18 @@ TEST(TestingPocoCache, InsertGetDeleteOps) {
     const uint16_t j = 456;
     size_t ss = sizeof(uint16_t) * 2;
     Poco::LRUCache<TupleRow, TupleRow> myCache(2);
-    auto size = vector<uint16_t>(2, sizeof(uint16_t));
+
+    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,"ciao"};
+    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,"ciaociao"};
+    std::vector<ColumnMeta> v = {cm1,cm2};
+    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
+
+
+
     char *b2 = (char *) malloc(ss);
     memcpy(b2, &i, sizeof(uint16_t));
     memcpy(b2 + sizeof(uint16_t), &j, sizeof(uint16_t));
-    const TupleRow *t1 = new TupleRow(&size, sizeof(uint16_t) * 2, b2);
+    const TupleRow *t1 = new TupleRow(metas,sizeof(uint16_t)*2,b2);
 
     uint16_t ka = 64;
     uint16_t kb = 128;
@@ -172,7 +179,8 @@ TEST(TestingPocoCache, InsertGetDeleteOps) {
     memcpy(b2, &ka, sizeof(uint16_t));
     memcpy(b2 + sizeof(uint16_t), &kb, sizeof(uint16_t));
 
-    TupleRow *key1 = new TupleRow(&size, sizeof(uint16_t) * 2, b2);
+
+    TupleRow *key1 = new TupleRow( metas,sizeof(uint16_t) * 2, b2);
     myCache.add(*key1, t1);
 
     EXPECT_EQ(myCache.getAllKeys().size(), 1);
@@ -200,8 +208,14 @@ TEST(TupleTest, TupleOps) {
     memcpy(buffer + size, &j, size);
     memcpy(buffer2, &i, size);
     memcpy(buffer2 + size, &j, size);
-    TupleRow t1 = TupleRow(&sizes, sizeof(uint16_t) * 2, buffer);
-    TupleRow t2 = TupleRow(&sizes, sizeof(uint16_t) * 2, buffer2);
+
+    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,"ciao"};
+    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,"ciaociao"};
+    std::vector<ColumnMeta> v = {cm1,cm2};
+    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
+
+    TupleRow t1 = TupleRow(metas,sizeof(uint16_t) * 2, buffer);
+    TupleRow t2 = TupleRow(metas,sizeof(uint16_t) * 2, buffer2);
 
     //Equality
     EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
@@ -240,8 +254,6 @@ TEST(TestingCacheTable, GetRowC) {
     float f = 12340;
     memcpy(buffer + sizeof(int), &f, sizeof(float));
 
-    std::vector<uint16_t> offsets = {0, sizeof(int)};
-    TupleRow *t = new TupleRow(&offsets, sizeof(int) + sizeof(float), buffer);
 
     std::vector<std::string> keysnames = {"partid", "time"};
     std::vector<std::string> colsnames = {"x", "y", "z", "ciao"};
@@ -249,6 +261,8 @@ TEST(TestingCacheTable, GetRowC) {
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
     CacheTable T = CacheTable(max_items, particles_table, keyspace, keysnames, colsnames, token_pred, tokens,
                               test_session);
+    TupleRow *t = new TupleRow(T._test_get_keys_factory()->get_metadata(), sizeof(int) + sizeof(float), buffer);
+
 
     const TupleRow *result = T.get_crow(t);
 
@@ -310,7 +324,15 @@ TEST(TestingCacheTable, GetRowStringC) {
     memcpy(buffer + sizeof(int), &f, sizeof(float));
 
     std::vector<uint16_t> offsets = {0, sizeof(int)};
-    TupleRow *t = new TupleRow(&offsets, sizeof(int) + sizeof(float), buffer);
+
+
+
+    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,"partid"};
+    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_FLOAT,"time"};
+    std::vector<ColumnMeta> v = {cm1,cm2};
+    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
+
+    TupleRow *t = new TupleRow(metas, sizeof(int) + sizeof(float), buffer);
 
     std::vector<std::string> keysnames = {"partid", "time"};
     std::vector<std::string> colsnames = {"ciao"};
@@ -371,8 +393,12 @@ TEST(TestingPrefetch, GetNextC) {
     float f = 12340;
     memcpy(buffer + sizeof(int), &f, sizeof(float));
 
-    std::vector<uint16_t> offsets = {0, sizeof(int)};
-    TupleRow *t = new TupleRow(&offsets, sizeof(int) + sizeof(float), buffer);
+    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,"partid"};
+    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_FLOAT,"time"};
+    std::vector<ColumnMeta> v = {cm1,cm2};
+    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
+
+    TupleRow *t = new TupleRow(metas, sizeof(int) + sizeof(float), buffer);
 
     std::vector<std::string> keysnames = {"partid", "time"};
     std::vector<std::string> colsnames = {"ciao"};
@@ -491,12 +517,12 @@ TEST(TestingCacheTable, GetRow) {
     std::vector<std::string> colsnames = {"x", "y", "z", "ciao"};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
-    std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(new CacheTable(max_items, particles_table, keyspace,
-                                                                               keysnames, colsnames, token_pred, tokens,
-                                                                               test_session));
+    CacheTable T =CacheTable(max_items, particles_table, keyspace,
+                             keysnames, colsnames, token_pred, tokens,
+                                                                               test_session);
 
 
-    PyObject *result = T.get()->get_row(list);
+    PyObject *result = T.get_row(list);
 
 
     EXPECT_FALSE(result == 0);

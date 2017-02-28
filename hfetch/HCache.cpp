@@ -30,6 +30,7 @@ static PyObject *connectCassandra(PyObject *self, PyObject *args) {
     // add contact points
     cass_cluster_set_contact_points(cluster, contact_points.c_str());
     cass_cluster_set_port(cluster, nodePort);
+    cass_cluster_set_token_aware_routing(cluster, cass_true);
     // Provide the cluster object as configuration to connect the session
     connect_future = cass_session_connect(session, cluster);
     CassError rc = cass_future_error_code(connect_future);

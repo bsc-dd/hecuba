@@ -48,6 +48,10 @@ public:
     Prefetch* get_items_iter(uint32_t prefetch_size);
     const TupleRow *get_crow(TupleRow *py_keys);
 
+    TupleRowFactory* _test_get_keys_factory(){ return keys_factory;}
+    TupleRowFactory* _test_get_value_factory(){ return values_factory;}
+    TupleRowFactory* _test_get_items_factory(){ return items_factory;}
+
 private:
 
     std::string select_keys;
