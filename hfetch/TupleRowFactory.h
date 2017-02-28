@@ -38,6 +38,10 @@ class TupleRowFactory{
 public:
     TupleRowFactory(const CassTableMeta *table_meta, const std::vector<std::string> &col_names);
 
+    ~TupleRowFactory() {
+        metadata = NULL;
+    }
+
     TupleRow* make_tuple(PyObject* obj);
 
     TupleRow* make_tuple(const CassRow* row);

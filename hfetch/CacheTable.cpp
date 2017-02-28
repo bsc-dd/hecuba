@@ -106,7 +106,7 @@ CacheTable::~CacheTable() {
     delete (keys_factory);
     delete (values_factory);
     delete (items_factory);
-
+    prepared_query=NULL;
     session=NULL;
 }
 
