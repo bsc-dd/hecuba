@@ -12,12 +12,12 @@
  * @param query Query ready to be bind with the keys
  * @param session
  */
-CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string &keyspace,
-                       const std::vector<std::string> &keyn,
-                       const std::vector<std::string> &columns_n,
-                       const std::string &token_range_pred,
-                       const std::vector<std::pair<int64_t, int64_t>> &tkns,
-                       CassSession *session) {
+CacheTable::CacheTable(uint32_t size, const std::string &table, const std::string &keyspace,
+const std::vector<std::string> &keyn,
+const std::vector< std::vector<std::string>>  &columns_n ,
+const std::string &token_range_pred,
+const std::vector<std::pair<int64_t, int64_t>> &tkns,
+        CassSession *session) {
     columns_names = columns_n;
     key_names = keyn;
     tokens=tkns;
@@ -29,7 +29,7 @@ CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string
         select_keys += "," + key_names[i];
     }
 
-    select_values = columns_names[0];
+    select_values = columns_names[0][0];
     for (uint16_t i = 1; i < columns_names.size(); i++) {
         select_values += "," + columns_names[i][0];
     }

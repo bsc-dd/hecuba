@@ -523,7 +523,7 @@ PyObject *TupleRowFactory::c_to_py(const void *V, CassValueType VT) const {
             int64_t  *addr = (int64_t*) V;
             char *d = reinterpret_cast<char *>(*addr);
 
-           // _import_array();
+            _import_array(); //necessary only for running tests
             PyObject*bytes=PyString_FromString(d);
             PyObject* decoded=PyString_AsDecodedObject(bytes,"hex",NULL);
             PyErr_Print();

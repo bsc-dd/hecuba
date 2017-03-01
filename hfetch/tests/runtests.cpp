@@ -408,7 +408,8 @@ TEST(TestingCacheTable, GetRowStringC) {
 
 
     std::vector<std::string> keysnames = {"partid", "time"};
-    std::vector<std::string> colsnames = {"ciao"};
+
+    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"ciao"}};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
     CacheTable T = CacheTable(max_items, particles_table, keyspace, keysnames, colsnames, token_pred, tokens,
@@ -476,7 +477,8 @@ TEST(TestingPrefetch, GetNextC) {
     TupleRow *t = new TupleRow(metas, sizeof(int) + sizeof(float), buffer);
 
     std::vector<std::string> keysnames = {"partid", "time"};
-    std::vector<std::string> colsnames = {"ciao"};
+
+    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"ciao"}};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     int64_t bigi= 9223372036854775807;
     std::vector<std::pair<int64_t, int64_t> > tokens = {
@@ -744,6 +746,7 @@ TEST(TestingCacheTable, NumpyArrayRead) {
 
 TEST(TestingCacheTable, NumpyArrayReadWrite) {
     PyErr_Clear();
+
     /** CONNECT **/
     CassSession *test_session = NULL;
     CassCluster *test_cluster = NULL;

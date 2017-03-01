@@ -20,7 +20,7 @@ std::cerr<<msg<<std::endl; };\
 #include <memory>
 #include <stdlib.h>
 #include "metadata.h"
-
+#include <numpy/arrayobject.h>
 #define Py_STRING "s"
 #define Py_U_LONGLONG "K"
 #define Py_U_LONG "k"

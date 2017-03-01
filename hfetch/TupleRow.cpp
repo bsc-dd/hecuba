@@ -33,6 +33,7 @@ TupleRow::TupleRow(const std::shared_ptr <std::vector<ColumnMeta>> metas,
 
 TupleRow::TupleRow(const TupleRow &t) {
     this->payload_size=t.payload_size;
+
     this->payload = t.payload;
     this->metadata = t.metadata;
 }
