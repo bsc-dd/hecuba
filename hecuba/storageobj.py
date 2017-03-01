@@ -301,7 +301,7 @@ class StorageObj(object, IStorage):
             value: obtained value
         """
 
-        if key[0] != '_' and self._is_persistent:
+        if key[0] != '_' and key is not 'storage_id' and self._is_persistent:
             try:
                 query = "SELECT * FROM %s.%s WHERE name = '%s';" % (self._ksp, self._table, key)
                 log.debug("GETATTR: %s", query)
