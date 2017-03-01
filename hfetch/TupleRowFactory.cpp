@@ -660,7 +660,9 @@ void TupleRowFactory::bind( CassStatement *statement,const TupleRow *row,  u_int
                 break;
             }
             case CASS_VALUE_TYPE_BLOB: {
-                //cass_statement_bind_bytes(statement,bind_pos,key,n_elem);
+                int64_t  *addr = (int64_t*) key;
+                const unsigned char *d = reinterpret_cast<char unsigned *>(*addr);
+                cass_statement_bind_bytes(statement,bind_pos,d,strlen(reinterpret_cast<char *>(*addr)));
                 break;
             }
             case CASS_VALUE_TYPE_BOOLEAN: {
