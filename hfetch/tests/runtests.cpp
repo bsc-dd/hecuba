@@ -143,7 +143,7 @@ void setupcassandra() {
     *temp = 123;
     *(temp + 1) = 456;
     *(temp + 2) = 789;
-    *(temp + 3) = 500;
+    *(temp + 3) = 200;
 
     PyObject *key = PyArray_SimpleNewFromData(2, dims, NPY_DOUBLE, array);
     PyArrayObject *arr;
@@ -672,7 +672,7 @@ TEST(TestingCacheTable, GetRow) {
 
 
 
-TEST(TestingCacheTable, NumpyArrayRead) {
+TEST(TestingCacheTable, NumpyArrayReadWrite) {
     PyErr_Clear();
     /** CONNECT **/
     CassSession *test_session = NULL;
@@ -708,12 +708,9 @@ TEST(TestingCacheTable, NumpyArrayRead) {
                                                                                keysnames, colsnames, token_pred, tokens,
                                                                                test_session));
 
-
     PyObject *result = T.get()->get_row(list);
 
-
     EXPECT_FALSE(result == 0);
-
 
     EXPECT_EQ(PyList_Size(result), colsnames.size());
     for (int i = 0; i < PyList_Size(result); ++i) {
@@ -721,18 +718,29 @@ TEST(TestingCacheTable, NumpyArrayRead) {
     }
 
     int check = PyArray_Check(PyList_GetItem(result, 0));
+    EXPECT_TRUE(check);
 
-    PyArrayObject *rewrite;
+    PyArrayObject *rewrite, *rewrite2;
     PyArray_OutputConverter(PyList_GetItem(result,0),&rewrite);
-    PyArray_Sort(rewrite,0,NPY_HEAPSORT);
-
-    PyArray_Check(rewrite);
+    PyObject* rewr_obj = PyArray_Transpose(rewrite,NULL);
+    check = PyArray_Check(rewr_obj);
+    EXPECT_TRUE(check);
     PyObject* rw_list = PyList_New(1);
-    PyObject* rewr_obj = PyArray_Cast(rewrite,NPY_DOUBLE);
     PyList_SetItem(rw_list,0,rewr_obj);
     T->put_row(list,rw_list);
 
     PY_ERR_CHECK
+
+
+
+
+
+    result = T.get()->get_row(list);
+    EXPECT_FALSE(result == 0);
+    check = PyArray_Check(PyList_GetItem(result, 0));
+    EXPECT_TRUE(check);
+
+
 
     CassFuture *close_future = cass_session_close(test_session);
     cass_future_wait(close_future);
@@ -744,7 +752,7 @@ TEST(TestingCacheTable, NumpyArrayRead) {
 
 
 
-TEST(TestingCacheTable, NumpyArrayReadWrite) {
+TEST(TestingCacheTable, NumpyArrayRead) {
     PyErr_Clear();
 
     /** CONNECT **/
