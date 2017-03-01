@@ -5,6 +5,7 @@ from hecuba import config, log
 
 
 class IStorage:
+    _select_istorage_meta = config.session.prepare("SELECT * FROM hecuba.istorage WHERE storage_id = ?")
     args_names = []
     args = namedtuple("IStorage", [])
     _build_args = args()
@@ -27,7 +28,7 @@ class IStorage:
                     'counter': 'counter'}
 
     @staticmethod
-    def build_remotely(storage_id):
+    def build_remotely(new_args):
         raise Exception("to be implemented")
 
     def split(self):
@@ -36,6 +37,7 @@ class IStorage:
 
         for token_split in IStorage._tokens_partitions(tokens, config.min_number_of_tokens, config.number_of_blocks):
             storage_id = str(uuid.uuid1())
+            log.debug('assigning to %s tokens %s', storage_id, token_split)
             new_args = self._build_args._replace(tokens=token_split, storage_id=storage_id)
             self.__class__._store_meta(new_args)
 

@@ -132,11 +132,12 @@ class Config:
                     "'replication_factor': %d }" % singleton.repl_factor)
                 singleton.session.execute(
                     'CREATE TABLE IF NOT EXISTS hecuba.istorage (storage_id text, '
-                    'class_name text,name text,'
+                    'class_name text,name text, '
+                    'istorage_props map<text,text>, '
                     'tokens list<frozen<tuple<bigint,bigint>>>, entry_point text, port int, '
                     'indexed_args list<text>, nonindexed_args list<text>, '
-                    'dict_pks list<frozen<tuple<text,text>>>,'
-                    'dict_columns list<frozen<tuple<text,text>>>,'
+                    'primary_keys list<frozen<tuple<text,text>>>,'
+                    'columns list<frozen<tuple<text,text>>>,'
                     'value_list list<text>, mem_filter text, '
                     'PRIMARY KEY(storage_id))')
 
@@ -161,14 +162,14 @@ class Config:
             singleton.number_of_blocks = int(os.environ['NUMBER_OF_BLOCKS'])
             log.info('NUMBER_OF_BLOCKS: %d', singleton.number_of_blocks)
         except KeyError:
-            singleton.number_of_blocks = 1024
+            singleton.number_of_blocks = 32
             log.warn('using default NUMBER_OF_BLOCKS: %d', singleton.number_of_blocks)
 
         try:
             singleton.min_number_of_tokens = int(os.environ['MIN_NUMBER_OF_TOKENS'])
             log.info('MIN_NUMBER_OF_TOKENS: %d', singleton.min_number_of_tokens)
         except KeyError:
-            singleton.min_number_of_tokens = 2048
+            singleton.min_number_of_tokens = 1024
             log.warn('using default MIN_NUMBER_OF_TOKENS: %d', singleton.min_number_of_tokens)
 
         try:

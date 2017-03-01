@@ -54,10 +54,10 @@ class StorageDict(dict, IStorage):
     Object used to access data from workers.
     """
 
-    args_names = ["primary_keys", "columns", "name", "tokens", "storage_id"]
+    args_names = ["primary_keys", "columns", "name", "tokens", "storage_id", "class_name"]
     args = namedtuple('StorageDictArgs', args_names)
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage (storage_id, class_name,'
-                                                  ' name, tokens,dict_pks,dict_columns)  VALUES (?,?,?,?,?,?)')
+                                                  ' name, tokens,primary_keys,columns)  VALUES (?,?,?,?,?,?)')
 
     @staticmethod
     def build_remotely(result):
@@ -76,17 +76,18 @@ class StorageDict(dict, IStorage):
 
     @staticmethod
     def _store_meta(storage_args):
-        class_name = '%s.%s' % (StorageDict.__module__, StorageDict.__name__)
+        log.debug("StorageDict: storing metas %s", storage_args)
+
 
         try:
             config.session.execute(StorageDict._prepared_store_meta,
-                                   [storage_args.storage_id, class_name, storage_args.name,
+                                   [storage_args.storage_id, storage_args.class_name, storage_args.name,
                                     storage_args.tokens, storage_args.primary_keys, storage_args.columns])
         except Exception as ex:
             log.error("Error creating the StorageDict metadata: %s %s", storage_args, ex)
             raise ex
 
-    def __init__(self, primary_keys, columns, name=None, tokens=None, **kwargs):
+    def __init__(self, primary_keys, columns, name=None, tokens=None, storage_id=None, **kwargs):
         """
         Creates a new block.
 
@@ -100,7 +101,7 @@ class StorageDict(dict, IStorage):
         """
 
         super(StorageDict, self).__init__(**kwargs)
-        log.debug("CREATED StorageDict(%s,%s,%s,%s,%s)", primary_keys, columns, name, tokens, kwargs)
+        log.debug("CREATED StorageDict(%s,%s,%s,%s,%s,%s)", primary_keys, columns, name, tokens, storage_id, kwargs)
 
         if tokens is None:
             log.info('using all tokens')
@@ -109,9 +110,11 @@ class StorageDict(dict, IStorage):
         else:
             self.tokens = tokens
 
-        self._build_args = self.args(primary_keys, columns, name, self.tokens, None)
+        class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
+        self._build_args = self.args(primary_keys, columns, name, self.tokens, storage_id, class_name)
         self._primary_keys = primary_keys
         self._columns = columns
+        self.storage_id = storage_id
 
         self.values = columns
         key_names = map(lambda a: a[0], self._primary_keys)
@@ -184,9 +187,10 @@ class StorageDict(dict, IStorage):
         (self._ksp, self._table) = self._extract_ks_tab(name)
         self._build_args = self._build_args._replace(name=self._ksp+"."+self._table)
 
-        if not hasattr(self, 'storage_id'):
+        if self.storage_id is None:
             self.storage_id = str(uuid.uuid1())
             self._build_args = self._build_args._replace(storage_id=self.storage_id)
+            self._store_meta(self._build_args)
 
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy'," \
                          "'replication_factor': %d }" % (self._ksp, config.repl_factor)
@@ -213,7 +217,6 @@ class StorageDict(dict, IStorage):
                 log.error("Error creating the StorageDict table: %s %s", query_table, ex)
                 raise ex
 
-        self._store_meta(self._build_args)
         key_names = map(lambda a: a[0], self._primary_keys)
         column_names = map(lambda a: a[0], self._columns)
         tknp = "token(%s)" % key_names[0]
