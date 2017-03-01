@@ -73,7 +73,7 @@ private:
 
     uint16_t compute_size_of(const CassValueType VT) const;
 
-    PyObject* c_to_py(const void *V, CassValueType VT) const;
+    PyObject* c_to_py(const void *V, ColumnMeta &meta) const;
 
     int py_to_c(PyObject *key, void* data, int32_t col) const;
 

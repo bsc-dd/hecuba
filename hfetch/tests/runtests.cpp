@@ -221,8 +221,8 @@ TEST(TestingPocoCache, InsertGetDeleteOps) {
     size_t ss = sizeof(uint16_t) * 2;
     Poco::LRUCache<TupleRow, TupleRow> myCache(2);
 
-    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,"ciao"};
-    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,"ciaociao"};
+    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,std::vector<std::string>{"ciao"}};
+    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,std::vector<std::string>{"ciaociao"}};
     std::vector<ColumnMeta> v = {cm1,cm2};
     std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
 
@@ -269,8 +269,8 @@ TEST(TupleTest, TupleOps) {
     memcpy(buffer2, &i, size);
     memcpy(buffer2 + size, &j, size);
 
-    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,"ciao"};
-    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,"ciaociao"};
+    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,std::vector<std::string>{"ciao"}};
+    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,std::vector<std::string>{"ciaociao"}};
     std::vector<ColumnMeta> v = {cm1,cm2};
     std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
 
@@ -283,7 +283,7 @@ TEST(TupleTest, TupleOps) {
     EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
     EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
 
-    cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,"ciaocia"};
+    cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,std::vector<std::string>{"ciaociao"}};
     std::vector<ColumnMeta> v2 = {cm1,cm2};
     std::shared_ptr<std::vector<ColumnMeta>> metas2=std::make_shared<std::vector<ColumnMeta>>(v2);
 
@@ -299,6 +299,16 @@ TEST(TupleTest, TupleOps) {
 }
 
 
+TEST(TestMetadata,NumpyArrays) {
+    ColumnMeta meta = {0,CASS_VALUE_TYPE_BLOB,std::vector<std::string>{"data","double","2x2"}};
+
+    EXPECT_EQ(meta.get_arr_type(),NPY_DOUBLE);
+    PyObject* dims = meta.get_arr_dims();
+    EXPECT_TRUE(PyList_Check(dims));
+    EXPECT_EQ(PyList_Size(dims),2);
+    EXPECT_EQ(PyInt_AsLong(PyList_GetItem(dims,0)),2);
+    EXPECT_EQ(PyInt_AsLong(PyList_GetItem(dims,1)),2);
+}
 
 /** PURE C++ TESTS **/
 
@@ -469,8 +479,8 @@ TEST(TestingPrefetch, GetNextC) {
     float f = 12340;
     memcpy(buffer + sizeof(int), &f, sizeof(float));
 
-    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,"partid"};
-    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_FLOAT,"time"};
+    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,std::vector<std::string>{"partid"}};
+    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_FLOAT,std::vector<std::string>{"time"}};
     std::vector<ColumnMeta> v = {cm1,cm2};
     std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
 
@@ -701,7 +711,7 @@ TEST(TestingCacheTable, NumpyArrayReadWrite) {
     PY_ERR_CHECK
 
     std::vector<std::string> keysnames = {"partid"};
-    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"data"}};
+    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"data","double","2x2"}};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
     std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(new CacheTable(max_items, bytes_table, keyspace,
@@ -748,6 +758,9 @@ TEST(TestingCacheTable, NumpyArrayReadWrite) {
 
     cass_cluster_free(test_cluster);
     cass_session_free(test_session);
+
+    PY_ERR_CHECK
+
 }
 
 
@@ -782,7 +795,7 @@ TEST(TestingCacheTable, NumpyArrayRead) {
     PY_ERR_CHECK
 
     std::vector<std::string> keysnames = {"partid"};
-    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"data"}};
+    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"data","double","2x2"}};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
     std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(new CacheTable(max_items, bytes_table, keyspace,
@@ -811,6 +824,9 @@ TEST(TestingCacheTable, NumpyArrayRead) {
 
     cass_cluster_free(test_cluster);
     cass_session_free(test_session);
+
+    PY_ERR_CHECK
+
 }
 
 

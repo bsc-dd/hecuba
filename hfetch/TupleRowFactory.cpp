@@ -36,7 +36,7 @@ TupleRowFactory::TupleRowFactory(const CassTableMeta *table_meta, const std::vec
         for (uint16_t j=0; j<col_names.size(); ++j) {
             const std::string ss = col_names[j][0];
             if (meta_col_name == ss) {
-                md[j] ={0,cass_data_type_type(type),value};
+                md[j] ={0,cass_data_type_type(type),col_names[j]};
                 elem_sizes[j] = compute_size_of( md[j].type);
                 break;
             }
@@ -480,7 +480,7 @@ PyObject *TupleRowFactory::tuple_as_py(const TupleRow *tuple) const {
     PyObject *list = PyList_New(tuple->n_elem());
     auto localMeta=metadata.get();
     for (uint16_t i = 0; i < tuple->n_elem(); i++) {
-        PyObject *inte=c_to_py(tuple->get_element(i), localMeta->at(i).type);
+        PyObject *inte=c_to_py(tuple->get_element(i), localMeta->at(i));
         PyList_SetItem(list, i,inte);
     }
     return list;
@@ -495,7 +495,7 @@ PyObject *TupleRowFactory::tuple_as_py(const TupleRow *tuple) const {
  * @return The equivalent object V in Python using the Cassandra Value type to choose the correct transformation
  */
 
-PyObject *TupleRowFactory::c_to_py(const void *V, CassValueType VT) const {
+PyObject *TupleRowFactory::c_to_py(const void *V, ColumnMeta &meta) const {
 
     char const *py_flag = 0;
     PyObject *py_value = Py_None;
@@ -503,7 +503,7 @@ PyObject *TupleRowFactory::c_to_py(const void *V, CassValueType VT) const {
         return py_value;
     }
 
-    switch (VT) {
+    switch (meta.type) {
         case CASS_VALUE_TYPE_VARCHAR:
         case CASS_VALUE_TYPE_TEXT:
         case CASS_VALUE_TYPE_ASCII: {
@@ -529,20 +529,14 @@ PyObject *TupleRowFactory::c_to_py(const void *V, CassValueType VT) const {
             PyErr_Print();
 
             char *dec = PyString_AsString(decoded);
-            py_value = PyArray_FromString(dec,PyString_GET_SIZE(decoded),PyArray_DescrNewFromType(NPY_DOUBLE),-1,NULL);
+            py_value = PyArray_FromString(dec,PyString_GET_SIZE(decoded),PyArray_DescrNewFromType(meta.get_arr_type()),-1,NULL);
 
             PyArrayObject *arr;
             int ok =PyArray_OutputConverter(py_value,&arr);
-
-            PyObject *nonsense = PyList_New(2);
-            PyList_SetItem(nonsense,0,PyInt_FromLong(2));
-            PyList_SetItem(nonsense,1,PyInt_FromLong(2));
-            py_value = PyArray_Reshape (arr, nonsense);
-
-            PyErr_Print();
+            if (ok) py_value = PyArray_Reshape (arr, meta.get_arr_dims());
             break;
         }
-        case CASS_VALUE_TYPE_BOOLEAN: {//bool
+        case CASS_VALUE_TYPE_BOOLEAN: {
             break;
         }
         case CASS_VALUE_TYPE_COUNTER: {
