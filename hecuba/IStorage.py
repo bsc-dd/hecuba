@@ -1,7 +1,7 @@
 import uuid
 from collections import namedtuple
-
-from hecuba import config
+from time import time
+from hecuba import config, log
 
 
 class IStorage:
@@ -31,6 +31,7 @@ class IStorage:
         raise Exception("to be implemented")
 
     def split(self):
+        st = time()
         tokens = self._build_args.tokens
 
         for token_split in IStorage._tokens_partitions(tokens, config.min_number_of_tokens, config.number_of_blocks):
@@ -39,6 +40,7 @@ class IStorage:
             self.__class__._store_meta(new_args)
 
             yield self.__class__.build_remotely(new_args)
+        log.debug('completed split of %s in %f', self.__class__.__name__, time()-st)
 
     @staticmethod
     def _tokens_partitions(tokens, min_number_of_tokens, number_of_blocks):

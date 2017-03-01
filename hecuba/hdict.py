@@ -66,6 +66,7 @@ class StorageDict(dict, IStorage):
         Args:
             result: a namedtuple with all  the information needed to create again the block
         """
+        log.debug("Building Storage dict with %s", result)
 
         return StorageDict(result.primary_keys,
                            result.columns,

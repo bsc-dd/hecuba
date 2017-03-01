@@ -23,6 +23,7 @@ class StorageObj(object, IStorage):
         Returns:
             so: the created storageobj
         """
+        log.debug("Building Storage object with %s", storage_id)
         class_name = storage_id.class_name
         if class_name is 'StorageObj':
             so = StorageObj(storage_id.name.encode('utf8'))
@@ -303,7 +304,7 @@ class StorageObj(object, IStorage):
         if key[0] != '_' and self._is_persistent:
             try:
                 query = "SELECT * FROM %s.%s WHERE name = '%s';" % (self._ksp, self._table, key)
-                log.debug("GETATTR: ", query)
+                log.debug("GETATTR: %s", query)
                 result = config.session.execute(query)
                 for row in result:
                     for rowkey, rowvar in vars(row).iteritems():
