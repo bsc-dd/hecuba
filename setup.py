@@ -3,13 +3,18 @@
 
 from __future__ import print_function
 
+use_cython = False
+
 import os
-from distutils.core import setup
+
+from distutils.core import setup, Extension
 from distutils.command.build import build as _build
+#from setuptools import setup
 import subprocess
 
 home_path =str(os.environ['HOME'])
 c11_flag = '-std=c++11'
+
 
 def cmake_build():
     if subprocess.call(["cmake", "-H./hfetch",  "-B./hfetch/build"]) != 0:
@@ -32,7 +37,10 @@ setup(name='Hecuba',
       author_email='{guillem.alomar,cesare.cugnasco,pol.santamaria,yolanda.becerra}@bsc.es',
       url='https://www.bsc.es',
       install_requires=['nose', 'cassandra-driver', 'mock'],
-      packages=['hecuba', 'storage'],
+      packages=['hecuba', 'storage','hfetch'],
+#      packages_data={'hfetch':['hfetch.so']},
+    #  data_files=[('', ['hfetch/build/hfetch.so'])],
+      ext_modules=[Extension('hfetch',sources=[],libraries=['build/hfetch.so'],library_dirs=['hfetch/build'])],
       long_description='''Cache and prefetch for Hecuba.''',
       cmdclass={
           'build' : BuildWithCmake,

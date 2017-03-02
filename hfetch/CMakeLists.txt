@@ -1,12 +1,13 @@
 cmake_minimum_required(VERSION 3.3)
 set(CMAKE_CXX_STANDARD 11)
+
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -fPIC")
 SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fPIC")
 set(CMAKE_POSITION_INDEPENDENT_CODE YES)
 project(hfetch)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
-include_directories( ${CMAKE_CURRENT_LIST_DIR}/_install/include /usr/include /usr/lib64/python2.7/site-packages/numpy/core/include $ENV{HOME}/local/include)
+include_directories( ${CMAKE_CURRENT_LIST_DIR}/_install/include /usr/include $ENV{HOME}/local/include)
 include(ExternalProject) # ExternalProject_Add
 
 set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp)
@@ -111,7 +112,7 @@ set(ALL_LIBS ${ALL_LIBS} ${PYTHON_LIBRARIES})
 
 target_include_directories(hfetch PRIVATE ${CMAKE_CURRENT_LIST_DIR}/_install/include/ )
 target_compile_definitions(hfetch PRIVATE ${TBB_DEFINITIONS})
-set_target_properties(hfetch PROPERTIES PREFIX "")
+set_target_properties(hfetch PROPERTIES PREFIX "_")
 target_link_libraries(hfetch ${ALL_LIBS})
 
 
