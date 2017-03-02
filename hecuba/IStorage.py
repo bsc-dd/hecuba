@@ -50,9 +50,8 @@ class IStorage:
             # In this case we have few token and thus we split them
             tkns_for_block = min_number_of_tokens / number_of_blocks
             step_size = ((2 ** 64) - 1) / min_number_of_tokens
-            for fr, to in tokens:
-                block = []
-                fraction = fr
+            block = []
+            for fraction, to in tokens:
                 while fraction < to - step_size:
                     block.append((fraction, fraction + step_size))
                     fraction += step_size
@@ -61,11 +60,13 @@ class IStorage:
                     if len(block) >= tkns_for_block:
                         yield block
                         block = []
+            if len(block) > 0:
+                yield block
         else:
             # This is the case we have more tokens than blocks,.
             splits = max(len(tokens) / number_of_blocks, 1)
 
-            for i in xrange(0, len(tokens), 1):
+            for i in xrange(0, len(tokens), splits):
                 yield tokens[i:i + splits]
 
     @staticmethod
