@@ -158,6 +158,7 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
     delete(keys);
 
     if(values==NULL){
+        std::cout << "CacheTable: Get Row: VALUES IS NULL " << std::endl;
         PyErr_SetString(PyExc_KeyError,"Get row: key not found");
         return NULL;
     }
@@ -165,6 +166,8 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
     PyObject* temp = values_factory->tuple_as_py(values);
     return temp;
 }
+
+
 
 const TupleRow *CacheTable::get_crow(TupleRow *keys) {
 

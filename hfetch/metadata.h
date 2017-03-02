@@ -5,10 +5,11 @@
 #ifndef HFETCH_METADATA_H
 #define HFETCH_METADATA_H
 
-
+#include "ModuleException.h"
 #include <cassandra.h>
 #include <cstdint>
 #include <map>
+#include <algorithm>
 #include <numpy/arrayobject.h>
 
 struct ColumnMeta {
@@ -61,20 +62,33 @@ struct ColumnMeta {
         return NPY_NOTYPE;
     }
 
-    PyObject *get_arr_dims() {
+    PyArray_Dims *get_arr_dims() {
         if (info.size() != 3)
-            return Py_None;
-        PyObject *dims = PyList_New(0);
+            throw ModuleException("Bad numpy array params, expected 3");
+
         std::string temp = info[2];
+
+        size_t n = std::count(temp.begin(), temp.end(), 'x');
+        ++n;
+        std::cout << n << std::endl;
+        npy_intp ptr[n];
+
         int pos = 0;
+        int i = 0;
         while ((pos = temp.find('x')) != temp.npos) {
-            PyList_Append(dims, PyInt_FromLong(std::atoi(temp.substr(0, pos).c_str())));
+            if (i>n) throw ModuleException("Bad formed dimensions array");
+            ptr[i]=std::atoi(temp.substr(0, pos).c_str());
             temp = temp.substr(pos + 1, temp.size());
             //we assume pos(x)+1 <= dimensions length
+            ++i;
         }
-        PyList_Append(dims, PyInt_FromLong(std::atoi(temp.substr(0, 1).c_str())));
+        ptr[i]=std::atoi(temp.c_str());
+
+        PyArray_Dims *dims = new PyArray_Dims{ptr,n};
         return dims;
     }
+
+
 
 };
 

@@ -155,29 +155,17 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
                 return -1;
             };
 
-            PyDict_GetItem(dict, PyString_FromString("asd"));
-            columns_names[i] = std::vector<std::string>(1);
-            columns_names[i][0] = std::string("someValue");
+            PyObject *py_name = PyDict_GetItem(dict, PyString_FromString("name"));
 
-            /*
-            PyObject *key, *value;
-            Py_ssize_t pos = 0;
+            columns_names[i] = std::vector<std::string>(3);
+            columns_names[i][0] = PyString_AsString(py_name);
 
-            while (PyDict_Next(dict, &pos, &key, &value)) {
-                int i = PyInt_AS_LONG(value) + 1;
-                PyObject *o = PyInt_FromLong(i);
-                if (o == NULL)
-                    return -1;
-                if (PyDict_SetItem(dict, key, o) < 0) {
-                    Py_DECREF(o);
-                    return -1;
-                }
-                Py_DECREF(o);
-            }
-*/
+            PyObject *py_arr_type = PyDict_GetItem(dict, PyString_FromString("type"));
+            columns_names[i][1] = PyString_AsString(py_arr_type);
+
+            PyObject *py_arr_dims = PyDict_GetItem(dict, PyString_FromString("dims"));
+            columns_names[i][2] = PyString_AsString(py_arr_dims);
         }
-
-
     }
 
     try {

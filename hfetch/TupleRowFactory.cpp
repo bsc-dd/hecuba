@@ -219,22 +219,25 @@ int TupleRowFactory::py_to_c(PyObject *key, void *data, int32_t col) const {
         case CASS_VALUE_TYPE_BLOB: {
             /** interface receives key **/
 
-           // _import_array();
+            _import_array();
             PyArrayObject *arr;
             ok =PyArray_OutputConverter(key,&arr);
             if (!ok) throw ModuleException("error parsing PyArray to obj");
             /** transform to bytes **/
             PyObject* bytes = PyArray_ToString(arr, NPY_KEEPORDER);
-            /** encode as Hex **/
-            PyObject *encoded= PyString_AsEncodedObject(bytes,"hex",NULL);
 
 
             Py_ssize_t l_size;
             char *l_temp;
-            ok = PyString_AsStringAndSize(encoded,&l_temp,&l_size);
-            char *permanent = (char*) malloc(l_size+1);
-            memcpy(permanent, l_temp,l_size);
-            permanent[l_size] = '\0';
+            ok = PyString_AsStringAndSize(bytes,&l_temp,&l_size);
+
+            char *permanent = (char*) malloc(l_size+sizeof(uint32_t));
+            uint32_t int_size =(uint32_t) l_size;
+            //copy num bytes
+            memcpy(permanent,&int_size,sizeof(uint32_t));
+            //copybytes
+            memcpy(permanent+sizeof(uint32_t), l_temp,int_size);
+            //copy pointer
             memcpy(data,&permanent,sizeof(char*));
             break;
         }
@@ -380,11 +383,17 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             const cass_byte_t *l_temp;
             size_t l_size;
             cass_value_get_bytes(lhs,&l_temp , &l_size);
-            char *permanent = (char*) malloc(l_size);
+            char *permanent = (char*) malloc(l_size+sizeof(uint32_t));
 
-            memcpy(permanent, l_temp,l_size);
-            permanent[l_size]='\0';
+            uint32_t int_size = (uint32_t) l_size;
 
+            //copy num bytes
+            memcpy(permanent,&int_size,sizeof(uint32_t));
+
+            //copy bytes
+            memcpy(permanent+sizeof(uint32_t), l_temp,l_size);
+
+            //copy pointer to payload
             memcpy(data,&permanent,sizeof(char*));
             return 0;
 
@@ -522,18 +531,30 @@ PyObject *TupleRowFactory::c_to_py(const void *V, ColumnMeta &meta) const {
 
             int64_t  *addr = (int64_t*) V;
             char *d = reinterpret_cast<char *>(*addr);
+            //d points to [uint32,bytearray] which stands for size and bytes
+
+            uint32_t nbytes = *reinterpret_cast<uint32_t* >(d);
+            std::cout << "N BY" << nbytes << std::endl;
+            d+=sizeof(uint32_t);
 
             _import_array(); //necessary only for running tests
-            PyObject*bytes=PyString_FromString(d);
-            PyObject* decoded=PyString_AsDecodedObject(bytes,"hex",NULL);
+
             PyErr_Print();
 
-            char *dec = PyString_AsString(decoded);
-            py_value = PyArray_FromString(dec,PyString_GET_SIZE(decoded),PyArray_DescrNewFromType(meta.get_arr_type()),-1,NULL);
+            py_value = PyArray_FromString(d,nbytes,PyArray_DescrNewFromType(meta.get_arr_type()),-1,NULL);
+
+            PyErr_Print();
+
 
             PyArrayObject *arr;
             int ok =PyArray_OutputConverter(py_value,&arr);
-            if (ok) py_value = PyArray_Reshape (arr, meta.get_arr_dims());
+
+            PyArray_Dims *dims = meta.get_arr_dims();
+            if (ok) py_value = PyArray_Newshape(arr,dims,NPY_CORDER);
+            else std::cerr << "OUTPUT CONVERTER FAILS FOR NUMPY ARRAY" << std::endl;
+
+
+            PyErr_Print();
             break;
         }
         case CASS_VALUE_TYPE_BOOLEAN: {
@@ -656,7 +677,9 @@ void TupleRowFactory::bind( CassStatement *statement,const TupleRow *row,  u_int
             case CASS_VALUE_TYPE_BLOB: {
                 int64_t  *addr = (int64_t*) key;
                 const unsigned char *d = reinterpret_cast<char unsigned *>(*addr);
-                cass_statement_bind_bytes(statement,bind_pos,d,strlen(reinterpret_cast<char *>(*addr)));
+                uint32_t nbyes = *reinterpret_cast<uint32_t *>(*addr);
+
+                cass_statement_bind_bytes(statement,bind_pos,d+sizeof(uint32_t),nbyes);
                 break;
             }
             case CASS_VALUE_TYPE_BOOLEAN: {
