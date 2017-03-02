@@ -6,6 +6,7 @@
 #include "../CacheTable.h"
 #include <numpy/ndarrayobject.h>
 #include <numpy/arrayobject.h>
+#include <numpy/ndarraytypes.h>
 #include "structmember.h"
 
 using namespace std;
@@ -301,13 +302,14 @@ TEST(TupleTest, TupleOps) {
 
 TEST(TestMetadata,NumpyArrays) {
     ColumnMeta meta = {0,CASS_VALUE_TYPE_BLOB,std::vector<std::string>{"data","double","2x2"}};
-/*
+
     EXPECT_EQ(meta.get_arr_type(),NPY_DOUBLE);
-    PyObject* dims = meta.get_arr_dims();
-    EXPECT_TRUE(PyList_Check(dims));
-    EXPECT_EQ(PyList_Size(dims),2);
-    EXPECT_EQ(PyInt_AsLong(PyList_GetItem(dims,0)),2);
-    EXPECT_EQ(PyInt_AsLong(PyList_GetItem(dims,1)),2);*/
+    PyArray_Dims* dims = meta.get_arr_dims();
+
+    EXPECT_EQ(dims->len,2);
+
+    //EXPECT_EQ(*dims->ptr,2);
+    //EXPECT_EQ(*(dims->ptr+1),2);
 }
 
 /** PURE C++ TESTS **/
