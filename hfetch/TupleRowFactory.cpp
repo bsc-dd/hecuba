@@ -219,18 +219,26 @@ int TupleRowFactory::py_to_c(PyObject *key, void *data, int32_t col) const {
         case CASS_VALUE_TYPE_BLOB: {
             /** interface receives key **/
 
-            _import_array();
-            PyArrayObject *arr;
-            ok =PyArray_OutputConverter(key,&arr);
-            if (!ok) throw ModuleException("error parsing PyArray to obj");
-            /** transform to bytes **/
-            PyObject* bytes = PyArray_ToString(arr, NPY_KEEPORDER);
-
-
             Py_ssize_t l_size;
             char *l_temp;
-            ok = PyString_AsStringAndSize(bytes,&l_temp,&l_size);
-
+            try {
+                _import_array();
+                PyArrayObject *arr;
+                ok = PyArray_OutputConverter(key, &arr);
+                if (!ok) throw ModuleException("error parsing PyArray to obj");
+                /** transform to bytes **/
+                PyObject *bytes = PyArray_ToString(arr, NPY_KEEPORDER);
+                ok = PyString_AsStringAndSize(bytes,&l_temp,&l_size);
+                //if (!ok) throw ModuleException("error py byte string into char *");
+            }
+            catch(std::exception e) {
+                if (PyErr_Occurred()) PyErr_Print();
+                std::cerr << e.what() << std::endl;
+                l_size = 0;
+                l_temp=0;
+                PyErr_SetString(PyExc_RuntimeError, e.what());
+            //    break;
+            }
             char *permanent = (char*) malloc(l_size+sizeof(uint32_t));
             uint32_t int_size =(uint32_t) l_size;
             //copy num bytes
@@ -531,30 +539,29 @@ PyObject *TupleRowFactory::c_to_py(const void *V, ColumnMeta &meta) const {
 
             int64_t  *addr = (int64_t*) V;
             char *d = reinterpret_cast<char *>(*addr);
-            //d points to [uint32,bytearray] which stands for size and bytes
+            //d points to [uint32,bytearray] which stands for num_bytes and bytes
 
             uint32_t nbytes = *reinterpret_cast<uint32_t* >(d);
-            std::cout << "N BY" << nbytes << std::endl;
             d+=sizeof(uint32_t);
 
-            _import_array(); //necessary only for running tests
+            PyErr_Clear();
+            try {
+                _import_array(); //necessary only for running tests
+                py_value = PyArray_FromString(d, nbytes, PyArray_DescrNewFromType(meta.get_arr_type()), -1, NULL);
+                PyArrayObject *arr;
+                int ok = PyArray_OutputConverter(py_value, &arr);
+                if (!ok) throw ModuleException("TupleRowFactory failed to convert array from PyObject to PyArray");
+                PyArray_Dims *dims = meta.get_arr_dims();
+                py_value = PyArray_Newshape(arr, dims, NPY_CORDER);
 
-            PyErr_Print();
-
-            py_value = PyArray_FromString(d,nbytes,PyArray_DescrNewFromType(meta.get_arr_type()),-1,NULL);
-
-            PyErr_Print();
-
-
-            PyArrayObject *arr;
-            int ok =PyArray_OutputConverter(py_value,&arr);
-
-            PyArray_Dims *dims = meta.get_arr_dims();
-            if (ok) py_value = PyArray_Newshape(arr,dims,NPY_CORDER);
-            else std::cerr << "OUTPUT CONVERTER FAILS FOR NUMPY ARRAY" << std::endl;
+            }
+            catch (std::exception e){
+                if (PyErr_Occurred()) PyErr_Print();
+                PyErr_SetString(PyExc_RuntimeError, e.what());
+                return NULL;
+            }
 
 
-            PyErr_Print();
             break;
         }
         case CASS_VALUE_TYPE_BOOLEAN: {
