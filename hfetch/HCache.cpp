@@ -27,10 +27,26 @@ static PyObject *connectCassandra(PyObject *self, PyObject *args) {
     CassFuture *connect_future = NULL;
     cluster = cass_cluster_new();
     session = cass_session_new();
+
+
+
+
     // add contact points
     cass_cluster_set_contact_points(cluster, contact_points.c_str());
     cass_cluster_set_port(cluster, nodePort);
     cass_cluster_set_token_aware_routing(cluster, cass_true);
+
+
+
+//  unsigned int uiRequestTimeoutInMS = 30000;
+    //cass_cluster_set_num_threads_io (cluster, 2);
+    //cass_cluster_set_core_connections_per_host (cluster, 4);
+  //cass_cluster_set_request_timeout (cluster, uiRequestTimeoutInMS);
+    cass_cluster_set_pending_requests_low_water_mark (cluster, 20000);
+    cass_cluster_set_pending_requests_high_water_mark(cluster, 17000000);
+
+    cass_cluster_set_write_bytes_high_water_mark(cluster,17000000); //>128elements^3D * 8B_Double
+
     // Provide the cluster object as configuration to connect the session
     connect_future = cass_session_connect(session, cluster);
     CassError rc = cass_future_error_code(connect_future);
