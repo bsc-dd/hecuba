@@ -72,7 +72,7 @@ const std::vector<std::pair<int64_t, int64_t>> &tkns,
 
     std::vector < std::vector< std::string > > keys_copy(key_names.size(),std::vector< std::string>(1));
 
-    for (int i = 0; i<key_names.size(); ++i) {
+    for (uint16_t i = 0; i<key_names.size(); ++i) {
         keys_copy[i][0]=key_names[i];
     }
 

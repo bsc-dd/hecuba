@@ -1,14 +1,9 @@
-//
-// Created by ccugnasc on 2/28/17.
-//
-
 #ifndef HFETCH_METADATA_H
 #define HFETCH_METADATA_H
 
 #include "ModuleException.h"
 #include <cassandra.h>
 #include <cstdint>
-#include <map>
 #include <algorithm>
 #include <numpy/arrayobject.h>
 
@@ -70,13 +65,13 @@ struct ColumnMeta {
 
         std::string temp = info[2];
 
-        size_t n = std::count(temp.begin(), temp.end(), 'x');
-        ++n;
+        size_t n = std::count(temp.begin(), temp.end(), 'x') + 1;
+
 
         npy_intp ptr[n];
 
-        int pos = 0;
-        int i = 0;
+        size_t pos = 0;
+        uint16_t i = 0;
         while ((pos = temp.find('x')) != temp.npos) {
             if (i>n) throw ModuleException("Bad formed dimensions array");
             ptr[i]=std::atoi(temp.substr(0, pos).c_str());
@@ -86,7 +81,7 @@ struct ColumnMeta {
         }
         ptr[i]=std::atoi(temp.c_str());
 
-        PyArray_Dims *dims = new PyArray_Dims{ptr,n};
+        PyArray_Dims *dims = new PyArray_Dims{ptr,(int)n};
         return dims;
     }
 };
