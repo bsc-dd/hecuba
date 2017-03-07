@@ -1,22 +1,11 @@
 from hfetch import *
+import numpy as np
+connectCassandra(["127.0.0.1"],9042)
+a = Hcache(10,"test","bytes","WHERE token(partid)>=? AND token(partid)<?;",[(-8070430489100700000,8070450532247928832)],["partid"],[{"name":"data","type":"float","dims":"64x64"}])
 
-succeeds = connectCassandra(['minerva-5'],9042)
-print 'Connection succeeds', succeeds
-assert (succeeds)
+bigarr=np.array([[d*0.1 for d in xrange(64)] for i in ([x for x in xrange(64)])],np.float)
 
-token_ranges=[(8070400480100699999,8070430489100699999),(8070430489100700000,8070450532247928832)]
-table = Hcache(20,'case18','particle',"WHERE token(partid)>=? AND token(partid)<?;",[(8070430489100700000,8070450532247928832)],["partid","time"],["time","x"])
+#print bigarr
 
-
-q1 = table.get_row([433,float(0.003)])
-print q1
-print table.get_row([433,float(0.003)])
-print table.get_row([133,float(0.001)])
-print table.get_row([433,float(0.002)])
-q2 = table.get_row([433,float(0.003)])
-print q2
-
-assert (q1 == q2)
-
-
-disconnectCassandra()
+a.put_row([100],[bigarr.astype('f')])
+print a.get_row([100])[0].astype('f')
