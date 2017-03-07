@@ -1,15 +1,11 @@
 #!/usr/bin/env python
-
-
 from __future__ import print_function
 
 import os
-from distutils.core import setup
+from distutils.core import setup, Extension
 from distutils.command.build import build as _build
 import subprocess
 
-home_path =str(os.environ['HOME'])
-c11_flag = '-std=c++11'
 
 def cmake_build():
     if subprocess.call(["cmake", "-H./hfetch",  "-B./hfetch/build"]) != 0:
@@ -33,6 +29,7 @@ setup(name='Hecuba',
       url='https://www.bsc.es',
       install_requires=['nose', 'cassandra-driver', 'mock'],
       packages=['hecuba', 'storage'],
+      data_files=[('lib/python2.7/site-packages/', ['hfetch/build/hfetch.so'])],
       long_description='''Cache and prefetch for Hecuba.''',
       cmdclass={
           'build' : BuildWithCmake,

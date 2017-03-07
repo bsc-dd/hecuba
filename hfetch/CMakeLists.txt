@@ -1,23 +1,62 @@
 cmake_minimum_required(VERSION 3.3)
 set(CMAKE_CXX_STANDARD 11)
+
+IF(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+    SET(CMAKE_BUILD_TYPE Release) #Release|Debug|RelWithDebInfo|MinSizeRel
+ENDIF(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -fPIC")
 SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fPIC")
-set(CMAKE_POSITION_INDEPENDENT_CODE YES)
-project(hfetch)
+#set(CMAKE_POSITION_INDEPENDENT_CODE YES)
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall")
+set(ENABLE_PRECOMPILED_HEADERS OFF)
 
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
-include_directories( ${CMAKE_CURRENT_LIST_DIR}/_install/ /usr/include $ENV{HOME}/local/include)
 include(ExternalProject) # ExternalProject_Add
 
-set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp)
+message("CMAKE_CXX_FLAGS_DEBUG is ${CMAKE_CXX_FLAGS_DEBUG}")
+message("CMAKE_CXX_FLAGS_RELEASE is ${CMAKE_CXX_FLAGS_RELEASE}")
+message("CMAKE_BUILD_TYPE is ${CMAKE_BUILD_TYPE}")
 
-add_library(hfetch SHARED ${SOURCE_FILES})
+project(hfetch)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+
+if (NOT $ENV{CPLUS_INCLUDE_PATH}  STREQUAL "")
+    string (REPLACE ":" " " INCLUDES $ENV{CPLUS_INCLUDE_PATH})
+    string (REPLACE "//" "/" INCLUDES ${INCLUDES})
+    string(REGEX MATCHALL "[^ ]+" LIST_INCLUDES ${INCLUDES})
+endif (NOT $ENV{CPLUS_INCLUDE_PATH}  STREQUAL "")
+include_directories(LIST_INCLUDES)
+
+if (NOT $ENV{CPATH}  STREQUAL "")
+    string (REPLACE ":" " " INCLUDES $ENV{CPLUS_INCLUDE_PATH})
+    string (REPLACE "//" "/" INCLUDES ${INCLUDES})
+    string(REGEX MATCHALL "[^ ]+" LIST_INCLUDES ${INCLUDES})
+endif (NOT $ENV{CPATH}  STREQUAL "")
+
+
+include_directories(LIST_INCLUDES)
+include_directories(${CMAKE_CURRENT_LIST_DIR}/_install/include)
+set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp )
+set(HEADER_FILES Prefetch.h HCache.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h metadata.h)
+
+
+
+if (NOT $ENV{LD_LIBRARY_PATH}  STREQUAL "")
+    string (REPLACE ":" " " ENV_LIBS $ENV{LD_LIBRARY_PATH})
+    string (REPLACE "//" "/" ENV_LIBS ${ENV_LIBS})
+    string(REGEX MATCHALL "[^ ]+" LIST_LIBS ${ENV_LIBS})
+endif (NOT $ENV{LD_LIBRARY_PATH}  STREQUAL "")
+
+LINK_DIRECTORIES(${CMAKE_BINARY_DIR}/_install/lib ${LIST_LIBS})
+
+add_library(hfetch SHARED ${SOURCE_FILES} ${HEADER_FILES})
 
 
 
 FIND_LIBRARY(POCO NAMES PocoFoundation PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 FIND_LIBRARY(CASS NAMES cassandra PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 FIND_LIBRARY(LIBUV NAMES uv PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
+
 
 IF (NOT LIBUV)
     message("Downloading LIBUV requisite for Cassandra C++ driver " ${LIBUV})
@@ -33,6 +72,7 @@ IF (NOT LIBUV)
     )
     add_dependencies(hfetch LIBUV)
 else()
+    message("Using system's LIBUV: " ${LIBUV})
     set(ALL_LIBS ${ALL_LIBS} ${LIBUV})
 endif()
 
@@ -48,18 +88,19 @@ if(NOT POCO)
     )
     add_dependencies(hfetch POCO)
 else()
+    message("Using system's POCO: " ${POCO})
     set(ALL_LIBS ${ALL_LIBS} ${POCO})
 endif()
 
-if (CASS)
-    message("Using system c++ cassandra driver")
-    set(ALL_LIBS ${ALL_LIBS}  ${CASS})
-else()
+
+
+if (NOT CASS)
     message("Downloading C++ Cassandra Driver")
     unset(CASS)
     ExternalProject_Add(
             CASS
             DEPENDS LIBUV
+            INSTALL_DIR ${CMAKE_CURRENT_LIST_DIR}/_install
             URL https://github.com/datastax/cpp-driver/archive/2.5.0.tar.gz
             URL_HASH SHA1=70036c9d9685daf37ccec95851e1b1823357b4ec
             CMAKE_ARGS
@@ -68,63 +109,76 @@ else()
     add_dependencies(hfetch CASS)
     # set(ALL_LIBS ${ALL_LIBS} CASS)
 
+else()
 
+    message("Using system's C++ Cassandra driver: " ${CASS})
+    set(ALL_LIBS ${ALL_LIBS}  ${CASS})
 endif()
 
-#
+
+
+
+
+# FIND PACKAGES
+
+
 set(TBB_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/_install)
 set(TBB_LIBRARY ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 set(TBB_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/_install/include)
 FIND_PACKAGE(TBB) # searches for the system TBB
-#FIND_LIBRARY(TBB NAMES tbb PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 
 
 if (NOT TBB_FOUND)
     message(Downloading Intel TBB)
     unset(TBB)
-        set(LOCAL_P linux_intel64_gcc_cc6_libc2.22_kernel4.4.46_release/)
+        set(build_prefix tbb_prefix)
     ExternalProject_Add(
             TBB
             URL "https://www.threadingbuildingblocks.org/sites/default/files/software_releases/source/tbb2017_20161128oss_src.tgz"
             CMAKE_COMMAND echo
-            BUILD_COMMAND make tbb
+            BUILD_COMMAND make tbb tbb_build_prefix=${build_prefix}
             BUILD_IN_SOURCE 1
-            INSTALL_COMMAND cp -r build/${LOCAL_P}/libtbb.so build/${LOCAL_P}/libtbb.so.2  ${CMAKE_CURRENT_LIST_DIR}/_install/lib && cp -r include/tbb ${CMAKE_CURRENT_LIST_DIR}/_install/include
+            INSTALL_COMMAND mkdir -p  ${CMAKE_CURRENT_LIST_DIR}/_install/lib
+            COMMAND  mkdir -p ${CMAKE_CURRENT_LIST_DIR}/_install/include
+            COMMAND cp -r build/${build_prefix}_release/libtbb.so build/${build_prefix}_release/libtbb.so.2  ${CMAKE_CURRENT_LIST_DIR}/_install/lib
+            COMMAND cp -r include/tbb ${CMAKE_CURRENT_LIST_DIR}/_install/include
     )
     add_dependencies(hfetch TBB)
-    set(ALL_LIBS ${ALL_LIBS} "libtbb.so")
 else()
     set(ALL_LIBS ${ALL_LIBS} ${TBB_LIBRARIES})
-    set(ALL_INCLUDE ${ALL_INCLUDE} ${TBB_INCLUDE_DIRS})
+    include_directories(${TBB_INCLUDE_DIRS})
+
 endif()
 
 
-LINK_DIRECTORIES(${CMAKE_BINARY_DIR}/_install/lib)
 
-find_package(PythonLibs 2.7 REQUIRED)
-include_directories(${PYTHON_INCLUDE_DIRS} ${CMAKE_CURRENT_LIST_DIR}/_install/include ${ALL_INCLUDE})
+find_package(PythonInterp 2.7)
+find_package(PythonLibs 2.7.6 REQUIRED)
 
+
+include_directories(${PYTHON_INCLUDE_DIRS})
 set(ALL_LIBS ${ALL_LIBS} ${PYTHON_LIBRARIES})
 
 
-target_include_directories(hfetch PRIVATE ${CMAKE_CURRENT_LIST_DIR}/_install/include/ )
-target_compile_definitions(hfetch PRIVATE ${TBB_DEFINITIONS})
+
 set_target_properties(hfetch PROPERTIES PREFIX "")
 target_link_libraries(hfetch ${ALL_LIBS})
 
 
+
 FIND_LIBRARY(PT NAMES pthread PATHS /lib)
 
-set(GTEST_ROOT $ENV{HOME}/local)
+if (PT)
+    find_package(GTest)
+    if (GTest_FOUND)
+        include_directories(${GTEST_INCLUDE_DIRS})
 
-find_package(GTest)
-if (GTest_FOUND)
-    include_directories(${PYTHON_INCLUDE_DIRS} ${CMAKE_CURRENT_LIST_DIR}/_install/include ${ALL_INCLUDE})
+        enable_testing()
+        add_executable(hfetch_test tests/runtests.cpp)
 
-    enable_testing()
-    add_executable(hfetch_test tests/runtests.cpp)
-
-    target_link_libraries( hfetch_test ${ALL_LIBS} ${PT}  ${GTEST_BOTH_LIBRARIES} hfetch )
-    add_test(test hfetch_test)
-endif()
-
+        target_link_libraries( hfetch_test ${ALL_LIBS} ${PT}  ${GTEST_BOTH_LIBRARIES} hfetch )
+        add_test(test hfetch_test)
+    else()
+        message("If GTest is installed, point the environment var GTEST_ROOT to its root (/home/user/local)")
+    endif(GTest_FOUND)
+endif(PT)
