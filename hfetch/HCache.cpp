@@ -21,7 +21,7 @@ static PyObject *connectCassandra(PyObject *self, PyObject *args) {
         if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
             throw ModuleException("invalid contact points");
         };
-        contact_points += std::string(str_temp) + " ";
+        contact_points += std::string(str_temp) + ",";
     }
 
     CassFuture *connect_future = NULL;
