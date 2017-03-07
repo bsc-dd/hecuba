@@ -28,7 +28,7 @@ endif (NOT $ENV{CPLUS_INCLUDE_PATH}  STREQUAL "")
 include_directories(LIST_INCLUDES)
 
 if (NOT $ENV{CPATH}  STREQUAL "")
-    string (REPLACE ":" " " INCLUDES $ENV{CPLUS_INCLUDE_PATH})
+    string (REPLACE ":" " " INCLUDES $ENV{CPATH})
     string (REPLACE "//" "/" INCLUDES ${INCLUDES})
     string(REGEX MATCHALL "[^ ]+" LIST_INCLUDES ${INCLUDES})
 endif (NOT $ENV{CPATH}  STREQUAL "")
@@ -135,6 +135,7 @@ if (NOT TBB_FOUND)
     ExternalProject_Add(
             TBB
             URL "https://www.threadingbuildingblocks.org/sites/default/files/software_releases/source/tbb2017_20161128oss_src.tgz"
+            URL_HASH SHA1=da39a3ee5e6b4b0d3255bfef95601890afd80709
             CMAKE_COMMAND echo
             BUILD_COMMAND make tbb tbb_build_prefix=${build_prefix}
             BUILD_IN_SOURCE 1
