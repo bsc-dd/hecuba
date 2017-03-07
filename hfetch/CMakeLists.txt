@@ -131,7 +131,6 @@ FIND_PACKAGE(TBB) # searches for the system TBB
 if (NOT TBB_FOUND)
     message(Downloading Intel TBB)
     unset(TBB)
-        #set(ENV{tbb_build_prefix} tbb_pre)
         set(build_prefix tbb_prefix)
     ExternalProject_Add(
             TBB
@@ -145,7 +144,6 @@ if (NOT TBB_FOUND)
             COMMAND cp -r include/tbb ${CMAKE_CURRENT_LIST_DIR}/_install/include
     )
     add_dependencies(hfetch TBB)
-    #set(ALL_LIBS ${ALL_LIBS} "libtbb.so")
 else()
     set(ALL_LIBS ${ALL_LIBS} ${TBB_LIBRARIES})
     include_directories(${TBB_INCLUDE_DIRS})
@@ -179,8 +177,6 @@ target_link_libraries(hfetch ${ALL_LIBS})
 FIND_LIBRARY(PT NAMES pthread PATHS /lib)
 
 if (PT)
-    set(GTEST_ROOT $ENV{HOME}/local)
-
     find_package(GTest)
     if (GTest_FOUND)
         include_directories(${GTEST_INCLUDE_DIRS})
@@ -190,5 +186,7 @@ if (PT)
 
         target_link_libraries( hfetch_test ${ALL_LIBS} ${PT}  ${GTEST_BOTH_LIBRARIES} hfetch )
         add_test(test hfetch_test)
+    else()
+        message("If GTest is installed, point the environment var GTEST_ROOT to its root (/home/user/local)")
     endif(GTest_FOUND)
 endif(PT)
