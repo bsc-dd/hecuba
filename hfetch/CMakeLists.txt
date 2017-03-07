@@ -171,7 +171,7 @@ set(ALL_LIBS ${ALL_LIBS} ${PYTHON_LIBRARIES})
 
 
 
-set_target_properties(hfetch PROPERTIES PREFIX "_")
+set_target_properties(hfetch PROPERTIES PREFIX "")
 target_link_libraries(hfetch ${ALL_LIBS})
 
 
@@ -183,7 +183,7 @@ if (PT)
 
     find_package(GTest)
     if (GTest_FOUND)
-        include_directories(${PYTHON_INCLUDE_DIRS} ${CMAKE_CURRENT_LIST_DIR}/_install/include ${ALL_INCLUDE})
+        include_directories(${GTEST_INCLUDE_DIRS})
 
         enable_testing()
         add_executable(hfetch_test tests/runtests.cpp)

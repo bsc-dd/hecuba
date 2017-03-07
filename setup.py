@@ -1,15 +1,11 @@
 #!/usr/bin/env python
-
-
 from __future__ import print_function
 
-use_cython = False
+#use_cython = False
 
 import os
-
 from distutils.core import setup, Extension
 from distutils.command.build import build as _build
-#from setuptools import setup
 import subprocess
 
 home_path =str(os.environ['HOME'])
@@ -37,10 +33,9 @@ setup(name='Hecuba',
       author_email='{guillem.alomar,cesare.cugnasco,pol.santamaria,yolanda.becerra}@bsc.es',
       url='https://www.bsc.es',
       install_requires=['nose', 'cassandra-driver', 'mock'],
-      packages=['hecuba', 'storage','hfetch'],
-#      packages_data={'hfetch':['hfetch.so']},
-    #  data_files=[('', ['hfetch/build/hfetch.so'])],
-      ext_modules=[Extension('hfetch',sources=[],libraries=['build/hfetch.so'],library_dirs=['hfetch/build'])],
+      packages=['hecuba', 'storage'],
+data_files=[('lib/python2.7/site-packages/', ['hfetch/build/hfetch.so'])],
+#      data_files=['hfetch.so'],#ext_modules=[Extension('hfetch',sources=[],libraries=['hfetch'],library_dirs=['/home/polsm/test/hecuba/hfetch/build'])],
       long_description='''Cache and prefetch for Hecuba.''',
       cmdclass={
           'build' : BuildWithCmake,
