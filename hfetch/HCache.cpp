@@ -95,12 +95,11 @@ static PyObject *hcache_new(PyTypeObject *type, PyObject *args, PyObject *kwds) 
 
 static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     const char *table, *keyspace, *token_range_pred;
-    uint32_t cache_size;
-    PyObject *py_tokens, *py_keys_names, *py_cols_names;
 
-    if (!PyArg_ParseTuple(args, "IsssOOO", &cache_size, &keyspace, &table, &token_range_pred, &py_tokens,
+    PyObject *py_tokens, *py_keys_names, *py_cols_names, *py_config;
+    if (!PyArg_ParseTuple(args, "sssOOOO", &keyspace, &table, &token_range_pred, &py_tokens,
                           &py_keys_names,
-                          &py_cols_names)) {
+                          &py_cols_names, &py_config)) {
          return -1;
     };
 
@@ -144,10 +143,33 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
         columns_names[i] = std::string(str_temp);
     }
 
-    try {
-        self->T = new CacheTable((uint32_t) cache_size, std::string(table), std::string(keyspace), keys_names,
-                                 columns_names, std::string(token_range_pred), token_ranges, session);
 
+    /** PARSE CONFIG **/
+
+    std::map<std::string,std::string> config;
+    int type_check = PyDict_Check(py_config);
+    if (type_check) {
+        PyObject *dict;
+        if (!PyArg_Parse(py_config, "O", &dict)) {
+            return -1;
+        };
+
+        PyObject *key, *value;
+        Py_ssize_t pos = 0;
+          while (PyDict_Next(dict, &pos, &key, &value)){
+              std::string conf_key(PyString_AsString(key));
+              if (PyString_Check(value)){ std::string conf_val(PyString_AsString(value));
+              config[conf_key]=conf_val;}
+              if (PyInt_Check(value)){
+                  int32_t c_val = (int32_t) PyInt_AsLong(value);
+                  config[conf_key]=std::to_string(c_val);}
+
+          }
+    }
+
+    try {
+        self->T = new CacheTable(std::string(table), std::string(keyspace), keys_names,
+                                 columns_names, std::string(token_range_pred), token_ranges, session, config);
       }catch (ModuleException e) {
         PyErr_SetString(PyExc_RuntimeError,e.what());
         return -1;

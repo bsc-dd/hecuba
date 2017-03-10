@@ -17,7 +17,7 @@
 #include "structmember.h"
 #include "Prefetch.h"
 
-
+#include <map>
 
 CassSession *session = NULL;
 CassCluster *cluster = NULL;

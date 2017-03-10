@@ -24,14 +24,13 @@
 class CacheTable {
 
 public:
-
-    CacheTable(uint32_t size, const std::string &table, const std::string &keyspace,
+    CacheTable(const std::string &table,const std::string &keyspace,
                const std::vector<std::string> &keyn,
                const std::vector<std::string> &columns_n,
                const std::string &token_range_pred,
                const std::vector<std::pair<int64_t, int64_t>> &tkns,
-               CassSession *session);
-
+               CassSession *session,
+               std::map<std::string,std::string> &config);
 
     ~CacheTable();
 

@@ -1,7 +1,9 @@
 #include "CacheTable.h"
 
-#define writer_buff_size 100
-#define max_write_callbacks 4
+#define default_writer_buff 100
+#define default_writer_callbacks 4
+#define default_cache_size 10
+
 
 /***
  * Constructs a cache which takes and returns data encapsulated as pointers to TupleRow or PyObject
@@ -12,12 +14,62 @@
  * @param query Query ready to be bind with the keys
  * @param session
  */
-CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string &keyspace,
+CacheTable::CacheTable(const std::string &table,const std::string &keyspace,
                        const std::vector<std::string> &keyn,
                        const std::vector<std::string> &columns_n,
                        const std::string &token_range_pred,
                        const std::vector<std::pair<int64_t, int64_t>> &tkns,
-                       CassSession *session) {
+                       CassSession *session,
+                       std::map<std::string,std::string> &config) {
+
+
+
+    int32_t writer_num_callbacks = default_writer_callbacks;
+    int32_t writer_buffer_size = default_writer_buff;
+    int32_t cache_size = default_cache_size;
+
+    if (config.find("writer_par")!=config.end()) {
+        std::string wr_calls = config["writer_par"];
+        try {
+            writer_num_callbacks = std::stoi(wr_calls);
+            if (writer_num_callbacks<0) throw ModuleException("Writer parallelism value must be >= 0");
+        }
+        catch (std::exception e) {
+            std::string msg(e.what());
+            msg+= " Malformed value in config for writer_par";
+            throw ModuleException(msg);
+        }
+    }
+
+    if (config.find("writer_buffer")!=config.end()) {
+        std::string wr_calls = config["writer_buffer"];
+        try {
+            writer_num_callbacks = std::stoi(wr_calls);
+            if (writer_num_callbacks<0) throw ModuleException("Writer buffer value must be >= 0");
+        }
+        catch (std::exception e) {
+            std::string msg(e.what());
+            msg+= " Malformed value in config for writer_buffer";
+            throw ModuleException(msg);
+        }
+    }
+
+    if (config.find("cache_size")!=config.end()) {
+        std::string wr_calls = config["cache_size"];
+        try {
+            writer_num_callbacks = std::stoi(wr_calls);
+            if (writer_num_callbacks<0) throw ModuleException("Cache size value must be >= 0");
+        }
+        catch (std::exception e) {
+            std::string msg(e.what());
+            msg+= " Malformed value in config for cache_size";
+            throw ModuleException(msg);
+        }
+    }
+
+
+    /** Parse names **/
+
     columns_names = columns_n;
     key_names = keyn;
     tokens=tkns;
@@ -40,7 +92,7 @@ CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string
 
     select_values = "SELECT " + select_values;
 
-    this->myCache = new Poco::LRUCache<TupleRow, TupleRow>(size);
+    this->myCache = new Poco::LRUCache<TupleRow, TupleRow>(cache_size);
     cache_query = select_values + get_predicate;
     CassFuture *future = cass_session_prepare(session, cache_query.c_str());
     CassError rc = cass_future_error_code(future);
@@ -93,7 +145,8 @@ CacheTable::CacheTable(uint32_t size, const std::string &table,const std::string
         write_query+=",?";
     }
     write_query+=");";
-    writer = new Writer((uint16_t )writer_buff_size,(uint16_t )max_write_callbacks,*keys_factory,*values_factory,session,write_query);
+
+    writer = new Writer((uint16_t )writer_buffer_size,(uint16_t )writer_num_callbacks,*keys_factory,*values_factory,session,write_query);
 };
 
 
