@@ -27,12 +27,17 @@ public:
 
     void write_to_cassandra(const TupleRow *keys, const TupleRow *values);
 
-    void set_error(std::string error,const TupleRow* keys, const TupleRow* values);
+    void set_error(std::string error, currentUnit* t);
 
     struct currentUnit{
         Writer *W;
         const TupleRow* key, *value;
         currentUnit(Writer* W, const TupleRow* k, const TupleRow* v ):W(W), key(k), value(v) {}
+        ~currentUnit(){
+            W=NULL;
+            delete(key);
+            delete(value);
+        }
 
     };
 private:

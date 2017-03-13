@@ -50,27 +50,50 @@ static void callback(CassFuture *future, void *ptr) {
         size_t l;
         cass_future_error_message(future, &dmsg, &l);
         std::string msg2(dmsg, l);
-        W->set_error("Writer callback: " + message + "  " + msg2,data->key,data->value);
-    }
-    W->call_async();
-}
-
-
-void Writer::set_error(std::string error,const TupleRow* keys, const TupleRow* values) {
-    ++error_count;
-    if (error_count>MAX_ERRORS) {
-        --ncallbacks;
-        throw ModuleException("Try # "+std::to_string(MAX_ERRORS)+" :"+error);
+        W->set_error("Writer callback: " + message + "  " + msg2,data);
     }
     else {
-        std::cout << "Connectivity problems: " << error << std::endl;
-        sleep(1);
+        delete(data);
+        W->call_async();
     }
-    std::pair<const TupleRow *, const TupleRow *> item = std::make_pair(keys, values);
-    data.push(item);
-    if (ncallbacks==1) call_async();
-    else --ncallbacks;
+
 }
+
+
+void Writer::set_error(std::string error, currentUnit* t){
+    ++error_count;
+    --ncallbacks;
+
+    if (error_count > MAX_ERRORS) {
+        throw ModuleException("Try # " + std::to_string(MAX_ERRORS) + " :" + error);
+    } else {
+        std::cout << "Connectivity problems: " << error_count << " " << error << std::endl;
+        while(ncallbacks==max_calls) sleep(1);
+    }
+
+    ++ncallbacks;
+
+
+    /** write the data which hasn't been written successfully **/
+    CassStatement *statement = cass_prepared_bind(prepared_query);
+
+    const TupleRow* keys = t->key;
+    const TupleRow* values = t->value;
+
+    this->k_factory.bind(statement,keys,0);
+    this->v_factory.bind(statement,values,this->k_factory.n_elements());
+
+
+    CassFuture *query_future = cass_session_execute(session, statement);
+
+    cass_statement_free(statement);
+
+
+    cass_future_set_callback(query_future, callback,(void*) t);
+    cass_future_free(query_future);
+}
+
+
 
 void Writer::write_to_cassandra(const TupleRow *keys, const TupleRow *values) {
     std::pair<const TupleRow *, const TupleRow *> item = std::make_pair(keys, values);
