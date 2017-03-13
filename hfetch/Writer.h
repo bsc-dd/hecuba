@@ -25,10 +25,6 @@ public:
 
     void flush_elements();
 
-    void write_to_cassandra(const TupleRow *keys, const TupleRow *values);
-
-    void set_error(std::string error, currentUnit* t);
-
     struct currentUnit{
         Writer *W;
         const TupleRow* key, *value;
@@ -40,6 +36,12 @@ public:
         }
 
     };
+
+
+    void write_to_cassandra(const TupleRow *keys, const TupleRow *values);
+
+    void set_error(std::string error, currentUnit* t);
+
 private:
 
 
