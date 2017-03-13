@@ -196,12 +196,12 @@ class StorageDict(dict, IStorage):
                          "'replication_factor': %d }" % (self._ksp, config.repl_factor)
         if query_keyspace not in config.create_cache:
             try:
+                config.create_cache.add(query_keyspace)
                 log.debug('MAKE PERSISTENCE: %s', query_keyspace)
                 config.session.execute(query_keyspace)
-                config.create_cache.add(query_keyspace)
             except Exception as ex:
                 print "Error creating the StorageDict keyspace:", query_keyspace, ex
-                raise ex
+
 
         columns = map(lambda a: a[0] + " " + a[1], self._primary_keys + self._columns)
         pks = map(lambda a: a[0], self._primary_keys)
@@ -210,12 +210,11 @@ class StorageDict(dict, IStorage):
                                                                                     str.join(',', pks))
         if query_table not in config.create_cache:
             try:
+                config.create_cache.add(query_table)
                 log.debug('MAKE PERSISTENCE: %s', query_table)
                 config.session.execute(query_table)
-                config.create_cache.add(query_table)
             except Exception as ex:
-                log.error("Error creating the StorageDict table: %s %s", query_table, ex)
-                raise ex
+                log.warn("Error creating the StorageDict table: %s %s", query_table, ex)
 
         key_names = map(lambda a: a[0], self._primary_keys)
         column_names = map(lambda a: a[0], self._columns)
