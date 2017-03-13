@@ -222,7 +222,10 @@ class StorageDict(dict, IStorage):
         tknp = "token(%s)" % key_names[0]
         self._hcache_params = (self._ksp, self._table,
                        "WHERE %s>=? AND %s<?;" % (tknp, tknp),
-                       self.tokens, key_names, column_names, {'cache_size': config.max_cache_size})
+                       self.tokens, key_names, column_names,
+                               {'cache_size': config.max_cache_size,
+                                'writer_par': config.write_callbacks_number,
+                                'write_buffer': config.write_buffer_size})
         log.debug("HCACHE params %s", self._hcache_params)
         self._hcache = Hcache(*self._hcache_params)
         # Storing all in-memory values to cassandra

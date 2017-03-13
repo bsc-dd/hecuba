@@ -215,6 +215,20 @@ class Config:
             log.warn('using default PREFETCH_SIZE: %s', singleton.prefetch_size)
 
         try:
+            singleton.write_buffer_size = int(os.environ['WRITE_BUFFER_SIZE'])
+            log.info('WRITE_BUFFER_SIZE: %s', singleton.write_buffer_size)
+        except KeyError:
+            singleton.write_buffer_size = 1000
+            log.warn('using default WRITE_BUFFER_SIZE: %s', singleton.write_buffer_size)
+
+        try:
+            singleton.write_callbacks_number = int(os.environ['WRITE_CALLBACKS_NUMBER'])
+            log.info('WRITE_CALLBACKS_NUMBER: %s', singleton.write_callbacks_number)
+        except KeyError:
+            singleton.write_callbacks_number = 16
+            log.warn('using default WRITE_CALLBACKS_NUMBER: %s', singleton.write_callbacks_number)
+
+        try:
             query = "CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = { 'class' : \'%s\'," \
                     "'replication_factor' : %d};" \
                     % (singleton.execution_name, singleton.repl_class, singleton.repl_factor)
