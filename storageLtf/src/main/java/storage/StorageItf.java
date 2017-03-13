@@ -37,13 +37,16 @@ public class StorageItf {
      * @throws storage.StorageException
      */
     public static List<String> getLocations(String objectID) throws storage.StorageException {
+        final List<String> locations;
         if(version.equals("1.0")){
-            return getLocationsV1(objectID);
+            locations= getLocationsV1(objectID);
         }else if(version.matches("2\\.[0-9]+")){
-            return getLocationsV2(objectID);
+            locations= getLocationsV2(objectID);
         } else {
             throw new StorageException("UNKNOWN HECUBA VERSION: "+version);
         }
+        System.out.println("The locations for "+ objectID+ " are "+ locations.toString());
+        return locations;
 
     }
     public static List<String> getLocationsV2(String objectID) throws storage.StorageException {
@@ -70,7 +73,7 @@ public class StorageItf {
 
             Set<Map.Entry<Host, Long>> hostsTkns = session.execute("SELECT tokens FROM hecuba.istorage WHERE storage_id = ?", objectID)
                     .one().getList("tokens", TupleValue.class).stream()
-                    .map(tok -> metadata.newToken(tok.getVarint(0).toString()))
+                    .map(tok -> metadata.newToken(tok.getLong(0)+""))
                     .flatMap(token ->
                             metadata.getReplicas(Metadata.quote(nodeKp), metadata.newTokenRange(token, token)).stream())
                     .collect(groupingBy(Function.identity(), counting())).entrySet();
@@ -78,7 +81,7 @@ public class StorageItf {
             ArrayList<Map.Entry<Host, Long>> result = new ArrayList<>(hostsTkns);
             Collections.sort(result, Comparator.comparing(o -> (o.getValue())));
             List<String> toReturn;
-            toReturn = result.stream().map(a -> a.getKey().getAddress().toString().replace("/", "")).collect(toList());
+            toReturn = result.stream().map(a -> a.getKey().getAddress().toString().replaceAll("^.*/", "")).collect(toList());
             return toReturn;
         }
     }
@@ -131,6 +134,8 @@ public class StorageItf {
 
     private static void checkCassandra() {
         if (cluster == null) {
+            nodeIP = System.getenv("CONTACT_NAMES").split(",");
+            nodePort = Integer.parseInt(System.getenv("NODE_PORT"));
             System.out.println(nodeIP);
             cluster = new Cluster.Builder()
                     .addContactPoints(nodeIP)
@@ -191,7 +196,7 @@ public class StorageItf {
             e.printStackTrace();
         }
         try {
-            System.out.println(client.getLocations("5dad0db4-c08a-11e6-9385-001517e6a1fc"));
+            System.out.println(client.getLocations("058380da-fe71-11e6-80fd-001517e69c14"));
             System.out.println(client.getLocations("Words_1"));
         } catch (StorageException e) {
             e.printStackTrace();
