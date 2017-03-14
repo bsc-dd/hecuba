@@ -1,7 +1,3 @@
-//
-// Created by polsm on 14/02/17.
-//
-
 #ifndef HFETCH_WRITER_H
 #define HFETCH_WRITER_H
 
@@ -9,6 +5,7 @@
 
 #include <thread>
 #include <atomic>
+
 #include "tbb/concurrent_queue.h"
 
 #include "TupleRowFactory.h"
@@ -27,40 +24,27 @@ public:
 
     void write_to_cassandra(const TupleRow *keys, const TupleRow *values);
 
-    void set_error(std::string error, currentUnit* t);
+    void set_error_occurred(std::string error, const void * keys, const void * values);
 
-    struct currentUnit{
-        Writer *W;
-        const TupleRow* key, *value;
-        currentUnit(Writer* W, const TupleRow* k, const TupleRow* v ):W(W), key(k), value(v) {}
-        ~currentUnit(){
-            W=NULL;
-            delete(key);
-            delete(value);
-        }
-
-    };
 private:
 
-
-
     CassSession *session;
+
+/** ownership **/
+
+    const CassPrepared *prepared_query;
 
     TupleRowFactory k_factory;
     TupleRowFactory v_factory;
 
-    uint16_t max_calls;
+    tbb::concurrent_bounded_queue<std::pair<const TupleRow *, const TupleRow *>> data;
 
+    uint16_t max_calls;
+    std::atomic<uint16_t> ncallbacks;
     std::atomic<uint16_t> error_count;
 
-
-/** ownership **/
-    const CassPrepared *prepared_query;
-    tbb::concurrent_bounded_queue<std::pair<const TupleRow *, const TupleRow *>> data;
-    std::atomic<uint16_t> ncallbacks;
-
+    static void callback(CassFuture *future, void *ptr);
 };
 
-static void callback(CassFuture *future, void *ptr);
 
 #endif //HFETCH_WRITER_H
