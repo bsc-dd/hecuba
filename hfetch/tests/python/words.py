@@ -1,10 +1,26 @@
-import sys
-import time
-sys.path.append(".")
 from hfetch import *
-connectCassandra(["minerva-5"],9042)
-a = Hcache(10,"wordcount","words","WHERE token(position)>=? AND token(position)<?;",[(-9070430489100700000,-5070450532247928832)],["position"],["wordinfo"])
-time.sleep(5)
+'''''''''
+This test iterates over huge lines of text
+'''''''''
+connectCassandra(["minerva-5"], 19042)
+a = Hcache("wordcount", "words", "WHERE token(position)>=? AND token(position)<?;",
+           [(-9070430489100700000, -9070030489100700000)], ["position"], ["wordinfo"],
+           {'cache_size': '10', 'writer_buffer': 20})
+
+print 'Prefetch starts'
 itera = a.iteritems(123)
-print itera.get_next()
-wait = raw_input("End test?")
+
+first = itera.get_next()
+print 'First results ready'
+
+wait = raw_input("Press to iterate over results")
+
+while True:
+    try:
+        data = itera.get_next()
+    except StopIteration:
+        break
+
+wait = raw_input("End test and write one retrieved line?")
+
+print first

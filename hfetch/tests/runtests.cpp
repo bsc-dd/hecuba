@@ -198,6 +198,76 @@ TEST(TestingPocoCache, InsertGetDeleteOps) {
 }
 
 
+
+TEST(TestingPocoCache, ReplaceOp) {
+    uint16_t i = 123;
+    uint16_t j = 456;
+    size_t ss = sizeof(uint16_t) * 2;
+    Poco::LRUCache<TupleRow, TupleRow> myCache(2);
+
+    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,"ciao"};
+    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,"ciaociao"};
+    std::vector<ColumnMeta> v = {cm1,cm2};
+    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
+
+
+
+    char *b2 = (char *) malloc(ss);
+    memcpy(b2, &i, sizeof(uint16_t));
+    memcpy(b2 + sizeof(uint16_t), &j, sizeof(uint16_t));
+    const TupleRow *t1 = new TupleRow(metas,sizeof(uint16_t)*2,b2);
+
+    uint16_t ka = 64;
+    uint16_t kb = 128;
+    b2 = (char *) malloc(ss);
+    memcpy(b2, &ka, sizeof(uint16_t));
+    memcpy(b2 + sizeof(uint16_t), &kb, sizeof(uint16_t));
+
+
+    TupleRow *key1 = new TupleRow( metas,sizeof(uint16_t) * 2, b2);
+    myCache.add(key1, t1);
+
+    EXPECT_EQ(myCache.getAllKeys().size(), 1);
+    TupleRow t = *(myCache.getAllKeys().begin());
+    EXPECT_TRUE(t == *key1);
+    EXPECT_FALSE(&t == key1);
+
+
+    delete(t1);
+
+    i=500;
+    b2 = (char *) malloc(ss);
+    memcpy(b2, &i, sizeof(uint16_t));
+    memcpy(b2 + sizeof(uint16_t), &j, sizeof(uint16_t));
+    const TupleRow *t2 = new TupleRow(metas,sizeof(uint16_t)*2,b2);
+    myCache.add(*key1,t2);
+    i=123;
+    b2 = (char *) malloc(ss);
+    memcpy(b2, &i, sizeof(uint16_t));
+    memcpy(b2 + sizeof(uint16_t), &j, sizeof(uint16_t));
+    const TupleRow *t3 = new TupleRow(metas,sizeof(uint16_t)*2,b2);
+    myCache.add(key1,t3);
+
+    EXPECT_EQ(myCache.getAllKeys().size(), 1);
+    t = *(myCache.getAllKeys().begin());
+    EXPECT_TRUE(t == *key1);
+    EXPECT_FALSE(&t == key1);
+    t = *(myCache.get(t));
+    EXPECT_TRUE(t == *t3);
+    EXPECT_FALSE(&t == t3);
+
+    /**
+     * Reason: Cache builds its own copy of key1 through the copy constructor. They are equal but not the same object
+     **/
+    myCache.clear();
+    //Removes all references, and deletes all objects. Key1 is still active thanks to our ref
+    delete (key1);
+}
+
+
+
+
+
 /** Testing custom comparators for TupleRow **/
 TEST(TupleTest, TupleOps) {
     const uint16_t i = 123;
@@ -579,12 +649,6 @@ TEST(TestingCacheTable, GetRow) {
     cass_cluster_free(test_cluster);
     cass_session_free(test_session);
 }
-
-
-
-
-
-
 
 
 
