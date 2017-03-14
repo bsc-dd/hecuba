@@ -2,7 +2,8 @@
 #define PREFETCHER_MY_TUPLE_FACTORY_H
 
 #define CHECK_CASS(msg) if(rc != CASS_OK){ \
-std::cerr<<msg<<std::endl; };\
+std::string error(cass_error_desc(rc));\
+std::cerr<<msg<<" "<<error<<std::endl; };\
 
 #include <cassert>
 #include <cstring>
