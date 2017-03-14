@@ -42,10 +42,10 @@ CacheTable::CacheTable(const std::string &table,const std::string &keyspace,
     }
 
     if (config.find("writer_buffer")!=config.end()) {
-        std::string wr_calls = config["writer_buffer"];
+        std::string wr_buff = config["writer_buffer"];
         try {
-            writer_num_callbacks = std::stoi(wr_calls);
-            if (writer_num_callbacks<0) throw ModuleException("Writer buffer value must be >= 0");
+            writer_buffer_size = std::stoi(wr_buff);
+            if (writer_buffer_size<0) throw ModuleException("Writer buffer value must be >= 0");
         }
         catch (std::exception e) {
             std::string msg(e.what());
@@ -55,10 +55,10 @@ CacheTable::CacheTable(const std::string &table,const std::string &keyspace,
     }
 
     if (config.find("cache_size")!=config.end()) {
-        std::string wr_calls = config["cache_size"];
+        std::string cache_size_str = config["cache_size"];
         try {
-            writer_num_callbacks = std::stoi(wr_calls);
-            if (writer_num_callbacks<0) throw ModuleException("Cache size value must be >= 0");
+            cache_size = std::stoi(cache_size_str);
+            if (cache_size<0) throw ModuleException("Cache size value must be >= 0");
         }
         catch (std::exception e) {
             std::string msg(e.what());
