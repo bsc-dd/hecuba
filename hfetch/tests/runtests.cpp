@@ -2,6 +2,7 @@
 #include <cassandra.h>
 #include "gtest/gtest.h"
 #include "../CacheTable.h"
+#include "../Cache.h"
 
 
 using namespace std;
@@ -15,6 +16,8 @@ const char *particles_wr_table = "particle_write";
 const char *words_wr_table = "words_write";
 const char *words_table = "words";
 const char *contact_p = "127.0.0.1";
+
+uint32_t nodePort = 9042;
 
 /** TEST SETUP **/
 
@@ -41,7 +44,7 @@ void setupcassandra() {
     test_session = cass_session_new();
 
     cass_cluster_set_contact_points(test_cluster, contact_p);
-    cass_cluster_set_port(test_cluster, 9042);
+    cass_cluster_set_port(test_cluster, nodePort);
 
     connect_future = cass_session_connect(test_session, test_cluster);
     CassError rc = cass_future_error_code(connect_future);
@@ -324,7 +327,7 @@ TEST(TestingCacheTable, GetRowC) {
     test_session = cass_session_new();
 
     cass_cluster_set_contact_points(test_cluster, contact_p);
-    cass_cluster_set_port(test_cluster, 9042);
+    cass_cluster_set_port(test_cluster, nodePort);
 
     connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
     CassError rc = cass_future_error_code(connect_future);
@@ -402,7 +405,7 @@ TEST(TestingCacheTable, GetRowStringC) {
     test_session = cass_session_new();
 
     cass_cluster_set_contact_points(test_cluster, contact_p);
-    cass_cluster_set_port(test_cluster, 9042);
+    cass_cluster_set_port(test_cluster, nodePort);
 
     connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
     CassError rc = cass_future_error_code(connect_future);
@@ -461,7 +464,7 @@ TEST(TestingCacheTable, GetRowStringC) {
 
 
 TEST(TestingCacheTable, PutRowStringC) {
-
+//Replacement inside cache is broken, the payload is being freed twice (once on replace and another thereafter)
     CassSession *test_session = NULL;
     CassCluster *test_cluster = NULL;
 
@@ -470,7 +473,7 @@ TEST(TestingCacheTable, PutRowStringC) {
     test_session = cass_session_new();
 
     cass_cluster_set_contact_points(test_cluster, contact_p);
-    cass_cluster_set_port(test_cluster, 9042);
+    cass_cluster_set_port(test_cluster, nodePort);
 
     connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
     CassError rc = cass_future_error_code(connect_future);
@@ -582,7 +585,7 @@ TEST(TestingPrefetch, GetNextC) {
     test_session = cass_session_new();
 
     cass_cluster_set_contact_points(test_cluster, contact_p);
-    cass_cluster_set_port(test_cluster, 9042);
+    cass_cluster_set_port(test_cluster, nodePort);
 
     connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
     CassError rc = cass_future_error_code(connect_future);
@@ -602,8 +605,6 @@ TEST(TestingPrefetch, GetNextC) {
     ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_FLOAT,"time"};
     std::vector<ColumnMeta> v = {cm1,cm2};
     std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
-
-    TupleRow *t = new TupleRow(metas, sizeof(int) + sizeof(float), buffer);
 
     std::vector<std::string> keysnames = {"partid", "time"};
     std::vector<std::string> colsnames = {"ciao"};
@@ -695,7 +696,7 @@ TEST(TestingCacheTable, GetRow) {
     test_session = cass_session_new();
 
     cass_cluster_set_contact_points(test_cluster, contact_p);
-    cass_cluster_set_port(test_cluster, 9042);
+    cass_cluster_set_port(test_cluster, nodePort);
 
     connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
     CassError rc = cass_future_error_code(connect_future);
@@ -774,7 +775,7 @@ TEST(TestingCacheTable, MultiQ) {
     test_session = cass_session_new();
 
     cass_cluster_set_contact_points(test_cluster, contact_p);
-    cass_cluster_set_port(test_cluster, 9042);
+    cass_cluster_set_port(test_cluster, nodePort);
 
     connect_future = cass_session_connect(test_session, test_cluster);
     CassError rc = cass_future_error_code(connect_future);
@@ -852,13 +853,13 @@ TEST(TestinhMarshallCC, SingleQ) {
     /** CONNECT **/
     CassSession *test_session = NULL;
     CassCluster *test_cluster = NULL;
-    uint32_t max_items = 100;
+
     CassFuture *connect_future = NULL;
     test_cluster = cass_cluster_new();
     test_session = cass_session_new();
 
     cass_cluster_set_contact_points(test_cluster, contact_p);
-    cass_cluster_set_port(test_cluster, 9042);
+    cass_cluster_set_port(test_cluster, nodePort);
 
     connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
     CassError rc = cass_future_error_code(connect_future);
@@ -924,7 +925,7 @@ TEST(TestinhMarshall, SingleQ) {
     test_session = cass_session_new();
 
     cass_cluster_set_contact_points(test_cluster, contact_p);
-    cass_cluster_set_port(test_cluster, 9042);
+    cass_cluster_set_port(test_cluster, nodePort);
 
     connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
     CassError rc = cass_future_error_code(connect_future);
@@ -1001,7 +1002,7 @@ TEST(TestingCacheTable, PutFloatsRow) {
     test_session = cass_session_new();
 
     cass_cluster_set_contact_points(test_cluster, contact_p);
-    cass_cluster_set_port(test_cluster, 9042);
+    cass_cluster_set_port(test_cluster, nodePort);
 
     connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
     CassError rc = cass_future_error_code(connect_future);
@@ -1074,13 +1075,13 @@ TEST(TestingCacheTable, PutTextRow) {
     /** CONNECT **/
     CassSession *test_session = NULL;
     CassCluster *test_cluster = NULL;
-    uint32_t max_items = 100;
+
     CassFuture *connect_future = NULL;
     test_cluster = cass_cluster_new();
     test_session = cass_session_new();
 
     cass_cluster_set_contact_points(test_cluster, contact_p);
-    cass_cluster_set_port(test_cluster, 9042);
+    cass_cluster_set_port(test_cluster, nodePort);
 
     connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
     CassError rc = cass_future_error_code(connect_future);
@@ -1166,7 +1167,7 @@ TEST(TestingPrefetch,Worker) {
     test_session = cass_session_new();
 
     cass_cluster_set_contact_points(test_cluster, contact_p);
-    cass_cluster_set_port(test_cluster, 9042);
+    cass_cluster_set_port(test_cluster, nodePort);
 
     connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
     CassError rc = cass_future_error_code(connect_future);
@@ -1199,3 +1200,120 @@ TEST(TestingPrefetch,Worker) {
 
 
 /*** CACHE API TESTS ***/
+
+
+TEST(TestingCacheCpp,ConnectDisconnect){
+    Cache *cache = new Cache(nodePort,contact_p);
+    delete(cache);
+}
+
+
+
+
+TEST(TestingCacheCpp,CreateAndDelCache){
+    /** KEYS **/
+
+    std::vector<std::string> keysnames = {"partid", "time"};
+    std::vector<std::string> read_colsnames = {"x", "ciao"};
+    std::vector<std::string> write_colsnames = {"x", "ciao"};
+    std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
+
+
+    int64_t bigi= 9223372036854775807;
+    std::vector<std::pair<int64_t, int64_t> > tokens = {
+            std::pair<int64_t, int64_t>(-bigi -1,  -bigi/2),
+            std::pair<int64_t, int64_t>(-bigi/2,0),
+            std::pair<int64_t, int64_t>(0,bigi/2),
+            std::pair<int64_t, int64_t>(bigi/2, bigi)
+    };
+
+
+
+    std::map <std::string, std::string> config;
+    config["writer_par"] = "4";
+    config["writer_buffer"] = "20";
+    config["cache_size"] = "10";
+
+    Cache *cache = new Cache(nodePort,contact_p);
+    CacheTable* table= cache->makeCache(particles_table, keyspace, keysnames, read_colsnames, tokens,config);
+
+    delete(table);
+    delete(cache);
+}
+
+
+
+TEST(TestingCacheCpp,CreateAndDelCacheWrong){
+    /** This test demonstrates that deleting the Cache provider
+     * before deleting cache instances doesnt raise exceptions
+     * or enter in any kind of lock
+     * **/
+
+    std::vector<std::string> keysnames = {"partid", "time"};
+    std::vector<std::string> read_colsnames = {"x", "ciao"};
+    std::vector<std::string> write_colsnames = {"x", "ciao"};
+    std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
+
+
+    int64_t bigi= 9223372036854775807;
+    std::vector<std::pair<int64_t, int64_t> > tokens = {
+            std::pair<int64_t, int64_t>(-bigi -1,  -bigi/2),
+            std::pair<int64_t, int64_t>(-bigi/2,0),
+            std::pair<int64_t, int64_t>(0,bigi/2),
+            std::pair<int64_t, int64_t>(bigi/2, bigi)
+    };
+
+
+
+    std::map <std::string, std::string> config;
+    config["writer_par"] = "4";
+    config["writer_buffer"] = "20";
+    config["cache_size"] = "10";
+
+    Cache *cache = new Cache(nodePort,contact_p);
+    CacheTable* table= cache->makeCache(particles_table, keyspace, keysnames, read_colsnames, tokens,config);
+
+    delete(cache);
+}
+
+
+TEST(TestingCacheCpp,IteratePrefetch){
+    /** This test demonstrates that deleting the Cache provider
+     * before deleting cache instances doesnt raise exceptions
+     * or enter in any kind of lock
+     * **/
+
+    std::vector<std::string> keysnames = {"partid", "time"};
+    std::vector<std::string> read_colsnames = {"x", "ciao"};
+    std::vector<std::string> write_colsnames = {"x", "ciao"};
+    std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
+
+
+    int64_t bigi= 9223372036854775807;
+    std::vector<std::pair<int64_t, int64_t> > tokens = {
+            std::pair<int64_t, int64_t>(-bigi -1,  -bigi/2),
+            std::pair<int64_t, int64_t>(-bigi/2,0),
+            std::pair<int64_t, int64_t>(0,bigi/2),
+            std::pair<int64_t, int64_t>(bigi/2, bigi)
+    };
+
+
+
+    std::map <std::string, std::string> config;
+    config["writer_par"] = "4";
+    config["writer_buffer"] = "20";
+    config["cache_size"] = "10";
+
+    Cache *cache = new Cache(nodePort,contact_p);
+    CacheTable* table= cache->makeCache(particles_table, keyspace, keysnames, read_colsnames, tokens,config);
+
+    Prefetch *P = table->get_values_iter(10);
+    int it= 0;
+    while (P->get_next()) {
+        ++it;
+    }
+    EXPECT_EQ(it,10001);
+    delete(P);
+    delete(table);
+    delete(cache);
+}

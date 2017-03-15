@@ -17,13 +17,14 @@
 class Cache {
 
 public:
-    Cache(const char *table,const char *keyspace,const char *token_range_pred, uint32_t cache_size, std::vector <std::string> keys_info,std::vector <std::vector < std::string> > cols_info, std::vector<std::pair<int64_t, int64_t>> token_ranges);
+
+    Cache(int nodePort, std::string contact_points);
 
     ~Cache();
 
-    int connectCassandra(int nodePort, std::string contact_points);
+    CacheTable* makeCache(const char *table,const char *keyspace, std::vector < std::string> keys_names,std::vector < std::string > columns_names, std::vector<std::pair<int64_t, int64_t>> token_ranges,std::map<std::string,std::string> &config);
 
-    int put_row(void* keys, void* values);
+    /*int put_row(void* keys, void* values);
 
     std::shared_ptr<void> get_row(void* keys);
 
@@ -32,12 +33,10 @@ public:
     Prefetch* get_values_iterator(uint16_t prefetch_size);
 
     Prefetch* get_items_iterator(uint16_t prefetch_size);
-
+*/
 private:
 
     int disconnectCassandra();
-
-    CacheTable *T;
 
     CassSession* session;
 

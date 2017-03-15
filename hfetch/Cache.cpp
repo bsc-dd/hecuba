@@ -1,24 +1,8 @@
 #include "Cache.h"
 
 
-Cache::Cache(const char *table,const char *keyspace,const char *token_range_pred, uint32_t cache_size, std::vector < std::string> keys_info,std::vector <std::vector < std::string> > cols_info, std::vector<std::pair<int64_t, int64_t>> token_ranges) {
-    try {
-        this->T = new CacheTable((uint32_t) cache_size, std::string(table), std::string(keyspace), keys_info,
-                                 cols_info, std::string(token_range_pred), token_ranges, session);
-    } catch (ModuleException e) {
-        std::cerr << " ERROR CREATE TABLE" << table << " " << keyspace << " " << e.what() << std::endl;
-    }
-}
 
-
-
-Cache::~Cache() {
-    disconnectCassandra();
-    delete(T);
-}
-
-
-int Cache::connectCassandra(int nodePort, std::string contact_points) {
+Cache::Cache(int nodePort, std::string contact_points) {
     CassFuture *connect_future = NULL;
     cluster = cass_cluster_new();
     session = cass_session_new();
@@ -51,8 +35,27 @@ int Cache::connectCassandra(int nodePort, std::string contact_points) {
         throw ModuleException(msg+" - "+msg2);
     }
     cass_future_free(connect_future);
-    return 0;
 }
+
+
+Cache::~Cache() {
+    disconnectCassandra();
+}
+
+
+
+CacheTable* Cache::makeCache(const char *table,const char *keyspace, std::vector < std::string> keys_names,std::vector < std::string > columns_names, std::vector<std::pair<int64_t, int64_t>> token_ranges,std::map<std::string,std::string> &config) {
+    try {
+
+        std::string token_range_pred = "WHERE token("+keys_names[0]+")>=? AND token("+keys_names[0]+")<?;";
+        return new CacheTable(std::string(table), std::string(keyspace), keys_names,
+                                 columns_names, std::string(token_range_pred), token_ranges, session, config);
+    } catch (ModuleException e) {
+        std::cerr << " ERROR CREATE TABLE" << table << " " << keyspace << " " << e.what() << std::endl;
+    }
+}
+
+
 
 
 int Cache::disconnectCassandra() {
@@ -69,7 +72,7 @@ int Cache::disconnectCassandra() {
 
 
 /*** HCACHE DATA TYPE METHODS AND SETUP ***/
-
+/*
 int Cache::put_row(void* keys, void* values) {
     this->T->put_crow(keys, values);
     return 0;
@@ -79,11 +82,11 @@ int Cache::put_row(void* keys, void* values) {
 std::shared_ptr<void> Cache::get_row(void* keys){
     return this->T->get_crow(keys);
 }
-
+*/
 
 /*** ITERATOR METHODS AND SETUP ***/
 
-
+/*
 Prefetch* Cache::get_keys_iterator(uint16_t prefetch_size) {
     return T->get_keys_iter(prefetch_size);
 }
@@ -97,3 +100,4 @@ Prefetch* Cache::get_values_iterator(uint16_t prefetch_size) {
 Prefetch* Cache::get_items_iterator(uint16_t prefetch_size) {
     return T->get_values_iter(prefetch_size);
 }
+ */

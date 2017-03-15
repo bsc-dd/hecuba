@@ -68,8 +68,8 @@ if (NOT $ENV{LD_LIBRARY_PATH}  STREQUAL "")
 endif (NOT $ENV{LD_LIBRARY_PATH}  STREQUAL "")
 
 
-set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp )
-set(HEADER_FILES Prefetch.h HCache.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h metadata.h)
+set(SOURCE_FILES Cache.cpp Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp )
+set(HEADER_FILES Cache.h Prefetch.h HCache.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h metadata.h)
 
 
 #CMake main target
