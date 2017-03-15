@@ -38,17 +38,28 @@ public:
     ~CacheTable();
 
 
-    PyObject *get_row(PyObject *py_keys);
-
-    void put_row(PyObject *key, PyObject *value);
-
 
     Prefetch* get_keys_iter(uint32_t prefetch_size);
 
     Prefetch* get_values_iter(uint32_t prefetch_size);
 
     Prefetch* get_items_iter(uint32_t prefetch_size);
+
+
+    /** PYTHON METHODS **/
+    PyObject *get_row(PyObject *py_keys);
+
+
+    void put_row(PyObject *key, PyObject *value);
+
+    /** C++ METHODS **/
+
+    void put_crow(void* keys,void* values);
+
     const TupleRow *get_crow(TupleRow *py_keys);
+    std::shared_ptr<void> get_crow(void* keys);
+
+    /** TESTING METHODS **/
 
     TupleRowFactory* _test_get_keys_factory(){ return keys_factory;}
     TupleRowFactory* _test_get_value_factory(){ return values_factory;}

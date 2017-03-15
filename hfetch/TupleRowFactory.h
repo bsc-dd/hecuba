@@ -20,7 +20,6 @@ std::cerr<<msg<<std::endl; };\
 #include <memory>
 #include <stdlib.h>
 #include "metadata.h"
-#include <numpy/arrayobject.h>
 #define Py_STRING "s"
 #define Py_U_LONGLONG "K"
 #define Py_U_LONG "k"
@@ -48,6 +47,8 @@ public:
     TupleRow* make_tuple(PyObject* obj);
 
     TupleRow* make_tuple(const CassRow* row);
+
+    TupleRow* make_tuple(void *data);
 
     PyObject* tuple_as_py(const TupleRow* tuple) const;
 

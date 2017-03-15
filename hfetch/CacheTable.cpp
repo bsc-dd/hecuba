@@ -145,10 +145,18 @@ Prefetch* CacheTable::get_items_iter(uint32_t prefetch_size) {
 void CacheTable::put_row(PyObject *key, PyObject *value) {
     TupleRow *k = keys_factory->make_tuple(key);
     const TupleRow *v = values_factory->make_tuple(value);
-    //Inserts if not present, otherwise replaces
-    this->myCache->update(*k, v);
+    this->myCache->update(*k, v); //Inserts if not present, otherwise replaces
     this->writer->write_to_cassandra(k,v);
 }
+
+
+void CacheTable::put_crow(void* keys, void* values) {
+    TupleRow *k = keys_factory->make_tuple(keys);
+    const TupleRow *v = values_factory->make_tuple(values);
+    this->myCache->update(*k, v); //Inserts if not present, otherwise replaces
+    this->writer->write_to_cassandra(k,v);
+}
+
 
 
 PyObject *CacheTable::get_row(PyObject *py_keys) {
@@ -205,4 +213,8 @@ const TupleRow *CacheTable::get_crow(TupleRow *keys) {
     myCache->add(*keys, values);
     cass_result_free(result);
     return values;
+}
+
+std::shared_ptr<void> CacheTable::get_crow(void* keys) {
+    return get_crow(keys_factory->make_tuple(keys))->get_payload();
 }

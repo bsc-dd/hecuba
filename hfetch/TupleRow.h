@@ -15,13 +15,15 @@
 
 class TupleRow {
 private:
-    std::shared_ptr<const void> payload;
-    std::shared_ptr<std::vector<ColumnMeta>> metadata;
+    std::shared_ptr<void> payload;
+    std::shared_ptr<std::vector<ColumnMeta> > metadata;
     uint16_t payload_size;
 public:
 
+    /* Constructor */
     TupleRow(const std::shared_ptr<std::vector<ColumnMeta>> metas, uint16_t payload_size,void *buffer);
 
+    /* Copy constructors */
     TupleRow(const TupleRow &t) ;
 
     TupleRow(const TupleRow *t);
@@ -34,15 +36,22 @@ public:
 
     TupleRow& operator=(TupleRow& other );
 
+    /* Get methods */
+
+    inline std::shared_ptr<void>  get_payload() const{
+        return this->payload    ;
+    }
 
     inline const uint16_t n_elem() const {
-        return (uint16_t) metadata.get()->size();
+        return (uint16_t) metadata->size();
     }
 
-    const void* get_element(int32_t position) const {
+    inline const void* get_element(int32_t position) const {
         if (position < 0 || payload.get() == 0) return 0;
-        return (const char *) payload.get() + metadata.get()->at(position).position;
+        return (const char *) payload.get() + metadata->at(position).position;
     }
+
+    /* Comparision operators */
 
     friend bool operator<(const TupleRow &lhs, const TupleRow &rhs);
 

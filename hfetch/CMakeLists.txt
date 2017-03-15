@@ -57,8 +57,8 @@ endif (NOT $ENV{LD_LIBRARY_PATH}  STREQUAL "")
 #LINK DIRECTORIES discouraged, not working properly sometimes
 #LINK_DIRECTORIES(${CMAKE_BINARY_DIR}/_install/lib ${LIST_LIBS})
 
-set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp )
-set(HEADER_FILES Prefetch.h HCache.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h metadata.h)
+set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp Cache.cpp)
+set(HEADER_FILES Prefetch.h HCache.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h metadata.h Cache.h)
 
 
 #CMake main target
@@ -172,20 +172,10 @@ endif()
 
 
 
-
-
 #Python dependencies
 
 find_package(PythonInterp 2.7)
 find_package(PythonLibs 2.7.5 REQUIRED)
-find_package(NumPy 1.8)
-
-if (NUMPY_FOUND)
-    include_directories(${NUMPY_INCLUDE_DIR})
-else()
-    message("Numpy headers not found, Numpy arrays support won't be available")
-endif()
-
 
 include_directories(${PYTHON_INCLUDE_DIRS})
 set(ALL_LIBS ${ALL_LIBS} ${PYTHON_LIBRARIES})
