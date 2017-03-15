@@ -1,13 +1,11 @@
-//
-// Created by polsm on 14/02/17.
-//
-
 #ifndef HFETCH_WRITER_H
 #define HFETCH_WRITER_H
 
+#define MAX_ERRORS 10
 
 #include <thread>
 #include <atomic>
+
 #include "tbb/concurrent_queue.h"
 
 #include "TupleRowFactory.h"
@@ -26,22 +24,27 @@ public:
 
     void write_to_cassandra(const TupleRow *keys, const TupleRow *values);
 
+    void set_error_occurred(std::string error, const void * keys, const void * values);
+
 private:
 
     CassSession *session;
 
+/** ownership **/
+
+    const CassPrepared *prepared_query;
+
     TupleRowFactory k_factory;
     TupleRowFactory v_factory;
 
-    uint16_t max_calls;
-
-
-/** ownership **/
-    const CassPrepared *prepared_query;
     tbb::concurrent_bounded_queue<std::pair<const TupleRow *, const TupleRow *>> data;
+
+    uint16_t max_calls;
     std::atomic<uint16_t> ncallbacks;
+    std::atomic<uint16_t> error_count;
+
+    static void callback(CassFuture *future, void *ptr);
 };
 
-static void callback(CassFuture *future, void *ptr);
 
 #endif //HFETCH_WRITER_H

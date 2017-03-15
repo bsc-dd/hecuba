@@ -9,7 +9,7 @@
 struct ColumnMeta {
     uint16_t position;
     CassValueType type;
-    std::vector<std::string> info;
+    std::string name;
 };
 
 

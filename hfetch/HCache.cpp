@@ -21,16 +21,12 @@ static PyObject *connectCassandra(PyObject *self, PyObject *args) {
         if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
             throw ModuleException("invalid contact points");
         };
-        contact_points += std::string(str_temp) + " ";
+        contact_points += std::string(str_temp) + ",";
     }
 
     CassFuture *connect_future = NULL;
     cluster = cass_cluster_new();
     session = cass_session_new();
-
-
-
-
     // add contact points
     cass_cluster_set_contact_points(cluster, contact_points.c_str());
     cass_cluster_set_port(cluster, nodePort);
@@ -105,20 +101,18 @@ static void hcache_dealloc(HCache *self) {
 static PyObject *hcache_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     HCache *self;
     self = (HCache *) type->tp_alloc(type, 0);
-    //_import_array();
     return (PyObject *) self;
 }
 
 
 static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     const char *table, *keyspace, *token_range_pred;
-    uint32_t cache_size;
-    PyObject *py_tokens, *py_keys_names, *py_cols_names;
 
-    if (!PyArg_ParseTuple(args, "IsssOOO", &cache_size, &keyspace, &table, &token_range_pred, &py_tokens,
+    PyObject *py_tokens, *py_keys_names, *py_cols_names, *py_config;
+    if (!PyArg_ParseTuple(args, "sssOOOO", &keyspace, &table, &token_range_pred, &py_tokens,
                           &py_keys_names,
-                          &py_cols_names)) {
-        return -1;
+                          &py_cols_names, &py_config)) {
+         return -1;
     };
 
 
@@ -151,45 +145,45 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
 
     }
 
-
-    std::vector<std::vector<std::string>> columns_names = std::vector<std::vector<std::string>>(cols_size);
+    std::vector<std::string> columns_names = std::vector<std::string>(cols_size);
     for (uint16_t i = 0; i < cols_size; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_cols_names, i);
-        int type_check = PyString_Check(obj_to_convert);
-        if (type_check) {
-            char *str_temp;
-            if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
-                return -1;
-            };
-            columns_names[i] = std::vector<std::string>(1);
-            columns_names[i][0] = std::string(str_temp);
-        }
-        type_check = PyDict_Check(obj_to_convert);
-        if (type_check) {
-            PyObject *dict;
-            if (!PyArg_Parse(obj_to_convert, "O", &dict)) {
-                return -1;
-            };
+        char *str_temp;
+        if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
+            return -1;
+        };
+        columns_names[i] = std::string(str_temp);
+    }
 
-            PyObject *py_name = PyDict_GetItem(dict, PyString_FromString("name"));
 
-            columns_names[i] = std::vector<std::string>(3);
-            columns_names[i][0] = PyString_AsString(py_name);
+    /** PARSE CONFIG **/
 
-            PyObject *py_arr_type = PyDict_GetItem(dict, PyString_FromString("type"));
-            columns_names[i][1] = PyString_AsString(py_arr_type);
+    std::map<std::string,std::string> config;
+    int type_check = PyDict_Check(py_config);
+    if (type_check) {
+        PyObject *dict;
+        if (!PyArg_Parse(py_config, "O", &dict)) {
+            return -1;
+        };
 
-            PyObject *py_arr_dims = PyDict_GetItem(dict, PyString_FromString("dims"));
-            columns_names[i][2] = PyString_AsString(py_arr_dims);
-        }
+        PyObject *key, *value;
+        Py_ssize_t pos = 0;
+          while (PyDict_Next(dict, &pos, &key, &value)){
+              std::string conf_key(PyString_AsString(key));
+              if (PyString_Check(value)){ std::string conf_val(PyString_AsString(value));
+              config[conf_key]=conf_val;}
+              if (PyInt_Check(value)){
+                  int32_t c_val = (int32_t) PyInt_AsLong(value);
+                  config[conf_key]=std::to_string(c_val);}
+
+          }
     }
 
     try {
-        self->T = new CacheTable((uint32_t) cache_size, std::string(table), std::string(keyspace), keys_names,
-                                 columns_names, std::string(token_range_pred), token_ranges, session);
-
-    } catch (ModuleException e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
+        self->T = new CacheTable(std::string(table), std::string(keyspace), keys_names,
+                                 columns_names, std::string(token_range_pred), token_ranges, session, config);
+      }catch (ModuleException e) {
+        PyErr_SetString(PyExc_RuntimeError,e.what());
         return -1;
     }
     return 0;
@@ -254,7 +248,6 @@ static PyTypeObject hfetch_HCacheType = {
 static PyObject *hiter_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     HIterator *self;
     self = (HIterator *) type->tp_alloc(type, 0);
-    //_import_array();
     return (PyObject *) self;
 }
 

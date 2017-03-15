@@ -1,9 +1,7 @@
 # author: G. Alomar
 
-from hecuba.hdict import StorageDict
-from hecuba.hdict import *
 from hecuba.storageobj import *
-from hecuba import config
+from hecuba import config, log
 
 
 def init(config_file_path=None):
@@ -75,6 +73,7 @@ def getByID(objid):
     results = config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id = %s", (objid,))[0]
     class_name = results.class_name
 
+    log.debug("Storage API:getByID(%s) of class %s", objid, class_name)
     last = 0
     for key, i in enumerate(class_name):
         if i == '.' and key > last:

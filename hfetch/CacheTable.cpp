@@ -1,7 +1,9 @@
 #include "CacheTable.h"
 
-#define writer_buff_size 100
-#define max_write_callbacks 4
+#define default_writer_buff 100
+#define default_writer_callbacks 4
+#define default_cache_size 10
+
 
 /***
  * Constructs a cache which takes and returns data encapsulated as pointers to TupleRow or PyObject
@@ -12,12 +14,62 @@
  * @param query Query ready to be bind with the keys
  * @param session
  */
-CacheTable::CacheTable(uint32_t size, const std::string &table, const std::string &keyspace,
-const std::vector<std::string> &keyn,
-const std::vector< std::vector<std::string>>  &columns_n ,
-const std::string &token_range_pred,
-const std::vector<std::pair<int64_t, int64_t>> &tkns,
-        CassSession *session) {
+CacheTable::CacheTable(const std::string &table,const std::string &keyspace,
+                       const std::vector<std::string> &keyn,
+                       const std::vector<std::string> &columns_n,
+                       const std::string &token_range_pred,
+                       const std::vector<std::pair<int64_t, int64_t>> &tkns,
+                       CassSession *session,
+                       std::map<std::string,std::string> &config) {
+
+
+
+    int32_t writer_num_callbacks = default_writer_callbacks;
+    int32_t writer_buffer_size = default_writer_buff;
+    int32_t cache_size = default_cache_size;
+
+    if (config.find("writer_par")!=config.end()) {
+        std::string wr_calls = config["writer_par"];
+        try {
+            writer_num_callbacks = std::stoi(wr_calls);
+            if (writer_num_callbacks<0) throw ModuleException("Writer parallelism value must be >= 0");
+        }
+        catch (std::exception e) {
+            std::string msg(e.what());
+            msg+= " Malformed value in config for writer_par";
+            throw ModuleException(msg);
+        }
+    }
+
+    if (config.find("writer_buffer")!=config.end()) {
+        std::string wr_buff = config["writer_buffer"];
+        try {
+            writer_buffer_size = std::stoi(wr_buff);
+            if (writer_buffer_size<0) throw ModuleException("Writer buffer value must be >= 0");
+        }
+        catch (std::exception e) {
+            std::string msg(e.what());
+            msg+= " Malformed value in config for writer_buffer";
+            throw ModuleException(msg);
+        }
+    }
+
+    if (config.find("cache_size")!=config.end()) {
+        std::string cache_size_str = config["cache_size"];
+        try {
+            cache_size = std::stoi(cache_size_str);
+            if (cache_size<0) throw ModuleException("Cache size value must be >= 0");
+        }
+        catch (std::exception e) {
+            std::string msg(e.what());
+            msg+= " Malformed value in config for cache_size";
+            throw ModuleException(msg);
+        }
+    }
+
+
+    /** Parse names **/
+
     columns_names = columns_n;
     key_names = keyn;
     tokens=tkns;
@@ -29,9 +81,9 @@ const std::vector<std::pair<int64_t, int64_t>> &tkns,
         select_keys += "," + key_names[i];
     }
 
-    select_values = columns_names[0][0];
+    select_values = columns_names[0];
     for (uint16_t i = 1; i < columns_names.size(); i++) {
-        select_values += "," + columns_names[i][0];
+        select_values += "," + columns_names[i];
     }
     select_values+=" ";
     select_keys+=" ";
@@ -40,7 +92,7 @@ const std::vector<std::pair<int64_t, int64_t>> &tkns,
 
     select_values = "SELECT " + select_values;
 
-    this->myCache = new Poco::LRUCache<TupleRow, TupleRow>(size);
+    this->myCache = new Poco::LRUCache<TupleRow, TupleRow>(cache_size);
     cache_query = select_values + get_predicate;
     CassFuture *future = cass_session_prepare(session, cache_query.c_str());
     CassError rc = cass_future_error_code(future);
@@ -70,17 +122,11 @@ const std::vector<std::pair<int64_t, int64_t>> &tkns,
         throw ModuleException("Cache particles_table: constructor: Table meta is NULL");
     }
 
-    std::vector < std::vector< std::string > > keys_copy(key_names.size(),std::vector< std::string>(1));
-
-    for (uint16_t i = 0; i<key_names.size(); ++i) {
-        keys_copy[i][0]=key_names[i];
-    }
-
     all_names.reserve(key_names.size() + columns_names.size());
-    all_names.insert(all_names.end(), keys_copy.begin(), keys_copy.end());
+    all_names.insert(all_names.end(), key_names.begin(), key_names.end());
     all_names.insert(all_names.end(), columns_names.begin(), columns_names.end());
     try {
-    keys_factory = new TupleRowFactory(table_meta, keys_copy);
+    keys_factory = new TupleRowFactory(table_meta, key_names);
     values_factory = new TupleRowFactory(table_meta, columns_names);
     items_factory = new TupleRowFactory(table_meta, all_names);
     }
@@ -90,16 +136,17 @@ const std::vector<std::pair<int64_t, int64_t>> &tkns,
     cass_schema_meta_free(schema_meta);
     std::string write_query = "INSERT INTO "+keyspace+"."+table+"(";
 
-    write_query+=all_names[0][0];
+    write_query+=all_names[0];
     for (uint16_t i = 1;i<all_names.size(); ++i) {
-        write_query+=","+all_names[i][0];
+        write_query+=","+all_names[i];
     }
     write_query+=") VALUES (?";
     for (uint16_t i = 1; i<all_names.size();++i) {
         write_query+=",?";
     }
     write_query+=");";
-    writer = new Writer((uint16_t )writer_buff_size,(uint16_t )max_write_callbacks,*keys_factory,*values_factory,session,write_query);
+
+    writer = new Writer((uint16_t )writer_buffer_size,(uint16_t )writer_num_callbacks,*keys_factory,*values_factory,session,write_query);
 };
 
 
@@ -145,7 +192,8 @@ Prefetch* CacheTable::get_items_iter(uint32_t prefetch_size) {
 void CacheTable::put_row(PyObject *key, PyObject *value) {
     TupleRow *k = keys_factory->make_tuple(key);
     const TupleRow *v = values_factory->make_tuple(value);
-    this->myCache->update(*k, v); //Inserts if not present, otherwise replaces
+    //Inserts if not present, otherwise replaces
+    this->myCache->update(*k, v);
     this->writer->write_to_cassandra(k,v);
 }
 
@@ -166,7 +214,6 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
     delete(keys);
 
     if(values==NULL){
-        std::cout << "CacheTable: Get Row: VALUES IS NULL " << std::endl;
         PyErr_SetString(PyExc_KeyError,"Get row: key not found");
         return NULL;
     }
@@ -174,8 +221,6 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
     PyObject* temp = values_factory->tuple_as_py(values);
     return temp;
 }
-
-
 
 const TupleRow *CacheTable::get_crow(TupleRow *keys) {
 

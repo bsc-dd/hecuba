@@ -54,10 +54,10 @@ class StorageDict(dict, IStorage):
     Object used to access data from workers.
     """
 
-    args_names = ["primary_keys", "columns", "name", "tokens", "storage_id"]
+    args_names = ["primary_keys", "columns", "name", "tokens", "storage_id", "class_name"]
     args = namedtuple('StorageDictArgs', args_names)
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage (storage_id, class_name,'
-                                                  ' name, tokens,dict_pks,dict_columns)  VALUES (?,?,?,?,?,?)')
+                                                  ' name, tokens,primary_keys,columns)  VALUES (?,?,?,?,?,?)')
 
     @staticmethod
     def build_remotely(result):
@@ -66,6 +66,7 @@ class StorageDict(dict, IStorage):
         Args:
             result: a namedtuple with all  the information needed to create again the block
         """
+        log.debug("Building Storage dict with %s", result)
 
         return StorageDict(result.primary_keys,
                            result.columns,
@@ -75,17 +76,18 @@ class StorageDict(dict, IStorage):
 
     @staticmethod
     def _store_meta(storage_args):
-        class_name = '%s.%s' % (StorageDict.__class__.__module__, StorageDict.__class__.__name__)
+        log.debug("StorageDict: storing metas %s", storage_args)
+
 
         try:
             config.session.execute(StorageDict._prepared_store_meta,
-                                   [storage_args.storage_id, class_name, storage_args.name,
+                                   [storage_args.storage_id, storage_args.class_name, storage_args.name,
                                     storage_args.tokens, storage_args.primary_keys, storage_args.columns])
         except Exception as ex:
             log.error("Error creating the StorageDict metadata: %s %s", storage_args, ex)
             raise ex
 
-    def __init__(self, primary_keys, columns, name=None, tokens=None, **kwargs):
+    def __init__(self, primary_keys, columns, name=None, tokens=None, storage_id=None, **kwargs):
         """
         Creates a new block.
 
@@ -99,7 +101,7 @@ class StorageDict(dict, IStorage):
         """
 
         super(StorageDict, self).__init__(**kwargs)
-        log.debug("CREATED StorageDict(%s,%s,%s,%s,%s)", primary_keys, columns, name, tokens, kwargs)
+        log.debug("CREATED StorageDict(%s,%s,%s,%s,%s,%s)", primary_keys, columns, name, tokens, storage_id, kwargs)
 
         if tokens is None:
             log.info('using all tokens')
@@ -108,9 +110,11 @@ class StorageDict(dict, IStorage):
         else:
             self.tokens = tokens
 
-        self._build_args = self.args(primary_keys, columns, name, self.tokens, None)
+        class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
+        self._build_args = self.args(primary_keys, columns, name, self.tokens, storage_id, class_name)
         self._primary_keys = primary_keys
         self._columns = columns
+        self.storage_id = storage_id
 
         self.values = columns
         key_names = map(lambda a: a[0], self._primary_keys)
@@ -181,22 +185,23 @@ class StorageDict(dict, IStorage):
 
     def make_persistent(self, name):
         (self._ksp, self._table) = self._extract_ks_tab(name)
-        self._build_args = self._build_args._replace(name=name)
+        self._build_args = self._build_args._replace(name=self._ksp+"."+self._table)
 
-        if not hasattr(self, 'storage_id'):
+        if self.storage_id is None:
             self.storage_id = str(uuid.uuid1())
             self._build_args = self._build_args._replace(storage_id=self.storage_id)
+            self._store_meta(self._build_args)
 
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy'," \
                          "'replication_factor': %d }" % (self._ksp, config.repl_factor)
         if query_keyspace not in config.create_cache:
             try:
+                config.create_cache.add(query_keyspace)
                 log.debug('MAKE PERSISTENCE: %s', query_keyspace)
                 config.session.execute(query_keyspace)
-                config.create_cache.add(query_keyspace)
             except Exception as ex:
                 print "Error creating the StorageDict keyspace:", query_keyspace, ex
-                raise ex
+
 
         columns = map(lambda a: a[0] + " " + a[1], self._primary_keys + self._columns)
         pks = map(lambda a: a[0], self._primary_keys)
@@ -205,20 +210,21 @@ class StorageDict(dict, IStorage):
                                                                                     str.join(',', pks))
         if query_table not in config.create_cache:
             try:
+                config.create_cache.add(query_table)
                 log.debug('MAKE PERSISTENCE: %s', query_table)
                 config.session.execute(query_table)
-                config.create_cache.add(query_table)
             except Exception as ex:
-                log.error("Error creating the StorageDict table: %s %s", query_table, ex)
-                raise ex
+                log.warn("Error creating the StorageDict table: %s %s", query_table, ex)
 
-        self._store_meta(self._build_args)
         key_names = map(lambda a: a[0], self._primary_keys)
         column_names = map(lambda a: a[0], self._columns)
         tknp = "token(%s)" % key_names[0]
-        self._hcache_params = (config.max_cache_size, self._ksp, self._table,
-                               "WHERE %s>=? AND %s<?;" % (tknp, tknp),
-                               self.tokens, key_names, column_names)
+        self._hcache_params = (self._ksp, self._table,
+                       "WHERE %s>=? AND %s<?;" % (tknp, tknp),
+                       self.tokens, key_names, column_names,
+                               {'cache_size': config.max_cache_size,
+                                'writer_par': config.write_callbacks_number,
+                                'write_buffer': config.write_buffer_size})
         log.debug("HCACHE params %s", self._hcache_params)
         self._hcache = Hcache(*self._hcache_params)
         # Storing all in-memory values to cassandra
@@ -279,7 +285,7 @@ class StorageDict(dict, IStorage):
         Returns:
             self.blockid: id of the block
         """
-        return self.dict_id
+        return self.storage_id
 
     def iterkeys(self):
         """

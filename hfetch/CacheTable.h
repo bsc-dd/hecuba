@@ -26,14 +26,13 @@
 class CacheTable {
 
 public:
-
-    CacheTable(uint32_t size, const std::string &table, const std::string &keyspace,
+    CacheTable(const std::string &table,const std::string &keyspace,
                const std::vector<std::string> &keyn,
-               const std::vector< std::vector<std::string>>  &columns_n ,
+               const std::vector<std::string> &columns_n,
                const std::string &token_range_pred,
                const std::vector<std::pair<int64_t, int64_t>> &tkns,
-               CassSession *session);
-
+               CassSession *session,
+               std::map<std::string,std::string> &config);
 
     ~CacheTable();
 
@@ -57,6 +56,7 @@ public:
     void put_crow(void* keys,void* values);
 
     const TupleRow *get_crow(TupleRow *py_keys);
+
     std::shared_ptr<void> get_crow(void* keys);
 
     /** TESTING METHODS **/
@@ -75,8 +75,8 @@ private:
     std::string cache_query;
 
     std::vector<std::string> key_names;
-    std::vector< std::vector<std::string>> columns_names;
-    std::vector< std::vector<std::string>> all_names;
+    std::vector<std::string> columns_names;
+    std::vector< std::string> all_names;
     std::vector<std::pair<int64_t, int64_t>> tokens;
 
 

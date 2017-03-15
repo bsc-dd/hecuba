@@ -8,8 +8,6 @@ from distutils.core import setup, Extension
 from distutils.command.build import build as _build
 import subprocess
 
-home_path =str(os.environ['HOME'])
-c11_flag = '-std=c++11'
 
 
 def cmake_build():
