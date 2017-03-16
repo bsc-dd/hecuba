@@ -5,7 +5,8 @@
 
 
 #define CHECK_CASS(msg) if(rc != CASS_OK){ \
-std::cerr<<msg<<std::endl; };\
+std::string error(cass_error_desc(rc));\
+std::cerr<<msg<<" "<<error<<std::endl; };\
 
 #include <cassert>
 #include <cstring>
@@ -41,9 +42,10 @@ class TupleRowFactory{
 public:
     TupleRowFactory(const CassTableMeta *table_meta, const std::vector< std::vector<std::string> > &col_names);
 
-    ~TupleRowFactory() {
-        metadata = NULL;
-    }
+    //Used to pass TupleRowFactory by reference
+    TupleRowFactory(){};
+
+    ~TupleRowFactory() {}
 
     TupleRow* make_tuple(PyObject* obj);
 
@@ -51,31 +53,27 @@ public:
 
     PyObject* tuple_as_py(const TupleRow* tuple) const;
 
-    void bind( CassStatement *statement,const  TupleRow *row,  u_int16_t offset) const ;
-
-    inline const CassValueType get_type(uint16_t pos) const {
-        return metadata.get()->at(pos).type;
-    }
+    void bind(CassStatement *statement,const  TupleRow *row,  u_int16_t offset) const;
 
     inline uint16_t n_elements(){
-        return (uint16_t) this->metadata.get()->size();
+        return (uint16_t) this->metadata->size();
     }
-    TupleRowFactory(){};
 
-    std::shared_ptr<std::vector<ColumnMeta>> get_metadata() const{
+    inline std::shared_ptr<std::vector<ColumnMeta>> get_metadata() const{
         return metadata;
 
     }
 
 private:
     std::shared_ptr<std::vector<ColumnMeta>> metadata;
+
     uint16_t total_bytes;
 
     uint16_t compute_size_of(const CassValueType VT) const;
 
     PyObject* c_to_py(const void *V, ColumnMeta &meta) const;
 
-    int py_to_c(PyObject *key, void* data, int32_t col) const;
+    int py_to_c(PyObject *obj, void* data, int32_t col) const;
 
     int cass_to_c(const CassValue *lhs,void * data, int16_t col) const;
 

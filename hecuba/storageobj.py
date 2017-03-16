@@ -1,4 +1,5 @@
 import re
+from collections import namedtuple
 from copy import copy
 from uuid import uuid1
 
@@ -8,6 +9,11 @@ from hecuba import config, log
 
 
 class StorageObj(object, IStorage):
+    args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name"]
+    args = namedtuple('StorageObjArgs', args_names)
+    _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage '
+                                                  '(storage_id, class_name, name, tokens,istorage_props) '
+                                                  ' VALUES (?,?,?,?,?)')
     """
     This class is where information will be stored in Hecuba.
     The information can be in memory, stored in a python dictionary or local variables, or saved in a
@@ -15,7 +21,7 @@ class StorageObj(object, IStorage):
     """
 
     @staticmethod
-    def build_remotely(storage_id):
+    def build_remotely(new_args):
         """
         Launches the StorageObj.__init__ from the api.getByID
         Args:
@@ -23,9 +29,10 @@ class StorageObj(object, IStorage):
         Returns:
             so: the created storageobj
         """
-        class_name = storage_id.class_name
+        log.debug("Building Storage object with %s", new_args)
+        class_name = new_args.class_name
         if class_name is 'StorageObj':
-            so = StorageObj(storage_id.name.encode('utf8'))
+            so = StorageObj(new_args.name.encode('utf8'), new_args.tokens, new_args.storage_id, new_args.istorage_props)
 
         else:
             last = 0
@@ -35,41 +42,67 @@ class StorageObj(object, IStorage):
             module = class_name[:last]
             cname = class_name[last + 1:]
             mod = __import__(module, globals(), locals(), [cname], 0)
-            so = getattr(mod, cname)(storage_id.name.encode('utf8'))
+            so = getattr(mod, cname)(new_args.name.encode('utf8'), new_args.tokens, new_args.storage_id, new_args.istorage_props)
 
         return so
 
     @staticmethod
     def _store_meta(storage_args):
-        class_name = '%s.%s' % (StorageDict.__class__.__module__, StorageDict.__class__.__name__)
-
+        log.debug("StorageObj: storing media %s", storage_args)
         try:
-            config.session.execute('INSERT INTO hecuba.istorage (storage_id, class_name, name)  VALUES (%s,%s,%s)',
-                                   [storage_args.storage_id, class_name, storage_args.name])
+            config.session.execute(StorageObj._prepared_store_meta,
+                                   [storage_args.storage_id, storage_args.class_name, storage_args.name,
+                                    storage_args.tokens, storage_args.istorage_props])
         except Exception as ex:
             print "Error creating the StorageDict metadata:", storage_args, ex
             raise ex
 
-    def __init__(self, name=None):
+    def __init__(self, name=None, tokens=None, storage_id=None, istorage_props=None):
         """
         Creates a new storageobj.
         Args:
             name (string): the name of the Cassandra Keyspace + table where information can be found
             storage_id (string):  an unique storageobj identifier
+            istorage_props dict(string,string) a map with the storage id of each contained istorage object.
         """
         log.debug("CREATED StorageObj(%s)", name)
+        self._is_persistent = False
         self._persistent_dicts = []
         self._attr_to_column = {}
 
         self._persistent_props = self._parse_comments(self.__doc__)
 
-        self._is_persistent = False
+        if tokens is None:
+            log.info('using all tokens')
+            tokens = map(lambda a: a.value, config.cluster.metadata.token_map.ring)
+            self._tokens = IStorage._discrete_token_ranges(tokens)
+        else:
+            self._tokens = tokens
+
+        class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
+        self._build_args = self.args(name, self._tokens, storage_id, istorage_props, class_name)
+
+        self.storage_id = storage_id
         dictionaries = filter(lambda (k, t): t['type'] == 'dict', self._persistent_props.iteritems())
         for table_name, per_dict in dictionaries:
-            pd = StorageDict(per_dict['primary_keys'], per_dict['columns'])
+            if name is None:
+                ksp = config.execution_name
+            else:
+                (ksp, _) = self._extract_ks_tab(name)
+
+            dict_name = "%s.%s" % (ksp, table_name)
+
+            if istorage_props is not None and dict_name in istorage_props:
+                args = config.session.execute(IStorage._select_istorage_meta, (istorage_props[dict_name],))[0]
+                # The internal objects must have the same father's tokens
+                args = args._replace(tokens=self._tokens)
+                log.debug("CREATING INTERNAL StorageDict with %s", args)
+                pd = StorageDict.build_remotely(args)
+            else:
+                pd = StorageDict(per_dict['primary_keys'], per_dict['columns'], tokens=self._tokens)
+
             setattr(self, table_name, pd)
             self._persistent_dicts.append(pd)
-
         if name is not None:
             self.make_persistent(name)
 
@@ -216,8 +249,22 @@ class StorageObj(object, IStorage):
             raise ex
 
         dictionaries = filter(lambda (k, t): t['type'] == 'dict', self._persistent_props.iteritems())
+        is_props = self._build_args.istorage_props
+        if is_props is None:
+            is_props = {}
+        changed = False
         for table_name, _ in dictionaries:
-            getattr(self, table_name).make_persistent(self._ksp + "." + table_name)
+            changed = True
+            pd = getattr(self, table_name)
+            name = self._ksp + "." + table_name
+            pd.make_persistent(name)
+            is_props[name] = pd.storage_id
+
+        if changed or self.storage_id is None:
+            if self.storage_id is None:
+                self.storage_id = str(uuid1())
+                self._build_args = self._build_args._replace(storage_id=self.storage_id, istorage_props=is_props)
+            self._store_meta(self._build_args)
 
         create_attrs = "CREATE TABLE IF NOT EXISTS %s.%s (" % (self._ksp, self._table) + \
                        "name text PRIMARY KEY, " + \
@@ -300,10 +347,10 @@ class StorageObj(object, IStorage):
             value: obtained value
         """
 
-        if key[0] != '_' and self._is_persistent:
+        if key[0] != '_' and key is not 'storage_id' and self._is_persistent:
             try:
                 query = "SELECT * FROM %s.%s WHERE name = '%s';" % (self._ksp, self._table, key)
-                log.debug("GETATTR: ", query)
+                log.debug("GETATTR: %s", query)
                 result = config.session.execute(query)
                 for row in result:
                     for rowkey, rowvar in vars(row).iteritems():
@@ -326,7 +373,7 @@ class StorageObj(object, IStorage):
                     val = tuple(val)
                 return val
         else:
-            return super(StorageObj, self).__getattribute__(key)
+            return object.__getattribute__(self, key)
 
     def __setattr__(self, key, value):
         """
@@ -380,11 +427,9 @@ class StorageObj(object, IStorage):
         """
         This function returns the ID of the StorageObj
         """
-        if self.storage_id is None:
-            self.storage_id = uuid1()
         return '%s_1' % self.storage_id
 
-    def split(self):
+    def old_split(self):
         """
           Depending on if it's persistent or not, this function returns the list of keys of the PersistentDict
           assigned to the StorageObj, or the list of keys

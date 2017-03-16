@@ -132,11 +132,12 @@ class Config:
                     "'replication_factor': %d }" % singleton.repl_factor)
                 singleton.session.execute(
                     'CREATE TABLE IF NOT EXISTS hecuba.istorage (storage_id text, '
-                    'class_name text,name text,'
+                    'class_name text,name text, '
+                    'istorage_props map<text,text>, '
                     'tokens list<frozen<tuple<bigint,bigint>>>, entry_point text, port int, '
                     'indexed_args list<text>, nonindexed_args list<text>, '
-                    'dict_pks list<frozen<tuple<text,text>>>,'
-                    'dict_columns list<frozen<tuple<text,text>>>,'
+                    'primary_keys list<frozen<tuple<text,text>>>,'
+                    'columns list<frozen<tuple<text,text>>>,'
                     'value_list list<text>, mem_filter text, '
                     'PRIMARY KEY(storage_id))')
 
@@ -161,14 +162,14 @@ class Config:
             singleton.number_of_blocks = int(os.environ['NUMBER_OF_BLOCKS'])
             log.info('NUMBER_OF_BLOCKS: %d', singleton.number_of_blocks)
         except KeyError:
-            singleton.number_of_blocks = 1024
+            singleton.number_of_blocks = 32
             log.warn('using default NUMBER_OF_BLOCKS: %d', singleton.number_of_blocks)
 
         try:
             singleton.min_number_of_tokens = int(os.environ['MIN_NUMBER_OF_TOKENS'])
             log.info('MIN_NUMBER_OF_TOKENS: %d', singleton.min_number_of_tokens)
         except KeyError:
-            singleton.min_number_of_tokens = 2048
+            singleton.min_number_of_tokens = 1024
             log.warn('using default MIN_NUMBER_OF_TOKENS: %d', singleton.min_number_of_tokens)
 
         try:
@@ -212,6 +213,20 @@ class Config:
         except KeyError:
             singleton.prefetch_size = 10000
             log.warn('using default PREFETCH_SIZE: %s', singleton.prefetch_size)
+
+        try:
+            singleton.write_buffer_size = int(os.environ['WRITE_BUFFER_SIZE'])
+            log.info('WRITE_BUFFER_SIZE: %s', singleton.write_buffer_size)
+        except KeyError:
+            singleton.write_buffer_size = 1000
+            log.warn('using default WRITE_BUFFER_SIZE: %s', singleton.write_buffer_size)
+
+        try:
+            singleton.write_callbacks_number = int(os.environ['WRITE_CALLBACKS_NUMBER'])
+            log.info('WRITE_CALLBACKS_NUMBER: %s', singleton.write_callbacks_number)
+        except KeyError:
+            singleton.write_callbacks_number = 16
+            log.warn('using default WRITE_CALLBACKS_NUMBER: %s', singleton.write_callbacks_number)
 
         try:
             query = "CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = { 'class' : \'%s\'," \

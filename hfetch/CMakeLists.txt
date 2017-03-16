@@ -11,6 +11,9 @@ SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fPIC")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall")
 set(ENABLE_PRECOMPILED_HEADERS OFF)
 
+#LINK DIRECTORIES discouraged, not working properly sometimes
+LINK_DIRECTORIES(${CMAKE_CURRENT_LIST_DIR}/_install/lib64 ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
+
 get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
 foreach(dir ${dirs})
     message(STATUS "Dir for includes='${dir}'")
@@ -33,6 +36,17 @@ if (NOT $ENV{CPLUS_INCLUDE_PATH}  STREQUAL "")
 endif (NOT $ENV{CPLUS_INCLUDE_PATH}  STREQUAL "")
 include_directories(${LIST_INCLUDES})
 
+
+
+#Add environment $C_INCLUDE_PATH include paths
+if (NOT $ENV{C_INCLUDE_PATH}  STREQUAL "")
+    string (REPLACE ":" " " INCLUDES $ENV{C_INCLUDE_PATH})
+    string (REPLACE "//" "/" INCLUDES ${INCLUDES})
+    string(REGEX MATCHALL "[^ ]+" LIST_INCLUDES ${INCLUDES})
+endif (NOT $ENV{C_INCLUDE_PATH}  STREQUAL "")
+include_directories(${LIST_INCLUDES})
+
+
 #Add environment $CPATH include paths
 if (NOT $ENV{CPATH}  STREQUAL "")
     string (REPLACE ":" " " INCLUDES $ENV{CPATH})
@@ -46,16 +60,13 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}/_install/include)
 
 
 
-
-
+#LD_LIBRARY being picked by the compiler (probably)
 if (NOT $ENV{LD_LIBRARY_PATH}  STREQUAL "")
     string (REPLACE ":" " " ENV_LIBS $ENV{LD_LIBRARY_PATH})
     string (REPLACE "//" "/" ENV_LIBS ${ENV_LIBS})
     string(REGEX MATCHALL "[^ ]+" LIST_LIBS ${ENV_LIBS})
 endif (NOT $ENV{LD_LIBRARY_PATH}  STREQUAL "")
 
-#LINK DIRECTORIES discouraged, not working properly sometimes
-#LINK_DIRECTORIES(${CMAKE_BINARY_DIR}/_install/lib ${LIST_LIBS})
 
 set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp )
 set(HEADER_FILES Prefetch.h HCache.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h metadata.h)
@@ -85,7 +96,7 @@ IF (NOT LIBUV)
             INSTALL_COMMAND make COMMAND make install
     )
     add_dependencies(hfetch LIBUV)
-    target_link_libraries(hfetch ${CMAKE_CURRENT_LIST_DIR}/_install/lib/libuv.so)
+    target_link_libraries(hfetch uv)
 else()
     message(STATUS "Using system's LIBUV: " ${LIBUV})
     set(ALL_LIBS ${ALL_LIBS} ${LIBUV})
@@ -146,7 +157,7 @@ endif()
 
 
 if (NOT TBB_FOUND)
-    message(Downloading Intel TBB)
+    message("Downloading Intel TBB")
     unset(TBB)
     set(build_prefix tbb_prefix)
     ExternalProject_Add(
@@ -185,7 +196,6 @@ if (NUMPY_FOUND)
 else()
     message("Numpy headers not found, Numpy arrays support won't be available")
 endif()
-
 
 include_directories(${PYTHON_INCLUDE_DIRS})
 set(ALL_LIBS ${ALL_LIBS} ${PYTHON_LIBRARIES})
