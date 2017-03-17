@@ -7,12 +7,13 @@
 #include <algorithm>
 #include <numpy/arrayobject.h>
 
+
 struct ColumnMeta {
     uint16_t position;
     CassValueType type;
     std::vector<std::string> info;
 
-    NPY_TYPES get_arr_type() {
+    const NPY_TYPES get_arr_type() const {
         if (info.size() != 3) {
             throw ModuleException("Numpy array metadata must consist of [name,type,dimensions]");//return NPY_NOTYPE;
         }
@@ -59,7 +60,7 @@ struct ColumnMeta {
         return NPY_NOTYPE;
     }
 
-    PyArray_Dims *get_arr_dims() {
+    PyArray_Dims *get_arr_dims() const {
         if (info.size() != 3)
             throw ModuleException("Numpy array metadata must consist of [name,type,dimensions]");
 
@@ -83,6 +84,24 @@ struct ColumnMeta {
 
         PyArray_Dims *dims = new PyArray_Dims{ptr,(int)n};
         return dims;
+    }
+};
+
+struct RowMetadata {
+    bool has_numpy = false;
+    std::shared_ptr<std::vector<ColumnMeta> > cols_meta;
+
+    RowMetadata(){}
+    RowMetadata( std::shared_ptr<std::vector<ColumnMeta> > metas) {
+        this->cols_meta=metas;
+    }
+
+    uint16_t size() const {
+        return (uint16_t) cols_meta->size();
+    }
+
+    const ColumnMeta at(uint16_t pos) const{
+        return cols_meta.get()->at(pos);
     }
 };
 

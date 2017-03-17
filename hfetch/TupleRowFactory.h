@@ -53,25 +53,29 @@ public:
 
     PyObject* tuple_as_py(const TupleRow* tuple) const;
 
+    std::vector<void*> split_array(PyObject *value);
+
+    std::vector<TupleRow*> make_tuples_with_npy(PyObject *obj);
+
     void bind(CassStatement *statement,const  TupleRow *row,  u_int16_t offset) const;
 
     inline uint16_t n_elements(){
-        return (uint16_t) this->metadata->size();
+        return this->metadata.size();
     }
 
-    inline std::shared_ptr<std::vector<ColumnMeta>> get_metadata() const{
+    inline RowMetadata get_metadata() const{
         return metadata;
 
     }
 
 private:
-    std::shared_ptr<std::vector<ColumnMeta>> metadata;
+    RowMetadata metadata;
 
     uint16_t total_bytes;
 
     uint16_t compute_size_of(const CassValueType VT) const;
 
-    PyObject* c_to_py(const void *V, ColumnMeta &meta) const;
+    PyObject* c_to_py(const void *V,const ColumnMeta &meta) const;
 
     int py_to_c(PyObject *obj, void* data, int32_t col) const;
 

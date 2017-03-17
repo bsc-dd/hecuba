@@ -127,7 +127,7 @@ void setupcassandra() {
 
 
 
-    fireandforget("CREATE TABLE test.bytes(partid int PRIMARY KEY, data blob);", test_session);
+    fireandforget("CREATE TABLE test.bytes(partid int PRIMARY KEY, data blob, data_pos int);", test_session);
 
 
     Py_Initialize();
@@ -224,9 +224,9 @@ TEST(TestingPocoCache, InsertGetDeleteOps) {
     ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,std::vector<std::string>{"ciao"}};
     ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,std::vector<std::string>{"ciaociao"}};
     std::vector<ColumnMeta> v = {cm1,cm2};
-    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
+   // std::shared_ptr<std::vector<ColumnMeta>> metas=;
 
-
+    RowMetadata metas = {std::make_shared<std::vector<ColumnMeta>>(v)};
 
     char *b2 = (char *) malloc(ss);
     memcpy(b2, &i, sizeof(uint16_t));
@@ -266,9 +266,9 @@ TEST(TestingPocoCache, ReplaceOp) {
     ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,std::vector<std::string>{"ciao"}};
     ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,std::vector<std::string>{"ciaociao"}};
     std::vector<ColumnMeta> v = {cm1,cm2};
-    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
 
 
+    RowMetadata metas = {std::make_shared<std::vector<ColumnMeta>>(v)};
 
     char *b2 = (char *) malloc(ss);
     memcpy(b2, &i, sizeof(uint16_t));
@@ -342,8 +342,8 @@ TEST(TupleTest, TupleOps) {
     ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,std::vector<std::string>{"ciao"}};
     ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,std::vector<std::string>{"ciaociao"}};
     std::vector<ColumnMeta> v = {cm1,cm2};
-    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
 
+    RowMetadata metas = {std::make_shared<std::vector<ColumnMeta>>(v)};
 
 
     TupleRow t1 = TupleRow(metas,sizeof(uint16_t) * 2, buffer);
@@ -355,8 +355,8 @@ TEST(TupleTest, TupleOps) {
 
     cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,std::vector<std::string>{"ciaociao"}};
     std::vector<ColumnMeta> v2 = {cm1,cm2};
-    std::shared_ptr<std::vector<ColumnMeta>> metas2=std::make_shared<std::vector<ColumnMeta>>(v2);
 
+    RowMetadata metas2 = {std::make_shared<std::vector<ColumnMeta>>(v2)};
 
     char *buffer3 = (char *) malloc(size * 2);
     memcpy(buffer3, &i, size);
@@ -561,7 +561,7 @@ TEST(TestingPrefetch, GetNextC) {
     ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,std::vector<std::string>{"partid"}};
     ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_FLOAT,std::vector<std::string>{"time"}};
     std::vector<ColumnMeta> v = {cm1,cm2};
-    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
+    RowMetadata metas = {std::make_shared<std::vector<ColumnMeta>>(v)};
 
     TupleRow *t = new TupleRow(metas, sizeof(int) + sizeof(float), buffer);
 

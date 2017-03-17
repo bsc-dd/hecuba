@@ -79,7 +79,6 @@ private:
     TupleRowFactory *values_factory;
     TupleRowFactory *items_factory;
 
-
     Writer *writer;
 
 };

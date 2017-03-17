@@ -16,11 +16,11 @@
 class TupleRow {
 private:
     std::shared_ptr<const void> payload;
-    std::shared_ptr<std::vector<ColumnMeta>> metadata;
+    RowMetadata metadata;
     uint16_t payload_size;
 public:
 
-    TupleRow(const std::shared_ptr<std::vector<ColumnMeta>> metas, uint16_t payload_size,void *buffer);
+    TupleRow(const RowMetadata& metas, uint16_t payload_size,void *buffer);
 
     TupleRow(const TupleRow &t) ;
 
@@ -36,12 +36,12 @@ public:
 
 
     inline const uint16_t n_elem() const {
-        return (uint16_t) metadata.get()->size();
+        return (uint16_t) metadata.size();
     }
 
-    const void* get_element(int32_t position) const {
+    const void* get_element(uint16_t position) const {
         if (position < 0 || payload.get() == 0) return 0;
-        return (const char *) payload.get() + metadata.get()->at(position).position;
+        return (const char *) payload.get() + metadata.at(position).position;
     }
 
     friend bool operator<(const TupleRow &lhs, const TupleRow &rhs);

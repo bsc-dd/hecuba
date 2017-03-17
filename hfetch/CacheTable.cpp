@@ -82,8 +82,10 @@ const std::vector<std::pair<int64_t, int64_t>> &tkns,
     }
 
     select_values = columns_names[0][0];
+    if (columns_names[0].size()>1) select_values +=  "," + columns_names[0][0]+"_pos";
     for (uint16_t i = 1; i < columns_names.size(); i++) {
         select_values += "," + columns_names[i][0];
+        if (columns_names[i].size()>1) select_values +=  "," + columns_names[i][0]+"_pos";
     }
     select_values+=" ";
     select_keys+=" ";
@@ -196,27 +198,50 @@ Prefetch* CacheTable::get_items_iter(uint32_t prefetch_size) {
  */
 
 void CacheTable::put_row(PyObject *key, PyObject *value) {
-    TupleRow *k = keys_factory->make_tuple(key);
-    const TupleRow *v = values_factory->make_tuple(value);
-    //Inserts if not present, otherwise replaces
-    this->myCache->update(*k, v);
-    this->writer->write_to_cassandra(k,v);
+
+    if (!values_factory->get_metadata().has_numpy) {
+            TupleRow *k = keys_factory->make_tuple(key);
+            const TupleRow *v = values_factory->make_tuple(value);
+            //Inserts if not present, otherwise replaces
+            this->myCache->update(*k, v);
+            this->writer->write_to_cassandra(k,v);
+    }
+    else {
+
+        TupleRow *k = keys_factory->make_tuple(key);
+        std::vector<TupleRow*> value_list = values_factory->make_tuples_with_npy(value);
+        this->myCache->update(*k, const_cast<const TupleRow*>(value_list[0]));
+        for (TupleRow *T:value_list) {
+            this->writer->write_to_cassandra(k,T);
+        }
+    }
 }
 
 
 PyObject *CacheTable::get_row(PyObject *py_keys) {
 
-    TupleRow *keys = keys_factory->make_tuple(py_keys);
-    const TupleRow *values = get_crow(keys);
-    delete(keys);
+    if (!values_factory->get_metadata().has_numpy) {
+            TupleRow * keys = keys_factory->make_tuple(py_keys);
+            const TupleRow *values = get_crow(keys);
+            delete(keys);
 
-    if(values==NULL){
-        PyErr_SetString(PyExc_KeyError,"Get row: key not found");
-        return NULL;
+            if (values==NULL){
+                PyErr_SetString(PyExc_KeyError, "Get row: key not found");
+                return NULL;
+            }
+            return values_factory->tuple_as_py(values);
     }
+    else {
 
-    PyObject* temp = values_factory->tuple_as_py(values);
-    return temp;
+/*
+        TupleRow * keys = keys_factory->make_tuple_numpy(py_keys);
+        PyObject arr;
+        for key in keys:
+            merge_numpy(arr,get_crow(keys));
+        delete[](keys);
+        return arr;
+    */}
+Py_RETURN_NONE;
 }
 
 const TupleRow *CacheTable::get_crow(TupleRow *keys) {
