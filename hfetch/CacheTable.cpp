@@ -144,13 +144,30 @@ const std::vector<std::pair<int64_t, int64_t>> &tkns,
     cass_schema_meta_free(schema_meta);
     std::string write_query = "INSERT INTO "+keyspace+"."+table+"(";
 
+    //this can be done in one for loop TODO
     write_query+=all_names[0][0];
+    if (all_names[0].size()>1) {
+        //col is numpy
+        write_query+=","+all_names[0][0]+"_pos";
+    }
     for (uint16_t i = 1;i<all_names.size(); ++i) {
         write_query+=","+all_names[i][0];
+        if (all_names[i].size()>1) {
+            //col is numpy
+            write_query+=","+all_names[i][0]+"_pos";
+        }
     }
     write_query+=") VALUES (?";
+    if (all_names[0].size()>1) {
+        //col is numpy
+        write_query+=",?";
+    }
     for (uint16_t i = 1; i<all_names.size();++i) {
         write_query+=",?";
+        if (all_names[i].size()>1) {
+            //col is numpy
+            write_query+=",?";
+        }
     }
     write_query+=");";
 
@@ -212,7 +229,8 @@ void CacheTable::put_row(PyObject *key, PyObject *value) {
         std::vector<TupleRow*> value_list = values_factory->make_tuples_with_npy(value);
         this->myCache->update(*k, const_cast<const TupleRow*>(value_list[0]));
         for (TupleRow *T:value_list) {
-            this->writer->write_to_cassandra(k,T);
+            TupleRow *key_copy = new TupleRow(k);
+            this->writer->write_to_cassandra(key_copy,T);
         }
     }
 }

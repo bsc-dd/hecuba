@@ -209,6 +209,7 @@ std::vector<TupleRow *> TupleRowFactory::make_tuples_with_npy(PyObject *obj) {
             blocks = split_array(PyList_GetItem(obj, i));
     }
 
+
     //build the first tuple with the first block and other information
     char *buffer = (char *) malloc(total_bytes);
     for (uint16_t i = 0; i < PyList_Size(obj); ++i) {
@@ -224,7 +225,7 @@ std::vector<TupleRow *> TupleRowFactory::make_tuples_with_npy(PyObject *obj) {
         if (metadata.at(i).get_arr_type() == NPY_NOTYPE)
             py_to_c(obj_to_conver, buffer + metadata.at(i).position, i);
         else
-            memcpy(buffer + metadata.at(i).position, &blocks[0], sizeof(void *));
+            memcpy(buffer + metadata.at(i).position, blocks[0], sizeof(void *));
     }
 
 
@@ -235,17 +236,16 @@ std::vector<TupleRow *> TupleRowFactory::make_tuples_with_npy(PyObject *obj) {
     //build all other tuplesrows
 
     for (uint16_t nb = 1; nb < blocks.size(); ++nb) {
-        char *buffer = (char *) malloc(total_bytes);
-        for (uint16_t i; i < metadata.size(); ++i) {
+        buffer = (char *) malloc(total_bytes);
+        for (uint16_t i = 0; i < metadata.size(); ++i) {
             if (metadata.at(i).get_arr_type() != NPY_NOTYPE)
-                memcpy(buffer + metadata.at(i).position, &blocks[nb], sizeof(void *));
+                memcpy(buffer + metadata.at(i).position, blocks[nb], sizeof(void *));
             else
                 memset(buffer + metadata.at(i).position, 0, sizeof(void *));
         }
         tuple_blocks[nb] = new TupleRow(metadata, total_bytes, buffer);
-     //   free(blocks[nb]);
+        //free(&blocks[nb]);
     }
-
     return tuple_blocks;
 }
 
@@ -567,14 +567,10 @@ PyObject *TupleRowFactory::tuple_as_py(const TupleRow *tuple) const {
 
 
 //bytes
-#define maxarray_size 16000000
+#define maxarray_size 6000000
 
 std::vector<void *> TupleRowFactory::split_array(PyObject *py_array) {
-
-
-    //we have an array
-    //get bytes
-    //split payload
+    //we have an array so we extract the bytes
     ssize_t nbytes_s = 0;
     void *data = NULL;
     int ok;
@@ -594,33 +590,40 @@ std::vector<void *> TupleRowFactory::split_array(PyObject *py_array) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
     }
 
+
+    //then we split the payload
     uint64_t nbytes = (uint64_t) nbytes_s;
-    uint32_t blocks = (uint32_t) std::trunc(nbytes / maxarray_size);
-    if (nbytes % maxarray_size != 0) ++blocks;
-    uint64_t block_size = nbytes / blocks;
+    uint32_t nblocks = (uint32_t) std::trunc(nbytes / maxarray_size); //number of subarrays
+    if (nbytes % maxarray_size != 0) ++nblocks; //we don't want to lose data
+    uint64_t block_size = std::min(nbytes,(uint64_t)maxarray_size);//bytes per block
 
 
-    std::cout << "WE COMPUTED NBYTES: " << nbytes << " BLOCKS: " << blocks << " block_size "<< block_size << std::endl;
-    std::vector<void *> blocks_list(blocks);
+    std::cout << "WE COMPUTED NBYTES: " << nbytes << " BLOCKS: " << nblocks << " block_size "<< block_size << std::endl;
+    std::vector<void *> blocks_list(nblocks);
 
-    //case n
-    for (uint32_t block_id = 0; block_id < blocks; ++block_id) {
-        uint64_t copy_size = block_size;
-        if (block_id==blocks-1) copy_size= nbytes%maxarray_size;
 
-        char *p = (char*) malloc(copy_size+sizeof(uint64_t)+sizeof(uint32_t));
+    for (uint32_t block_id = 0; block_id < nblocks; ++block_id) {
+        if (block_id==nblocks-1) block_size= nbytes-((nblocks-1)*block_size);
 
+        char* block = (char*)  malloc(block_size+sizeof(uint64_t)+sizeof(uint32_t));
+
+        //copy address of block
         blocks_list[block_id] = malloc(sizeof(void*));
-        memcpy(blocks_list[block_id],p,sizeof(void*));
+        memcpy(blocks_list[block_id],&block,sizeof(void*));
 
-        memcpy(p, &copy_size, sizeof(uint64_t));
-        p += sizeof(uint64_t);
-        memcpy(p, data, copy_size);
-        p+= copy_size;
-        memcpy(p, &block_id, sizeof(uint32_t));
+        //copy number of bytes
+        memcpy(block, &block_size, sizeof(uint64_t));
+        block += sizeof(uint64_t);
 
-        std::cout << "Block " <<  block_id << " has size " << *(uint64_t *) (p- copy_size-sizeof(uint64_t)) <<  " AND ADDR " <<  (void*) blocks_list[block_id] << std::endl;
-        //bytes are on block_bytes
+        //copy bytes
+        memcpy(block, data, block_size);
+        block+= block_size;
+
+        //copy number of block
+        memcpy(block, &block_id, sizeof(uint32_t));
+
+        std::cout << "Block " << *reinterpret_cast<uint32_t *>(block) << " has size " << *(uint64_t *) (block- block_size-sizeof(uint64_t)) \
+        <<  " AND ADDR " <<  *reinterpret_cast<void**>(blocks_list[block_id]) << std::endl;
     }
     return blocks_list;
 }
@@ -822,20 +825,37 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                     cass_statement_bind_bytes(statement, bind_pos, d + sizeof(uint32_t), nbytes);
                 }
                 else {
+                    //key is a ptr to the bytearray
+std::cout << "HERE AGAIN " << (void*) *(const char**)key << std::endl;
+                    const unsigned char *byte_array = *(const unsigned char**)key;
+                    uint64_t * num_bytes = (uint64_t*)byte_array;
+                    const unsigned char* bytes = byte_array + sizeof(uint64_t);
+                    //uint32_t *block_id = (uint32_t*) bytes+*num_bytes;
+                    cass_uint32_t *block_id = (uint32_t*) (byte_array+sizeof(uint64_t)+*num_bytes);
+                    std::cout << "byte_array addr: " << (void*) byte_array << " and num bytes " << *num_bytes << " and id block: " << *block_id << " bind pos  "<< bind_pos << std::endl;
+                    cass_statement_bind_bytes(statement, bind_pos, bytes, *num_bytes);
+                    ++bind_pos;
+                    CassError rc = cass_statement_bind_int32(statement, bind_pos,  *block_id);
+                    if (rc!=CASS_OK) {
+                        std::cout << cass_error_desc(rc) << std::endl;
+
+                    }
+                    std::cout << "BIND SUCCESSFUL!" << std::endl;
+/*
                     int64_t *addr = (int64_t *) key;
                     const unsigned char *d = reinterpret_cast<char unsigned *>(*addr);
                     std::cout << "ADDR is " << (void*) d << std::endl;
                     uint64_t nbytes = *reinterpret_cast<uint64_t *>(*addr);
-                    std::cout << "nbytes is " << nbytes << std::endl;
+                    std::cout << reinterpret_cast<uint64_t *>(*addr) << " has nbytes num: " << nbytes << std::endl;
                     char *temp = reinterpret_cast<char *>(*addr);
-                    temp+=nbytes;
+                    temp+=sizeof(uint64_t)+nbytes;
                     std::cout << "ADDR block_num is " << (void*) temp << std::endl;
                     uint32_t block_num = *reinterpret_cast<uint32_t *>(temp);
                     std::cout << "block_num is " << block_num << std::endl;
                     cass_statement_bind_bytes(statement, bind_pos, d + sizeof(uint64_t), nbytes);
                     ++bind_pos;
                     cass_statement_bind_uint32(statement, bind_pos,block_num);
-
+*/
 
                 }
                 break;
