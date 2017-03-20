@@ -4,9 +4,11 @@
 
 ### Software requisites:
 
-+ GCC 4.8 & up. GCC 6 not supported. Tested with 4.8.2, 4.8.5, 4.9.1.
-+ CMake 3.3 & up. Tested with 3.5.0, 3.6.x, 3.7.1.
-+ Python 2, starting from 2.7.5. Tested with Python 2.7.5 to 2.7.13. Python 3 not supported.
++ GCC 4.8 & up. GCC 6 not supported. Tested with versions 4.8.2, 4.8.5, 4.9.1.
++ CMake 3.3 & up. Tested with versions 3.5.0, 3.6.x, 3.7.1.
++ Libtools. Tested with versions 2.4.2
++ Python 2, starting from 2.7.5. Tested with versions 2.7.5 to 2.7.13. Python 3 not supported.
++ Python module: distutils
 
 ### Setting up the environment:
 
