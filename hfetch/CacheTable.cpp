@@ -82,10 +82,8 @@ const std::vector<std::pair<int64_t, int64_t>> &tkns,
     }
 
     select_values = columns_names[0][0];
-    if (columns_names[0].size()>1) select_values +=  "," + columns_names[0][0]+"_pos";
     for (uint16_t i = 1; i < columns_names.size(); i++) {
         select_values += "," + columns_names[i][0];
-        if (columns_names[i].size()>1) select_values +=  "," + columns_names[i][0]+"_pos";
     }
     select_values+=" ";
     select_keys+=" ";
@@ -208,10 +206,9 @@ void CacheTable::put_row(PyObject *key, PyObject *value) {
             this->writer->write_to_cassandra(k,v);
     }
     else {
-
         TupleRow *k = keys_factory->make_tuple(key);
         std::vector<TupleRow*> value_list = values_factory->make_tuples_with_npy(value);
-        this->myCache->update(*k, const_cast<const TupleRow*>(value_list[0]));
+        //this->myCache->update(*k, const_cast<const TupleRow*>(value_list[0]));
         for (TupleRow *T:value_list) {
             TupleRow *key_copy = new TupleRow(k);
             this->writer->write_to_cassandra(key_copy,T);
@@ -268,6 +265,7 @@ std::vector <const TupleRow*>CacheTable::get_crow(TupleRow *keys) {
     cass_future_free(query_future);
     cass_statement_free(statement);
     if (0 == cass_result_row_count(result)) {
+
         return std::vector<const TupleRow*>(1,NULL);
     }
     uint32_t counter = 0;

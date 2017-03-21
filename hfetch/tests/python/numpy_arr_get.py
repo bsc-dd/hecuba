@@ -14,6 +14,9 @@ bigarr.itemset(0,14.0)
 import time
 t1 = time.time()
 a.put_row([300],[bigarr.astype('d')])
+
+result = a.get_row([300])[0]
+print "And the result is... ", result.astype('d')
 print 'Elapsed time', time.time()-t1
 print '2D, elem dimension: ', elem_row
     
