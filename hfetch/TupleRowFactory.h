@@ -81,7 +81,7 @@ private:
 
     int py_to_c(PyObject *obj, void* data, int32_t col) const;
 
-    int cass_to_c(CassIterator* it,void * data, int16_t col) const;
+    int cass_to_c(const CassValue *lhs,void * data, int16_t col) const;
 
 };
 

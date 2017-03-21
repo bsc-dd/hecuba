@@ -143,23 +143,17 @@ const std::vector<std::pair<int64_t, int64_t>> &tkns,
     }
     cass_schema_meta_free(schema_meta);
     std::string write_query = "INSERT INTO "+keyspace+"."+table+"(";
-    std::string write_query_values = ") VALUES (?";
 
+    //this can be done in one for loop TODO
     write_query+=all_names[0][0];
-    if (all_names[0].size()>1) {
-        //col is numpy
-        write_query+=","+all_names[0][0]+"_pos";
-        write_query_values+=",?";
-    }
     for (uint16_t i = 1;i<all_names.size(); ++i) {
         write_query+=","+all_names[i][0];
-        if (all_names[i].size()>1) {
-            //col is numpy
-            write_query+=","+all_names[i][0]+"_pos";
-            write_query_values+=",?";
-        }
     }
-    write_query+=write_query_values+");";
+    write_query+=") VALUES (?";
+    for (uint16_t i = 1; i<all_names.size();++i) {
+        write_query+=",?";
+    }
+    write_query+=");";
 
     writer = new Writer((uint16_t )writer_buffer_size,(uint16_t )writer_num_callbacks,*keys_factory,*values_factory,session,write_query);
 };
@@ -268,13 +262,13 @@ std::vector <const TupleRow*>CacheTable::get_crow(TupleRow *keys) {
         printf("%s\n", cass_error_desc(rc));
         cass_future_free(query_future);
         cass_statement_free(statement);
-        return NULL;
+        return std::vector<const TupleRow*>(1,NULL);
     }
 
     cass_future_free(query_future);
     cass_statement_free(statement);
     if (0 == cass_result_row_count(result)) {
-        return NULL;
+        return std::vector<const TupleRow*>(1,NULL);
     }
     uint32_t counter = 0;
     std::vector<const TupleRow*> values(cass_result_row_count(result));

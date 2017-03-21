@@ -9,7 +9,7 @@ prepared = session.prepare('SELECT * FROM test.arrays;')
 result = session.execute(prepared)
 list = [(a.image_block_pos,a.image_block) for a in result ]
 text=''
-for i in xrange(0,6):
+for i in xrange(0,168):
     text=text+list[i][1]
     
 print 'bytes length',len(text)
