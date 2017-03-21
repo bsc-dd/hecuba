@@ -222,26 +222,39 @@ std::vector<TupleRow *> TupleRowFactory::make_tuples_with_npy(PyObject *obj) {
             throw ModuleException("TupleRowFactory: Make tuple from PyObj: Writing on byte " +
                                   std::to_string(metadata.at(i).position) + " from a total of " +
                                   std::to_string(total_bytes));
-        if (metadata.at(i).get_arr_type() == NPY_NOTYPE)
+        if (metadata.at(i).get_arr_type() == NPY_NOTYPE) {
+            //average column
             py_to_c(obj_to_conver, buffer + metadata.at(i).position, i);
-        else
+        }
+        else {
+            //numpy
             memcpy(buffer + metadata.at(i).position, blocks[0], sizeof(void *));
+            ++i;
+            if (i>=metadata.size())
+                throw ModuleException("Make tuple with npy: wrong number of elements, not corresponding with metadata");
+            uint32_t block_id= 0;
+            if (metadata.at(i).type!=CASS_VALUE_TYPE_INT)
+                throw ModuleException("Expected uint32 on building the first subarray of numpy, found cass type: "+std::to_string(metadata.at(i).type));
+            memcpy(buffer + metadata.at(i).position,&block_id, sizeof(uint32_t));
+        }
     }
-
 
     std::vector<TupleRow *> tuple_blocks(blocks.size());
     tuple_blocks[0] = new TupleRow(metadata, total_bytes, buffer);
    // free(blocks[0]);
 
     //build all other tuplesrows
-
     for (uint16_t nb = 1; nb < blocks.size(); ++nb) {
         buffer = (char *) malloc(total_bytes);
         for (uint16_t i = 0; i < metadata.size(); ++i) {
-            if (metadata.at(i).get_arr_type() != NPY_NOTYPE)
+            if (metadata.at(i).get_arr_type() != NPY_NOTYPE) {
                 memcpy(buffer + metadata.at(i).position, blocks[nb], sizeof(void *));
-            else
+                ++i;
+                memcpy(buffer + metadata.at(i).position, &nb, sizeof(uint32_t));
+            }
+            else {
                 memset(buffer + metadata.at(i).position, 0, sizeof(void *));
+            }
         }
         tuple_blocks[nb] = new TupleRow(metadata, total_bytes, buffer);
         //free(&blocks[nb]);
@@ -564,10 +577,8 @@ PyObject *TupleRowFactory::tuple_as_py(const TupleRow *tuple) const {
 }
 
 
-
-
 //bytes
-#define maxarray_size 6000000
+#define maxarray_size 200000
 
 std::vector<void *> TupleRowFactory::split_array(PyObject *py_array) {
     //we have an array so we extract the bytes
@@ -605,7 +616,7 @@ std::vector<void *> TupleRowFactory::split_array(PyObject *py_array) {
     for (uint32_t block_id = 0; block_id < nblocks; ++block_id) {
         if (block_id==nblocks-1) block_size= nbytes-((nblocks-1)*block_size);
 
-        char* block = (char*)  malloc(block_size+sizeof(uint64_t)+sizeof(uint32_t));
+        char* block = (char*)  malloc(block_size+sizeof(uint64_t));
 
         //copy address of block
         blocks_list[block_id] = malloc(sizeof(void*));
@@ -617,13 +628,10 @@ std::vector<void *> TupleRowFactory::split_array(PyObject *py_array) {
 
         //copy bytes
         memcpy(block, data, block_size);
-        block+= block_size;
 
-        //copy number of block
-        memcpy(block, &block_id, sizeof(uint32_t));
-
-        std::cout << "Block " << *reinterpret_cast<uint32_t *>(block) << " has size " << *(uint64_t *) (block- block_size-sizeof(uint64_t)) \
-        <<  " AND ADDR " <<  *reinterpret_cast<void**>(blocks_list[block_id]) << std::endl;
+        std::cout << "Block " << block_id << std::endl;
+        std::cout << "Size " << *(uint64_t *) (block-sizeof(uint64_t)) << std::endl;
+        std::cout <<  " AND ADDR " <<  *reinterpret_cast<void**>(blocks_list[block_id]) << std::endl;
     }
     return blocks_list;
 }
@@ -826,37 +834,14 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                 }
                 else {
                     //key is a ptr to the bytearray
-std::cout << "HERE AGAIN " << (void*) *(const char**)key << std::endl;
+                    std::cout << "HERE AGAIN " << (void*) *(const char**)key << std::endl;
                     const unsigned char *byte_array = *(const unsigned char**)key;
                     uint64_t * num_bytes = (uint64_t*)byte_array;
                     const unsigned char* bytes = byte_array + sizeof(uint64_t);
-                    //uint32_t *block_id = (uint32_t*) bytes+*num_bytes;
-                    cass_uint32_t *block_id = (uint32_t*) (byte_array+sizeof(uint64_t)+*num_bytes);
-                    std::cout << "byte_array addr: " << (void*) byte_array << " and num bytes " << *num_bytes << " and id block: " << *block_id << " bind pos  "<< bind_pos << std::endl;
+
+                    std::cout << "byte_array addr: " << (void*) byte_array << " and num bytes " << *num_bytes << " and id block: " << " bind pos  "<< bind_pos << std::endl;
                     cass_statement_bind_bytes(statement, bind_pos, bytes, *num_bytes);
-                    ++bind_pos;
-                    CassError rc = cass_statement_bind_int32(statement, bind_pos,  *block_id);
-                    if (rc!=CASS_OK) {
-                        std::cout << cass_error_desc(rc) << std::endl;
-
-                    }
                     std::cout << "BIND SUCCESSFUL!" << std::endl;
-/*
-                    int64_t *addr = (int64_t *) key;
-                    const unsigned char *d = reinterpret_cast<char unsigned *>(*addr);
-                    std::cout << "ADDR is " << (void*) d << std::endl;
-                    uint64_t nbytes = *reinterpret_cast<uint64_t *>(*addr);
-                    std::cout << reinterpret_cast<uint64_t *>(*addr) << " has nbytes num: " << nbytes << std::endl;
-                    char *temp = reinterpret_cast<char *>(*addr);
-                    temp+=sizeof(uint64_t)+nbytes;
-                    std::cout << "ADDR block_num is " << (void*) temp << std::endl;
-                    uint32_t block_num = *reinterpret_cast<uint32_t *>(temp);
-                    std::cout << "block_num is " << block_num << std::endl;
-                    cass_statement_bind_bytes(statement, bind_pos, d + sizeof(uint64_t), nbytes);
-                    ++bind_pos;
-                    cass_statement_bind_uint32(statement, bind_pos,block_num);
-*/
-
                 }
                 break;
             }

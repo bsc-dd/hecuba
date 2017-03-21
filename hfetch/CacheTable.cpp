@@ -146,28 +146,12 @@ const std::vector<std::pair<int64_t, int64_t>> &tkns,
 
     //this can be done in one for loop TODO
     write_query+=all_names[0][0];
-    if (all_names[0].size()>1) {
-        //col is numpy
-        write_query+=","+all_names[0][0]+"_pos";
-    }
     for (uint16_t i = 1;i<all_names.size(); ++i) {
         write_query+=","+all_names[i][0];
-        if (all_names[i].size()>1) {
-            //col is numpy
-            write_query+=","+all_names[i][0]+"_pos";
-        }
     }
     write_query+=") VALUES (?";
-    if (all_names[0].size()>1) {
-        //col is numpy
-        write_query+=",?";
-    }
     for (uint16_t i = 1; i<all_names.size();++i) {
         write_query+=",?";
-        if (all_names[i].size()>1) {
-            //col is numpy
-            write_query+=",?";
-        }
     }
     write_query+=");";
 
