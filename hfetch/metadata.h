@@ -68,8 +68,7 @@ struct ColumnMeta {
 
         size_t n = std::count(temp.begin(), temp.end(), 'x') + 1;
 
-
-        npy_intp ptr[n];
+        npy_intp* ptr = new npy_intp[n];//[n];
 
         size_t pos = 0;
         uint16_t i = 0;
@@ -81,7 +80,6 @@ struct ColumnMeta {
             ++i;
         }
         ptr[i]=std::atoi(temp.c_str());
-
         PyArray_Dims *dims = new PyArray_Dims{ptr,(int)n};
         return dims;
     }
