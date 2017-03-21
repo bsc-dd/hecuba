@@ -143,33 +143,23 @@ const std::vector<std::pair<int64_t, int64_t>> &tkns,
     }
     cass_schema_meta_free(schema_meta);
     std::string write_query = "INSERT INTO "+keyspace+"."+table+"(";
+    std::string write_query_values = ") VALUES (?";
 
-    //this can be done in one for loop TODO
     write_query+=all_names[0][0];
     if (all_names[0].size()>1) {
         //col is numpy
         write_query+=","+all_names[0][0]+"_pos";
+        write_query_values+=",?";
     }
     for (uint16_t i = 1;i<all_names.size(); ++i) {
         write_query+=","+all_names[i][0];
         if (all_names[i].size()>1) {
             //col is numpy
             write_query+=","+all_names[i][0]+"_pos";
+            write_query_values+=",?";
         }
     }
-    write_query+=") VALUES (?";
-    if (all_names[0].size()>1) {
-        //col is numpy
-        write_query+=",?";
-    }
-    for (uint16_t i = 1; i<all_names.size();++i) {
-        write_query+=",?";
-        if (all_names[i].size()>1) {
-            //col is numpy
-            write_query+=",?";
-        }
-    }
-    write_query+=");";
+    write_query+=write_query_values+");";
 
     writer = new Writer((uint16_t )writer_buffer_size,(uint16_t )writer_num_callbacks,*keys_factory,*values_factory,session,write_query);
 };
@@ -240,9 +230,8 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
 
     if (!values_factory->get_metadata().has_numpy) {
             TupleRow * keys = keys_factory->make_tuple(py_keys);
-            const TupleRow *values = get_crow(keys);
+            const TupleRow *values = get_crow(keys)[0];
             delete(keys);
-
             if (values==NULL){
                 PyErr_SetString(PyExc_KeyError, "Get row: key not found");
                 return NULL;
@@ -250,23 +239,21 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
             return values_factory->tuple_as_py(values);
     }
     else {
-
-/*
-        TupleRow * keys = keys_factory->make_tuple_numpy(py_keys);
-        PyObject arr;
-        for key in keys:
-            merge_numpy(arr,get_crow(keys));
-        delete[](keys);
-        return arr;
-    */}
-Py_RETURN_NONE;
+        TupleRow* keys = keys_factory->make_tuple(py_keys);
+        PyObject* array;
+        std::vector<const TupleRow*> blocks;
+        blocks = this->get_crow(keys);
+        delete(keys);
+        array = values_factory->merge_blocks_as_nparray(blocks);
+        return array;
+    }
 }
 
-const TupleRow *CacheTable::get_crow(TupleRow *keys) {
+std::vector <const TupleRow*>CacheTable::get_crow(TupleRow *keys) {
 
     Poco::SharedPtr<TupleRow> ptrElem = myCache->get(*keys);
     if (!ptrElem.isNull()) {
-        return ptrElem.get();
+        return std::vector<const TupleRow*>(1,ptrElem.get());
     }
     /* Not present on cache, a query is performed */
     CassStatement *statement = cass_prepared_bind(prepared_query);
@@ -289,13 +276,19 @@ const TupleRow *CacheTable::get_crow(TupleRow *keys) {
     if (0 == cass_result_row_count(result)) {
         return NULL;
     }
-
-    const CassRow *row = cass_result_first_row(result);
+    uint32_t counter = 0;
+    std::vector<const TupleRow*> values(cass_result_row_count(result));
+    const CassRow* row;
+    CassIterator *it = cass_iterator_from_result(result);
+        while (cass_iterator_next(it)) {
+            row = cass_iterator_get_row(it);
+            values[counter] = values_factory->make_tuple(row);
+            ++counter;
+    }
+    cass_iterator_free(it);
 
     //Store result to cache
-    const TupleRow *values = values_factory->make_tuple(row);
-
-    myCache->add(*keys, values);
+    if (counter==1) myCache->add(*keys, values[0]);
     cass_result_free(result);
     return values;
 }

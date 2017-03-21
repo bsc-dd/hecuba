@@ -55,6 +55,8 @@ public:
 
     std::vector<void*> split_array(PyObject *value);
 
+    PyObject* merge_blocks_as_nparray(std::vector<const TupleRow*>& blocks);
+
     std::vector<TupleRow*> make_tuples_with_npy(PyObject *obj);
 
     void bind(CassStatement *statement,const  TupleRow *row,  u_int16_t offset) const;
@@ -79,7 +81,7 @@ private:
 
     int py_to_c(PyObject *obj, void* data, int32_t col) const;
 
-    int cass_to_c(const CassValue *lhs,void * data, int16_t col) const;
+    int cass_to_c(CassIterator* it,void * data, int16_t col) const;
 
 };
 

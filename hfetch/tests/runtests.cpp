@@ -425,7 +425,7 @@ TEST(TestingCacheTable, GetRowC) {
     TupleRow *t = new TupleRow(CTable->_test_get_keys_factory()->get_metadata(), sizeof(int) + sizeof(float), buffer);
 
 
-    const TupleRow *result = CTable->get_crow(t);
+    const TupleRow *result = CTable->get_crow(t)[0];
 
     EXPECT_FALSE(result == NULL);
 
@@ -508,7 +508,7 @@ TEST(TestingCacheTable, GetRowStringC) {
 
     TupleRow *t = new TupleRow(T._test_get_keys_factory()->get_metadata(), sizeof(int) + sizeof(float), buffer);
 
-    const TupleRow *result = T.get_crow(t);
+    const TupleRow *result = T.get_crow(t)[0];
 
     EXPECT_FALSE(result == NULL);
 

@@ -168,7 +168,7 @@ TupleRow *TupleRowFactory::make_tuple(const CassRow *row) {
         if (i >= metadata.size())
             throw ModuleException("TupleRowFactory: Make tuple from CassRow: Access metadata at " + std::to_string(i) +
                                   " from a max " + std::to_string(metadata.size()));
-        cass_to_c(cass_iterator_get_column(it), buffer + metadata.at(i).position, i);
+        cass_to_c(it, buffer + metadata.at(i).position, i);
         if (metadata.at(i).position >= total_bytes)
             throw ModuleException("TupleRowFactory: Make tuple from CassRow: Writing on byte " +
                                   std::to_string(metadata.at(i).position) + " from a total of " +
@@ -250,6 +250,10 @@ std::vector<TupleRow *> TupleRowFactory::make_tuples_with_npy(PyObject *obj) {
 }
 
 
+
+PyObject* TupleRowFactory::merge_blocks_as_nparray(std::vector<const TupleRow*>& blocks) {
+
+}
 /***
  * PRE: Already owns the GIL lock
  * POST: Writes on the memory pointed by data the python object key parse using the type specified by type_array[col]
@@ -410,8 +414,8 @@ int TupleRowFactory::py_to_c(PyObject *obj, void *data, int32_t col) const {
  * @param col Indicates which column, thus, which data type are we processing
  * @return 0 if succeeds
  */
-int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) const {
-
+int TupleRowFactory::cass_to_c(CassIterator* it, void *data, int16_t col) const {
+    const CassValue *lhs = cass_iterator_get_column(it);
     if (col < 0 || col >= (int32_t) metadata.size()) {
         throw ModuleException("TupleRowFactory: Cass to C: Asked for column " + std::to_string(col) + " but only " +
                               std::to_string(metadata.size()) + " are present");
@@ -446,10 +450,40 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
         }
         case CASS_VALUE_TYPE_BLOB: {
 
+
+              if (metadata.at(col).get_arr_type()!=NPY_NOTYPE) {
+            const CassValue* bytes = cass_iterator_get_column(it);
+            if (!cass_iterator_next(it))
+                throw ModuleException("Missing column indicating partition id on parsing cass to c");
+            cass_to_c(bytes, buffer + metadata.at(i).position, i);
+            char* ptr_b = *(char**)(buffer + metadata.at(i).position);
+            uint64_t nbytes = *(uint64_t*) ptr_b;
+            const CassValue* subarray_id = cass_iterator_get_column(it);
+            cass_uint32_t* c_id = (cass_uint32_t*) (ptr_b+nbytes+sizeof(uint64_t));
+            cass_value_get_uint32(subarray_id,c_id);
+        }
+
+
+
+
             const unsigned char *l_temp;
             size_t l_size;
             CassError rc = cass_value_get_bytes(lhs, &l_temp, &l_size);
             CHECK_CASS("TupleRowFactory: Cassandra to C parse bytes unsuccessful, column:" + std::to_string(col));
+
+//            if numpyarray allocate more, get iterator next, store id) then continue
+
+
+            size_t alloc_size = l_size+sizeof(uint64_t);
+/*
+            if (metadata.at(col).get_arr_type()!=NPY_NOTYPE) {
+                if (!cass_iterator_next(it))
+                    throw ModuleException("Missing column indicating partition id on parsing cass to c");
+
+
+            }
+
+  */
             char *permanent = (char *) malloc(l_size + sizeof(uint32_t));
 
             uint32_t int_size = (uint32_t) l_size;
@@ -462,6 +496,7 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
 
             //copy pointer to payload
             memcpy(data, &permanent, sizeof(char *));
+
             return 0;
         }
         case CASS_VALUE_TYPE_BOOLEAN: {
@@ -567,7 +602,7 @@ PyObject *TupleRowFactory::tuple_as_py(const TupleRow *tuple) const {
 
 
 //bytes
-#define maxarray_size 6000000
+#define maxarray_size 65536
 
 std::vector<void *> TupleRowFactory::split_array(PyObject *py_array) {
     //we have an array so we extract the bytes
@@ -629,6 +664,7 @@ std::vector<void *> TupleRowFactory::split_array(PyObject *py_array) {
 }
 
 
+
 /***
  * PRE: Already owns the GIL lock, V points to C++ valid data
  * @param V Pointer to the C++ valid value
@@ -661,6 +697,7 @@ PyObject *TupleRowFactory::c_to_py(const void *V, const ColumnMeta &meta) const 
         }
         case CASS_VALUE_TYPE_BLOB: {//bytes
 
+            if type is np array
             int64_t *addr = (int64_t *) V;
             char *d = reinterpret_cast<char *>(*addr);
             //d points to [uint32,bytearray] which stands for num_bytes and bytes

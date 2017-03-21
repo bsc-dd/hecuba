@@ -37,7 +37,7 @@ void Writer::flush_elements() {
 
 void Writer::callback(CassFuture *future, void *ptr) {
     void ** data = reinterpret_cast<void **>(ptr);
-    assert(data[0]!=NULL);
+    assert(data!=NULL&&data[0]!=NULL);
     Writer *W = (Writer*) data[0];
 
     CassError rc = cass_future_error_code(future);

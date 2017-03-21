@@ -39,9 +39,9 @@ static PyObject *connectCassandra(PyObject *self, PyObject *args) {
     //cass_cluster_set_core_connections_per_host (cluster, 4);
   //cass_cluster_set_request_timeout (cluster, uiRequestTimeoutInMS);
     cass_cluster_set_pending_requests_low_water_mark (cluster, 20000);
-    cass_cluster_set_pending_requests_high_water_mark(cluster, 17000000);
+   // cass_cluster_set_pending_requests_high_water_mark(cluster, 17000000);
 
-    cass_cluster_set_write_bytes_high_water_mark(cluster,17000000); //>128elements^3D * 8B_Double
+    cass_cluster_set_write_bytes_high_water_mark(cluster,4194304); //>128elements^3D * 8B_Double = 17000000 B
 
     // Provide the cluster object as configuration to connect the session
     connect_future = cass_session_connect(session, cluster);
