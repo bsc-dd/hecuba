@@ -55,11 +55,12 @@ class IStorage:
                 while fraction < to - step_size:
                     block.append((fraction, fraction + step_size))
                     fraction += step_size
-                    if fraction >= to - step_size:
-                        block.append((fraction - step_size, to))
                     if len(block) >= tkns_for_block:
                         yield block
                         block = []
+                # Adding the last token
+
+                block.append((fraction, to))
             if len(block) > 0:
                 yield block
         else:
@@ -68,6 +69,8 @@ class IStorage:
 
             for i in xrange(0, len(tokens), splits):
                 yield tokens[i:i + splits]
+            if len(tokens) % splits > 0:
+                yield tokens[len(tokens)/splits * splits + 1:]
 
     @staticmethod
     def _discrete_token_ranges(tokens):
