@@ -200,7 +200,7 @@ TupleRow *TupleRowFactory::make_tuple(PyObject *obj) {
 }
 
 
-std::vector<TupleRow *> TupleRowFactory::make_tuples_with_npy(PyObject *obj) {
+std::vector<const TupleRow *> TupleRowFactory::make_tuples_with_npy(PyObject *obj) {
 
     //first split array into blocks
     std::vector<void *> blocks;
@@ -214,6 +214,9 @@ std::vector<TupleRow *> TupleRowFactory::make_tuples_with_npy(PyObject *obj) {
     char *buffer = (char *) malloc(total_bytes);
     for (uint16_t i = 0; i < PyList_Size(obj); ++i) {
         PyObject *obj_to_conver = PyList_GetItem(obj, i);
+
+
+        //check errors
         if (i >= metadata.size())
             throw ModuleException(
                     "TupleRowFactory: Make tuple from PyObj: Access metadata at " + std::to_string(i) +
@@ -222,36 +225,48 @@ std::vector<TupleRow *> TupleRowFactory::make_tuples_with_npy(PyObject *obj) {
             throw ModuleException("TupleRowFactory: Make tuple from PyObj: Writing on byte " +
                                   std::to_string(metadata.at(i).position) + " from a total of " +
                                   std::to_string(total_bytes));
+
+        //copy
         if (metadata.at(i).get_arr_type() == NPY_NOTYPE) {
             //average column
             py_to_c(obj_to_conver, buffer + metadata.at(i).position, i);
         } else {
             //numpy
             memcpy(buffer + metadata.at(i).position, &blocks[0], sizeof(void *));
+            //block position column
             ++i;
+
+            //check errors
             if (i >= metadata.size())
-                throw ModuleException("Make tuple with npy: wrong number of elements, not corresponding with metadata");
+                throw ModuleException("Make tuple with npy: number of elements!=metadata");
             uint32_t block_id = 0;
             if (metadata.at(i).type != CASS_VALUE_TYPE_INT)
-                throw ModuleException("Expected uint32 on building the first subarray of numpy, found cass type: " +
+                throw ModuleException("Expected uint32 when building the first subarray of numpy, found cass type: " +
                                       std::to_string(metadata.at(i).type));
+
+            //copy
             memcpy(buffer + metadata.at(i).position, &block_id, sizeof(uint32_t));
         }
     }
-    std::cout << "LOCATION BLOCK 0 " << (void*) blocks[0] << std::endl;
 
-    std::vector<TupleRow *> tuple_blocks(blocks.size());
+
+
+    std::vector<const TupleRow *> tuple_blocks(blocks.size());
+    //first tuple holds all data
     tuple_blocks[0] = new TupleRow(metadata, total_bytes, buffer);
 
-    //build all other tuplesrows
+    //build the rest
     for (uint32_t nb = 1; nb < blocks.size(); ++nb) {
         buffer = (char *) malloc(total_bytes);
         for (uint16_t i = 0; i < metadata.size(); ++i) {
             if (metadata.at(i).get_arr_type() != NPY_NOTYPE) {
+                //copy bytes
                 memcpy(buffer + metadata.at(i).position, &blocks[nb], sizeof(void *));
-                ++i;
-                memcpy(buffer + metadata.at(i).position, &nb, sizeof(uint32_t));
+
+                //copy block position
+                memcpy(buffer + metadata.at(++i).position, &nb, sizeof(uint32_t));
             } else {
+                //its safer to set to 0, so when they are written into cassandra no exceptions should occur
                 memset(buffer + metadata.at(i).position, 0, sizeof(void *));
             }
         }
@@ -272,121 +287,69 @@ PyObject* TupleRowFactory::merge_blocks_as_nparray(std::vector<const TupleRow*>&
 
     PyObject *list = PyList_New(0);
 
-    uint16_t pos = 0;
-    while (pos < metadata.size()) {
+    for (uint16_t pos = 0; pos < metadata.size(); ++pos) {
+        //Object is not an array, process as usual
         if (metadata.at(pos).get_arr_type() == NPY_NOTYPE) {
             PyObject *inte = c_to_py(blocks[0]->get_element(pos), metadata.at(pos));
             int ok = PyList_Append(list, inte);
-        } else {
+        } else if (pos+1<metadata.size()){
+            //object is a numpy array
             uint64_t nbytes = 0;
             for (const TupleRow *block:blocks) {
                 void **data = (void **) block->get_element(pos);
                 uint64_t *block_bytes = (uint64_t *) *data;
                 nbytes += *block_bytes;
             }
-            char* final_array= (char*) malloc(nbytes);
-            for (uint32_t block_id=0; block_id<blocks.size(); ++block_id) {
 
-                void **data = (void **) blocks[block_id]->get_element(pos);
+
+            char* final_array = (char*) malloc(nbytes);
+            for (uint32_t i = 0; i<blocks.size(); ++i) {
+                char **data = (char **) blocks[i]->get_element(pos);
                 uint64_t *block_bytes = (uint64_t *) *data;
 
-                char** first = (char**) data;
+                uint32_t* block_id = (uint32_t*) blocks[i]->get_element(pos+(uint16_t)1);
 
-                char* bytes_array = *first +sizeof(uint64_t);
-                std::cout << "COPY TO " << (void*)(final_array+block_id*maxarray_size) << " SIZE: " << *block_bytes << " FROM: " << (void*)bytes_array << " OFFSET " << block_id*maxarray_size << std::endl;
-                memcpy(final_array+block_id*maxarray_size,bytes_array,*block_bytes);
+                char* bytes_array = *data +sizeof(uint64_t);
+
+                memcpy(final_array+*block_id*maxarray_size,bytes_array,*block_bytes);
             }
-
-
 
             //build np array from final_array data
             PyErr_Clear();
             try {
                 _import_array(); //necessary only for running tests
+                //PyArray_FromString copies nbytes from final_array into its inner array TODO efficiency
                 PyObject* py_value = PyArray_FromString(final_array, nbytes, PyArray_DescrNewFromType(metadata.at(pos).get_arr_type()), -1, NULL);
+                free(final_array);
+
                 PyArrayObject *arr;
                 int ok = PyArray_OutputConverter(py_value, &arr);
                 if (!ok) throw ModuleException("TupleRowFactory failed to convert array from PyObject to PyArray");
                 PyArray_Dims *dims = metadata.at(pos).get_arr_dims();
-                std::cout << " dimmss len " <<  dims->len << " first " << dims->ptr[0] << " pos. " << pos << " " << metadata.at(pos).info[0] << std::endl;
-                PyObject* py_value2 = PyArray_Newshape(arr, dims, NPY_CORDER);
-                ok= PyList_Append(list, py_value2);
-                if (ok<0) std::cout << "errrr1"<< std::endl;
-                if (PyErr_Occurred()) PyErr_Print();
 
+                //Returns a new array
+                PyObject* py_value2 = PyArray_Newshape(arr, dims, NPY_CORDER);
+                Py_DECREF(py_value);
+
+                ok= PyList_Append(list, py_value2);
+                if (ok<0) throw ModuleException("Can't append numpy array into the results list");
             }
             catch (std::exception e) {
                 if (PyErr_Occurred()) PyErr_Print();
                 PyErr_SetString(PyExc_RuntimeError, e.what());
                 return NULL;
             }
-
-
             ++pos;
-            std::cout << "COUNTED BYTES: " << nbytes << " NBLOCKS: " << blocks.size() << std::endl;
+            //std::cout << "COUNTED BYTES: " << nbytes << " NBLOCKS: " << blocks.size() << std::endl;
         }
-        ++pos;
+        else {
+            throw ModuleException("Can't find the column which indicates the subarrays position when reconstructing");
+        }
     }
     return list;
 
 }
 
-/*
-
-    for (uint16_t i = 0; i < tuple->n_elem(); i++) {
-        if (i >= metadata.size())
-            throw ModuleException("TupleRowFactory: Tuple as py access meta at " + std::to_string(i) + " from a max " +
-                                  std::to_string(metadata.size()));
-        PyObject *inte = c_to_py(tuple->get_element(i), metadata.at(i));
-        PyList_SetItem(list, i, inte);
-    }
-
-
-*/
-
-
-
-/*
-
-
-
-
-    uint64_t array_size =0;
-    //first row
-    //we search for the numpys, if found
-    for (const TupleRow* T:blocks){
-        array_size+=T->get_element(1)
-    }
-
-
-    int64_t *addr = (int64_t *) V;
-    char *d = reinterpret_cast<char *>(*addr);
-    //d points to [uint32,bytearray] which stands for num_bytes and bytes
-
-    uint32_t nbytes = *reinterpret_cast<uint32_t * >(d);
-    d += sizeof(uint32_t);
-
-    PyErr_Clear();
-    try {
-        _import_array(); //necessary only for running tests
-        py_value = PyArray_FromString(d, nbytes, PyArray_DescrNewFromType(meta.get_arr_type()), -1, NULL);
-        PyArrayObject *arr;
-        int ok = PyArray_OutputConverter(py_value, &arr);
-        if (!ok) throw ModuleException("TupleRowFactory failed to convert array from PyObject to PyArray");
-        PyArray_Dims *dims = meta.get_arr_dims();
-        py_value = PyArray_Newshape(arr, dims, NPY_CORDER);
-
-    }
-    catch (std::exception e) {
-        if (PyErr_Occurred()) PyErr_Print();
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-
-
-}
-
- */
 
 
 /***
@@ -429,16 +392,15 @@ int TupleRowFactory::py_to_c(PyObject *obj, void *data, int32_t col) const {
         }
         case CASS_VALUE_TYPE_BLOB: {
             /** interface receives key **/
-
             Py_ssize_t l_size;
             char *l_temp;
-            char *permanent = (char *) malloc(l_size + sizeof(uint32_t));
-            uint32_t int_size = (uint32_t) l_size;
+            char *permanent = (char *) malloc(l_size + sizeof(uint64_t));
+            uint64_t int_size = (uint64_t) l_size;
             if (int_size == 0) std::cerr << "array bytes has size 0" << std::endl;
             //copy num bytes
-            memcpy(permanent, &int_size, sizeof(uint32_t));
+            memcpy(permanent, &int_size, sizeof(uint64_t));
             //copybytes
-            memcpy(permanent + sizeof(uint32_t), l_temp, int_size);
+            memcpy(permanent + sizeof(uint64_t), l_temp, int_size);
             //copy pointer
             memcpy(data, &permanent, sizeof(char *));
             break;
@@ -589,7 +551,7 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             size_t l_size;
             CassError rc = cass_value_get_bytes(lhs, &l_temp, &l_size);
             CHECK_CASS("TupleRowFactory: Cassandra to C parse bytes unsuccessful, column:" + std::to_string(col));
-            char *permanent = (char *) malloc(l_size + sizeof(uint32_t));
+            char *permanent = (char *) malloc(l_size + sizeof(uint64_t));
 
             uint64_t int_size = (uint64_t) l_size;
 
@@ -601,6 +563,7 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
 
             //copy pointer to payload
             memcpy(data, &permanent, sizeof(char *));
+
             return 0;
         }
         case CASS_VALUE_TYPE_BOOLEAN: {
@@ -708,9 +671,9 @@ std::vector<void *> TupleRowFactory::split_array(PyObject *py_array) {
     ssize_t nbytes_s = 0;
     void *data = NULL;
     int ok;
+    PyArrayObject *arr;
     try {
         _import_array();
-        PyArrayObject *arr;
         ok = PyArray_OutputConverter(py_array, &arr);
         if (!ok) throw ModuleException("error parsing PyArray to obj");
         data = PyArray_DATA(arr);
@@ -731,16 +694,11 @@ std::vector<void *> TupleRowFactory::split_array(PyObject *py_array) {
     if (nbytes % maxarray_size != 0) ++nblocks; //we don't want to lose data
     uint64_t block_size = std::min(nbytes, (uint64_t) maxarray_size);//bytes per block
 
-
-    std::cout << "WE COMPUTED NBYTES: " << nbytes << " BLOCKS: " << nblocks << " block_size "<< block_size << std::endl;
     std::vector<void *> blocks_list(nblocks);
 
 
     for (uint32_t block_id = 0; block_id < nblocks; ++block_id) {
         if (block_id == nblocks - 1) block_size = nbytes - ((nblocks - 1) * block_size);
-
-
-
         //copy address of block
         blocks_list[block_id] = malloc(block_size + sizeof(uint64_t));
         char *block = (char *) blocks_list[block_id];
@@ -752,12 +710,9 @@ std::vector<void *> TupleRowFactory::split_array(PyObject *py_array) {
         block += sizeof(uint64_t);
 
         //copy bytes
-        memcpy(block, data, block_size);
-
-        std::cout << "Block " << block_id << std::endl;
-        std::cout << "Size " << *(uint64_t *) (block - sizeof(uint64_t)) << std::endl;
-        std::cout << " AND ADDR " << blocks_list[block_id] << std::endl;
+        memcpy(block, ((char*)data)+block_id*block_size, block_size);
     }
+
     return blocks_list;
 }
 
@@ -798,8 +753,8 @@ PyObject *TupleRowFactory::c_to_py(const void *V, const ColumnMeta &meta) const 
             char *d = reinterpret_cast<char *>(*addr);
             //d points to [uint32,bytearray] which stands for num_bytes and bytes
 
-            uint32_t nbytes = *reinterpret_cast<uint32_t * >(d);
-            d += sizeof(uint32_t);
+            uint64_t nbytes = *reinterpret_cast<uint64_t * >(d);
+            d += sizeof(uint64_t);
 
             PyErr_Clear();
             try {
