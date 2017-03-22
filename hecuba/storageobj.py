@@ -115,7 +115,7 @@ class StorageObj(object, IStorage):
     _dict_case = re.compile('.*@ClassField +(\w+) +dict +< *< *([\w:, ]+)+ *> *, *([\w+:, <>]+) *>')
     _sub_dict_case = re.compile(' *< *< *([\w:, ]+)+ *> *, *([\w+:, <>]+) *>')
     _sub_tuple_case = re.compile(' *< *([\w:, ]+)+ *>')
-    _val_case = re.compile('.*@ClassField +(\w+) +(\w+) +%s' % _valid_type)
+    _val_case = re.compile('.*@ClassField +(\w+) +%s' % _valid_type)
     _index_vars = re.compile('.*@Index_on+\s*([A-z,]+)+([A-z, ]+)')
 
     @staticmethod
