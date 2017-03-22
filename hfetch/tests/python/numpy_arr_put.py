@@ -10,7 +10,7 @@ a = Hcache("test","arrays","WHERE token(partid)>=? AND token(partid)<?;",[(-8070
 
 bigarr=np.arange(pow(elem_row,2)).reshape(elem_row,elem_row)
 bigarr.itemset(0,14.0)
-
+print 'Array to be written', bigarr.astype('d')
 import time
 t1 = time.time()
 a.put_row([300],[bigarr.astype('d')])
