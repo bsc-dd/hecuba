@@ -25,13 +25,13 @@ Writer::~Writer() {
 
 
 void Writer::flush_elements() {
-    while (!data.empty()) {
+    while (!data.empty() || ncallbacks > 0) {
         if (ncallbacks < max_calls) {
             ncallbacks++;
             call_async();
         }
+        else std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
-    while (ncallbacks > 0) std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 
