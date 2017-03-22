@@ -114,7 +114,7 @@ class StorageDict(dict, IStorage):
         self._build_args = self.args(primary_keys, columns, name, self.tokens, storage_id, class_name)
         self._primary_keys = primary_keys
         self._columns = columns
-        self.storage_id = storage_id
+        self._storage_id = storage_id
 
         self.values = columns
         key_names = map(lambda a: a[0], self._primary_keys)
@@ -187,9 +187,9 @@ class StorageDict(dict, IStorage):
         (self._ksp, self._table) = self._extract_ks_tab(name)
         self._build_args = self._build_args._replace(name=self._ksp+"."+self._table)
 
-        if self.storage_id is None:
-            self.storage_id = str(uuid.uuid1())
-            self._build_args = self._build_args._replace(storage_id=self.storage_id)
+        if self._storage_id is None:
+            self._storage_id = str(uuid.uuid1())
+            self._build_args = self._build_args._replace(storage_id=self._storage_id)
             self._store_meta(self._build_args)
 
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy'," \
@@ -285,7 +285,7 @@ class StorageDict(dict, IStorage):
         Returns:
             self.blockid: id of the block
         """
-        return self.storage_id
+        return self._storage_id
 
     def iterkeys(self):
         """

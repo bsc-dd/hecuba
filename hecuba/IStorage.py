@@ -113,4 +113,4 @@ class IStorage:
         raise Exception("to be implemented")
 
     def getID(self):
-        return self.storage_id
+        return self._storage_id
