@@ -10,6 +10,7 @@ TupleRow::TupleRow(const RowMetadata& metas,
                                     [metas](void *ptr) {
                                         for (uint16_t i=0; i<metas.size(); ++i) {
                                             switch ( metas.at(i).type) {
+                                                case CASS_VALUE_TYPE_BLOB:
                                                 case CASS_VALUE_TYPE_TEXT:
                                                 case CASS_VALUE_TYPE_VARCHAR:
                                                 case CASS_VALUE_TYPE_ASCII: {
