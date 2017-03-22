@@ -258,7 +258,7 @@ class StorageObj(object, IStorage):
             pd = getattr(self, table_name)
             name = self._ksp + "." + table_name
             pd.make_persistent(name)
-            is_props[name] = pd.storage_id
+            is_props[name] = pd._storage_id
 
         if changed or self._storage_id is None:
             if self._storage_id is None:
