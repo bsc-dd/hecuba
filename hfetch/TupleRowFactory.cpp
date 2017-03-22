@@ -591,13 +591,13 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             CHECK_CASS("TupleRowFactory: Cassandra to C parse bytes unsuccessful, column:" + std::to_string(col));
             char *permanent = (char *) malloc(l_size + sizeof(uint32_t));
 
-            uint32_t int_size = (uint32_t) l_size;
+            uint64_t int_size = (uint64_t) l_size;
 
             //copy num bytes
-            memcpy(permanent, &int_size, sizeof(uint32_t));
+            memcpy(permanent, &int_size, sizeof(uint64_t));
 
             //copy bytes
-            memcpy(permanent + sizeof(uint32_t), l_temp, l_size);
+            memcpy(permanent + sizeof(uint64_t), l_temp, l_size);
 
             //copy pointer to payload
             memcpy(data, &permanent, sizeof(char *));
