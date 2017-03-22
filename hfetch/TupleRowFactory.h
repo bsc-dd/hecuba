@@ -51,11 +51,11 @@ public:
 
     TupleRow* make_tuple(const CassRow* row);
 
-    PyObject* tuple_as_py(const TupleRow* tuple) const;
+    PyObject* tuples_as_py(std::vector<const TupleRow *>& values) const;
 
     std::vector<void*> split_array(PyObject *value);
 
-    PyObject* merge_blocks_as_nparray(std::vector<const TupleRow*>& blocks);
+    PyObject* merge_blocks_as_nparray(std::vector<const TupleRow*>& blocks) const;
 
     std::vector<const TupleRow*> make_tuples_with_npy(PyObject *obj);
 

@@ -35,7 +35,7 @@ Prefetch::~Prefetch() {
 
 
 PyObject *Prefetch::get_next() {
-    TupleRow *response = get_cnext();
+    const TupleRow *response = get_cnext();
     if (response == NULL) {
         if (error_msg == NULL) {
             PyErr_SetNone(PyExc_StopIteration);
@@ -45,7 +45,8 @@ PyObject *Prefetch::get_next() {
             return NULL;
         }
     }
-    PyObject *toberet = t_factory.tuple_as_py(response);
+    std::vector<const TupleRow*> row = {response};
+    PyObject *toberet = t_factory.tuples_as_py(row);
     delete (response);
     return toberet;
 }

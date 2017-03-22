@@ -213,30 +213,26 @@ void CacheTable::put_row(PyObject *key, PyObject *value) {
 
 PyObject *CacheTable::get_row(PyObject *py_keys) {
 
-    if (!values_factory->get_metadata().has_numpy) {
-        TupleRow *keys = keys_factory->make_tuple(py_keys);
-        //get from cassandra
-        std::vector<const TupleRow*> values = get_crow(keys);
-        //store to cache
-        if (values.size()==0||values[0]==NULL){
-            PyErr_SetString(PyExc_KeyError, "Get row: key not found");
-            return NULL;
-        }
-        myCache->add(*keys, values[0]);
-        delete (keys);
-        return values_factory->tuple_as_py(values[0]);
-    } else {
-        TupleRow *keys = keys_factory->make_tuple(py_keys);
-        PyObject *array;
-        std::vector<const TupleRow *> blocks;
-        blocks = this->get_crow(keys);
-        delete (keys);
-        array = values_factory->merge_blocks_as_nparray(blocks);
-        for (const TupleRow* block:blocks){
+    TupleRow *keys = keys_factory->make_tuple(py_keys);
+    std::vector<const TupleRow*> values = get_crow(keys);
+
+    if (values.size()==0||values[0]==NULL){
+        PyErr_SetString(PyExc_KeyError, "Get row: key not found");
+        return NULL;
+    }
+
+    PyObject* row = values_factory->tuples_as_py(values);
+
+    //this will be deleted when the split branch is completed
+    if (!values_factory->get_metadata().has_numpy) myCache->add(*keys, values[0]);
+    else {
+        //if the data is inserted inside the cache we cant call delete, it doesnt detect there is a copy inside the cache
+        for (const TupleRow* block:values){
             delete(block);
         }
-        return array;
     }
+    delete (keys);
+    return row;
 }
 
 std::vector<const TupleRow *> CacheTable::get_crow(TupleRow *keys) {
