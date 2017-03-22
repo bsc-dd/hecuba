@@ -74,8 +74,7 @@ class StorageObj(object, IStorage):
 
         if tokens is None:
             log.info('using all tokens')
-            tokens = map(lambda a: a.value, config.cluster.metadata.token_map.ring)
-            self._tokens = IStorage._discrete_token_ranges(tokens)
+            self._tokens = IStorage._build_discrete_token_ranges()
         else:
             self._tokens = tokens
 

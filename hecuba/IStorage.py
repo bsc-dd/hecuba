@@ -73,23 +73,35 @@ class IStorage:
                 yield tokens[len(tokens)/splits * splits + 1:]
 
     @staticmethod
-    def _discrete_token_ranges(tokens):
+    def _build_discrete_token_ranges():
         """
         Makes proper tokens ranges ensuring that in a tuple (a,b) a <= b
 
         :param tokens:  a list of tksn [1, 0,10]
         :return:  a rationalized list [(-1, 0),(0,10),(10, max)]
         """
+        token_to_host_owner = config.cluster.metadata.token_map.token_to_host_owner
+        from cassandra.metadata import Murmur3Token
+
+        start = Murmur3Token(-2 ** 63)
+        end = Murmur3Token(-1 + 2 ** 63)
+        last_token = max(token_to_host_owner.keys())
+        if start not in token_to_host_owner:
+            token_to_host_owner[start] = token_to_host_owner[last_token]
+
+        if end not in token_to_host_owner:
+            token_to_host_owner[end] = token_to_host_owner[last_token]
+
+        tokens = token_to_host_owner.keys()
         tokens.sort()
-        if tokens[0] > -2 ** 63:
-            token_ranges = [(-2 ** 63, tokens[0])]
-        else:
-            token_ranges = []
         n_tns = len(tokens)
+        token_ranges = []
         for i in range(0, n_tns - 1):
             token_ranges.append((tokens[i], tokens[i + 1]))
-        token_ranges.append((tokens[n_tns - 1], (2 ** 63) - 1))
-        return token_ranges
+
+        token_ranges.sort(key=lambda (_, a): token_to_host_owner[a].address)
+
+        return map(lambda (mm3_from, mm3_to): (mm3_from.value, mm3_to.value), token_ranges)
 
     @staticmethod
     def _store_meta(storage_args):

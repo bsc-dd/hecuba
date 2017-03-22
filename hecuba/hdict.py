@@ -105,8 +105,7 @@ class StorageDict(dict, IStorage):
 
         if tokens is None:
             log.info('using all tokens')
-            tokens = map(lambda a: a.value, config.cluster.metadata.token_map.ring)
-            self.tokens = IStorage._discrete_token_ranges(tokens)
+            self.tokens = IStorage._build_discrete_token_ranges()
         else:
             self.tokens = tokens
 
