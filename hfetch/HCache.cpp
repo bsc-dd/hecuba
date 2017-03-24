@@ -12,85 +12,51 @@ static PyObject *connectCassandra(PyObject *self, PyObject *args) {
         return NULL;
     }
 
-
     uint16_t contact_p_len = (uint16_t) PyList_Size(py_contact_points);
 
     for (uint16_t i = 0; i < contact_p_len; ++i) {
-        PyObject *obj_to_convert = PyList_GetItem(py_contact_points, i);
         char *str_temp;
-        if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
-            throw ModuleException("invalid contact points");
+        if (!PyArg_Parse(PyList_GetItem(py_contact_points, i), "s", &str_temp)) {
+            PyErr_SetString(PyExc_RuntimeError, "invalid contact point");
+            return NULL;
         };
         contact_points += std::string(str_temp) + ",";
     }
 
-    CassFuture *connect_future = NULL;
-    cluster = cass_cluster_new();
-    session = cass_session_new();
-    // add contact points
-    cass_cluster_set_contact_points(cluster, contact_points.c_str());
-    cass_cluster_set_port(cluster, nodePort);
-    cass_cluster_set_token_aware_routing(cluster, cass_true);
-
-
-
-//  unsigned int uiRequestTimeoutInMS = 30000;
-    //cass_cluster_set_num_threads_io (cluster, 2);
-    //cass_cluster_set_core_connections_per_host (cluster, 4);
-  //cass_cluster_set_request_timeout (cluster, uiRequestTimeoutInMS);
-    cass_cluster_set_pending_requests_low_water_mark (cluster, 20000);
-    cass_cluster_set_pending_requests_high_water_mark(cluster, 17000000);
-
-    cass_cluster_set_write_bytes_high_water_mark(cluster,17000000); //>128elements^3D * 8B_Double
-
-    // Provide the cluster object as configuration to connect the session
-    connect_future = cass_session_connect(session, cluster);
-    CassError rc = cass_future_error_code(connect_future);
-    if (rc != CASS_OK) {
-        PyErr_SetString(PyExc_RuntimeError, cass_error_desc(rc));
+    try {
+        storage = new StorageInterface(nodePort, contact_points);
+    }
+    catch (std::exception e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
-    cass_future_free(connect_future);
     Py_RETURN_NONE;
 }
 
-
-static PyObject *disconnectCassandra(PyObject *self) {
-    if (session != NULL) {
-        CassFuture *close_future = cass_session_close(session);
-        cass_future_free(close_future);
-        cass_session_free(session);
-        cass_cluster_free(cluster);
-        session = NULL;
-    }
-    Py_RETURN_TRUE;
-}
-
-
 /*** HCACHE DATA TYPE METHODS AND SETUP ***/
 
-/*
 static PyObject *put_row(HCache *self, PyObject *args) {
     PyObject *py_keys, *py_values;
     if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_values)) {
         return NULL;
     }
-    T->get_
-
-
-    T->put_row(PyObject *key, PyObject *value) {
-        TupleRow *k = keys_factory->make_tuple(key);
-        const TupleRow *v = values_factory->make_tuple(value);
-        //Inserts if not present, otherwise replaces
-        this->myCache->update(*k, v);
+    try {
+        TupleRow *k = parser->make_tuple(py_keys, self->metadata->get_keys());
+        TupleRow *v = parser->make_tuple(py_values, self->metadata->get_values());
+        Py_DecRef(py_keys);
+        Py_DecRef(py_values);
+        self->T->put_crow(k, v);
     }
-
+    catch (std::exception e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
     Py_DecRef(py_keys);
     Py_DecRef(py_values);
     Py_RETURN_NONE;
 }
 
-
+/*
 PyObject *Prefetch::get_next() {
     TupleRow *response = get_cnext();
     if (response == NULL) {
@@ -106,29 +72,30 @@ PyObject *Prefetch::get_next() {
     delete (response);
     return toberet;
 }
+
+
+ */
 static PyObject *get_row(HCache *self, PyObject *args) {
-    PyObject *py_keys;
+    PyObject *py_keys, *py_row;
     if (!PyArg_ParseTuple(args, "O", &py_keys)) {
         return NULL;
     }
-
-    T->get_row(PyObject *py_keys) {
-
-        TupleRow *keys = keys_factory->make_tuple(py_keys);
-        const TupleRow *values = get_crow(keys);
-        delete(keys);
-
-        if(values==NULL){
-            PyErr_SetString(PyExc_KeyError,"Get row: key not found");
-            return NULL;
-        }
-
-        PyObject* temp = values_factory->tuple_as_py(values);
-        return temp;
+    try {
+        TupleRow *k = parser->make_tuple(py_keys, self->metadata->get_keys());
+        Py_DecRef(py_keys);
+        const TupleRow *v = self->T->get_crow(k);
+        delete(k); //TODO decide when to do cleanup
+        py_row = parser->tuple_as_py(v, self->metadata->get_keys());
     }
+    catch (std::exception e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    return py_row;
 }
 
-*/
+
+
 static void hcache_dealloc(HCache *self) {
     delete (self->T);
     self->ob_type->tp_free((PyObject *) self);
@@ -216,8 +183,8 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     }
 
     try {
-        self->T = new CacheTable(std::string(table), std::string(keyspace), keys_names,
-                                 columns_names, std::string(token_range_pred), token_ranges, session, config);
+        self->T = storage->makeCache(table,keyspace,keys_names,columns_names,config);
+        self->metadata=self->T->get_metadata();
       }catch (ModuleException e) {
         PyErr_SetString(PyExc_RuntimeError,e.what());
         return -1;
@@ -295,7 +262,10 @@ static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
 
 
 static PyObject *get_next(HIterator *self) {
-    return self->P->get_next();
+    const TupleRow* result = self->P->get_cnext();
+    PyObject* py_row = parser->tuple_as_py(result, self->metadata->get_keys());
+    delete(result);
+    return py_row;
 }
 
 static void hiter_dealloc(HIterator *self) {
@@ -370,7 +340,7 @@ static PyObject *create_iter_keys(HCache *self, PyObject *args) {
 
     HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
     hiter_init(iter, args, args);
-    iter->P = self->T->get_keys_iter(prefetch_size);
+    iter->P = storage->get_iterator(self->metadata)self->T->get_keys_iter(prefetch_size);
     return (PyObject *) iter;
 }
 
@@ -392,7 +362,7 @@ static PyObject *create_iter_values(HCache *self, PyObject *args) {
     }
     HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
     hiter_init(iter, args, args);
-    iter->P = self->T->get_values_iter(prefetch_size);
+    iter->P = storage->get_iterator(only_values, tokens, prefetch_size);
     return (PyObject *) iter;
 }
 
@@ -400,7 +370,7 @@ static PyObject *create_iter_values(HCache *self, PyObject *args) {
 void (*f)(PyObject *) = NULL;
 
 static void module_dealloc(PyObject *self) {
-    disconnectCassandra(self);
+    delete(storage);//disconnectCassandra(self);
     if (f) f(self);
 }
 

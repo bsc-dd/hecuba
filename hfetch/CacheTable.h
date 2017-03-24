@@ -37,6 +37,10 @@ public:
     TupleRowFactory* _test_get_keys_factory(){ return keys_factory;}
     TupleRowFactory* _test_get_value_factory(){ return values_factory;}
 
+    const TableMetadata* get_metadata() {
+        return table_metadata;
+    }
+
 private:
 
     const TupleRow* retrieve_from_cassandra(TupleRow *keys);
@@ -50,6 +54,8 @@ private:
 
     TupleRowFactory *keys_factory;
     TupleRowFactory *values_factory;
+
+    TableMetadata* table_metadata;
 
 };
 

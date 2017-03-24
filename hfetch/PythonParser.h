@@ -1,5 +1,5 @@
-#ifndef PREFETCHER_MY_TUPLE_FACTORY_H
-#define PREFETCHER_MY_TUPLE_FACTORY_H
+#ifndef PYTHON_PARSER_H
+#define PYTHON_PARSER_H
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 
@@ -34,51 +34,26 @@ std::cerr<<msg<<" "<<error<<std::endl; };\
 #define Py_SHORT_INT "h"
 
 
-
-
-class TupleRowFactory{
+class PythonParser{
 
 public:
-    TupleRowFactory(const CassTableMeta *table_meta, const std::vector<std::string> &col_names);
+    PythonParser();
 
-    //Used to pass TupleRowFactory by reference
-    TupleRowFactory(){};
+    ~PythonParser();
 
-    ~TupleRowFactory() {}
+    TupleRow* make_tuple(PyObject* obj,std::shared_ptr<const std::vector<ColumnMeta> > metadata) const;
 
-    TupleRow* make_tuple(PyObject* obj);
+    PyObject* tuple_as_py(const TupleRow* tuple, std::shared_ptr<const std::vector<ColumnMeta> > metadata) const;
 
-    TupleRow* make_tuple(const CassRow* row);
-
-    TupleRow* make_tuple(void *data);
-
-    PyObject* tuple_as_py(const TupleRow* tuple) const;
-
-    void bind(CassStatement *statement,const  TupleRow *row,  u_int16_t offset) const;
-
-    inline uint16_t n_elements(){
-        return (uint16_t) this->metadata->size();
-    }
-
-    inline std::shared_ptr<std::vector<ColumnMeta>> get_metadata() const{
-        return metadata;
-
-    }
 
 private:
-    std::shared_ptr<std::vector<ColumnMeta>> metadata;
-
-    uint16_t total_bytes;
-
-    uint16_t compute_size_of(const CassValueType VT) const;
 
     PyObject* c_to_py(const void *V, ColumnMeta &meta) const;
 
     int py_to_c(PyObject *obj, void* data, int32_t col) const;
 
-    int cass_to_c(const CassValue *lhs,void * data, int16_t col) const;
 
 };
 
 
-#endif //PREFETCHER_MY_TUPLE_FACTORY_H
+#endif //PYTHON_PARSER_H

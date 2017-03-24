@@ -10,27 +10,30 @@
 #include <iostream>
 #include <vector>
 #include <unordered_map>
-
+#include "StorageInterface.h"
 #include "Poco/LRUCache.h"
 #include <cassandra.h>
 #include "python2.7/Python.h"
 #include "structmember.h"
 #include "Prefetch.h"
-
+#include "PythonParser.h"
 #include <map>
 
-CassSession *session = NULL;
-CassCluster *cluster = NULL;
+StorageInterface* storage;
+PythonParser* parser;
+
 
 typedef struct {
     PyObject_HEAD
     CacheTable *T;
+    const TableMetadata* metadata;
 } HCache;
 
 
 typedef struct {
     PyObject_HEAD
     Prefetch *P;
+    const TableMetadata* metadata;
 } HIterator;
 
 static PyObject* create_iter_keys(HCache *self, PyObject* args);

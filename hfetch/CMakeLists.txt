@@ -68,8 +68,8 @@ if (NOT $ENV{LD_LIBRARY_PATH}  STREQUAL "")
 endif (NOT $ENV{LD_LIBRARY_PATH}  STREQUAL "")
 
 
-set(SOURCE_FILES StorageInterface.cpp Prefetch.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp TableMetadata.cpp ) #HCache.cpp
-set(HEADER_FILES StorageInterface.h Prefetch.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h TableMetadata.h) #HCache.h
+set(SOURCE_FILES StorageInterface.cpp Prefetch.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp TableMetadata.cpp HCache.cpp PythonParser.cpp )
+set(HEADER_FILES StorageInterface.h Prefetch.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h TableMetadata.h HCache.h PythonParser.h)
 
 
 #CMake main target
@@ -196,7 +196,7 @@ set(ALL_LIBS ${ALL_LIBS} ${PYTHON_LIBRARIES})
 
 target_link_libraries(hfetch ${ALL_LIBS})
 
-
+set(GTEST_ROOT /home/bscuser/local)
 #Tests dependencies
 FIND_LIBRARY(PT NAMES pthread PATHS /lib)
 if (PT)
@@ -206,9 +206,11 @@ if (PT)
 
         enable_testing()
         add_executable(hfetch_test tests/runtests.cpp)
+        add_executable(hfetch_pytest tests/pytests.cpp)
 
         target_link_libraries( hfetch_test ${ALL_LIBS} ${PT}  ${GTEST_BOTH_LIBRARIES} hfetch )
         add_test(test hfetch_test)
+        add_test(test hfetch_pytest)
     else()
         message(STATUS "If GTest is installed, point the environment var GTEST_ROOT to its root (/home/user/local)")
     endif(GTest_FOUND)
