@@ -2,7 +2,7 @@
 #include "TupleRowFactory.h"
 
 
-TupleRow::TupleRow(const std::shared_ptr <std::vector<ColumnMeta>> metas,
+TupleRow::TupleRow(std::shared_ptr <const std::vector<ColumnMeta>> metas,
                    uint16_t payload_size, void *buffer) {
     this->metadata = metas;
     //create data structures

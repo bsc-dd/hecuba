@@ -1,19 +1,58 @@
 #include "Writer.h"
 
-Writer::Writer(uint16_t buff_size, uint16_t max_callbacks, const TupleRowFactory &key_factory,
-               const TupleRowFactory &value_factory,
-               CassSession *session,
-               std::string query) {
+
+#define default_writer_buff 100
+#define default_writer_callbacks 4
+
+
+Writer::Writer(TableMetadata* table_meta, CassSession *session,
+               std::map<std::string,std::string> &config) {
+
+
+    int32_t buff_size = default_writer_buff;
+    int32_t max_callbacks = default_writer_callbacks;
+
+
+    if (config.find("writer_par")!=config.end()) {
+        std::string max_callbacks_str = config["writer_par"];
+        try {
+            max_callbacks = std::stoi(max_callbacks_str);
+            if (max_callbacks<=0) throw ModuleException("Writer parallelism value must be > 0");
+        }
+        catch (std::exception e) {
+            std::string msg(e.what());
+            msg+= " Malformed value in config for writer_par";
+            throw ModuleException(msg);
+        }
+    }
+
+    if (config.find("writer_buffer")!=config.end()) {
+        std::string buff_size_str = config["writer_buffer"];
+        try {
+            buff_size = std::stoi(buff_size_str);
+            if (buff_size<0) throw ModuleException("Writer buffer value must be >= 0");
+        }
+        catch (std::exception e) {
+            std::string msg(e.what());
+            msg+= " Malformed value in config for writer_buffer";
+            throw ModuleException(msg);
+        }
+    }
+
+
+
+
     this->session = session;
-    this->k_factory = key_factory;
-    this->v_factory = value_factory;
-    CassFuture *future = cass_session_prepare(session, query.c_str());
+    this->k_factory = new TupleRowFactory(table_meta->get_keys());
+    this->v_factory = new TupleRowFactory(table_meta->get_values());
+
+    CassFuture *future = cass_session_prepare(session, table_meta->get_insert_query());
     CassError rc = cass_future_error_code(future);
     CHECK_CASS("writer cannot prepare: ");
     this->prepared_query = cass_future_get_prepared(future);
     cass_future_free(future);
     this->data.set_capacity(buff_size);
-    this->max_calls = max_callbacks;
+    this->max_calls = (uint32_t) max_callbacks;
     this->ncallbacks = 0;
 }
 
@@ -78,8 +117,8 @@ void Writer::set_error_occurred(std::string error,const void * keys_p, const voi
     CassStatement *statement = cass_prepared_bind(prepared_query);
 
 
-    this->k_factory.bind(statement,keys,0);
-    this->v_factory.bind(statement,values,this->k_factory.n_elements());
+    this->k_factory->bind(statement,keys,0);
+    this->v_factory->bind(statement,values,this->k_factory->n_elements());
 
 
     CassFuture *query_future = cass_session_execute(session, statement);
@@ -118,8 +157,8 @@ void Writer::call_async() {
     CassStatement *statement = cass_prepared_bind(prepared_query);
 
 
-    this->k_factory.bind(statement,item.first,0);
-    this->v_factory.bind(statement,item.second,this->k_factory.n_elements());
+    this->k_factory->bind(statement,item.first,0);
+    this->v_factory->bind(statement,item.second,this->k_factory->n_elements());
 
 
     CassFuture *query_future = cass_session_execute(session, statement);

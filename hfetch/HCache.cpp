@@ -69,30 +69,66 @@ static PyObject *disconnectCassandra(PyObject *self) {
 
 /*** HCACHE DATA TYPE METHODS AND SETUP ***/
 
-
+/*
 static PyObject *put_row(HCache *self, PyObject *args) {
     PyObject *py_keys, *py_values;
     if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_values)) {
         return NULL;
     }
+    T->get_
 
-    self->T->put_row(py_keys, py_values);
+
+    T->put_row(PyObject *key, PyObject *value) {
+        TupleRow *k = keys_factory->make_tuple(key);
+        const TupleRow *v = values_factory->make_tuple(value);
+        //Inserts if not present, otherwise replaces
+        this->myCache->update(*k, v);
+    }
+
     Py_DecRef(py_keys);
     Py_DecRef(py_values);
     Py_RETURN_NONE;
 }
 
 
+PyObject *Prefetch::get_next() {
+    TupleRow *response = get_cnext();
+    if (response == NULL) {
+        if (error_msg == NULL) {
+            PyErr_SetNone(PyExc_StopIteration);
+            return NULL;
+        } else {
+            PyErr_SetString(PyExc_RuntimeError, error_msg);
+            return NULL;
+        }
+    }
+    PyObject *toberet = t_factory.tuple_as_py(response);
+    delete (response);
+    return toberet;
+}
 static PyObject *get_row(HCache *self, PyObject *args) {
     PyObject *py_keys;
     if (!PyArg_ParseTuple(args, "O", &py_keys)) {
         return NULL;
     }
 
-    return self->T->get_row(py_keys);
+    T->get_row(PyObject *py_keys) {
+
+        TupleRow *keys = keys_factory->make_tuple(py_keys);
+        const TupleRow *values = get_crow(keys);
+        delete(keys);
+
+        if(values==NULL){
+            PyErr_SetString(PyExc_KeyError,"Get row: key not found");
+            return NULL;
+        }
+
+        PyObject* temp = values_factory->tuple_as_py(values);
+        return temp;
+    }
 }
 
-
+*/
 static void hcache_dealloc(HCache *self) {
     delete (self->T);
     self->ob_type->tp_free((PyObject *) self);

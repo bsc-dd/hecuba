@@ -1,6 +1,8 @@
 #ifndef PREFETCHER_MY_TUPLE_FACTORY_H
 #define PREFETCHER_MY_TUPLE_FACTORY_H
 
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+
 
 #define CHECK_CASS(msg) if(rc != CASS_OK){ \
 std::string error(cass_error_desc(rc));\
@@ -12,14 +14,24 @@ std::cerr<<msg<<" "<<error<<std::endl; };\
 #include <iostream>
 #include <vector>
 #include <cassandra.h>
+#include <python2.7/Python.h>
+#include "ModuleException.h"
+#include "TupleRow.h"
 #include <stdexcept>
 #include <memory>
 #include <stdlib.h>
-
 #include "TableMetadata.h"
-#include "ModuleException.h"
-#include "TupleRow.h"
-
+#define Py_STRING "s"
+#define Py_U_LONGLONG "K"
+#define Py_U_LONG "k"
+#define Py_LONGLONG "L"
+#define Py_LONG "l"
+#define Py_BOOL "b"
+#define Py_INT "i"
+#define Py_U_INT "I"
+#define Py_FLOAT "f"
+#define Py_DOUBLE "d"
+#define Py_SHORT_INT "h"
 
 
 
@@ -27,34 +39,42 @@ std::cerr<<msg<<" "<<error<<std::endl; };\
 class TupleRowFactory{
 
 public:
-    TupleRowFactory(std::shared_ptr<const std::vector<ColumnMeta> > row_info);
+    TupleRowFactory(const CassTableMeta *table_meta, const std::vector<std::string> &col_names);
 
     //Used to pass TupleRowFactory by reference
     TupleRowFactory(){};
 
     ~TupleRowFactory() {}
 
+    TupleRow* make_tuple(PyObject* obj);
+
     TupleRow* make_tuple(const CassRow* row);
 
     TupleRow* make_tuple(void *data);
 
+    PyObject* tuple_as_py(const TupleRow* tuple) const;
 
     void bind(CassStatement *statement,const  TupleRow *row,  u_int16_t offset) const;
 
-    inline std::shared_ptr<const std::vector<ColumnMeta>> get_metadata() const{
-        return metadata;
-    }
-
-    inline const uint16_t n_elements() const{
+    inline uint16_t n_elements(){
         return (uint16_t) this->metadata->size();
     }
 
+    inline std::shared_ptr<std::vector<ColumnMeta>> get_metadata() const{
+        return metadata;
+
+    }
+
 private:
-    std::shared_ptr<const std::vector<ColumnMeta > > metadata;
+    std::shared_ptr<std::vector<ColumnMeta>> metadata;
 
     uint16_t total_bytes;
 
     uint16_t compute_size_of(const CassValueType VT) const;
+
+    PyObject* c_to_py(const void *V, ColumnMeta &meta) const;
+
+    int py_to_c(PyObject *obj, void* data, int32_t col) const;
 
     int cass_to_c(const CassValue *lhs,void * data, int16_t col) const;
 

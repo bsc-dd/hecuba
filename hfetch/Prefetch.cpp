@@ -2,19 +2,19 @@
 
 #define MAX_TRIES 10
 
-Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges, uint32_t buff_size,
-                   TupleRowFactory& tuple_factory, CassSession *session, std::string query) {
+Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges, TableMetadata* table_meta,
+                   CassSession* session,uint32_t prefetch_size) {
     this->session = session;
-    this->t_factory = tuple_factory;
+    this->t_factory = TupleRowFactory(table_meta->get_items());
     this->tokens = token_ranges;
     this->completed = false;
     this->error_msg = NULL;
-    CassFuture *future = cass_session_prepare(session, query.c_str());
+    CassFuture *future = cass_session_prepare(session, table_meta->get_select_tokens());
     CassError rc = cass_future_error_code(future);
-    CHECK_CASS("prefetch cannot prepare");
+    CHECK_CASS("prefetch cannot prepare"); //TODO when prepare doesnt succeed, crashes later with segfault
     this->prepared_query = cass_future_get_prepared(future);
     cass_future_free(future);
-    this->data.set_capacity(buff_size);
+    this->data.set_capacity(prefetch_size);
     this->worker = new std::thread{&Prefetch::consume_tokens, this};
 
 }
@@ -34,21 +34,6 @@ Prefetch::~Prefetch() {
 }
 
 
-PyObject *Prefetch::get_next() {
-    TupleRow *response = get_cnext();
-    if (response == NULL) {
-        if (error_msg == NULL) {
-            PyErr_SetNone(PyExc_StopIteration);
-            return NULL;
-        } else {
-            PyErr_SetString(PyExc_RuntimeError, error_msg);
-            return NULL;
-        }
-    }
-    PyObject *toberet = t_factory.tuple_as_py(response);
-    delete (response);
-    return toberet;
-}
 
 TupleRow *Prefetch::get_cnext() {
     if (completed&&data.empty()) return NULL;

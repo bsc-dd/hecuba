@@ -4,8 +4,8 @@
 
 #include <thread>
 #include <atomic>
-#include "tbb/concurrent_queue.h"
 
+#include "tbb/concurrent_queue.h"
 #include "TupleRowFactory.h"
 #include "ModuleException.h"
 
@@ -13,13 +13,12 @@ class Prefetch {
 
 public:
 
-    Prefetch(const std::vector<std::pair<int64_t, int64_t>> &tokens, uint32_t buff_size, TupleRowFactory& tuple_factory,
-             CassSession* session,std::string query);
+    Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges, TableMetadata* table_meta,
+             CassSession* session,uint32_t prefetch_size);
 
     ~Prefetch();
 
     TupleRow *get_cnext();
-    PyObject* get_next();
 
 private:
 

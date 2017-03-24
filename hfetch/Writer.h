@@ -9,12 +9,12 @@
 #include "tbb/concurrent_queue.h"
 
 #include "TupleRowFactory.h"
+#include <map>
 
 class Writer {
 public:
-    Writer(uint16_t buff_size, uint16_t max_callbacks, const TupleRowFactory &key_factory,
-           const TupleRowFactory &value_factory, CassSession *session,
-           std::string query);
+    Writer(TableMetadata* table_meta, CassSession *session,
+           std::map<std::string,std::string> &config);
 
     ~Writer();
 
@@ -34,14 +34,14 @@ private:
 
     const CassPrepared *prepared_query;
 
-    TupleRowFactory k_factory;
-    TupleRowFactory v_factory;
+    TupleRowFactory *k_factory;
+    TupleRowFactory *v_factory;
 
     tbb::concurrent_bounded_queue<std::pair<const TupleRow *, const TupleRow *>> data;
 
-    uint16_t max_calls;
-    std::atomic<uint16_t> ncallbacks;
-    std::atomic<uint16_t> error_count;
+    uint32_t max_calls;
+    std::atomic<uint32_t> ncallbacks;
+    std::atomic<uint32_t> error_count;
 
     static void callback(CassFuture *future, void *ptr);
 };

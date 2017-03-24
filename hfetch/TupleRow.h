@@ -5,23 +5,23 @@
 #include <memory>
 #include <cstring>
 #include <string>
-#include <iostream>
-#include "stdlib.h"
+#include <stdlib.h>
 #include <vector>
 #include <cassandra.h>
-#include <python2.7/Python.h>
-#include "metadata.h"
+
+
+#include "TableMetadata.h"
 
 
 class TupleRow {
 private:
     std::shared_ptr<void> payload;
-    std::shared_ptr<std::vector<ColumnMeta> > metadata;
+    std::shared_ptr<const std::vector<ColumnMeta> > metadata;
     uint16_t payload_size;
 public:
-
+//shared ptr const? TODO
     /* Constructor */
-    TupleRow(const std::shared_ptr<std::vector<ColumnMeta>> metas, uint16_t payload_size,void *buffer);
+    TupleRow(std::shared_ptr<const std::vector<ColumnMeta>> metas, uint16_t payload_size,void *buffer);
 
     /* Copy constructors */
     TupleRow(const TupleRow &t) ;
