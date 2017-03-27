@@ -6,13 +6,13 @@
  * @param table_meta Holds the table information
  */
 TupleRowFactory::TupleRowFactory(std::shared_ptr<const std::vector<ColumnMeta> > row_info) {
+
     if (row_info->empty()) {
         throw ModuleException("Tuple factory: Table metadata empty");
     }
     this->metadata= row_info;
     this->total_bytes = 0;
-
-    ColumnMeta last_meta = *(--this->metadata.get()->end());
+    ColumnMeta last_meta = row_info->at(row_info->size()-1); //*(--this->metadata.get()->end()); TODO
     total_bytes=last_meta.position+last_meta.size;
 }
 

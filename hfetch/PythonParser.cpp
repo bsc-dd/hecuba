@@ -7,53 +7,6 @@
  */
 PythonParser::PythonParser() {
 
-    if (!table_meta) {
-        throw ModuleException("Tuple factory: Table metadata NULL");
-    }
-
-    uint32_t ncols = (uint32_t) col_names.size();
-    if (col_names[0] == "*") ncols = (uint32_t) cass_table_meta_column_count(table_meta);
-
-
-    if (ncols==0) {
-        throw ModuleException("Tuple factory: 0 columns metadata");
-    }
-
-    const std::vector<ColumnMeta> md = std::vector<ColumnMeta>(ncols);
-    std::vector<uint16_t> elem_sizes = std::vector<uint16_t>(ncols);
-
-    CassIterator *iterator = cass_iterator_columns_from_table_meta(table_meta);
-    while (cass_iterator_next(iterator)) {
-        const CassColumnMeta *cmeta = cass_iterator_get_column_meta(iterator);
-
-        const char *value;
-        size_t length;
-        cass_column_meta_name(cmeta, &value, &length);
-
-        const CassDataType *type = cass_column_meta_data_type(cmeta);
-        std::string meta_col_name(value);
-
-        for (uint16_t j=0; j<col_names.size(); ++j) {
-            const std::string ss = col_names[j];
-            if (meta_col_name == ss || col_names[0] == "*") {
-                md[j] ={0,cass_data_type_type(type),value};
-                elem_sizes[j] = compute_size_of( md[j].type);
-                break;
-            }
-        }
-
-    }
-    cass_iterator_free(iterator);
-
-    md[0].position = 0;
-    uint16_t i = 1;
-    while (i < ncols) {
-        md[i].position= md[i - 1].position + elem_sizes[i - 1];
-        ++i;
-    }
-
-    this->total_bytes = md[md.size()-1].position + elem_sizes[ncols - 1];
-    this->metadata=std::make_shared<const std::vector<ColumnMeta>>(md);
 }
 
 PythonParser::~PythonParser() {
@@ -69,8 +22,7 @@ PythonParser::~PythonParser() {
  */
 TupleRow *PythonParser::make_tuple(PyObject* obj,std::shared_ptr<const std::vector<ColumnMeta> > metadata) const {
     const std::vector<ColumnMeta>* localMeta=metadata.get();
-    if (!localMeta)
-        throw ModuleException("Tuple row, make tuple from PyObj: Null metadata");
+    uint32_t total_bytes = localMeta->at(localMeta->size()-1).position+localMeta->at(localMeta->size()-1).size;
 
     char *buffer = (char *) malloc(total_bytes);
     for (uint16_t i = 0; i < PyList_Size(obj); ++i) {
@@ -79,7 +31,7 @@ TupleRow *PythonParser::make_tuple(PyObject* obj,std::shared_ptr<const std::vect
             throw ModuleException("PythonParser: Make tuple from PyObj: Access metadata at "+std::to_string(i)+" from a max "+std::to_string(localMeta->size()));
         if (localMeta->at(i).position >= total_bytes)
             throw ModuleException("PythonParser: Make tuple from PyObj: Writing on byte "+std::to_string(localMeta->at(i).position)+" from a total of "+std::to_string(total_bytes));
-        py_to_c(obj_to_conver, buffer + localMeta->at(i).position, i);
+        py_to_c(obj_to_conver, buffer + localMeta->at(i).position, localMeta->at(i).type);
     }
     return new TupleRow(metadata, total_bytes, buffer);
 }
@@ -93,19 +45,13 @@ TupleRow *PythonParser::make_tuple(PyObject* obj,std::shared_ptr<const std::vect
  * @return 0 if succeeds, -1 otherwise
  */
 
-int PythonParser::py_to_c(PyObject *obj, void *data, int32_t col) const {
-    const std::vector<ColumnMeta>* localMeta=metadata.get();
-    if (!localMeta)
-        throw ModuleException("Tuple row, py_to_c: Null metadata");
-    if (col < 0 || col >= (int32_t) localMeta->size()) {
-        throw ModuleException("PythonParser: Py to C: Asked for column "+std::to_string(col)+" but only "+std::to_string(localMeta->size())+" are present");
-    }
-    if (obj == Py_None) {
-        memset(data,0,compute_size_of(localMeta->at(col).type));
+int PythonParser::py_to_c(PyObject *obj, void *data, CassValueType type) const {
+       if (obj == Py_None) {
+        memset(data,0,compute_size_of(type));
         return 0;
     }
     int ok = -1;
-    switch (localMeta->at(col).type) {
+    switch (type) {
         case CASS_VALUE_TYPE_TEXT:
         case CASS_VALUE_TYPE_VARCHAR:
         case CASS_VALUE_TYPE_ASCII: {
@@ -249,7 +195,7 @@ int PythonParser::py_to_c(PyObject *obj, void *data, int32_t col) const {
  * @return The equivalent object V in Python using the Cassandra Value type to choose the correct transformation
  */
 
-PyObject *PythonParser::c_to_py(const void *V, ColumnMeta &meta) const {
+PyObject *PythonParser::c_to_py(const void *V, const ColumnMeta &meta) const {
 
     char const *py_flag = 0;
     PyObject *py_value = Py_None;
@@ -305,6 +251,7 @@ PyObject *PythonParser::c_to_py(const void *V, ColumnMeta &meta) const {
             py_flag = Py_FLOAT;
             const float *temp = reinterpret_cast<const float *>(V);
             py_value = Py_BuildValue(py_flag, *temp);
+            PyErr_Print();
             break;
         }
         case CASS_VALUE_TYPE_INT: {
@@ -395,8 +342,7 @@ PyObject *PythonParser::tuple_as_py(const TupleRow* tuple, std::shared_ptr<const
         throw ModuleException("Tuple row, tuple_as_py: Null metadata");
     for (uint16_t i = 0; i < tuple->n_elem(); i++) {
         if (i >= localMeta->size())
-            throw ModuleException("PythonParser: Tuple as py access meta at " + std::to_string(i) + " from a max " +
-                                  std::to_string(localMeta->size()));
+            throw ModuleException("PythonParser: Tuple as py access meta at " + std::to_string(i));
         PyObject *inte = c_to_py(tuple->get_element(i), localMeta->at(i));
         PyList_SetItem(list, i, inte);
     }
@@ -404,3 +350,110 @@ PyObject *PythonParser::tuple_as_py(const TupleRow* tuple, std::shared_ptr<const
 }
 
 
+uint16_t PythonParser::compute_size_of(const CassValueType VT) const {
+    switch (VT) {
+        case CASS_VALUE_TYPE_TEXT:
+        case CASS_VALUE_TYPE_VARCHAR:
+        case CASS_VALUE_TYPE_ASCII: {
+            return sizeof(char *);
+        }
+        case CASS_VALUE_TYPE_VARINT:
+        case CASS_VALUE_TYPE_BIGINT: {
+            return sizeof(int64_t);
+        }
+        case CASS_VALUE_TYPE_BLOB: {
+            return sizeof(unsigned char *);
+        }
+        case CASS_VALUE_TYPE_BOOLEAN: {
+            return sizeof(bool);
+        }
+        case CASS_VALUE_TYPE_COUNTER: {
+            return sizeof(uint32_t);
+        }
+        case CASS_VALUE_TYPE_DECIMAL: {
+            //TODO
+            std::cerr << "Parse decimals data type supported yet" << std::endl;
+            break;
+        }
+        case CASS_VALUE_TYPE_DOUBLE: {
+            return sizeof(double);
+        }
+        case CASS_VALUE_TYPE_FLOAT: {
+            return sizeof(float);
+        }
+        case CASS_VALUE_TYPE_INT: {
+            return sizeof(int32_t);
+        }
+        case CASS_VALUE_TYPE_TIMESTAMP: {
+            //TODO
+            std::cerr << "Timestamp data type supported yet" << std::endl;
+            break;
+        }
+        case CASS_VALUE_TYPE_UUID: {
+            //TODO
+
+            std::cerr << "UUID data type supported yet" << std::endl;
+            break;
+        }
+        case CASS_VALUE_TYPE_TIMEUUID: {
+            std::cerr << "TIMEUUID data type supported yet" << std::endl;
+            //TODO
+
+            break;
+        }
+        case CASS_VALUE_TYPE_INET: {
+
+            //TODO
+            std::cerr << "INET data type supported yet" << std::endl;
+            break;
+        }
+        case CASS_VALUE_TYPE_DATE: {
+            std::cerr << "Date data type supported yet" << std::endl;
+
+            //TODO
+            break;
+        }
+        case CASS_VALUE_TYPE_TIME: {
+            std::cerr << "Time data type supported yet" << std::endl;
+            //TODO
+
+            break;
+        }
+        case CASS_VALUE_TYPE_SMALL_INT: {
+            return sizeof(int16_t);
+        }
+        case CASS_VALUE_TYPE_TINY_INT: {
+            return sizeof(int8_t);
+        }
+        case CASS_VALUE_TYPE_LIST: {
+            std::cerr << "List data type supported yet" << std::endl;
+            //TODO
+            break;
+        }
+        case CASS_VALUE_TYPE_MAP: {
+            std::cerr << "Map data type supported yet" << std::endl;
+            //TODO
+
+            break;
+        }
+        case CASS_VALUE_TYPE_SET: {
+            std::cerr << "Set data type supported yet" << std::endl;
+            //TODO
+
+            break;
+        }
+        case CASS_VALUE_TYPE_TUPLE: {
+            //TODO
+
+            std::cerr << "Tuple data type supported yet" << std::endl;
+            break;
+        }
+        case CASS_VALUE_TYPE_UDT:
+        case CASS_VALUE_TYPE_CUSTOM:
+        case CASS_VALUE_TYPE_UNKNOWN:
+        default:
+            throw ModuleException("Unknown data type, can't parse");
+            //TODO
+    }
+    return 0;
+}

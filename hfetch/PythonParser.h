@@ -48,11 +48,10 @@ public:
 
 private:
 
-    PyObject* c_to_py(const void *V, ColumnMeta &meta) const;
+    PyObject* c_to_py(const void *V, const ColumnMeta &meta) const;
 
-    int py_to_c(PyObject *obj, void* data, int32_t col) const;
-
-
+    int py_to_c(PyObject *obj, void *data, CassValueType type) const;
+    uint16_t compute_size_of(const CassValueType VT) const; //TODO present also in TableMetadata
 };
 
 

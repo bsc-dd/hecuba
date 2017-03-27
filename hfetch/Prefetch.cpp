@@ -2,8 +2,10 @@
 
 #define MAX_TRIES 10
 
-Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges, TableMetadata* table_meta,
+Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges, const TableMetadata* table_meta,
                    CassSession* session,uint32_t prefetch_size) {
+    if (!session)
+        throw ModuleException("Prefetch: Session is Null");
     this->session = session;
     this->t_factory = TupleRowFactory(table_meta->get_items());
     this->tokens = token_ranges;

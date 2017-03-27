@@ -39,9 +39,17 @@ public:
                            const std::vector<std::pair<int64_t, int64_t>> &tokens,
                            uint32_t prefetch_size);
 
-private:
+
+    Prefetch* get_values_iterator(const TableMetadata* table_meta,
+                                  const std::vector<std::pair<int64_t, int64_t>> &tokens,
+                                  uint32_t prefetch_size);
+    Prefetch* get_iterator(const TableMetadata* table_meta,
+                           const std::vector<std::pair<int64_t, int64_t>> &tokens,
+                           uint32_t prefetch_size);
 
     int disconnectCassandra();
+private:
+
 
     CassSession *session;
 

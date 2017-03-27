@@ -16,6 +16,9 @@ CacheTable::CacheTable(const TableMetadata* table_meta, CassSession *session,
                        std::map<std::string,std::string> &config) {
 
     //check session!=NULL
+    if (!session)
+        throw ModuleException("CacheTable: Session is Null");
+
     int32_t cache_size = default_cache_size;
 
     if (config.find("cache_size")!=config.end()) {
@@ -23,7 +26,7 @@ CacheTable::CacheTable(const TableMetadata* table_meta, CassSession *session,
         try {
             cache_size = std::stoi(cache_size_str);
         }
-        catch (std::exception e) {
+        catch (std::exception &e) {
             std::string msg(e.what());
             msg+= " Malformed value in config for cache_size";
             throw ModuleException(msg);
@@ -46,6 +49,7 @@ CacheTable::CacheTable(const TableMetadata* table_meta, CassSession *session,
 
 
     this->session = session;
+    this->table_metadata = table_meta;
     this->myCache = new Poco::LRUCache<TupleRow, TupleRow>(cache_size);
     this->keys_factory = new TupleRowFactory(table_meta->get_keys());
     this->values_factory = new TupleRowFactory(table_meta->get_values());
@@ -69,7 +73,9 @@ void CacheTable::put_crow(void* keys, void* values) {
     this->myCache->update(*k, v); //Inserts if not present, otherwise replaces
 }
 
-
+/*
+ * POST: never returns NULL
+ */
 const TupleRow* CacheTable::retrieve_from_cassandra(TupleRow *keys){
 
     /* Not present on cache, a query is performed */
@@ -91,6 +97,8 @@ const TupleRow* CacheTable::retrieve_from_cassandra(TupleRow *keys){
     cass_future_free(query_future);
     cass_statement_free(statement);
 
+    if (!cass_result_row_count(result))
+        throw ModuleException("No rows found for this key");
     const CassRow *row = cass_result_first_row(result);
     const TupleRow* tuple_result=values_factory->make_tuple(row);
 
@@ -106,7 +114,8 @@ const TupleRow *CacheTable::get_crow(TupleRow *keys) {
     }
 
     const TupleRow *values = retrieve_from_cassandra(keys);
-    if (values) myCache->add(*keys, values);
+
+    myCache->add(*keys, values);
     //Store result to cache
         //TODO it calls TupleRow::TupleRow(const TupleRow *t) for values which is wrong
     return values;

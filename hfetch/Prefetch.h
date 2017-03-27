@@ -13,7 +13,7 @@ class Prefetch {
 
 public:
 
-    Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges, TableMetadata* table_meta,
+    Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges, const TableMetadata* table_meta,
              CassSession* session,uint32_t prefetch_size);
 
     ~Prefetch();

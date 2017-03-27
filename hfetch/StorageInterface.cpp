@@ -118,3 +118,17 @@ Prefetch* StorageInterface::get_iterator(const char *table,const char *keyspace,
     TableMetadata* table_meta = new TableMetadata(table,keyspace,keys_names,columns_names,session);
     return new Prefetch(tokens, table_meta, session,prefetch_size);
 }
+
+
+
+Prefetch* StorageInterface::get_values_iterator(const TableMetadata* table_meta,
+                              const std::vector<std::pair<int64_t, int64_t>> &tokens,
+                              uint32_t prefetch_size){
+    return new Prefetch(tokens, table_meta, session,prefetch_size);
+}
+
+Prefetch* StorageInterface::get_iterator(const TableMetadata* table_meta,
+                       const std::vector<std::pair<int64_t, int64_t>> &tokens,
+                       uint32_t prefetch_size){
+    return new Prefetch(tokens, table_meta, session,prefetch_size);
+}

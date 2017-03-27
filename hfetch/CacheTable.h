@@ -55,7 +55,7 @@ private:
     TupleRowFactory *keys_factory;
     TupleRowFactory *values_factory;
 
-    TableMetadata* table_metadata;
+    const TableMetadata* table_metadata;
 
 };
 

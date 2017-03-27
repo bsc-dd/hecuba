@@ -19,7 +19,7 @@ Writer::Writer(TableMetadata* table_meta, CassSession *session,
             max_callbacks = std::stoi(max_callbacks_str);
             if (max_callbacks<=0) throw ModuleException("Writer parallelism value must be > 0");
         }
-        catch (std::exception e) {
+        catch (std::exception &e) {
             std::string msg(e.what());
             msg+= " Malformed value in config for writer_par";
             throw ModuleException(msg);
@@ -32,7 +32,7 @@ Writer::Writer(TableMetadata* table_meta, CassSession *session,
             buff_size = std::stoi(buff_size_str);
             if (buff_size<0) throw ModuleException("Writer buffer value must be >= 0");
         }
-        catch (std::exception e) {
+        catch (std::exception &e) {
             std::string msg(e.what());
             msg+= " Malformed value in config for writer_buffer";
             throw ModuleException(msg);
