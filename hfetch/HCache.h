@@ -27,6 +27,7 @@ typedef struct {
     PyObject_HEAD
     CacheTable *T;
     const TableMetadata* metadata;
+    std::vector<std::pair<int64_t, int64_t>> token_ranges;
 } HCache;
 
 
