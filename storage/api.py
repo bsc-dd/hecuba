@@ -82,5 +82,5 @@ def getByID(objid):
     cname = class_name[last + 1:]
     mod = __import__(module, globals(), locals(), [cname], 0)
     b = getattr(mod, cname).build_remotely(results)
-    b.storage_id = objid
+    b._storage_id = objid
     return b

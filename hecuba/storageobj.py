@@ -74,15 +74,14 @@ class StorageObj(object, IStorage):
 
         if tokens is None:
             log.info('using all tokens')
-            tokens = map(lambda a: a.value, config.cluster.metadata.token_map.ring)
-            self._tokens = IStorage._discrete_token_ranges(tokens)
+            self._tokens = IStorage._build_discrete_token_ranges()
         else:
             self._tokens = tokens
 
         class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
         self._build_args = self.args(name, self._tokens, storage_id, istorage_props, class_name)
 
-        self.storage_id = storage_id
+        self._storage_id = storage_id
         dictionaries = filter(lambda (k, t): t['type'] == 'dict', self._persistent_props.iteritems())
         for table_name, per_dict in dictionaries:
             if name is None:
@@ -115,7 +114,7 @@ class StorageObj(object, IStorage):
     _dict_case = re.compile('.*@ClassField +(\w+) +dict +< *< *([\w:, ]+)+ *> *, *([\w+:, <>]+) *>')
     _sub_dict_case = re.compile(' *< *< *([\w:, ]+)+ *> *, *([\w+:, <>]+) *>')
     _sub_tuple_case = re.compile(' *< *([\w:, ]+)+ *>')
-    _val_case = re.compile('.*@ClassField +(\w+) +(\w+) +%s' % _valid_type)
+    _val_case = re.compile('.*@ClassField +(\w+) +%s' % _valid_type)
     _index_vars = re.compile('.*@Index_on+\s*([A-z,]+)+([A-z, ]+)')
 
     @staticmethod
@@ -258,12 +257,12 @@ class StorageObj(object, IStorage):
             pd = getattr(self, table_name)
             name = self._ksp + "." + table_name
             pd.make_persistent(name)
-            is_props[name] = pd.storage_id
+            is_props[name] = pd._storage_id
 
-        if changed or self.storage_id is None:
-            if self.storage_id is None:
-                self.storage_id = str(uuid1())
-                self._build_args = self._build_args._replace(storage_id=self.storage_id, istorage_props=is_props)
+        if changed or self._storage_id is None:
+            if self._storage_id is None:
+                self._storage_id = str(uuid1())
+                self._build_args = self._build_args._replace(storage_id=self._storage_id, istorage_props=is_props)
             self._store_meta(self._build_args)
 
         create_attrs = "CREATE TABLE IF NOT EXISTS %s.%s (" % (self._ksp, self._table) + \
@@ -427,7 +426,7 @@ class StorageObj(object, IStorage):
         """
         This function returns the ID of the StorageObj
         """
-        return '%s_1' % self.storage_id
+        return '%s_1' % self._storage_id
 
     def old_split(self):
         """
