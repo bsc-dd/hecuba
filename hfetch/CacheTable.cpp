@@ -14,55 +14,54 @@
  * @param query Query ready to be bind with the keys
  * @param session
  */
-CacheTable::CacheTable(const std::string &table,const std::string &keyspace,
+CacheTable::CacheTable(const std::string &table, const std::string &keyspace,
                        const std::vector<std::string> &keyn,
                        const std::vector<std::string> &columns_n,
                        const std::string &token_range_pred,
                        const std::vector<std::pair<int64_t, int64_t>> &tkns,
                        CassSession *session,
-                       std::map<std::string,std::string> &config) {
-
+                       std::map<std::string, std::string> &config) {
 
 
     int32_t writer_num_callbacks = default_writer_callbacks;
     int32_t writer_buffer_size = default_writer_buff;
     int32_t cache_size = default_cache_size;
 
-    if (config.find("writer_par")!=config.end()) {
+    if (config.find("writer_par") != config.end()) {
         std::string wr_calls = config["writer_par"];
         try {
             writer_num_callbacks = std::stoi(wr_calls);
-            if (writer_num_callbacks<0) throw ModuleException("Writer parallelism value must be >= 0");
+            if (writer_num_callbacks < 0) throw ModuleException("Writer parallelism value must be >= 0");
         }
         catch (std::exception e) {
             std::string msg(e.what());
-            msg+= " Malformed value in config for writer_par";
+            msg += " Malformed value in config for writer_par";
             throw ModuleException(msg);
         }
     }
 
-    if (config.find("writer_buffer")!=config.end()) {
+    if (config.find("writer_buffer") != config.end()) {
         std::string wr_buff = config["writer_buffer"];
         try {
             writer_buffer_size = std::stoi(wr_buff);
-            if (writer_buffer_size<0) throw ModuleException("Writer buffer value must be >= 0");
+            if (writer_buffer_size < 0) throw ModuleException("Writer buffer value must be >= 0");
         }
         catch (std::exception e) {
             std::string msg(e.what());
-            msg+= " Malformed value in config for writer_buffer";
+            msg += " Malformed value in config for writer_buffer";
             throw ModuleException(msg);
         }
     }
 
-    if (config.find("cache_size")!=config.end()) {
+    if (config.find("cache_size") != config.end()) {
         std::string cache_size_str = config["cache_size"];
         try {
             cache_size = std::stoi(cache_size_str);
-            if (cache_size<0) throw ModuleException("Cache size value must be >= 0");
+            if (cache_size < 0) throw ModuleException("Cache size value must be >= 0");
         }
         catch (std::exception e) {
             std::string msg(e.what());
-            msg+= " Malformed value in config for cache_size";
+            msg += " Malformed value in config for cache_size";
             throw ModuleException(msg);
         }
     }
@@ -72,7 +71,7 @@ CacheTable::CacheTable(const std::string &table,const std::string &keyspace,
 
     columns_names = columns_n;
     key_names = keyn;
-    tokens=tkns;
+    tokens = tkns;
     token_predicate = "FROM " + keyspace + "." + table + " " + token_range_pred;
     get_predicate = "FROM " + keyspace + "." + table + " WHERE " + key_names[0] + "=?";
     select_keys = "SELECT " + key_names[0];
@@ -85,8 +84,8 @@ CacheTable::CacheTable(const std::string &table,const std::string &keyspace,
     for (uint16_t i = 1; i < columns_names.size(); i++) {
         select_values += "," + columns_names[i];
     }
-    select_values+=" ";
-    select_keys+=" ";
+    select_values += " ";
+    select_keys += " ";
 
     select_all = select_keys + "," + select_values;
 
@@ -96,9 +95,9 @@ CacheTable::CacheTable(const std::string &table,const std::string &keyspace,
     cache_query = select_values + get_predicate;
     CassFuture *future = cass_session_prepare(session, cache_query.c_str());
     CassError rc = cass_future_error_code(future);
-    if (rc!=CASS_OK) {
+    if (rc != CASS_OK) {
         std::string error = cass_error_desc(rc);
-        throw ModuleException("Cache particles_table: Preparing query: "+cache_query+ " REPORTED ERROR: "+error);
+        throw ModuleException("Cache particles_table: Preparing query: " + cache_query + " REPORTED ERROR: " + error);
     }
 
     prepared_query = cass_future_get_prepared(future);
@@ -118,7 +117,7 @@ CacheTable::CacheTable(const std::string &table,const std::string &keyspace,
 
 
     const CassTableMeta *table_meta = cass_keyspace_meta_table_by_name(keyspace_meta, table.c_str());
-    if (!table_meta || (cass_table_meta_column_count(table_meta)==0)) {
+    if (!table_meta || (cass_table_meta_column_count(table_meta) == 0)) {
         throw ModuleException("Cache particles_table: constructor: Table meta is NULL");
     }
 
@@ -126,59 +125,56 @@ CacheTable::CacheTable(const std::string &table,const std::string &keyspace,
     all_names.insert(all_names.end(), key_names.begin(), key_names.end());
     all_names.insert(all_names.end(), columns_names.begin(), columns_names.end());
     try {
-    keys_factory = new TupleRowFactory(table_meta, key_names);
-    values_factory = new TupleRowFactory(table_meta, columns_names);
-    items_factory = new TupleRowFactory(table_meta, all_names);
+        keys_factory = new TupleRowFactory(table_meta, key_names);
+        values_factory = new TupleRowFactory(table_meta, columns_names);
+        items_factory = new TupleRowFactory(table_meta, all_names);
     }
     catch (ModuleException e) {
         throw e;
     }
     cass_schema_meta_free(schema_meta);
-    std::string write_query = "INSERT INTO "+keyspace+"."+table+"(";
+    std::string write_query = "INSERT INTO " + keyspace + "." + table + "(";
 
-    write_query+=all_names[0];
-    for (uint16_t i = 1;i<all_names.size(); ++i) {
-        write_query+=","+all_names[i];
+    write_query += all_names[0];
+    for (uint16_t i = 1; i < all_names.size(); ++i) {
+        write_query += "," + all_names[i];
     }
-    write_query+=") VALUES (?";
-    for (uint16_t i = 1; i<all_names.size();++i) {
-        write_query+=",?";
+    write_query += ") VALUES (?";
+    for (uint16_t i = 1; i < all_names.size(); ++i) {
+        write_query += ",?";
     }
-    write_query+=");";
+    write_query += ");";
 
-    writer = new Writer((uint16_t )writer_buffer_size,(uint16_t )writer_num_callbacks,*keys_factory,*values_factory,session,write_query);
+    writer = new Writer((uint16_t) writer_buffer_size, (uint16_t) writer_num_callbacks, *keys_factory, *values_factory,
+                        session, write_query);
 };
 
 
 CacheTable::~CacheTable() {
     cass_prepared_free(prepared_query);
     //stl tree calls deallocate for cache nodes on clear()->erase(), and later on destroy, which ends up calling the deleters
-    delete(writer); //First of all, needs to flush the data using the key and values factory
+    delete (writer); //First of all, needs to flush the data using the key and values factory
     myCache->clear();// destroys keys
-    delete(myCache);
+    delete (myCache);
     delete (keys_factory);
     delete (values_factory);
     delete (items_factory);
-    prepared_query=NULL;
-    session=NULL;
+    prepared_query = NULL;
+    session = NULL;
 }
 
 
-
-
-Prefetch* CacheTable::get_keys_iter(uint32_t prefetch_size) {
+Prefetch *CacheTable::get_keys_iter(uint32_t prefetch_size) const {
     return new Prefetch(tokens, prefetch_size, *keys_factory, session, select_keys + token_predicate);
 }
 
-Prefetch* CacheTable::get_values_iter(uint32_t prefetch_size) {
+Prefetch *CacheTable::get_values_iter(uint32_t prefetch_size) const {
     return new Prefetch(tokens, prefetch_size, *values_factory, session, select_values + token_predicate);
 }
 
-Prefetch* CacheTable::get_items_iter(uint32_t prefetch_size) {
+Prefetch *CacheTable::get_items_iter(uint32_t prefetch_size) const {
     return new Prefetch(tokens, prefetch_size, *items_factory, session, select_all + token_predicate);
 }
-
-
 
 
 /***
@@ -190,31 +186,31 @@ Prefetch* CacheTable::get_items_iter(uint32_t prefetch_size) {
  */
 
 void CacheTable::put_row(PyObject *key, PyObject *value) {
-    TupleRow *k = keys_factory->make_tuple(key);
+    const TupleRow *k = keys_factory->make_tuple(key);
     const TupleRow *v = values_factory->make_tuple(value);
     //Inserts if not present, otherwise replaces
     this->myCache->update(*k, v);
-    this->writer->write_to_cassandra(k,v);
+    this->writer->write_to_cassandra(k, v);
 }
 
 
-PyObject *CacheTable::get_row(PyObject *py_keys) {
+PyObject *CacheTable::get_row(PyObject *py_keys) const {
 
     TupleRow *keys = keys_factory->make_tuple(py_keys);
     const TupleRow *values = get_crow(keys);
-    delete(keys);
+    delete (keys);
 
-    if(values==NULL){
-        PyErr_SetString(PyExc_KeyError,"Get row: key not found");
+    if (values == NULL) {
+        PyErr_SetString(PyExc_KeyError, "Get row: key not found");
         return NULL;
     }
 
-    PyObject* temp = values_factory->tuple_as_py(values);
+    PyObject *temp = values_factory->tuple_as_py(values);
     return temp;
 }
 
-const TupleRow *CacheTable::get_crow(TupleRow *keys) {
-    TupleRow k=*keys;
+const TupleRow *CacheTable::get_crow(TupleRow *keys) const {
+    TupleRow k = *keys;
 
     Poco::SharedPtr<TupleRow> ptrElem = myCache->get(k);
     if (!ptrElem.isNull()) {
@@ -223,7 +219,7 @@ const TupleRow *CacheTable::get_crow(TupleRow *keys) {
     /* Not present on cache, a query is performed */
     CassStatement *statement = cass_prepared_bind(prepared_query);
 
-    this->keys_factory->bind(statement,keys,0);
+    this->keys_factory->bind(statement, keys, 0);
 
     CassFuture *query_future = cass_session_execute(session, statement);
     const CassResult *result = cass_future_get_result(query_future);
