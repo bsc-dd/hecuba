@@ -57,6 +57,9 @@ public:
 
     PyObject* merge_blocks_as_nparray(std::vector<const TupleRow*>& blocks) const;
 
+
+    std::vector<const TupleRow*> blocks_to_tuple(std::vector <void*>& blocks, PyObject *obj) const ;
+    void* extract_array(PyObject *obj) const;
     std::vector<const TupleRow*> make_tuples_with_npy(PyObject *obj);
 
     void bind(CassStatement *statement,const  TupleRow *row,  u_int16_t offset) const;

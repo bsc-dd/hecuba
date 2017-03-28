@@ -127,7 +127,7 @@ void setupcassandra() {
 
 
 
-    fireandforget("CREATE TABLE test.bytes(partid int PRIMARY KEY, data blob, subarray int);", test_session);
+    fireandforget("CREATE TABLE test.bytes(partid int PRIMARY KEY, data blob);", test_session);
 
 
     Py_Initialize();
@@ -370,7 +370,7 @@ TEST(TupleTest, TupleOps) {
 
 
 TEST(TestMetadata,NumpyArrays) {
-    ColumnMeta meta = {0,CASS_VALUE_TYPE_BLOB,std::vector<std::string>{"data","double","2x2"}};
+    ColumnMeta meta = {0,CASS_VALUE_TYPE_BLOB,std::vector<std::string>{"data","double","2x2","no-part"}};
 
     EXPECT_EQ(meta.get_arr_type(),NPY_DOUBLE);
     PyArray_Dims* dims = meta.get_arr_dims();
@@ -802,7 +802,7 @@ TEST(TestingCacheTable, NumpyArrayReadWrite) {
     PY_ERR_CHECK
 
     std::vector<std::string> keysnames = {"partid"};
-    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"data","double","2x2"},std::vector<std::string>{"subarray"}};
+    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"data","double","2x2","no-part"}};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
 
@@ -821,7 +821,7 @@ TEST(TestingCacheTable, NumpyArrayReadWrite) {
 
     EXPECT_FALSE(result == 0);
 
-    EXPECT_EQ(PyList_Size(result), colsnames.size()-1);
+    EXPECT_EQ(PyList_Size(result), colsnames.size());
     for (int i = 0; i < PyList_Size(result); ++i) {
         EXPECT_FALSE(Py_None == PyList_GetItem(result, i));
     }
@@ -901,7 +901,7 @@ TEST(TestingCacheTable, NumpyArrayRead) {
     config["cache_size"] = "10";
 
     std::vector<std::string> keysnames = {"partid"};
-    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"data","double","2x2"},std::vector<std::string>{"subarray"}};
+    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"data","double","2x2","no-part"}};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
     std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(new CacheTable(bytes_table, keyspace,
@@ -915,7 +915,7 @@ TEST(TestingCacheTable, NumpyArrayRead) {
     EXPECT_FALSE(result == 0);
 
 
-    EXPECT_EQ(PyList_Size(result), colsnames.size()-1);
+    EXPECT_EQ(PyList_Size(result), colsnames.size());
     for (int i = 0; i < PyList_Size(result); ++i) {
         EXPECT_FALSE(Py_None == PyList_GetItem(result, i));
     }

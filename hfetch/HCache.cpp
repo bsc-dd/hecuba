@@ -168,7 +168,7 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
 
             PyObject *py_name = PyDict_GetItem(dict, PyString_FromString("name"));
 
-            columns_names[i] = std::vector<std::string>(3);
+            columns_names[i] = std::vector<std::string>(4);
             columns_names[i][0] = PyString_AsString(py_name);
 
             PyObject *py_arr_type = PyDict_GetItem(dict, PyString_FromString("type"));
@@ -176,6 +176,10 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
 
             PyObject *py_arr_dims = PyDict_GetItem(dict, PyString_FromString("dims"));
             columns_names[i][2] = PyString_AsString(py_arr_dims);
+
+            PyObject *py_arr_partition = PyDict_GetItem(dict, PyString_FromString("partition")); //TODO what if partition is misspelled
+            if (std::strcmp(PyString_AsString(py_arr_partition),"true")==0) columns_names[i][3] = "partition";
+            else columns_names[i][3] = "no-partition";
         }
     }
 
