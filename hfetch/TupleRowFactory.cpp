@@ -200,13 +200,6 @@ TupleRow *TupleRowFactory::make_tuple(PyObject *obj) {
 }
 
 
-
-
-
-
-
-
-
 std::vector<const TupleRow *> TupleRowFactory::blocks_to_tuple(std::vector<void *> &blocks, PyObject *obj) const {
 
 /*** FIRST BLOCK ***/
@@ -299,7 +292,7 @@ void *TupleRowFactory::extract_array(PyObject *py_array) const {
     uint64_t block_size = (uint64_t) nbytes_s;
 
 
-    void* original = malloc(block_size + sizeof(uint64_t));
+    void *original = malloc(block_size + sizeof(uint64_t));
     char *block = (char *) original;
 
     //copy number of bytes
@@ -313,59 +306,39 @@ void *TupleRowFactory::extract_array(PyObject *py_array) const {
 }
 
 
+//for each np array transform into tuples, if in the next positions arrays are to be found, ignore them
 std::vector<const TupleRow *> TupleRowFactory::make_tuples_with_npy(PyObject *obj) {
-//search the first np array
-    //partition or not
-    //return tuples
 
-    std::vector<void *> blocks;
+    uint16_t nelem = (uint16_t) PyList_Size(obj);
+    if (nelem > metadata.size())
+        throw ModuleException(
+                "TupleRowFactory: Make tuple from PyObj: Access metadata at " + std::to_string(nelem - 1));
+    if (metadata.at(nelem - (uint16_t) 1).position >= total_bytes)
+        throw ModuleException("TupleRowFactory: Make tuple from PyObj: Writing on byte " +
+                              std::to_string(metadata.at(nelem - (uint16_t) 1).position));
+
+
     for (uint16_t i = 0; i < PyList_Size(obj); ++i) {
-        if (metadata.at(i).info.size() > 1 && metadata.at(i).get_arr_type() != NPY_NOTYPE) {
-            if (metadata.at(i).info[3] == "partition") {
-                blocks = split_array(PyList_GetItem(obj, i));
-                return blocks_to_tuple(blocks, obj);
-            } else {
-                blocks = std::vector<void *>(1);
-                blocks[0] = extract_array(PyList_GetItem(obj, i));
-
-
-/*** FIRST BLOCK ***/
-                //build the first tuple with the first block and other information
-                char *buffer = (char *) malloc(total_bytes);
-                for (uint16_t i = 0; i < PyList_Size(obj); ++i) {
-                    PyObject *obj_to_conver = PyList_GetItem(obj, i);
-
-                    //check errors
-                    if (i >= metadata.size())
-                        throw ModuleException(
-                                "TupleRowFactory: Make tuple from PyObj: Access metadata at " + std::to_string(i) +
-                                " from a max " + std::to_string(metadata.size()));
-                    if (metadata.at(i).position >= total_bytes)
-                        throw ModuleException("TupleRowFactory: Make tuple from PyObj: Writing on byte " +
-                                              std::to_string(metadata.at(i).position) + " from a total of " +
-                                              std::to_string(total_bytes));
-
-                    //copy
-                    if (metadata.at(i).get_arr_type() == NPY_NOTYPE) {
-                        //average column
-                        py_to_c(obj_to_conver, buffer + metadata.at(i).position, i);
-                    } else {
-                        //numpy
-                        memcpy(buffer + metadata.at(i).position, &blocks[0], sizeof(void *));
-                        //block position column
-                    }
+        if (metadata.at(i).get_arr_type() != NPY_NOTYPE && metadata.at(i).info[3] == "partition") {
+            //found a np array
+            std::vector<void *> blocks;
+            blocks = split_array(PyList_GetItem(obj, i));
+            return blocks_to_tuple(blocks, obj);
+        }
+        else if (metadata.at(i).get_arr_type() != NPY_NOTYPE) {
+            void *block = extract_array(PyList_GetItem(obj, i));
+            //build the first tuple with the first block and other information
+            char *buffer = (char *) malloc(total_bytes);
+            for (uint16_t j = 0; j < PyList_Size(obj); ++j) {
+                PyObject *obj_to_conver = PyList_GetItem(obj, j);
+                if (i!=j) {
+                    py_to_c(obj_to_conver, buffer + metadata.at(j).position, j);
+                } else {
+                    //numpy
+                    memcpy(buffer + metadata.at(j).position, &block, sizeof(void *));
                 }
-
-
-                std::vector<const TupleRow *> tuple_blocks(1);
-                //first tuple holds all data
-                tuple_blocks[0] = new TupleRow(metadata, total_bytes, buffer);
-
-                return tuple_blocks;
-
-
             }
-
+            return {new TupleRow(metadata, total_bytes, buffer)};
         }
     }
 }
@@ -383,10 +356,10 @@ PyObject *TupleRowFactory::merge_blocks_as_nparray(std::vector<const TupleRow *>
 
     for (uint16_t pos = 0; pos < metadata.size(); ++pos) {
         //Object is not an array, process as usual
-        if (metadata.at(pos).info.size()==1 || metadata.at(pos).get_arr_type() == NPY_NOTYPE) {
+        if (metadata.at(pos).info.size() == 1 || metadata.at(pos).get_arr_type() == NPY_NOTYPE) {
             PyObject *inte = c_to_py(blocks[0]->get_element(pos), metadata.at(pos));
             int ok = PyList_Append(list, inte);
-        } else if (metadata.at(pos).info[3]=="partition"){
+        } else if (metadata.at(pos).info[3] == "partition") {
             //object is a numpy array
             uint64_t nbytes = 0;
             for (const TupleRow *block:blocks) {
@@ -437,8 +410,7 @@ PyObject *TupleRowFactory::merge_blocks_as_nparray(std::vector<const TupleRow *>
             }
             ++pos;
             //std::cout << "COUNTED BYTES: " << nbytes << " NBLOCKS: " << blocks.size() << std::endl;
-        }
-        else {//case (metadata.at(pos).info[3]!="partition"){
+        } else {//case (metadata.at(pos).info[3]!="partition"){
             //object is a numpy array
             uint64_t nbytes = 0;
             for (const TupleRow *block:blocks) {
@@ -450,12 +422,12 @@ PyObject *TupleRowFactory::merge_blocks_as_nparray(std::vector<const TupleRow *>
 
             char *final_array = (char *) malloc(nbytes);
 
-                char **data = (char **) blocks[0]->get_element(pos);
-                uint64_t *block_bytes = (uint64_t *) *data;
+            char **data = (char **) blocks[0]->get_element(pos);
+            uint64_t *block_bytes = (uint64_t *) *data;
 
-                char *bytes_array = *data + sizeof(uint64_t);
+            char *bytes_array = *data + sizeof(uint64_t);
 
-                memcpy(final_array, bytes_array, *block_bytes);
+            memcpy(final_array, bytes_array, *block_bytes);
 
 
             //build np array from final_array data
@@ -491,15 +463,6 @@ PyObject *TupleRowFactory::merge_blocks_as_nparray(std::vector<const TupleRow *>
     return list;
 
 }
-
-
-
-
-
-
-
-
-
 
 
 /***

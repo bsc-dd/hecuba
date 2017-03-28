@@ -15,7 +15,7 @@ struct ColumnMeta {
 
     const NPY_TYPES get_arr_type() const {
         if (info.size() != 4) {
-            throw ModuleException("Numpy array metadata must consist of [name,type,dimensions,partition_option]");//return NPY_NOTYPE;
+            return NPY_NOTYPE;
         }
         if (info[1] == "bool")
             return NPY_BOOL;
