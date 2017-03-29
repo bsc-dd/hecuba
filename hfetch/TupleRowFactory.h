@@ -14,6 +14,8 @@ std::cerr<<msg<<" "<<error<<std::endl; };\
 #include <iostream>
 #include <vector>
 #include <cassandra.h>
+
+
 #include <python2.7/Python.h>
 #include "ModuleException.h"
 #include "TupleRow.h"
@@ -22,6 +24,8 @@ std::cerr<<msg<<" "<<error<<std::endl; };\
 #include <stdlib.h>
 #include "metadata.h"
 #include <numpy/arrayobject.h>
+
+//#include <numpy/ndarraytypes.h>
 #define Py_STRING "s"
 #define Py_U_LONGLONG "K"
 #define Py_U_LONG "k"
