@@ -120,28 +120,34 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
                              CassSession* session) {
 
 
-    if (columns_names.empty()) throw ModuleException("TableMetadata: 0 columns names received");
+    //if (columns_names.empty()) throw ModuleException("TableMetadata: 0 columns names received");
 
     this->table=std::string(table_name);
     this->keyspace=std::string(keyspace_name);
 
 
-    select_tokens="SELECT "+keys_names[0];
+    select_tokens_all="SELECT "+keys_names[0];
     for (uint16_t i = 1; i<keys_names.size(); ++i){
-        select_tokens+=","+keys_names[i];
+        select_tokens_all+=","+keys_names[i];
     }
 
-    insert="INSERT INTO "+ this->keyspace + "." + this->table + "("+columns_names[0];
-    select="SELECT "+columns_names[0];
-    select_tokens+=","+columns_names[0]; //TODO case where columns has 0 elements
-    for (uint16_t i = 1; i<columns_names.size(); ++i){
-        select+=","+columns_names[i];
-        select_tokens+=","+columns_names[i];
-        insert+=","+columns_names[i];
+    insert="INSERT INTO "+ this->keyspace + "." + this->table + "(";
+
+    if (!columns_names.empty()) {
+        insert +=columns_names[0];
+        select = "SELECT " + columns_names[0];
+        select_tokens_all += "," + columns_names[0]; //TODO case where columns has 0 elements
+        for (uint16_t i = 1; i < columns_names.size(); ++i) {
+            select += "," + columns_names[i];
+            select_tokens_all += "," + columns_names[i];
+            insert += "," + columns_names[i];
+        }
+        select_tokens_values = select + " FROM " + this->keyspace + "." + this->table;
+        select += " FROM " + this->keyspace + "." + this->table + " WHERE "+keys_names[0]+"=? ";
+
     }
-    select+= " FROM "+ this->keyspace + "." + this->table + " ";
-    select_tokens+= " FROM "+ this->keyspace + "." + this->table + " ";
-    select+=" WHERE "+keys_names[0]+"=? ";
+
+    select_tokens_all+= " FROM "+ this->keyspace + "." + this->table + " ";
 
     for (uint16_t i = 1; i<keys_names.size(); ++i){
         select+="AND "+keys_names[i]+"=? ";
@@ -151,7 +157,8 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
     for (uint16_t i = 0; i<keys_names.size()+columns_names.size();++i) {
         insert+=",?";
     }
-    select_tokens+=" WHERE token("+keys_names[0]+")>=? AND token("+keys_names[0]+")<?;"; //TODO allow complex partition key
+    select_tokens_values+=" WHERE token("+keys_names[0]+")>=? AND token("+keys_names[0]+")<?;";
+    select_tokens_all+=" WHERE token("+keys_names[0]+")>=? AND token("+keys_names[0]+")<?;"; //TODO allow complex partition key
     insert+=");";
     select+=";";
 
@@ -176,7 +183,7 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
     uint32_t n_cols = (uint32_t) columns_names.size();
     uint32_t n_keys = (uint32_t) keys_names.size();
 
-    if (columns_names[0] == "*") n_cols = (uint32_t) cass_table_meta_column_count(table_meta) - n_keys;
+    if (!columns_names.empty()&&columns_names[0] == "*") n_cols = (uint32_t) cass_table_meta_column_count(table_meta) - n_keys;
 
     std::vector<ColumnMeta> cols_meta = std::vector< ColumnMeta>(n_cols);
     std::vector<ColumnMeta> keys_meta = std::vector< ColumnMeta>(n_keys);
@@ -218,10 +225,13 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
     cass_iterator_free(iterator);
     cass_schema_meta_free(schema_meta);
 
-    cols_meta[0].position=0;
-    for (uint16_t i = 1; i<cols_meta.size(); ++i) {
-        cols_meta[i].position=cols_meta[i-1].position+cols_meta[i-1].size;
+if (!cols_meta.empty()) {
+    cols_meta[0].position = 0;
+    for (uint16_t i = 1; i < cols_meta.size(); ++i) {
+        cols_meta[i].position = cols_meta[i - 1].position + cols_meta[i - 1].size;
     }
+}
+
     keys_meta[0].position=0;
     for (uint16_t i = 1; i<keys_meta.size(); ++i) {
         keys_meta[i].position=keys_meta[i-1].position + keys_meta[i-1].size;

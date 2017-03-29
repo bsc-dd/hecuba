@@ -28,7 +28,7 @@ public:
 
     void put_crow(void* keys,void* values);
 
-    const TupleRow *get_crow(TupleRow *py_keys);
+    const TupleRow *get_crow(const TupleRow *py_keys);
 
     std::shared_ptr<void> get_crow(void* keys);
 
@@ -43,7 +43,7 @@ public:
 
 private:
 
-    const TupleRow* retrieve_from_cassandra(TupleRow *keys);
+    TupleRow* retrieve_from_cassandra(const TupleRow *keys);
 
     /* CASSANDRA INFORMATION FOR RETRIEVING DATA */
     CassSession *session;

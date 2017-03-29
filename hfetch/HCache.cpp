@@ -57,25 +57,6 @@ static PyObject *put_row(HCache *self, PyObject *args) {
     Py_RETURN_NONE;
 }
 
-/*
-PyObject *Prefetch::get_next() {
-    TupleRow *response = get_cnext();
-    if (response == NULL) {
-        if (error_msg == NULL) {
-            PyErr_SetNone(PyExc_StopIteration);
-            return NULL;
-        } else {
-            PyErr_SetString(PyExc_RuntimeError, error_msg);
-            return NULL;
-        }
-    }
-    PyObject *toberet = t_factory.tuple_as_py(response);
-    delete (response);
-    return toberet;
-}
-
-
- */
 static PyObject *get_row(HCache *self, PyObject *args) {
     PyObject *py_keys, *py_row;
     if (!PyArg_ParseTuple(args, "O", &py_keys)) {
@@ -199,8 +180,6 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
 static PyMethodDef hcache_type_methods[] = {
         {"get_row",    (PyCFunction) get_row,            METH_VARARGS, NULL},
         {"put_row",    (PyCFunction) put_row,            METH_VARARGS, NULL},
-        {"iterkeys",   (PyCFunction) create_iter_keys,   METH_VARARGS, NULL},
-        {"iteritems",  (PyCFunction) create_iter_items,  METH_VARARGS, NULL},
         {"itervalues", (PyCFunction) create_iter_values, METH_VARARGS, NULL},
         {NULL, NULL, 0,                                                NULL}
 };
@@ -259,7 +238,85 @@ static PyObject *hiter_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
 
 
 static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
-    //self->P = 0;// new prefetch
+    const char *table, *keyspace;
+
+    PyObject *py_tokens, *py_keys_names, *py_cols_names, *py_config;
+    if (!PyArg_ParseTuple(args, "ssOOOO", &keyspace, &table, &py_tokens,
+                          &py_keys_names,
+                          &py_cols_names, &py_config)) {
+        return -1;
+    };
+
+
+    uint16_t tokens_size = (uint16_t) PyList_Size(py_tokens);
+    uint16_t keys_size = (uint16_t) PyList_Size(py_keys_names);
+    uint16_t cols_size = (uint16_t) PyList_Size(py_cols_names);
+
+    self->token_ranges = std::vector<std::pair<int64_t, int64_t>>(tokens_size);
+    for (uint16_t i = 0; i < tokens_size; ++i) {
+        PyObject *obj_to_convert = PyList_GetItem(py_tokens, i);
+        int64_t t_a, t_b;
+        if (!PyArg_ParseTuple(obj_to_convert, "LL", &t_a, &t_b)) {
+            return -1;
+        };
+
+        self->token_ranges[i] = std::make_pair(t_a, t_b);
+    }
+
+
+    std::vector<std::string> keys_names = std::vector<std::string>(keys_size);
+
+    for (uint16_t i = 0; i < keys_size; ++i) {
+        PyObject *obj_to_convert = PyList_GetItem(py_keys_names, i);
+        char *str_temp;
+        if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
+            return -1;
+        }
+        keys_names[i] = std::string(str_temp);
+    }
+
+    std::vector<std::string> columns_names = std::vector<std::string>(cols_size);
+    for (uint16_t i = 0; i < cols_size; ++i) {
+        PyObject *obj_to_convert = PyList_GetItem(py_cols_names, i);
+        char *str_temp;
+        if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
+            return -1;
+        };
+        columns_names[i] = std::string(str_temp);
+    }
+
+
+    /** PARSE CONFIG **/
+
+    std::map<std::string,std::string> config;
+    int type_check = PyDict_Check(py_config);
+    if (type_check) {
+        PyObject *dict;
+        if (!PyArg_Parse(py_config, "O", &dict)) {
+            return -1;
+        };
+
+        PyObject *key, *value;
+        Py_ssize_t pos = 0;
+        while (PyDict_Next(dict, &pos, &key, &value)){
+            std::string conf_key(PyString_AsString(key));
+            if (PyString_Check(value)){ std::string conf_val(PyString_AsString(value));
+                config[conf_key]=conf_val;}
+            if (PyInt_Check(value)){
+                int32_t c_val = (int32_t) PyInt_AsLong(value);
+                config[conf_key]=std::to_string(c_val);}
+
+        }
+    }
+
+    try {
+        self->P = storage->get_iterator(table,keyspace,keys_names,columns_names,self->token_ranges,config);
+        self->metadata=self->P->get_metadata();
+    }catch (ModuleException e) {
+        PyErr_SetString(PyExc_RuntimeError,e.what());
+        return -1;
+    }
+
     return 0;
 }
 
@@ -338,8 +395,8 @@ static PyMethodDef module_methods[] = {
         {NULL, NULL, 0,                                                    NULL}
 };
 
-
-static PyObject *create_iter_keys(HCache *self, PyObject *args) {
+/*
+static PyObject *iterkeys(HCache *self, PyObject *args) {
     int prefetch_size;
     if (!PyArg_ParseTuple(args, "i", &prefetch_size)) {
         return NULL;
@@ -363,24 +420,47 @@ static PyObject *create_iter_items(HCache *self, PyObject *args) {
     iter->P = storage->get_iterator(self->metadata,self->token_ranges,prefetch_size);
     return (PyObject *) iter;
 }
-
+*/
 static PyObject *create_iter_values(HCache *self, PyObject *args) {
-    int prefetch_size;
-    if (!PyArg_ParseTuple(args, "i", &prefetch_size)) {
+
+    PyObject* py_config;
+    if (!PyArg_ParseTuple(args, "O", &py_config)) {
         return NULL;
     }
+
+    std::map<std::string,std::string> config;
+    int type_check = PyDict_Check(py_config);
+
+    if (type_check) {
+        PyObject *dict;
+        if (!PyArg_Parse(py_config, "O", &dict)) {
+            return NULL;
+        };
+
+        PyObject *key, *value;
+        Py_ssize_t pos = 0;
+        while (PyDict_Next(dict, &pos, &key, &value)){
+            std::string conf_key(PyString_AsString(key));
+            if (PyString_Check(value)){ std::string conf_val(PyString_AsString(value));
+                config[conf_key]=conf_val;}
+            if (PyInt_Check(value)){
+                int32_t c_val = (int32_t) PyInt_AsLong(value);
+                config[conf_key]=std::to_string(c_val);}
+
+        }
+    }
+
     HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
-    hiter_init(iter, args, args);
+    //hiter_init(iter, args, args);
     iter->metadata=self->metadata;
-    iter->P = storage->get_values_iterator(self->metadata,self->token_ranges,prefetch_size);
+    iter->P = storage->get_iterator(self->metadata,self->token_ranges,config);
     return (PyObject *) iter;
 }
-
 
 void (*f)(PyObject *) = NULL;
 
 static void module_dealloc(PyObject *self) {
-    storage->disconnectCassandra();
+    if (storage) storage->disconnectCassandra();
     //delete(storage);//
     if (f) f(self);
 }

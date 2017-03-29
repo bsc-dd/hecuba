@@ -1,21 +1,40 @@
 #include "Prefetch.h"
 
 #define MAX_TRIES 10
+#define default_prefetch_size 100
 
 Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges, const TableMetadata* table_meta,
-                   CassSession* session,uint32_t prefetch_size) {
+                   CassSession* session,std::map<std::string,std::string> &config) {
     if (!session)
         throw ModuleException("Prefetch: Session is Null");
     this->session = session;
+    this->table_metadata=table_meta;
     this->t_factory = TupleRowFactory(table_meta->get_items());
     this->tokens = token_ranges;
     this->completed = false;
-    this->error_msg = NULL;
-    CassFuture *future = cass_session_prepare(session, table_meta->get_select_tokens());
+    CassFuture *future = cass_session_prepare(session, table_meta->get_select_all_tokens());
     CassError rc = cass_future_error_code(future);
     CHECK_CASS("prefetch cannot prepare"); //TODO when prepare doesnt succeed, crashes later with segfault
     this->prepared_query = cass_future_get_prepared(future);
     cass_future_free(future);
+
+    int32_t prefetch_size = default_prefetch_size;
+
+    if (config.find("prefetch_size")!=config.end()) {
+        std::string prefetch_size_str = config["prefetch_size"];
+        try {
+            prefetch_size = std::stoi(prefetch_size_str);
+        }
+        catch (std::exception &e) {
+            std::string msg(e.what());
+            msg+= " Malformed value in config for prefetch_size";
+            throw ModuleException(msg);
+        }
+    }
+
+    if (prefetch_size<=0)
+        throw ModuleException("Prefetch size must be > 0");
+
     this->data.set_capacity(prefetch_size);
     this->worker = new std::thread{&Prefetch::consume_tokens, this};
 

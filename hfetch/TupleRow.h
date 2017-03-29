@@ -39,7 +39,7 @@ public:
     /* Get methods */
 
     inline std::shared_ptr<void>  get_payload() const{
-        return this->payload    ;
+        return this->payload;
     }
 
     inline const uint16_t n_elem() const {

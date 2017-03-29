@@ -68,15 +68,15 @@ CacheTable::~CacheTable() {
 
 
 void CacheTable::put_crow(void* keys, void* values) {
-    TupleRow *k = keys_factory->make_tuple(keys);
+    const TupleRow *k = keys_factory->make_tuple(keys);
     const TupleRow *v = values_factory->make_tuple(values);
-    this->myCache->update(*k, v); //Inserts if not present, otherwise replaces
+    this->myCache->update(*k,v); //Inserts if not present, otherwise replaces
 }
 
 /*
  * POST: never returns NULL
  */
-const TupleRow* CacheTable::retrieve_from_cassandra(TupleRow *keys){
+TupleRow* CacheTable::retrieve_from_cassandra(const TupleRow *keys){
 
     /* Not present on cache, a query is performed */
     CassStatement *statement = cass_prepared_bind(prepared_query);
@@ -100,14 +100,14 @@ const TupleRow* CacheTable::retrieve_from_cassandra(TupleRow *keys){
     if (!cass_result_row_count(result))
         throw ModuleException("No rows found for this key");
     const CassRow *row = cass_result_first_row(result);
-    const TupleRow* tuple_result=values_factory->make_tuple(row);
+    TupleRow* tuple_result=values_factory->make_tuple(row);
 
     cass_result_free(result);
     return tuple_result;
 }
 
 
-const TupleRow *CacheTable::get_crow(TupleRow *keys) {
+const TupleRow *CacheTable::get_crow(const TupleRow *keys) {
     Poco::SharedPtr<TupleRow> ptrElem = myCache->get(*keys);
     if (!ptrElem.isNull()) {
         return ptrElem.get();

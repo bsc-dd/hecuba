@@ -82,26 +82,6 @@ Writer* StorageInterface::make_writer(const char *table,const char *keyspace,
 /*** ITERATOR METHODS AND SETUP ***/
 
 /***
- * This one only retrieves the values comprised on its ranges, assuming partid is keys_names[0]
- * @param table
- * @param keyspace
- * @param keys_names
- * @param columns_names
- * @param tokens
- * @param prefetch_size
- * @return
- */
-Prefetch* StorageInterface::get_values_iterator(const char *table,const char *keyspace,
-                                              std::vector < std::string> keys_names,std::vector < std::string > columns_names,
-                                              const std::vector<std::pair<int64_t, int64_t>> &tokens,
-                                              uint32_t prefetch_size) {
-
-    TableMetadata* table_meta = new TableMetadata(table,keyspace,keys_names,columns_names,session);
-    return new Prefetch(tokens, table_meta, session,prefetch_size);
-}
-
-
-/***
  * This one retrives the keys comprised on its ranges and the columns if any, assuming partid is keys_names[0]
  * @param table
  * @param keyspace
@@ -114,21 +94,15 @@ Prefetch* StorageInterface::get_values_iterator(const char *table,const char *ke
 Prefetch* StorageInterface::get_iterator(const char *table,const char *keyspace,
                                               std::vector < std::string> keys_names,std::vector < std::string > columns_names,
                                               const std::vector<std::pair<int64_t, int64_t>> &tokens,
-                                              uint32_t prefetch_size) {
+                                         std::map<std::string,std::string> &config) {
     TableMetadata* table_meta = new TableMetadata(table,keyspace,keys_names,columns_names,session);
-    return new Prefetch(tokens, table_meta, session,prefetch_size);
+    return new Prefetch(tokens, table_meta, session,config);
 }
 
 
-
-Prefetch* StorageInterface::get_values_iterator(const TableMetadata* table_meta,
-                              const std::vector<std::pair<int64_t, int64_t>> &tokens,
-                              uint32_t prefetch_size){
-    return new Prefetch(tokens, table_meta, session,prefetch_size);
-}
 
 Prefetch* StorageInterface::get_iterator(const TableMetadata* table_meta,
                        const std::vector<std::pair<int64_t, int64_t>> &tokens,
-                       uint32_t prefetch_size){
-    return new Prefetch(tokens, table_meta, session,prefetch_size);
+                                         std::map<std::string,std::string> &config) {
+    return new Prefetch(tokens, table_meta, session,config);
 }

@@ -30,22 +30,14 @@ public:
                         std::vector<std::string> columns_names, std::map<std::string, std::string> &config);
 
 
-    Prefetch* get_values_iterator(const char *table,const char *keyspace,
-                                             std::vector < std::string> keys_names,std::vector < std::string > columns_names,
-                                             const std::vector<std::pair<int64_t, int64_t>> &tokens,
-                                             uint32_t prefetch_size);
     Prefetch* get_iterator(const char *table,const char *keyspace,
                            std::vector < std::string> keys_names,std::vector < std::string > columns_names,
                            const std::vector<std::pair<int64_t, int64_t>> &tokens,
-                           uint32_t prefetch_size);
+                           std::map<std::string,std::string> &config);
 
-
-    Prefetch* get_values_iterator(const TableMetadata* table_meta,
-                                  const std::vector<std::pair<int64_t, int64_t>> &tokens,
-                                  uint32_t prefetch_size);
     Prefetch* get_iterator(const TableMetadata* table_meta,
-                           const std::vector<std::pair<int64_t, int64_t>> &tokens,
-                           uint32_t prefetch_size);
+                                             const std::vector<std::pair<int64_t, int64_t>> &tokens,
+                                             std::map<std::string,std::string> &config);
 
     int disconnectCassandra();
 private:
