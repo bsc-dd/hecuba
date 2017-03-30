@@ -59,6 +59,10 @@ static PyObject *disconnectCassandra(PyObject *self) {
 
 
 static PyObject *put_row(HCache *self, PyObject *args) {
+    if (!session) {
+        PyErr_SetString(PyExc_Exception,"Not connected to any cluster");
+        return NULL;
+    }
     PyObject *py_keys, *py_values;
     if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_values)) {
         return NULL;
@@ -72,11 +76,14 @@ static PyObject *put_row(HCache *self, PyObject *args) {
 
 
 static PyObject *get_row(HCache *self, PyObject *args) {
+    if (!session) {
+        PyErr_SetString(PyExc_Exception,"Not connected to any cluster");
+        return NULL;
+    }
     PyObject *py_keys;
     if (!PyArg_ParseTuple(args, "O", &py_keys)) {
         return NULL;
     }
-
     return self->T->get_row(py_keys);
 }
 
@@ -94,6 +101,10 @@ static PyObject *hcache_new(PyTypeObject *type, PyObject *args, PyObject *kwds) 
 
 
 static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
+    if (!session) {
+        PyErr_SetString(PyExc_Exception,"Not connected to any cluster");
+        return NULL;
+    }
     const char *table, *keyspace, *token_range_pred;
 
     PyObject *py_tokens, *py_keys_names, *py_cols_names, *py_config;
@@ -247,6 +258,10 @@ static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
 
 
 static PyObject *get_next(HIterator *self) {
+    if (!session) {
+        PyErr_SetString(PyExc_Exception,"Not connected to any cluster");
+        return NULL;
+    }
     return self->P->get_next();
 }
 
