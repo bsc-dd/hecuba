@@ -51,6 +51,24 @@ def end_task(params):
                     print "error trying to exit context:", e
 
 
+class TaskContext(object):
+    def __init__(self, logger, values, **kwargs):
+        self.logger = logger
+        self.values = values
+
+    def __enter__(self):
+        # Do something prolog
+        start_task(self.values)
+        # Ready to start the task
+        self.logger.info("Prolog finished")
+        pass
+
+    def __exit__(self, type, value, traceback):
+        # Do something epilog
+        end_task(self.values)
+        # Finished
+        self.logger.info("Epilog finished")
+        pass
 
 def getByID(objid):
     """
