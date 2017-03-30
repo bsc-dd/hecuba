@@ -9,10 +9,24 @@ Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges,
         throw ModuleException("Prefetch: Session is Null");
     this->session = session;
     this->table_metadata=table_meta;
-    this->t_factory = TupleRowFactory(table_meta->get_items());
+
+    const char* query;
+    if (config["type"]=="keys") {
+        this->t_factory = TupleRowFactory(table_meta->get_keys());
+        query=table_meta->get_select_keys_tokens();
+    }
+    else if (config["type"]=="values") {
+        this->t_factory = TupleRowFactory(table_meta->get_values());
+        query=table_meta->get_select_values_tokens();
+    }
+    else {
+        this->t_factory = TupleRowFactory(table_meta->get_items());
+        query=table_meta->get_select_all_tokens();
+    }
+    std::cout << "Query is " << query << std::endl;
     this->tokens = token_ranges;
     this->completed = false;
-    CassFuture *future = cass_session_prepare(session, table_meta->get_select_all_tokens());
+    CassFuture *future = cass_session_prepare(session, query);
     CassError rc = cass_future_error_code(future);
     CHECK_CASS("prefetch cannot prepare"); //TODO when prepare doesnt succeed, crashes later with segfault
     this->prepared_query = cass_future_get_prepared(future);

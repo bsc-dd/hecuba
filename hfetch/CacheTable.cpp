@@ -73,6 +73,26 @@ void CacheTable::put_crow(void* keys, void* values) {
     this->myCache->update(*k,v); //Inserts if not present, otherwise replaces
 }
 
+void CacheTable::put_crow(const TupleRow* row) {
+    //split into two and call put_crow(a,b);
+    std::shared_ptr<const std::vector<ColumnMeta> > keys_meta = keys_factory->get_metadata();
+    uint16_t nkeys = (uint16_t)keys_meta->size();
+    std::shared_ptr<const std::vector<ColumnMeta> > values_meta = values_factory->get_metadata();
+    uint16_t nvalues = (uint16_t)values_meta->size();
+
+    char* keys = (char*) malloc(keys_meta->at(nkeys-(uint16_t)1).position+keys_meta->at(nkeys-(uint16_t)1).size);
+    char* values = (char*) malloc(values_meta->at(nvalues-(uint16_t)1).position+values_meta->at(nvalues-(uint16_t)1).size);
+
+
+    for (uint16_t i=0; i<nkeys; ++i) {
+        memcpy(keys+keys_meta->at(i).position,row->get_element(i),keys_meta->at(i).size);
+    }
+    for (uint16_t i=0; i<nvalues; ++i) {
+        memcpy(values+values_meta->at(i).position,row->get_element(i+nkeys),values_meta->at(i).size);
+    }
+    this->put_crow(keys,values);
+}
+
 /*
  * POST: never returns NULL
  */

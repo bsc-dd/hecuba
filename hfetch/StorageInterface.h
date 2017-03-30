@@ -23,8 +23,8 @@ public:
 
     ~StorageInterface();
 
-    CacheTable *makeCache(const char *table, const char *keyspace, std::vector<std::string> keys_names,
-                          std::vector<std::string> columns_names, std::map<std::string, std::string> &config);
+    CacheTable *make_cache(const char *table, const char *keyspace, std::vector<std::string> keys_names,
+                           std::vector<std::string> columns_names, std::map<std::string, std::string> &config);
 
     Writer *make_writer(const char *table, const char *keyspace, std::vector<std::string> keys_names,
                         std::vector<std::string> columns_names, std::map<std::string, std::string> &config);

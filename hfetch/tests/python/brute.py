@@ -8,15 +8,15 @@ connectCassandra(["127.0.0.1"], 9042)
 nparts = 6000000  # Num particles in range
 p = 1000  # Num partitions
 
-t_f = 0  # Token begin range
-t_t = 5764607523034234880  # Token end range
-
+t_f = -7764607523034234880  # Token begin range
+#t_t = 5764607523034234880  # Token end range
+t_t = 7764607523034234880
 # Token blocks
 tkn_size = (t_t - t_f) / (nparts / p)
 tkns = [(a, a + tkn_size) for a in xrange(t_f, t_t - tkn_size, tkn_size)]
 
 a = Hcache("test", "particle", "WHERE token(partid)>=? AND token(partid)<?;", tkns, ["partid", "time"], ["x"],
-           {'cache_size': '10', 'writer_buffer': 20})
+           {'cache_size': '100', 'writer_buffer': 20})
 
 
 def readAll(iter):
@@ -35,6 +35,6 @@ def readAll(iter):
 
 
 start = time()
-readAll(a.iterkeys(100))
+readAll(a.iteritems({"prefetch_size":100,"update_cache":"yes"}))
 print "finshed into %d" % (time() - start)
 a = None

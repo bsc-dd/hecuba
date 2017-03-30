@@ -623,13 +623,14 @@ TEST(TestingPrefetch, GetNextC) {
     config["writer_par"] = "4";
     config["writer_buffer"] = "20";
     config["cache_size"] = "10";
+    config["prefetch_size"]="100";
 
 
     TableMetadata* table_meta = new TableMetadata(particles_table,keyspace,keysnames,colsnames,test_session);
 
     CacheTable T = CacheTable(table_meta, test_session, config);
 
-    Prefetch *P = new Prefetch(tokens,table_meta,test_session,100);
+    Prefetch *P = new Prefetch(tokens,table_meta,test_session,config);
 
 
     TupleRow *result = P->get_cnext();
@@ -700,7 +701,7 @@ TEST(TestingStorageInterfaceCpp,CreateAndDelCache){
     config["cache_size"] = "10";
 
     StorageInterface *StorageI = new StorageInterface(nodePort,contact_p);
-    CacheTable* table= StorageI->makeCache(particles_table, keyspace, keysnames, read_colsnames, config);
+    CacheTable* table= StorageI->make_cache(particles_table, keyspace, keysnames, read_colsnames, config);
 
     delete(table);
     delete(StorageI);
@@ -736,7 +737,7 @@ TEST(TestingStorageInterfaceCpp,CreateAndDelCacheWrong){
     config["cache_size"] = "10";
 
     StorageInterface *StorageI = new StorageInterface(nodePort,contact_p);
-    CacheTable* table= StorageI->makeCache(particles_table, keyspace, keysnames, read_colsnames, config);
+    CacheTable* table= StorageI->make_cache(particles_table, keyspace, keysnames, read_colsnames, config);
 
     delete(StorageI);
 }
@@ -768,11 +769,12 @@ TEST(TestingStorageInterfaceCpp,IteratePrefetch){
     config["writer_par"] = "4";
     config["writer_buffer"] = "20";
     config["cache_size"] = "10";
+    config["prefetch_size"] = "100";
 
     StorageInterface *StorageI = new StorageInterface(nodePort,contact_p);
-    CacheTable* table= StorageI->makeCache(particles_table, keyspace, keysnames, read_colsnames, config);
+    CacheTable* table= StorageI->make_cache(particles_table, keyspace, keysnames, read_colsnames, config);
 
-    Prefetch *P = StorageI->get_values_iterator(particles_table, keyspace, keysnames, read_colsnames, tokens,10);
+    Prefetch *P = StorageI->get_iterator(particles_table, keyspace, keysnames, read_colsnames, tokens,config);
     int it= 0;
     while (P->get_cnext()) {
         ++it;

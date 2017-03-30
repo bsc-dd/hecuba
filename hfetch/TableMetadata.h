@@ -66,6 +66,10 @@ public:
         return select_tokens_values.c_str();
     }
 
+    const char* get_select_keys_tokens() const{
+        return select_keys_tokens.c_str();
+    };
+
     const char* get_insert_query() const{
         return insert.c_str();
     }
@@ -78,7 +82,7 @@ private:
     std::shared_ptr<const std::vector<ColumnMeta> > keys;
     std::shared_ptr<const std::vector<ColumnMeta> > items;
     std::string keyspace, table;
-    std::string select, insert, select_tokens_all, select_tokens_values;
+    std::string select, insert, select_tokens_all, select_tokens_values,select_keys_tokens;
 
 };
 

@@ -59,9 +59,9 @@ int StorageInterface::disconnectCassandra() {
 
 
 
-CacheTable* StorageInterface::makeCache(const char* table,const char* keyspace,
-                                        std::vector < std::string> keys_names,std::vector < std::string > columns_names,
-                                        std::map<std::string,std::string> &config) {
+CacheTable* StorageInterface::make_cache(const char *table, const char *keyspace,
+                                         std::vector<std::string> keys_names, std::vector<std::string> columns_names,
+                                         std::map<std::string, std::string> &config) {
     TableMetadata* table_meta = new TableMetadata(table,keyspace,keys_names,columns_names,session);
     return new CacheTable(table_meta, session, config);
 }

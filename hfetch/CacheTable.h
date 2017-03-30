@@ -32,6 +32,8 @@ public:
 
     std::shared_ptr<void> get_crow(void* keys);
 
+    void put_crow(const TupleRow* row);
+
     /** TESTING METHODS **/
 
     TupleRowFactory* _test_get_keys_factory(){ return keys_factory;}

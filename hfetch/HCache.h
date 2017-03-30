@@ -34,11 +34,15 @@ typedef struct {
 typedef struct {
     PyObject_HEAD
     Prefetch *P;
+    CacheTable *baseTable;
     const TableMetadata* metadata;
     std::vector<std::pair<int64_t, int64_t>> token_ranges;
+    bool update_cache;
 } HIterator;
 
+static PyObject* create_iter_keys(HCache *self, PyObject* args);
 static PyObject* create_iter_values(HCache *self, PyObject* args);
+static PyObject* create_iter_items(HCache *self, PyObject* args);
 
 
 #endif //PREFETCHER_PREFETCHER_IMP_H

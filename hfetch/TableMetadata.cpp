@@ -131,12 +131,13 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
         select_tokens_all+=","+keys_names[i];
     }
 
+    select_keys_tokens=select_tokens_all;
     insert="INSERT INTO "+ this->keyspace + "." + this->table + "(";
 
     if (!columns_names.empty()) {
         insert +=columns_names[0];
         select = "SELECT " + columns_names[0];
-        select_tokens_all += "," + columns_names[0]; //TODO case where columns has 0 elements
+        select_tokens_all += "," + columns_names[0];
         for (uint16_t i = 1; i < columns_names.size(); ++i) {
             select += "," + columns_names[i];
             select_tokens_all += "," + columns_names[i];
@@ -146,7 +147,7 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
         select += " FROM " + this->keyspace + "." + this->table + " WHERE "+keys_names[0]+"=? ";
 
     }
-
+    select_keys_tokens+= " FROM "+ this->keyspace + "." + this->table + " ";
     select_tokens_all+= " FROM "+ this->keyspace + "." + this->table + " ";
 
     for (uint16_t i = 1; i<keys_names.size(); ++i){
@@ -157,6 +158,7 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
     for (uint16_t i = 0; i<keys_names.size()+columns_names.size();++i) {
         insert+=",?";
     }
+    select_keys_tokens+=" WHERE token("+keys_names[0]+")>=? AND token("+keys_names[0]+")<?;";
     select_tokens_values+=" WHERE token("+keys_names[0]+")>=? AND token("+keys_names[0]+")<?;";
     select_tokens_all+=" WHERE token("+keys_names[0]+")>=? AND token("+keys_names[0]+")<?;"; //TODO allow complex partition key
     insert+=");";

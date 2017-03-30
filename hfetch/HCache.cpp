@@ -167,7 +167,7 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     }
 
     try {
-        self->T = storage->makeCache(table,keyspace,keys_names,columns_names,config);
+        self->T = storage->make_cache(table, keyspace, keys_names, columns_names, config);
         self->metadata=self->T->get_metadata();
       }catch (ModuleException e) {
         PyErr_SetString(PyExc_RuntimeError,e.what());
@@ -180,7 +180,9 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
 static PyMethodDef hcache_type_methods[] = {
         {"get_row",    (PyCFunction) get_row,            METH_VARARGS, NULL},
         {"put_row",    (PyCFunction) put_row,            METH_VARARGS, NULL},
+        {"iterkeys", (PyCFunction) create_iter_keys, METH_VARARGS, NULL},
         {"itervalues", (PyCFunction) create_iter_values, METH_VARARGS, NULL},
+        {"iteritems", (PyCFunction) create_iter_items, METH_VARARGS, NULL},
         {NULL, NULL, 0,                                                NULL}
 };
 
@@ -328,7 +330,11 @@ static PyObject *get_next(HIterator *self) {
         return NULL;
     }
     PyObject* py_row = parser->tuple_as_py(result, self->metadata->get_items());
-    delete(result);
+
+    if (self->update_cache) {
+        self->baseTable->put_crow(result);
+    }
+    else delete(result);
     return py_row;
 }
 
@@ -385,6 +391,53 @@ static PyTypeObject hfetch_HIterType = {
         hiter_new,                 /* tp_new */
 };
 
+/*** WRITER METHODS ***/
+
+
+
+static PyTypeObject hfetch_HWriterType = {
+        PyVarObject_HEAD_INIT(NULL, 0)
+        "hfetch.HIter",             /* tp_name */
+        sizeof(HIterator), /* tp_basicsize */
+        0,                         /*tp_itemsize*/
+        (destructor) hiter_dealloc, /*tp_dealloc*/
+        0,                         /*tp_print*/
+        0,                         /*tp_getattr*/
+        0,                         /*tp_setattr*/
+        0,                         /*tp_compare*/
+        0,                         /*tp_repr*/
+        0,                         /*tp_as_number*/
+        0,                         /*tp_as_sequence*/
+        0,                         /*tp_as_mapping*/
+        0,                         /*tp_hash */
+        0,                         /*tp_call*/
+        0,                         /*tp_str*/
+        0,                         /*tp_getattro*/
+        0,                         /*tp_setattro*/
+        0,                         /*tp_as_buffer*/
+        Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+        "Cassandra iter",           /* tp_doc */
+        0,                       /* tp_traverse */
+        0,                       /* tp_clear */
+        0,                       /* tp_richcompare */
+        0,                       /* tp_weaklistoffset */
+        0,                       /* tp_iter */
+        0,                       /* tp_iternext */
+        hiter_type_methods,             /* tp_methods */
+        0,             /* tp_members */
+        0,                         /* tp_getset */
+        0,                         /* tp_base */
+        0,                         /* tp_dict */
+        0,                         /* tp_descr_get */
+        0,                         /* tp_descr_set */
+        0,                         /* tp_dictoffset */
+        (initproc) hiter_init,      /* tp_init */
+        0,                         /* tp_alloc */
+        hiter_new,                 /* tp_new */
+};
+
+
+
 
 /*** MODULE SETUP ****/
 
@@ -395,32 +448,88 @@ static PyMethodDef module_methods[] = {
         {NULL, NULL, 0,                                                    NULL}
 };
 
-/*
-static PyObject *iterkeys(HCache *self, PyObject *args) {
-    int prefetch_size;
-    if (!PyArg_ParseTuple(args, "i", &prefetch_size)) {
-        return NULL;
-    }
-
-    HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
-    hiter_init(iter, args, args);
-    iter->metadata=self->metadata;
-    iter->P = storage->get_iterator(self->metadata,self->token_ranges,prefetch_size);
-    return (PyObject *) iter;
-}
 
 static PyObject *create_iter_items(HCache *self, PyObject *args) {
-    int prefetch_size;
-    if (!PyArg_ParseTuple(args, "i", &prefetch_size)) {
+    PyObject* py_config;
+    if (!PyArg_ParseTuple(args, "O", &py_config)) {
         return NULL;
     }
+
+    std::map<std::string,std::string> config;
+    int type_check = PyDict_Check(py_config);
+
+    if (type_check) {
+        PyObject *dict;
+        if (!PyArg_Parse(py_config, "O", &dict)) {
+            return NULL;
+        };
+
+        PyObject *key, *value;
+        Py_ssize_t pos = 0;
+        while (PyDict_Next(dict, &pos, &key, &value)){
+            std::string conf_key(PyString_AsString(key));
+            if (PyString_Check(value)){ std::string conf_val(PyString_AsString(value));
+                config[conf_key]=conf_val;}
+            if (PyInt_Check(value)){
+                int32_t c_val = (int32_t) PyInt_AsLong(value);
+                config[conf_key]=std::to_string(c_val);}
+
+        }
+    }
+    config["type"]="items";
+
     HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
-    hiter_init(iter, args, args);
+    iter->baseTable=self->T;
+    iter->update_cache = false;
+    if (config.find("update_cache")!=config.end()) {
+        iter->update_cache=true;
+        std::cout << "write cache set" << std::endl;
+    }
+    //hiter_init(iter, args, args);
     iter->metadata=self->metadata;
-    iter->P = storage->get_iterator(self->metadata,self->token_ranges,prefetch_size);
+    iter->P = storage->get_iterator(self->metadata,self->token_ranges,config);
     return (PyObject *) iter;
 }
-*/
+
+
+static PyObject *create_iter_keys(HCache *self, PyObject *args) {
+    PyObject* py_config;
+    if (!PyArg_ParseTuple(args, "O", &py_config)) {
+        return NULL;
+    }
+
+    std::map<std::string,std::string> config;
+    int type_check = PyDict_Check(py_config);
+
+    if (type_check) {
+        PyObject *dict;
+        if (!PyArg_Parse(py_config, "O", &dict)) {
+            return NULL;
+        };
+
+        PyObject *key, *value;
+        Py_ssize_t pos = 0;
+        while (PyDict_Next(dict, &pos, &key, &value)){
+            std::string conf_key(PyString_AsString(key));
+            if (PyString_Check(value)){ std::string conf_val(PyString_AsString(value));
+                config[conf_key]=conf_val;}
+            if (PyInt_Check(value)){
+                int32_t c_val = (int32_t) PyInt_AsLong(value);
+                config[conf_key]=std::to_string(c_val);}
+
+        }
+    }
+    config["type"]="keys";
+
+    HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
+    iter->baseTable=self->T;
+    //hiter_init(iter, args, args);
+    iter->metadata=self->metadata;
+    iter->P = storage->get_iterator(self->metadata,self->token_ranges,config);
+    return (PyObject *) iter;
+}
+
+
 static PyObject *create_iter_values(HCache *self, PyObject *args) {
 
     PyObject* py_config;
@@ -449,8 +558,10 @@ static PyObject *create_iter_values(HCache *self, PyObject *args) {
 
         }
     }
+    config["type"]="values";
 
     HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
+    iter->baseTable=self->T;
     //hiter_init(iter, args, args);
     iter->metadata=self->metadata;
     iter->P = storage->get_iterator(self->metadata,self->token_ranges,config);
@@ -486,6 +597,7 @@ inithfetch(void) {
 
     PyModule_AddObject(m, "Hcache", (PyObject *) &hfetch_HCacheType);
     PyModule_AddObject(m, "HIterator", (PyObject *) &hfetch_HIterType);
+    PyModule_AddObject(m, "HWriter", (PyObject *) &hfetch_HWriterType);
 
 
 }
