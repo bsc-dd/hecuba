@@ -307,7 +307,6 @@ static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
             if (PyInt_Check(value)){
                 int32_t c_val = (int32_t) PyInt_AsLong(value);
                 config[conf_key]=std::to_string(c_val);}
-
         }
     }
 
@@ -394,13 +393,118 @@ static PyTypeObject hfetch_HIterType = {
 /*** WRITER METHODS ***/
 
 
+static PyObject *write_cass(HWriter *self, PyObject *args) {
+    PyObject *py_keys, *py_values;
+    if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_values)) {
+        return NULL;
+    }
+    try {
+        TupleRow *k = parser->make_tuple(py_keys, self->metadata->get_keys());
+        TupleRow *v = parser->make_tuple(py_values, self->metadata->get_values());
+        Py_DecRef(py_keys);
+        Py_DecRef(py_values);
+        self->W->write_to_cassandra(k,v);
+    }
+    catch (std::exception &e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    Py_RETURN_NONE;
+}
+
+
+static PyObject *hwriter_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+    std::cout << "i try" << std::endl;
+
+    HWriter *self;
+    self = (HWriter *) type->tp_alloc(type, 0);
+    return (PyObject *) self;
+}
+
+static int hwriter_init(HWriter *self, PyObject *args, PyObject *kwds) {
+    const char *table, *keyspace;
+    PyObject *py_keys_names, *py_cols_names, *py_config;
+    if (!PyArg_ParseTuple(args, "ssOOO", &keyspace, &table,
+                          &py_keys_names,
+                          &py_cols_names, &py_config)) {
+        return -1;
+    };
+
+
+    uint16_t keys_size = (uint16_t) PyList_Size(py_keys_names);
+    uint16_t cols_size = (uint16_t) PyList_Size(py_cols_names);
+
+    std::vector<std::string> keys_names = std::vector<std::string>(keys_size);
+
+    for (uint16_t i = 0; i < keys_size; ++i) {
+        PyObject *obj_to_convert = PyList_GetItem(py_keys_names, i);
+        char *str_temp;
+        if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
+            return -1;
+        }
+        keys_names[i] = std::string(str_temp);
+    }
+
+    std::vector<std::string> columns_names = std::vector<std::string>(cols_size);
+    for (uint16_t i = 0; i < cols_size; ++i) {
+        PyObject *obj_to_convert = PyList_GetItem(py_cols_names, i);
+        char *str_temp;
+        if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
+            return -1;
+        };
+        columns_names[i] = std::string(str_temp);
+    }
+
+
+    /** PARSE CONFIG **/
+
+    std::map<std::string,std::string> config;
+    int type_check = PyDict_Check(py_config);
+    if (type_check) {
+        PyObject *dict;
+        if (!PyArg_Parse(py_config, "O", &dict)) {
+            return -1;
+        };
+
+        PyObject *key, *value;
+        Py_ssize_t pos = 0;
+        while (PyDict_Next(dict, &pos, &key, &value)){
+            std::string conf_key(PyString_AsString(key));
+            if (PyString_Check(value)){ std::string conf_val(PyString_AsString(value));
+                config[conf_key]=conf_val;}
+            if (PyInt_Check(value)){
+                int32_t c_val = (int32_t) PyInt_AsLong(value);
+                config[conf_key]=std::to_string(c_val);}
+        }
+    }
+    try {
+        self->W = storage->make_writer(table,keyspace,keys_names,columns_names,config);
+        self->metadata=self->W->get_metadata();
+    }catch (ModuleException e) {
+        PyErr_SetString(PyExc_RuntimeError,e.what());
+        return -1;
+    }
+
+    return 0;
+}
+
+static void hwriter_dealloc(HWriter *self) {
+    delete (self->W);
+    self->ob_type->tp_free((PyObject *) self);
+}
+
+
+static PyMethodDef hwriter_type_methods[] = {
+        {"write", (PyCFunction) write_cass, METH_VARARGS, NULL},
+        {NULL, NULL, 0, NULL}
+};
 
 static PyTypeObject hfetch_HWriterType = {
         PyVarObject_HEAD_INIT(NULL, 0)
-        "hfetch.HIter",             /* tp_name */
-        sizeof(HIterator), /* tp_basicsize */
+        "hfetch.HWriter",             /* tp_name */
+        sizeof(HWriter), /* tp_basicsize */
         0,                         /*tp_itemsize*/
-        (destructor) hiter_dealloc, /*tp_dealloc*/
+        (destructor) hwriter_dealloc, /*tp_dealloc*/
         0,                         /*tp_print*/
         0,                         /*tp_getattr*/
         0,                         /*tp_setattr*/
@@ -416,14 +520,14 @@ static PyTypeObject hfetch_HWriterType = {
         0,                         /*tp_setattro*/
         0,                         /*tp_as_buffer*/
         Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
-        "Cassandra iter",           /* tp_doc */
+        "Cassandra writer",           /* tp_doc */
         0,                       /* tp_traverse */
         0,                       /* tp_clear */
         0,                       /* tp_richcompare */
         0,                       /* tp_weaklistoffset */
         0,                       /* tp_iter */
         0,                       /* tp_iternext */
-        hiter_type_methods,             /* tp_methods */
+        hwriter_type_methods,             /* tp_methods */
         0,             /* tp_members */
         0,                         /* tp_getset */
         0,                         /* tp_base */
@@ -431,9 +535,9 @@ static PyTypeObject hfetch_HWriterType = {
         0,                         /* tp_descr_get */
         0,                         /* tp_descr_set */
         0,                         /* tp_dictoffset */
-        (initproc) hiter_init,      /* tp_init */
+        (initproc) hwriter_init,      /* tp_init */
         0,                         /* tp_alloc */
-        hiter_new,                 /* tp_new */
+        hwriter_new,                 /* tp_new */
 };
 
 
@@ -584,11 +688,23 @@ inithfetch(void) {
         return;
 
     Py_INCREF(&hfetch_HIterType);
+
+
+
+    hfetch_HWriterType.tp_new = PyType_GenericNew;
+    if (PyType_Ready(&hfetch_HWriterType) < 0)
+        return;
+
+    Py_INCREF(&hfetch_HWriterType);
+
+
     hfetch_HCacheType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&hfetch_HCacheType) < 0)
         return;
 
     Py_INCREF(&hfetch_HCacheType);
+
+
 
     m = Py_InitModule3("hfetch", module_methods, "c++ bindings for hecuba cache & prefetch");
     f = m->ob_type->tp_dealloc;
@@ -598,6 +714,4 @@ inithfetch(void) {
     PyModule_AddObject(m, "Hcache", (PyObject *) &hfetch_HCacheType);
     PyModule_AddObject(m, "HIterator", (PyObject *) &hfetch_HIterType);
     PyModule_AddObject(m, "HWriter", (PyObject *) &hfetch_HWriterType);
-
-
 }

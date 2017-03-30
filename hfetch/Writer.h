@@ -26,6 +26,10 @@ public:
 
     void set_error_occurred(std::string error, const void * keys, const void * values);
 
+    const TableMetadata* get_metadata() {
+        return table_metadata;
+    }
+
 private:
 
     CassSession *session;
@@ -42,6 +46,7 @@ private:
     uint32_t max_calls;
     std::atomic<uint32_t> ncallbacks;
     std::atomic<uint32_t> error_count;
+    const TableMetadata* table_metadata;
 
     static void callback(CassFuture *future, void *ptr);
 };

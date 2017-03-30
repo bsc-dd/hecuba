@@ -132,10 +132,15 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
     }
 
     select_keys_tokens=select_tokens_all;
-    insert="INSERT INTO "+ this->keyspace + "." + this->table + "(";
+    insert="INSERT INTO "+ this->keyspace + "." + this->table + "("+keys_names[0];
+
+
+    for (uint16_t i = 1; i<keys_names.size(); ++i){
+        insert+=","+keys_names[i];
+    }
 
     if (!columns_names.empty()) {
-        insert +=columns_names[0];
+        insert += "," + columns_names[0];
         select = "SELECT " + columns_names[0];
         select_tokens_all += "," + columns_names[0];
         for (uint16_t i = 1; i < columns_names.size(); ++i) {
@@ -150,12 +155,12 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
     select_keys_tokens+= " FROM "+ this->keyspace + "." + this->table + " ";
     select_tokens_all+= " FROM "+ this->keyspace + "." + this->table + " ";
 
+
     for (uint16_t i = 1; i<keys_names.size(); ++i){
         select+="AND "+keys_names[i]+"=? ";
-        insert+=","+keys_names[i];
     }
     insert+=") VALUES (?";
-    for (uint16_t i = 0; i<keys_names.size()+columns_names.size();++i) {
+    for (uint16_t i = 1; i<keys_names.size()+columns_names.size();++i) {
         insert+=",?";
     }
     select_keys_tokens+=" WHERE token("+keys_names[0]+")>=? AND token("+keys_names[0]+")<?;";

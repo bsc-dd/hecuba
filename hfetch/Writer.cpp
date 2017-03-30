@@ -43,9 +43,11 @@ Writer::Writer(TableMetadata* table_meta, CassSession *session,
 
 
     this->session = session;
+    this->table_metadata=table_meta;
     this->k_factory = new TupleRowFactory(table_meta->get_keys());
     this->v_factory = new TupleRowFactory(table_meta->get_values());
 
+    std::cout << table_meta->get_insert_query() << std::endl;
     CassFuture *future = cass_session_prepare(session, table_meta->get_insert_query());
     CassError rc = cass_future_error_code(future);
     CHECK_CASS("writer cannot prepare: ");

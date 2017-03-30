@@ -40,6 +40,14 @@ typedef struct {
     bool update_cache;
 } HIterator;
 
+
+typedef struct {
+    PyObject_HEAD
+    Writer *W;
+    CacheTable *baseTable;
+    const TableMetadata* metadata;
+} HWriter;
+
 static PyObject* create_iter_keys(HCache *self, PyObject* args);
 static PyObject* create_iter_values(HCache *self, PyObject* args);
 static PyObject* create_iter_items(HCache *self, PyObject* args);
