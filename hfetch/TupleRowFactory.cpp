@@ -430,8 +430,9 @@ int TupleRowFactory::py_to_c(PyObject *obj, void *data, int32_t col) const {
         }
         case CASS_VALUE_TYPE_BLOB: {
             /** interface receives key **/
-            Py_ssize_t l_size;
-            char *l_temp;
+            //TODO test
+            Py_ssize_t l_size = PyByteArray_Size(obj);
+            char *l_temp = PyByteArray_AsString(obj);
             char *permanent = (char *) malloc(l_size + sizeof(uint64_t));
             uint64_t int_size = (uint64_t) l_size;
             if (int_size == 0) std::cerr << "array bytes has size 0" << std::endl;
@@ -717,28 +718,25 @@ PyObject *TupleRowFactory::tuples_as_py(std::vector<const TupleRow *> &values) c
 
 std::vector<void *> TupleRowFactory::split_array(PyObject *py_array) {
     //we have an array so we extract the bytes
-    ssize_t nbytes_s = 0;
+    uint64_t nbytes = 0;
     void *data = NULL;
-    int ok;
+
     PyArrayObject *arr;
     try {
         _import_array();
-        ok = PyArray_OutputConverter(py_array, &arr);
-        if (!ok) throw ModuleException("error parsing PyArray to obj");
+        if (!PyArray_OutputConverter(py_array, &arr))
+            throw ModuleException("error parsing PyArray to obj");
         data = PyArray_DATA(arr);
-        nbytes_s = PyArray_NBYTES(arr);
+        ssize_t nbytes_s = PyArray_NBYTES(arr);
         if (nbytes_s < 0)
             throw ModuleException("PyArray returns negative size of array");
+        nbytes=(uint64_t) nbytes_s;
     }
     catch (std::exception e) {
-        if (PyErr_Occurred()) PyErr_Print();
-        std::cerr << e.what() << std::endl;
-        PyErr_SetString(PyExc_RuntimeError, e.what());
+       throw ModuleException(e.what());
     }
 
-
     //then we split the payload
-    uint64_t nbytes = (uint64_t) nbytes_s;
     uint32_t nblocks = (uint32_t) std::trunc(nbytes / maxarray_size); //number of subarrays
     if (nbytes % maxarray_size != 0) ++nblocks; //we don't want to lose data
     uint64_t block_size = std::min(nbytes, (uint64_t) maxarray_size);//bytes per block

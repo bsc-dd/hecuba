@@ -66,7 +66,7 @@ CacheTable::CacheTable(const std::string &table, const std::string &keyspace,
         }
     }
 
-
+    this->keyspace=keyspace;
     /** Parse names **/
 
     columns_names = columns_n;
@@ -199,13 +199,109 @@ void CacheTable::put_row(PyObject *key, PyObject *value) {
         //Inserts if not present, otherwise replaces
         this->myCache->update(*k, v);
         this->writer->write_to_cassandra(k, v);
-    } else {
-        TupleRow *k = keys_factory->make_tuple(key);
-        std::vector<const TupleRow *> value_list = values_factory->make_tuples_with_npy(value);
-        //this->myCache->update(*k, value_list[0]); <- broken
-        for (const TupleRow *T:value_list) {
-            TupleRow *key_copy = new TupleRow(k);
-            this->writer->write_to_cassandra(key_copy, T);
+    }
+    else {
+
+        RowMetadata metadata = this->values_factory->get_metadata();
+        uint16_t numpy_pos = 0;
+        while (metadata.at(numpy_pos).get_arr_type()!=NPY_NOTYPE && numpy_pos<metadata.size()) ++numpy_pos;
+        if (numpy_pos==metadata.size() || metadata.at(numpy_pos).info.size()!=5)
+            throw ModuleException("Sth went wrong looking for the numpy");
+
+
+    if (metadata.at(numpy_pos).info.size()==5){
+            //else if has auxiliary table
+            CassUuidGen* uuid_gen = cass_uuid_gen_new();
+
+            CassUuid uuid;
+
+            cass_uuid_gen_random(uuid_gen, &uuid);
+
+//find numpy, make tuple with key=[uuid], values=[pylist(py_getNumpy)]
+            //Writer temp = new Writer(...)
+            //temp.add(tuples)
+            //pylist_set_item(uuuid) "replace numpy by its uuid"
+            //this writer-> write make tuple
+
+//TODO this awful code will be beautiful when merged with split-c++ branch
+
+            const CassSchemaMeta *schema_meta = cass_session_get_schema_meta(session);
+            if (!schema_meta) {
+                throw ModuleException("Cache particles_table: constructor: Schema meta is NULL");
+            }
+
+            const CassKeyspaceMeta *keyspace_meta = cass_schema_meta_keyspace_by_name(schema_meta, keyspace.c_str());
+            if (!keyspace_meta) {
+                throw ModuleException("Keyspace particles_table: constructor: Schema meta is NULL");
+            }
+
+
+            std::string table = metadata.at(numpy_pos).info[4];
+
+            const CassTableMeta *table_meta = cass_keyspace_meta_table_by_name(keyspace_meta, table.c_str());
+            if (!table_meta || (cass_table_meta_column_count(table_meta) == 0)) {
+                throw ModuleException("Cache particles_table: constructor: Table meta is NULL");
+            }
+
+            std::vector<std::vector<std::string> > numpy_keys {std::vector<std::string>(1)};
+            std::vector<std::vector<std::string> > numpy_columns {std::vector<std::string>(3),{std::vector<std::string>(1)}};
+            numpy_keys[0][0] = "uuid";
+
+            numpy_columns[0][0]="data";
+            numpy_columns[0][1]=metadata.at(numpy_pos).info[1];
+            numpy_columns[0][2]=metadata.at(numpy_pos).info[2];
+            numpy_columns[0][3]=metadata.at(numpy_pos).info[3];
+
+
+            numpy_columns[1][0]="position";
+            Writer* temp = NULL;
+            TupleRowFactory npy_keys_f = TupleRowFactory(table_meta, numpy_keys);
+            TupleRowFactory npy_values_f = TupleRowFactory(table_meta, numpy_columns);
+            try {
+                temp = new Writer(default_writer_buff,default_writer_callbacks,npy_keys_f,npy_values_f
+                        ,session,"INSERT INTO "+keyspace+"."+table+" (uuid,data,position) VALUES (?,?,?);");
+            } catch (ModuleException e) {
+                throw e;
+            }
+            PyObject* npy_list = PyList_New(1);
+            PyList_SetItem(npy_list,0,PyList_GetItem(value,numpy_pos));
+            std::vector<const TupleRow*> value_list = npy_values_f.make_tuples_with_npy(npy_list);
+            uint64_t* c_uuid = (uint64_t*) malloc(sizeof(uint64_t)*2);
+            *c_uuid=uuid.time_and_version;
+            *(c_uuid+1)=uuid.clock_seq_and_node;
+
+            TupleRow* numpy_key= new TupleRow(keys_factory->get_metadata(),sizeof(uint64_t)*2,(void*)c_uuid);
+
+            for (const TupleRow *T:value_list) {
+                TupleRow *key_copy = new TupleRow(numpy_key);
+                temp->write_to_cassandra(key_copy, T);
+            }
+            delete(temp);
+
+            //keep numpy key
+
+            PyObject* py_uuid = PyByteArray_FromStringAndSize((char*)c_uuid,sizeof(uint64_t)*2);
+
+            PyList_SetItem(value,numpy_pos,py_uuid);
+            //free numpy key
+            delete(c_uuid);
+
+            TupleRow *k = keys_factory->make_tuple(key);
+            const TupleRow *v = values_factory->make_tuple(value);
+            //Inserts if not present, otherwise replaces
+            this->myCache->update(*k, v);
+            this->writer->write_to_cassandra(k, v);
+
+        }
+        else {
+            TupleRow *k = keys_factory->make_tuple(key);
+
+            std::vector<const TupleRow *> value_list = values_factory->make_tuples_with_npy(value);
+            //this->myCache->update(*k, value_list[0]); <- broken
+            for (const TupleRow *T:value_list) {
+                TupleRow *key_copy = new TupleRow(k);
+                this->writer->write_to_cassandra(key_copy, T);
+            }
         }
     }
 }

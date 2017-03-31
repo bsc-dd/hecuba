@@ -61,6 +61,7 @@ private:
     std::string token_predicate;
     std::string get_predicate;
     std::string cache_query;
+    std::string keyspace;
 
     std::vector<std::string> key_names;
     std::vector< std::vector<std::string>> columns_names;
