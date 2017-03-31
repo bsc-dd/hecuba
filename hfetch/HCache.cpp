@@ -166,9 +166,15 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
                 return -1;
             };
 
+            PyObject* aux_table = PyDict_GetItem(dict, PyString_FromString("npy_table"));
+            if (aux_table!=NULL) {
+                columns_names[i] = std::vector<std::string>(5);
+                columns_names[i][4] = PyString_AsString(aux_table);
+            }
+            else {
+                columns_names[i] = std::vector<std::string>(4);
+            }
             PyObject *py_name = PyDict_GetItem(dict, PyString_FromString("name"));
-
-            columns_names[i] = std::vector<std::string>(4);
             columns_names[i][0] = PyString_AsString(py_name);
 
             PyObject *py_arr_type = PyDict_GetItem(dict, PyString_FromString("type"));

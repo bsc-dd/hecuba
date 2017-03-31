@@ -481,12 +481,22 @@ int TupleRowFactory::py_to_c(PyObject *obj, void *data, int32_t col) const {
             return 0;
         }
         case CASS_VALUE_TYPE_UUID: {
-            PyObject* bytes = PyObject_GetAttrString(obj,"hex");
+            char* cpp_bytes = NULL;
+            if (!PyByteArray_Check(obj)) {
+                PyObject *bytes = PyObject_GetAttrString(obj, "hex");
 
-            if (!bytes)
-                throw ModuleException("can't parse UUID from Py to C");
+                if (!bytes)
+                    throw ModuleException("can't parse UUID from Py to C");
+                cpp_bytes = PyString_AsString(bytes);
+            }
+            else {
+                cpp_bytes = PyByteArray_AsString(obj);
 
-            char* cpp_bytes = PyString_AsString(bytes);
+            }
+
+            if (!cpp_bytes)
+                throw ModuleException("Bytes null");
+
             uint32_t len = sizeof(uint64_t)*2;
 
             char *permanent = (char*) malloc(len);
@@ -1031,7 +1041,7 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
 
                 CassUuid cass_uuid = {*time_and_version,*clock_seq_and_node};
                 CassError rc = cass_statement_bind_uuid(statement, bind_pos, cass_uuid);
-                CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UUID], column:"+localMeta->at(bind_pos).name);
+                CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UUID], column:"+metadata.at(bind_pos).info[0]);
                 break;
             }
             case CASS_VALUE_TYPE_TIMEUUID: {

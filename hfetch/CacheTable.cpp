@@ -223,6 +223,7 @@ void CacheTable::put_row(PyObject *key, PyObject *value) {
             //pylist_set_item(uuuid) "replace numpy by its uuid"
             //this writer-> write make tuple
 
+
 //TODO this awful code will be beautiful when merged with split-c++ branch
 
             const CassSchemaMeta *schema_meta = cass_session_get_schema_meta(session);
@@ -235,7 +236,6 @@ void CacheTable::put_row(PyObject *key, PyObject *value) {
                 throw ModuleException("Keyspace particles_table: constructor: Schema meta is NULL");
             }
 
-
             std::string table = metadata.at(numpy_pos).info[4];
 
             const CassTableMeta *table_meta = cass_keyspace_meta_table_by_name(keyspace_meta, table.c_str());
@@ -244,7 +244,8 @@ void CacheTable::put_row(PyObject *key, PyObject *value) {
             }
 
             std::vector<std::vector<std::string> > numpy_keys {std::vector<std::string>(1)};
-            std::vector<std::vector<std::string> > numpy_columns {std::vector<std::string>(3),{std::vector<std::string>(1)}};
+            std::vector<std::vector<std::string> > numpy_columns {std::vector<std::string>(4),{std::vector<std::string>(1)}};
+
             numpy_keys[0][0] = "uuid";
 
             numpy_columns[0][0]="data";
@@ -253,16 +254,19 @@ void CacheTable::put_row(PyObject *key, PyObject *value) {
             numpy_columns[0][3]=metadata.at(numpy_pos).info[3];
 
 
+
             numpy_columns[1][0]="position";
             Writer* temp = NULL;
             TupleRowFactory npy_keys_f = TupleRowFactory(table_meta, numpy_keys);
             TupleRowFactory npy_values_f = TupleRowFactory(table_meta, numpy_columns);
+
             try {
                 temp = new Writer(default_writer_buff,default_writer_callbacks,npy_keys_f,npy_values_f
                         ,session,"INSERT INTO "+keyspace+"."+table+" (uuid,data,position) VALUES (?,?,?);");
             } catch (ModuleException e) {
                 throw e;
             }
+        
             PyObject* npy_list = PyList_New(1);
             PyList_SetItem(npy_list,0,PyList_GetItem(value,numpy_pos));
             std::vector<const TupleRow*> value_list = npy_values_f.make_tuples_with_npy(npy_list);
@@ -276,7 +280,7 @@ void CacheTable::put_row(PyObject *key, PyObject *value) {
                 TupleRow *key_copy = new TupleRow(numpy_key);
                 temp->write_to_cassandra(key_copy, T);
             }
-            delete(temp);
+           // delete(temp);
 
             //keep numpy key
 
