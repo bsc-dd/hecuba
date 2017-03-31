@@ -89,7 +89,7 @@ uint16_t TupleRowFactory::compute_size_of(const CassValueType VT) const {
             return sizeof(uint32_t);
         }
         case CASS_VALUE_TYPE_DECIMAL: {
-            std::cerr << "Parse decimals data type supported yet" << std::endl;
+            std::cerr << "Parse decimals data type not supported yet" << std::endl;
             break;
         }
         case CASS_VALUE_TYPE_DOUBLE: {
@@ -102,29 +102,28 @@ uint16_t TupleRowFactory::compute_size_of(const CassValueType VT) const {
             return sizeof(int32_t);
         }
         case CASS_VALUE_TYPE_TIMESTAMP: {
-            std::cerr << "Timestamp data type supported yet" << std::endl;
+            std::cerr << "Timestamp data type not supported yet" << std::endl;
             break;
         }
         case CASS_VALUE_TYPE_UUID: {
-            std::cerr << "UUID data type supported yet" << std::endl;
-            break;
+           return sizeof(char *);
         }
         case CASS_VALUE_TYPE_TIMEUUID: {
-            std::cerr << "TIMEUUID data type supported yet" << std::endl;
+            std::cerr << "TIMEUUID data type not supported yet" << std::endl;
 
             break;
         }
         case CASS_VALUE_TYPE_INET: {
-            std::cerr << "INET data type supported yet" << std::endl;
+            std::cerr << "INET data type not supported yet" << std::endl;
             break;
         }
         case CASS_VALUE_TYPE_DATE: {
-            std::cerr << "Date data type supported yet" << std::endl;
+            std::cerr << "Date data type not supported yet" << std::endl;
 
             break;
         }
         case CASS_VALUE_TYPE_TIME: {
-            std::cerr << "Time data type supported yet" << std::endl;
+            std::cerr << "Time data type not supported yet" << std::endl;
             break;
         }
         case CASS_VALUE_TYPE_SMALL_INT: {
@@ -134,19 +133,19 @@ uint16_t TupleRowFactory::compute_size_of(const CassValueType VT) const {
             return sizeof(int8_t);
         }
         case CASS_VALUE_TYPE_LIST: {
-            std::cerr << "List data type supported yet" << std::endl;
+            std::cerr << "List data type not supported yet" << std::endl;
             break;
         }
         case CASS_VALUE_TYPE_MAP: {
-            std::cerr << "Map data type supported yet" << std::endl;
+            std::cerr << "Map data type not supported yet" << std::endl;
             break;
         }
         case CASS_VALUE_TYPE_SET: {
-            std::cerr << "Set data type supported yet" << std::endl;
+            std::cerr << "Set data type not supported yet" << std::endl;
             break;
         }
         case CASS_VALUE_TYPE_TUPLE: {
-            std::cerr << "Tuple data type supported yet" << std::endl;
+            std::cerr << "Tuple data type not supported yet" << std::endl;
             break;
         }
         case CASS_VALUE_TYPE_UDT:
@@ -482,7 +481,17 @@ int TupleRowFactory::py_to_c(PyObject *obj, void *data, int32_t col) const {
             return 0;
         }
         case CASS_VALUE_TYPE_UUID: {
+            PyObject* bytes = PyObject_GetAttrString(obj,"hex");
 
+            if (!bytes)
+                throw ModuleException("can't parse UUID from Py to C");
+
+            char* cpp_bytes = PyString_AsString(bytes);
+            uint32_t len = sizeof(uint64_t)*2;
+
+            char *permanent = (char*) malloc(len);
+            memcpy(permanent, cpp_bytes,len);
+            memcpy(data,&permanent,sizeof(char*));
             return 0;
         }
         case CASS_VALUE_TYPE_VARINT: {
@@ -533,8 +542,7 @@ int TupleRowFactory::py_to_c(PyObject *obj, void *data, int32_t col) const {
         case CASS_VALUE_TYPE_UNKNOWN:
             break;
         default:
-            throw ModuleException(
-                    "TupleRowFactory: Marshall from Py to C: Unsupported type not recognized by Cassandra");
+            throw ModuleException("TupleRowFactory: Marshall from Py to C: Unsupported type not recognized by Cassandra");
     }
 
     return ok;
@@ -580,8 +588,7 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
         case CASS_VALUE_TYPE_BIGINT: {
             int64_t *p = static_cast<int64_t * >(data);
             CassError rc = cass_value_get_int64(lhs, p);
-            CHECK_CASS(
-                    "TupleRowFactory: Cassandra to C parse bigint/varint unsuccessful, column:" + std::to_string(col));
+            CHECK_CASS("TupleRowFactory: Cassandra to C parse bigint/varint unsuccessful, column:" + std::to_string(col));
             return 0;
         }
         case CASS_VALUE_TYPE_BLOB: {
@@ -643,7 +650,18 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             break;
         }
         case CASS_VALUE_TYPE_UUID: {
-            break;
+
+            CassUuid uuid;
+            CassError rc = cass_value_get_uuid(lhs, &uuid);
+            uint64_t time_and_version = uuid.time_and_version;
+            uint64_t clock_seq_and_node = uuid.clock_seq_and_node;
+
+            CHECK_CASS("TupleRowFactory: Cassandra to C parse UUID unsuccessful, column:"+std::to_string(col));
+            char *permanent = (char*) malloc(sizeof(uint64_t)*2);
+            memcpy(permanent, &time_and_version,sizeof(uint64_t));
+            memcpy(permanent+sizeof(uint64_t), &clock_seq_and_node,sizeof(uint64_t));
+            memcpy(data,&permanent,sizeof(char*));
+            return 0;
         }
         case CASS_VALUE_TYPE_TIMEUUID: {
             break;
@@ -710,7 +728,6 @@ PyObject *TupleRowFactory::tuples_as_py(std::vector<const TupleRow *> &values) c
     } else {
         list = merge_blocks_as_nparray(values);
     }
-
     return list;
 
 }
@@ -762,7 +779,6 @@ std::vector<void *> TupleRowFactory::split_array(PyObject *py_array) {
 
     return blocks_list;
 }
-
 
 /***
  * PRE: Already owns the GIL lock, V points to C++ valid data
@@ -859,7 +875,8 @@ PyObject *TupleRowFactory::c_to_py(const void *V, const ColumnMeta &meta) const 
             break;
         }
         case CASS_VALUE_TYPE_UUID: {
-
+            char** uuid = (char**) V;
+            py_value=PyString_FromStringAndSize(*uuid,sizeof(uint64_t)*2);
             break;
         }
         case CASS_VALUE_TYPE_VARINT: {
@@ -968,6 +985,7 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                            metadata.at(bind_pos).info[0]);
                 break;
             }
+            //parsed as uint32 or uint64 on different methods
             case CASS_VALUE_TYPE_COUNTER: {
                 const uint64_t *data = static_cast<const uint64_t *>(key);
                 CassError rc = cass_statement_bind_int64(statement, bind_pos,
@@ -1006,7 +1024,14 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                 break;
             }
             case CASS_VALUE_TYPE_UUID: {
+                const uint64_t** uuid = (const uint64_t **) key;
 
+                const uint64_t* time_and_version = *uuid;
+                const uint64_t* clock_seq_and_node = *uuid + 1;
+
+                CassUuid cass_uuid = {*time_and_version,*clock_seq_and_node};
+                CassError rc = cass_statement_bind_uuid(statement, bind_pos, cass_uuid);
+                CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UUID], column:"+localMeta->at(bind_pos).name);
                 break;
             }
             case CASS_VALUE_TYPE_TIMEUUID: {
