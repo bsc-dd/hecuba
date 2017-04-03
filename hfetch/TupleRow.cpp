@@ -13,6 +13,7 @@ TupleRow::TupleRow(const RowMetadata& metas,
                                                 case CASS_VALUE_TYPE_BLOB:
                                                 case CASS_VALUE_TYPE_TEXT:
                                                 case CASS_VALUE_TYPE_VARCHAR:
+                                                case CASS_VALUE_TYPE_UUID:
                                                 case CASS_VALUE_TYPE_ASCII: {
                                                     int64_t *addr = (int64_t * )((char *) ptr +  metas.at(i).position);
                                                     char *d = reinterpret_cast<char *>(*addr);
