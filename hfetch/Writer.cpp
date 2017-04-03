@@ -15,6 +15,7 @@ Writer::Writer(uint16_t buff_size, uint16_t max_callbacks, const TupleRowFactory
     this->data.set_capacity(buff_size);
     this->max_calls = max_callbacks;
     this->ncallbacks = 0;
+    this->error_count = 0;
 }
 
 
