@@ -313,6 +313,8 @@ void CacheTable::put_row(PyObject *key, PyObject *value) {
 }
 
 
+
+
 PyObject *CacheTable::get_row(PyObject *py_keys) {
 
     TupleRow *keys = keys_factory->make_tuple(py_keys);
@@ -323,19 +325,106 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
         return NULL;
     }
 
-    PyObject* row = values_factory->tuples_as_py(values);
+    RowMetadata metadata = values_factory->get_metadata();
+PyObject* row;
+    if (metadata.has_numpy) {
+        //find numpy pos
+        for (uint16_t pos = 0; pos<metadata.size(); ++pos) {
+            if (metadata.at(pos).info.size()==5) {
+                //is external
 
-    //this will be deleted when the split branch is completed
-    if (!values_factory->get_metadata().has_numpy) myCache->add(*keys, values[0]);
-    else {
-        //if the data is inserted inside the cache we cant call delete, it doesnt detect there is a copy inside the cache
-        for (const TupleRow* block:values){
-            delete(block);
+//TODO this awful code will be beautiful when merged with split-c++ branch
+
+                const CassSchemaMeta *schema_meta = cass_session_get_schema_meta(session);
+                if (!schema_meta) {
+                    throw ModuleException("Cache particles_table: constructor: Schema meta is NULL");
+                }
+
+                const CassKeyspaceMeta *keyspace_meta = cass_schema_meta_keyspace_by_name(schema_meta, keyspace.c_str());
+                if (!keyspace_meta) {
+                    throw ModuleException("Keyspace particles_table: constructor: Schema meta is NULL");
+                }
+
+                std::string table = metadata.at(pos).info[4];
+
+                const CassTableMeta *table_meta = cass_keyspace_meta_table_by_name(keyspace_meta, table.c_str());
+                if (!table_meta || (cass_table_meta_column_count(table_meta) == 0)) {
+                    throw ModuleException("Cache particles_table: constructor: Table meta is NULL");
+                }
+
+                std::vector<std::string> numpy_keys {"uuid"};
+                std::vector<std::vector<std::string> > numpy_columns (3);
+
+                numpy_columns[0] = {"data",metadata.at(pos).info[1],metadata.at(pos).info[2],metadata.at(pos).info[3]};
+                numpy_columns[1] = {"position"};
+
+                CacheTable* temp = NULL;
+
+
+                uint64_t ** uuid = (uint64_t **) values[0]->get_element(pos);
+
+
+                cass_schema_meta_free(schema_meta);
+                //TODO break down the token range
+                try {
+                    std::map<std::string,std::string> config;
+                    temp = new CacheTable(table, std::string(keyspace), numpy_keys,
+                                          numpy_columns, std::string(""), {}, session, config);
+                  } catch (ModuleException e) {
+                    throw e;
+                }
+
+                void *payload = malloc(sizeof(uint64_t*));
+
+                memcpy(payload,uuid,sizeof(uint64_t));
+
+                TupleRow* uuid_key = new TupleRow(temp->_test_get_keys_factory()->get_metadata(),sizeof(uint64_t),payload);
+                std::vector<const TupleRow*> npy_subarrays = temp->get_crow(uuid_key);
+                uint32_t i = 0;
+                while (i<npy_subarrays.size() && npy_subarrays[i]->get_element(1)==0) ++i;
+
+                if (i==npy_subarrays.size()) {
+                    throw ModuleException("Numpy subarray 0 not found on CacheTable, merge subarrays");
+                }
+
+
+                /*** MERGE THIS TWO ***/
+                void* new_key_payload = malloc(values[0]->get_payload_size());
+                memcpy(new_key_payload,values[0]->get_element(0),values[0]->get_payload_size());
+
+                memcpy(((char*)new_key_payload)+values_factory->get_metadata().at(pos).position,npy_subarrays[i]->get_element(0),sizeof(char *));
+                const TupleRow *old = values[0];
+                values[0] = new TupleRow(values_factory->get_metadata(),old->get_payload_size(),new_key_payload);
+
+                npy_subarrays[0]=values[0];
+
+                /*** END MERGE ***/
+
+                row = values_factory->tuples_as_py(npy_subarrays);
+                //if the data is inserted inside the cache we cant call delete, it doesnt detect there is a copy inside the cache
+                for (const TupleRow* block:npy_subarrays){
+                    delete(block);
+                }
+                delete(old);
+                delete (keys);
+            }
+            else if (metadata.at(pos).info.size()==4){
+
+                row = values_factory->tuples_as_py(values);
+                //if the data is inserted inside the cache we cant call delete, it doesnt detect there is a copy inside the cache
+                for (const TupleRow* block:values){
+                    delete(block);
+                }
+                delete (keys);
+            }
+            }
         }
-        delete (keys);
+    else {
+        row = values_factory->tuples_as_py(values);
     }
-    return row;
+return row;
 }
+
 
 std::vector<const TupleRow *> CacheTable::get_crow(TupleRow *keys) {
 

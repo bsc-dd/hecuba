@@ -34,7 +34,9 @@ public:
 
     TupleRow& operator=(TupleRow& other );
 
-
+inline const uint16_t get_payload_size() const {
+    return this->payload_size;
+}
     inline const uint16_t n_elem() const {
         return (uint16_t) metadata.size();
     }

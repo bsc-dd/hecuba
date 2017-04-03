@@ -1383,10 +1383,10 @@ TEST(TestingCacheTable, PutTextRow) {
     uint32_t it = 1;
     float fl = 0.03;
 
-
-    while ((result = P->get_next()) != NULL) {
+    PyObject *key;
+    while (result != NULL) {
         PY_ERR_CHECK
-        PyObject *key = PyList_New(2);
+        key = PyList_New((Py_ssize_t ) 2);
         PY_ERR_CHECK
         PyList_SetItem(key, 0, Py_BuildValue("i", it));
         PyList_SetItem(key, 1, Py_BuildValue("f", fl));
@@ -1396,6 +1396,7 @@ TEST(TestingCacheTable, PutTextRow) {
         Py_DECREF(key);//Py_DecRef(key);
         PY_ERR_CHECK
         ++it;
+        result = P->get_next();
     }
 
 //    WriteTable.flush_elements(); //Blocking OP
@@ -1403,8 +1404,8 @@ TEST(TestingCacheTable, PutTextRow) {
 
 
 
-    delete (P);
     delete (WriteTable);
+    delete (P);
     PY_ERR_CHECK
     CassFuture *close_future = cass_session_close(test_session);
     cass_future_wait(close_future);
