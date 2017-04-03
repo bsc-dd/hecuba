@@ -204,8 +204,8 @@ void CacheTable::put_row(PyObject *key, PyObject *value) {
 
         RowMetadata metadata = this->values_factory->get_metadata();
         uint16_t numpy_pos = 0;
-        while (metadata.at(numpy_pos).get_arr_type()!=NPY_NOTYPE && numpy_pos<metadata.size()) ++numpy_pos;
-        if (numpy_pos==metadata.size() || metadata.at(numpy_pos).info.size()!=5)
+        while (metadata.at(numpy_pos).get_arr_type()==NPY_NOTYPE && numpy_pos<metadata.size()) ++numpy_pos;
+        if (numpy_pos==metadata.size())
             throw ModuleException("Sth went wrong looking for the numpy");
 
 
@@ -217,6 +217,7 @@ void CacheTable::put_row(PyObject *key, PyObject *value) {
 
             cass_uuid_gen_random(uuid_gen, &uuid);
 
+            cass_uuid_gen_free(uuid_gen);
 //find numpy, make tuple with key=[uuid], values=[pylist(py_getNumpy)]
             //Writer temp = new Writer(...)
             //temp.add(tuples)
@@ -244,58 +245,59 @@ void CacheTable::put_row(PyObject *key, PyObject *value) {
             }
 
             std::vector<std::vector<std::string> > numpy_keys {std::vector<std::string>(1)};
-            std::vector<std::vector<std::string> > numpy_columns {std::vector<std::string>(4),{std::vector<std::string>(1)}};
-
             numpy_keys[0][0] = "uuid";
 
-            numpy_columns[0][0]="data";
-            numpy_columns[0][1]=metadata.at(numpy_pos).info[1];
-            numpy_columns[0][2]=metadata.at(numpy_pos).info[2];
-            numpy_columns[0][3]=metadata.at(numpy_pos).info[3];
+            std::vector<std::vector<std::string> > numpy_columns {2};
+            numpy_columns[0] = {"data",metadata.at(numpy_pos).info[1],metadata.at(numpy_pos).info[2],metadata.at(numpy_pos).info[3]};
+            numpy_columns[1] = {"position"};
 
 
-
-            numpy_columns[1][0]="position";
             Writer* temp = NULL;
             TupleRowFactory npy_keys_f = TupleRowFactory(table_meta, numpy_keys);
             TupleRowFactory npy_values_f = TupleRowFactory(table_meta, numpy_columns);
 
-            try {
+            cass_schema_meta_free(schema_meta);
+
+        try {
                 temp = new Writer(default_writer_buff,default_writer_callbacks,npy_keys_f,npy_values_f
                         ,session,"INSERT INTO "+keyspace+"."+table+" (uuid,data,position) VALUES (?,?,?);");
             } catch (ModuleException e) {
                 throw e;
             }
-        
+
             PyObject* npy_list = PyList_New(1);
             PyList_SetItem(npy_list,0,PyList_GetItem(value,numpy_pos));
             std::vector<const TupleRow*> value_list = npy_values_f.make_tuples_with_npy(npy_list);
+
             uint64_t* c_uuid = (uint64_t*) malloc(sizeof(uint64_t)*2);
             *c_uuid=uuid.time_and_version;
             *(c_uuid+1)=uuid.clock_seq_and_node;
 
-            TupleRow* numpy_key= new TupleRow(keys_factory->get_metadata(),sizeof(uint64_t)*2,(void*)c_uuid);
+            void* payload = malloc(sizeof(uint64_t*));
+            memcpy(payload,&c_uuid,sizeof(uint64_t*));
+
+            TupleRow* numpy_key= new TupleRow(npy_keys_f.get_metadata(),sizeof(uint64_t)*2,payload);
 
             for (const TupleRow *T:value_list) {
                 TupleRow *key_copy = new TupleRow(numpy_key);
                 temp->write_to_cassandra(key_copy, T);
             }
-           // delete(temp);
+
+            delete(temp);
 
             //keep numpy key
-
             PyObject* py_uuid = PyByteArray_FromStringAndSize((char*)c_uuid,sizeof(uint64_t)*2);
 
             PyList_SetItem(value,numpy_pos,py_uuid);
+
             //free numpy key
-            delete(c_uuid);
 
             TupleRow *k = keys_factory->make_tuple(key);
             const TupleRow *v = values_factory->make_tuple(value);
             //Inserts if not present, otherwise replaces
             this->myCache->update(*k, v);
             this->writer->write_to_cassandra(k, v);
-
+        delete(numpy_key);
         }
         else {
             TupleRow *k = keys_factory->make_tuple(key);
@@ -330,8 +332,8 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
         for (const TupleRow* block:values){
             delete(block);
         }
+        delete (keys);
     }
-    delete (keys);
     return row;
 }
 

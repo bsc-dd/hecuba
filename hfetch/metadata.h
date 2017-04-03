@@ -14,7 +14,7 @@ struct ColumnMeta {
     std::vector<std::string> info;
 
     const NPY_TYPES get_arr_type() const {
-        if (info.size() != 4) {
+        if (info.size()  < 2) {
             return NPY_NOTYPE;
         }
         if (info[1] == "bool")
@@ -61,7 +61,7 @@ struct ColumnMeta {
     }
 
     PyArray_Dims *get_arr_dims() const {
-        if (info.size() != 4)
+        if (info.size() < 3)
             throw ModuleException("Numpy array metadata must consist of [name,type,dimensions,partition]");
 
         std::string temp = info[2];
