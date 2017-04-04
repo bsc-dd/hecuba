@@ -95,7 +95,7 @@ uint16_t TupleRowFactory::compute_size_of(const CassValueType VT) const {
             break;
         }
         case CASS_VALUE_TYPE_UUID: {
-           return sizeof(char *);
+           return sizeof(uint64_t *);
         }
         case CASS_VALUE_TYPE_TIMEUUID: {
             std::cerr << "TIMEUUID data type not supported yet" << std::endl;
@@ -274,18 +274,46 @@ int TupleRowFactory::py_to_c(PyObject *obj, void *data, int32_t col) const {
             return 0;
         }
         case CASS_VALUE_TYPE_UUID: {
-            PyObject* bytes = PyObject_GetAttrString(obj,"hex");
 
-            if (!bytes)
-                throw ModuleException("can't parse UUID from Py to C");
-
-            char* cpp_bytes = PyString_AsString(bytes);
-            uint32_t len = sizeof(uint64_t)*2;
+            uint32_t len = 144;//sizeof(uint64_t)*2;
 
             char *permanent = (char*) malloc(len);
-            memcpy(permanent, cpp_bytes,len);
+
             memcpy(data,&permanent,sizeof(char*));
-            return 0;
+
+            std::cout << "PERMA " << (void*) permanent << std::endl;
+
+            PyObject* bytes = PyObject_GetAttrString(obj,"time_low"); //32b
+            uint32_t time_low = (uint32_t) PyLong_AsLongLong(bytes);
+
+            bytes = PyObject_GetAttrString(obj,"time_mid"); //16b
+            uint16_t time_mid = (uint16_t) PyLong_AsLongLong(bytes);
+
+            bytes = PyObject_GetAttrString(obj,"time_hi_version"); //16b
+            uint16_t time_hi_version = (uint16_t) PyLong_AsLongLong(bytes);
+
+
+            bytes = PyObject_GetAttrString(obj,"clock_seq_hi_variant"); //8b
+            uint64_t clock_seq_hi_variant = (uint64_t) PyLong_AsLongLong(bytes);
+            bytes = PyObject_GetAttrString(obj,"clock_seq_low"); //8b
+            uint64_t clock_seq_low = (uint64_t) PyLong_AsLongLong(bytes);
+
+            bytes = PyObject_GetAttrString(obj,"node"); //48b
+            uint64_t node = (uint64_t) PyLong_AsLongLong(bytes);
+
+            memcpy(permanent, &time_low,sizeof(time_low));
+            permanent+=sizeof(time_low);
+            memcpy(permanent, &time_mid,sizeof(time_mid));
+            permanent+=sizeof(time_mid);
+            memcpy(permanent, &time_hi_version,sizeof(time_hi_version));
+            permanent+=sizeof(time_hi_version);
+
+
+            node += clock_seq_hi_variant << 56;
+            node += clock_seq_low << 48;;
+            memcpy(permanent, &node,sizeof(node));
+
+            break;
         }
         case CASS_VALUE_TYPE_VARINT: {
             ok = PyArg_Parse(obj, Py_LONG, data);
@@ -574,10 +602,17 @@ PyObject *TupleRowFactory::c_to_py(const void *V, CassValueType VT) const {
             break;
         }
         case CASS_VALUE_TYPE_UUID: {
-            char** uuid = (char**) V;
-            py_value=PyString_FromStringAndSize(*uuid,sizeof(uint64_t)*2);
+            char** data = (char**) V;
+
+            char* it = *data;
+            char final[CASS_UUID_STRING_LENGTH];
+
+            CassUuid uuid = {*((uint64_t *)it), *((uint64_t *)it+1)};
+            cass_uuid_string(uuid, final);
+            py_value=PyString_FromString(final);
             break;
         }
+
         case CASS_VALUE_TYPE_VARINT: {
             py_flag = Py_LONG;
             const int64_t *temp = reinterpret_cast<const int64_t *>(V);
