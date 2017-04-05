@@ -847,6 +847,90 @@ TEST(TestingCacheTable, NumpyArrayWriteBig) {
 
 
 
+TEST(TestingCacheTable, NumpyArrayReadWriteBig) {
+    PyErr_Clear();
+
+    CassSession *test_session = NULL;
+    CassCluster *test_cluster = NULL;
+
+    CassFuture *connect_future = NULL;
+    test_cluster = cass_cluster_new();
+    test_session = cass_session_new();
+
+    cass_cluster_set_contact_points(test_cluster, contact_p);
+    cass_cluster_set_port(test_cluster, 9042);
+
+    connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
+    CassError rc = cass_future_error_code(connect_future);
+    EXPECT_TRUE(rc == CASS_OK);
+
+    cass_future_free(connect_future);
+
+
+    uint32_t key1 = 343;
+    PyObject *list = PyList_New(1);
+    PyList_SetItem(list, 0, Py_BuildValue("i", key1));
+
+
+    PY_ERR_CHECK
+
+    std::vector<std::string> keysnames = {"partid"};
+    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"image","double","2x2","partition","arrays_aux"}};
+    std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
+    std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
+
+    std::map <std::string, std::string> config;
+    config["writer_par"] = "4";
+    config["writer_buffer"] = "20";
+    config["cache_size"] = "10";
+
+
+
+    CacheTable *T = new CacheTable("arrays", keyspace,keysnames, colsnames, token_pred, tokens,test_session,config);
+
+
+    _import_array();
+
+
+    npy_intp dims[2] = {2, 2};
+    void *array = malloc(sizeof(double) * 4);
+
+    double *temp = (double *) array;
+    *temp = 123;
+    *(temp + 1) = 456;
+    *(temp + 2) = 789;
+    *(temp + 3) = 200;
+
+    PyObject *py_array = PyArray_SimpleNewFromData(2, dims, NPY_DOUBLE, array);
+
+    PyObject* rw_list = PyList_New(1);
+    PyList_SetItem(rw_list,0,py_array);
+    T->put_row(list,rw_list);
+
+    for (int i = 0; i<100000; ++i) {
+        double d = 12.34;
+        d=d*(i-d+13);
+    }
+    PyObject* result = T->get_row(list);
+    EXPECT_TRUE(result!=NULL);
+    delete(T);
+
+    free(array);
+
+
+    CassFuture *close_future = cass_session_close(test_session);
+    cass_future_wait(close_future);
+    cass_future_free(close_future);
+
+    cass_cluster_free(test_cluster);
+    cass_session_free(test_session);
+
+    PY_ERR_CHECK
+
+}
+
+
+
 
 TEST(TestingCacheTable, NumpyArrayReadWrite) {
     PyErr_Clear();
@@ -1386,10 +1470,10 @@ TEST(TestingCacheTable, PutTextRow) {
     PyObject *key;
     while (result != NULL) {
         PY_ERR_CHECK
-        key = PyList_New((Py_ssize_t ) 2);
+        key = PyList_New(0);
         PY_ERR_CHECK
-        PyList_SetItem(key, 0, Py_BuildValue("i", it));
-        PyList_SetItem(key, 1, Py_BuildValue("f", fl));
+        PyList_Append(key, Py_BuildValue("i", it));
+        PyList_Append(key,Py_BuildValue("f", fl));
         PY_ERR_CHECK
         WriteTable->put_row(key, result);
         PY_ERR_CHECK
