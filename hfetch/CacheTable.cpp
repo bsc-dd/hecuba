@@ -353,7 +353,7 @@ PyObject* row;
                 }
 
                 std::vector<std::string> numpy_keys {"uuid"};
-                std::vector<std::vector<std::string> > numpy_columns (3);
+                std::vector<std::vector<std::string> > numpy_columns (2);
 
                 numpy_columns[0] = {"data",metadata.at(pos).info[1],metadata.at(pos).info[2],metadata.at(pos).info[3]};
                 numpy_columns[1] = {"position"};
@@ -369,7 +369,7 @@ PyObject* row;
                 try {
                     std::map<std::string,std::string> config;
                     temp = new CacheTable(table, std::string(keyspace), numpy_keys,
-                                          numpy_columns, std::string(""), {}, session, config);
+                                          numpy_columns, std::string("WHERE token(uuid)=>? AND token(uuid)<?"), {}, session, config);
                   } catch (ModuleException e) {
                     throw e;
                 }
@@ -378,34 +378,27 @@ PyObject* row;
 
                 memcpy(payload,uuid,sizeof(uint64_t));
 
-                TupleRow* uuid_key = new TupleRow(temp->_test_get_keys_factory()->get_metadata(),sizeof(uint64_t),payload);
-                std::vector<const TupleRow*> npy_subarrays = temp->get_crow(uuid_key);
-                uint32_t i = 0;
-                while (i<npy_subarrays.size() && npy_subarrays[i]->get_element(1)==0) ++i;
+                TupleRow* uuid_key = new TupleRow(temp->keys_factory->get_metadata(),sizeof(uint64_t),payload);
 
-                if (i==npy_subarrays.size()) {
-                    throw ModuleException("Numpy subarray 0 not found on CacheTable, merge subarrays");
-                }
-
-
-                /*** MERGE THIS TWO ***/
-                void* new_key_payload = malloc(values[0]->get_payload_size());
-                memcpy(new_key_payload,values[0]->get_element(0),values[0]->get_payload_size());
-
-                memcpy(((char*)new_key_payload)+values_factory->get_metadata().at(pos).position,npy_subarrays[i]->get_element(0),sizeof(char *));
-                const TupleRow *old = values[0];
-                values[0] = new TupleRow(values_factory->get_metadata(),old->get_payload_size(),new_key_payload);
-
-                npy_subarrays[0]=values[0];
+                std::vector<const TupleRow*> npy_array = temp->get_crow(uuid_key);
+                PyObject *py_list_array = temp->values_factory->tuples_as_py(npy_array);
+                PyObject *py_array = PyList_GetItem(py_list_array,0);
 
                 /*** END MERGE ***/
 
-                row = values_factory->tuples_as_py(npy_subarrays);
+                row = values_factory->tuples_as_py(values);
+                PyList_SetItem(row,pos,py_array);
+
+                /*** CLEANUP ***/
+                delete(temp);
                 //if the data is inserted inside the cache we cant call delete, it doesnt detect there is a copy inside the cache
-                for (const TupleRow* block:npy_subarrays){
+                for (const TupleRow* block:values){
                     delete(block);
                 }
-                delete(old);
+                for (const TupleRow* block:npy_array){
+                    delete(block);
+                }
+                delete(uuid_key);
                 delete (keys);
             }
             else if (metadata.at(pos).info.size()==4){
@@ -416,6 +409,9 @@ PyObject* row;
                     delete(block);
                 }
                 delete (keys);
+            }
+            else {
+                //skip
             }
             }
         }

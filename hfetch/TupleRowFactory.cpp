@@ -334,13 +334,19 @@ PyObject *TupleRowFactory::merge_blocks_as_nparray(std::vector<const TupleRow *>
 
     PyObject *list = PyList_New(0);
 
+    if (blocks.empty()) throw ModuleException("No blocks on merge nparray");
+
     for (uint16_t pos = 0; pos < metadata.size(); ++pos) {
         //Object is not an array, process as usual
         if (metadata.at(pos).info.size() == 1 || metadata.at(pos).get_arr_type() == NPY_NOTYPE) {
             PyObject *inte = c_to_py(blocks[0]->get_element(pos), metadata.at(pos));
             int ok = PyList_Append(list, inte);
             if (ok<0) throw ModuleException("Can't append object in position"+std::to_string(pos) +" toPyList on merge np array");
-        } else {
+        } else if(metadata.at(pos).info.size() == 5){
+            //external, Add none, because it will get replaced
+            PyList_Append(list,Py_None);
+        }
+        else {
             //object is a numpy array
             uint64_t nbytes = 0;
             for (const TupleRow *block:blocks) {
@@ -350,7 +356,7 @@ PyObject *TupleRowFactory::merge_blocks_as_nparray(std::vector<const TupleRow *>
             }
 
             char *final_array = (char *) malloc(nbytes);
-
+            if (metadata.at(pos).info.size()<2) throw ModuleException("Info size is less than 2");
             if (metadata.at(pos).info[3] == "partition") {
                 for (uint32_t i = 0; i < blocks.size(); ++i) {
                     char **data = (char **) blocks[i]->get_element(pos);
@@ -736,6 +742,7 @@ PyObject *TupleRowFactory::tuples_as_py(std::vector<const TupleRow *> &values) c
             PyList_SetItem(list, i, inte);
         }
     } else {
+
         list = merge_blocks_as_nparray(values);
     }
     return list;
