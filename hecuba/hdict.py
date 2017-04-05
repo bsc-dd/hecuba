@@ -66,8 +66,9 @@ class StorageDict(dict, IStorage):
 
     args_names = ["primary_keys", "columns", "name", "tokens", "storage_id", "class_name"]
     args = namedtuple('StorageDictArgs', args_names)
-    _prepared_store_meta = config.session.prepare('INSERT INTO hecuba2.istorage (storage_id, class_name,'
-                                                  ' name, tokens,primary_keys,columns)  VALUES (?,?,?,?,?,?)')
+    _prepared_store_meta = config.session.prepare('INSERT INTO ' + config.execution_name + '.istorage'
+                                                  '(storage_id, class_name, name, tokens,primary_keys,columns)'
+                                                  'VALUES (?,?,?,?,?,?)')
 
     @staticmethod
     def build_remotely(result):
@@ -230,6 +231,7 @@ class StorageDict(dict, IStorage):
                          self._table + '_' + str(self._storage_id).replace('-', ''),
                          str.join(',', columns),
                          str.join(',', pks))
+        # print query_table
         if query_table not in config.create_cache:
             try:
                 config.create_cache.add(query_table)
@@ -300,9 +302,12 @@ class StorageDict(dict, IStorage):
 
             if issubclass(cres.__class__, NoneType):
                 return None
+            # elif self._column_builder is not None:
+            #     return self._column_builder(cres)
             else:
                 for ind, value in enumerate(self._columns):
                     if value[1] == 'uuid':
+                        # print "cres:", cres
                         cres[ind] = api.getByID(str(uuid.UUID(cres[ind])))
                 return cres
 
@@ -316,11 +321,17 @@ class StorageDict(dict, IStorage):
         """
         log.debug('SET ITEM %s->%s', key, val)
         for ind, entry in enumerate(val):
+            # if entry.__class__.__name__ == 'StorageDict':
             if issubclass(entry.__class__, StorageDict) or issubclass(entry.__class__, IStorage):
                 val[ind] = uuid.UUID(entry._storage_id)
         if not self._is_persistent:
             dict.__setitem__(self, key, val)
         else:
+            print "------------------------------------------"
+            print "key:        ", key
+            print "val:        ", val
+            print "self._ksp:  ", self._ksp
+            print "self._table:", self._table
             self._hcache.put_row(self._make_key(key), self._make_value(val))
 
     def getID(self):
@@ -351,7 +362,7 @@ class StorageDict(dict, IStorage):
         """
         if self._is_persistent:
             ik = self._hcache.iteritems(config.prefetch_size)
-            query = 'SELECT storage_id, columns FROM hecuba2.istorage WHERE storage_id = ' \
+            query = 'SELECT storage_id, columns FROM ' + config.execution_name + '.istorage WHERE storage_id = ' \
                     '\'' + str(self._storage_id) + '\''
 
             result = config.session.execute(query)

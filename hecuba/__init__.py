@@ -99,6 +99,13 @@ class Config:
             singleton.repl_factor = 1
             log.warn('using default REPLICA_FACTOR: %d', singleton.repl_factor)
 
+        try:
+            singleton.execution_name = os.environ['EXECUTION_NAME']
+            log.info('EXECUTION_NAME: %s', singleton.execution_name)
+        except KeyError:
+            singleton.execution_name = 'hecuba'
+            log.warn('using default EXECUTION_NAME: %s', singleton.execution_name)
+
         if mock_cassandra:
             class clusterMock:
                 pass
@@ -117,7 +124,6 @@ class Config:
 
             singleton.cluster = clusterMock()
             singleton.session = sessionMock()
-
         else:
             log.info('Initializing global session')
             try:
@@ -125,13 +131,13 @@ class Config:
                                             default_retry_policy=_NRetry(5))
                 singleton.session = singleton.cluster.connect()
                 from hfetch import connectCassandra
-                #connecting c++ bindings
+                # connecting c++ bindings
                 connectCassandra(singleton.contact_names, singleton.nodePort)
                 singleton.session.execute(
-                    "CREATE KEYSPACE IF NOT EXISTS hecuba WITH replication = {'class': 'SimpleStrategy',"
+                    "CREATE KEYSPACE IF NOT EXISTS " + singleton.execution_name + " WITH replication = {'class': 'SimpleStrategy',"
                     "'replication_factor': %d }" % singleton.repl_factor)
                 singleton.session.execute(
-                    'CREATE TABLE IF NOT EXISTS hecuba.istorage (storage_id text, '
+                    'CREATE TABLE IF NOT EXISTS ' + singleton.execution_name + '.istorage (storage_id text, '
                     'class_name text,name text, '
                     'istorage_props map<text,text>, '
                     'tokens list<frozen<tuple<bigint,bigint>>>, entry_point text, port int, '
@@ -143,13 +149,6 @@ class Config:
 
             except Exception as e:
                 log.error('Exception creating cluster session. Are you in a testing env? %s', e)
-
-        try:
-            singleton.execution_name = os.environ['EXECUTION_NAME']
-            log.info('EXECUTION_NAME: %s', singleton.execution_name)
-        except KeyError:
-            singleton.execution_name = 'hecuba'
-            log.warn('using default EXECUTION_NAME: %s', singleton.execution_name)
 
         try:
             singleton.workers_per_node = int(os.environ['WORKERS_PER_NODE'])
@@ -241,3 +240,4 @@ class Config:
 
 global config
 config = Config()
+
