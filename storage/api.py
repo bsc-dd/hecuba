@@ -4,7 +4,7 @@ from hecuba.storageobj import *
 from hecuba import config, log
 
 
-def init(config_file_path=None):
+def initWorker(config_file_path=None):
     """
     Function that can be useful when running the application with COMPSs >= 2.0
     It is executed at the beginning of the application
@@ -12,7 +12,7 @@ def init(config_file_path=None):
     pass
 
 
-def finish():
+def finishWorker():
     """
     Function that can be useful when running the application with COMPSs >= 2.0
     It is executed at the end of the application
