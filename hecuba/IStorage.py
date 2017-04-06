@@ -10,6 +10,9 @@ class IStorage:
     args = namedtuple("IStorage", [])
     _build_args = args()
 
+    valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map',
+                   'bigint', 'blob', 'counter', 'dict']
+
     _conversions = {'atomicint': 'counter',
                     'str': 'text',
                     'bool': 'boolean',
@@ -117,4 +120,3 @@ class IStorage:
 
     def getID(self):
         return self._storage_id
-
