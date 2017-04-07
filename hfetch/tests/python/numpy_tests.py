@@ -160,7 +160,6 @@ def npy_uuid():
     session.execute("DROP TABLE test.arrays_aux;")
 
 
-
 def arr_put_get():
     dims = 2
     elem_dim = 2048
@@ -219,23 +218,27 @@ if __name__ == '__main__':
     connectCassandra(host_list,nodePort)
 
     ''''''''' PENDING
-    test_multidim()
-
-    nopart()
-
-    arr_put_get()
-
-     #sigseg
     '''''''''
-    for i in xrange(0,20):
-        npy_uuid() #segfault
-
-        d = 1.1
-        for l in xrange(0,1000):
-            d = d*d % 400
-        print i
+    for i in xrange(0,5):
+        test_multidim()
+        gc.collect()
+        time.sleep(4)
+        nopart()
+        time.sleep(4)
+        gc.collect()
+        npy_uuid()
+        time.sleep(4)
+        gc.collect()
+        arr_put_get()
+        time.sleep(4)
+        gc.collect()
+        part()
+        time.sleep(4)
         gc.collect()
     ''''''''' DONE
+        test_multidim()
+        nopart()
+        npy_uuid()
         arr_put_get()
         part()
     '''''''''

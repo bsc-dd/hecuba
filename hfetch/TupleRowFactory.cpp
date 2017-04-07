@@ -106,7 +106,7 @@ uint16_t TupleRowFactory::compute_size_of(const CassValueType VT) const {
             break;
         }
         case CASS_VALUE_TYPE_UUID: {
-           return sizeof(uint64_t *);
+            return sizeof(uint64_t *);
         }
         case CASS_VALUE_TYPE_TIMEUUID: {
             std::cerr << "TIMEUUID data type not supported yet" << std::endl;
@@ -295,22 +295,21 @@ std::vector<const TupleRow *> TupleRowFactory::make_tuples_with_npy(PyObject *ob
                               std::to_string(metadata.at(nelem - (uint16_t) 1).position));
 
 //find arrays
-    std::vector<const TupleRow*> tuples = std::vector<const TupleRow*>();
+    std::vector<const TupleRow *> tuples = std::vector<const TupleRow *>();
     for (uint16_t i = 0; i < PyList_Size(obj); ++i) {
         if (metadata.at(i).get_arr_type() != NPY_NOTYPE && metadata.at(i).info[3] == "partition") {
             //found a np array
             std::vector<void *> blocks;
             blocks = split_array(PyList_GetItem(obj, i));
-            std::vector<const TupleRow*> partitioned = blocks_to_tuple(blocks, obj);
-            tuples.insert(tuples.begin(),partitioned.begin(),partitioned.end());
-        }
-        else if (metadata.at(i).get_arr_type() != NPY_NOTYPE) {
+            std::vector<const TupleRow *> partitioned = blocks_to_tuple(blocks, obj);
+            tuples.insert(tuples.begin(), partitioned.begin(), partitioned.end());
+        } else if (metadata.at(i).get_arr_type() != NPY_NOTYPE) {
             void *block = extract_array(PyList_GetItem(obj, i));
             //build the tuple with the first block and other information
             char *buffer = (char *) malloc(total_bytes);
             for (uint16_t j = 0; j < PyList_Size(obj); ++j) {
                 PyObject *obj_to_conver = PyList_GetItem(obj, j);
-                if (i!=j) {
+                if (i != j) {
                     py_to_c(obj_to_conver, buffer + metadata.at(j).position, j);
                 } else {
                     //numpy
@@ -341,12 +340,13 @@ PyObject *TupleRowFactory::merge_blocks_as_nparray(std::vector<const TupleRow *>
         if (metadata.at(pos).info.size() == 1 || metadata.at(pos).get_arr_type() == NPY_NOTYPE) {
             PyObject *inte = c_to_py(blocks[0]->get_element(pos), metadata.at(pos));
             int ok = PyList_Append(list, inte);
-            if (ok<0) throw ModuleException("Can't append object in position"+std::to_string(pos) +" toPyList on merge np array");
-        } else if(metadata.at(pos).info.size() == 5){
+            if (ok < 0)
+                throw ModuleException(
+                        "Can't append object in position" + std::to_string(pos) + " toPyList on merge np array");
+        } else if (metadata.at(pos).info.size() == 5) {
             //external, Add none, because it will get replaced
-            PyList_Append(list,PyInt_FromLong(0));
-        }
-        else {
+            PyList_Append(list, PyInt_FromLong(0));
+        } else {
             //object is a numpy array
             uint64_t nbytes = 0;
             for (const TupleRow *block:blocks) {
@@ -356,7 +356,7 @@ PyObject *TupleRowFactory::merge_blocks_as_nparray(std::vector<const TupleRow *>
             }
 
             char *final_array = (char *) malloc(nbytes);
-            if (metadata.at(pos).info.size()<2) throw ModuleException("Info size is less than 2");
+            if (metadata.at(pos).info.size() < 2) throw ModuleException("Info size is less than 2");
             if (metadata.at(pos).info[3] == "partition") {
                 for (uint32_t i = 0; i < blocks.size(); ++i) {
                     char **data = (char **) blocks[i]->get_element(pos);
@@ -366,8 +366,7 @@ PyObject *TupleRowFactory::merge_blocks_as_nparray(std::vector<const TupleRow *>
 
                     memcpy(final_array + *block_id * maxarray_size, *data + sizeof(uint64_t), *block_bytes);
                 }
-            }
-            else {
+            } else {
                 char **data = (char **) blocks[0]->get_element(pos);
                 uint64_t *block_bytes = (uint64_t *) *data;
                 char *bytes_array = *data + sizeof(uint64_t);
@@ -378,7 +377,9 @@ PyObject *TupleRowFactory::merge_blocks_as_nparray(std::vector<const TupleRow *>
             PyErr_Clear();
             try {
                 _import_array(); //necessary only for running from C++
-                PyObject *py_value = PyArray_SimpleNewFromData(metadata.at(pos).get_arr_dims()->len,metadata.at(pos).get_arr_dims()->ptr,metadata.at(pos).get_arr_type(),final_array);
+                PyObject *py_value = PyArray_SimpleNewFromData(metadata.at(pos).get_arr_dims()->len,
+                                                               metadata.at(pos).get_arr_dims()->ptr,
+                                                               metadata.at(pos).get_arr_type(), final_array);
                 Py_INCREF(py_value);
                 int ok = PyList_Append(list, py_value);
                 if (ok < 0) throw ModuleException("Can't append numpy array into the results list");
@@ -489,23 +490,23 @@ int TupleRowFactory::py_to_c(PyObject *obj, void *data, int32_t col) const {
         }
         case CASS_VALUE_TYPE_UUID: {
 
-            uint32_t len = 144;//sizeof(uint64_t)*2;
-
-            char *permanent = (char*) malloc(len);
-
-            memcpy(data,&permanent,sizeof(char*));
-
 
 
             if (!PyByteArray_Check(obj)) {
+
+                uint32_t len = sizeof(uint64_t)*2;
+
+                char *permanent = (char *) malloc(len);
+
+                memcpy(data, &permanent, sizeof(char *));
                 PyObject *bytes = PyObject_GetAttrString(obj, "time_low"); //32b
-                uint32_t time_low = (uint32_t) PyLong_AsLongLong(bytes);
+                uint64_t time_low = (uint32_t) PyLong_AsLongLong(bytes);
 
                 bytes = PyObject_GetAttrString(obj, "time_mid"); //16b
-                uint16_t time_mid = (uint16_t) PyLong_AsLongLong(bytes);
+                uint64_t time_mid = (uint16_t) PyLong_AsLongLong(bytes);
 
                 bytes = PyObject_GetAttrString(obj, "time_hi_version"); //16b
-                uint16_t time_hi_version = (uint16_t) PyLong_AsLongLong(bytes);
+                uint64_t time_hi_version = (uint16_t) PyLong_AsLongLong(bytes);
 
 
                 bytes = PyObject_GetAttrString(obj, "clock_seq_hi_variant"); //8b
@@ -514,28 +515,33 @@ int TupleRowFactory::py_to_c(PyObject *obj, void *data, int32_t col) const {
                 uint64_t clock_seq_low = (uint64_t) PyLong_AsLongLong(bytes);
 
                 bytes = PyObject_GetAttrString(obj, "node"); //48b
-                uint64_t node = (uint64_t) PyLong_AsLongLong(bytes);
+                uint64_t second = (uint64_t) PyLong_AsLongLong(bytes);
 
-                memcpy(permanent, &time_low, sizeof(time_low));
-                permanent += sizeof(time_low);
-                memcpy(permanent, &time_mid, sizeof(time_mid));
-                permanent += sizeof(time_mid);
-                memcpy(permanent, &time_hi_version, sizeof(time_hi_version));
-                permanent += sizeof(time_hi_version);
+                uint64_t first = time_hi_version + (time_mid << 16) + (time_low << 32);
+
+                memcpy(permanent, &first, sizeof(first));
+                permanent += sizeof(first);
+
+                second += clock_seq_hi_variant << 56;
+                second += clock_seq_low << 48;;
+                memcpy(permanent, &second, sizeof(second));
 
 
-                node += clock_seq_hi_variant << 56;
-                node += clock_seq_low << 48;;
-                memcpy(permanent, &node, sizeof(node));
-            }
-            else {
-                char* cpp_bytes = NULL;
+                second += clock_seq_hi_variant << 56;
+                second += clock_seq_low << 48;;
+                memcpy(permanent, &second, sizeof(second));
+            } else {
+                uint32_t len = sizeof(uint64_t)*2;
+
+                char *permanent = (char *) malloc(len);
+
+                memcpy(data, &permanent, sizeof(char *));
+                char *cpp_bytes = NULL;
                 cpp_bytes = PyByteArray_AsString(obj);
                 if (!cpp_bytes)
                     throw ModuleException("Bytes null");
 
-                uint32_t len = sizeof(uint64_t)*2;
-                memcpy(permanent, cpp_bytes,len);
+                memcpy(permanent, cpp_bytes, len);
             }
             break;
         }
@@ -587,7 +593,8 @@ int TupleRowFactory::py_to_c(PyObject *obj, void *data, int32_t col) const {
         case CASS_VALUE_TYPE_UNKNOWN:
             break;
         default:
-            throw ModuleException("TupleRowFactory: Marshall from Py to C: Unsupported type not recognized by Cassandra");
+            throw ModuleException(
+                    "TupleRowFactory: Marshall from Py to C: Unsupported type not recognized by Cassandra");
     }
 
     return ok;
@@ -633,7 +640,8 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
         case CASS_VALUE_TYPE_BIGINT: {
             int64_t *p = static_cast<int64_t * >(data);
             CassError rc = cass_value_get_int64(lhs, p);
-            CHECK_CASS("TupleRowFactory: Cassandra to C parse bigint/varint unsuccessful, column:" + std::to_string(col));
+            CHECK_CASS(
+                    "TupleRowFactory: Cassandra to C parse bigint/varint unsuccessful, column:" + std::to_string(col));
             return 0;
         }
         case CASS_VALUE_TYPE_BLOB: {
@@ -701,11 +709,11 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             uint64_t time_and_version = uuid.time_and_version;
             uint64_t clock_seq_and_node = uuid.clock_seq_and_node;
 
-            CHECK_CASS("TupleRowFactory: Cassandra to C parse UUID unsuccessful, column:"+std::to_string(col));
-            char *permanent = (char*) malloc(sizeof(uint64_t)*2);
-            memcpy(permanent, &time_and_version,sizeof(uint64_t));
-            memcpy(permanent+sizeof(uint64_t), &clock_seq_and_node,sizeof(uint64_t));
-            memcpy(data,&permanent,sizeof(char*));
+            CHECK_CASS("TupleRowFactory: Cassandra to C parse UUID unsuccessful, column:" + std::to_string(col));
+            char *permanent = (char *) malloc(sizeof(uint64_t) * 2);
+            memcpy(permanent, &time_and_version, sizeof(uint64_t));
+            memcpy(permanent + sizeof(uint64_t), &clock_seq_and_node, sizeof(uint64_t));
+            memcpy(data, &permanent, sizeof(char *));
             return 0;
         }
         case CASS_VALUE_TYPE_TIMEUUID: {
@@ -793,10 +801,10 @@ std::vector<void *> TupleRowFactory::split_array(PyObject *py_array) {
         ssize_t nbytes_s = PyArray_NBYTES(arr);
         if (nbytes_s < 0)
             throw ModuleException("PyArray returns negative size of array");
-        nbytes=(uint64_t) nbytes_s;
+        nbytes = (uint64_t) nbytes_s;
     }
     catch (std::exception e) {
-       throw ModuleException(e.what());
+        throw ModuleException(e.what());
     }
 
     //then we split the payload
@@ -921,14 +929,14 @@ PyObject *TupleRowFactory::c_to_py(const void *V, const ColumnMeta &meta) const 
             break;
         }
         case CASS_VALUE_TYPE_UUID: {
-            char** data = (char**) V;
+            char **data = (char **) V;
 
-            char* it = *data;
+            char *it = *data;
             char final[CASS_UUID_STRING_LENGTH];
 
-            CassUuid uuid = {*((uint64_t *)it), *((uint64_t *)it+1)};
+            CassUuid uuid = {*((uint64_t *) it), *((uint64_t *) it + 1)};
             cass_uuid_string(uuid, final);
-            py_value=PyString_FromString(final);
+            py_value = PyString_FromString(final);
             break;
         }
         case CASS_VALUE_TYPE_VARINT: {
@@ -1037,7 +1045,7 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                            metadata.at(bind_pos).info[0]);
                 break;
             }
-            //parsed as uint32 or uint64 on different methods
+                //parsed as uint32 or uint64 on different methods
             case CASS_VALUE_TYPE_COUNTER: {
                 const uint64_t *data = static_cast<const uint64_t *>(key);
                 CassError rc = cass_statement_bind_int64(statement, bind_pos,
@@ -1076,14 +1084,15 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                 break;
             }
             case CASS_VALUE_TYPE_UUID: {
-                const uint64_t** uuid = (const uint64_t **) key;
+                const uint64_t **uuid = (const uint64_t **) key;
 
-                const uint64_t* time_and_version = *uuid;
-                const uint64_t* clock_seq_and_node = *uuid + 1;
+                const uint64_t *time_and_version = *uuid;
+                const uint64_t *clock_seq_and_node = *uuid + 1;
 
-                CassUuid cass_uuid = {*time_and_version,*clock_seq_and_node};
+                CassUuid cass_uuid = {*time_and_version, *clock_seq_and_node};
                 CassError rc = cass_statement_bind_uuid(statement, bind_pos, cass_uuid);
-                CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UUID], column:"+metadata.at(bind_pos).info[0]);
+                CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UUID], column:" +
+                           metadata.at(bind_pos).info[0]);
                 break;
             }
             case CASS_VALUE_TYPE_TIMEUUID: {

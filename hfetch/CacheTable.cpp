@@ -167,7 +167,6 @@ CacheTable::~CacheTable() {
     delete (values_factory);
     delete (items_factory);
     prepared_query = NULL;
-    session = NULL;
 }
 
 
@@ -193,6 +192,8 @@ Prefetch *CacheTable::get_items_iter(uint32_t prefetch_size) {
  */
 
 void CacheTable::put_row(PyObject *key, PyObject *value) {
+    Py_INCREF(key);
+    Py_INCREF(value);
     if (!values_factory->get_metadata().has_numpy) {
         TupleRow *k = keys_factory->make_tuple(key);
         const TupleRow *v = values_factory->make_tuple(value);
@@ -258,9 +259,9 @@ void CacheTable::put_row(PyObject *key, PyObject *value) {
             }
 
             PyObject *npy_list = PyList_New(1);
+            Py_INCREF(npy_list); //TODO verify which increments are mandatory
             PyObject *array = PyList_GetItem(value, numpy_pos);
-
-
+            Py_INCREF(array);
             PyList_SetItem(npy_list, 0, array);
 
 
@@ -282,16 +283,14 @@ void CacheTable::put_row(PyObject *key, PyObject *value) {
             }
 
             delete (temp);
-            delete (numpy_key);
 
             //keep numpy key
             PyObject *py_uuid = PyByteArray_FromStringAndSize((char *) c_uuid, sizeof(uint64_t) * 2);
 
+            //delete (numpy_key);//if deleted, the payload isnt copied because on PyList_SetItem seems to be freed
 
             PyList_SetItem(value, numpy_pos, py_uuid);
 
-
-            //free numpy key
 
             TupleRow *k = keys_factory->make_tuple(key);
             const TupleRow *v = values_factory->make_tuple(value);
@@ -319,9 +318,9 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
     TupleRow *keys = keys_factory->make_tuple(py_keys);
     std::vector<const TupleRow *> values = get_crow(keys);
 
+    delete (keys);
 
     if (values.empty() || values[0] == NULL) {
-        delete (keys);
         char *error = (char *) malloc(strlen("Get row: key not found") + 1);
         PyErr_SetString(PyExc_KeyError, error);
         return NULL;
@@ -335,26 +334,7 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
         for (uint16_t pos = 0; pos < metadata.size(); ++pos) {
             if (metadata.at(pos).info.size() == 5) {
                 //is external
-
-//TODO this awful code will be beautiful when merged with split-c++ branch
-
-                const CassSchemaMeta *schema_meta = cass_session_get_schema_meta(session);
-                if (!schema_meta) {
-                    throw ModuleException("Cache particles_table: constructor: Schema meta is NULL");
-                }
-
-                const CassKeyspaceMeta *keyspace_meta = cass_schema_meta_keyspace_by_name(schema_meta,
-                                                                                          keyspace.c_str());
-                if (!keyspace_meta) {
-                    throw ModuleException("Keyspace particles_table: constructor: Schema meta is NULL");
-                }
-
                 std::string table = metadata.at(pos).info[4];
-
-                const CassTableMeta *table_meta = cass_keyspace_meta_table_by_name(keyspace_meta, table.c_str());
-                if (!table_meta || (cass_table_meta_column_count(table_meta) == 0)) {
-                    throw ModuleException("Cache particles_table: constructor: Table meta is NULL");
-                }
 
                 std::vector<std::string> numpy_keys{"uuid"};
                 std::vector<std::vector<std::string> > numpy_columns(2);
@@ -364,12 +344,6 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
                 numpy_columns[1] = {"position"};
 
                 CacheTable *temp = NULL;
-
-
-                uint64_t **uuid = (uint64_t **) values[0]->get_element(pos);
-
-
-                cass_schema_meta_free(schema_meta);
                 //TODO break down the token range
                 try {
                     std::map<std::string, std::string> config;
@@ -380,38 +354,38 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
                     throw e;
                 }
 
-                void *payload = malloc(sizeof(uint64_t *));
 
+                uint64_t **uuid = (uint64_t **) values[0]->get_element(pos);
+                void *payload = malloc(sizeof(uint64_t *));
                 memcpy(payload, uuid, sizeof(uint64_t));
 
                 TupleRow *uuid_key = new TupleRow(temp->keys_factory->get_metadata(), sizeof(uint64_t), payload);
 
                 std::vector<const TupleRow *> npy_array = temp->get_crow(uuid_key);
+               
                 PyObject *py_list_array = temp->values_factory->tuples_as_py(npy_array);
-
 
                 PyObject *py_array = PyList_GetItem(py_list_array, 0);
 
-
-
-                /*** END MERGE ***/
+                /*** MERGE ***/
 
                 row = values_factory->tuples_as_py(values);
                 PyList_SetItem(row, pos, py_array);
 
-
-
+               
                 /*** CLEANUP ***/
                 delete (temp);
                 //if the data is inserted inside the cache we cant call delete, it doesnt detect there is a copy inside the cache
                 for (const TupleRow *block:values) {
                     delete (block);
                 }
+               
                 for (const TupleRow *block:npy_array) {
                     delete (block);
                 }
-                delete (uuid_key);
-                delete (keys);
+               
+                //delete (uuid_key); TODO GC collector goes crazy if uncommented
+               
 
 
             } else if (metadata.at(pos).info.size() == 4) {
@@ -422,7 +396,6 @@ PyObject *CacheTable::get_row(PyObject *py_keys) {
                 for (const TupleRow *block:values) {
                     delete (block);
                 }
-                delete (keys);
             } else {
                 //skip
             }
