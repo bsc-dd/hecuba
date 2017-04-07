@@ -1,5 +1,11 @@
+//
+// Created by bscuser on 1/19/17.
+//
+
 #ifndef PREFETCHER_CACHE_TABLE_H
 #define PREFETCHER_CACHE_TABLE_H
+
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 
 #include <iostream>
 #include <python2.7/Python.h>
@@ -22,7 +28,7 @@ class CacheTable {
 public:
     CacheTable(const std::string &table,const std::string &keyspace,
                const std::vector<std::string> &keyn,
-               const std::vector<std::string> &columns_n,
+               const std::vector< std::vector<std::string>>  &columns_n ,
                const std::string &token_range_pred,
                const std::vector<std::pair<int64_t, int64_t>> &tkns,
                CassSession *session,
@@ -30,16 +36,18 @@ public:
 
     ~CacheTable();
 
-    PyObject *get_row(PyObject *py_keys) const;
 
-    const TupleRow *get_crow(TupleRow *py_keys) const;
+    PyObject *get_row(PyObject *py_keys);
 
     void put_row(PyObject *key, PyObject *value);
 
 
-    Prefetch* get_keys_iter(uint32_t prefetch_size) const;
-    Prefetch* get_values_iter(uint32_t prefetch_size) const;
-    Prefetch* get_items_iter(uint32_t prefetch_size) const;
+    Prefetch* get_keys_iter(uint32_t prefetch_size);
+
+    Prefetch* get_values_iter(uint32_t prefetch_size);
+
+    Prefetch* get_items_iter(uint32_t prefetch_size);
+    std::vector <const TupleRow*> get_crow(TupleRow *py_keys);
 
     TupleRowFactory* _test_get_keys_factory(){ return keys_factory;}
     TupleRowFactory* _test_get_value_factory(){ return values_factory;}
@@ -47,25 +55,33 @@ public:
 
 private:
 
-    std::string select_keys, select_values, select_all;
+    std::string select_keys;
+    std::string select_values;
+    std::string select_all;
     std::string token_predicate;
     std::string get_predicate;
     std::string cache_query;
+    std::string keyspace;
 
-    std::vector<std::string> key_names, columns_names, all_names;
-
+    std::vector<std::string> key_names;
+    std::vector< std::vector<std::string>> columns_names;
+    std::vector< std::vector<std::string>> all_names;
     std::vector<std::pair<int64_t, int64_t>> tokens;
+
 
     /* CASSANDRA INFORMATION FOR RETRIEVING DATA */
     CassSession *session;
     const CassPrepared *prepared_query;
 
-    //Key based on copy constructor, Value based on Poco:SharedPtr internally built
-    Poco::LRUCache< TupleRow, TupleRow> *myCache;
+    //Key based on copy constructor, Value based on Poco:SharedPtr
+    Poco::LRUCache<TupleRow, TupleRow> *myCache;
 
-    TupleRowFactory *keys_factory, *values_factory, *items_factory;
+    TupleRowFactory *keys_factory;
+    TupleRowFactory *values_factory;
+    TupleRowFactory *items_factory;
 
     Writer *writer;
+
 };
 
 #endif //PREFETCHER_CACHE_TABLE_H

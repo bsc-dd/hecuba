@@ -1,9 +1,13 @@
-#include <iostream>
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 
+#include <iostream>
 #include <cassandra.h>
 #include "gtest/gtest.h"
 #include "../CacheTable.h"
-
+#include <numpy/ndarrayobject.h>
+#include <numpy/arrayobject.h>
+#include <numpy/ndarraytypes.h>
+#include "structmember.h"
 
 using namespace std;
 
@@ -15,6 +19,8 @@ const char *particles_table = "particle";
 const char *particles_wr_table = "particle_write";
 const char *words_wr_table = "words_write";
 const char *words_table = "words";
+const char *bytes_table = "bytes";
+
 const char *contact_p = "127.0.0.1";
 
 /** TEST SETUP **/
@@ -25,7 +31,7 @@ void fireandforget(const char *query, CassSession *session) {
     CassFuture *connect_future = cass_session_execute(session, statement);
     CassError rc = cass_future_error_code(connect_future);
     EXPECT_TRUE(rc == CASS_OK);
-    if (rc!=CASS_OK) {
+    if (rc != CASS_OK) {
         std::cout << "ERROR ON EXECUTING QUERY: " << cass_error_desc(rc) << std::endl;
     }
     cass_future_free(connect_future);
@@ -115,10 +121,63 @@ void setupcassandra() {
             test_session);
 
 
-
     fireandforget(
             "CREATE TABLE test.words_write( partid int,time float, x float, ciao text, PRIMARY KEY(partid,time));",
             test_session);
+
+
+
+    fireandforget("CREATE TABLE test.bytes(partid int PRIMARY KEY, data blob);", test_session);
+    fireandforget("CREATE TABLE test.arrays(partid int PRIMARY KEY, image uuid);", test_session);
+    fireandforget("CREATE TABLE test.arrays_aux(uuid uuid,  position int, data blob, PRIMARY KEY (uuid,position));", test_session);
+
+
+    Py_Initialize();
+
+
+
+    _import_array();
+
+
+    npy_intp dims[2] = {2, 2};
+    //void *array = malloc(sizeof(int32_t) * 2);
+
+    double array[4] = {123,456,789,200};
+
+    PyObject *key = PyArray_SimpleNewFromData(2, dims, NPY_DOUBLE, array);
+    PyArrayObject *arr;
+    int ok = PyArray_OutputConverter(key, &arr);
+
+    PyObject *bytes = PyArray_ToString(arr, NPY_KEEPORDER);
+    PyArray_free(key);
+
+    PyObject* encoded = PyString_AsEncodedObject(bytes, "hex", NULL);
+    int a = PyString_GET_SIZE(bytes);
+    int b = PyString_GET_SIZE(encoded);
+
+    PyEval_InitThreads();
+
+
+    prepare_future = cass_session_prepare(test_session,
+                                   "INSERT INTO test.bytes(partid,data) VALUES (343, ?)");
+    rc = cass_future_error_code(prepare_future);
+    EXPECT_TRUE(rc == CASS_OK);
+    prepared = cass_future_get_prepared(prepare_future);
+    cass_future_free(prepare_future);
+
+
+    CassStatement *stm = cass_prepared_bind(prepared);
+    cass_statement_bind_bytes(stm, 0, reinterpret_cast<const cass_byte_t* >(PyString_AsString(bytes)),a);
+    CassFuture *f = cass_session_execute(test_session, stm);
+    rc = cass_future_error_code(f);
+    EXPECT_TRUE(rc == CASS_OK);
+    if (rc != CASS_OK) {
+        std::cout << cass_error_desc(rc) << std::endl;
+    }
+    cass_future_free(f);
+    cass_statement_free(stm);
+
+    cass_prepared_free(prepared);
     CassFuture *close_future = cass_session_close(test_session);
     cass_future_wait(close_future);
     cass_future_free(close_future);
@@ -133,9 +192,6 @@ int main(int argc, char **argv) {
     std::cout << "SETTING UP CASSANDRA" << std::endl;
     setupcassandra();
     std::cout << "DONE, CASSANDRA IS UP" << std::endl;
-
-    Py_Initialize();
-    PyEval_InitThreads();
     return RUN_ALL_TESTS();
 
 }
@@ -163,12 +219,12 @@ TEST(TestingPocoCache, InsertGetDeleteOps) {
     size_t ss = sizeof(uint16_t) * 2;
     Poco::LRUCache<TupleRow, TupleRow> myCache(2);
 
-    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,"ciao"};
-    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,"ciaociao"};
+    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,std::vector<std::string>{"ciao"}};
+    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,std::vector<std::string>{"ciaociao"}};
     std::vector<ColumnMeta> v = {cm1,cm2};
-    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
+   // std::shared_ptr<std::vector<ColumnMeta>> metas=;
 
-
+    RowMetadata metas = {std::make_shared<std::vector<ColumnMeta>>(v)};
 
     char *b2 = (char *) malloc(ss);
     memcpy(b2, &i, sizeof(uint16_t));
@@ -205,12 +261,12 @@ TEST(TestingPocoCache, ReplaceOp) {
     size_t ss = sizeof(uint16_t) * 2;
     Poco::LRUCache<TupleRow, TupleRow> myCache(2);
 
-    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,"ciao"};
-    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,"ciaociao"};
+    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,std::vector<std::string>{"ciao"}};
+    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,std::vector<std::string>{"ciaociao"}};
     std::vector<ColumnMeta> v = {cm1,cm2};
-    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
 
 
+    RowMetadata metas = {std::make_shared<std::vector<ColumnMeta>>(v)};
 
     char *b2 = (char *) malloc(ss);
     memcpy(b2, &i, sizeof(uint16_t));
@@ -281,11 +337,11 @@ TEST(TupleTest, TupleOps) {
     memcpy(buffer2, &i, size);
     memcpy(buffer2 + size, &j, size);
 
-    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,"ciao"};
-    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,"ciaociao"};
+    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,std::vector<std::string>{"ciao"}};
+    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,std::vector<std::string>{"ciaociao"}};
     std::vector<ColumnMeta> v = {cm1,cm2};
-    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
 
+    RowMetadata metas = {std::make_shared<std::vector<ColumnMeta>>(v)};
 
 
     TupleRow t1 = TupleRow(metas,sizeof(uint16_t) * 2, buffer);
@@ -295,10 +351,10 @@ TEST(TupleTest, TupleOps) {
     EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
     EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
 
-    cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,"ciaocia"};
+    cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_INT,std::vector<std::string>{"ciaociao"}};
     std::vector<ColumnMeta> v2 = {cm1,cm2};
-    std::shared_ptr<std::vector<ColumnMeta>> metas2=std::make_shared<std::vector<ColumnMeta>>(v2);
 
+    RowMetadata metas2 = {std::make_shared<std::vector<ColumnMeta>>(v2)};
 
     char *buffer3 = (char *) malloc(size * 2);
     memcpy(buffer3, &i, size);
@@ -311,6 +367,17 @@ TEST(TupleTest, TupleOps) {
 }
 
 
+TEST(TestMetadata,NumpyArrays) {
+    ColumnMeta meta = {0,CASS_VALUE_TYPE_BLOB,std::vector<std::string>{"data","double","2x2","no-part"}};
+
+    EXPECT_EQ(meta.get_arr_type(),NPY_DOUBLE);
+    PyArray_Dims* dims = meta.get_arr_dims();
+
+    EXPECT_EQ(dims->len,2);
+
+    //EXPECT_EQ(*dims->ptr,2);
+    //EXPECT_EQ(*(dims->ptr+1),2);
+}
 
 /** PURE C++ TESTS **/
 
@@ -342,7 +409,9 @@ TEST(TestingCacheTable, GetRowC) {
 
 
     std::vector<std::string> keysnames = {"partid", "time"};
-    std::vector<std::string> colsnames = {"x", "y", "z", "ciao"};
+    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"x"}, std::vector<std::string>{"y"},
+                                                        std::vector<std::string>{"z"},
+                                                        std::vector<std::string>{"ciao"}};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
     std::map <std::string, std::string> config;
@@ -354,7 +423,7 @@ TEST(TestingCacheTable, GetRowC) {
     TupleRow *t = new TupleRow(CTable->_test_get_keys_factory()->get_metadata(), sizeof(int) + sizeof(float), buffer);
 
 
-    const TupleRow *result = CTable->get_crow(t);
+    const TupleRow *result = CTable->get_crow(t)[0];
 
     EXPECT_FALSE(result == NULL);
 
@@ -422,7 +491,8 @@ TEST(TestingCacheTable, GetRowStringC) {
 
 
     std::vector<std::string> keysnames = {"partid", "time"};
-    std::vector<std::string> colsnames = {"ciao"};
+
+    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"ciao"}};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
 
@@ -436,7 +506,7 @@ TEST(TestingCacheTable, GetRowStringC) {
 
     TupleRow *t = new TupleRow(T._test_get_keys_factory()->get_metadata(), sizeof(int) + sizeof(float), buffer);
 
-    const TupleRow *result = T.get_crow(t);
+    const TupleRow *result = T.get_crow(t)[0];
 
     EXPECT_FALSE(result == NULL);
 
@@ -458,8 +528,6 @@ TEST(TestingCacheTable, GetRowStringC) {
     cass_cluster_free(test_cluster);
     cass_session_free(test_session);
 }
-
-
 
 
 TEST(TestingPrefetch, GetNextC) {
@@ -488,15 +556,16 @@ TEST(TestingPrefetch, GetNextC) {
     float f = 12340;
     memcpy(buffer + sizeof(int), &f, sizeof(float));
 
-    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,"partid"};
-    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_FLOAT,"time"};
+    ColumnMeta cm1={0,CASS_VALUE_TYPE_INT,std::vector<std::string>{"partid"}};
+    ColumnMeta cm2 ={sizeof(uint16_t),CASS_VALUE_TYPE_FLOAT,std::vector<std::string>{"time"}};
     std::vector<ColumnMeta> v = {cm1,cm2};
-    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
+    RowMetadata metas = {std::make_shared<std::vector<ColumnMeta>>(v)};
 
     TupleRow *t = new TupleRow(metas, sizeof(int) + sizeof(float), buffer);
 
     std::vector<std::string> keysnames = {"partid", "time"};
-    std::vector<std::string> colsnames = {"ciao"};
+
+    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"ciao"}};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     int64_t bigi= 9223372036854775807;
     std::vector<std::pair<int64_t, int64_t> > tokens = {
@@ -552,6 +621,53 @@ TEST(TestingPrefetch, GetNextC) {
 /** PYTHON INTERFACE TESTS **/
 
 
+TEST(TestPythonBlob, TupleRowParsing) {
+
+    /** setup test **/
+    PyErr_Clear();
+
+    _import_array();
+    npy_intp dims[2] = {2, 2};
+    void *array = malloc(sizeof(double) * 4);
+
+    double *temp = (double *) array;
+    *temp = 123;
+    *(temp + 1) = 456;
+    *(temp + 2) = 789;
+    *(temp + 3) = 500;
+    PyObject *key = PyArray_SimpleNewFromData(2, dims, NPY_DOUBLE, array);
+
+    /** interface receives key **/
+
+    PyArrayObject *arr;
+    int ok = PyArray_OutputConverter(key, &arr);
+    if (!ok) throw ModuleException("error parsing PyArray to obj");
+
+    /** transform to bytes **/
+    PyObject *bytes = PyArray_ToString(arr, NPY_KEEPORDER);
+    PY_ERR_CHECK
+
+    ok = PyString_Check(bytes);
+    PY_ERR_CHECK
+    Py_ssize_t l_size = PyString_Size(bytes);
+    PY_ERR_CHECK
+
+    // store bytes
+    void *data = malloc(l_size);
+    char *l_temp = PyString_AsString(bytes);
+    PY_ERR_CHECK
+    char *permanent = (char *) malloc(l_size + 1);
+    memcpy(permanent, l_temp, l_size);
+    permanent[l_size] = '\0';
+    memcpy(data, &permanent, sizeof(char *));
+    PY_ERR_CHECK
+
+    /** cleanup **/
+    Py_DecRef(key);
+
+    free(data);
+    free(permanent);
+}
 
 
 /** Test to verify Python doubles parsing is performing as expected **/
@@ -615,7 +731,9 @@ TEST(TestingCacheTable, GetRow) {
     PY_ERR_CHECK
 
     std::vector<std::string> keysnames = {"partid", "time"};
-    std::vector<std::string> colsnames = {"x", "y", "z", "ciao"};
+    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"x"}, std::vector<std::string>{"y"},
+                                                        std::vector<std::string>{"z"},
+                                                        std::vector<std::string>{"ciao"}};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
 
@@ -651,6 +769,330 @@ TEST(TestingCacheTable, GetRow) {
 }
 
 
+TEST(TestingCacheTable, NumpyArrayWriteBig) {
+    PyErr_Clear();
+
+    CassSession *test_session = NULL;
+    CassCluster *test_cluster = NULL;
+
+    CassFuture *connect_future = NULL;
+    test_cluster = cass_cluster_new();
+    test_session = cass_session_new();
+
+    cass_cluster_set_contact_points(test_cluster, contact_p);
+    cass_cluster_set_port(test_cluster, 9042);
+
+    connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
+    CassError rc = cass_future_error_code(connect_future);
+    EXPECT_TRUE(rc == CASS_OK);
+
+    cass_future_free(connect_future);
+
+
+   uint32_t key1 = 343;
+    PyObject *list = PyList_New(1);
+    PyList_SetItem(list, 0, Py_BuildValue("i", key1));
+
+
+    PY_ERR_CHECK
+
+    std::vector<std::string> keysnames = {"partid"};
+    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"image","double","2x2","partition","arrays_aux"}};
+    std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
+    std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
+
+    std::map <std::string, std::string> config;
+    config["writer_par"] = "4";
+    config["writer_buffer"] = "20";
+    config["cache_size"] = "10";
+
+
+
+    CacheTable *T = new CacheTable("arrays", keyspace,keysnames, colsnames, token_pred, tokens,test_session,config);
+
+
+    _import_array();
+
+
+    npy_intp dims[2] = {2, 2};
+    void *array = malloc(sizeof(double) * 4);
+
+    double *temp = (double *) array;
+    *temp = 123;
+    *(temp + 1) = 456;
+    *(temp + 2) = 789;
+    *(temp + 3) = 200;
+
+    PyObject *py_array = PyArray_SimpleNewFromData(2, dims, NPY_DOUBLE, array);
+
+    PyObject* rw_list = PyList_New(1);
+    PyList_SetItem(rw_list,0,py_array);
+    T->put_row(list,rw_list);
+
+    delete(T);
+
+    free(array);
+
+
+    CassFuture *close_future = cass_session_close(test_session);
+    cass_future_wait(close_future);
+    cass_future_free(close_future);
+
+    cass_cluster_free(test_cluster);
+    cass_session_free(test_session);
+
+    PY_ERR_CHECK
+
+}
+
+
+
+TEST(TestingCacheTable, NumpyArrayReadWriteBig) {
+    PyErr_Clear();
+
+    CassSession *test_session = NULL;
+    CassCluster *test_cluster = NULL;
+
+    CassFuture *connect_future = NULL;
+    test_cluster = cass_cluster_new();
+    test_session = cass_session_new();
+
+    cass_cluster_set_contact_points(test_cluster, contact_p);
+    cass_cluster_set_port(test_cluster, 9042);
+
+    connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
+    CassError rc = cass_future_error_code(connect_future);
+    EXPECT_TRUE(rc == CASS_OK);
+
+    cass_future_free(connect_future);
+
+
+    uint32_t key1 = 343;
+    PyObject *list = PyList_New(1);
+    PyList_SetItem(list, 0, Py_BuildValue("i", key1));
+
+
+    PY_ERR_CHECK
+
+    std::vector<std::string> keysnames = {"partid"};
+    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"image","double","2x2","partition","arrays_aux"}};
+    std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
+    std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
+
+    std::map <std::string, std::string> config;
+    config["writer_par"] = "4";
+    config["writer_buffer"] = "20";
+    config["cache_size"] = "10";
+
+
+
+    CacheTable *T = new CacheTable("arrays", keyspace,keysnames, colsnames, token_pred, tokens,test_session,config);
+
+
+    _import_array();
+
+
+    npy_intp dims[2] = {2, 2};
+    void *array = malloc(sizeof(double) * 4);
+
+    double *temp = (double *) array;
+    *temp = 123;
+    *(temp + 1) = 456;
+    *(temp + 2) = 789;
+    *(temp + 3) = 200;
+
+    PyObject *py_array = PyArray_SimpleNewFromData(2, dims, NPY_DOUBLE, array);
+
+    PyObject* rw_list = PyList_New(1);
+    PyList_SetItem(rw_list,0,py_array);
+    T->put_row(list,rw_list);
+
+    for (int i = 0; i<100000; ++i) {
+        double d = 12.34;
+        d=d*(i-d+13);
+    }
+    PyObject* result = T->get_row(list);
+    EXPECT_TRUE(result!=NULL);
+    delete(T);
+
+    free(array);
+
+
+    CassFuture *close_future = cass_session_close(test_session);
+    cass_future_wait(close_future);
+    cass_future_free(close_future);
+
+    cass_cluster_free(test_cluster);
+    cass_session_free(test_session);
+
+    PY_ERR_CHECK
+
+}
+
+
+
+
+TEST(TestingCacheTable, NumpyArrayReadWrite) {
+    PyErr_Clear();
+    /** CONNECT **/
+    CassSession *test_session = NULL;
+    CassCluster *test_cluster = NULL;
+
+    CassFuture *connect_future = NULL;
+    test_cluster = cass_cluster_new();
+    test_session = cass_session_new();
+
+    cass_cluster_set_contact_points(test_cluster, contact_p);
+    cass_cluster_set_port(test_cluster, 9042);
+
+    connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
+    CassError rc = cass_future_error_code(connect_future);
+    EXPECT_TRUE(rc == CASS_OK);
+
+    cass_future_free(connect_future);
+
+
+    /** KEYS **/
+    uint32_t key1 = 343;
+    PyObject *list = PyList_New(1);
+    PyList_SetItem(list, 0, Py_BuildValue("i", key1));
+
+
+    PY_ERR_CHECK
+
+    std::vector<std::string> keysnames = {"partid"};
+    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"data","double","2x2","no-part"}};
+    std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
+    std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
+
+    std::map <std::string, std::string> config;
+    config["writer_par"] = "4";
+    config["writer_buffer"] = "20";
+    config["cache_size"] = "10";
+
+
+
+    std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(new CacheTable(bytes_table, keyspace,
+                                                                               keysnames, colsnames, token_pred, tokens,
+                                                                               test_session,config));
+
+    PyObject *result = T.get()->get_row(list);
+
+    EXPECT_FALSE(result == 0);
+
+    EXPECT_EQ(PyList_Size(result), colsnames.size());
+    for (int i = 0; i < PyList_Size(result); ++i) {
+        EXPECT_FALSE(Py_None == PyList_GetItem(result, i));
+    }
+_import_array();
+    int check = PyArray_Check(PyList_GetItem(result, 0));
+    EXPECT_TRUE(check);
+
+    PyArrayObject *rewrite, *rewrite2;
+    PyArray_OutputConverter(PyList_GetItem(result,0),&rewrite);
+    PyObject* rewr_obj = PyArray_Transpose(rewrite,NULL);
+    check = PyArray_Check(rewr_obj);
+    EXPECT_TRUE(check);
+    PyObject* rw_list = PyList_New(1);
+    PyList_SetItem(rw_list,0,rewr_obj);
+    T->put_row(list,rw_list);
+
+    PY_ERR_CHECK
+
+
+
+
+
+    result = T.get()->get_row(list);
+    EXPECT_FALSE(result == 0);
+    ASSERT_TRUE(PyList_Check(result));
+    ASSERT_GT(PyList_Size(result),0);
+    check = PyArray_Check(PyList_GetItem(result, 0));
+    EXPECT_TRUE(check);
+
+
+
+    CassFuture *close_future = cass_session_close(test_session);
+    cass_future_wait(close_future);
+    cass_future_free(close_future);
+
+    cass_cluster_free(test_cluster);
+    cass_session_free(test_session);
+
+    PY_ERR_CHECK
+
+}
+
+
+
+TEST(TestingCacheTable, NumpyArrayRead) {
+    PyErr_Clear();
+
+    /** CONNECT **/
+    CassSession *test_session = NULL;
+    CassCluster *test_cluster = NULL;
+
+    CassFuture *connect_future = NULL;
+    test_cluster = cass_cluster_new();
+    test_session = cass_session_new();
+
+    cass_cluster_set_contact_points(test_cluster, contact_p);
+    cass_cluster_set_port(test_cluster, 9042);
+
+    connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
+    CassError rc = cass_future_error_code(connect_future);
+    EXPECT_TRUE(rc == CASS_OK);
+
+    cass_future_free(connect_future);
+
+
+    /** KEYS **/
+    uint32_t key1 = 343;
+    PyObject *list = PyList_New(1);
+    PyList_SetItem(list, 0, Py_BuildValue("i", key1));
+
+
+    PY_ERR_CHECK
+
+    std::map <std::string, std::string> config;
+    config["writer_par"] = "4";
+    config["writer_buffer"] = "20";
+    config["cache_size"] = "10";
+
+    std::vector<std::string> keysnames = {"partid"};
+    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"data","double","2x2","no-part"}};
+    std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
+    std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
+    std::shared_ptr<CacheTable> T = std::shared_ptr<CacheTable>(new CacheTable(bytes_table, keyspace,
+                                                                               keysnames, colsnames, token_pred, tokens,
+                                                                               test_session,config));
+
+
+    PyObject *result = T.get()->get_row(list);
+
+
+    EXPECT_FALSE(result == 0);
+
+
+    EXPECT_EQ(PyList_Size(result), colsnames.size());
+    for (int i = 0; i < PyList_Size(result); ++i) {
+        EXPECT_FALSE(Py_None == PyList_GetItem(result, i));
+    }
+
+    int check = PyArray_Check(PyList_GetItem(result, 0));
+    EXPECT_TRUE(check);
+    PY_ERR_CHECK
+
+    CassFuture *close_future = cass_session_close(test_session);
+    cass_future_wait(close_future);
+    cass_future_free(close_future);
+
+    cass_cluster_free(test_cluster);
+    cass_session_free(test_session);
+
+    PY_ERR_CHECK
+
+}
 
 
 
@@ -691,7 +1133,9 @@ TEST(TestingCacheTable, MultiQ) {
     PY_ERR_CHECK
 
     std::vector<std::string> keysnames = {"partid", "time"};
-    std::vector<std::string> colsnames = {"x", "y", "z", "ciao"};
+    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"x"}, std::vector<std::string>{"y"},
+                                                        std::vector<std::string>{"z"},
+                                                        std::vector<std::string>{"ciao"}};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
 
@@ -738,7 +1182,7 @@ TEST(TestinhMarshallCC, SingleQ) {
     /** CONNECT **/
     CassSession *test_session = NULL;
     CassCluster *test_cluster = NULL;
-    uint32_t max_items = 100;
+
     CassFuture *connect_future = NULL;
     test_cluster = cass_cluster_new();
     test_session = cass_session_new();
@@ -760,7 +1204,7 @@ TEST(TestinhMarshallCC, SingleQ) {
     PY_ERR_CHECK
 
     std::vector<std::string> keysnames = {"position"};
-    std::vector<std::string> colsnames = {"wordinfo"};
+    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"wordinfo"}};
     std::string token_pred = "WHERE token(position)>=? AND token(position)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
 
@@ -804,7 +1248,7 @@ TEST(TestinhMarshall, SingleQ) {
     /** CONNECT **/
     CassSession *test_session = NULL;
     CassCluster *test_cluster = NULL;
-    uint32_t max_items = 100;
+
     CassFuture *connect_future = NULL;
     test_cluster = cass_cluster_new();
     test_session = cass_session_new();
@@ -832,7 +1276,7 @@ TEST(TestinhMarshall, SingleQ) {
     PY_ERR_CHECK
 
     std::vector<std::string> keysnames = {"partid", "time"};
-    std::vector<std::string> colsnames = {"ciao"};
+    std::vector<std::vector<std::string> > colsnames = {std::vector<std::string>{"ciao"}};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
 
@@ -877,16 +1321,11 @@ TEST(TestinhMarshall, SingleQ) {
 }
 
 
-
-
-
-
-
 TEST(TestingCacheTable, PutFloatsRow) {
     /** CONNECT **/
     CassSession *test_session = NULL;
     CassCluster *test_cluster = NULL;
-    uint32_t max_items = 100;
+
     CassFuture *connect_future = NULL;
     test_cluster = cass_cluster_new();
     test_session = cass_session_new();
@@ -906,8 +1345,13 @@ TEST(TestingCacheTable, PutFloatsRow) {
     /** KEYS **/
 
     std::vector<std::string> keysnames = {"partid", "time"};
-    std::vector<std::string> read_colsnames = {"x", "y", "z", "ciao"};
-    std::vector<std::string> write_colsnames = {"x", "y", "z"};
+    std::vector<std::vector<std::string> > read_colsnames = {std::vector<std::string>{"x"},
+                                                             std::vector<std::string>{"y"},
+                                                             std::vector<std::string>{"z"},
+                                                             std::vector<std::string>{"ciao"}};
+    std::vector<std::vector<std::string> > write_colsnames = {std::vector<std::string>{"x"},
+                                                              std::vector<std::string>{"y"},
+                                                              std::vector<std::string>{"z"}};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
 
@@ -927,7 +1371,6 @@ TEST(TestingCacheTable, PutFloatsRow) {
                test_session, config);
 
 
-
     for (int i = 0; i <= 10000; i++) {
         int32_t key1 = i;
         float key2 = (float) (i / .1);
@@ -938,23 +1381,19 @@ TEST(TestingCacheTable, PutFloatsRow) {
         PyList_SetItem(keys, 0, Py_BuildValue("i", key1));
         PyList_SetItem(keys, 1, Py_BuildValue("f", key2));
 
-        PyObject* o = PyFloat_FromDouble(key2);
-        float f_temp;
-
-        f_temp  = (float) PyFloat_AsDouble(o);
-        EXPECT_FLOAT_EQ(key2,f_temp);
         PyObject *result = ReadTable.get_row(keys);
         PY_ERR_CHECK
 
         ASSERT_TRUE(result);
         ASSERT_TRUE(PyList_Check(result));
-        PyObject *values = PyList_GetSlice(result,keysnames.size()-2,PyList_Size(result)-1);
+        PyObject *values = PyList_GetSlice(result, keysnames.size() - 2, PyList_Size(result) - 1);
         PY_ERR_CHECK
-        WriteTable.put_row(keys,values);
+        WriteTable.put_row(keys, values);
         PY_ERR_CHECK
+        Py_DecRef(keys);
+        Py_DecRef(values);
+        Py_DecRef(result);
     }
-
-
 
 
     CassFuture *close_future = cass_session_close(test_session);
@@ -966,12 +1405,11 @@ TEST(TestingCacheTable, PutFloatsRow) {
 }
 
 
-
 TEST(TestingCacheTable, PutTextRow) {
     /** CONNECT **/
     CassSession *test_session = NULL;
     CassCluster *test_cluster = NULL;
-    uint32_t max_items = 100;
+
     CassFuture *connect_future = NULL;
     test_cluster = cass_cluster_new();
     test_session = cass_session_new();
@@ -988,8 +1426,12 @@ TEST(TestingCacheTable, PutTextRow) {
     /** KEYS **/
 
     std::vector<std::string> keysnames = {"partid", "time"};
-    std::vector<std::string> read_colsnames = {"x", "ciao"};
-    std::vector<std::string> write_colsnames = {"x", "ciao"};
+
+    std::vector<std::vector<std::string> > read_colsnames = {std::vector<std::string>{"x"},
+                                                             std::vector<std::string>{"ciao"}};
+    std::vector<std::vector<std::string> > write_colsnames = {std::vector<std::string>{"x"},
+                                                              std::vector<std::string>{"ciao"}};
+
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
 
     int64_t bigi= 9223372036854775807;
@@ -1025,16 +1467,20 @@ TEST(TestingCacheTable, PutTextRow) {
     uint32_t it = 1;
     float fl = 0.03;
 
-
-
-    while ((result = P->get_next())!=NULL) {
-        PyObject *key = PyList_New(2);
-        PyList_SetItem(key, 0, Py_BuildValue("i", it));
-        PyList_SetItem(key, 1, Py_BuildValue("f", fl));
+    PyObject *key;
+    while (result != NULL) {
         PY_ERR_CHECK
-        WriteTable->put_row(key,result);
+        key = PyList_New(0);
+        PY_ERR_CHECK
+        PyList_Append(key, Py_BuildValue("i", it));
+        PyList_Append(key,Py_BuildValue("f", fl));
+        PY_ERR_CHECK
+        WriteTable->put_row(key, result);
+        PY_ERR_CHECK
+        Py_DECREF(key);//Py_DecRef(key);
         PY_ERR_CHECK
         ++it;
+        result = P->get_next();
     }
 
 //    WriteTable.flush_elements(); //Blocking OP
@@ -1042,8 +1488,8 @@ TEST(TestingCacheTable, PutTextRow) {
 
 
 
-    delete(P);
-    delete(WriteTable);
+    delete (WriteTable);
+    delete (P);
     PY_ERR_CHECK
     CassFuture *close_future = cass_session_close(test_session);
     cass_future_wait(close_future);

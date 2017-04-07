@@ -15,6 +15,7 @@ Writer::Writer(uint16_t buff_size, uint16_t max_callbacks, const TupleRowFactory
     this->data.set_capacity(buff_size);
     this->max_calls = max_callbacks;
     this->ncallbacks = 0;
+    this->error_count = 0;
 }
 
 
@@ -25,19 +26,19 @@ Writer::~Writer() {
 
 
 void Writer::flush_elements() {
-    while (!data.empty()) {
+    while (!data.empty() || ncallbacks > 0) {
         if (ncallbacks < max_calls) {
             ncallbacks++;
             call_async();
         }
+        else std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
-    while (ncallbacks > 0) std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 
 void Writer::callback(CassFuture *future, void *ptr) {
     void ** data = reinterpret_cast<void **>(ptr);
-    assert(data[0]!=NULL);
+    assert(data!=NULL&&data[0]!=NULL);
     Writer *W = (Writer*) data[0];
 
     CassError rc = cass_future_error_code(future);

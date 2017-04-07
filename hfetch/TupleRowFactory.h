@@ -1,6 +1,9 @@
 #ifndef PREFETCHER_MY_TUPLE_FACTORY_H
 #define PREFETCHER_MY_TUPLE_FACTORY_H
 
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+
+
 #define CHECK_CASS(msg) if(rc != CASS_OK){ \
 std::string error(cass_error_desc(rc));\
 std::cerr<<msg<<" "<<error<<std::endl; };\
@@ -11,6 +14,8 @@ std::cerr<<msg<<" "<<error<<std::endl; };\
 #include <iostream>
 #include <vector>
 #include <cassandra.h>
+
+
 #include <python2.7/Python.h>
 #include "ModuleException.h"
 #include "TupleRow.h"
@@ -18,7 +23,9 @@ std::cerr<<msg<<" "<<error<<std::endl; };\
 #include <memory>
 #include <stdlib.h>
 #include "metadata.h"
+#include <numpy/arrayobject.h>
 
+//#include <numpy/ndarraytypes.h>
 #define Py_STRING "s"
 #define Py_U_LONGLONG "K"
 #define Py_U_LONG "k"
@@ -37,7 +44,7 @@ std::cerr<<msg<<" "<<error<<std::endl; };\
 class TupleRowFactory{
 
 public:
-    TupleRowFactory(const CassTableMeta *table_meta, const std::vector<std::string> &col_names);
+    TupleRowFactory(const CassTableMeta *table_meta, const std::vector< std::vector<std::string> > &col_names);
 
     //Used to pass TupleRowFactory by reference
     TupleRowFactory(){};
@@ -48,27 +55,36 @@ public:
 
     TupleRow* make_tuple(const CassRow* row);
 
-    PyObject* tuple_as_py(const TupleRow* tuple) const;
+    PyObject* tuples_as_py(std::vector<const TupleRow *>& values) const;
+
+    std::vector<void*> split_array(PyObject *value);
+
+    PyObject* merge_blocks_as_nparray(std::vector<const TupleRow*>& blocks) const;
+
+
+    std::vector<const TupleRow*> blocks_to_tuple(std::vector <void*>& blocks, PyObject *obj) const ;
+    void* extract_array(PyObject *obj) const;
+    std::vector<const TupleRow*> make_tuples_with_npy(PyObject *obj);
 
     void bind(CassStatement *statement,const  TupleRow *row,  u_int16_t offset) const;
 
     inline uint16_t n_elements(){
-        return (uint16_t) this->metadata->size();
+        return this->metadata.size();
     }
 
-    inline std::shared_ptr<std::vector<ColumnMeta>> get_metadata() const{
+    inline RowMetadata get_metadata() const{
         return metadata;
 
     }
 
 private:
-    std::shared_ptr<std::vector<ColumnMeta>> metadata;
+    RowMetadata metadata;
 
     uint16_t total_bytes;
 
     uint16_t compute_size_of(const CassValueType VT) const;
 
-    PyObject* c_to_py(const void *V, CassValueType VT) const;
+    PyObject* c_to_py(const void *V,const ColumnMeta &meta) const;
 
     int py_to_c(PyObject *obj, void* data, int32_t col) const;
 

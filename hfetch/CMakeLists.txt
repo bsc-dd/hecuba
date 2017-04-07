@@ -204,6 +204,12 @@ find_package(PythonInterp 2.7)
 find_package(PythonLibs 2.7.5 REQUIRED)
 find_package(NumPy 1.8)
 
+if (NUMPY_FOUND)
+    include_directories(${NUMPY_INCLUDE_DIR})
+else()
+    message("Numpy headers not found, Numpy arrays support won't be available")
+endif()
+
 include_directories(${PYTHON_INCLUDE_DIRS})
 set(ALL_LIBS ${ALL_LIBS} ${PYTHON_LIBRARIES})
 

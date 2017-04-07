@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 from __future__ import print_function
 
+#use_cython = False
+
 import os
 from distutils.core import setup, Extension
 from distutils.command.build import build as _build
 import subprocess
+
 
 
 def cmake_build():

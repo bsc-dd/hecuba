@@ -31,6 +31,18 @@ static PyObject *connectCassandra(PyObject *self, PyObject *args) {
     cass_cluster_set_contact_points(cluster, contact_points.c_str());
     cass_cluster_set_port(cluster, nodePort);
     cass_cluster_set_token_aware_routing(cluster, cass_true);
+
+
+
+//  unsigned int uiRequestTimeoutInMS = 30000;
+    //cass_cluster_set_num_threads_io (cluster, 2);
+    //cass_cluster_set_core_connections_per_host (cluster, 4);
+  //cass_cluster_set_request_timeout (cluster, uiRequestTimeoutInMS);
+    cass_cluster_set_pending_requests_low_water_mark (cluster, 20000);
+   // cass_cluster_set_pending_requests_high_water_mark(cluster, 17000000);
+
+    cass_cluster_set_write_bytes_high_water_mark(cluster,4194304); //>128elements^3D * 8B_Double = 17000000 B
+
     // Provide the cluster object as configuration to connect the session
     connect_future = cass_session_connect(session, cluster);
     CassError rc = cass_future_error_code(connect_future);
@@ -96,6 +108,7 @@ static void hcache_dealloc(HCache *self) {
 static PyObject *hcache_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     HCache *self;
     self = (HCache *) type->tp_alloc(type, 0);
+    //_import_array();
     return (PyObject *) self;
 }
 
@@ -103,7 +116,7 @@ static PyObject *hcache_new(PyTypeObject *type, PyObject *args, PyObject *kwds) 
 static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     if (!session) {
         PyErr_SetString(PyExc_Exception,"Not connected to any cluster");
-        return NULL;
+        return -1;
     }
     const char *table, *keyspace, *token_range_pred;
 
@@ -144,14 +157,47 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
 
     }
 
-    std::vector<std::string> columns_names = std::vector<std::string>(cols_size);
+
+    std::vector<std::vector<std::string>> columns_names = std::vector<std::vector<std::string>>(cols_size);
     for (uint16_t i = 0; i < cols_size; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_cols_names, i);
-        char *str_temp;
-        if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
-            return -1;
-        };
-        columns_names[i] = std::string(str_temp);
+        int type_check = PyString_Check(obj_to_convert);
+        if (type_check) {
+            char *str_temp;
+            if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
+                return -1;
+            };
+            columns_names[i] = std::vector<std::string>(1);
+            columns_names[i][0] = std::string(str_temp);
+        }
+        type_check = PyDict_Check(obj_to_convert);
+        if (type_check) {
+            PyObject *dict;
+            if (!PyArg_Parse(obj_to_convert, "O", &dict)) {
+                return -1;
+            };
+
+            PyObject* aux_table = PyDict_GetItem(dict, PyString_FromString("npy_table"));
+            if (aux_table!=NULL) {
+                columns_names[i] = std::vector<std::string>(5);
+                columns_names[i][4] = PyString_AsString(aux_table);
+            }
+            else {
+                columns_names[i] = std::vector<std::string>(4);
+            }
+            PyObject *py_name = PyDict_GetItem(dict, PyString_FromString("name"));
+            columns_names[i][0] = PyString_AsString(py_name);
+
+            PyObject *py_arr_type = PyDict_GetItem(dict, PyString_FromString("type"));
+            columns_names[i][1] = PyString_AsString(py_arr_type);
+
+            PyObject *py_arr_dims = PyDict_GetItem(dict, PyString_FromString("dims"));
+            columns_names[i][2] = PyString_AsString(py_arr_dims);
+
+            PyObject *py_arr_partition = PyDict_GetItem(dict, PyString_FromString("partition")); //TODO what if partition is misspelled
+            if (std::strcmp(PyString_AsString(py_arr_partition),"true")==0) columns_names[i][3] = "partition";
+            else columns_names[i][3] = "no-partition";
+        }
     }
 
 
@@ -247,6 +293,7 @@ static PyTypeObject hfetch_HCacheType = {
 static PyObject *hiter_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     HIterator *self;
     self = (HIterator *) type->tp_alloc(type, 0);
+    //_import_array();
     return (PyObject *) self;
 }
 
@@ -343,7 +390,7 @@ static PyObject *create_iter_keys(HCache *self, PyObject *args) {
 
 static PyObject *create_iter_items(HCache *self, PyObject *args) {
     int prefetch_size;
-    if (!PyArg_ParseTuple(args, "i", &prefetch_size)){
+    if (!PyArg_ParseTuple(args, "i", &prefetch_size)) {
         return NULL;
     }
     HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
@@ -354,7 +401,7 @@ static PyObject *create_iter_items(HCache *self, PyObject *args) {
 
 static PyObject *create_iter_values(HCache *self, PyObject *args) {
     int prefetch_size;
-    if (!PyArg_ParseTuple(args, "i", &prefetch_size)){
+    if (!PyArg_ParseTuple(args, "i", &prefetch_size)) {
         return NULL;
     }
     HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
@@ -384,7 +431,6 @@ inithfetch(void) {
         return;
 
     Py_INCREF(&hfetch_HCacheType);
-
 
     m = Py_InitModule3("hfetch", module_methods, "c++ bindings for hecuba cache & prefetch");
     f = m->ob_type->tp_dealloc;
