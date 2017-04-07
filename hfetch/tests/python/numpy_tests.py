@@ -1,4 +1,4 @@
-#import gc
+import gc
 #gc.set_debug(gc.DEBUG_STATS|gc.DEBUG_LEAK)
 from hfetch import *
 import numpy as np
@@ -18,7 +18,8 @@ def test_multidim():
 
     a = Hcache(keyspace, "arrays", "WHERE token(partid)>=? AND token(partid)<?;",
                [], ["partid"],
-               [{"name": "image_block", "type": "int", "dims": "5x5x5", "partition": "true"}, "image_block_pos"], {})
+               [{"name": "image_block", "type": "int", "dims": "5x5x5", "partition": "true"},
+                "image_block_pos"], {})
 
     #prepare data
     bigarr = np.arange(pow(elem_dim, dims)).reshape(elem_dim, elem_dim, elem_dim)
@@ -91,7 +92,7 @@ def part():
     print 'Dimensions: ', dims, ' Element in each dim: ', elem_dim
 
     session.execute("DROP TABLE if exists test.arrays;")
-    session.execute("CREATE TABLE test.arrays(partid int PRIMARY KEY, image_block blob, image_block_pos int);")
+    session.execute("CREATE TABLE test.arrays(partid int , image_block blob, image_block_pos int, PRIMARY KEY(partid,image_block_pos));")
 
 
     a = Hcache("test", "arrays", "WHERE token(partid)>=? AND token(partid)<?;",
@@ -127,12 +128,14 @@ def npy_uuid():
     print 'Dimensions: ', dims, ' Element in each dim: ', elem_dim
 
     session.execute("DROP TABLE if exists test.arrays;")
+    session.execute("DROP TABLE if exists test.arrays_aux;")
     session.execute("CREATE TABLE test.arrays(partid int PRIMARY KEY, image uuid);")
 
     session.execute("CREATE TABLE test.arrays_aux(uuid uuid,  position int, data blob, PRIMARY KEY (uuid,position));")
 
 
-    print 'create'
+    time.sleep(1)
+
     a = Hcache("test", "arrays", "WHERE token(partid)>=? AND token(partid)<?;",
                [], ["partid"],[{"name": "image",
                                  "type": "double",
@@ -140,20 +143,19 @@ def npy_uuid():
                                  "partition": "true",
                                  "npy_table": "arrays_aux"}], {})
 
-    print 'get'
+
     bigarr = np.arange(pow(elem_dim, 2)).reshape(elem_dim, elem_dim)
     bigarr.itemset(0, 14.0)
-    print 'Array to be written', bigarr.astype('d')
-    import time
-    t1 = time.time()
+    #print 'Array to be written', bigarr.astype('d')
 
-    print 'put'
-    keys = [300]
-    a.put_row(keys, [bigarr.astype('d')])
+    t1 = time.time()
+    #print a.get_row([300])
+    a.put_row( [300],[bigarr.astype('d')])
+
     print 'Elapsed time', time.time() - t1
     print '2D, elem dimension: ', elem_dim
 
-    time.sleep(2)
+    time.sleep(3)
     session.execute("DROP TABLE test.arrays;")
     session.execute("DROP TABLE test.arrays_aux;")
 
@@ -164,41 +166,41 @@ def arr_put_get():
     elem_dim = 2048
     txt_elem_dim = str(elem_dim)
 
-
-    print 'Running npy_uuid test'
+    print 'Running arr_put_get test'
     print 'Dimensions: ', dims, ' Element in each dim: ', elem_dim
 
-
     session.execute("DROP TABLE if exists test.arrays;")
-    session.execute("CREATE TABLE test.arrays(partid int PRIMARY KEY, image uuid);")
+    session.execute("CREATE TABLE test.arrays(partid int , image_block blob, image_block_pos int, PRIMARY KEY(partid,image_block_pos));")
 
-    session.execute("CREATE TABLE test.arrays_aux(uuid uuid,  position int, data blob, PRIMARY KEY (uuid,position));")
-
-
+    time.sleep(3)
     a = Hcache("test", "arrays", "WHERE token(partid)>=? AND token(partid)<?;",
-               [(-8070430489100700000, 8070450532247928832)], ["partid"], [
+               [], ["partid"], [
                    {"name": "image_block", "type": "double", "dims": txt_elem_dim + 'x' + txt_elem_dim,
                     "partition": "true"}, "image_block_pos"], {})
 
     bigarr = np.arange(pow(elem_dim, dims)).reshape(elem_dim, elem_dim)
     bigarr.itemset(0, 14.0)
     print 'Array to be written', bigarr.astype('d')
-    import time
-    t1 = time.time()
-    keys = [300]
-    a.put_row(keys, [bigarr.astype('d')])
-    time.sleep(3)
-    # othw we ask for the row before it has been processed
-    result = a.get_row(keys)
-    print 'Written:', bigarr.astype('d')
-    resarr = result[0]
-    print "And the result is... ", resarr.reshape((2048, 2048))
-    print 'Elapsed time', time.time() - t1
-    print '2D, elem dimension: ', elem_dim
 
+    t1 = time.time()
+    keys =[300]
+    a.put_row(keys, [bigarr.astype('d')])
+
+    # othw we ask for the row before it has been processed
+    time.sleep(5)
+
+    try:
+        result = a.get_row([300])
+        resarr = result[0]
+        print "And the result is... ", resarr.reshape((2048, 2048))
+        print 'Elapsed time', time.time() - t1
+        print '2D, elem dimension: ', elem_dim
+    except KeyError:
+        print 'not found'
+    gc.collect()
 
     session.execute("DROP TABLE test.arrays;")
-    session.execute("DROP TABLE test.arrays_aux;")
+
 
 
 
@@ -216,15 +218,28 @@ if __name__ == '__main__':
 
     connectCassandra(host_list,nodePort)
 
+    ''''''''' PENDING
     test_multidim()
 
     nopart()
 
-    part()
-
-    npy_uuid()
-
     arr_put_get()
 
+     #sigseg
+    '''''''''
+    for i in xrange(0,20):
+        npy_uuid() #segfault
+
+        d = 1.1
+        for l in xrange(0,1000):
+            d = d*d % 400
+        print i
+        gc.collect()
+    ''''''''' DONE
+        arr_put_get()
+        part()
+    '''''''''
+
     wait = raw_input("End test?")
-    cluster.shutdown()
+    #cluster.shutdown()
+    print 'bye'

@@ -344,7 +344,7 @@ PyObject *TupleRowFactory::merge_blocks_as_nparray(std::vector<const TupleRow *>
             if (ok<0) throw ModuleException("Can't append object in position"+std::to_string(pos) +" toPyList on merge np array");
         } else if(metadata.at(pos).info.size() == 5){
             //external, Add none, because it will get replaced
-            PyList_Append(list,Py_None);
+            PyList_Append(list,PyInt_FromLong(0));
         }
         else {
             //object is a numpy array
@@ -379,6 +379,7 @@ PyObject *TupleRowFactory::merge_blocks_as_nparray(std::vector<const TupleRow *>
             try {
                 _import_array(); //necessary only for running from C++
                 PyObject *py_value = PyArray_SimpleNewFromData(metadata.at(pos).get_arr_dims()->len,metadata.at(pos).get_arr_dims()->ptr,metadata.at(pos).get_arr_type(),final_array);
+                Py_INCREF(py_value);
                 int ok = PyList_Append(list, py_value);
                 if (ok < 0) throw ModuleException("Can't append numpy array into the results list");
             }
