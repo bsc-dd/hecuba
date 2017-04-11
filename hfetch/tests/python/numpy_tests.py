@@ -1,4 +1,5 @@
 import gc
+#gc.disable()
 #gc.set_debug(gc.DEBUG_STATS|gc.DEBUG_LEAK)
 from hfetch import *
 import numpy as np
@@ -23,7 +24,8 @@ def test_multidim():
 
     #prepare data
     bigarr = np.arange(pow(elem_dim, dims)).reshape(elem_dim, elem_dim, elem_dim)
-    keys = [100]
+    temp =100
+    keys = [temp]
     values = [bigarr.astype('i')]
 
     #insert
@@ -35,14 +37,12 @@ def test_multidim():
     #retrieve
     keys = [100]
     result = a.get_row(keys)
-
     if np.array_equal(bigarr,result[0]):
         print 'Created and retrieved are equal'
     else:
         print 'Created and retrieved arrays differ, sth went wrong '
         print 'Array sent ', bigarr
         print 'Array retrieved ', result[0]
-
     time.sleep(2)
     session.execute("DROP TABLE test.arrays;")
 
@@ -196,7 +196,6 @@ def arr_put_get():
         print '2D, elem dimension: ', elem_dim
     except KeyError:
         print 'not found'
-    gc.collect()
 
     session.execute("DROP TABLE test.arrays;")
 
@@ -221,28 +220,34 @@ if __name__ == '__main__':
     '''''''''
     for i in xrange(0,5):
         test_multidim()
+        print 'test done, collecting'
         gc.collect()
+        print 'collection done'
         time.sleep(4)
         nopart()
         time.sleep(4)
+        print 'test done, collecting'
         gc.collect()
+        print 'collection done'
         npy_uuid()
         time.sleep(4)
+        print 'test done, collecting'
         gc.collect()
+        print 'collection done'
         arr_put_get()
         time.sleep(4)
+        print 'test done, collecting'
         gc.collect()
+        print 'collection done'
         part()
         time.sleep(4)
+        print 'test done, collecting'
         gc.collect()
+        print 'collection done'
     ''''''''' DONE
-        test_multidim()
-        nopart()
-        npy_uuid()
-        arr_put_get()
-        part()
     '''''''''
 
     wait = raw_input("End test?")
-    #cluster.shutdown()
+    gc.collect()
+    cluster.shutdown()
     print 'bye'

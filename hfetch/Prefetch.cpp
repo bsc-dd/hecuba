@@ -1,20 +1,55 @@
 #include "Prefetch.h"
 
 #define MAX_TRIES 10
+#define default_prefetch_size 100
 
-Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges, uint32_t buff_size,
-                   TupleRowFactory& tuple_factory, CassSession *session, std::string query) {
+Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges, const TableMetadata* table_meta,
+                   CassSession* session,std::map<std::string,std::string> &config) {
+    if (!session)
+        throw ModuleException("Prefetch: Session is Null");
     this->session = session;
-    this->t_factory = tuple_factory;
+    this->table_metadata=table_meta;
+
+    const char* query;
+    if (config["type"]=="keys") {
+        this->t_factory = TupleRowFactory(table_meta->get_keys());
+        query=table_meta->get_select_keys_tokens();
+    }
+    else if (config["type"]=="values") {
+        this->t_factory = TupleRowFactory(table_meta->get_values());
+        query=table_meta->get_select_values_tokens();
+    }
+    else {
+        this->t_factory = TupleRowFactory(table_meta->get_items());
+        query=table_meta->get_select_all_tokens();
+    }
+
     this->tokens = token_ranges;
     this->completed = false;
-    this->error_msg = NULL;
-    CassFuture *future = cass_session_prepare(session, query.c_str());
+    CassFuture *future = cass_session_prepare(session, query);
     CassError rc = cass_future_error_code(future);
     CHECK_CASS("prefetch cannot prepare");
     this->prepared_query = cass_future_get_prepared(future);
     cass_future_free(future);
-    this->data.set_capacity(buff_size);
+
+    int32_t prefetch_size = default_prefetch_size;
+
+    if (config.find("prefetch_size")!=config.end()) {
+        std::string prefetch_size_str = config["prefetch_size"];
+        try {
+            prefetch_size = std::stoi(prefetch_size_str);
+        }
+        catch (std::exception &e) {
+            std::string msg(e.what());
+            msg+= " Malformed value in config for prefetch_size";
+            throw ModuleException(msg);
+        }
+    }
+
+    if (prefetch_size<=0)
+        throw ModuleException("Prefetch size must be > 0");
+
+    this->data.set_capacity(prefetch_size);
     this->worker = new std::thread{&Prefetch::consume_tokens, this};
 
 }
@@ -34,22 +69,6 @@ Prefetch::~Prefetch() {
 }
 
 
-PyObject *Prefetch::get_next() {
-    const TupleRow *response = get_cnext();
-    if (response == NULL) {
-        if (error_msg == NULL) {
-            PyErr_SetNone(PyExc_StopIteration);
-            return NULL;
-        } else {
-            PyErr_SetString(PyExc_RuntimeError, error_msg);
-            return NULL;
-        }
-    }
-    std::vector<const TupleRow*> row = {response};
-    PyObject *toberet = t_factory.tuples_as_py(row);
-    delete (response);
-    return toberet;
-}
 
 TupleRow *Prefetch::get_cnext() {
     if (completed&&data.empty()) return NULL;

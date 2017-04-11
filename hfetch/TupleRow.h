@@ -5,23 +5,26 @@
 #include <memory>
 #include <cstring>
 #include <string>
-#include <iostream>
-#include "stdlib.h"
+#include <stdlib.h>
 #include <vector>
 #include <cassandra.h>
-#include <python2.7/Python.h>
-#include "metadata.h"
+
+
+#include "TableMetadata.h"
 
 
 class TupleRow {
 private:
-    std::shared_ptr<const void> payload;
-    RowMetadata metadata;
+    std::shared_ptr<void> payload;
+    std::shared_ptr<const std::vector<ColumnMeta> > metadata;
     uint16_t payload_size;
 public:
 
-    TupleRow(const RowMetadata& metas, uint16_t payload_size,void *buffer);
+    /* Constructor */
+    TupleRow(std::shared_ptr<const std::vector<ColumnMeta>> metas, uint16_t payload_size,void *buffer);
 
+
+    /* Copy constructors */
     TupleRow(const TupleRow &t) ;
 
     TupleRow(const TupleRow *t);
@@ -34,17 +37,25 @@ public:
 
     TupleRow& operator=(TupleRow& other );
 
+    /* Get methods */
+
+    inline std::shared_ptr<void>  get_payload() const{
+        return this->payload;
+    }
+
 inline const uint16_t get_payload_size() const {
     return this->payload_size;
 }
     inline const uint16_t n_elem() const {
-        return (uint16_t) metadata.size();
+        return (uint16_t) metadata->size();
     }
 
-    const void* get_element(uint16_t position) const {
+    inline const void* get_element(int32_t position) const {
         if (position < 0 || payload.get() == 0) return 0;
-        return (const char *) payload.get() + metadata.at(position).position;
+        return (const char *) payload.get() + metadata->at(position).position;
     }
+
+    /* Comparision operators */
 
     friend bool operator<(const TupleRow &lhs, const TupleRow &rhs);
 

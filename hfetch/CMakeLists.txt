@@ -29,7 +29,7 @@ project(hfetch)
 
 #if the user has set custom compiler paths, forward to submodules
 if (${CC})
-    set (CMAKE_SUBPROJECT_FLAGS ${CMAKE_SUBPROJECT_FLAGS} " -DCMAKE_C_COMPILER${CC}")
+    set (CMAKE_SUBPROJECT_FLAGSCMAKE_SUBPROJECT_FLAGSCMAKE_SUBPROJECT_FLAGS ${CMAKE_SUBPROJECT_FLAGS} " -DCMAKE_C_COMPILER${CC}")
 endif()
 
 if (${CXX})
@@ -46,7 +46,6 @@ if (NOT $ENV{CPLUS_INCLUDE_PATH}  STREQUAL "")
     string(REGEX MATCHALL "[^ ]+" LIST_INCLUDES ${INCLUDES})
 endif (NOT $ENV{CPLUS_INCLUDE_PATH}  STREQUAL "")
 include_directories(${LIST_INCLUDES})
-
 
 
 #Add environment $C_INCLUDE_PATH include paths
@@ -79,8 +78,8 @@ if (NOT $ENV{LD_LIBRARY_PATH}  STREQUAL "")
 endif (NOT $ENV{LD_LIBRARY_PATH}  STREQUAL "")
 
 
-set(SOURCE_FILES Prefetch.cpp HCache.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp )
-set(HEADER_FILES Prefetch.h HCache.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h metadata.h)
+set(SOURCE_FILES StorageInterface.cpp Prefetch.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp TableMetadata.cpp HCache.cpp PythonParser.cpp )
+set(HEADER_FILES StorageInterface.h Prefetch.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h TableMetadata.h HCache.h PythonParser.h)
 
 
 #CMake main target

@@ -1,7 +1,5 @@
 #include "CacheTable.h"
 
-#define default_writer_buff 100
-#define default_writer_callbacks 4
 #define default_cache_size 10
 
 
@@ -14,406 +12,103 @@
  * @param query Query ready to be bind with the keys
  * @param session
  */
-CacheTable::CacheTable(const std::string &table, const std::string &keyspace,
-                       const std::vector<std::string> &keyn,
-                       const std::vector<std::vector<std::string>> &columns_n,
-                       const std::string &token_range_pred,
-                       const std::vector<std::pair<int64_t, int64_t>> &tkns,
-                       CassSession *session,
-                       std::map<std::string, std::string> &config) {
+CacheTable::CacheTable(const TableMetadata* table_meta, CassSession *session,
+                       std::map<std::string,std::string> &config) {
 
+    //check session!=NULL
+    if (!session)
+        throw ModuleException("CacheTable: Session is Null");
 
-    int32_t writer_num_callbacks = default_writer_callbacks;
-    int32_t writer_buffer_size = default_writer_buff;
     int32_t cache_size = default_cache_size;
 
-    if (config.find("writer_par") != config.end()) {
-        std::string wr_calls = config["writer_par"];
-        try {
-            writer_num_callbacks = std::stoi(wr_calls);
-            if (writer_num_callbacks < 0) throw ModuleException("Writer parallelism value must be >= 0");
-        }
-        catch (std::exception e) {
-            std::string msg(e.what());
-            msg += " Malformed value in config for writer_par";
-            throw ModuleException(msg);
-        }
-    }
-
-    if (config.find("writer_buffer") != config.end()) {
-        std::string wr_buff = config["writer_buffer"];
-        try {
-            writer_buffer_size = std::stoi(wr_buff);
-            if (writer_buffer_size < 0) throw ModuleException("Writer buffer value must be >= 0");
-        }
-        catch (std::exception e) {
-            std::string msg(e.what());
-            msg += " Malformed value in config for writer_buffer";
-            throw ModuleException(msg);
-        }
-    }
-
-    if (config.find("cache_size") != config.end()) {
+    if (config.find("cache_size")!=config.end()) {
         std::string cache_size_str = config["cache_size"];
         try {
             cache_size = std::stoi(cache_size_str);
             if (cache_size < 0) throw ModuleException("Cache size value must be >= 0");
         }
-        catch (std::exception e) {
+        catch (std::exception &e) {
             std::string msg(e.what());
             msg += " Malformed value in config for cache_size";
             throw ModuleException(msg);
         }
     }
 
-    this->keyspace = keyspace;
+
     /** Parse names **/
 
-    columns_names = columns_n;
-    key_names = keyn;
-    tokens = tkns;
-    token_predicate = "FROM " + keyspace + "." + table + " " + token_range_pred;
-    get_predicate = "FROM " + keyspace + "." + table + " WHERE " + key_names[0] + "=?";
-    select_keys = "SELECT " + key_names[0];
-    for (uint16_t i = 1; i < key_names.size(); i++) {
-        get_predicate += " AND " + key_names[i] + "=?";
-        select_keys += "," + key_names[i];
-    }
-
-    select_values = columns_names[0][0];
-    for (uint16_t i = 1; i < columns_names.size(); i++) {
-        select_values += "," + columns_names[i][0];
-    }
-    select_values += " ";
-    select_keys += " ";
-
-    select_all = select_keys + "," + select_values;
-
-    select_values = "SELECT " + select_values;
-
-    this->myCache = new Poco::LRUCache<TupleRow, TupleRow>(cache_size);
-    cache_query = select_values + get_predicate;
-    CassFuture *future = cass_session_prepare(session, cache_query.c_str());
+    CassFuture *future = cass_session_prepare(session, table_meta->get_select_query());
     CassError rc = cass_future_error_code(future);
     if (rc != CASS_OK) {
         std::string error = cass_error_desc(rc);
-        throw ModuleException("Cache particles_table: Preparing query: " + cache_query + " REPORTED ERROR: " + error);
+        std::string query_text(table_meta->get_select_query());
+        throw ModuleException("CacheTable: Preparing query: "+query_text+ " REPORTED ERROR: "+error);
     }
 
-    prepared_query = cass_future_get_prepared(future);
-
-    this->session = session;
+    this->prepared_query = cass_future_get_prepared(future);
     cass_future_free(future);
 
-    const CassSchemaMeta *schema_meta = cass_session_get_schema_meta(session);
-    if (!schema_meta) {
-        throw ModuleException("Cache particles_table: constructor: Schema meta is NULL");
-    }
 
-    const CassKeyspaceMeta *keyspace_meta = cass_schema_meta_keyspace_by_name(schema_meta, keyspace.c_str());
-    if (!keyspace_meta) {
-        throw ModuleException("Keyspace particles_table: constructor: Schema meta is NULL");
-    }
-
-
-    const CassTableMeta *table_meta = cass_keyspace_meta_table_by_name(keyspace_meta, table.c_str());
-    if (!table_meta || (cass_table_meta_column_count(table_meta) == 0)) {
-        throw ModuleException("Cache particles_table: constructor: Table meta is NULL");
-    }
-
-    std::vector<std::vector<std::string> > keys_copy(key_names.size(), std::vector<std::string>(1));
-
-    for (uint16_t i = 0; i < key_names.size(); ++i) {
-        keys_copy[i][0] = key_names[i];
-    }
-
-    all_names.reserve(key_names.size() + columns_names.size());
-    all_names.insert(all_names.end(), keys_copy.begin(), keys_copy.end());
-    all_names.insert(all_names.end(), columns_names.begin(), columns_names.end());
-    try {
-        keys_factory = new TupleRowFactory(table_meta, keys_copy);
-        values_factory = new TupleRowFactory(table_meta, columns_names);
-        items_factory = new TupleRowFactory(table_meta, all_names);
-    }
-    catch (ModuleException e) {
-        throw e;
-    }
-    cass_schema_meta_free(schema_meta);
-    std::string write_query = "INSERT INTO " + keyspace + "." + table + "(";
-
-    //this can be done in one for loop TODO
-    write_query += all_names[0][0];
-    for (uint16_t i = 1; i < all_names.size(); ++i) {
-        write_query += "," + all_names[i][0];
-    }
-    write_query += ") VALUES (?";
-    for (uint16_t i = 1; i < all_names.size(); ++i) {
-        write_query += ",?";
-    }
-    write_query += ");";
-
-    writer = new Writer((uint16_t) writer_buffer_size, (uint16_t) writer_num_callbacks, *keys_factory, *values_factory,
-                        session, write_query);
+    this->session = session;
+    this->table_metadata = table_meta;
+    this->myCache = new Poco::LRUCache<TupleRow, TupleRow>(cache_size);
+    this->keys_factory = new TupleRowFactory(table_meta->get_keys());
+    this->values_factory = new TupleRowFactory(table_meta->get_values());
+    this->writer = new Writer(table_meta,session,config);
 };
 
 
 CacheTable::~CacheTable() {
-    cass_prepared_free(prepared_query);
-    //stl tree calls deallocate for cache nodes on clear()->erase(), and later on destroy, which ends up calling the deleters
-    delete (writer); //First of all, needs to flush the data using the key and values factory
+      //stl tree calls deallocate for cache nodes on clear()->erase(), and later on destroy, which ends up calling the deleters
+    delete(writer);
     myCache->clear();// destroys keys
     delete (myCache);
     delete (keys_factory);
     delete (values_factory);
-    delete (items_factory);
-    prepared_query = NULL;
+    cass_prepared_free(prepared_query);
+    prepared_query=NULL;
 }
 
 
-Prefetch *CacheTable::get_keys_iter(uint32_t prefetch_size) {
-    return new Prefetch(tokens, prefetch_size, *keys_factory, session, select_keys + token_predicate);
-}
-
-Prefetch *CacheTable::get_values_iter(uint32_t prefetch_size) {
-    return new Prefetch(tokens, prefetch_size, *values_factory, session, select_values + token_predicate);
-}
-
-Prefetch *CacheTable::get_items_iter(uint32_t prefetch_size) {
-    return new Prefetch(tokens, prefetch_size, *items_factory, session, select_all + token_predicate);
+void CacheTable::put_crow(void* keys, void* values) {
+    const TupleRow *k = keys_factory->make_tuple(keys);
+    const TupleRow *v = values_factory->make_tuple(values);
+    this->writer->write_to_cassandra(k,v);
+    //this->myCache->update(*k,v); //Inserts if not present, otherwise replaces
 }
 
 
-/***
- * This method converts a python object (list) and converts it to a C++ TupleRow
- * and inserts it into the Cache.
- * The object is then put in a queue for being inserted into Cassandra.
- * @param row
- * @return
+void CacheTable::put_crow(const TupleRow* keys, const TupleRow* values) {
+    this->writer->write_to_cassandra(keys,values);
+    //this->myCache->update(*keys,values); //Inserts if not present, otherwise replaces
+}
+
+
+void CacheTable::put_crow(const TupleRow* row) {
+    //split into two and call put_crow(a,b);
+    std::shared_ptr<const std::vector<ColumnMeta> > keys_meta = keys_factory->get_metadata();
+    uint16_t nkeys = (uint16_t)keys_meta->size();
+    std::shared_ptr<const std::vector<ColumnMeta> > values_meta = values_factory->get_metadata();
+    uint16_t nvalues = (uint16_t)values_meta->size();
+
+    char* keys = (char*) malloc(keys_meta->at(nkeys-(uint16_t)1).position+keys_meta->at(nkeys-(uint16_t)1).size);
+    char* values = (char*) malloc(values_meta->at(nvalues-(uint16_t)1).position+values_meta->at(nvalues-(uint16_t)1).size);
+
+
+    for (uint16_t i=0; i<nkeys; ++i) {
+        memcpy(keys+keys_meta->at(i).position,row->get_element(i),keys_meta->at(i).size);
+    }
+    for (uint16_t i=0; i<nvalues; ++i) {
+        memcpy(values+values_meta->at(i).position,row->get_element(i+nkeys),values_meta->at(i).size);
+    }
+    this->put_crow(keys,values);
+}
+
+/*
+ * POST: never returns NULL
  */
+std::vector<const TupleRow *> CacheTable::retrieve_from_cassandra(const TupleRow *keys){
 
-void CacheTable::put_row(PyObject *key, PyObject *value) {
-    Py_INCREF(key);
-    Py_INCREF(value);
-    if (!values_factory->get_metadata().has_numpy) {
-        TupleRow *k = keys_factory->make_tuple(key);
-        const TupleRow *v = values_factory->make_tuple(value);
-        //Inserts if not present, otherwise replaces
-        this->myCache->update(*k, v);
-        this->writer->write_to_cassandra(k, v);
-    } else {
-
-        RowMetadata metadata = this->values_factory->get_metadata();
-        uint16_t numpy_pos = 0;
-        while (metadata.at(numpy_pos).get_arr_type() == NPY_NOTYPE && numpy_pos < metadata.size()) ++numpy_pos;
-        if (numpy_pos == metadata.size())
-            throw ModuleException("Sth went wrong looking for the numpy");
-
-
-        if (metadata.at(numpy_pos).info.size() == 5) {
-            //else if has auxiliary table
-            CassUuid uuid;
-            CassUuidGen *uuid_gen = cass_uuid_gen_new();
-            cass_uuid_gen_random(uuid_gen, &uuid);
-            cass_uuid_gen_free(uuid_gen);
-
-
-//TODO this awful code will be beautiful when merged with split-c++ branch
-
-            const CassSchemaMeta *schema_meta = cass_session_get_schema_meta(session);
-            if (!schema_meta) {
-                throw ModuleException("Cache particles_table: constructor: Schema meta is NULL");
-            }
-
-            const CassKeyspaceMeta *keyspace_meta = cass_schema_meta_keyspace_by_name(schema_meta, keyspace.c_str());
-            if (!keyspace_meta) {
-                throw ModuleException("Keyspace particles_table: constructor: Schema meta is NULL");
-            }
-
-            std::string table = metadata.at(numpy_pos).info[4];
-
-            const CassTableMeta *table_meta = cass_keyspace_meta_table_by_name(keyspace_meta, table.c_str());
-            if (!table_meta || (cass_table_meta_column_count(table_meta) == 0)) {
-                throw ModuleException("Cache particles_table: constructor: Table meta is NULL");
-            }
-
-            std::vector<std::vector<std::string> > numpy_keys{std::vector<std::string>(1)};
-            numpy_keys[0][0] = "uuid";
-
-            std::vector<std::vector<std::string> > numpy_columns{2};
-            numpy_columns[0] = {"data", metadata.at(numpy_pos).info[1], metadata.at(numpy_pos).info[2],
-                                metadata.at(numpy_pos).info[3]};
-            numpy_columns[1] = {"position"};
-
-
-            Writer *temp = NULL;
-            TupleRowFactory npy_keys_f = TupleRowFactory(table_meta, numpy_keys);
-            TupleRowFactory npy_values_f = TupleRowFactory(table_meta, numpy_columns);
-
-            cass_schema_meta_free(schema_meta);
-
-            try {
-                temp = new Writer(default_writer_buff, default_writer_callbacks, npy_keys_f, npy_values_f, session,
-                                  "INSERT INTO " + keyspace + "." + table + " (uuid,data,position) VALUES (?,?,?);");
-            } catch (ModuleException e) {
-                throw e;
-            }
-
-            PyObject *npy_list = PyList_New(1);
-            Py_INCREF(npy_list); //TODO verify which increments are mandatory
-            PyObject *array = PyList_GetItem(value, numpy_pos);
-            Py_INCREF(array);
-            PyList_SetItem(npy_list, 0, array);
-
-
-            std::vector<const TupleRow *> value_list = npy_values_f.make_tuples_with_npy(npy_list);
-
-
-            uint64_t *c_uuid = (uint64_t *) malloc(sizeof(uint64_t) * 2);
-            *c_uuid = uuid.time_and_version;
-            *(c_uuid + 1) = uuid.clock_seq_and_node;
-
-            void *payload = malloc(sizeof(uint64_t *));
-            memcpy(payload, &c_uuid, sizeof(uint64_t *));
-
-            TupleRow *numpy_key = new TupleRow(npy_keys_f.get_metadata(), sizeof(uint64_t) * 2, payload);
-
-            for (const TupleRow *T:value_list) {
-                TupleRow *key_copy = new TupleRow(numpy_key);
-                temp->write_to_cassandra(key_copy, T);
-            }
-
-            delete (temp);
-
-            //keep numpy key
-            PyObject *py_uuid = PyByteArray_FromStringAndSize((char *) c_uuid, sizeof(uint64_t) * 2);
-
-            //delete (numpy_key);//if deleted, the payload isnt copied because on PyList_SetItem seems to be freed
-
-            PyList_SetItem(value, numpy_pos, py_uuid);
-
-
-            TupleRow *k = keys_factory->make_tuple(key);
-            const TupleRow *v = values_factory->make_tuple(value);
-            //Inserts if not present, otherwise replaces
-            this->myCache->update(*k, v);
-            this->writer->write_to_cassandra(k, v);
-        } else {
-            TupleRow *k = keys_factory->make_tuple(key);
-
-            std::vector<const TupleRow *> value_list = values_factory->make_tuples_with_npy(value);
-            //this->myCache->update(*k, value_list[0]); <- broken
-            for (const TupleRow *T:value_list) {
-                TupleRow *key_copy = new TupleRow(k);
-                this->writer->write_to_cassandra(key_copy, T);
-            }
-        }
-    }
-
-}
-
-
-PyObject *CacheTable::get_row(PyObject *py_keys) {
-
-
-    TupleRow *keys = keys_factory->make_tuple(py_keys);
-    std::vector<const TupleRow *> values = get_crow(keys);
-
-    delete (keys);
-
-    if (values.empty() || values[0] == NULL) {
-        char *error = (char *) malloc(strlen("Get row: key not found") + 1);
-        PyErr_SetString(PyExc_KeyError, error);
-        return NULL;
-    }
-
-    RowMetadata metadata = values_factory->get_metadata();
-
-    PyObject *row;
-    if (metadata.has_numpy) {
-        //find numpy pos
-        for (uint16_t pos = 0; pos < metadata.size(); ++pos) {
-            if (metadata.at(pos).info.size() == 5) {
-                //is external
-                std::string table = metadata.at(pos).info[4];
-
-                std::vector<std::string> numpy_keys{"uuid"};
-                std::vector<std::vector<std::string> > numpy_columns(2);
-
-                numpy_columns[0] = {"data", metadata.at(pos).info[1], metadata.at(pos).info[2],
-                                    metadata.at(pos).info[3]};
-                numpy_columns[1] = {"position"};
-
-                CacheTable *temp = NULL;
-                //TODO break down the token range
-                try {
-                    std::map<std::string, std::string> config;
-                    temp = new CacheTable(table, std::string(keyspace), numpy_keys,
-                                          numpy_columns, std::string("WHERE token(uuid)=>? AND token(uuid)<?"), {},
-                                          session, config);
-                } catch (ModuleException e) {
-                    throw e;
-                }
-
-
-                uint64_t **uuid = (uint64_t **) values[0]->get_element(pos);
-                void *payload = malloc(sizeof(uint64_t *));
-                memcpy(payload, uuid, sizeof(uint64_t));
-
-                TupleRow *uuid_key = new TupleRow(temp->keys_factory->get_metadata(), sizeof(uint64_t), payload);
-
-                std::vector<const TupleRow *> npy_array = temp->get_crow(uuid_key);
-               
-                PyObject *py_list_array = temp->values_factory->tuples_as_py(npy_array);
-
-                PyObject *py_array = PyList_GetItem(py_list_array, 0);
-
-                /*** MERGE ***/
-
-                row = values_factory->tuples_as_py(values);
-                PyList_SetItem(row, pos, py_array);
-
-               
-                /*** CLEANUP ***/
-                delete (temp);
-                //if the data is inserted inside the cache we cant call delete, it doesnt detect there is a copy inside the cache
-                for (const TupleRow *block:values) {
-                    delete (block);
-                }
-               
-                for (const TupleRow *block:npy_array) {
-                    delete (block);
-                }
-               
-                //delete (uuid_key); TODO GC collector goes crazy if uncommented
-               
-
-
-            } else if (metadata.at(pos).info.size() == 4) {
-
-                row = values_factory->tuples_as_py(values);
-
-                //if the data is inserted inside the cache we cant call delete, it doesnt detect there is a copy inside the cache
-                for (const TupleRow *block:values) {
-                    delete (block);
-                }
-            } else {
-                //skip
-            }
-        }
-    } else {
-        row = values_factory->tuples_as_py(values);
-
-    }
-    return row;
-}
-
-
-std::vector<const TupleRow *> CacheTable::get_crow(TupleRow *keys) {
-
-    Poco::SharedPtr<TupleRow> ptrElem = myCache->get(*keys);
-    if (!ptrElem.isNull()) {
-        return std::vector<const TupleRow *>(1, ptrElem.get());
-    }
     /* Not present on cache, a query is performed */
     CassStatement *statement = cass_prepared_bind(prepared_query);
 
@@ -424,18 +119,17 @@ std::vector<const TupleRow *> CacheTable::get_crow(TupleRow *keys) {
     CassError rc = cass_future_error_code(query_future);
     if (result == NULL) {
         /* Handle error */
-        printf("%s\n", cass_error_desc(rc));
+        std::string error(cass_error_desc(rc));
         cass_future_free(query_future);
         cass_statement_free(statement);
-        return std::vector<const TupleRow *>(0);
+        throw ModuleException("CacheTable: Get row error on result"+error);
     }
 
     cass_future_free(query_future);
     cass_statement_free(statement);
-    if (0 == cass_result_row_count(result)) {
 
-        return std::vector<const TupleRow *>(0);
-    }
+    if (!cass_result_row_count(result))
+        throw ModuleException("No rows found for this key");
     uint32_t counter = 0;
     std::vector<const TupleRow *> values(cass_result_row_count(result));
     const CassRow *row;
@@ -446,6 +140,26 @@ std::vector<const TupleRow *> CacheTable::get_crow(TupleRow *keys) {
         ++counter;
     }
     cass_iterator_free(it);
-    cass_result_free(result);
     return values;
+}
+
+
+std::vector<const TupleRow *>  CacheTable::get_crow(const TupleRow *keys) {
+    Poco::SharedPtr<TupleRow> ptrElem = myCache->get(*keys);
+    if (!ptrElem.isNull()) {
+        return {ptrElem.get()};
+    }
+
+    std::vector<const TupleRow *> values = retrieve_from_cassandra(keys);
+
+    //TODO it calls TupleRow::TupleRow(const TupleRow *t) for values which is wrong
+   // myCache->add(*keys, values[0]);
+    //Store result to cache
+    return values;
+}
+
+std::shared_ptr<void> CacheTable::get_crow(void* keys) {
+    std::vector<const TupleRow*> result = get_crow(keys_factory->make_tuple(keys));
+    if (result.empty()) return NULL;
+    return result.at(0)->get_payload(); //TODO data is lost
 }

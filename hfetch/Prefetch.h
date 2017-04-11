@@ -4,22 +4,27 @@
 
 #include <thread>
 #include <atomic>
-#include "tbb/concurrent_queue.h"
 
+#include "tbb/concurrent_queue.h"
 #include "TupleRowFactory.h"
 #include "ModuleException.h"
+#include <map>
 
 class Prefetch {
 
 public:
 
-    Prefetch(const std::vector<std::pair<int64_t, int64_t>> &tokens, uint32_t buff_size, TupleRowFactory& tuple_factory,
-             CassSession* session,std::string query);
+    Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges, const TableMetadata* table_meta,
+             CassSession* session,std::map<std::string,std::string> &config);
 
     ~Prefetch();
 
     TupleRow *get_cnext();
-    PyObject* get_next();
+
+
+    const TableMetadata* get_metadata() {
+        return table_metadata;
+    }
 
 private:
 
@@ -29,9 +34,10 @@ private:
     CassSession* session;
     TupleRowFactory t_factory;
     std::atomic<bool> completed;
-    const char *error_msg;
 
 /** ownership **/
+
+    const TableMetadata* table_metadata;
     std::thread* worker;
     tbb::concurrent_bounded_queue<TupleRow*> data;
     std::vector<std::pair<int64_t, int64_t>> tokens;

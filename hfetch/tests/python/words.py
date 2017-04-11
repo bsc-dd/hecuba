@@ -3,24 +3,15 @@ from hfetch import *
 This test iterates over huge lines of text
 '''''''''
 connectCassandra(["minerva-5"], 19042)
-a = Hcache("wordcount", "words", "WHERE token(position)>=? AND token(position)<?;",
-           [(-9070430489100700000, -9070030489100700000)], ["position"], ["wordinfo"],
-           {'cache_size': '10', 'writer_buffer': 20})
+itera = HIterator("wordcount", "fivegb",
+           [(-9070430489100700000, -9000030489100700000),(-8070430489100700000, -8000030489100700000),(-7070430489100700000, -7000030489100700000)], ["position"], [],
+           {'prefetch_size': '100', 'writer_buffer': 20})
 
-print 'Prefetch starts'
-itera = a.iteritems(123)
-
-first = itera.get_next()
-print 'First results ready'
-
-wait = raw_input("Press to iterate over results")
-
+data= None
 while True:
     try:
         data = itera.get_next()
     except StopIteration:
         break
 
-wait = raw_input("End test and write one retrieved line?")
-
-print first
+print data
