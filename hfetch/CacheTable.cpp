@@ -15,7 +15,6 @@
 CacheTable::CacheTable(const TableMetadata* table_meta, CassSession *session,
                        std::map<std::string,std::string> &config) {
 
-    //check session!=NULL
     if (!session)
         throw ModuleException("CacheTable: Session is Null");
 
@@ -37,50 +36,46 @@ CacheTable::CacheTable(const TableMetadata* table_meta, CassSession *session,
 
     /** Parse names **/
 
+
     CassFuture *future = cass_session_prepare(session, table_meta->get_select_query());
     CassError rc = cass_future_error_code(future);
-    if (rc != CASS_OK) {
-        std::string error = cass_error_desc(rc);
-        std::string query_text(table_meta->get_select_query());
-        throw ModuleException("CacheTable: Preparing query: "+query_text+ " REPORTED ERROR: "+error);
-    }
-
+    CHECK_CASS("CacheTable: Prepare query failed");
     this->prepared_query = cass_future_get_prepared(future);
     cass_future_free(future);
-
-
+    this->myCache = NULL;
     this->session = session;
     this->table_metadata = table_meta;
-    this->myCache = new Poco::LRUCache<TupleRow, TupleRow>(cache_size);
+    this->writer = new Writer(table_meta,session,config);
     this->keys_factory = new TupleRowFactory(table_meta->get_keys());
     this->values_factory = new TupleRowFactory(table_meta->get_values());
-    this->writer = new Writer(table_meta,session,config);
+    if (cache_size) this->myCache = new Poco::LRUCache<TupleRow, TupleRow>(cache_size);
 };
 
 
 CacheTable::~CacheTable() {
-      //stl tree calls deallocate for cache nodes on clear()->erase(), and later on destroy, which ends up calling the deleters
     delete(writer);
-    myCache->clear();// destroys keys
-    delete (myCache);
+    if (myCache) {
+        //stl tree calls deallocate for cache nodes on clear()->erase(), and later on destroy, which ends up calling the deleters
+        myCache->clear();
+        delete (myCache);
+    }
     delete (keys_factory);
     delete (values_factory);
-    cass_prepared_free(prepared_query);
+    if (prepared_query!=NULL) cass_prepared_free(prepared_query);
     prepared_query=NULL;
+}
+
+
+void CacheTable::put_crow(const TupleRow* keys, const TupleRow* values) {
+    this->writer->write_to_cassandra(keys,values);
+    if (myCache) this->myCache->update(*keys,*values); //Inserts if not present, otherwise replaces
 }
 
 
 void CacheTable::put_crow(void* keys, void* values) {
     const TupleRow *k = keys_factory->make_tuple(keys);
     const TupleRow *v = values_factory->make_tuple(values);
-    this->writer->write_to_cassandra(k,v);
-    //this->myCache->update(*k,v); //Inserts if not present, otherwise replaces
-}
-
-
-void CacheTable::put_crow(const TupleRow* keys, const TupleRow* values) {
-    this->writer->write_to_cassandra(keys,values);
-    //this->myCache->update(*keys,values); //Inserts if not present, otherwise replaces
+    this->put_crow(k,v);
 }
 
 
@@ -145,21 +140,21 @@ std::vector<const TupleRow *> CacheTable::retrieve_from_cassandra(const TupleRow
 
 
 std::vector<const TupleRow *>  CacheTable::get_crow(const TupleRow *keys) {
-    Poco::SharedPtr<TupleRow> ptrElem = myCache->get(*keys);
-    if (!ptrElem.isNull()) {
-        return {ptrElem.get()};
+    if (myCache) {
+        Poco::SharedPtr<TupleRow> ptrElem = myCache->get(*keys);
+        if (!ptrElem.isNull())  return std::vector <const TupleRow*> { ptrElem.get() };
     }
 
     std::vector<const TupleRow *> values = retrieve_from_cassandra(keys);
 
-    //TODO it calls TupleRow::TupleRow(const TupleRow *t) for values which is wrong
-   // myCache->add(*keys, values[0]);
-    //Store result to cache
+    if (myCache) myCache->add(*keys, *values[0]);
+
     return values;
 }
 
 std::shared_ptr<void> CacheTable::get_crow(void* keys) {
     std::vector<const TupleRow*> result = get_crow(keys_factory->make_tuple(keys));
     if (result.empty()) return NULL;
-    return result.at(0)->get_payload(); //TODO data is lost
+    if (myCache) myCache->add(*keys_factory->make_tuple(keys), *result[0]);
+    return result.at(0)->get_payload();
 }

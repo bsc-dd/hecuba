@@ -219,6 +219,31 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     };
 
 
+    /** PARSE CONFIG **/
+
+    std::map<std::string,std::string> config;
+    int type_check = PyDict_Check(py_config);
+    if (type_check) {
+        PyObject *dict;
+        if (!PyArg_Parse(py_config, "O", &dict)) {
+            return -1;
+        };
+
+        PyObject *key, *value;
+        Py_ssize_t pos = 0;
+        while (PyDict_Next(dict, &pos, &key, &value)){
+            std::string conf_key(PyString_AsString(key));
+            if (PyString_Check(value)){ std::string conf_val(PyString_AsString(value));
+                config[conf_key]=conf_val;}
+            if (PyInt_Check(value)){
+                int32_t c_val = (int32_t) PyInt_AsLong(value);
+                config[conf_key]=std::to_string(c_val);}
+
+        }
+    }
+
+    /*** PARSE TABLE METADATA ***/
+
     uint16_t tokens_size = (uint16_t) PyList_Size(py_tokens);
     uint16_t keys_size = (uint16_t) PyList_Size(py_keys_names);
     uint16_t cols_size = (uint16_t) PyList_Size(py_cols_names);
@@ -262,11 +287,11 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
         }
         type_check = PyDict_Check(obj_to_convert);
         if (type_check) {
+            //CASE NUMPY
             PyObject *dict;
             if (!PyArg_Parse(obj_to_convert, "O", &dict)) {
                 return -1;
             };
-
 
             PyObject* aux_table = PyDict_GetItem(dict, PyString_FromString("npy_table"));
             if (aux_table!=NULL) {
@@ -286,35 +311,14 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
             columns_names[i][2] = PyString_AsString(py_arr_dims);
 
             PyObject *py_arr_partition = PyDict_GetItem(dict, PyString_FromString("partition")); 
-            if (std::strcmp(PyString_AsString(py_arr_partition),"true")==0) columns_names[i][3] = "partition";
+            if (std::strcmp(PyString_AsString(py_arr_partition),"true")==0) {columns_names[i][3] = "partition"; config["cache_size"] = "0";}
             else columns_names[i][3] = "no-partition";
             self->has_numpy = true;
+
         }
     }
 
 
-    /** PARSE CONFIG **/
-
-    std::map<std::string,std::string> config;
-    int type_check = PyDict_Check(py_config);
-    if (type_check) {
-        PyObject *dict;
-        if (!PyArg_Parse(py_config, "O", &dict)) {
-            return -1;
-        };
-
-        PyObject *key, *value;
-        Py_ssize_t pos = 0;
-          while (PyDict_Next(dict, &pos, &key, &value)){
-              std::string conf_key(PyString_AsString(key));
-              if (PyString_Check(value)){ std::string conf_val(PyString_AsString(value));
-              config[conf_key]=conf_val;}
-              if (PyInt_Check(value)){
-                  int32_t c_val = (int32_t) PyInt_AsLong(value);
-                  config[conf_key]=std::to_string(c_val);}
-
-          }
-    }
 
     try {
         self->T = storage->make_cache(table, keyspace, keys_names, columns_names, config);
