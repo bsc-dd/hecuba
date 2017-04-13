@@ -27,6 +27,8 @@ message("CMAKE_BUILD_TYPE is ${CMAKE_BUILD_TYPE}")
 include(ExternalProject)
 project(hfetch)
 
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
+
 #if the user has set custom compiler paths, forward to submodules
 if (${CC})
     set (CMAKE_SUBPROJECT_FLAGSCMAKE_SUBPROJECT_FLAGSCMAKE_SUBPROJECT_FLAGS ${CMAKE_SUBPROJECT_FLAGS} " -DCMAKE_C_COMPILER${CC}")
@@ -80,11 +82,26 @@ endif (NOT $ENV{LD_LIBRARY_PATH}  STREQUAL "")
 
 set(SOURCE_FILES StorageInterface.cpp Prefetch.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp TableMetadata.cpp HCache.cpp PythonParser.cpp )
 set(HEADER_FILES StorageInterface.h Prefetch.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h TableMetadata.h HCache.h PythonParser.h)
-
-
+#set(CMAKE_SKIP_RPATH 1)
+#set(MY_PATHS "${ORIGIN}")
 #CMake main target
+# use, i.e. don't skip the full RPATH for the build tree
+SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
+
+# when building, don't use the install RPATH already
+# (but later on when installing)
+SET(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+
+# don't add the automatically determined parts of the RPATH
+# which point to directories outside the build tree to the install RPATH
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
+
+
 add_library(hfetch SHARED ${SOURCE_FILES} ${HEADER_FILES})
-set_target_properties(hfetch PROPERTIES PREFIX "")
+set_target_properties(hfetch
+        PROPERTIES PREFIX ""
+        INSTALL_RPATH "$ORIGIN/"
+        BUILD_WITH_INSTALL_RPATH 1)
 
 #Dependencies
 FIND_LIBRARY(POCO NAMES PocoFoundation PATHS ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
@@ -214,6 +231,7 @@ set(ALL_LIBS ${ALL_LIBS} ${PYTHON_LIBRARIES})
 
 
 target_link_libraries(hfetch ${ALL_LIBS})
+
 
 
 if (DEFINED ENV{GTEST_ROOT})
