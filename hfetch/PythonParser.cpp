@@ -142,22 +142,20 @@ int PythonParser::py_to_c(PyObject *obj, void *data, CassValueType type) const {
                 bytes = PyObject_GetAttrString(obj, "clock_seq_low"); //8b
                 uint64_t clock_seq_low = (uint64_t) PyLong_AsLongLong(bytes);
 
+
                 bytes = PyObject_GetAttrString(obj, "node"); //48b
                 uint64_t second = (uint64_t) PyLong_AsLongLong(bytes);
 
-                uint64_t first = time_hi_version + (time_mid << 16) + (time_low << 32);
+                uint64_t first = (time_hi_version<< 48) + (time_mid << 32) + (time_low );
 
                 memcpy(permanent, &first, sizeof(first));
                 permanent += sizeof(first);
 
                 second += clock_seq_hi_variant << 56;
                 second += clock_seq_low << 48;;
+
                 memcpy(permanent, &second, sizeof(second));
 
-
-                second += clock_seq_hi_variant << 56;
-                second += clock_seq_low << 48;;
-                memcpy(permanent, &second, sizeof(second));
             } else {
                 uint32_t len = sizeof(uint64_t)*2;
 
