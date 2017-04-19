@@ -5,7 +5,6 @@ from types import NoneType
 from hfetch import Hcache
 from IStorage import IStorage
 from hecuba import config, log
-from storage import api
 import uuid
 
 
@@ -52,10 +51,9 @@ class NamedItemsIterator:
         to_return = self.builder(k, v)
         for element in self.columns:
             if element[1] == 'uuid':
-                new_storageobj = api.getByID(str(uuid.UUID(getattr(to_return.value, element[0]))))
+                new_storageobj = IStorage.getByID(str(uuid.UUID(getattr(to_return.value, element[0]))))
                 to_replace = to_return.value._replace(**{element[0]: new_storageobj})
                 to_return = to_return._replace(value=to_replace)
-
         return to_return
 
 
@@ -328,7 +326,7 @@ class StorageDict(dict, IStorage):
                         cols.append(c)
                 for ind, value in enumerate(cols):
                     if value[1] == 'uuid':
-                        cres[ind] = api.getByID(str(uuid.UUID(cres[ind])))
+                        cres[ind] = IStorage.getByID(str(uuid.UUID(cres[ind])))
                 return cres
 
     def __setitem__(self, key, val):
@@ -420,4 +418,3 @@ class StorageDict(dict, IStorage):
             return NamedIterator(ik, self._column_builder)
         else:
             return dict.itervalues(self)
-

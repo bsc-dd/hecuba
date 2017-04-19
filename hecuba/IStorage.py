@@ -62,7 +62,6 @@ class IStorage:
                         yield block
                         block = []
                 # Adding the last token
-
                 block.append((fraction, to))
             if len(block) > 0:
                 yield block
@@ -120,3 +119,42 @@ class IStorage:
 
     def getID(self):
         return self._storage_id
+
+    @classmethod
+    def getByID(self,objid):
+        """
+            TODO
+
+
+            Args:
+                objid (str):  object identifier
+
+            Returns:
+                 (Block| Storageobj)
+
+            """
+        objidsplit = objid.split("_")
+
+        if len(objidsplit) == 2:
+            objid = objidsplit[0]
+        results = ''
+        try:
+            results = \
+            config.session.execute("SELECT * FROM " + config.execution_name + ".istorage WHERE storage_id = %s",
+                                   (objid,))[0]
+        except Exception as e:
+            print "SELECT * FROM " + config.execution_name + ".istorage WHERE storage_id = " + str(objid)
+            print "ERROR:", e
+        class_name = results.class_name
+
+        log.debug("IStorage API:getByID(%s) of class %s", objid, class_name)
+        last = 0
+        for key, i in enumerate(class_name):
+            if i == '.' and key > last:
+                last = key
+        module = class_name[:last]
+        cname = class_name[last + 1:]
+        mod = __import__(module, globals(), locals(), [cname], 0)
+        b = getattr(mod, cname).build_remotely(results)
+        b._storage_id = objid
+        return b
