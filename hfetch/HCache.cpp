@@ -516,7 +516,13 @@ static PyObject *get_next(HIterator *self) {
         return NULL;
     }
     std::vector<const TupleRow*> temp = {result};
-    PyObject* py_row = parser->tuples_as_py(temp, self->metadata->get_items());
+    std::shared_ptr<const std::vector<ColumnMeta> > row_metas;
+    if (self->P->get_type()=="items") row_metas = self->metadata->get_items();
+    else if (self->P->get_type()=="values") row_metas = self->metadata->get_values();
+    else {
+        row_metas = self->metadata->get_keys();
+    }
+    PyObject* py_row = parser->tuples_as_py(temp, row_metas);
 
     if (self->update_cache) {
         self->baseTable->put_crow(result);

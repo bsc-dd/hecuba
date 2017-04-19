@@ -26,6 +26,10 @@ public:
         return table_metadata;
     }
 
+    inline std::string get_type() {
+        return this->type;
+    }
+
 private:
 
     void consume_tokens();
@@ -42,7 +46,7 @@ private:
     tbb::concurrent_bounded_queue<TupleRow*> data;
     std::vector<std::pair<int64_t, int64_t>> tokens;
     const CassPrepared *prepared_query;
-
+    std::string type;
 
 };
 
