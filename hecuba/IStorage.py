@@ -28,7 +28,8 @@ class IStorage:
                     'long': 'bigint',
                     'buffer': 'blob',
                     'bytearray': 'blob',
-                    'counter': 'counter'}
+                    'counter': 'counter',
+                    'numpy_array': 'blob'}
 
     @staticmethod
     def build_remotely(new_args):

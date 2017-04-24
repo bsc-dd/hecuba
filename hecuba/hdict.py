@@ -6,6 +6,7 @@ from hfetch import Hcache
 from IStorage import IStorage
 from hecuba import config, log
 import uuid
+import numpy as np
 
 
 class NamedIterator:
@@ -195,7 +196,7 @@ class StorageDict(dict, IStorage):
 
     @staticmethod
     def _make_value(key):
-        if isinstance(key, str) or isinstance(key, unicode) or not isinstance(key, Iterable):
+        if isinstance(key, str) or isinstance(key, unicode) or not isinstance(key, Iterable) or type(key).__module__ == np.__name__:
             return [key]
         else:
             return list(key)
@@ -256,12 +257,25 @@ class StorageDict(dict, IStorage):
         key_names = map(lambda a: a[0], self._primary_keys)
         column_names = map(lambda a: a[0], cols)
         tknp = "token(%s)" % key_names[0]
-        self._hcache_params = (self._ksp, self._table + '_' + str(self._storage_id).replace('-', ''),
-                               "WHERE %s>=? AND %s<?;" % (tknp, tknp),
-                               self._tokens, key_names, column_names,
-                               {'cache_size': config.max_cache_size,
-                                'writer_par': config.write_callbacks_number,
-                                'write_buffer': config.write_buffer_size})
+        for val in cols:
+            # we need to find a better way to do this
+            if val[1] == 'blob':
+                self._hcache_params = (self._ksp, self._table + '_' + str(self._storage_id).replace('-', ''),
+                                       "WHERE %s>=? AND %s<?;" % (tknp, tknp),
+                                       self._tokens, key_names, [{"name": val[0],
+                                                                  "type": "double",
+                                                                  "dims": '3' + 'x' + '3',
+                                                                  "partition": "false"}],
+                                       {'cache_size': config.max_cache_size,
+                                        'writer_par': config.write_callbacks_number,
+                                        'write_buffer': config.write_buffer_size})
+            else:
+                self._hcache_params = (self._ksp, self._table + '_' + str(self._storage_id).replace('-', ''),
+                                       "WHERE %s>=? AND %s<?;" % (tknp, tknp),
+                                       self._tokens, key_names, column_names,
+                                       {'cache_size': config.max_cache_size,
+                                        'writer_par': config.write_callbacks_number,
+                                        'write_buffer': config.write_buffer_size})
         log.debug("HCACHE params %s", self._hcache_params)
         self._hcache = Hcache(*self._hcache_params)
         # Storing all in-memory values to cassandra
@@ -341,10 +355,7 @@ class StorageDict(dict, IStorage):
         if type(val) == list:
             for ind, entry in enumerate(val):
                 if issubclass(entry.__class__, StorageDict) or issubclass(entry.__class__, IStorage):
-                    if self._columns[ind][1].split('.')[-1] == entry.__class__.__name__:
-                        val[ind] = uuid.UUID(entry._storage_id)
-                    else:
-                        raise TypeError
+                    val[ind] = uuid.UUID(entry._storage_id)
         else:
             if issubclass(val.__class__, StorageDict) or issubclass(val.__class__, IStorage):
                 if self._columns[0][1].split('.')[-1] == val.__class__.__name__:
