@@ -14,14 +14,17 @@ Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges,
     if (config["type"]=="keys") {
         this->t_factory = TupleRowFactory(table_meta->get_keys());
         query=table_meta->get_select_keys_tokens();
+        this->type="keys";
     }
     else if (config["type"]=="values") {
         this->t_factory = TupleRowFactory(table_meta->get_values());
         query=table_meta->get_select_values_tokens();
+        this->type="values";
     }
     else {
         this->t_factory = TupleRowFactory(table_meta->get_items());
         query=table_meta->get_select_all_tokens();
+        this->type="items";
     }
 
     this->tokens = token_ranges;
