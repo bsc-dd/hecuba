@@ -32,8 +32,8 @@
 #include "StorageInterface.h"
 
 
-StorageInterface* storage;
-PythonParser* parser;
+std::shared_ptr<StorageInterface> storage;
+PythonParser parser;
 
 
 typedef struct {

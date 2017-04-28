@@ -24,8 +24,8 @@ static PyObject *connectCassandra(PyObject *self, PyObject *args) {
     }
 
     try {
-        storage = new StorageInterface(nodePort, contact_points);
-        parser = new PythonParser();
+        storage = std::make_shared<StorageInterface>(nodePort, contact_points);
+        parser = PythonParser();
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -48,12 +48,12 @@ static PyObject *put_row(HCache *self, PyObject *args) {
     }
 
     try {
-        TupleRow *k = parser->make_tuple(py_keys, self->metadata->get_keys());
+        TupleRow *k = parser.make_tuple(py_keys, self->metadata->get_keys());
         if (self->has_numpy) {
        // check partition TODO
             uint16_t numpy_pos = 0;
             std::shared_ptr<const std::vector<ColumnMeta> > metas = self->metadata->get_values();
-            while (parser->get_arr_type(metas->at(numpy_pos)) == NPY_NOTYPE && numpy_pos < metas->size()) ++numpy_pos;
+            while (parser.get_arr_type(metas->at(numpy_pos)) == NPY_NOTYPE && numpy_pos < metas->size()) ++numpy_pos;
             if (numpy_pos == metas->size())
                 throw ModuleException("Sth went wrong looking for the numpy");
 
@@ -84,7 +84,7 @@ static PyObject *put_row(HCache *self, PyObject *args) {
                 Py_INCREF(array);
 
 
-                std::vector<const TupleRow *> value_list = parser->make_tuples_with_npy(npy_list,temp->get_metadata()->get_values());
+                std::vector<const TupleRow *> value_list = parser.make_tuples_with_npy(npy_list,temp->get_metadata()->get_values());
 
                 Py_DECREF(npy_list);
                // Py_DECREF(array);
@@ -117,7 +117,7 @@ static PyObject *put_row(HCache *self, PyObject *args) {
 
                 PyList_SetItem(py_values, numpy_pos, py_uuid);
 
-                const TupleRow *v = parser->make_tuple(py_values,self->metadata->get_values());
+                const TupleRow *v = parser.make_tuple(py_values,self->metadata->get_values());
                 //Inserts if not present, otherwise replaces
                 self->T->put_crow(k, v);
 
@@ -129,7 +129,7 @@ static PyObject *put_row(HCache *self, PyObject *args) {
             else {
 
                 //local
-                std::vector<const TupleRow *> value_list = parser->make_tuples_with_npy(py_values,metas);
+                std::vector<const TupleRow *> value_list = parser.make_tuples_with_npy(py_values,metas);
                 //this->myCache->update(*k, value_list[0]); <- broken
                 for (const TupleRow *T:value_list) {
                     TupleRow *key_copy = new TupleRow(k);
@@ -138,7 +138,7 @@ static PyObject *put_row(HCache *self, PyObject *args) {
             }
         }
         else {
-            TupleRow *v = parser->make_tuple(py_values, self->metadata->get_values());
+            TupleRow *v = parser.make_tuple(py_values, self->metadata->get_values());
             self->T->put_crow(k, v);
         }
 
@@ -157,14 +157,14 @@ static PyObject *get_row(HCache *self, PyObject *args) {
         return NULL;
     }
     try {
-        TupleRow *k = parser->make_tuple(py_keys, self->metadata->get_keys());
+        TupleRow *k = parser.make_tuple(py_keys, self->metadata->get_keys());
         std::vector<const TupleRow *>v = self->T->get_crow(k);
         //delete(k); //TODO decide when to do cleanup
         if (self->has_numpy) {
-              py_row = parser->merge_blocks_as_nparray(v, self->metadata->get_values());
+              py_row = parser.merge_blocks_as_nparray(v, self->metadata->get_values());
         }
         else {
-            py_row = parser->tuples_as_py(v, self->metadata->get_values());
+            py_row = parser.tuples_as_py(v, self->metadata->get_values());
         }
     }
     catch (std::exception &e) {
@@ -522,7 +522,7 @@ static PyObject *get_next(HIterator *self) {
     else {
         row_metas = self->metadata->get_keys();
     }
-    PyObject* py_row = parser->tuples_as_py(temp, row_metas);
+    PyObject* py_row = parser.tuples_as_py(temp, row_metas);
 
     if (self->update_cache) {
         self->baseTable->put_crow(result);
@@ -594,8 +594,8 @@ static PyObject *write_cass(HWriter *self, PyObject *args) {
     }
 
     try {
-        TupleRow *k = parser->make_tuple(py_keys, self->metadata->get_keys());
-        TupleRow *v = parser->make_tuple(py_values, self->metadata->get_values());
+        TupleRow *k = parser.make_tuple(py_keys, self->metadata->get_keys());
+        TupleRow *v = parser.make_tuple(py_values, self->metadata->get_values());
         self->W->write_to_cassandra(k,v);
     }
     catch (std::exception &e) {
@@ -897,8 +897,6 @@ static PyObject *create_iter_values(HCache *self, PyObject *args) {
 void (*f)(PyObject *) = NULL;
 
 static void module_dealloc(PyObject *self) {
-    if (storage) storage->disconnectCassandra();
-    //delete(storage);//
     if (f) f(self);
 }
 
