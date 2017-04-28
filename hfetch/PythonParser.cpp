@@ -717,7 +717,7 @@ std::vector<void *> PythonParser::split_array(PyObject *py_array) {
     }
 
     //then we split the payload
-    uint32_t nblocks = (uint32_t) std::trunc(nbytes / maxarray_size); //number of subarrays
+    uint32_t nblocks = (uint32_t) (nbytes - (nbytes % maxarray_size))/maxarray_size; //number of subarrays
     if (nbytes % maxarray_size != 0) ++nblocks; //we don't want to lose data
     uint64_t block_size = std::min(nbytes, (uint64_t) maxarray_size);//bytes per block
 
