@@ -220,16 +220,16 @@ class StorageDict(dict, IStorage):
             self._storage_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, name))
             self._build_args = self._build_args._replace(storage_id=self._storage_id)
         self._store_meta(self._build_args)
-
-        query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy'," \
-                         "'replication_factor': %d }" % (self._ksp, config.repl_factor)
-        if query_keyspace not in config.create_cache:
-            try:
-                config.create_cache.add(query_keyspace)
-                log.debug('MAKE PERSISTENCE: %s', query_keyspace)
-                config.session.execute(query_keyspace)
-            except Exception as ex:
-                print "Error creating the StorageDict keyspace:", query_keyspace, ex
+        if config.id_create_schema == -1:
+            query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy'," \
+                             "'replication_factor': %d }" % (self._ksp, config.repl_factor)
+            if query_keyspace not in config.create_cache:
+                try:
+                    config.create_cache.add(query_keyspace)
+                    log.debug('MAKE PERSISTENCE: %s', query_keyspace)
+                    config.session.execute(query_keyspace)
+                except Exception as ex:
+                    print "Error creating the StorageDict keyspace:", query_keyspace, ex
 
         cols = []
         for c in self._columns:

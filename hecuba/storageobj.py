@@ -326,23 +326,24 @@ class StorageObj(object, IStorage):
         (self._ksp, self._table) = self._extract_ks_tab(name)
         # log.info("PERSISTING DATA INTO %s %s", self._ksp, self._table)
 
-        query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy'," \
-                         "'replication_factor': %d }" % (self._ksp, config.repl_factor)
-        try:
-            config.session.execute(query_keyspace)
-        except Exception as ex:
-            print "Error executing query:", query_keyspace
-            raise ex
+        if config.id_create_schema == -1:
+            query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy'," \
+                             "'replication_factor': %d }" % (self._ksp, config.repl_factor)
+            try:
+                config.session.execute(query_keyspace)
+            except Exception as ex:
+                print "Error executing query:", query_keyspace
+                raise ex
 
-        query_simple = 'CREATE TABLE IF NOT EXISTS ' + str(self._ksp) + '.' + str(self._table) + '_' + str(self._storage_id).replace('-', '') + \
-                       '( storage_id uuid PRIMARY KEY, '
-        for key, entry in self._persistent_props.iteritems():
-            query_simple += str(key) + ' '
-            if not entry['type'] == 'dict':
-                query_simple += entry['type'] + ', '
-            else:
-                query_simple += 'uuid, '
-        config.session.execute(query_simple[0:len(query_simple)-2] + ' )')
+            query_simple = 'CREATE TABLE IF NOT EXISTS ' + str(self._ksp) + '.' + str(self._table) + '_' + str(self._storage_id).replace('-', '') + \
+                           '( storage_id uuid PRIMARY KEY, '
+            for key, entry in self._persistent_props.iteritems():
+                query_simple += str(key) + ' '
+                if not entry['type'] == 'dict':
+                    query_simple += entry['type'] + ', '
+                else:
+                    query_simple += 'uuid, '
+            config.session.execute(query_simple[0:len(query_simple)-2] + ' )')
 
         dictionaries = filter(lambda (k, t): t['type'] == 'dict', self._persistent_props.iteritems())
         is_props = self._build_args.istorage_props

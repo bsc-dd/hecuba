@@ -67,6 +67,12 @@ class Config:
         log.info('setting up configuration with mock_cassandra = %s', mock_cassandra)
 
         singleton.configured = True
+
+        if 'CREATE_SCHEMA' in os.environ:
+            singleton.id_create_schema = int(os.environ['CREATE_SCHEMA'])
+        else:
+            singleton.id_create_schema = -1
+
         if mock_cassandra:
             log.info('configuring mock environment')
         else:
@@ -133,19 +139,20 @@ class Config:
                 from hfetch import connectCassandra
                 # connecting c++ bindings
                 connectCassandra(singleton.contact_names, singleton.nodePort)
-                singleton.session.execute(
-                    "CREATE KEYSPACE IF NOT EXISTS " + singleton.execution_name + " WITH replication = {'class': 'SimpleStrategy',"
-                    "'replication_factor': %d }" % singleton.repl_factor)
-                singleton.session.execute(
-                    'CREATE TABLE IF NOT EXISTS ' + singleton.execution_name + '.istorage (storage_id text, '
-                    'class_name text,name text, '
-                    'istorage_props map<text,text>, '
-                    'tokens list<frozen<tuple<bigint,bigint>>>, entry_point text, port int, '
-                    'indexed_args list<text>, nonindexed_args list<text>, '
-                    'primary_keys list<frozen<tuple<text,text>>>,'
-                    'columns list<frozen<tuple<text,text>>>,'
-                    'value_list list<text>, mem_filter text, '
-                    'PRIMARY KEY(storage_id))')
+                if singleton.id_create_schema == -1:
+                    singleton.session.execute(
+                        "CREATE KEYSPACE IF NOT EXISTS " + singleton.execution_name + " WITH replication = {'class': 'SimpleStrategy',"
+                        "'replication_factor': %d }" % singleton.repl_factor)
+                    singleton.session.execute(
+                        'CREATE TABLE IF NOT EXISTS ' + singleton.execution_name + '.istorage (storage_id text, '
+                        'class_name text,name text, '
+                        'istorage_props map<text,text>, '
+                        'tokens list<frozen<tuple<bigint,bigint>>>, entry_point text, port int, '
+                        'indexed_args list<text>, nonindexed_args list<text>, '
+                        'primary_keys list<frozen<tuple<text,text>>>,'
+                        'columns list<frozen<tuple<text,text>>>,'
+                        'value_list list<text>, mem_filter text, '
+                        'PRIMARY KEY(storage_id))')
 
             except Exception as e:
                 log.error('Exception creating cluster session. Are you in a testing env? %s', e)
@@ -227,13 +234,14 @@ class Config:
             singleton.write_callbacks_number = 16
             log.warn('using default WRITE_CALLBACKS_NUMBER: %s', singleton.write_callbacks_number)
 
-        try:
-            query = "CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = { 'class' : \'%s\'," \
-                    "'replication_factor' : %d};" \
-                    % (singleton.execution_name, singleton.repl_class, singleton.repl_factor)
-            singleton.session.execute(query)
-        except Exception as e:
-            print "Cannot create keyspace", e
+        if singleton.id_create_schema == -1:
+            try:
+                query = "CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = { 'class' : \'%s\'," \
+                        "'replication_factor' : %d};" \
+                        % (singleton.execution_name, singleton.repl_class, singleton.repl_factor)
+                singleton.session.execute(query)
+            except Exception as e:
+                print "Cannot create keyspace", e
 
         singleton.create_cache = set()
 
