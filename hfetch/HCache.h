@@ -32,7 +32,7 @@
 #include "StorageInterface.h"
 
 
-std::shared_ptr<StorageInterface> storage;
+std::shared_ptr<StorageInterface> storage; //StorageInterface* storage;
 PythonParser parser;
 
 

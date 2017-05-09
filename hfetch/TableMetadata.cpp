@@ -172,13 +172,13 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
 
     const CassKeyspaceMeta *keyspace_meta = cass_schema_meta_keyspace_by_name(schema_meta, keyspace_name);
     if (!keyspace_meta) {
-        throw ModuleException("Keyspace particles_table: constructor: Schema meta is NULL");
+        throw ModuleException("Keyspace "+std::string(keyspace_name)+": constructor: Schema meta is NULL");
     }
 
 
     const CassTableMeta *table_meta = cass_keyspace_meta_table_by_name(keyspace_meta, table_name);
     if (!table_meta || (cass_table_meta_column_count(table_meta)==0)) {
-        throw ModuleException("Cache particles_table: constructor: Table meta is NULL");
+        throw ModuleException("Cache "+std::string(table_name)+": constructor: Table meta is NULL");
     }
 
 

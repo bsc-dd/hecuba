@@ -9,6 +9,7 @@ StorageInterface::StorageInterface(int nodePort, std::string contact_points) {
     session = cass_session_new();
 
     // add contact points
+    if (contact_points.empty()) contact_points = "127.0.0.1";
     cass_cluster_set_contact_points(cluster, contact_points.c_str());
     cass_cluster_set_port(cluster, nodePort);
     cass_cluster_set_token_aware_routing(cluster, cass_true);
@@ -62,6 +63,7 @@ int StorageInterface::disconnectCassandra() {
 CacheTable* StorageInterface::make_cache(const char *table, const char *keyspace,
                                          std::vector<std::string> keys_names, std::vector<std::vector<std::string> >columns_names,
                                          std::map<std::string, std::string> &config) {
+    if (!session) throw ModuleException("make cache session null");
     TableMetadata* table_meta = new TableMetadata(table,keyspace,keys_names,columns_names,session);
     return new CacheTable(table_meta, session, config);
 }
@@ -72,7 +74,7 @@ CacheTable* StorageInterface::make_cache(const char *table, const char *keyspace
 Writer* StorageInterface::make_writer(const char *table,const char *keyspace,
                                       std::vector < std::string> keys_names,std::vector < std::vector<std::string > >columns_names,
                                       std::map<std::string,std::string> &config) {
-
+    if (!session) throw ModuleException("make writer session null");
     TableMetadata* table_meta = new TableMetadata(table,keyspace,keys_names,columns_names,session);
     return new Writer(table_meta,session,config);
 
@@ -95,6 +97,7 @@ Prefetch* StorageInterface::get_iterator(const char *table,const char *keyspace,
                                               std::vector < std::string> keys_names,std::vector < std::vector<std::string > > columns_names,
                                               const std::vector<std::pair<int64_t, int64_t>> &tokens,
                                          std::map<std::string,std::string> &config) {
+    if (!session) throw ModuleException("get_it session null");
     TableMetadata* table_meta = new TableMetadata(table,keyspace,keys_names,columns_names,session);
     return new Prefetch(tokens, table_meta, session,config);
 }
@@ -104,5 +107,6 @@ Prefetch* StorageInterface::get_iterator(const char *table,const char *keyspace,
 Prefetch* StorageInterface::get_iterator(const TableMetadata* table_meta,
                        const std::vector<std::pair<int64_t, int64_t>> &tokens,
                                          std::map<std::string,std::string> &config) {
+    if (!session) throw ModuleException("get_it session null");
     return new Prefetch(tokens, table_meta, session,config);
 }

@@ -21,7 +21,9 @@ PythonParser::~PythonParser() {
  * @post The python object can be deleted
  */
 TupleRow *PythonParser::make_tuple(PyObject* obj,std::shared_ptr<const std::vector<ColumnMeta> > metadata) const {
+    if (!PyList_Check(obj)) throw ModuleException("PythonParser: Make tuple: Expected list");
     const std::vector<ColumnMeta>* localMeta=metadata.get();
+    if (size_t(PyList_Size(obj))!=metadata->size()) throw ModuleException("PythonParser: Make tuple: Got less elements than columns in cassandra");
     uint32_t total_bytes = localMeta->at(localMeta->size()-1).position+localMeta->at(localMeta->size()-1).size;
 
     char *buffer = (char *) malloc(total_bytes);
@@ -569,11 +571,15 @@ PyArray_Dims *PythonParser::get_arr_dims(const ColumnMeta& column_meta) const {
 
 //for each np array transform into tuples, if in the next positions arrays are to be found, ignore them
 std::vector<const TupleRow *> PythonParser::make_tuples_with_npy(PyObject *obj, std::shared_ptr<const std::vector<ColumnMeta> > metadata) {
+    if (!PyList_Check(obj)) throw ModuleException("PythonParser: Make tuple with numpy: Expected list");
     uint16_t total_bytes = metadata->at(metadata->size()-1).position+metadata->at(metadata->size()-1).size;
     uint16_t nelem = (uint16_t) PyList_Size(obj);
     if (nelem > metadata->size())
         throw ModuleException(
                 "TupleRowFactory: Make tuple from NUMPY: Access metadata at " + std::to_string(nelem - 1));
+    if (PyList_Size(obj) != nelem)
+        throw ModuleException(
+                "TupleRowFactory: Make tuple from NUMPY: Number of columns missmatch");
     if (metadata->at(nelem - (uint16_t) 1).position >= total_bytes)
         throw ModuleException("TupleRowFactory: Make tuple from NUMPY: Writing on byte " +
                               std::to_string(metadata->at(nelem - (uint16_t) 1).position));
@@ -663,6 +669,7 @@ std::vector<const TupleRow *> PythonParser::blocks_to_tuple(std::vector<void *> 
 
 
 void *PythonParser::extract_array(PyObject *py_array) const {
+    if (!PyArray_Check(py_array)) throw ModuleException("PythonParser: Extract array: Expected numpy array");
     ssize_t nbytes_s = 0;
     void *original_payload = NULL;
     int ok;
@@ -697,6 +704,7 @@ void *PythonParser::extract_array(PyObject *py_array) const {
 
 
 std::vector<void *> PythonParser::split_array(PyObject *py_array) {
+    if (!PyArray_Check(py_array)) throw ModuleException("PythonParser: Split array: Expected numpy array");
     //we have an array so we extract the bytes
     uint64_t nbytes = 0;
     void *data = NULL;
