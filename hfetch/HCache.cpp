@@ -276,8 +276,8 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     std::vector<std::vector<std::string>> columns_names = std::vector<std::vector<std::string>>(cols_size);
     for (uint16_t i = 0; i < cols_size; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_cols_names, i);
-        int type_check = PyString_Check(obj_to_convert);
-        if (type_check) {
+        
+        if (PyString_Check(obj_to_convert) || PyUnicode_Check(obj_to_convert)) {
             char *str_temp;
             if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
                 return -1;
@@ -285,8 +285,7 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
             columns_names[i] = std::vector<std::string>(1);
             columns_names[i][0] = std::string(str_temp);
         }
-        type_check = PyDict_Check(obj_to_convert);
-        if (type_check) {
+        else if (PyDict_Check(obj_to_convert)) {
             //CASE NUMPY
             PyObject *dict;
             if (!PyArg_Parse(obj_to_convert, "O", &dict)) {
@@ -316,7 +315,10 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
             }
             else columns_names[i][3] = "no-partition";
             self->has_numpy = true;
-
+        }
+        else {
+            PyErr_SetString(PyExc_RuntimeError, "Can't parse column names, expected String, Dict or Unicode");
+            return -1;
         }
     }
 
