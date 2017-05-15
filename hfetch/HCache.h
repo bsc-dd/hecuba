@@ -39,7 +39,6 @@ PythonParser parser;
 typedef struct {
     PyObject_HEAD
     CacheTable *T;
-    const TableMetadata* metadata;
     std::vector<std::pair<int64_t, int64_t>> token_ranges;
     bool has_numpy;
 } HCache;
@@ -49,7 +48,6 @@ typedef struct {
     PyObject_HEAD
     Prefetch *P;
     CacheTable *baseTable;
-    const TableMetadata* metadata;
     std::vector<std::pair<int64_t, int64_t>> token_ranges;
     bool update_cache;
 } HIterator;
@@ -59,7 +57,6 @@ typedef struct {
     PyObject_HEAD
     Writer *W;
     CacheTable *baseTable;
-    const TableMetadata* metadata;
     bool has_numpy;
 } HWriter;
 

@@ -63,6 +63,7 @@ CacheTable::~CacheTable() {
     delete (values_factory);
     if (prepared_query!=NULL) cass_prepared_free(prepared_query);
     prepared_query=NULL;
+    delete(table_metadata);
 }
 
 
