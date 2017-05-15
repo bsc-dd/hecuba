@@ -537,6 +537,7 @@ TEST(TestingCacheTable, PutRowStringC) {
 
     delete(T);
     //With the aim to synchronize
+    table_meta = new TableMetadata(particles_table,keyspace,keysnames,colsnames,test_session);
     T = new CacheTable(table_meta, test_session, config);
 
 
@@ -572,6 +573,7 @@ TEST(TestingCacheTable, PutRowStringC) {
 
     delete(T);
     //With the aim to synchronize
+    table_meta = new TableMetadata(particles_table,keyspace,keysnames,colsnames,test_session);
     T = new CacheTable(table_meta, test_session, config);
 
 
