@@ -185,6 +185,8 @@ class StorageDict(dict, IStorage):
     def _make_key(self, key):
         if isinstance(key, str) or isinstance(key, unicode) or not isinstance(key, Iterable):
             if len(self._primary_keys) == 1:
+                if isinstance(key,unicode):
+                    return [key.encode('ascii','ignore')]
                 return [key]
             else:
                 raise Exception('missing a primary key')
@@ -196,8 +198,10 @@ class StorageDict(dict, IStorage):
 
     @staticmethod
     def _make_value(key):
-        if isinstance(key, str) or isinstance(key, unicode) or not isinstance(key, Iterable) or type(key).__module__ == np.__name__:
+        if isinstance(key, str) or not isinstance(key, Iterable) or type(key).__module__ == np.__name__:
             return [key]
+        elif isinstance(key,unicode):
+            return [key.encode('ascii','ignore')]
         else:
             return list(key)
 
