@@ -1,12 +1,13 @@
 import unittest
 
-from hecuba.hdict import PersistentDict
+from hecuba.hdict import StorageDict
+from app.words import Words
 from mock import Mock, call
-
 from hecuba import config, Config
-
 from hecuba.storageobj import StorageObj
 from app.result import Result
+import uuid
+from hfetch import Hcache
 
 
 class StorageObjTest(unittest.TestCase):
@@ -19,7 +20,7 @@ class StorageObjTest(unittest.TestCase):
                                 'primary_keys': [('word',
                                                   'text')],
                                 'type': 'dict'}}
-        result_comment = " @ClassField instances dict <<word:str>,instances:atomicint> "
+        result_comment = " @ClassField instances dict<<word:str>,instances:atomicint> "
 
         p = StorageObj._parse_comments(result_comment)
         self.assertEqual(result, p)
@@ -28,7 +29,7 @@ class StorageObjTest(unittest.TestCase):
                               'primary_keys': [('position',
                                                 'int')],
                               'type': 'dict'}}
-        words_comment = '  @ClassField wordinfo dict <<position:int>,wordinfo:str> '
+        words_comment = '  @ClassField wordinfo dict<<position:int>,wordinfo:str> '
         p = StorageObj._parse_comments(words_comment)
         self.assertEqual(words, p)
 
@@ -42,8 +43,8 @@ class StorageObjTest(unittest.TestCase):
                                                 'text')],
                               'type': 'dict'}
                 }
-        both_comment = '  @ClassField wordinfo dict <<position:int>,wordinfo:str>\n ' + \
-                       '@ClassField instances dict <<word:str>,instances:atomicint> '
+        both_comment = '  @ClassField wordinfo dict<<position:int>,wordinfo:str>\n ' + \
+                       '@ClassField instances dict<<word:str>,instances:atomicint> '
         p = StorageObj._parse_comments(both_comment)
         self.assertEqual(both, p)
 
@@ -62,17 +63,17 @@ class StorageObjTest(unittest.TestCase):
                               'type': 'dict'
                               }
                 }
-        both_comment = '  @ClassField wordinfo dict <<position:int>,wordinfo:str>\n ' + \
+        both_comment = '  @ClassField wordinfo dict<<position:int>,wordinfo:str>\n ' + \
                        '  @Index_on instances instances,word\n ' + \
-                       '  @ClassField instances dict <<word:str>,instances:atomicint> ' + \
+                       '  @ClassField instances dict<<word:str>,instances:atomicint> ' + \
                        '  @Index_on wordinfo wordinfo,position\n '
         p = StorageObj._parse_comments(both_comment)
         self.assertEqual(both2, p)
 
     def test_parse_2(self):
-        comment = "     @ClassField particles dict <<partid:int>,x:int,y:int,z:int>"
+        comment = "     @ClassField particles dict<<partid:int>,x:int,y:int,z:int>"
         p = StorageObj._parse_comments(comment)
-        should_be ={ 'particles':{
+        should_be = {'particles':{
             'columns': [('x','int'),('y','int'),('z','int')],
             'primary_keys': [('partid','int')],
             'type': 'dict'
@@ -80,7 +81,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(p,should_be)
 
     def test_parse_3(self):
-        comment = "     @ClassField particles dict <<partid:int,part2:str>,x:int,y:int,z:int>"
+        comment = "     @ClassField particles dict<<partid:int,part2:str>,x:int,y:int,z:int>"
         p = StorageObj._parse_comments(comment)
         should_be = {'particles': {
             'columns': [('x', 'int'), ('y', 'int'), ('z', 'int')],
@@ -89,29 +90,36 @@ class StorageObjTest(unittest.TestCase):
         }}
         self.assertEquals(p, should_be)
 
-    def est_init(self):
+    def test_init(self):
+        # still in development
         config.session.execute = Mock(return_value=None)
-        nopars = StorageObj('ksp1.tt1', storage_id='ciao')
+        Hcache.__init__ = Mock(return_value=None) # searching for a way to do this
+        nopars = Words(name='ksp1.tt1', storage_id='ciao', tokens=[8508619251581300691, 8514581128764531689,
+                                                                   8577968535836399533, 8596162846302799189,
+                                                                   8603491526474728284, 8628291680139169981,
+                                                                   8687301163739303017, 9111581078517061776])
         self.assertEqual('tt1', nopars._table)
         self.assertEqual('ksp1', nopars._ksp)
         self.assertEqual('ciao', nopars._myuuid)
         config.session.execute.assert_not_called()
 
-    def est_build_remotely(self):
+    def test_build_remotely(self):
         config.session.execute = Mock(return_value=None)
 
         class res: pass
-
         r = res()
-        r.ksp = 'ksp1'
-        r.tab = 'tt1'
-        r.blockid = 'ciao'
-        r.storageobj_classname = "hecuba.storageobj.StorageObj"
+        r.ksp = config.execution_name
+        r.name = 'tt1'
+        r.class_name = "hecuba.storageobj.StorageObj"
+        r.tokens = [8508619251581300691, 8514581128764531689, 8577968535836399533, 8596162846302799189,
+                  8603491526474728284, 8628291680139169981, 8687301163739303017, 9111581078517061776]
+        r.storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1')
+        r.istorage_props = {}
         nopars = StorageObj.build_remotely(r)
         self.assertEqual('tt1', nopars._table)
-        self.assertEqual('ksp1', nopars._ksp)
-        self.assertEqual('ciao', nopars._myuuid)
-        config.session.execute.assert_not_called()
+        self.assertEqual(config.execution_name, nopars._ksp)
+        self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), nopars._storage_id)
+        config.session.execute.assert_called()
 
     def test_init_create_pdict(self):
 
@@ -120,29 +128,37 @@ class StorageObjTest(unittest.TestCase):
         class res: pass
 
         r = res()
-        r.ksp = u'ksp1'
-        r.tab = u'tt1'
+        r.ksp = config.execution_name
+        r.name = u'tt1'
         r.class_name = u"hecuba.storageobj.StorageObj"
-        r.object_id = u'ciao'
+        r.storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1')
+        r.tokens = [8508619251581300691, 8514581128764531689, 8577968535836399533, 8596162846302799189,
+                  8603491526474728284, 8628291680139169981, 8687301163739303017, 9111581078517061776]
+        r.istorage_props = {}
         nopars = StorageObj.build_remotely(r)
         self.assertEqual('tt1', nopars._table)
-        self.assertEqual('ksp1', nopars._ksp)
-        self.assertEqual('ciao', nopars._myuuid)
-        config.session.execute.assert_not_called()
+        self.assertEqual(config.execution_name, nopars._ksp)
+        self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), nopars._storage_id)
+        config.session.execute.assert_called()
 
         config.session.execute = Mock(return_value=None)
-        nopars = Result('ksp1.tt1', myuuid='ciao')
+        Hcache.__init__ = Mock(return_value=None) # searching for a way to do this
+        nopars = Result(name='tt1',
+                        storage_id='ciao',
+                        tokens=[8508619251581300691, 8514581128764531689, 8577968535836399533, 8596162846302799189,
+                                8603491526474728284, 8628291680139169981, 8687301163739303017, 9111581078517061776])
         self.assertEqual('tt1', nopars._table)
-        self.assertEqual('ksp1', nopars._ksp)
-        self.assertEqual('ciao', nopars._myuuid)
+        self.assertEqual(config.execution_name, nopars._ksp)
+        self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), nopars._storage_id)
         self.assertEqual(True, nopars._is_persistent)
         self.assertTrue(hasattr(nopars, 'instances'))
-        self.assertIsInstance(nopars.instances, PersistentDict)
+        self.assertIsInstance(nopars.instances, StorageDict)
         config.session.execute.assert_not_called()
 
-    def est__set_attr(self):
+    def test_set_attr(self):
         config.session.execute = Mock(return_value=None)
-        nopars = StorageObj('ksp1.tt1', storage_id='ciao')
+        nopars = Words(name='ksp1.tt1', tokens=[8508619251581300691, 8514581128764531689, 8577968535836399533, 8596162846302799189,
+                                8603491526474728284, 8628291680139169981, 8687301163739303017, 9111581078517061776])
         nopars.ciao = 1
         config.session.execute.assert_called_with('INSERT INTO ksp1.tt1(name,intval) VALUES (%s,%s)', ['ciao', 1])
 
