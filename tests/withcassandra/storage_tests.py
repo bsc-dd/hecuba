@@ -17,7 +17,7 @@ class StorageTests(unittest.TestCase):
         SO = Words('so')
         b = SO.split().next()
         new_block = getByID(b.getID())
-        self.assertEqual(b.storageobj.getID(), new_block.storageobj.getID())
+        self.assertEqual(b.getID(), new_block.getID())
         self.assertEqual(b, new_block)
 
     def test_getByID_storage_obj(self):
