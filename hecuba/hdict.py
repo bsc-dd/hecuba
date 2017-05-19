@@ -117,6 +117,7 @@ class StorageDict(dict, IStorage):
             storage_id (string): the storage id identifier
         """
         super(StorageDict, self).__init__(**kwargs)
+        self._is_persistent = False
         log.debug("CREATED StorageDict(%s,%s,%s,%s,%s,%s)", primary_keys, columns, name, tokens, storage_id, kwargs)
 
         if tokens is None:
@@ -163,8 +164,6 @@ class StorageDict(dict, IStorage):
 
         if name is not None:
             self.make_persistent(name)
-        else:
-            self._is_persistent = False
 
     def __eq__(self, other):
         return self._storage_id == other._storage_id and \
@@ -217,6 +216,7 @@ class StorageDict(dict, IStorage):
         return self.iterkeys()
 
     def make_persistent(self, name):
+        self._is_persistent = True
         (self._ksp, self._table) = self._extract_ks_tab(name)
         self._build_args = self._build_args._replace(name=self._ksp+"."+self._table)
 
@@ -285,7 +285,6 @@ class StorageDict(dict, IStorage):
         # Storing all in-memory values to cassandra
         for key, value in dict.iteritems(self):
             self._hcache.put_row(self._make_key(key), self._make_value(value))
-        self._is_persistent = True
 
         to_insert = False
         names = "storage_id"
@@ -306,11 +305,11 @@ class StorageDict(dict, IStorage):
 
     def stop_persistent(self):
         log.debug('STOP PERSISTENCE: %s', self._table)
-        self._is_persistent = True
+        self._is_persistent = False
         self._hcache = None
 
     def delete_persistent(self):
-        query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
+        query = "TRUNCATE TABLE %s.%s;" % (self._ksp, str(self._table) + '_' + str(self._storage_id).replace('-', ''))
         log.debug('DELETE PERSISTENCE: %s', query)
         config.session.execute(query)
 
