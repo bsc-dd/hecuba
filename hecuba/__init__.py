@@ -109,7 +109,7 @@ class Config:
             singleton.execution_name = os.environ['EXECUTION_NAME']
             log.info('EXECUTION_NAME: %s', singleton.execution_name)
         except KeyError:
-            singleton.execution_name = 'hecuba'
+            singleton.execution_name = 'hecuba_app'
             log.warn('using default EXECUTION_NAME: %s', singleton.execution_name)
 
         if mock_cassandra:
