@@ -415,29 +415,42 @@ class StorageObj(object, IStorage):
                 self._build_args = self._build_args._replace(storage_id=self._storage_id, istorage_props=is_props)
         self._store_meta(self._build_args)
 
-        to_insert = False
         names = "storage_id"
-        values = str(self._storage_id)
+        values = list()
+        values.append(self._storage_id)
         for key, variable in vars(self).iteritems():
+            to_insert = False
             if not key[0] == '_':
                 if key in self._persistent_attrs:
                     to_insert = True
                     if issubclass(variable.__class__, IStorage):
                         names += ", " + str(key)
                         if variable._storage_id is None:
-                            variable._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, variable._ksp + '.' + variable._table)
-                        values += ", " + str(variable._storage_id)
+                            variable._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS,
+                                                              variable._ksp + '.' + variable._table)
+                        values.append(variable._storage_id)
                     else:
                         names += ", " + str(key)
                         if type(variable) is str:
-                            values += ", \'" + str(variable) + "\'"
+                            values.append(str(variable))
+                        elif type(variable) is np.ndarray:
+                            values.append(variable.tostring())
+                            query2 = "INSERT INTO %s.%s (storage_id,%s_size,%s_shape) VALUES (?,?,?)" \
+                                     % (self._ksp,
+                                        str(self._table).lower() + '_' + str(self._storage_id).replace('-', ''),
+                                        key, key)
+                            prepared2 = config.session.prepare(query2)
+                            config.session.execute(prepared2,
+                                                   [self._storage_id, str(variable.dtype), str(variable.shape)])
                         else:
-                            values += ", " + str(variable)
-        if to_insert:
-            insert_query = "INSERT INTO " + \
-                           str(self._ksp) + '.' + str(self._table) + '_' + str(self._storage_id).replace('-', '') + \
-                           " (" + names + ") VALUES (" + values + ")"
-            config.session.execute(insert_query)
+                            values.append(variable)
+            if to_insert:
+                query = "INSERT INTO " +\
+                        str(self._ksp) + '.' + str(self._table) + \
+                        '_' + str(self._storage_id).replace('-', '') + " (" + names + ") VALUES (?, ?)"
+                prepared = config.session.prepare(query)
+                config.session.execute(prepared,
+                                       values)
 
     def stop_persistent(self):
         """
