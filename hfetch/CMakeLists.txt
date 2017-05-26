@@ -244,7 +244,8 @@ if (DEFINED ENV{GTEST_ROOT})
 
             enable_testing()
             add_executable(hfetch_test tests/runtests.cpp)
-
+            set_target_properties(hfetch_test
+                    PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
             target_link_libraries( hfetch_test ${ALL_LIBS} ${PT}  ${GTEST_BOTH_LIBRARIES} hfetch )
             add_test(test hfetch_test)
         else()
