@@ -163,8 +163,18 @@ TEST(TestingPocoCache, InsertGetDeleteOps) {
     size_t ss = sizeof(uint16_t) * 2;
     Poco::LRUCache<TupleRow, TupleRow> myCache(2);
 
-    ColumnMeta cm1={{"ciao"},CASS_VALUE_TYPE_INT,0,sizeof(uint16_t)};
-    ColumnMeta cm2 ={{"ciaociao"},CASS_VALUE_TYPE_INT,sizeof(uint16_t),sizeof(uint16_t)};
+    ColumnMeta cm1=ColumnMeta();
+    cm1.info={{"name","ciao"}};
+    cm1.type=CASS_VALUE_TYPE_INT;
+    cm1.position=0;
+    cm1.size=sizeof(uint16_t);
+
+    ColumnMeta cm2=ColumnMeta();
+    cm2.info={{"name","ciaociao"}};
+    cm2.type=CASS_VALUE_TYPE_INT;
+    cm2.position=sizeof(uint16_t);
+    cm2.size=sizeof(uint16_t);
+
     std::vector<ColumnMeta> v = {cm1,cm2};
     std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
 
@@ -205,9 +215,18 @@ TEST(TestingPocoCache, ReplaceOp) {
     size_t ss = sizeof(uint16_t) * 2;
     Poco::LRUCache<TupleRow, TupleRow> myCache(2);
 
+    ColumnMeta cm1=ColumnMeta();
+    cm1.info={{"name","ciao"}};
+    cm1.type=CASS_VALUE_TYPE_INT;
+    cm1.position=0;
+    cm1.size=sizeof(uint16_t);
 
-    ColumnMeta cm1={{"ciao"},CASS_VALUE_TYPE_INT,0,sizeof(uint16_t)};
-    ColumnMeta cm2 ={{"ciaociao"},CASS_VALUE_TYPE_INT,sizeof(uint16_t),sizeof(uint16_t)};
+    ColumnMeta cm2=ColumnMeta();
+    cm2.info={{"name","ciaociao"}};
+    cm2.type=CASS_VALUE_TYPE_INT;
+    cm2.position=sizeof(uint16_t);
+    cm2.size=sizeof(uint16_t);
+
     std::vector<ColumnMeta> v = {cm1,cm2};
     std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
 
@@ -282,9 +301,18 @@ TEST(TupleTest, TupleOps) {
     memcpy(buffer2, &i, size);
     memcpy(buffer2 + size, &j, size);
 
+    ColumnMeta cm1=ColumnMeta();
+    cm1.info={{"name","ciao"}};
+    cm1.type=CASS_VALUE_TYPE_INT;
+    cm1.position=0;
+    cm1.size=sizeof(uint16_t);
 
-    ColumnMeta cm1={{"ciao"},CASS_VALUE_TYPE_INT,0,sizeof(uint16_t)};
-    ColumnMeta cm2 ={{"ciaociao"},CASS_VALUE_TYPE_INT,sizeof(uint16_t),sizeof(uint16_t)};
+    ColumnMeta cm2=ColumnMeta();
+    cm2.info={{"name","ciaociao"}};
+    cm2.type=CASS_VALUE_TYPE_INT;
+    cm2.position=sizeof(uint16_t);
+    cm2.size=sizeof(uint16_t);
+
     std::vector<ColumnMeta> v = {cm1,cm2};
     std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
 
@@ -296,8 +324,13 @@ TEST(TupleTest, TupleOps) {
     //Equality
     EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
     EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
-    cm2 ={{"ciaocia"},CASS_VALUE_TYPE_INT,sizeof(uint16_t),sizeof(uint16_t)};
 
+
+    cm2=ColumnMeta();
+    cm2.info={{"name","ciaociao"}};
+    cm2.type=CASS_VALUE_TYPE_INT;
+    cm2.position=sizeof(uint16_t);
+    cm2.size=sizeof(uint16_t);
 
 
     std::vector<ColumnMeta> v2 = {cm1,cm2};
@@ -342,8 +375,9 @@ TEST(TestingCacheTable, GetRowC) {
     memcpy(buffer + sizeof(int), &f, sizeof(float));
 
 
-    std::vector<std::string> keysnames = {"partid", "time"};
-    std::vector<  std::vector<std::string> >colsnames = { std::vector<std::string>{"x"},  std::vector<std::string>{"y"},  std::vector<std::string>{"z"},  std::vector<std::string>{"ciao"}};
+    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
+    std::vector< std::map<std::string,std::string> >colsnames = { {{"name", "x"}},  {{"name", "y"}},  {{"name", "z"}},
+                                                                  {{"name", "ciao"}}};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
     std::map <std::string, std::string> config;
@@ -425,8 +459,9 @@ TEST(TestingCacheTable, GetRowStringC) {
     std::vector<uint16_t> offsets = {0, sizeof(int)};
 
 
-    std::vector<std::string> keysnames = {"partid", "time"};
-    std::vector<  std::vector<std::string> >colsnames = { std::vector<std::string>{"ciao"}};
+    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
+    std::vector< std::map<std::string,std::string> >colsnames = {{{"name", "ciao"}}};
+
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
 
@@ -491,9 +526,9 @@ TEST(TestingCacheTable, PutRowStringC) {
 
     std::vector<uint16_t> offsets = {0, sizeof(int)};
 
+    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
+    std::vector< std::map<std::string,std::string> >colsnames = { {{"name", "ciao"}}};
 
-    std::vector<std::string> keysnames = {"partid", "time"};
-    std::vector<  std::vector<std::string> >colsnames = { std::vector<std::string>{"ciao"}};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
 
@@ -628,14 +663,24 @@ TEST(TestingPrefetch, GetNextC) {
     float f = 12340;
     memcpy(buffer + sizeof(int), &f, sizeof(float));
 
-    ColumnMeta cm1={{"partid"},CASS_VALUE_TYPE_INT,0,sizeof(int)};
-    ColumnMeta cm2 ={{"time"},CASS_VALUE_TYPE_FLOAT,sizeof(int),sizeof(float)};
+    ColumnMeta cm1=ColumnMeta();
+    cm1.info={{"name","partid"}};
+    cm1.type=CASS_VALUE_TYPE_INT;
+    cm1.position=0;
+    cm1.size=sizeof(int);
+
+    ColumnMeta cm2=ColumnMeta();
+    cm2.info={{"name","time"}};
+    cm2.type=CASS_VALUE_TYPE_FLOAT;
+    cm2.position=sizeof(int);
+    cm2.size=sizeof(float);
 
     std::vector<ColumnMeta> v = {cm1,cm2};
     std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
 
-    std::vector<std::string> keysnames = {"partid", "time"};
-    std::vector<  std::vector<std::string> >colsnames = { std::vector<std::string>{"ciao"}};
+    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
+    std::vector< std::map<std::string,std::string> >colsnames = { {{"name", "ciao"}}};
+
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     int64_t bigi= 9223372036854775807;
     std::vector<std::pair<int64_t, int64_t> > tokens = {
@@ -706,9 +751,10 @@ TEST(TestingStorageInterfaceCpp,ConnectDisconnect){
 TEST(TestingStorageInterfaceCpp,CreateAndDelCache){
     /** KEYS **/
 
-    std::vector<std::string> keysnames = {"partid", "time"};
-    std::vector<  std::vector<std::string> >read_colsnames = {std::vector<std::string>{"x"}, std::vector<std::string>{"ciao"}};
-    std::vector<  std::vector<std::string> >write_colsnames = {std::vector<std::string>{"y"}, std::vector<std::string>{"ciao"}};
+    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
+    std::vector< std::map<std::string,std::string> >read_colsnames = {{{"name","x"}}, {{"name", "ciao"}}};
+    std::vector< std::map<std::string,std::string> >write_colsnames = {{{"name","y"}}, {{"name", "ciao"}}};
+
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
 
 
@@ -742,8 +788,9 @@ TEST(TestingStorageInterfaceCpp,CreateAndDelCacheWrong){
      * or enter in any kind of lock
      * **/
 
-    std::vector<std::string> keysnames = {"partid", "time"};
-    std::vector<  std::vector<std::string> >read_colsnames = {std::vector<std::string>{"x"}, std::vector<std::string>{"ciao"}};
+    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
+    std::vector< std::map<std::string,std::string> >read_colsnames = {{{"name","x"}}, {{"name", "ciao"}}};
+
 
     int64_t bigi= 9223372036854775807;
     std::vector<std::pair<int64_t, int64_t> > tokens = {
@@ -773,8 +820,9 @@ TEST(TestingStorageInterfaceCpp,IteratePrefetch){
      * or enter in any kind of lock
      * **/
 
-    std::vector<std::string> keysnames = {"partid", "time"};
-    std::vector<  std::vector<std::string> >read_colsnames = {std::vector<std::string>{"x"}, std::vector<std::string>{"ciao"}};
+    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
+    std::vector< std::map<std::string,std::string> >read_colsnames = {{{"name","x"}},{{"name", "ciao"}}};
+
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
 
 

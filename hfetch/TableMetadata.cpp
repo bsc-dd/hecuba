@@ -1,6 +1,5 @@
 #include "TableMetadata.h"
 
-
 /***
  * Returns the allocation number of bytes required to allocate a type of data
  * @param VT Cassandra Type
@@ -111,58 +110,20 @@ uint16_t TableMetadata::compute_size_of(const CassValueType VT) const {
 
 
 TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
-                             std::vector <std::string>& keys_names,std::vector <std::vector <std::string> >& columns_names,
+                             std::vector<std::map<std::string,std::string> > &keys_names,
+                             std::vector<std::map<std::string,std::string> > &columns_names,
                              CassSession* session) {
 
 
-    //if (columns_names.empty()) throw ModuleException("TableMetadata: 0 columns names received");
+    if (keys_names.empty()) throw ModuleException("TableMetadata: No keys received");
+    if (columns_names.empty()) throw ModuleException("TableMetadata: 0 columns names received");
+
+    uint32_t n_cols = (uint32_t) columns_names.size(); //TODO check for *
+    uint32_t n_keys = (uint32_t) keys_names.size();
 
     this->table=std::string(table_name);
     this->keyspace=std::string(keyspace_name);
 
-
-    select_tokens_all="SELECT "+keys_names[0];
-    for (uint16_t i = 1; i<keys_names.size(); ++i){
-        select_tokens_all+=","+keys_names[i];
-    }
-
-    select_keys_tokens=select_tokens_all;
-    insert="INSERT INTO "+ this->keyspace + "." + this->table + "("+keys_names[0];
-
-
-    for (uint16_t i = 1; i<keys_names.size(); ++i){
-        insert+=","+keys_names[i];
-    }
-
-    if (!columns_names.empty()) {
-        insert += "," + columns_names[0][0];
-        select = "SELECT " + columns_names[0][0];
-        select_tokens_all += "," + columns_names[0][0];
-        for (uint16_t i = 1; i < columns_names.size(); ++i) {
-            select += "," + columns_names[i][0];
-            select_tokens_all += "," + columns_names[i][0];
-            insert += "," + columns_names[i][0];
-        }
-        select_tokens_values = select + " FROM " + this->keyspace + "." + this->table;
-        select += " FROM " + this->keyspace + "." + this->table + " WHERE "+keys_names[0]+"=? ";
-
-    }
-    select_keys_tokens+= " FROM "+ this->keyspace + "." + this->table + " ";
-    select_tokens_all+= " FROM "+ this->keyspace + "." + this->table + " ";
-
-
-    for (uint16_t i = 1; i<keys_names.size(); ++i){
-        select+="AND "+keys_names[i]+"=? ";
-    }
-    insert+=") VALUES (?";
-    for (uint16_t i = 1; i<keys_names.size()+columns_names.size();++i) {
-        insert+=",?";
-    }
-    select_keys_tokens+=" WHERE token("+keys_names[0]+")>=? AND token("+keys_names[0]+")<?;";
-    select_tokens_values+=" WHERE token("+keys_names[0]+")>=? AND token("+keys_names[0]+")<?;";
-    select_tokens_all+=" WHERE token("+keys_names[0]+")>=? AND token("+keys_names[0]+")<?;"; //TODO allow complex partition key
-    insert+=");";
-    select+=";";
 
 
     const CassSchemaMeta *schema_meta = cass_session_get_schema_meta(session);
@@ -178,20 +139,14 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
 
     const CassTableMeta *table_meta = cass_keyspace_meta_table_by_name(keyspace_meta, table_name);
     if (!table_meta || (cass_table_meta_column_count(table_meta)==0)) {
-        throw ModuleException("Cache "+std::string(table_name)+": constructor: Table meta is NULL");
+        throw ModuleException("Table "+std::string(table_name)+": Meta is NULL or have 0 cols");
     }
 
+//TODO Switch to unordered maps for efficiency
 
-    uint32_t n_cols = (uint32_t) columns_names.size();
-    uint32_t n_keys = (uint32_t) keys_names.size();
-
-    if (!columns_names.empty()&&columns_names[0][0] == "*") n_cols = (uint32_t) cass_table_meta_column_count(table_meta) - n_keys;
-
-    std::vector<ColumnMeta> cols_meta = std::vector< ColumnMeta>(n_cols);
-    std::vector<ColumnMeta> keys_meta = std::vector< ColumnMeta>(n_keys);
+    std::map<std::string, ColumnMeta> metadatas;
 
 /*** build metadata ***/
-// TODO its more efficient having all the columns data stored and then make subsets
 
     CassIterator *iterator = cass_iterator_columns_from_table_meta(table_meta);
     while (cass_iterator_next(iterator)) {
@@ -202,46 +157,80 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
         cass_column_meta_name(cmeta, &value, &length);
 
         const CassDataType *type = cass_column_meta_data_type(cmeta);
-        std::string meta_col_name(value);
-//if meta col name is inside cols names, keys set
 
-        for (uint16_t j=0; j<columns_names.size(); ++j) {
-            const std::string ss = columns_names[j][0];
-            if (meta_col_name == ss || columns_names[0][0] == "*") {
-                cols_meta[j] ={columns_names[j],cass_data_type_type(type)};
-                cols_meta[j].size = compute_size_of( cols_meta[j].type);
-                break;
-            }
-        }
-        for (uint16_t j=0; j<keys_names.size(); ++j) {
-            const std::string ss = keys_names[j];
-            if (meta_col_name == ss || keys_names[0] == "*") {
-                keys_meta[j] ={{keys_names[j]},cass_data_type_type(type)};
-                keys_meta[j].size = compute_size_of(keys_meta[j].type);
-                break;
-            }
-        }
-
-
+        //std::string meta_col_name(value);
+        metadatas[value]= {};// columns_names[j],cass_data_type_type(type)
+        metadatas[value].type = cass_data_type_type(type);
+        metadatas[value].size = compute_size_of(metadatas[value].type);
+        metadatas[value].col_type = cass_column_meta_type(cmeta);
     }
     cass_iterator_free(iterator);
     cass_schema_meta_free(schema_meta);
 
-if (!cols_meta.empty()) {
+
+
+    std::string key = keys_names[0]["name"];
+    std::string select_where = key+"=? ";
+    std::string keys = key;
+    std::string col;
+    std::string tokens_keys = "";
+    if (metadatas[key].col_type==CASS_COLUMN_TYPE_PARTITION_KEY) tokens_keys+=key;
+
+    for (uint16_t i = 1; i<n_keys; ++i){
+        key = keys_names[i]["name"];
+        if (key.empty()) throw ModuleException("Empty key name given, position: "+std::to_string(i));
+        keys+=","+key;
+        select_where+="AND "+key+"=? ";
+        if (metadatas[key].col_type==CASS_COLUMN_TYPE_PARTITION_KEY) tokens_keys+=","+key;
+    }
+    if (tokens_keys.empty()) throw ModuleException("No partition key detected among the keys: "+keys);
+
+    std::string cols = columns_names[0]["name"]; //TODO Check for *
+    for (uint16_t i = 1; i<n_cols; ++i){
+        col = columns_names[i]["name"];
+        if (col.empty()) throw ModuleException("Empty column name given, position: "+std::to_string(i));
+        cols+=","+columns_names[i]["name"];
+    }
+
+    std::string select_tokens_where =" token("+tokens_keys+")>=? AND token("+tokens_keys+")<? ";
+
+    select="SELECT "+cols+" FROM " + this->keyspace + "." + this->table + " WHERE "+select_where+";";
+    select_keys_tokens="SELECT "+keys+" FROM " + this->keyspace + "." + this->table + " WHERE "+select_tokens_where+";";
+    select_tokens_values="SELECT "+cols+" FROM " + this->keyspace + "." + this->table + " WHERE "+select_tokens_where+";";
+    select_tokens_all="SELECT "+keys+","+cols+" FROM " + this->keyspace + "." + this->table + " WHERE "+select_tokens_where+";";
+
+    insert="INSERT INTO "+ this->keyspace + "." + this->table + "("+keys+","+cols+")"+"VALUES (?";
+    for (uint16_t i = 1; i<n_keys+n_cols;++i) {
+        insert+=",?";
+    }
+    insert+=");";
+
+
+    std::vector<ColumnMeta> keys_meta(n_keys);
+    std::vector<ColumnMeta> cols_meta(n_cols);
+
+    cols_meta[0]=metadatas[columns_names[0]["name"]];
+    cols_meta[0].info=columns_names[0];
     cols_meta[0].position = 0;
     for (uint16_t i = 1; i < cols_meta.size(); ++i) {
+        cols_meta[i]=metadatas[columns_names[i]["name"]];
+        cols_meta[i].info=columns_names[i];
         cols_meta[i].position = cols_meta[i - 1].position + cols_meta[i - 1].size;
     }
-}
 
-    keys_meta[0].position=0;
-    for (uint16_t i = 1; i<keys_meta.size(); ++i) {
-        keys_meta[i].position=keys_meta[i-1].position + keys_meta[i-1].size;
+    keys_meta[0]=metadatas[keys_names[0]["name"]];
+    keys_meta[0].info=keys_names[0];
+    keys_meta[0].position = 0;
+    for (uint16_t i = 1; i < keys_meta.size(); ++i) {
+        keys_meta[i]=metadatas[keys_names[i]["name"]];
+        keys_meta[i].info=keys_names[i];
+        keys_meta[i].position = keys_meta[i - 1].position + keys_meta[i - 1].size;
     }
+
 
     std::vector<ColumnMeta> items_meta(cols_meta);
     items_meta.insert(items_meta.begin(),keys_meta.begin(),keys_meta.end());
-    uint16_t keys_offset = keys_meta[keys_meta.size()-1].position+ keys_meta[keys_meta.size()-1].size;
+    uint16_t keys_offset = keys_meta[n_keys-1].position+ keys_meta[n_keys-1].size;
 
     for (uint16_t i = (uint16_t)keys_meta.size(); i< items_meta.size(); ++i){
         items_meta[i].position+=keys_offset;

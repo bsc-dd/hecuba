@@ -69,7 +69,7 @@ CacheTable::~CacheTable() {
 
 void CacheTable::put_crow(const TupleRow* keys, const TupleRow* values) {
     this->writer->write_to_cassandra(keys,values);
-    if (myCache) this->myCache->update(*keys,*values); //Inserts if not present, otherwise replaces
+    if (myCache) this->myCache->update(*keys,values); //Inserts if not present, otherwise replaces
 }
 
 
@@ -148,7 +148,7 @@ std::vector<const TupleRow *>  CacheTable::get_crow(const TupleRow *keys) {
 
     std::vector<const TupleRow *> values = retrieve_from_cassandra(keys);
 
-    if (myCache) myCache->add(*keys, *values[0]);
+    if (myCache) myCache->add(*keys, values[0]);
 
     return values;
 }
@@ -156,6 +156,6 @@ std::vector<const TupleRow *>  CacheTable::get_crow(const TupleRow *keys) {
 std::shared_ptr<void> CacheTable::get_crow(void* keys) {
     std::vector<const TupleRow*> result = get_crow(keys_factory->make_tuple(keys));
     if (result.empty()) return NULL;
-    if (myCache) myCache->add(*keys_factory->make_tuple(keys), *result[0]);
+    if (myCache) myCache->add(*keys_factory->make_tuple(keys), result[0]);
     return result.at(0)->get_payload();
 }

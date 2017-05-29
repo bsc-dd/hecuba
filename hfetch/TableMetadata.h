@@ -4,6 +4,15 @@
 
 #ifndef HFETCH_TABLEMETADATA_H
 #define HFETCH_TABLEMETADATA_H
+
+
+#define NAME_POS 0
+#define NPY_PARTITION 1
+#define NPY_METAS_COL 2
+#define NPY_COL_POS 3
+#define NPY_TABLE_EXTERNAL 4
+
+
 #include <cassandra.h>
 #include <cstdint>
 #include <algorithm>
@@ -12,6 +21,7 @@
 #include <memory>
 #include <vector>
 #include <cstring>
+#include <map>
 
 
 #include "ModuleException.h"
@@ -19,22 +29,24 @@
 
 struct ColumnMeta {
     ColumnMeta(){}
-
-    ColumnMeta( std::vector<std::string> info, CassValueType cv_type) {
+/*
+    ColumnMeta( std::map<std::string, std::string> &info, CassValueType cv_type) {
         this->info=info;
         this->type=cv_type;
     }
-
-    ColumnMeta( std::vector<std::string> info, CassValueType cv_type, uint16_t offset, uint16_t bsize) {
+*/
+    ColumnMeta( std::map<std::string, std::string> &info, CassValueType cv_type, uint16_t offset, uint16_t bsize) {
         this->info=info;
         this->type=cv_type;
         this->position = offset;
         this->size=bsize;
+        col_type=CASS_COLUMN_TYPE_REGULAR;
     }
 
     uint16_t position, size;
     CassValueType type;
-    std::vector<std::string> info;
+    CassColumnType col_type;
+    std::map<std::string, std::string> info;
 };
 
 
@@ -44,7 +56,8 @@ class TableMetadata {
 public:
 
     TableMetadata(const char* table_name, const char* keyspace_name,
-                  std::vector <std::string>& keys_names, std::vector <std::vector <std::string> >& columns_names,
+                  std::vector<std::map<std::string,std::string> > &keys_names,
+                  std::vector<std::map<std::string,std::string> > &columns_names,
                   CassSession* session);
 
     std::shared_ptr<const std::vector<ColumnMeta> > get_keys() const {

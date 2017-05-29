@@ -455,7 +455,7 @@ PyObject *PythonParser::merge_blocks_as_nparray(std::vector<const TupleRow *> &b
 
             char *final_array = (char *) malloc(nbytes);
             if (metadata->at(pos).info.size() < 2) throw ModuleException("Info size is less than 2");
-            if (metadata->at(pos).info[3] == "partition") {
+            if (metadata->at(pos).info.find("partition")->second == "partition") {
                 for (uint32_t i = 0; i < blocks.size(); ++i) {
                     char **data = (char **) blocks[i]->get_element(pos);
                     uint64_t *block_bytes = (uint64_t *) *data;
@@ -499,45 +499,45 @@ const NPY_TYPES PythonParser::get_arr_type(const ColumnMeta& column_meta) const 
     if (column_meta.info.size()  < 2) {
         return NPY_NOTYPE;
     }
-    if (column_meta.info[1] == "bool")
+    if (column_meta.info.find("type")->second == "bool")
         return NPY_BOOL;
-    if (column_meta.info[1] == "byte")
+    if (column_meta.info.find("type")->second == "byte")
         return NPY_BYTE;
-    if (column_meta.info[1] == "ubyte")
+    if (column_meta.info.find("type")->second == "ubyte")
         return NPY_UBYTE;
-    if (column_meta.info[1] == "short")
+    if (column_meta.info.find("type")->second == "short")
         return NPY_SHORT;
-    if (column_meta.info[1] == "ushort")
+    if (column_meta.info.find("type")->second == "ushort")
         return NPY_USHORT;
-    if (column_meta.info[1] == "int")
+    if (column_meta.info.find("type")->second == "int")
         return NPY_INT;
-    if (column_meta.info[1] == "uint")
+    if (column_meta.info.find("type")->second == "uint")
         return NPY_UINT;
-    if (column_meta.info[1] == "long")
+    if (column_meta.info.find("type")->second == "long")
         return NPY_LONG;
-    if (column_meta.info[1] == "ulong")
+    if (column_meta.info.find("type")->second == "ulong")
         return NPY_ULONG;
-    if (column_meta.info[1] == "longlong")
+    if (column_meta.info.find("type")->second == "longlong")
         return NPY_LONGLONG;
-    if (column_meta.info[1] == "float")
+    if (column_meta.info.find("type")->second == "float")
         return NPY_FLOAT;
-    if (column_meta.info[1] == "double")
+    if (column_meta.info.find("type")->second == "double")
         return NPY_DOUBLE;
-    if (column_meta.info[1] == "clongdouble")
+    if (column_meta.info.find("type")->second == "clongdouble")
         return NPY_LONGDOUBLE;
-    if (column_meta.info[1] == "cfloat")
+    if (column_meta.info.find("type")->second == "cfloat")
         return NPY_CFLOAT;
-    if (column_meta.info[1] == "cdouble")
+    if (column_meta.info.find("type")->second == "cdouble")
         return NPY_CDOUBLE;
-    if (column_meta.info[1] == "clongdouble")
+    if (column_meta.info.find("type")->second == "clongdouble")
         return NPY_CLONGDOUBLE;
-    if (column_meta.info[1] == "obj")
+    if (column_meta.info.find("type")->second == "obj")
         return NPY_OBJECT;
-    if (column_meta.info[1] == "str")
+    if (column_meta.info.find("type")->second == "str")
         return NPY_STRING;
-    if (column_meta.info[1] == "unicode")
+    if (column_meta.info.find("type")->second == "unicode")
         return NPY_UNICODE;
-    if (column_meta.info[1] == "void")
+    if (column_meta.info.find("type")->second == "void")
         return NPY_VOID;
     return NPY_NOTYPE;
 }
@@ -546,7 +546,7 @@ PyArray_Dims *PythonParser::get_arr_dims(const ColumnMeta& column_meta) const {
     if (column_meta.info.size() < 3)
         throw ModuleException("Numpy array metadata must consist of [name,type,dimensions,partition]");
 
-    std::string temp = column_meta.info[2];
+    std::string temp = column_meta.info.find("dims")->second;
 
     ssize_t n = std::count(temp.begin(), temp.end(), 'x') + 1;
 
@@ -587,7 +587,7 @@ std::vector<const TupleRow *> PythonParser::make_tuples_with_npy(PyObject *obj, 
 //find arrays
     std::vector<const TupleRow *> tuples = std::vector<const TupleRow *>();
     for (uint16_t i = 0; i < PyList_Size(obj); ++i) {
-        if (get_arr_type(metadata->at(i)) != NPY_NOTYPE && metadata->at(i).info[3] == "partition") {
+        if (get_arr_type(metadata->at(i)) != NPY_NOTYPE && metadata->at(i).info.find("partition")->second == "partition") {
             //found a np array
             std::vector<void *> blocks;
             blocks = split_array(PyList_GetItem(obj, i));
