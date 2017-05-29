@@ -88,6 +88,10 @@ public:
         return insert.c_str();
     }
 
+    const char* get_table_name() const {
+        return table.c_str();
+    }
+
     const char* get_keyspace() const {
         return this->keyspace.c_str();
     }
