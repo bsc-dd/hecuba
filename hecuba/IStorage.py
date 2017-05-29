@@ -103,11 +103,11 @@ class IStorage:
         sp = name.split(".")
         if len(sp) == 2:
             ksp = sp[0]
-            table = sp[1]
+            table = sp[1].split('_')[0]
         else:
             ksp = config.execution_name
             table = name
-        return (ksp, table)
+        return ksp, table
 
     def make_persistent(self, name):
         raise Exception("to be implemented")

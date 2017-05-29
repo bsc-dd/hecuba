@@ -2,7 +2,7 @@ import unittest
 
 from app.words import Words
 from hecuba import Config, config
-from hecuba.hdict import KeyIter
+from hecuba.hdict import StorageDict
 from storage.api import getByID
 
 
@@ -13,10 +13,11 @@ class StorageTests(unittest.TestCase):
 
     def test_getByID_block(self):
         config.number_of_blocks = 32
-        ki = KeyIter('testspace', 'tt', 'app.words.Words', 'fake-id', ['position'])
-        b = ki.next()
+        # ki = KeyIter('testspace', 'tt', 'app.words.Words', 'fake-id', ['position'])
+        SO = Words('so')
+        b = SO.split().next()
         new_block = getByID(b.getID())
-        self.assertEqual(b.storageobj.getID(), new_block.storageobj.getID())
+        self.assertEqual(b.getID(), new_block.getID())
         self.assertEqual(b, new_block)
 
     def test_getByID_storage_obj(self):
