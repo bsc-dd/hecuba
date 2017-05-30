@@ -12,8 +12,8 @@ class StorageObj(object, IStorage):
     args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name"]
     args = namedtuple('StorageObjArgs', args_names)
     _prepared_store_meta = config.session.prepare('INSERT INTO ' + config.execution_name + '.istorage '
-                                                  '(storage_id, class_name, name, tokens,istorage_props) '
-                                                  ' VALUES (?,?,?,?,?)')
+                                                                                           '(storage_id, class_name, name, tokens,istorage_props) '
+                                                                                           ' VALUES (?,?,?,?,?)')
     """
     This class is where information will be stored in Hecuba.
     The information can be in memory, stored in a python dictionary or local variables, or saved in a
@@ -61,7 +61,7 @@ class StorageObj(object, IStorage):
         log.debug("StorageObj: storing media %s", storage_args)
         try:
             config.session.execute(StorageObj._prepared_store_meta,
-                                   [str(storage_args.storage_id), storage_args.class_name,
+                                   [storage_args.storage_id, storage_args.class_name,
                                     storage_args.name + '_' + str(storage_args.storage_id).replace('-', ''),
                                     storage_args.tokens, storage_args.istorage_props])
         except Exception as ex:
@@ -188,7 +188,7 @@ class StorageObj(object, IStorage):
     _sub_tuple_case = re.compile(' *< *([\w:, ]+)+ *>')
     _val_case = re.compile('.*@ClassField +(\w+) +%s' % _valid_type)
     _so_val_case = re.compile('.*@ClassField +(\w+) +([\w.]+)')
-    _index_vars = re.compile('.*@Index_on+\s*([A-z,]+)+([A-z, ]+)')
+    _index_vars = re.compile('.*@Indexed+\s*([A-z,]+)+')
 
     @classmethod
     def _parse_comments(self, comments):
@@ -332,13 +332,12 @@ class StorageObj(object, IStorage):
                                 }
             m = StorageObj._index_vars.match(line)
             if m is not None:
-                table_name, indexed_values = m.groups()
-                indexed_values = indexed_values.replace(' ', '').split(',')
+                indexed_values = m.groups()
+                indexed_values = indexed_values[0].replace(' ', '').split(',')
                 if table_name in this:
                     this[table_name].update({'indexed_values': indexed_values})
                 else:
                     this[table_name] = {'indexed_values': indexed_values}
-
         return this
 
     def make_persistent(self, name):
@@ -354,7 +353,7 @@ class StorageObj(object, IStorage):
         self._is_persistent = True
         (self._ksp, self._table) = self._extract_ks_tab(name)
         self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table)
-        
+
         self._build_args = self.args(self._ksp + '.' + self._table,
                                      self._tokens,
                                      self._storage_id,
@@ -382,16 +381,16 @@ class StorageObj(object, IStorage):
             else:
                 in_entry = 'int'
             if entry['type'] == 'dict' or \
-               entry['type'] == 'tuple' or \
-               in_entry not in valid_types or \
-               entry['type'].split('<')[0] not in valid_types:
+                            entry['type'] == 'tuple' or \
+                            in_entry not in valid_types or \
+                            entry['type'].split('<')[0] not in valid_types:
                 query_simple += 'uuid, '
             else:
                 query_simple += entry['type'] + ', '
                 if entry['type'] == 'blob':
                     query_simple += str(key) + "_size text, "
                     query_simple += str(key) + "_shape text, "
-        config.session.execute(query_simple[0:len(query_simple)-2] + ' )')
+        config.session.execute(query_simple[0:len(query_simple) - 2] + ' )')
 
         dictionaries = filter(lambda (k, t): t['type'] == 'dict', self._persistent_props.iteritems())
         is_props = self._build_args.istorage_props
@@ -403,7 +402,7 @@ class StorageObj(object, IStorage):
             pd = getattr(self, table_name)
             name2 = self._ksp + "." + table_name
             pd.make_persistent(name2)
-            is_props[name2] = str(pd._storage_id)
+            is_props[name2] = pd._storage_id
         '''
         others = filter(lambda (k, t): t['type'] not in valid_types, self._persistent_props.iteritems())
         is_props = self._build_args.istorage_props
@@ -454,7 +453,7 @@ class StorageObj(object, IStorage):
                         else:
                             values.append(variable)
             if to_insert:
-                query = "INSERT INTO " +\
+                query = "INSERT INTO " + \
                         str(self._ksp) + '.' + str(self._table) + \
                         '_' + str(self._storage_id).replace('-', '') + " (" + names + ") VALUES (?, ?)"
                 prepared = config.session.prepare(query)
@@ -505,9 +504,11 @@ class StorageObj(object, IStorage):
         if key[0] != '_' and key is not 'storage_id' and self._is_persistent:
             if key in self._persistent_attrs:
                 try:
-                    query = "SELECT " + str(key) + " FROM %s.%s WHERE storage_id = %s;"\
-                        % (self._ksp, str(self._table).lower() + '_' + str(self._storage_id).replace('-', ''),
-                           self._storage_id)
+                    query = "SELECT " + str(key) + " FROM %s.%s WHERE storage_id = %s;" \
+                                                   % (self._ksp,
+                                                      str(self._table).lower() + '_' + str(self._storage_id).replace(
+                                                          '-', ''),
+                                                      self._storage_id)
                     log.debug("GETATTR: %s", query)
                     result = config.session.execute(query)
                     for row in result:
@@ -517,10 +518,13 @@ class StorageObj(object, IStorage):
                                 to_return = row_var
                                 if self._persistent_props[key]['type'] == 'blob':
                                     query2 = "SELECT " + str(key) + "_size, " + str(key) + "_shape FROM %s.%s" \
-                                                                                           " WHERE storage_id = %s;"\
-                                        % (self._ksp,
-                                           str(self._table).lower() + '_' + str(self._storage_id).replace('-', ''),
-                                           self._storage_id)
+                                                                                           " WHERE storage_id = %s;" \
+                                                                                           % (self._ksp,
+                                                                                              str(
+                                                                                                  self._table).lower() + '_' + str(
+                                                                                                  self._storage_id).replace(
+                                                                                                  '-', ''),
+                                                                                              self._storage_id)
                                     result2 = config.session.execute(query2)
                                     array_type = ''
                                     array_shape = ''
@@ -530,8 +534,8 @@ class StorageObj(object, IStorage):
                                     if array_type is not None:
                                         try:
                                             if str(array_shape).split(", ")[1] != ')':
-                                                to_return = np.fromstring(to_return, dtype=np.dtype(str(array_type))).\
-                                                            reshape(tuple(map(int, array_shape[1:-1].split(','))))
+                                                to_return = np.fromstring(to_return, dtype=np.dtype(str(array_type))). \
+                                                    reshape(tuple(map(int, array_shape[1:-1].split(','))))
                                             else:
                                                 to_return = np.fromstring(to_return, dtype=np.dtype(str(array_type)))
                                         except Exception as e:
@@ -618,5 +622,5 @@ class StorageObj(object, IStorage):
             new_me = copy(self)
             for table_name, istorage in split_dicts:
                 setattr(new_me, table_name, istorage)
-            yield new_me
+        yield new_me
 

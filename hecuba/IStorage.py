@@ -40,8 +40,8 @@ class IStorage:
         tokens = self._build_args.tokens
 
         for token_split in IStorage._tokens_partitions(tokens, config.min_number_of_tokens, config.number_of_blocks):
-            storage_id = str(uuid.uuid1())
-            log.debug('assigning to %s tokens %s', storage_id, token_split)
+            storage_id = uuid.uuid1()
+            log.debug('assigning to %s tokens %s', str(storage_id), token_split)
             new_args = self._build_args._replace(tokens=token_split, storage_id=storage_id)
             self.__class__._store_meta(new_args)
 
@@ -79,7 +79,6 @@ class IStorage:
     def _discrete_token_ranges(tokens):
         """
         Makes proper tokens ranges ensuring that in a tuple (a,b) a <= b
-
         :param tokens:  a list of tksn [1, 0,10]
         :return:  a rationalized list [(-1, 0),(0,10),(10, max)]
         """
@@ -125,14 +124,10 @@ class IStorage:
     def getByID(self,objid):
         """
             TODO
-
-
             Args:
                 objid (str):  object identifier
-
             Returns:
                  (Block| Storageobj)
-
             """
         objidsplit = objid.split("_")
 
