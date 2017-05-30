@@ -134,7 +134,7 @@ void Writer::set_error_occurred(std::string error,const void * keys_p, const voi
 
 
 void Writer::write_to_cassandra(const TupleRow *keys, const TupleRow *values) {
-    std::pair<const TupleRow *, const TupleRow *> item = std::make_pair(keys, values);
+    std::pair<const TupleRow *, const TupleRow *> item = std::make_pair(new TupleRow(keys), new TupleRow(values));
     data.push(item);
     if (ncallbacks < max_calls) {
         ncallbacks++;
