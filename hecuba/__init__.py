@@ -144,7 +144,7 @@ class Config:
                         "CREATE KEYSPACE IF NOT EXISTS " + singleton.execution_name + " WITH replication = {'class': 'SimpleStrategy',"
                         "'replication_factor': %d }" % singleton.repl_factor)
                     singleton.session.execute(
-                        'CREATE TABLE IF NOT EXISTS ' + singleton.execution_name + '.istorage (storage_id text, '
+                        'CREATE TABLE IF NOT EXISTS ' + singleton.execution_name + '.istorage (storage_id uuid, '
                         'class_name text,name text, '
                         'istorage_props map<text,text>, '
                         'tokens list<frozen<tuple<bigint,bigint>>>, entry_point text, port int, '
