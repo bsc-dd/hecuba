@@ -26,6 +26,7 @@ public class StorageItf {
         }else{
             version=v;
         }
+        System.out.println("Using Hecuba Version: " + version);
     }
 
 
@@ -37,6 +38,8 @@ public class StorageItf {
      * @throws storage.StorageException
      */
     public static List<String> getLocations(String objectID) throws storage.StorageException {
+        nodeIP = System.getenv("CONTACT_NAMES").split(",");
+        nodePort = Integer.parseInt(System.getenv("NODE_PORT"));
         final List<String> locations;
         if(version.equals("1.0")){
             locations= getLocationsV1(objectID);
@@ -49,7 +52,7 @@ public class StorageItf {
         return locations;
 
     }
-    public static List<String> getLocationsV2(String objectID) throws storage.StorageException {
+    public static List<String> getLocationsV1(String objectID) throws storage.StorageException {
         objectID = objectID.replace(" ", "");
         String[] need = objectID.split("_");
         int needLen = need.length;
@@ -69,7 +72,6 @@ public class StorageItf {
                 throw new StorageException("I cannot detect the keyspace name from "+name);
             }
             final String nodeKp=name.substring(0,pposition);
-            System.out.println(nodeKp);
 
             Set<Map.Entry<Host, Long>> hostsTkns = session.execute("SELECT tokens FROM hecuba.istorage WHERE storage_id = ?", objectID)
                     .one().getList("tokens", TupleValue.class).stream()
@@ -86,7 +88,7 @@ public class StorageItf {
         }
     }
 
-    public static List<String> getLocationsV1(String objectID) throws storage.StorageException {
+    public static List<String> getLocationsV2(String objectID) throws storage.StorageException {
         objectID = objectID.replace(" ", "");
         String[] need = objectID.split("_");
         int needLen = need.length;
@@ -116,7 +118,6 @@ public class StorageItf {
 
             Metadata metadata = cluster.getMetadata();
             String nodeKp = session.execute("SELECT ksp FROM hecuba.blocks WHERE blockid = ?", objectID).one().getString("ksp");
-            System.out.println(nodeKp);
 
             Set<Map.Entry<Host, Long>> hostsTkns = session.execute("SELECT tkns FROM hecuba.blocks WHERE blockid = ?", objectID)
                     .one().getList("tkns", Long.class).stream().map(tok -> metadata.newToken(tok.toString()))
@@ -136,7 +137,6 @@ public class StorageItf {
         if (cluster == null) {
             nodeIP = System.getenv("CONTACT_NAMES").split(",");
             nodePort = Integer.parseInt(System.getenv("NODE_PORT"));
-            System.out.println(nodeIP);
             cluster = new Cluster.Builder()
                     .addContactPoints(nodeIP)
                     .withPort(nodePort)
@@ -196,8 +196,8 @@ public class StorageItf {
             e.printStackTrace();
         }
         try {
-            System.out.println(client.getLocations("058380da-fe71-11e6-80fd-001517e69c14"));
-            System.out.println(client.getLocations("Words_1"));
+            client.getLocations("7c9f1e20-fa08-37d7-be5f-9980196348bc");
+            client.getLocations("Words_1");
         } catch (StorageException e) {
             e.printStackTrace();
         }
