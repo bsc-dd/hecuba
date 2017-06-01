@@ -42,11 +42,12 @@ class NamedItemsIterator:
     def next(self):
         n = self.hiterator.get_next()
         if self.key_builder is None:
-            k = n[0]
+            k = n[0][0]
         else:
             k = self.key_builder(*n[0:self.k_size])
         if self.column_builder is None:
-            v = n[self.k_size]
+            # v = n[self.k_size]
+            v = n[0][self.k_size]
         else:
             v = self.column_builder(*n[self.k_size:])
         to_return = self.builder(k, v)
@@ -136,9 +137,9 @@ class StorageDict(dict, IStorage):
             self._storage_id = storage_id
         elif name is not None:
             if '.' in name:
-                self._storage_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, name))
+                self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, name)
             else:
-                self._storage_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, ksp + '.' + name))
+                self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, ksp + '.' + name)
         else:
             self._storage_id = None
 
@@ -221,7 +222,7 @@ class StorageDict(dict, IStorage):
         self._build_args = self._build_args._replace(name=self._ksp+"."+self._table)
 
         if self._storage_id is None:
-            self._storage_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, name))
+            self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, name)
             self._build_args = self._build_args._replace(storage_id=self._storage_id)
         self._store_meta(self._build_args)
         if config.id_create_schema == -1:
@@ -376,7 +377,7 @@ class StorageDict(dict, IStorage):
         Returns:
             self._storage_id: id of the block
         """
-        return self._storage_id
+        return str(self._storage_id)
 
     def iterkeys(self):
         """
@@ -399,7 +400,7 @@ class StorageDict(dict, IStorage):
         if self._is_persistent:
             ik = self._hcache.iteritems(config.prefetch_size)
             query = 'SELECT columns FROM ' + config.execution_name + '.istorage WHERE storage_id = ' \
-                    '\'' + str(self._storage_id) + '\''
+                    '' + str(self._storage_id) + ''
 
             result = config.session.execute(query)
             to_return = ''
