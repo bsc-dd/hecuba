@@ -221,7 +221,7 @@ class StorageDict(dict, IStorage):
         self._build_args = self._build_args._replace(name=self._ksp + "." + self._table)
 
         if self._storage_id is None:
-            self._storage_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, name))
+            self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, name)
             self._build_args = self._build_args._replace(storage_id=self._storage_id)
         self._store_meta(self._build_args)
         if config.id_create_schema == -1:
@@ -399,7 +399,7 @@ class StorageDict(dict, IStorage):
         if self._is_persistent:
             ik = self._hcache.iteritems(config.prefetch_size)
             query = 'SELECT columns FROM ' + config.execution_name + '.istorage WHERE storage_id = ' \
-                                                                     '\'' + str(self._storage_id) + '\''
+                    '' + str(self._storage_id) + ''
 
             result = config.session.execute(query)
             to_return = ''
