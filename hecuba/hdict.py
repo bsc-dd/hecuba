@@ -376,7 +376,7 @@ class StorageDict(dict, IStorage):
         Returns:
             self._storage_id: id of the block
         """
-        return self._storage_id
+        return str(self._storage_id)
 
     def iterkeys(self):
         """
