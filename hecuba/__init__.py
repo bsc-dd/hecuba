@@ -4,7 +4,6 @@ import logging
 from cassandra.cluster import Cluster
 from cassandra.policies import RetryPolicy
 
-
 # Set default log.handler to avoid "No handler found" warnings.
 
 stderrLogger = logging.StreamHandler()
@@ -114,7 +113,10 @@ class Config:
 
         if mock_cassandra:
             class clusterMock:
-                pass
+                def __init__(self):
+                    from cassandra.metadata import Metadata
+                    self.metadata = Metadata()
+                    self.metadata.rebuild_token_map("Murmur3Partitioner", {})
 
             class sessionMock:
 
@@ -142,17 +144,17 @@ class Config:
                 if singleton.id_create_schema == -1:
                     singleton.session.execute(
                         "CREATE KEYSPACE IF NOT EXISTS " + singleton.execution_name + " WITH replication = {'class': 'SimpleStrategy',"
-                        "'replication_factor': %d }" % singleton.repl_factor)
+                                                                                      "'replication_factor': %d }" % singleton.repl_factor)
                     singleton.session.execute(
                         'CREATE TABLE IF NOT EXISTS ' + singleton.execution_name + '.istorage (storage_id uuid, '
-                        'class_name text,name text, '
-                        'istorage_props map<text,text>, '
-                        'tokens list<frozen<tuple<bigint,bigint>>>, entry_point text, port int, '
-                        'indexed_args list<text>, nonindexed_args list<text>, '
-                        'primary_keys list<frozen<tuple<text,text>>>,'
-                        'columns list<frozen<tuple<text,text>>>,'
-                        'value_list list<text>, mem_filter text, '
-                        'PRIMARY KEY(storage_id))')
+                                                                                   'class_name text,name text, '
+                                                                                   'istorage_props map<text,text>, '
+                                                                                   'tokens list<frozen<tuple<bigint,bigint>>>, entry_point text, port int, '
+                                                                                   'indexed_args list<text>, nonindexed_args list<text>, '
+                                                                                   'primary_keys list<frozen<tuple<text,text>>>,'
+                                                                                   'columns list<frozen<tuple<text,text>>>,'
+                                                                                   'value_list list<text>, mem_filter text, '
+                                                                                   'PRIMARY KEY(storage_id))')
 
             except Exception as e:
                 log.error('Exception creating cluster session. Are you in a testing env? %s', e)

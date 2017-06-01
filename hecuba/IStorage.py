@@ -83,6 +83,8 @@ class IStorage:
         :return:  a rationalized list [(-1, 0),(0,10),(10, max)]
         """
         tokens.sort()
+        if len(tokens) == 0:
+            return tokens
         if tokens[0] > -2 ** 63:
             token_ranges = [(-2 ** 63, tokens[0])]
         else:
