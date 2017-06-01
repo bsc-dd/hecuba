@@ -9,7 +9,7 @@ import uuid
 class StorageObjTest(unittest.TestCase):
 
     def test_init_empty(self):
-
+        # done
         tablename = "tab1"
         tokens = [(1l, 2l), (2l, 3l), (3l, 4l)]
         nopars = StorageDict([('position', 'int')], [('value', 'int')], tablename, tokens)
@@ -34,6 +34,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(nopars._is_persistent, rebuild._is_persistent)
 
     def test_flush_items_cached(self):
+        # in process
         config.session.execute("CREATE TABLE IF NOT EXISTS hecuba.tab1(pk1 int, val1 text, PRIMARY KEY(pk1))")
         config.cache_activated = True
         tablename = "tab1"
@@ -49,7 +50,8 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(count, 100)
 
     def test_make_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS hecuba_app.words_de1b645ce2483509b58cbca4592c1430")
+        # done
+        config.session.execute("DROP TABLE IF EXISTS hecuba.text_7ac343c2eeb1360caae83c606d5da25c")
         nopars = Words()
         self.assertFalse(nopars._is_persistent)
         config.batch_size = 1
@@ -59,19 +61,20 @@ class StorageObjTest(unittest.TestCase):
         nopars.ciao3 = [1, 2, 3]
         nopars.ciao4 = (1, 2, 3)
         for i in range(10):
-            nopars.words[i] = 'ciao'+str(i)
+            nopars.text[i] = 'ciao'+str(i)
 
-        count, = config.session.execute("SELECT count(*) FROM system_schema.tables WHERE keyspace_name = 'hecuba_app' and table_name = 'words'")[0]
+        count, = config.session.execute("SELECT count(*) FROM system_schema.tables WHERE keyspace_name = 'hecuba' and table_name = 'text_7ac343c2eeb1360caae83c606d5da25c'")[0]
         self.assertEqual(0, count)
 
-        nopars.make_persistent("hecuba_app.wordsso")
+        nopars.make_persistent("wordsso")
 
-        count, = config.session.execute('SELECT count(*) FROM hecuba_app.words_de1b645ce2483509b58cbca4592c1430')[0]
+        count, = config.session.execute('SELECT count(*) FROM hecuba.text_7ac343c2eeb1360caae83c606d5da25c')[0]
         self.assertEqual(10, count)
 
     def test_empty_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS hecuba_app.words_de1b645ce2483509b58cbca4592c1430")
-        config.session.execute("DROP TABLE IF EXISTS hecuba_app.wordsso_6d5aff9e38263ef3b8b835464659d4ce")
+        # done
+        config.session.execute("DROP TABLE IF EXISTS hecuba.wordsso_6d439fbe0b0334779ebc36da44f2e3b7")
+        config.session.execute("DROP TABLE IF EXISTS hecuba.text_7ac343c2eeb1360caae83c606d5da25c")
         from app.words import Words
         so = Words()
         so.make_persistent("wordsso")
@@ -80,14 +83,15 @@ class StorageObjTest(unittest.TestCase):
         config.batch_size = 1
         config.cache_activated = False
         for i in range(10):
-            so.words[i] = str.join(',', map(lambda a: "ciao", range(i)))
+            so.text[i] = str.join(',', map(lambda a: "ciao", range(i)))
 
-        count, = config.session.execute('SELECT count(*) FROM hecuba_app.words_de1b645ce2483509b58cbca4592c1430')[0]
+        count, = config.session.execute('SELECT count(*) FROM hecuba.text_7ac343c2eeb1360caae83c606d5da25c')[0]
         self.assertEqual(10, count)
 
         so.delete_persistent()
+        so.text.delete_persistent()
 
-        count, = config.session.execute('SELECT count(*) FROM hecuba_app.words_de1b645ce2483509b58cbca4592c1430')[0]
+        count, = config.session.execute('SELECT count(*) FROM hecuba.text_7ac343c2eeb1360caae83c606d5da25c')[0]
         self.assertEqual(0, count)
 
 
