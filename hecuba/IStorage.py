@@ -11,7 +11,7 @@ class IStorage:
     _build_args = args()
 
     valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map',
-                   'bigint', 'blob', 'counter', 'dict']
+                   'bigint', 'blob', 'counter', 'dict', 'float']
 
     _conversions = {'atomicint': 'counter',
                     'str': 'text',
