@@ -188,7 +188,7 @@ class StorageObj(object, IStorage):
     _sub_tuple_case = re.compile(' *< *([\w:, ]+)+ *>')
     _val_case = re.compile('.*@ClassField +(\w+) +%s' % _valid_type)
     _so_val_case = re.compile('.*@ClassField +(\w+) +([\w.]+)')
-    _index_vars = re.compile('.*@Indexed+\s*([A-z,]+)+')
+    _index_vars = re.compile('.*@Index_on+\s*([A-z,]+)+([A-z, ]+)')
 
     @classmethod
     def _parse_comments(self, comments):
@@ -332,8 +332,8 @@ class StorageObj(object, IStorage):
                                 }
             m = StorageObj._index_vars.match(line)
             if m is not None:
-                indexed_values = m.groups()
-                indexed_values = indexed_values[0].replace(' ', '').split(',')
+                table_name, indexed_values = m.groups()
+                indexed_values = indexed_values.replace(' ', '').split(',')
                 if table_name in this:
                     this[table_name].update({'indexed_values': indexed_values})
                 else:
