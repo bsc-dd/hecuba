@@ -66,8 +66,8 @@ class StorageDict(dict, IStorage):
     args_names = ["primary_keys", "columns", "name", "tokens", "storage_id", "class_name"]
     args = namedtuple('StorageDictArgs', args_names)
     _prepared_store_meta = config.session.prepare('INSERT INTO ' + config.execution_name + '.istorage'
-                                                  '(storage_id, class_name, name, tokens,primary_keys,columns)'
-                                                  'VALUES (?,?,?,?,?,?)')
+                                                                                           '(storage_id, class_name, name, tokens,primary_keys,columns)'
+                                                                                           'VALUES (?,?,?,?,?,?)')
 
     @staticmethod
     def build_remotely(result):
@@ -136,9 +136,9 @@ class StorageDict(dict, IStorage):
             self._storage_id = storage_id
         elif name is not None:
             if '.' in name:
-                self._storage_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, name))
+                self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, name)
             else:
-                self._storage_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, ksp + '.' + name))
+                self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, ksp + '.' + name)
         else:
             self._storage_id = None
 
@@ -184,8 +184,8 @@ class StorageDict(dict, IStorage):
     def _make_key(self, key):
         if isinstance(key, str) or isinstance(key, unicode) or not isinstance(key, Iterable):
             if len(self._primary_keys) == 1:
-                if isinstance(key,unicode):
-                    return [key.encode('ascii','ignore')]
+                if isinstance(key, unicode):
+                    return [key.encode('ascii', 'ignore')]
                 return [key]
             else:
                 raise Exception('missing a primary key')
@@ -199,8 +199,8 @@ class StorageDict(dict, IStorage):
     def _make_value(key):
         if isinstance(key, str) or not isinstance(key, Iterable) or type(key).__module__ == np.__name__:
             return [key]
-        elif isinstance(key,unicode):
-            return [key.encode('ascii','ignore')]
+        elif isinstance(key, unicode):
+            return [key.encode('ascii', 'ignore')]
         else:
             return list(key)
 
@@ -218,7 +218,7 @@ class StorageDict(dict, IStorage):
     def make_persistent(self, name):
         self._is_persistent = True
         (self._ksp, self._table) = self._extract_ks_tab(name)
-        self._build_args = self._build_args._replace(name=self._ksp+"."+self._table)
+        self._build_args = self._build_args._replace(name=self._ksp + "." + self._table)
 
         if self._storage_id is None:
             self._storage_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, name))
@@ -244,7 +244,7 @@ class StorageDict(dict, IStorage):
         columns = map(lambda a: a[0] + " " + a[1], self._primary_keys + cols)
 
         pks = map(lambda a: a[0], self._primary_keys)
-        query_table = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));"\
+        query_table = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" \
                       % (self._ksp,
                          self._table + '_' + str(self._storage_id).replace('-', ''),
                          str.join(',', columns),
@@ -299,7 +299,7 @@ class StorageDict(dict, IStorage):
                     names += ", " + str(key)
                     values += ", " + str(variable._storage_id)
         if to_insert:
-            insert_query = "INSERT INTO " + self._ksp + "." + str(name) +\
+            insert_query = "INSERT INTO " + self._ksp + "." + str(name) + \
                            " (" + names + ")VALUES (" + values + ")"
             config.session.execute(insert_query)
 
@@ -399,7 +399,7 @@ class StorageDict(dict, IStorage):
         if self._is_persistent:
             ik = self._hcache.iteritems(config.prefetch_size)
             query = 'SELECT columns FROM ' + config.execution_name + '.istorage WHERE storage_id = ' \
-                    '\'' + str(self._storage_id) + '\''
+                                                                     '\'' + str(self._storage_id) + '\''
 
             result = config.session.execute(query)
             to_return = ''
