@@ -182,7 +182,7 @@ class StorageObj(object, IStorage):
     _data_type = re.compile('(\w+) *: *%s' % _valid_type)
     _so_data_type = re.compile('(\w+)*:(\w.+)')
     _dict_case = re.compile('.*@ClassField +(\w+) +dict+ *< *< *([\w:, ]+)+ *> *, *([\w+:., <>]+) *>')
-    _tuple_case = re.compile('.*@ClassField +(\w+) +tuple+ *< *([\w,+]+) *>')
+    _tuple_case = re.compile('.*@ClassField +(\w+) +tuple+ *< *([\w, +]+) *>')
     _list_case = re.compile('.*@ClassField +(\w+) +list+ *< *([\w:\.+]+) *>')
     _sub_dict_case = re.compile(' *< *< *([\w:, ]+)+ *> *, *([\w+:, <>]+) *>')
     _sub_tuple_case = re.compile(' *< *([\w:, ]+)+ *>')
@@ -294,6 +294,7 @@ class StorageObj(object, IStorage):
                 m = StorageObj._tuple_case.match(line)
                 if m is not None:
                     table_name, simple_type = m.groups()
+                    simple_type = simple_type.replace(' ','')
                     simple_type_split = simple_type.split(',')
                     conversion = ''
                     for ind, val in enumerate(simple_type_split):
