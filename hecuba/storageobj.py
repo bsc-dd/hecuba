@@ -188,7 +188,7 @@ class StorageObj(object, IStorage):
     _sub_tuple_case = re.compile(' *< *([\w:, ]+)+ *>')
     _val_case = re.compile('.*@ClassField +(\w+) +%s' % _valid_type)
     _so_val_case = re.compile('.*@ClassField +(\w+) +([\w.]+)')
-    _index_vars = re.compile('.*@Index_on+\s*([A-z,]+)+([A-z, ]+)')
+    _index_vars = re.compile('.*@Index_on *([A-z0-9,]+)+([A-z0-9, ]+)')
 
     @classmethod
     def _parse_comments(self, comments):
