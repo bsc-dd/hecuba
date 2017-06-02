@@ -3,7 +3,7 @@ import unittest
 from hecuba import config
  
 
-from hecuba.hdict import PersistentDict
+from hecuba.hdict import StorageDict
 
 
 class PersistentDict_Tests(unittest.TestCase):
@@ -17,7 +17,7 @@ class PersistentDict_Tests(unittest.TestCase):
         config.session.execute("CREATE KEYSPACE ksp WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};")
         config.session.execute("CREATE TABLE ksp.tb1(pk1 int, val1 text,PRIMARY KEY(pk1))")
         config.cache_activated = True
-        pd = PersistentDict('ksp', 'tb1', True, [('pk1', 'int')], [('val1', 'str')])
+        pd = StorageDict([('pk1', 'int')], [('val1', 'str')], 'ksp.tb1')
         config.batch_size = 101
         for i in range(100):
             pd[i] = 'ciao'+str(i)
@@ -31,7 +31,7 @@ class PersistentDict_Tests(unittest.TestCase):
         config.session.execute('DROP KEYSPACE IF EXISTS ksp')
         config.session.execute("CREATE KEYSPACE ksp WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};")
         config.session.execute("CREATE TABLE ksp.tb1(pk1 int, val1 text,PRIMARY KEY(pk1))")
-        pd = PersistentDict('ksp', 'tb1', True, [('pk1', 'int')], [('val1', 'str')])
+        pd = StorageDict([('pk1', 'int')], [('val1', 'str')], 'ksp.tb1')
         config.batch_size = 10
         config.cache_activated = False
         for i in range(0, 9):
@@ -47,7 +47,7 @@ class PersistentDict_Tests(unittest.TestCase):
         config.session.execute(
             "CREATE KEYSPACE ksp WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};")
         config.session.execute("CREATE TABLE ksp.tb1(pk1 int, val1 text,PRIMARY KEY(pk1))")
-        pd = PersistentDict('ksp', 'tb1', True, [('pk1', 'int')], [('val1', 'str')])
+        pd = StorageDict([('pk1', 'int')], [('val1', 'str')], 'ksp.tb1')
         config.batch_size = 1
         config.cache_activated = False
         for i in range(0, 20):
@@ -60,7 +60,7 @@ class PersistentDict_Tests(unittest.TestCase):
         config.session.execute(
             "CREATE KEYSPACE ksp WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};")
         config.session.execute("CREATE TABLE ksp.tb1(pk1 int, val1 text,PRIMARY KEY(pk1))")
-        pd = PersistentDict('ksp', 'tb1', True, [('pk1', 'int')], [('val1', 'str')])
+        pd = StorageDict([('pk1', 'int')], [('val1', 'str')], 'ksp.tb1')
         config.batch_size = 10
         config.cache_activated = True
         for i in range(0, 9):
