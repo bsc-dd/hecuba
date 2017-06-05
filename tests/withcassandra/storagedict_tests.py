@@ -69,7 +69,7 @@ class StorageObjTest(unittest.TestCase):
 
     def test_make_persistent(self):
         # done
-        config.session.execute("DROP TABLE IF EXISTS hecuba.words")
+        config.session.execute("DROP TABLE IF EXISTS hecuba.t_make_words")
         nopars = Words()
         self.assertFalse(nopars._is_persistent)
         nopars.ciao = 1
@@ -80,20 +80,20 @@ class StorageObjTest(unittest.TestCase):
             nopars.words[i] = 'ciao' + str(i)
 
         count, = config.session.execute(
-            "SELECT count(*) FROM system_schema.tables WHERE keyspace_name = 'hecuba' and table_name = 'words'")[
+            "SELECT count(*) FROM system_schema.tables WHERE keyspace_name = 'hecuba' and table_name = 't_make_words'")[
             0]
         self.assertEqual(0, count)
 
-        nopars.make_persistent("test_make_persistent")
+        nopars.make_persistent("t_make")
 
         del nopars
-        count, = config.session.execute('SELECT count(*) FROM hecuba.words')[0]
+        count, = config.session.execute('SELECT count(*) FROM hecuba.t_make_words')[0]
         self.assertEqual(10, count)
 
     def test_empty_persistent(self):
         # done
+        config.session.execute("DROP TABLE IF EXISTS hecuba.wordsso_words")
         config.session.execute("DROP TABLE IF EXISTS hecuba.wordsso")
-        config.session.execute("DROP TABLE IF EXISTS hecuba.text")
         from app.words import Words
         so = Words()
         so.make_persistent("wordsso")
@@ -105,14 +105,14 @@ class StorageObjTest(unittest.TestCase):
             so.words[i] = str.join(',', map(lambda a: "ciao", range(i)))
 
         del so
-        count, = config.session.execute('SELECT count(*) FROM hecuba.words')[0]
+        count, = config.session.execute('SELECT count(*) FROM hecuba.wordsso_words')[0]
         self.assertEqual(10, count)
 
         so = Words("wordsso")
         so.delete_persistent()
         so.words.delete_persistent()
 
-        count, = config.session.execute('SELECT count(*) FROM hecuba.words')[0]
+        count, = config.session.execute('SELECT count(*) FROM hecuba.wordsso_words')[0]
         self.assertEqual(0, count)
 
     def test_simple_iteritems_test(self):
