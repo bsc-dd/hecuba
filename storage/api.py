@@ -88,7 +88,8 @@ def getByID(objid):
     if len(objidsplit) == 2:
         objid = objidsplit[0]
 
-    results = config.session.execute("SELECT * FROM " + config.execution_name + ".istorage WHERE storage_id = %s", (objid,))[0]
+    args = (uuid.UUID(objid), )
+    results = config.session.execute("SELECT * FROM " + config.execution_name + ".istorage WHERE storage_id = %s", args)[0]
     class_name = results.class_name
 
     log.debug("Storage API:getByID(%s) of class %s", objid, class_name)
