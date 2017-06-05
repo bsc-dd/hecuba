@@ -133,11 +133,11 @@ class StorageObjTest(unittest.TestCase):
 
         nopars.make_persistent("hecuba_test.wordsso")
 
-        count, = config.session.execute('SELECT count(*) FROM hecuba_test.words')[0]
+        count, = config.session.execute('SELECT count(*) FROM hecuba_test.wordsso_words')[0]
         self.assertEqual(10, count)
 
     def test_empty_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS hecuba.words")
+        config.session.execute("DROP TABLE IF EXISTS hecuba.wordsso_words")
         config.session.execute("DROP TABLE IF EXISTS hecuba.wordsso")
         from app.words import Words
         so = Words()
@@ -151,13 +151,13 @@ class StorageObjTest(unittest.TestCase):
 
         del so
 
-        count, = config.session.execute('SELECT count(*) FROM hecuba.words')[0]
+        count, = config.session.execute('SELECT count(*) FROM hecuba.wordsso_words')[0]
         self.assertEqual(10, count)
         so = Words()
         so.make_persistent("wordsso")
         so.delete_persistent()
 
-        count, = config.session.execute('SELECT count(*) FROM hecuba.words')[0]
+        count, = config.session.execute('SELECT count(*) FROM hecuba.wordsso_words')[0]
         self.assertEqual(0, count)
 
     def test_simple_stores_after_make_persistent(self):
