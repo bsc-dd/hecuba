@@ -1,9 +1,9 @@
 import unittest
 import uuid
 
+from hecuba import Config
+Config.reset(True)  ## THIS MUST STAY ONE THE TOP
 from mock import Mock
-
-from hecuba import Config, config
 from hecuba.hdict import StorageDict
 from app.words import Words
 
@@ -21,20 +21,22 @@ class BlockTest(unittest.TestCase):
         class res: pass
 
         results = res()
-        results.blockid = u"aaaablockid"
-        results.entry_point = u'localhost'
-        results.dict_name = [u'pk1']
-        results.tab = u"tab1"
-        results.ksp = u'ksp1'
-        results.tkns = [1l, 2l, 3l, 3l]
-        results.storageobj_classname = u'app.words.Words'
-        results.object_id = u'test_id'
-        old = Words.__init__
-        Words.__init__ = Mock(return_value=None)
-        b = StorageDict.build_remotely(results)
-        self.assertIsInstance(b.storageobj, Words)
-        Words.__init__.assert_called_once_with("ksp1.tab1", storage_id='test_id')
-        Words.__init__ = old
+        results.storage_id = uuid.uuid4()
+        results.class_name = 'app.words.Words'
+        results.name = 'ksp1.tab1'
+        results.columns = [('val1', 'str')]
+        results.entry_point = 'localhost'
+        results.primary_keys = [('pk1', 'int')]
+        results.istorage_props = {}
+        results.tokens = [(1l, 2l), (2l, 3l), (3l, 4l), (3l, 5l)]
+
+        old = Words.make_persistent
+
+        Words.make_persistent = Mock(return_value=None)
+        b = Words.build_remotely(results)
+        self.assertIsInstance(b, Words)
+        Words.make_persistent.assert_called_once_with("ksp1.tab1")
+        Words.make_persistent = old
 
     def test_iter_and_get_sets(self):
         """
