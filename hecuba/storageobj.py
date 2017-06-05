@@ -1,11 +1,10 @@
 import re
 from collections import namedtuple
-from copy import copy
 import uuid
+
 from IStorage import IStorage
 from hdict import StorageDict
 from hecuba import config, log
-import numpy as np
 
 
 class StorageObj(object, IStorage):
@@ -42,12 +41,9 @@ class StorageObj(object, IStorage):
             module = class_name[:last]
             class_name = class_name[last + 1:]
             mod = __import__(module, globals(), locals(), [class_name], 0)
-            if str(new_args.name.encode('utf8')).count('_') == 0:
-                so = getattr(mod, class_name)(new_args.name.encode('utf8'), new_args.tokens,
-                                              new_args.storage_id, new_args.istorage_props)
-            else:
-                so = getattr(mod, class_name)(str(new_args.name.encode('utf8')).split('_')[0], new_args.tokens,
-                                              new_args.storage_id, new_args.istorage_props)
+
+            so = getattr(mod, class_name)(new_args.name.encode('utf8'), new_args.tokens,
+                                          new_args.storage_id, new_args.istorage_props)
 
         return so
 
@@ -60,9 +56,10 @@ class StorageObj(object, IStorage):
         """
         log.debug("StorageObj: storing media %s", storage_args)
         try:
+
             config.session.execute(StorageObj._prepared_store_meta,
                                    [storage_args.storage_id, storage_args.class_name,
-                                    storage_args.name + '_' + str(storage_args.storage_id).replace('-', ''),
+                                    storage_args.name,
                                     storage_args.tokens, storage_args.istorage_props])
         except Exception as ex:
             print "Error creating the StorageDict metadata:", storage_args, ex
@@ -82,7 +79,6 @@ class StorageObj(object, IStorage):
         self._persistent_dicts = []
         self._attr_to_column = {}
         if name is None:
-            self._name = name
             self._ksp = config.execution_name
         else:
             (self._ksp, self._table) = self._extract_ks_tab(name)
@@ -118,7 +114,6 @@ class StorageObj(object, IStorage):
         for table_name, per_dict in dictionaries:
             dict_name = "%s.%s" % (self._ksp, table_name)
 
-            dict_case = True
             if istorage_props is not None and dict_name in istorage_props:
                 args = config.session.execute(IStorage._select_istorage_meta, (istorage_props[dict_name],))[0]
                 # The internal objects must have the same father's tokens
@@ -126,50 +121,9 @@ class StorageObj(object, IStorage):
                 log.debug("CREATING INTERNAL StorageDict with %s", args)
                 pd = StorageDict.build_remotely(args)
             else:
-                for ind, entry in enumerate(per_dict['columns']):
-                    if entry[1] not in IStorage.valid_types and '<' not in entry[1]:
-                        so_name = entry[0]
-                        field_type = entry[1]
-                        if '.' in field_type:
-                            last = 0
-                            for key, i in enumerate(field_type):
-                                if i == '.' and key > last:
-                                    last = key
-                            module = field_type[:last]
-                            c_name = field_type[last + 1:]
-                            mod = __import__(module, globals(), locals(), [c_name], 0)
-                            pd = getattr(mod, c_name)(name=self._ksp + '.' + so_name)
-                        else:
-                            mod = __import__(self.__module__, globals(), locals(), [field_type], 0)
-                            pd = getattr(mod, field_type)(name=self._ksp + '.' + so_name)
-                        dict_case = False
-            pd = StorageDict(per_dict['primary_keys'], per_dict['columns'], tokens=self._tokens)
-            pd._primary_keys = per_dict['primary_keys']
-            pd._columns = per_dict['columns']
-            pd._tokens = self._tokens
+                pd = StorageDict(per_dict['primary_keys'], per_dict['columns'], tokens=self._tokens)
             setattr(self, table_name, pd)
-
-            if dict_case:
-                self._persistent_dicts.append(pd)
-
-        sos = filter(lambda (k, t): t['type'] not in IStorage.valid_types and '<' not in t['type'],
-                     self._persistent_props.iteritems())
-        for so_name, so in sos:
-            if not hasattr(self, so_name):
-                field_type = so['type']
-                if '.' in field_type and not field_type == 'numpy.ndarray':
-                    last = 0
-                    for key, i in enumerate(field_type):
-                        if i == '.' and key > last:
-                            last = key
-                    module = field_type[:last]
-                    c_name = field_type[last + 1:]
-                    mod = __import__(module, globals(), locals(), [c_name], 0)
-                    my_so = getattr(mod, c_name)(self._ksp + '.' + so_name)
-                else:
-                    mod = __import__(self.__module__, globals(), locals(), [field_type], 0)
-                    my_so = getattr(mod, field_type)(self._ksp + '.' + so_name)
-                setattr(self, so_name, my_so)
+            self._persistent_dicts.append(pd)
 
         if name is not None:
             self.make_persistent(name)
@@ -294,7 +248,7 @@ class StorageObj(object, IStorage):
                 m = StorageObj._tuple_case.match(line)
                 if m is not None:
                     table_name, simple_type = m.groups()
-                    simple_type = simple_type.replace(' ','')
+                    simple_type = simple_type.replace(' ', '')
                     simple_type_split = simple_type.split(',')
                     conversion = ''
                     for ind, val in enumerate(simple_type_split):
@@ -339,6 +293,7 @@ class StorageObj(object, IStorage):
                     this[table_name].update({'indexed_values': indexed_values})
                 else:
                     this[table_name] = {'indexed_values': indexed_values}
+
         return this
 
     def make_persistent(self, name):
@@ -370,27 +325,15 @@ class StorageObj(object, IStorage):
         except Exception as ex:
             print "Error executing query:", query_keyspace
             raise ex
-        valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'tuple', 'list', 'set', 'map',
-                       'bigint', 'blob', 'map']
-        query_simple = 'CREATE TABLE IF NOT EXISTS ' + \
-                       str(self._ksp) + '.' + str(self._table) + '_' + str(self._storage_id).replace('-', '') + \
+
+        query_simple = 'CREATE TABLE IF NOT EXISTS ' + str(self._ksp) + '.' + str(self._table) + \
                        '( storage_id uuid PRIMARY KEY, '
         for key, entry in self._persistent_props.iteritems():
             query_simple += str(key) + ' '
-            if '<' in entry:
-                in_entry = entry['type'].split('<')[1].replace('>', '')
-            else:
-                in_entry = 'int'
-            if entry['type'] == 'dict' or \
-                            entry['type'] == 'tuple' or \
-                            in_entry not in valid_types or \
-                            entry['type'].split('<')[0] not in valid_types:
-                query_simple += 'uuid, '
-            else:
+            if entry['type'] != 'dict':
                 query_simple += entry['type'] + ', '
-                if entry['type'] == 'blob':
-                    query_simple += str(key) + "_size text, "
-                    query_simple += str(key) + "_shape text, "
+            else:
+                query_simple += 'uuid, '
         config.session.execute(query_simple[0:len(query_simple) - 2] + ' )')
 
         dictionaries = filter(lambda (k, t): t['type'] == 'dict', self._persistent_props.iteritems())
@@ -401,22 +344,9 @@ class StorageObj(object, IStorage):
         for table_name, _ in dictionaries:
             changed = True
             pd = getattr(self, table_name)
-            name2 = self._ksp + "." + table_name
-            pd.make_persistent(name2)
-            is_props[name2] = pd._storage_id
-        '''
-        others = filter(lambda (k, t): t['type'] not in valid_types, self._persistent_props.iteritems())
-        is_props = self._build_args.istorage_props
-        if is_props is None:
-            is_props = {}
-        changed = False
-        for table_name, _ in others:
-            changed = True
-            pd = getattr(self, table_name)
-            name2 = self._ksp + "." + table_name
-            pd.make_persistent(name2)
-            is_props[name2] = str(pd._storage_id)
-        '''
+            sd_name = self._ksp + "." + self._table+"_"+table_name
+            pd.make_persistent(sd_name)
+            is_props[sd_name] = str(pd._storage_id)
 
         if changed or self._storage_id is None:
             if self._storage_id is None:
@@ -424,42 +354,11 @@ class StorageObj(object, IStorage):
                 self._build_args = self._build_args._replace(storage_id=self._storage_id, istorage_props=is_props)
         self._store_meta(self._build_args)
 
-        names = "storage_id"
-        values = list()
-        values.append(self._storage_id)
-        for key, variable in vars(self).iteritems():
-            to_insert = False
-            if not key[0] == '_':
-                if key in self._persistent_attrs:
-                    to_insert = True
-                    if issubclass(variable.__class__, IStorage):
-                        names += ", " + str(key)
-                        if variable._storage_id is None:
-                            variable._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS,
-                                                              variable._ksp + '.' + variable._table)
-                        values.append(variable._storage_id)
-                    else:
-                        names += ", " + str(key)
-                        if type(variable) is str:
-                            values.append(str(variable))
-                        elif type(variable) is np.ndarray:
-                            values.append(variable.tostring())
-                            query2 = "INSERT INTO %s.%s (storage_id,%s_size,%s_shape) VALUES (?,?,?)" \
-                                     % (self._ksp,
-                                        str(self._table).lower() + '_' + str(self._storage_id).replace('-', ''),
-                                        key, key)
-                            prepared2 = config.session.prepare(query2)
-                            config.session.execute(prepared2,
-                                                   [self._storage_id, str(variable.dtype), str(variable.shape)])
-                        else:
-                            values.append(variable)
-            if to_insert:
-                query = "INSERT INTO " + \
-                        str(self._ksp) + '.' + str(self._table) + \
-                        '_' + str(self._storage_id).replace('-', '') + " (" + names + ") VALUES (?, ?)"
-                prepared = config.session.prepare(query)
-                config.session.execute(prepared,
-                                       values)
+        self._is_persistent = True
+
+        # Persisting attributes stored in memory
+        for key, val in self.__dict__.iteritems():
+            setattr(self, key, val)
 
     def stop_persistent(self):
         """
@@ -505,45 +404,18 @@ class StorageObj(object, IStorage):
         if key[0] != '_' and key is not 'storage_id' and self._is_persistent:
             if key in self._persistent_attrs:
                 try:
-                    query = "SELECT " + str(key) + " FROM %s.%s WHERE storage_id = %s;" \
-                                                   % (self._ksp,
-                                                      str(self._table).lower() + '_' + str(self._storage_id).replace(
-                                                          '-', ''),
-                                                      self._storage_id)
+                    query = "SELECT %s FROM %s.%s WHERE storage_id = %s;" \
+                            % (key, self._ksp,
+                               self._table,
+                               self._storage_id)
                     log.debug("GETATTR: %s", query)
                     result = config.session.execute(query)
                     for row in result:
                         for row_key, row_var in vars(row).iteritems():
                             # if not row_key == 'name':
                             if row_var is not None:
-                                to_return = row_var
-                                if self._persistent_props[key]['type'] == 'blob':
-                                    query2 = "SELECT " + str(key) + "_size, " + str(key) + "_shape FROM %s.%s" \
-                                                                                           " WHERE storage_id = %s;" \
-                                                                                           % (self._ksp,
-                                                                                              str(
-                                                                                                  self._table).lower() + '_' + str(
-                                                                                                  self._storage_id).replace(
-                                                                                                  '-', ''),
-                                                                                              self._storage_id)
-                                    result2 = config.session.execute(query2)
-                                    array_type = ''
-                                    array_shape = ''
-                                    for row2 in result2:
-                                        array_type = getattr(row2, key + "_size")
-                                        array_shape = getattr(row2, key + "_shape")
-                                    if array_type is not None:
-                                        try:
-                                            if str(array_shape).split(", ")[1] != ')':
-                                                to_return = np.fromstring(to_return, dtype=np.dtype(str(array_type))). \
-                                                    reshape(tuple(map(int, array_shape[1:-1].split(','))))
-                                            else:
-                                                to_return = np.fromstring(to_return, dtype=np.dtype(str(array_type)))
-                                        except Exception as e:
-                                            print "error:", e
-                                return to_return
+                                return row_var
                 except Exception as ex:
-                    print "error:", ex
                     log.warn("GETATTR ex %s", ex)
                     raise KeyError('value not found')
             else:
@@ -567,22 +439,13 @@ class StorageObj(object, IStorage):
         elif hasattr(self, '_is_persistent') and self._is_persistent:
             if key in self._persistent_attrs:
                 query = "INSERT INTO %s.%s (storage_id,%s) VALUES (?,?)" \
-                        % (self._ksp, str(self._table).lower() + '_' + str(self._storage_id).replace('-', ''), key)
+                        % (self._ksp, self._table, key)
                 prepared = config.session.prepare(query)
                 if not type(value) == dict and not type(value) == StorageDict:
                     if type(value) == str:
                         values = [self._storage_id, "" + str(value) + ""]
                     else:
-                        if type(value) == np.ndarray:
-                            values = [self._storage_id, value.tostring()]
-                            query2 = "INSERT INTO %s.%s (storage_id,%s_size,%s_shape) VALUES (?,?,?)" \
-                                     % (self._ksp,
-                                        str(self._table).lower() + '_' + str(self._storage_id).replace('-', ''),
-                                        key, key)
-                            prepared2 = config.session.prepare(query2)
-                            config.session.execute(prepared2, [self._storage_id, str(value.dtype), str(value.shape)])
-                        else:
-                            values = [self._storage_id, value]
+                        values = [self._storage_id, value]
                 else:
                     values = [self._storage_id, str(value._storage_id)]
                 log.debug("SETATTR: ", query)
@@ -603,25 +466,3 @@ class StorageObj(object, IStorage):
         """
         print "self_storage_id getID of SO:", self._storage_id
         return '%s_1' % str(self._storage_id)
-
-    def old_split(self):
-        """
-            Depending on if it's persistent or not, this function returns the list of keys of the PersistentDict
-            assigned to the StorageObj, or the list of keys
-            Returns:
-                a) List of keys in case that the SO is not persistent
-                b) Iterator that will return Blocks, one by one, where we can find the SO data in case it's persistent
-        """
-        log.debug("SPLITTING StorageObj")
-        props = self._persistent_props
-        dictionaries = filter(lambda (k, t): t['type'] == 'dict', props.iteritems())
-        dicts = []
-        for table_name, per_dict in dictionaries:
-            dicts.append(map(lambda a: (table_name, a), getattr(self, table_name).split()))
-
-        for split_dicts in zip(*dicts):
-            new_me = copy(self)
-            for table_name, istorage in split_dicts:
-                setattr(new_me, table_name, istorage)
-        yield new_me
-

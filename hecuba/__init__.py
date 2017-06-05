@@ -250,3 +250,4 @@ class Config:
 
 global config
 config = Config()
+

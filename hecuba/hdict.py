@@ -6,7 +6,6 @@ from hfetch import Hcache
 from IStorage import IStorage
 from hecuba import config, log
 import uuid
-import numpy as np
 
 
 class NamedIterator:
@@ -55,6 +54,7 @@ class NamedItemsIterator:
                 new_storageobj = IStorage.getByID(str(uuid.UUID(getattr(to_return.value, element[0]))))
                 to_replace = to_return.value._replace(**{element[0]: new_storageobj})
                 to_return = to_return._replace(value=to_replace)
+
         return to_return
 
 
@@ -78,18 +78,11 @@ class StorageDict(dict, IStorage):
         """
         log.debug("Building Storage dict with %s", result)
 
-        if '_' in result.name:
-            return StorageDict(result.primary_keys,
-                               result.columns,
-                               str(result.name).split('_')[0],
-                               result.tokens
-                               )
-        else:
-            return StorageDict(result.primary_keys,
-                               result.columns,
-                               result.name,
-                               result.tokens
-                               )
+        return StorageDict(result.primary_keys,
+                           result.columns,
+                           result.name,
+                           result.tokens
+                           )
 
     @staticmethod
     def _store_meta(storage_args):
@@ -98,7 +91,7 @@ class StorageDict(dict, IStorage):
         try:
             config.session.execute(StorageDict._prepared_store_meta,
                                    [storage_args.storage_id, storage_args.class_name,
-                                    storage_args.name + '_' + str(storage_args.storage_id).replace('-', ''),
+                                    storage_args.name,
                                     storage_args.tokens, storage_args.primary_keys, storage_args.columns])
         except Exception as ex:
             log.error("Error creating the StorageDict metadata: %s %s", storage_args, ex)
@@ -116,6 +109,7 @@ class StorageDict(dict, IStorage):
             tokens (list): list of tokens
             storage_id (string): the storage id identifier
         """
+
         super(StorageDict, self).__init__(**kwargs)
         self._is_persistent = False
         log.debug("CREATED StorageDict(%s,%s,%s,%s,%s,%s)", primary_keys, columns, name, tokens, storage_id, kwargs)
@@ -130,6 +124,7 @@ class StorageDict(dict, IStorage):
         if name is None:
             ksp = config.execution_name
         else:
+            name = name.encode('UTF8')
             (ksp, _) = self._extract_ks_tab(name)
 
         if storage_id is not None:
@@ -164,6 +159,8 @@ class StorageDict(dict, IStorage):
 
         if name is not None:
             self.make_persistent(name)
+        else:
+            self._is_persistent = False
 
     def __eq__(self, other):
         return self._storage_id == other._storage_id and \
@@ -197,7 +194,7 @@ class StorageDict(dict, IStorage):
 
     @staticmethod
     def _make_value(key):
-        if isinstance(key, str) or not isinstance(key, Iterable) or type(key).__module__ == np.__name__:
+        if isinstance(key, str) or not isinstance(key, Iterable):
             return [key]
         elif isinstance(key, unicode):
             return [key.encode('ascii', 'ignore')]
@@ -235,73 +232,35 @@ class StorageDict(dict, IStorage):
                 except Exception as ex:
                     print "Error creating the StorageDict keyspace:", query_keyspace, ex
 
-        cols = []
-        for c in self._columns:
-            if c[1] not in IStorage.valid_types:
-                cols.append((c[0], "uuid"))
-            else:
-                cols.append(c)
-        columns = map(lambda a: a[0] + " " + a[1], self._primary_keys + cols)
-
+        columns = map(lambda a: a[0] + " " + a[1], self._primary_keys + self._columns)
         pks = map(lambda a: a[0], self._primary_keys)
         query_table = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" \
                       % (self._ksp,
-                         self._table + '_' + str(self._storage_id).replace('-', ''),
+                         self._table,
                          str.join(',', columns),
                          str.join(',', pks))
         # print query_table
-        if query_table not in config.create_cache:
-            try:
-                config.create_cache.add(query_table)
-                log.debug('MAKE PERSISTENCE: %s', query_table)
-                config.session.execute(query_table)
-            except Exception as ex:
-                log.warn("Error creating the StorageDict table: %s %s", query_table, ex)
-
-        key_names = map(lambda a: a[0], self._primary_keys)
-        column_names = map(lambda a: a[0], cols)
+        try:
+            log.debug('MAKE PERSISTENCE: %s', query_table)
+            config.session.execute(query_table)
+        except Exception as ex:
+            log.warn("Error creating the StorageDict table: %s %s", query_table, ex)
+            raise ex
+        key_names = map(lambda a: a[0].encode('UTF8'), self._primary_keys)
+        column_names = map(lambda a: a[0].encode('UTF8'), self._columns)
         tknp = "token(%s)" % key_names[0]
-        for val in cols:
-            # we need to find a better way to do this
-            if val[1] == 'blob':
-                self._hcache_params = (self._ksp, self._table + '_' + str(self._storage_id).replace('-', ''),
-                                       "WHERE %s>=? AND %s<?;" % (tknp, tknp),
-                                       self._tokens, key_names, [{"name": val[0],
-                                                                  "type": "double",
-                                                                  "dims": '3' + 'x' + '3',
-                                                                  "partition": "false"}],
-                                       {'cache_size': config.max_cache_size,
-                                        'writer_par': config.write_callbacks_number,
-                                        'write_buffer': config.write_buffer_size})
-            else:
-                self._hcache_params = (self._ksp, self._table + '_' + str(self._storage_id).replace('-', ''),
-                                       "WHERE %s>=? AND %s<?;" % (tknp, tknp),
-                                       self._tokens, key_names, column_names,
-                                       {'cache_size': config.max_cache_size,
-                                        'writer_par': config.write_callbacks_number,
-                                        'write_buffer': config.write_buffer_size})
+        self._hcache_params = (self._ksp, self._table,
+                               "WHERE %s>=? AND %s<?;" % (tknp, tknp),
+                               self._tokens, key_names, column_names,
+                               {'cache_size': config.max_cache_size,
+                                'writer_par': config.write_callbacks_number,
+                                'write_buffer': config.write_buffer_size})
         log.debug("HCACHE params %s", self._hcache_params)
         self._hcache = Hcache(*self._hcache_params)
         # Storing all in-memory values to cassandra
         for key, value in dict.iteritems(self):
             self._hcache.put_row(self._make_key(key), self._make_value(value))
 
-        to_insert = False
-        names = "storage_id"
-        values = str(self._storage_id)
-        for key, variable in vars(self).iteritems():
-            if not key[0] == '_':
-                to_insert = True
-                if not type(variable) == dict and not type(variable) == StorageDict:
-                    names += ", " + str(key)
-                    values += ", " + str(variable)
-                else:
-                    names += ", " + str(key)
-                    values += ", " + str(variable._storage_id)
-        if to_insert:
-            insert_query = "INSERT INTO " + self._ksp + "." + str(name) + \
-                           " (" + names + ")VALUES (" + values + ")"
-            config.session.execute(insert_query)
 
     def stop_persistent(self):
         log.debug('STOP PERSISTENCE: %s', self._table)
@@ -309,7 +268,7 @@ class StorageDict(dict, IStorage):
         self._hcache = None
 
     def delete_persistent(self):
-        query = "TRUNCATE TABLE %s.%s;" % (self._ksp, str(self._table) + '_' + str(self._storage_id).replace('-', ''))
+        query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
         log.debug('DELETE PERSISTENCE: %s', query)
         config.session.execute(query)
 
@@ -332,19 +291,10 @@ class StorageDict(dict, IStorage):
 
             if issubclass(cres.__class__, NoneType):
                 return None
-            # elif self._column_builder is not None:
-            #     return self._column_builder(cres)
+            elif self._column_builder is not None:
+                return self._column_builder(*cres)
             else:
-                cols = []
-                for c in self._columns:
-                    if c[1] not in IStorage.valid_types:
-                        cols.append((c[0], "uuid"))
-                    else:
-                        cols.append(c)
-                for ind, value in enumerate(cols):
-                    if value[1] == 'uuid':
-                        cres[ind] = IStorage.getByID(str(uuid.UUID(cres[ind])))
-                return cres
+                return cres[0]
 
     def __setitem__(self, key, val):
         """
@@ -355,16 +305,6 @@ class StorageDict(dict, IStorage):
            Returns:
         """
         log.debug('SET ITEM %s->%s', key, val)
-        if type(val) == list:
-            for ind, entry in enumerate(val):
-                if issubclass(entry.__class__, StorageDict) or issubclass(entry.__class__, IStorage):
-                    val[ind] = uuid.UUID(entry._storage_id)
-        else:
-            if issubclass(val.__class__, StorageDict) or issubclass(val.__class__, IStorage):
-                if self._columns[0][1].split('.')[-1] == val.__class__.__name__:
-                    val = uuid.UUID(val._storage_id)
-                else:
-                    raise TypeError
         if not self._is_persistent:
             dict.__setitem__(self, key, val)
         else:
@@ -398,26 +338,12 @@ class StorageDict(dict, IStorage):
         """
         if self._is_persistent:
             ik = self._hcache.iteritems(config.prefetch_size)
-            query = 'SELECT columns FROM ' + config.execution_name + '.istorage WHERE storage_id = ' \
-                    '' + str(self._storage_id) + ''
-
-            result = config.session.execute(query)
-            to_return = ''
-            for row in result:
-                columns = row.columns
-                cols = []
-                for c in columns:
-                    if c[1] not in IStorage.valid_types:
-                        cols.append((c[0], "uuid"))
-                    else:
-                        cols.append(c)
-                to_return = NamedItemsIterator(self._key_builder,
-                                               self._column_builder,
-                                               self._k_size,
-                                               ik,
-                                               cols,
-                                               self._storage_id)
-            return to_return
+            return NamedItemsIterator(self._key_builder,
+                                           self._column_builder,
+                                           self._k_size,
+                                           ik,
+                                           self._columns,
+                                           self._storage_id)
         else:
             return dict.iteritems(self)
 
@@ -432,3 +358,4 @@ class StorageDict(dict, IStorage):
             return NamedIterator(ik, self._column_builder)
         else:
             return dict.itervalues(self)
+

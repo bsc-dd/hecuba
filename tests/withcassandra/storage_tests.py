@@ -2,7 +2,6 @@ import unittest
 
 from app.words import Words
 from hecuba import Config, config
-from hecuba.hdict import StorageDict
 from storage.api import getByID
 
 

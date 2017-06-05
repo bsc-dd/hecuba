@@ -28,8 +28,7 @@ class IStorage:
                     'long': 'bigint',
                     'buffer': 'blob',
                     'bytearray': 'blob',
-                    'counter': 'counter',
-                    'numpy_array': 'blob'}
+                    'counter': 'counter'}
 
     @staticmethod
     def build_remotely(new_args):
@@ -63,6 +62,7 @@ class IStorage:
                         yield block
                         block = []
                 # Adding the last token
+
                 block.append((fraction, to))
             if len(block) > 0:
                 yield block
@@ -104,11 +104,11 @@ class IStorage:
         sp = name.split(".")
         if len(sp) == 2:
             ksp = sp[0]
-            table = sp[1].split('_')[0]
+            table = sp[1]
         else:
             ksp = config.execution_name
             table = name
-        return ksp, table
+        return ksp.lower().encode('UTF8'), table.lower().encode('UTF8')
 
     def make_persistent(self, name):
         raise Exception("to be implemented")
@@ -137,12 +137,11 @@ class IStorage:
             objid = objidsplit[0]
         results = ''
         try:
-            results = \
-            config.session.execute("SELECT * FROM " + config.execution_name + ".istorage WHERE storage_id = %s",
-                                   (objid,))[0]
+            query = "SELECT * FROM " + config.execution_name + ".istorage WHERE storage_id = %s"
+            results = config.session.execute(query,[uuid.UUID(objid)])[0]
         except Exception as e:
-            print "SELECT * FROM " + config.execution_name + ".istorage WHERE storage_id = " + str(objid)
-            print "ERROR:", e
+            log.error("Query %s failed",query)
+            raise e
         class_name = results.class_name
 
         log.debug("IStorage API:getByID(%s) of class %s", objid, class_name)
