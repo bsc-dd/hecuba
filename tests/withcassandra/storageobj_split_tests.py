@@ -1,7 +1,6 @@
 import unittest
 
 from hecuba import config
-from hecuba.IStorage import IStorage
 from hecuba.storageobj import StorageObj
 
 
@@ -11,8 +10,8 @@ class TestSimple(StorageObj):
     '''
     pass
 
-class StorageObjSplitTest(unittest.TestCase):
 
+class StorageObjSplitTest(unittest.TestCase):
     def test_simple_iterkeys_split_test(self):
         # in process
         tablename = "tab30"
@@ -27,7 +26,7 @@ class StorageObjSplitTest(unittest.TestCase):
         count, = config.session.execute('SELECT count(*) FROM hecuba.tab30_words')[0]
         self.assertEqual(count, 10000)
 
-        sto = TestSimple("table30")
+        sto = TestSimple("tab30")
         pd = sto.words
 
         count = 0
@@ -57,7 +56,7 @@ class StorageObjSplitTest(unittest.TestCase):
         count, = config.session.execute('SELECT count(*) FROM hecuba.tab30_words')[0]
         self.assertEqual(count, 10000)
 
-        sto = TestSimple("table30")
+        sto = TestSimple("tab30")
         pd = sto.words
 
         count = 0
@@ -65,7 +64,8 @@ class StorageObjSplitTest(unittest.TestCase):
         splits = 0
         for partition in pd.split():
             id = partition.getID()
-            rebuild = IStorage.getByID(id)
+            from storage.api import getByID
+            rebuild = getByID(id)
             splits += 1
             for val in rebuild.iterkeys():
                 res.add(val)
@@ -122,7 +122,8 @@ class StorageObjSplitTest(unittest.TestCase):
         for partition in sto.split():
             splits += 1
             id = partition.getID()
-            rebuild = IStorage.getByID(id)
+            from storage.api import getByID
+            rebuild = getByID(id)
             for val in rebuild.words.iterkeys():
                 res.add(val)
                 count += 1
@@ -130,8 +131,6 @@ class StorageObjSplitTest(unittest.TestCase):
         self.assertTrue(splits >= config.number_of_blocks)
         self.assertEqual(count, 10000)
         self.assertEqual(what_should_be, res)
-
-
 
 
 if __name__ == '__main__':

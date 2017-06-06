@@ -55,7 +55,8 @@ class StorageDictSplitTest(unittest.TestCase):
         res = set()
         for partition in pd.split():
             id = partition.getID()
-            rebuild = IStorage.getByID(id)
+            from storage.api import getByID
+            rebuild = getByID(id)
             for val in rebuild.iterkeys():
                 res.add(val)
                 count += 1
@@ -130,7 +131,8 @@ class StorageDictSplitTest(unittest.TestCase):
         res = {}
         for partition in pd.split():
             id = partition.getID()
-            rebuild = IStorage.getByID(id)
+            from storage.api import getByID
+            rebuild = getByID(id)
             for key, val in rebuild.iteritems():
                 res[key] = val
                 count += 1

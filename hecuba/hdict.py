@@ -48,14 +48,7 @@ class NamedItemsIterator:
             v = n[self.k_size]
         else:
             v = self.column_builder(*n[self.k_size:])
-        to_return = self.builder(k, v)
-        for element in self.columns:
-            if element[1] == 'uuid':
-                new_storageobj = IStorage.getByID(str(uuid.UUID(getattr(to_return.value, element[0]))))
-                to_replace = to_return.value._replace(**{element[0]: new_storageobj})
-                to_return = to_return._replace(value=to_replace)
-
-        return to_return
+        return self.builder(k, v)
 
 
 class StorageDict(dict, IStorage):
