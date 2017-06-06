@@ -12,22 +12,7 @@ public class StorageItf {
 
     private static Cluster cluster = null;
     private static Session session = null;
-    private static StorageItf client;
-    private static String[] nodeIP;
-    private static Integer nodePort;
-    private static String configFile;
 
-    private final static String version;
-
-    static {
-        String v=System.getenv("HECUBA_VERSION");
-        if(v==null){
-            version="1.0";
-        }else{
-            version=v;
-        }
-        System.out.println("Using Hecuba Version: " + version);
-    }
 
 
     /**
@@ -38,21 +23,7 @@ public class StorageItf {
      * @throws storage.StorageException
      */
     public static List<String> getLocations(String objectID) throws storage.StorageException {
-        nodeIP = System.getenv("CONTACT_NAMES").split(",");
-        nodePort = Integer.parseInt(System.getenv("NODE_PORT"));
-        final List<String> locations;
-        if(version.equals("1.0")){
-            locations= getLocationsV1(objectID);
-        }else if(version.matches("2\\.[0-9]+")){
-            locations= getLocationsV2(objectID);
-        } else {
-            throw new StorageException("UNKNOWN HECUBA VERSION: "+version);
-        }
-        System.out.println("The locations for "+ objectID+ " are "+ locations.toString());
-        return locations;
-
-    }
-    public static List<String> getLocationsV1(String objectID) throws storage.StorageException {
+         checkCassandra();
         objectID = objectID.replace(" ", "");
         String[] need = objectID.split("_");
         int needLen = need.length;
@@ -65,18 +36,18 @@ public class StorageItf {
             checkCassandra();
 
             Metadata metadata = cluster.getMetadata();
-            UUID uuid=UUID.fromString(objectID);
+            UUID uuid = UUID.fromString(objectID);
             String name = session.execute("SELECT name FROM hecuba.istorage WHERE storage_id = ?", uuid)
                     .one().getString("name");
-            int pposition=name.indexOf('.');
-            if(pposition==-1){
-                throw new StorageException("I cannot detect the keyspace name from "+name);
+            int pposition = name.indexOf('.');
+            if (pposition == -1) {
+                throw new StorageException("I cannot detect the keyspace name from " + name);
             }
-            final String nodeKp=name.substring(0,pposition);
+            final String nodeKp = name.substring(0, pposition);
 
             Set<Map.Entry<Host, Long>> hostsTkns = session.execute("SELECT tokens FROM hecuba.istorage WHERE storage_id = ?", uuid)
                     .one().getList("tokens", TupleValue.class).stream()
-                    .map(tok -> metadata.newToken(tok.getLong(0)+""))
+                    .map(tok -> metadata.newToken(tok.getLong(0) + ""))
                     .flatMap(token ->
                             metadata.getReplicas(Metadata.quote(nodeKp), metadata.newTokenRange(token, token)).stream())
                     .collect(groupingBy(Function.identity(), counting())).entrySet();
@@ -85,59 +56,16 @@ public class StorageItf {
             Collections.sort(result, Comparator.comparing(o -> (o.getValue())));
             List<String> toReturn;
             toReturn = result.stream().map(a -> a.getKey().getAddress().toString().replaceAll("^.*/", "")).collect(toList());
+            closeCassandra();
             return toReturn;
         }
     }
 
-    public static List<String> getLocationsV2(String objectID) throws storage.StorageException {
-        objectID = objectID.replace(" ", "");
-        String[] need = objectID.split("_");
-        int needLen = need.length;
-
-        if (needLen == 2) { //storageObj
-            List<String> resultSet = Collections.<String>emptyList();
-            return resultSet;
-        } else {
-            //if (needLen == 1) block
-            checkCassandra();
-            UUID uuid=UUID.fromString(objectID);
-            Row row = session.execute("SELECT entry_point FROM hecuba.blocks WHERE blockid = ?", uuid).one();
-            if (row == null) {
-
-                throw new storage.StorageException("Block " + objectID + " not found");
-            }
-
-            String hostEntryPoint = row.getString("entry_point");
-            if (hostEntryPoint != null) {
-                //The host point is already defined.
-                List<String> result = new ArrayList<>();
-                for(int i=0;i<3;i++)
-                    result.add(hostEntryPoint);
-                return result;
-            }
-
-
-            Metadata metadata = cluster.getMetadata();
-            String nodeKp = session.execute("SELECT ksp FROM hecuba.blocks WHERE blockid = ?", uuid).one().getString("ksp");
-
-            Set<Map.Entry<Host, Long>> hostsTkns = session.execute("SELECT tkns FROM hecuba.blocks WHERE blockid = ?", uuid)
-                    .one().getList("tkns", Long.class).stream().map(tok -> metadata.newToken(tok.toString()))
-                    .flatMap(token ->
-                            metadata.getReplicas(Metadata.quote(nodeKp), metadata.newTokenRange(token, token)).stream())
-                    .collect(groupingBy(Function.identity(), counting())).entrySet();
-
-            ArrayList<Map.Entry<Host, Long>> result = new ArrayList<>(hostsTkns);
-            Collections.sort(result, Comparator.comparing(o -> (o.getValue())));
-            List<String> toReturn;                                                 
-            toReturn = result.stream().map(a -> a.getKey().getAddress().toString().replace("/", "")).collect(toList());
-            return toReturn;                                                                                           
-        }
-    }
 
     private static void checkCassandra() {
         if (cluster == null) {
-            nodeIP = System.getenv("CONTACT_NAMES").split(",");
-            nodePort = Integer.parseInt(System.getenv("NODE_PORT"));
+            String[] nodeIP = System.getenv("CONTACT_NAMES").split(",");
+            int nodePort = Integer.parseInt(System.getenv("NODE_PORT"));
             cluster = new Cluster.Builder()
                     .addContactPoints(nodeIP)
                     .withPort(nodePort)
@@ -172,7 +100,7 @@ public class StorageItf {
     }
 
     public static void finish() throws StorageException {
-        //closeCassandra();
+        closeCassandra();
 
     }
 
@@ -181,27 +109,20 @@ public class StorageItf {
     }
 
     public static void init(String configFile) throws storage.StorageException {
-        nodeIP = System.getenv("CONTACT_NAMES").split(",");
-        nodePort = Integer.parseInt(System.getenv("NODE_PORT"));
+
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws StorageException {
 
-        configFile = System.getProperty("user.home") + "/hecuba2/hecuba/__init__.py";
-        System.out.println("configFile:" + configFile);
-        client = new StorageItf();
+        StorageItf client = new StorageItf();
 
         try {
-            client.init(configFile);
+            client.init(null);
         } catch (StorageException e) {
             e.printStackTrace();
         }
-        try {
-            client.getLocations("7c9f1e20-fa08-37d7-be5f-9980196348bc");
-            client.getLocations("Words_1");
-        } catch (StorageException e) {
-            e.printStackTrace();
-        }
+
+        client.getLocations(args[0]).forEach(System.out::println);
         System.out.println("Application ended");
     }
 }
