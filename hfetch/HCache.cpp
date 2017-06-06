@@ -177,10 +177,24 @@ static PyObject *get_row(HCache *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, "O", &py_keys)) {
         return NULL;
     }
+    std::vector<const TupleRow *> v;
     try {
         TupleRow *k = parser.make_tuple(py_keys, self->T->get_metadata()->get_keys());
-        std::vector<const TupleRow *> v = self->T->get_crow(k);
+        v = self->T->get_crow(k);
         //delete(k); //TODO decide when to do cleanup
+    }
+    catch (std::exception &e) {
+        std::cerr << e.what() << std::endl;
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+
+    if (v.empty()) {
+        PyErr_SetString(PyExc_KeyError,"No rows found for this key");
+        return NULL;
+    }
+
+    try {
         if (self->has_numpy) {
             py_row = parser.merge_blocks_as_nparray(v, self->T->get_metadata()->get_values());
         }else {
