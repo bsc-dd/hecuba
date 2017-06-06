@@ -65,7 +65,8 @@ public class StorageItf {
             checkCassandra();
 
             Metadata metadata = cluster.getMetadata();
-            String name = session.execute("SELECT name FROM hecuba.istorage WHERE storage_id = ?", objectID)
+            UUID uuid=UUID.fromString(objectID);
+            String name = session.execute("SELECT name FROM hecuba.istorage WHERE storage_id = ?", uuid)
                     .one().getString("name");
             int pposition=name.indexOf('.');
             if(pposition==-1){
@@ -73,7 +74,7 @@ public class StorageItf {
             }
             final String nodeKp=name.substring(0,pposition);
 
-            Set<Map.Entry<Host, Long>> hostsTkns = session.execute("SELECT tokens FROM hecuba.istorage WHERE storage_id = ?", objectID)
+            Set<Map.Entry<Host, Long>> hostsTkns = session.execute("SELECT tokens FROM hecuba.istorage WHERE storage_id = ?", uuid)
                     .one().getList("tokens", TupleValue.class).stream()
                     .map(tok -> metadata.newToken(tok.getLong(0)+""))
                     .flatMap(token ->
@@ -99,8 +100,8 @@ public class StorageItf {
         } else {
             //if (needLen == 1) block
             checkCassandra();
-
-            Row row = session.execute("SELECT entry_point FROM hecuba.blocks WHERE blockid = ?", objectID).one();
+            UUID uuid=UUID.fromString(objectID);
+            Row row = session.execute("SELECT entry_point FROM hecuba.blocks WHERE blockid = ?", uuid).one();
             if (row == null) {
 
                 throw new storage.StorageException("Block " + objectID + " not found");
@@ -117,9 +118,9 @@ public class StorageItf {
 
 
             Metadata metadata = cluster.getMetadata();
-            String nodeKp = session.execute("SELECT ksp FROM hecuba.blocks WHERE blockid = ?", objectID).one().getString("ksp");
+            String nodeKp = session.execute("SELECT ksp FROM hecuba.blocks WHERE blockid = ?", uuid).one().getString("ksp");
 
-            Set<Map.Entry<Host, Long>> hostsTkns = session.execute("SELECT tkns FROM hecuba.blocks WHERE blockid = ?", objectID)
+            Set<Map.Entry<Host, Long>> hostsTkns = session.execute("SELECT tkns FROM hecuba.blocks WHERE blockid = ?", uuid)
                     .one().getList("tkns", Long.class).stream().map(tok -> metadata.newToken(tok.toString()))
                     .flatMap(token ->
                             metadata.getReplicas(Metadata.quote(nodeKp), metadata.newTokenRange(token, token)).stream())
