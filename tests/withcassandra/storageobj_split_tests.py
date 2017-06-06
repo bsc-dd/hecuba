@@ -1,11 +1,8 @@
 import unittest
 
-from hecuba.storageobj import StorageObj
-
-from hecuba.IStorage import IStorage
 from hecuba import config
-from hecuba.hdict import StorageDict
-
+from hecuba.IStorage import IStorage
+from hecuba.storageobj import StorageObj
 
 
 class TestSimple(StorageObj):
@@ -41,6 +38,7 @@ class StorageObjSplitTest(unittest.TestCase):
             for val in partition.iterkeys():
                 res.add(val)
                 count += 1
+        del pd
         self.assertTrue(splits >= config.number_of_blocks)
         self.assertEqual(count, 10000)
         self.assertEqual(what_should_be, res)
@@ -72,6 +70,7 @@ class StorageObjSplitTest(unittest.TestCase):
             for val in rebuild.iterkeys():
                 res.add(val)
                 count += 1
+        del pd
         self.assertTrue(splits >= config.number_of_blocks)
         self.assertEqual(count, 10000)
         self.assertEqual(what_should_be, res)
@@ -98,6 +97,7 @@ class StorageObjSplitTest(unittest.TestCase):
             for val in partition.words.iterkeys():
                 res.add(val)
                 count += 1
+        del sto
         self.assertTrue(splits >= config.number_of_blocks)
         self.assertEqual(count, 10000)
         self.assertEqual(what_should_be, res)
@@ -126,6 +126,7 @@ class StorageObjSplitTest(unittest.TestCase):
             for val in rebuild.words.iterkeys():
                 res.add(val)
                 count += 1
+        del sto
         self.assertTrue(splits >= config.number_of_blocks)
         self.assertEqual(count, 10000)
         self.assertEqual(what_should_be, res)
