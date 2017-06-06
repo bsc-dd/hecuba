@@ -124,10 +124,9 @@ std::vector<const TupleRow *> CacheTable::retrieve_from_cassandra(const TupleRow
     cass_future_free(query_future);
     cass_statement_free(statement);
 
-    if (!cass_result_row_count(result))
-        throw ModuleException("No rows found for this key");
     uint32_t counter = 0;
     std::vector<const TupleRow *> values(cass_result_row_count(result));
+
     const CassRow *row;
     CassIterator *it = cass_iterator_from_result(result);
     while (cass_iterator_next(it)) {
@@ -148,7 +147,7 @@ std::vector<const TupleRow *>  CacheTable::get_crow(const TupleRow *keys) {
 
     std::vector<const TupleRow *> values = retrieve_from_cassandra(keys);
 
-    if (myCache) myCache->add(*keys, values[0]);
+    if (myCache && !values.empty()) myCache->add(*keys, values[0]);
 
     return values;
 }
