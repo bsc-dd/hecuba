@@ -1,6 +1,6 @@
 # author: G. Alomar
+import uuid
 
-from hecuba.IStorage import IStorage
 
 
 def initWorker(config_file_path=None):
@@ -70,4 +70,36 @@ def getByID(objid):
          (Block| Storageobj)
 
     """
-    return IStorage.getByID(objid)
+    """
+               TODO
+               Args:
+                   objid (str):  object identifier
+               Returns:
+                    (Block| Storageobj)
+               """
+    objidsplit = objid.split("_")
+    from hecuba import log
+
+    if len(objidsplit) == 2:
+        objid = objidsplit[0]
+    results = ''
+    try:
+        from hecuba import config
+        query = "SELECT * FROM " + config.execution_name + ".istorage WHERE storage_id = %s"
+        results = config.session.execute(query, [uuid.UUID(objid)])[0]
+    except Exception as e:
+        log.error("Query %s failed", query)
+        raise e
+    class_name = results.class_name
+
+    log.debug("IStorage API:getByID(%s) of class %s", objid, class_name)
+    last = 0
+    for key, i in enumerate(class_name):
+        if i == '.' and key > last:
+            last = key
+    module = class_name[:last]
+    cname = class_name[last + 1:]
+    mod = __import__(module, globals(), locals(), [cname], 0)
+    b = getattr(mod, cname).build_remotely(results)
+    b._storage_id = objid
+    return b
