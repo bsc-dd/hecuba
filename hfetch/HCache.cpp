@@ -552,9 +552,10 @@ static PyObject *get_next(HIterator *self) {
     }
     PyObject *py_row = parser.tuples_as_py(temp, row_metas);
 
-    if (self->update_cache) {
+    if (self->update_cache&&self->P->get_type() != "values") {
         self->baseTable->put_crow(result);
-    } else delete (result);
+    }
+    delete (result);
     return py_row;
 }
 
@@ -624,6 +625,8 @@ static PyObject *write_cass(HWriter *self, PyObject *args) {
         TupleRow *k = parser.make_tuple(py_keys, self->W->get_metadata()->get_keys());
         TupleRow *v = parser.make_tuple(py_values, self->W->get_metadata()->get_values());
         self->W->write_to_cassandra(k, v);
+        delete(k);
+        delete(v);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
