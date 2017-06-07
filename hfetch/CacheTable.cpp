@@ -77,6 +77,10 @@ void CacheTable::put_crow(void* keys, void* values) {
     const TupleRow *k = keys_factory->make_tuple(keys);
     const TupleRow *v = values_factory->make_tuple(values);
     this->put_crow(k,v);
+    k->get_payload().reset();
+    v->get_payload().reset((void*)NULL,[](void *ptr) {});
+    delete(k);
+    delete(v);
 }
 
 
@@ -135,6 +139,7 @@ std::vector<const TupleRow *> CacheTable::retrieve_from_cassandra(const TupleRow
         ++counter;
     }
     cass_iterator_free(it);
+    cass_result_free(result);
     return values;
 }
 
@@ -153,8 +158,16 @@ std::vector<const TupleRow *>  CacheTable::get_crow(const TupleRow *keys) {
 }
 
 std::shared_ptr<void> CacheTable::get_crow(void* keys) {
-    std::vector<const TupleRow*> result = get_crow(keys_factory->make_tuple(keys));
+
+    const TupleRow* tuple_key = keys_factory->make_tuple(keys);
+    std::vector<const TupleRow*> result = get_crow(tuple_key);
+    delete(tuple_key);
+
     if (result.empty()) return NULL;
-    if (myCache) myCache->add(*keys_factory->make_tuple(keys), result[0]);
-    return result.at(0)->get_payload();
+
+    std::shared_ptr<void> payload_result = result.at(0)->get_payload();
+    for (uint32_t tuple_i = 0; tuple_i<result.size(); ++tuple_i) {
+        delete(result.at(tuple_i));
+    }
+    return payload_result;
 }

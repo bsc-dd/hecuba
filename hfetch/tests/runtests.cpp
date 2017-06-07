@@ -125,6 +125,13 @@ void setupcassandra() {
     fireandforget("CREATE TABLE test.arrays(partid int PRIMARY KEY, image uuid);", test_session);
     fireandforget("CREATE TABLE test.arrays_aux(uuid uuid,  position int, data blob, PRIMARY KEY (uuid,position));", test_session);
 
+    if (test_session != NULL) {
+        CassFuture *close_future = cass_session_close(test_session);
+        cass_future_free(close_future);
+        cass_session_free(test_session);
+        cass_cluster_free(test_cluster);
+        test_session = NULL;
+    }
 
 }
 
@@ -443,6 +450,8 @@ TEST(TestingCacheTable, GetRowStringC) {
     cass_cluster_set_port(test_cluster, nodePort);
 
     connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
+
+
     CassError rc = cass_future_error_code(connect_future);
     EXPECT_TRUE(rc == CASS_OK);
 
@@ -472,11 +481,16 @@ TEST(TestingCacheTable, GetRowStringC) {
 
     TableMetadata* table_meta = new TableMetadata(particles_table,keyspace,keysnames,colsnames,test_session);
 
-    CacheTable T = CacheTable(table_meta, test_session, config);
+    CacheTable* cache = new CacheTable(table_meta, test_session, config);
+
 
     TupleRow *t = new TupleRow(table_meta->get_keys(), sizeof(int) + sizeof(float), buffer);
 
-    const TupleRow *result = T.get_crow(t)[0];
+    std::vector <const TupleRow*> all_rows = cache->get_crow(t);
+    delete(t);
+    delete(cache);
+    EXPECT_EQ(all_rows.size(),1);
+    const TupleRow *result = all_rows.at(0);
 
     EXPECT_FALSE(result == NULL);
 
@@ -491,6 +505,10 @@ TEST(TestingCacheTable, GetRowStringC) {
 
     }
 
+    for (const TupleRow* tuple:all_rows) {
+        delete(tuple);
+    }
+
     CassFuture *close_future = cass_session_close(test_session);
     cass_future_wait(close_future);
     cass_future_free(close_future);
@@ -499,6 +517,7 @@ TEST(TestingCacheTable, GetRowStringC) {
     cass_session_free(test_session);
 }
 
+//TODO check two get_rows with the same key, memory leak?
 
 TEST(TestingCacheTable, PutRowStringC) {
 //Replacement inside cache is broken, the payload is being freed twice (once on replace and another thereafter)
@@ -543,8 +562,6 @@ TEST(TestingCacheTable, PutRowStringC) {
     CacheTable* T = new CacheTable(table_meta, test_session, config);
 
 
-    //TupleRow *t = new TupleRow(T._test_get_keys_factory()->get_metadata(), sizeof(int) + sizeof(float), buffer);
-
     std::shared_ptr<void> result = T->get_crow(buffer);
 
     EXPECT_FALSE(result == NULL);
@@ -557,18 +574,18 @@ TEST(TestingCacheTable, PutRowStringC) {
         char *d = reinterpret_cast<char *>(addr);
 
         EXPECT_STREQ(d, "74040");
-        const char* substitue = "71919";
-        EXPECT_EQ(std::strlen(d),std::strlen(substitue));
-
-        memcpy(d, substitue, std::strlen(d));
     }
-
 
     buffer = (char *) malloc(sizeof(int) + sizeof(float));
     memcpy(buffer, &val, sizeof(int));
     memcpy(buffer + sizeof(int), &f, sizeof(float));
 
-     T->put_crow(buffer,result.get());
+    char *substitue = (char*) malloc(sizeof("71919"));
+    memcpy(substitue,"71919",sizeof("71919"));
+    char** payload2 = (char**)malloc(sizeof(char*));
+    *payload2=substitue;
+
+    T->put_crow(buffer,payload2);
 
     delete(T);
     //With the aim to synchronize
@@ -592,40 +609,19 @@ TEST(TestingCacheTable, PutRowStringC) {
         char *d = reinterpret_cast<char *>(addr);
 
         EXPECT_STREQ(d, "71919");
-        const char* substitue = "74040";
-        EXPECT_EQ(std::strlen(d),std::strlen(substitue));
-
-
-        memcpy(d, substitue, std::strlen(d));
     }
 
+    substitue = (char*) malloc(sizeof("74040"));
+    memcpy(substitue,"74040",sizeof("74040"));
+    payload2 = (char**)malloc(sizeof(char*));
+    *payload2=substitue;
 
     buffer = (char *) malloc(sizeof(int) + sizeof(float));
     memcpy(buffer, &val, sizeof(int));
     memcpy(buffer + sizeof(int), &f, sizeof(float));
 
-    T->put_crow(buffer,result.get());
+    T->put_crow(buffer,payload2);
 
-    delete(T);
-    //With the aim to synchronize
-    table_meta = new TableMetadata(particles_table,keyspace,keysnames,colsnames,test_session);
-    T = new CacheTable(table_meta, test_session, config);
-
-
-    buffer = (char *) malloc(sizeof(int) + sizeof(float));
-    memcpy(buffer, &val, sizeof(int));
-    memcpy(buffer + sizeof(int), &f, sizeof(float));
-
-    result = T->get_crow(buffer);
-    if (result != 0) {
-
-        const void *v = result.get();
-        int64_t addr;
-        memcpy(&addr, v, sizeof(char *));
-        char *d = reinterpret_cast<char *>(addr);
-
-        EXPECT_STREQ(d, "74040");
-    }
     delete(T);
 
     CassFuture *close_future = cass_session_close(test_session);
@@ -811,6 +807,7 @@ TEST(TestingStorageInterfaceCpp,CreateAndDelCacheWrong){
     CacheTable* table= StorageI->make_cache(particles_table, keyspace, keysnames, read_colsnames, config);
 
     delete(StorageI);
+    delete(table);
 }
 
 
