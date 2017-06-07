@@ -77,6 +77,7 @@ class StorageObj(object, IStorage):
         log.debug("CREATED StorageObj(%s)", name)
         self._is_persistent = False
         self._persistent_dicts = []
+        self._storage_objs = []
         self._attr_to_column = {}
         if name is None:
             self._ksp = config.execution_name
@@ -136,7 +137,7 @@ class StorageObj(object, IStorage):
                 module = per_dict['type'][:last]
                 cname = per_dict['type'][last + 1:]
                 mod = __import__(module, globals(), locals(), [cname], 0)
-                so = getattr(mod, cname).build_remotely(results)
+                so = getattr(mod, cname)()
             else:
                 mod = __import__('tests.withcassandra.storageobj_tests', globals(), locals(), [per_dict['type']], 0)
                 so = getattr(mod, per_dict['type'])()
@@ -376,7 +377,7 @@ class StorageObj(object, IStorage):
                 module = per_dict['type'][:last]
                 cname = per_dict['type'][last + 1:]
                 mod = __import__(module, globals(), locals(), [cname], 0)
-                so = getattr(mod, cname).build_remotely(results)
+                so = getattr(mod, cname)(so_name)
             else:
                 mod = __import__('tests.withcassandra.storageobj_tests', globals(), locals(), [per_dict['type']], 0)
                 so = getattr(mod, per_dict['type'])(so_name)
@@ -386,6 +387,7 @@ class StorageObj(object, IStorage):
                         setattr(so, key, var)
             del getattr(self, table_name).__dict__
             setattr(self, table_name, so)
+            self._storage_objs.append(so)
 
         if changed or self._storage_id is None:
             if self._storage_id is None:
@@ -412,8 +414,14 @@ class StorageObj(object, IStorage):
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
         self._is_persistent = False
-        for pers_dict in self._persistent_dicts:
-            pers_dict.delete_persistent()
+
+        if hasattr(self, '_persistent_dicts'):
+            for pers_dict in self._persistent_dicts:
+                pers_dict.delete_persistent()
+
+        if hasattr(self, '_storage_objs'):
+            for so in self._storage_objs:
+                so.delete_persistent()
 
         query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
         log.debug("DELETE PERSISTENT: %s", query)
