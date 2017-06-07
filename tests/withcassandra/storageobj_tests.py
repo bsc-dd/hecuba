@@ -29,6 +29,12 @@ class Test2StorageObj(StorageObj):
     '''
     pass
 
+class Test3StorageObj(StorageObj):
+    '''
+       @ClassField my_so Test2StorageObj 
+
+    '''
+    pass
 
 class StorageObjTest(unittest.TestCase):
     def test_build_remotely(self):
@@ -182,8 +188,8 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(so.name, 'caio')
         self.assertEqual(so.age, 1000)
 
-
-
+    def test_nested_so(self):
+        my_nested_so = Test3StorageObj()
 
 
 if __name__ == '__main__':
