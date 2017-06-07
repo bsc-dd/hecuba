@@ -1,18 +1,18 @@
 import unittest
 import uuid
-
+import time
 from hecuba.IStorage import IStorage
 from app.words import Words
 from hecuba import config
 from hecuba.storageobj import StorageObj
 import cassandra
 
+
 class Result(StorageObj):
     '''
     @ClassField instances dict<<word:str>,instances:int>
     '''
     pass
-
 
 
 class TestStorageObj(StorageObj):
@@ -29,6 +29,7 @@ class Test2StorageObj(StorageObj):
     '''
     pass
 
+
 class Test3StorageObj(StorageObj):
     '''
        @ClassField myso Test2StorageObj
@@ -38,16 +39,19 @@ class Test3StorageObj(StorageObj):
     '''
     pass
 
+
 class Test4StorageObj(StorageObj):
     '''
        @ClassField myotherso tests.withcassandra.storageobj_tests.Test2StorageObj
     '''
     pass
 
+
 class StorageObjTest(unittest.TestCase):
     def test_build_remotely(self):
 
-        class res: pass
+        class res:
+            pass
 
         r = res()
         r.ksp = config.execution_name
@@ -63,8 +67,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(config.execution_name, nopars._ksp)
         self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), nopars._storage_id)
         name, tkns = \
-        config.session.execute("SELECT name,tokens FROM hecuba.istorage WHERE storage_id = %s", [nopars._storage_id])[
-            0]
+        config.session.execute("SELECT name,tokens FROM hecuba.istorage WHERE storage_id = %s", [nopars._storage_id])[0]
 
         self.assertEqual(name, config.execution_name + '.tt1')
         self.assertEqual(tkns, r.tokens)
@@ -206,6 +209,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals('Link', my_nested_so.myso.name)
         my_nested_so.myso.age = '10'
         self.assertEquals('10', my_nested_so.myso.age)
+
         error = False
         try:
             config.session.execute('SELECT * FROM hecuba.myso')
@@ -222,6 +226,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals('Link', my_nested_so2.myotherso.name)
         my_nested_so2.myotherso.age = '10'
         self.assertEquals('10', my_nested_so2.myotherso.age)
+
         error = False
         try:
             config.session.execute('SELECT * FROM hecuba.myso')
@@ -253,7 +258,18 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals('Link', query_res.name)
 
         my_nested_so.myso2.test[0] = 'position0'
-        self.assertEquals('position0', my_nested_so.myso2.test[0][0])
+        self.assertEquals('position0', my_nested_so.myso2.test[0])
+
+        for value in my_nested_so.myso2.test.itervalues():
+            self.assertEquals('position0', value)
+
+        for key in my_nested_so.myso2.test.iterkeys():
+            self.assertEquals(0, key)
+
+        for value in my_nested_so.myso2.test.iteritems():
+            self.assertEquals(2, len(value))
+            self.assertEqual(0, value.key)
+            self.assertEqual('position0', value.value)
 
     def test_nestedso_topersistent(self):
         config.session.execute("DROP TABLE IF EXISTS hecuba.mynewso")
@@ -323,7 +339,6 @@ class StorageObjTest(unittest.TestCase):
         except Exception as AttributeError:
             error = True
         self.assertEquals(True, error)
-        error = False
         my_nested_so.myso.weight = 50
         self.assertEquals(50, my_nested_so.myso.weight)
         result = config.session.execute('SELECT * FROM hecuba.myso')
@@ -335,9 +350,8 @@ class StorageObjTest(unittest.TestCase):
         except Exception as AttributeError:
             error = True
         self.assertEquals(True, error)
-        for i in range(0,100):
+        for i in range(0, 100):
             my_nested_so.myso2.test[i] = 'position' + str(i)
-        import time
         time.sleep(5)
         count, = config.session.execute("SELECT COUNT(*) FROM hecuba.myso2_test")[0]
         self.assertEquals(100, count)
