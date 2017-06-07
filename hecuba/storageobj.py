@@ -125,12 +125,9 @@ class StorageObj(object, IStorage):
             setattr(self, table_name, pd)
             self._persistent_dicts.append(pd)
 
-        storageobjs = filter(lambda (k, t): t['type'] not in StorageObj._valid_type, self._persistent_props.iteritems())
+        storageobjs = filter(lambda (k, t): t['type'] not in IStorage.valid_types, self._persistent_props.iteritems())
         for table_name, per_dict in storageobjs:
-            print "table_name:", table_name
-            print "per_dict:  ", per_dict
             so_name = "%s.%s" % (self._ksp, table_name)
-            print "so_name:", so_name
             if '.' in per_dict['type']:
                 last = 0
                 for key, i in enumerate(per_dict['type']):
@@ -142,21 +139,8 @@ class StorageObj(object, IStorage):
                 so = getattr(mod, cname).build_remotely(results)
             else:
                 mod = __import__('tests.withcassandra.storageobj_tests', globals(), locals(), [per_dict['type']], 0)
-                so = getattr(mod, per_dict['type']).build_remotely(so_name)
-            print "so:", so
-            '''
-            # table_name: my_so
-            # per_dict:   {'type': 'Test2StorageObj'}
-            last = 0
-            for key, i in enumerate(class_name):
-                if i == '.' and key > last:
-                    last = key
-            module = class_name[:last]
-            cname = class_name[last + 1:]
-            mod = __import__(module, globals(), locals(), [cname], 0)
-            so = getattr(mod, cname).build_remotely(results)    
-            setattr(self, table_name, so)   
-            '''     
+                so = getattr(mod, per_dict['type'])()
+            setattr(self, table_name, so)
 
         if name is not None:
             self.make_persistent(name)
@@ -363,7 +347,7 @@ class StorageObj(object, IStorage):
                        '( storage_id uuid PRIMARY KEY, '
         for key, entry in self._persistent_props.iteritems():
             query_simple += str(key) + ' '
-            if entry['type'] != 'dict':
+            if entry['type'] != 'dict' and entry['type'] in IStorage.valid_types:
                 query_simple += entry['type'] + ', '
             else:
                 query_simple += 'uuid, '
@@ -380,6 +364,28 @@ class StorageObj(object, IStorage):
             sd_name = self._ksp + "." + self._table+"_"+table_name
             pd.make_persistent(sd_name)
             is_props[sd_name] = str(pd._storage_id)
+
+        storageobjs = filter(lambda (k, t): t['type'] not in IStorage.valid_types, self._persistent_props.iteritems())
+        for table_name, per_dict in storageobjs:
+            so_name = "%s.%s" % (self._ksp, table_name)
+            if '.' in per_dict['type']:
+                last = 0
+                for key, i in enumerate(per_dict['type']):
+                    if i == '.' and key > last:
+                        last = key
+                module = per_dict['type'][:last]
+                cname = per_dict['type'][last + 1:]
+                mod = __import__(module, globals(), locals(), [cname], 0)
+                so = getattr(mod, cname).build_remotely(results)
+            else:
+                mod = __import__('tests.withcassandra.storageobj_tests', globals(), locals(), [per_dict['type']], 0)
+                so = getattr(mod, per_dict['type'])(so_name)
+                for key, var in getattr(self, table_name).__dict__.iteritems():
+                    print "key, var:", key, var
+                    if key[0] != '_':
+                        setattr(so, key, var)
+            del getattr(self, table_name).__dict__
+            setattr(self, table_name, so)
 
         if changed or self._storage_id is None:
             if self._storage_id is None:
@@ -498,3 +504,4 @@ class StorageObj(object, IStorage):
                 storage_id of the object, followed by '_1'
         """
         return '%s_1' % str(self._storage_id)
+

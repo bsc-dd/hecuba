@@ -188,9 +188,63 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(so.name, 'caio')
         self.assertEqual(so.age, 1000)
 
-    def test_nested_so(self):
+    def test_nestedso_notpersistent(self):
+        config.session.execute("DROP TABLE IF EXISTS hecuba.mynewso")
+        config.session.execute("DROP TABLE IF EXISTS hecuba.myso")
         my_nested_so = Test3StorageObj()
+        my_nested_so.myso.name = 'Link'
+        self.assertEquals('Link', my_nested_so.myso.name)
+        my_nested_so.myso.age = '10'
+        self.assertEquals('10', my_nested_so.myso.age)
+        error = False
+        try:
+            config.session.execute('SELECT * FROM hecuba.mynewso')
+        except cassandra.InvalidRequest:
+            error = True
+        self.assertEquals(True, error)
 
+    def test_nestedso_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS hecuba.mynewso")
+        config.session.execute("DROP TABLE IF EXISTS hecuba.myso")
+        my_nested_so = Test3StorageObj('mynewso')
+        my_nested_so.myso.name = 'Link'
+        my_nested_so.myso.age = 10
+        error = False
+        try:
+            result = config.session.execute('SELECT * FROM hecuba.myso')
+        except cassandra.InvalidRequest:
+            error = True
+        self.assertEquals(False, error)
+        for row in result:
+            query_res = row
+        self.assertEquals(10, query_res.age)
+        self.assertEquals('Link', query_res.name)
+
+    def test_nestedso_topersistent(self):
+        config.session.execute("DROP TABLE IF EXISTS hecuba.mynewso")
+        config.session.execute("DROP TABLE IF EXISTS hecuba.myso")
+        my_nested_so = Test3StorageObj()
+        my_nested_so.myso.name = 'Link'
+        self.assertEquals('Link', my_nested_so.myso.name)
+        my_nested_so.myso.age = 10
+        self.assertEquals(10, my_nested_so.myso.age)
+        error = False
+        try:
+            result = config.session.execute('SELECT * FROM hecuba.myso')
+        except cassandra.InvalidRequest:
+            error = True
+        self.assertEquals(True, error)
+        my_nested_so.make_persistent('mynewso')
+        error = False
+        try:
+            result = config.session.execute('SELECT * FROM hecuba.myso')
+        except cassandra.InvalidRequest:
+            error = True
+        self.assertEquals(False, error)
+        for row in result:
+            query_res = row
+        self.assertEquals(10, query_res.age)
+        self.assertEquals('Link', query_res.name)
 
 if __name__ == '__main__':
     unittest.main()
