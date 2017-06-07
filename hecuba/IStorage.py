@@ -13,6 +13,8 @@ class IStorage:
     valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map',
                    'bigint', 'blob', 'counter', 'dict', 'float']
 
+    python_types = [int, str, bool, float, tuple, set, dict, long, bytearray]
+
     _conversions = {'atomicint': 'counter',
                     'str': 'text',
                     'bool': 'boolean',

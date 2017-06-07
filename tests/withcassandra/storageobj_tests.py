@@ -32,6 +32,7 @@ class Test2StorageObj(StorageObj):
 class Test3StorageObj(StorageObj):
     '''
        @ClassField myso Test2StorageObj
+       @ClassField myso2 TestStorageObj
        @ClassField myint int
        @ClassField mystr str
     '''
@@ -212,6 +213,9 @@ class StorageObjTest(unittest.TestCase):
             error = True
         self.assertEquals(True, error)
 
+        my_nested_so.myso2.test[0] = 'position0'
+        self.assertEquals('position0', my_nested_so.myso2.test[0])
+
         my_nested_so2 = Test4StorageObj()
 
         my_nested_so2.myotherso.name = 'Link'
@@ -230,6 +234,10 @@ class StorageObjTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS hecuba.myso")
 
         my_nested_so = Test3StorageObj('mynewso')
+        self.assertEquals(True, my_nested_so._is_persistent)
+        self.assertEquals(True, my_nested_so.myso._is_persistent)
+        self.assertEquals(True, my_nested_so.myso2._is_persistent)
+        self.assertEquals(True, my_nested_so.myso2.test._is_persistent)
 
         my_nested_so.myso.name = 'Link'
         my_nested_so.myso.age = 10
@@ -243,6 +251,9 @@ class StorageObjTest(unittest.TestCase):
             query_res = row
         self.assertEquals(10, query_res.age)
         self.assertEquals('Link', query_res.name)
+
+        my_nested_so.myso2.test[0] = 'position0'
+        self.assertEquals('position0', my_nested_so.myso2.test[0][0])
 
     def test_nestedso_topersistent(self):
         config.session.execute("DROP TABLE IF EXISTS hecuba.mynewso")
@@ -277,6 +288,7 @@ class StorageObjTest(unittest.TestCase):
     def test_nestedso_sets_gets(self):
         config.session.execute("DROP TABLE IF EXISTS hecuba.mynewso")
         config.session.execute("DROP TABLE IF EXISTS hecuba.myso")
+        config.session.execute("DROP TABLE IF EXISTS hecuba.myso2_test")
 
         my_nested_so = Test3StorageObj()
 
@@ -323,6 +335,12 @@ class StorageObjTest(unittest.TestCase):
         except Exception as AttributeError:
             error = True
         self.assertEquals(True, error)
+        for i in range(0,100):
+            my_nested_so.myso2.test[i] = 'position' + str(i)
+        import time
+        time.sleep(5)
+        count, = config.session.execute("SELECT COUNT(*) FROM hecuba.myso2_test")[0]
+        self.assertEquals(100, count)
 
     def test_nestedso_deletepersistent(self):
         config.session.execute("DROP TABLE IF EXISTS hecuba.mynewso")

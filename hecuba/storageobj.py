@@ -149,8 +149,7 @@ class StorageObj(object, IStorage):
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.getID() == other.getID()
 
-    _valid_type = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer|' \
-                  'numpy.ndarray|counter)'
+    _valid_type = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer|numpy.ndarray|counter)'
     _data_type = re.compile('(\w+) *: *%s' % _valid_type)
     _so_data_type = re.compile('(\w+)*:(\w.+)')
     _dict_case = re.compile('.*@ClassField +(\w+) +dict+ *< *< *([\w:, ]+)+ *> *, *([\w+:., <>]+) *>')
@@ -364,6 +363,7 @@ class StorageObj(object, IStorage):
             pd = getattr(self, table_name)
             sd_name = self._ksp + "." + self._table+"_"+table_name
             pd.make_persistent(sd_name)
+            setattr(self, table_name, pd)
             is_props[sd_name] = str(pd._storage_id)
 
         storageobjs = filter(lambda (k, t): t['type'] not in IStorage.valid_types, self._persistent_props.iteritems())
@@ -379,13 +379,11 @@ class StorageObj(object, IStorage):
                 mod = __import__(module, globals(), locals(), [cname], 0)
                 so = getattr(mod, cname)(so_name)
             else:
-                mod = __import__('tests.withcassandra.storageobj_tests', globals(), locals(), [per_dict['type']], 0)
+                mod = __import__('tests.withcassandra.storageobj_tests', globals(), locals(), [per_dict['type']], 0) #TO FIX
                 so = getattr(mod, per_dict['type'])(so_name)
-                for key, var in getattr(self, table_name).__dict__.iteritems():
-                    print "key, var:", key, var
-                    if key[0] != '_':
-                        setattr(so, key, var)
-            del getattr(self, table_name).__dict__
+            for key, var in getattr(self, table_name).__dict__.iteritems():
+                if key[0] != '_' and type(var) in IStorage.python_types:
+                    setattr(so, key, var)
             setattr(self, table_name, so)
             self._storage_objs.append(so)
 

@@ -232,7 +232,6 @@ class StorageDict(dict, IStorage):
                          self._table,
                          str.join(',', columns),
                          str.join(',', pks))
-        # print query_table
         try:
             log.debug('MAKE PERSISTENCE: %s', query_table)
             config.session.execute(query_table)
