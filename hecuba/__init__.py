@@ -261,45 +261,45 @@ class Config:
 
         try:
             singleton.qbeast_master_port = int(os.environ['QBEAST_MASTER_PORT'])
-            logging.info('QBEAST_MASTER_PORT: %d', singleton.qbeast_master_port)
+            log.info('QBEAST_MASTER_PORT: %d', singleton.qbeast_master_port)
         except KeyError:
-            logging.warn('using default qbeast master port 2600')
+            log.warn('using default qbeast master port 2600')
             singleton.qbeast_master_port = 2600
 
         try:
             singleton.qbeast_worker_port = int(os.environ['QBEAST_WORKER_PORT'])
-            logging.info('QBEAST_WORKER_PORT: %d', singleton.qbeast_worker_port)
+            log.info('QBEAST_WORKER_PORT: %d', singleton.qbeast_worker_port)
         except KeyError:
-            logging.warn('using default qbeast worker port 2688')
+            log.warn('using default qbeast worker port 2688')
             singleton.qbeast_worker_port = 2688
 
         try:
             singleton.qbeast_entry_node = os.environ['QBEAST_ENTRY_NODE'].split(",")
-            logging.info('QBEAST_ENTRY_NODE: %s', singleton.qbeast_entry_node)
+            log.info('QBEAST_ENTRY_NODE: %s', singleton.qbeast_entry_node)
         except KeyError:
-            logging.warn('using default qbeast entry node localhost')
+            log.warn('using default qbeast entry node localhost')
             import socket
             singleton.qbeast_entry_node = [socket.gethostname()]
 
         try:
             singleton.qbeast_max_results = int(os.environ['QBEAST_MAX_RESULTS'].split(","))
-            logging.info('QBEAST_MAX_RESULTS: %d', singleton.qbeast_max_results)
+            log.info('QBEAST_MAX_RESULTS: %d', singleton.qbeast_max_results)
         except KeyError:
-            logging.warn('using default qbeast max results 10000000')
+            log.warn('using default qbeast max results 10000000')
             singleton.qbeast_max_results = 10000000
 
         try:
             singleton.qbeast_return_at_least = int(os.environ['RETURN_AT_LEAST'].split(","))
-            logging.info('QBEAST_RETURN_AT_LEAST: %d', singleton.qbeast_return_at_least)
+            log.info('QBEAST_RETURN_AT_LEAST: %d', singleton.qbeast_return_at_least)
         except KeyError:
-            logging.warn('using default qbeast return at least 100')
+            log.warn('using default qbeast return at least 100')
             singleton.qbeast_return_at_least = 100
 
         try:
             singleton.qbeast_read_max = int(os.environ['READ_MAX'].split(","))
-            logging.info('QBEAST_READ_MAX: %d', singleton.qbeast_read_max)
+            log.info('QBEAST_READ_MAX: %d', singleton.qbeast_read_max)
         except KeyError:
-            logging.warn('using default qbeast read max 10000')
+            log.warn('using default qbeast read max 10000')
             singleton.qbeast_read_max = 10000
 
 
