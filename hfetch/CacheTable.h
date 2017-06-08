@@ -31,7 +31,7 @@ public:
     std::vector<const TupleRow *> get_crow(const TupleRow *py_keys);
 
 
-    std::shared_ptr<void> get_crow(void* keys);
+    std::vector<std::shared_ptr<void>> get_crow(void* keys);
 
     void put_crow(const TupleRow* row);
     void put_crow(const TupleRow* keys, const TupleRow* values);
