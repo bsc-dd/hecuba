@@ -16,7 +16,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual("ksp", nopars._ksp)
 
         res = config.session.execute(
-            'SELECT storage_id, primary_keys, columns, class_name, name, tokens, istorage_props ' +
+            'SELECT storage_id, primary_keys, columns, class_name, name, tokens, istorage_props,indexed_on ' +
             'FROM hecuba.istorage WHERE storage_id = %s', [nopars._storage_id])[0]
 
         self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, tablename), nopars._storage_id)
@@ -39,7 +39,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(config.execution_name, nopars._ksp)
 
         res = config.session.execute(
-            'SELECT storage_id, primary_keys, columns, class_name, name, tokens, istorage_props ' +
+            'SELECT storage_id, primary_keys, columns, class_name, name, tokens, istorage_props,indexed_on ' +
             'FROM hecuba.istorage WHERE storage_id = %s', [nopars._storage_id])[0]
 
         self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename), nopars._storage_id)

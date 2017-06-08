@@ -75,7 +75,9 @@ class StorageDict(dict, IStorage):
         return StorageDict(result.primary_keys,
                            result.columns,
                            result.name,
-                           result.tokens
+                           result.tokens,
+                           result.storage_id,
+                           result.indexed_on
                            )
 
     @staticmethod
@@ -116,21 +118,7 @@ class StorageDict(dict, IStorage):
         else:
             self._tokens = tokens
 
-        if name is None:
-            ksp = config.execution_name
-        else:
-            name = name.encode('UTF8')
-            (ksp, _) = self._extract_ks_tab(name)
-
-        if storage_id is not None:
-            self._storage_id = storage_id
-        elif name is not None:
-            if '.' in name:
-                self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, name)
-            else:
-                self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, ksp + '.' + name)
-        else:
-            self._storage_id = None
+        self._storage_id = storage_id
 
         class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
         self._build_args = self.args(primary_keys, columns, name, self._tokens,
@@ -220,11 +208,9 @@ class StorageDict(dict, IStorage):
     def make_persistent(self, name):
         self._is_persistent = True
         (self._ksp, self._table) = self._extract_ks_tab(name)
-        self._build_args = self._build_args._replace(name=self._ksp + "." + self._table)
 
-        if self._storage_id is None:
-            self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, name)
-            self._build_args = self._build_args._replace(storage_id=self._storage_id)
+        self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table)
+        self._build_args = self._build_args._replace(storage_id=self._storage_id,name=self._ksp + "." + self._table)
         self._store_meta(self._build_args)
         if config.id_create_schema == -1:
             query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy'," \

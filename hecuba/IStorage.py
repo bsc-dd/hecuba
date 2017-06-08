@@ -40,7 +40,7 @@ class IStorage:
 
         for token_split in IStorage._tokens_partitions(tokens, config.min_number_of_tokens, config.number_of_blocks):
             storage_id = uuid.uuid4()
-            log.debug('assigning to %s tokens %s', str(storage_id), token_split)
+            log.debug('assigning to %s %d  tokens', str(storage_id), len(token_split))
             new_args = self._build_args._replace(tokens=token_split, storage_id=storage_id)
             self.__class__._store_meta(new_args)
 

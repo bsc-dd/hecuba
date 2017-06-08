@@ -93,13 +93,7 @@ class StorageObj(object, IStorage):
         else:
             self._tokens = tokens
 
-        if storage_id is not None:
-            self._storage_id = storage_id
-        elif name is not None:
-            self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table)
-        elif storage_id is None:
-            self._storage_id = None
-
+        self._storage_id = storage_id
         self._istorage_props = istorage_props
 
         self._class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
