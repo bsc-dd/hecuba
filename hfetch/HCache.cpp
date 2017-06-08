@@ -163,12 +163,14 @@ static PyObject *put_row(HCache *self, PyObject *args) {
         try {
             TupleRow *v = parser.make_tuple(py_values, self->T->get_metadata()->get_values());
             self->T->put_crow(k, v);
+            delete(v);
         }
         catch (std::exception &e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
             return NULL;
         }
     }
+    delete(k);
     Py_RETURN_NONE;
 }
 
