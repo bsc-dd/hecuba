@@ -47,6 +47,13 @@ class Test4StorageObj(StorageObj):
     pass
 
 
+class Test5StorageObj(StorageObj):
+    '''
+       @ClassField test2 dict<<position:int>,myso:tests.withcassandra.storageobj_tests.Test2StorageObj>
+    '''
+    pass
+
+
 class StorageObjTest(unittest.TestCase):
     def test_build_remotely(self):
 
@@ -377,6 +384,21 @@ class StorageObjTest(unittest.TestCase):
         except cassandra.InvalidRequest:
             entries += 1
         self.assertEquals(0, entries)
+
+    def test_nestedso_dictofsos(self):
+        config.session.execute("DROP TABLE IF EXISTS hecuba.myso")
+        config.session.execute("DROP TABLE IF EXISTS hecuba.mynewso_test2")
+
+        my_nested_so = Test5StorageObj('mynewso')
+
+        self.assertEquals(True, my_nested_so._is_persistent)
+        self.assertEquals(True, my_nested_so.test2._is_persistent)
+        self.assertEquals(True, my_nested_so.test2.myso._is_persistent)
+
+        my_nested_so.test2.myso.name = 'Link'
+        self.assertEquals('Link', my_nested_so.test2.myso.name)
+        my_nested_so.test2.myso.age = 10
+        self.assertEquals(10, my_nested_so.test2.myso.age)
 
 
 if __name__ == '__main__':

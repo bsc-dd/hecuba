@@ -7,6 +7,16 @@ from hdict import StorageDict
 from hecuba import config, log
 
 
+def process_path(module_path):
+    last = 0
+    for key, i in enumerate(module_path):
+        if i == '.' and key > last:
+            last = key
+    module = module_path[:last]
+    cname = module_path[last + 1:]
+    return cname, module
+
+
 class StorageObj(object, IStorage):
     args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name"]
     args = namedtuple('StorageObjArgs', args_names)
@@ -34,12 +44,7 @@ class StorageObj(object, IStorage):
             so = StorageObj(new_args.name.encode('utf8'), new_args.tokens, new_args.storage_id, new_args.istorage_props)
 
         else:
-            last = 0
-            for key, i in enumerate(class_name):
-                if i == '.' and key > last:
-                    last = key
-            module = class_name[:last]
-            class_name = class_name[last + 1:]
+            class_name, module = process_path(class_name)
             mod = __import__(module, globals(), locals(), [class_name], 0)
 
             so = getattr(mod, class_name)(new_args.name.encode('utf8'), new_args.tokens,
@@ -130,12 +135,7 @@ class StorageObj(object, IStorage):
         for table_name, per_dict in storageobjs:
             so_name = "%s.%s" % (self._ksp, table_name)
             if '.' in per_dict['type']:
-                last = 0
-                for key, i in enumerate(per_dict['type']):
-                    if i == '.' and key > last:
-                        last = key
-                module = per_dict['type'][:last]
-                cname = per_dict['type'][last + 1:]
+                cname, module = process_path(per_dict['type'])
                 mod = __import__(module, globals(), locals(), [cname], 0)
                 so = getattr(mod, cname)()
             else:
@@ -243,7 +243,7 @@ class StorageObj(object, IStorage):
                     for ind, val in enumerate(dict_values.split(",")):
                         try:
                             name, value = StorageObj._data_type.match(val).groups()
-                        except re.error:
+                        except Exception:
                             if ':' in val:
                                 name, value = StorageObj._so_data_type.match(val).groups()
                             else:
@@ -370,12 +370,7 @@ class StorageObj(object, IStorage):
         for table_name, per_dict in storageobjs:
             so_name = "%s.%s" % (self._ksp, table_name)
             if '.' in per_dict['type']:
-                last = 0
-                for key, i in enumerate(per_dict['type']):
-                    if i == '.' and key > last:
-                        last = key
-                module = per_dict['type'][:last]
-                cname = per_dict['type'][last + 1:]
+                cname, module = process_path(per_dict['type'])
                 mod = __import__(module, globals(), locals(), [cname], 0)
                 so = getattr(mod, cname)(so_name)
             else:
