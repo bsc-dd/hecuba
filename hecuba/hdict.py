@@ -206,6 +206,14 @@ class StorageDict(dict, IStorage):
         """
         return [i for i in self.iterkeys()]
 
+    def values(self):
+        """
+        This method return a list of all the values of the PersistentDict.
+        Returns:
+          list: a list of values
+        """
+        return [i for i in self.itervalues()]
+
     def __iter__(self):
         return self.iterkeys()
 
