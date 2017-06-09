@@ -545,13 +545,13 @@ TEST(TestingCacheTable, PutRowStringC) {
 
     //TupleRow *t = new TupleRow(T._test_get_keys_factory()->get_metadata(), sizeof(int) + sizeof(float), buffer);
 
-    std::shared_ptr<void> result = T->get_crow(buffer);
+    std::vector<std::shared_ptr<void>> results = T->get_crow(buffer);
 
-    EXPECT_FALSE(result == NULL);
+    EXPECT_FALSE(results.empty());
 
-    if (result != NULL) {
+    if (!results.empty()) {
 
-        const void *v = result.get();
+        const void *v = results[0].get();
         int64_t addr;
         memcpy(&addr, v, sizeof(char *));
         char *d = reinterpret_cast<char *>(addr);
@@ -568,7 +568,7 @@ TEST(TestingCacheTable, PutRowStringC) {
     memcpy(buffer, &val, sizeof(int));
     memcpy(buffer + sizeof(int), &f, sizeof(float));
 
-     T->put_crow(buffer,result.get());
+     T->put_crow(buffer,results[0].get());
 
     delete(T);
     //With the aim to synchronize
@@ -580,13 +580,13 @@ TEST(TestingCacheTable, PutRowStringC) {
     memcpy(buffer, &val, sizeof(int));
     memcpy(buffer + sizeof(int), &f, sizeof(float));
 
-    result = T->get_crow(buffer);
+    results = T->get_crow(buffer);
 
 
-    EXPECT_FALSE(result == NULL);
+    EXPECT_FALSE(results.empty());
 
-    if (result != 0) {
-        const void *v = result.get();
+    if (!results.empty()) {
+        const void *v = results[0].get();
         int64_t addr;
         memcpy(&addr, v, sizeof(char *));
         char *d = reinterpret_cast<char *>(addr);
@@ -604,7 +604,7 @@ TEST(TestingCacheTable, PutRowStringC) {
     memcpy(buffer, &val, sizeof(int));
     memcpy(buffer + sizeof(int), &f, sizeof(float));
 
-    T->put_crow(buffer,result.get());
+    T->put_crow(buffer,results[0].get());
 
     delete(T);
     //With the aim to synchronize
@@ -616,10 +616,10 @@ TEST(TestingCacheTable, PutRowStringC) {
     memcpy(buffer, &val, sizeof(int));
     memcpy(buffer + sizeof(int), &f, sizeof(float));
 
-    result = T->get_crow(buffer);
-    if (result != 0) {
+    results = T->get_crow(buffer);
+    if (!results.empty()) {
 
-        const void *v = result.get();
+        const void *v = results[0].get();
         int64_t addr;
         memcpy(&addr, v, sizeof(char *));
         char *d = reinterpret_cast<char *>(addr);
