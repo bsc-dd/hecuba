@@ -152,9 +152,13 @@ std::vector<const TupleRow *>  CacheTable::get_crow(const TupleRow *keys) {
     return values;
 }
 
-std::shared_ptr<void> CacheTable::get_crow(void* keys) {
+std::vector<std::shared_ptr<void>> CacheTable::get_crow(void* keys) {
     std::vector<const TupleRow*> result = get_crow(keys_factory->make_tuple(keys));
-    if (result.empty()) return NULL;
+    if (result.empty()) return std::vector<std::shared_ptr<void> >(0);
     if (myCache) myCache->add(*keys_factory->make_tuple(keys), result[0]);
-    return result.at(0)->get_payload();
+    std::vector<std::shared_ptr<void>> payloads(result.size());
+    for (uint32_t i = 0; i<result.size(); ++i) {
+        payloads[i]=result[i]->get_payload();
+    }
+    return payloads;
 }

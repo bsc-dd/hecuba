@@ -397,11 +397,14 @@ PyObject *PythonParser::c_to_py(const void *V,const ColumnMeta &meta) const {
  * @return A list with the information from tuple preserving its order
  */
 
+//TODO return only one list when values has size 1
 PyObject *PythonParser::tuples_as_py(std::vector<const TupleRow *> &values, std::shared_ptr<const std::vector<ColumnMeta> > metadata) const {
 
     PyObject *list;
+    PyObject *result = PyList_New(values.size());
         //store to cache
-        const TupleRow *tuple = values[0];
+    for (uint32_t val_i = 0; val_i<values.size(); ++val_i) {
+        const TupleRow *tuple = values[val_i];
         if (tuple == 0)
             throw ModuleException("TupleRowFactory: Marshalling from c to python a NULL tuple, unsupported");
         list = PyList_New(tuple->n_elem());
@@ -413,7 +416,18 @@ PyObject *PythonParser::tuples_as_py(std::vector<const TupleRow *> &values, std:
             PyObject *inte = c_to_py(tuple->get_element(i), metadata->at(i));
             PyList_SetItem(list, i, inte);
         }
-    return list;
+        PyList_SetItem(result,val_i,list);
+    }
+    if (values.size()==1) {
+      PyObject* to_ret = PyList_GetItem(result,0); //Borrows a ref, doesnt increment the refcount
+      Py_INCREF(to_ret); //Increment the obj, since we want a reference
+      Py_DECREF(result); //Set the result list to be garbage collected
+                        //this also decrements to_ret refcount by one
+      return to_ret;
+
+    }
+
+    return result;
 
 }
 
