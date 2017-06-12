@@ -179,34 +179,66 @@ static PyObject *get_row(HCache *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, "O", &py_keys)) {
         return NULL;
     }
-    std::vector<const TupleRow *> v;
-    try {
-        TupleRow *k = parser.make_tuple(py_keys, self->T->get_metadata()->get_keys());
-        v = self->T->get_crow(k);
-        //delete(k); //TODO decide when to do cleanup
-    }
-    catch (std::exception &e) {
-        std::cerr << e.what() << std::endl;
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-
-    if (v.empty()) {
-        PyErr_SetString(PyExc_KeyError,"No rows found for this key");
-        return NULL;
-    }
-
-    try {
-        if (self->has_numpy) {
-            py_row = parser.merge_blocks_as_nparray(v, self->T->get_metadata()->get_values());
-        }else {
-            py_row = parser.tuples_as_py(v, self->T->get_metadata()->get_values());
+   const TableMetadata *t_meta = self->T->get_metadata();
+    if ((uint32_t)PyList_Size(py_keys)==t_meta->get_keys()->size()) {
+        try {
+            TupleRow *k = parser.make_tuple(py_keys, self->T->get_metadata()->get_keys());
+            std::vector<const TupleRow *> v = self->T->get_crow(k);
+            //delete(k); //TODO decide when to do cleanup
+            if (self->has_numpy) {
+                py_row = parser.merge_blocks_as_nparray(v, self->T->get_metadata()->get_values());
+            } else {
+                py_row = parser.tuples_as_py(v, self->T->get_metadata()->get_values());
+            }
+        }
+        catch (std::exception &e) {
+            std::cerr << e.what() << std::endl;
+            PyErr_SetString(PyExc_RuntimeError, e.what());
+            return NULL;
         }
     }
-    catch (std::exception &e) {
-        std::cerr << e.what() << std::endl;
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
+    else {
+        uint16_t nkeys = (uint16_t) PyList_Size(py_keys);
+
+        const char *table = t_meta->get_table_name();
+        const char *keyspace = t_meta->get_keyspace();
+        std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = t_meta->get_keys();
+        std::shared_ptr<const std::vector<ColumnMeta> > cols_metas = t_meta->get_values();
+        std::vector<std::map < std::string, std::string> > keys_conf(nkeys);
+        uint32_t ncols = (uint32_t) cols_metas->size()+((uint32_t )keys_metas->size()-nkeys);
+        std::vector<std::map < std::string, std::string> > cols_conf(ncols);
+        for (uint16_t i = 0; i<nkeys; ++i) {
+            keys_conf[i] = keys_metas->at(i).info;
+        }
+        uint32_t i = 0;
+        for (; i<keys_metas->size()-nkeys; ++i) {
+            cols_conf[i]=keys_metas->at(i+nkeys).info;
+
+        }
+        for (; i<ncols; ++i) {
+            cols_conf[i]=cols_metas->at(i-nkeys).info; //TODO I dont like this -nkeys
+
+        }
+        std::map<std::string,std::string> config {{"cache_size","0"}};
+
+        CacheTable* randomName = storage->make_cache(table, keyspace, keys_conf, cols_conf, config);
+        try {
+            TupleRow *k = parser.make_tuple(py_keys, randomName->get_metadata()->get_keys());
+            std::vector<const TupleRow *> v = randomName->get_crow(k);
+            //delete(k); //TODO decide when to do cleanup
+            if (self->has_numpy) {
+                py_row = parser.merge_blocks_as_nparray(v, randomName->get_metadata()->get_values());
+            } else {
+                py_row = parser.tuples_as_py(v, randomName->get_metadata()->get_values());
+            }
+        }
+        catch (std::exception &e) {
+            std::cerr << e.what() << std::endl;
+            PyErr_SetString(PyExc_RuntimeError, e.what());
+            return NULL;
+        }
+        delete(randomName);
+
     }
     return py_row;
 }

@@ -143,18 +143,30 @@ class Config:
                 connectCassandra(singleton.contact_names, singleton.nodePort)
                 if singleton.id_create_schema == -1:
                     singleton.session.execute(
-                        "CREATE KEYSPACE IF NOT EXISTS " + singleton.execution_name + " WITH replication = {'class': 'SimpleStrategy',"
-                                                                                      "'replication_factor': %d }" % singleton.repl_factor)
+                        ('CREATE KEYSPACE IF NOT EXISTS ' + singleton.execution_name +
+                         " WITH replication = {'class': 'SimpleStrategy', "
+                         "'replication_factor': %d }" % singleton.repl_factor))
+
+                    singleton.session.execute('CREATE TYPE IF NOT EXISTS ' +
+                                              singleton.execution_name + '.q_meta('
+                                                                         'mem_filter text, '
+                                                                         'from_point frozen < list < float >>,'
+                                                                         'to_point frozen < list < float >>,'
+                                                                         'precision float)')
+
                     singleton.session.execute(
-                        'CREATE TABLE IF NOT EXISTS ' + singleton.execution_name + '.istorage (storage_id uuid, '
-                                                                                   'class_name text,name text, '
-                                                                                   'istorage_props map<text,text>, '
-                                                                                   'tokens list<frozen<tuple<bigint,bigint>>>, entry_point text, port int, '
-                                                                                   'indexed_args list<text>, nonindexed_args list<text>, '
-                                                                                   'primary_keys list<frozen<tuple<text,text>>>,'
-                                                                                   'columns list<frozen<tuple<text,text>>>,'
-                                                                                   'value_list list<text>, mem_filter text, '
-                                                                                   'PRIMARY KEY(storage_id))')
+                        'CREATE TABLE IF NOT EXISTS ' + singleton.execution_name +
+                        '.istorage (storage_id uuid, '
+                        'class_name text,name text, '
+                        'istorage_props map<text,text>, '
+                        'tokens list<frozen<tuple<bigint,bigint>>>,'
+                        'indexed_on list<text>,'
+                        'entry_point text,'
+                        'qbeast_id uuid,'
+                        'qbeast_meta q_meta,'
+                        'primary_keys list<frozen<tuple<text,text>>>,'
+                        'columns list<frozen<tuple<text,text>>>,'
+                        'PRIMARY KEY(storage_id))')
 
             except Exception as e:
                 log.error('Exception creating cluster session. Are you in a testing env? %s', e)
@@ -247,7 +259,158 @@ class Config:
 
         singleton.create_cache = set()
 
+        try:
+            singleton.qbeast_master_port = int(os.environ['QBEAST_MASTER_PORT'])
+            logging.info('QBEAST_MASTER_PORT: %d', singleton.qbeast_master_port)
+        except KeyError:
+            logging.warn('using default qbeast master port 2600')
+            singleton.qbeast_master_port = 2600
+
+        try:
+            singleton.qbeast_worker_port = int(os.environ['QBEAST_WORKER_PORT'])
+            logging.info('QBEAST_WORKER_PORT: %d', singleton.qbeast_worker_port)
+        except KeyError:
+            logging.warn('using default qbeast worker port 2688')
+            singleton.qbeast_worker_port = 2688
+
+        try:
+            singleton.qbeast_entry_node = os.environ['QBEAST_ENTRY_NODE'].split(",")
+            logging.info('QBEAST_ENTRY_NODE: %s', singleton.qbeast_entry_node)
+        except KeyError:
+            logging.warn('using default qbeast entry node localhost')
+            import socket
+            singleton.qbeast_entry_node = [socket.gethostname()]
+
+        try:
+            singleton.qbeast_max_results = int(os.environ['QBEAST_MAX_RESULTS'].split(","))
+            logging.info('QBEAST_MAX_RESULTS: %d', singleton.qbeast_max_results)
+        except KeyError:
+            logging.warn('using default qbeast max results 10000000')
+            singleton.qbeast_max_results = 10000000
+
+        try:
+            singleton.qbeast_return_at_least = int(os.environ['RETURN_AT_LEAST'].split(","))
+            logging.info('QBEAST_RETURN_AT_LEAST: %d', singleton.qbeast_return_at_least)
+        except KeyError:
+            logging.warn('using default qbeast return at least 100')
+            singleton.qbeast_return_at_least = 100
+
+        try:
+            singleton.qbeast_read_max = int(os.environ['READ_MAX'].split(","))
+            logging.info('QBEAST_READ_MAX: %d', singleton.qbeast_read_max)
+        except KeyError:
+            logging.warn('using default qbeast read max 10000')
+            singleton.qbeast_read_max = 10000
+
+
+def hecuba_filter(lambda_filter, iterable):
+    if hasattr(iterable, '_storage_father') and hasattr(iterable._storage_father, '_indexed_args') \
+            and iterable._storage_father._indexed_args is not None:
+        indexed_args = iterable._storage_father._indexed_args
+        father = iterable._storage_father
+        import inspect
+        from byteplay import Code
+        func = Code.from_code(lambda_filter.func_code)
+        far_values = {}
+        for ind, entry in enumerate(func.code):
+            if (str(entry[0]) == 'LOAD_GLOBAL') and (not str(entry[1]) == 'random'):
+                func.code[ind] = ('LOAD_CONST', str(lambda_filter.func_globals[str(entry[1])]))
+                far_values[entry[1]] = str(lambda_filter.func_globals[str(entry[1])])
+        lambda_filter.func_code = func.to_code()
+        inspected_function = inspect.getsource(lambda_filter)
+        inspected_function = inspected_function.replace('\n', '')
+        key_parameters = inspected_function.split("(")[3].split(')')[0]
+        value_parameters = str(str(str(inspected_function).split("(")[3]).split(':')[0]).split(')')[1][1:]
+        for key in far_values.keys():
+            inspected_function = str(inspected_function).replace(key, far_values[key])
+
+        function_arguments = str(str(inspected_function).split(":")[1]).split(",")[0]
+        if 'random.random()' in str(function_arguments):
+            initial_index_arguments = str(str(function_arguments).split('and random.random() <')[0]).split(' and ')
+            precision = float(str(function_arguments).split('and random.random() <')[1])
+        elif 'random()' in str(function_arguments):
+            initial_index_arguments = str(str(function_arguments).split('and random() <')[0]).split(' and ')
+            precision = float(str(function_arguments).split('and random() <')[1])
+        else:
+            initial_index_arguments = str(function_arguments).split(' and ')
+            precision = 1
+        stripped_index_arguments = []
+        for value in initial_index_arguments:
+            stripped_index_arguments.append(value.replace(" ", ""))
+        # for dict_name, props in iterable._persistent_props.iteritems():
+        index_arguments = set()
+        non_index_arguments = []
+        # if 'indexed_values' in props:
+
+        for value in stripped_index_arguments:
+            to_append = str(value)
+            if '<' in value:
+                splitval = value.split('<')
+                for pos in splitval:
+                    if pos not in indexed_args:
+                        try:
+                            newval = eval(pos)
+                            to_append = value.replace(str(pos), str(newval))
+                        except Exception as e:
+                            pass
+                if splitval[0] in indexed_args or splitval[1] in indexed_args:
+                    index_arguments.add(to_append)
+                else:
+                    non_index_arguments.append(to_append)
+            if '>' in value:
+                splitval = value.split('>')
+                for pos in splitval:
+                    if pos not in indexed_args:
+                        try:
+                            newval = eval(pos)
+                            to_append = value.replace(str(pos), str(newval))
+                        except Exception as e:
+                            print "error trying to replace:", e
+                if splitval[0] in indexed_args or splitval[1] in indexed_args:
+                    index_arguments.add(to_append)
+                else:
+                    non_index_arguments.append(to_append)
+
+        if len(non_index_arguments) > 0:
+            reduced_filtered = "lambda(" + ", ".join(key_parameters) + ", " + ", ".join(
+                value_parameters) + "):" + " and ".join(non_index_arguments)
+        else:
+            reduced_filtered = None
+        min_arguments = {}
+        max_arguments = {}
+
+        for argument in index_arguments:
+            if '<' in str(argument):
+                splitarg = (str(argument).replace(' ', '')).split('<')
+                val = str(splitarg[0])
+                max_arguments[val] = float(splitarg[1])
+            if '>' in str(argument):
+                splitarg = (str(argument).replace(' ', '')).split('>')
+                val = str(splitarg[0])
+                min_arguments[val] = float(splitarg[1])
+        from_p = []
+        to_p = []
+        for indexed_element in indexed_args:
+            from_p.append(min_arguments[indexed_element])
+            to_p.append(max_arguments[indexed_element])
+        from qbeast import QbeastMeta, QbeastIterator
+        qmeta = QbeastMeta(
+             reduced_filtered,
+             from_p, to_p,
+             precision)
+        it = QbeastIterator(father._primary_keys, father._columns,
+                            father._ksp + "." + father._table,
+                            qmeta)
+        return it
+    else:
+        filtered = python_filter(lambda_filter, iterable)
+        return filtered
+
+
+if not filter == hecuba_filter:
+    python_filter = filter
+    filter = hecuba_filter
+
 
 global config
 config = Config()
-

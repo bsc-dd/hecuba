@@ -227,17 +227,18 @@ std::vector<const TupleRow *>  CacheTable::get_crow(const TupleRow *keys) {
     return values;
 }
 
-std::shared_ptr<void> CacheTable::get_crow(void* keys) {
 
+std::vector<std::shared_ptr<void>> CacheTable::get_crow(void* keys) {
     const TupleRow* tuple_key = keys_factory->make_tuple(keys);
-    std::vector<const TupleRow*> result = get_crow(tuple_key);
+    std::vector<const TupleRow*> result = get_crow(keys_factory->make_tuple(tuple_key));
     delete(tuple_key);
-
-    if (result.empty()) return NULL;
-
-    std::shared_ptr<void> payload_result = result.at(0)->get_payload();
-    for (uint32_t tuple_i = 0; tuple_i<result.size(); ++tuple_i) {
-        delete(result.at(tuple_i));
+    
+    if (result.empty()) return std::vector<std::shared_ptr<void> >(0);
+    
+    std::vector<std::shared_ptr<void>> payloads(result.size());
+    for (uint32_t i = 0; i<result.size(); ++i) {
+        payloads[i]=result[i]->get_payload();
+        delete(result[i]);
     }
-    return payload_result;
+    return payloads;
 }

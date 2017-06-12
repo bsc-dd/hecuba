@@ -132,6 +132,14 @@ class StorageObjSplitTest(unittest.TestCase):
         self.assertEqual(count, 10000)
         self.assertEqual(what_should_be, res)
 
+    def test_split_with_different_storage_ids(self):
+        # in process
+        sto = TestSimple("tab32")
+        pd = sto.words
+
+        ids = len(set(map(lambda x: x._storage_id, pd.split())))
+        self.assertTrue(ids >= config.number_of_blocks)
+
 
 if __name__ == '__main__':
     unittest.main()

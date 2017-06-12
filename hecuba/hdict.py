@@ -9,9 +9,10 @@ import uuid
 
 
 class NamedIterator:
-    def __init__(self, hiterator, builder):
+    def __init__(self, hiterator, builder, father):
         self.hiterator = hiterator
         self.builder = builder
+        self._storage_father = father
 
     def __iter__(self):
         return self
@@ -27,13 +28,12 @@ class NamedIterator:
 class NamedItemsIterator:
     builder = namedtuple('row', 'key, value')
 
-    def __init__(self, key_builder, column_builder, k_size, hiterator, columns, storage_id):
+    def __init__(self, key_builder, column_builder, k_size, hiterator, father):
         self.key_builder = key_builder
         self.k_size = k_size
         self.column_builder = column_builder
         self.hiterator = hiterator
-        self.columns = columns
-        self.storage_id = storage_id
+        self._storage_father = father
 
     def __iter__(self):
         return self
@@ -56,11 +56,12 @@ class StorageDict(dict, IStorage):
     Object used to access data from workers.
     """
 
-    args_names = ["primary_keys", "columns", "name", "tokens", "storage_id", "class_name"]
+    args_names = ["primary_keys", "columns", "name", "tokens", "storage_id", "indexed_on", "class_name"]
     args = namedtuple('StorageDictArgs', args_names)
-    _prepared_store_meta = config.session.prepare('INSERT INTO ' + config.execution_name + '.istorage'
-                                                                                           '(storage_id, class_name, name, tokens,primary_keys,columns)'
-                                                                                           'VALUES (?,?,?,?,?,?)')
+    _prepared_store_meta = config.session.prepare('INSERT INTO ' + config.execution_name +
+                                                  '.istorage (storage_id, class_name, name, '
+                                                  'tokens,primary_keys,columns,indexed_on)'
+                                                  'VALUES (?,?,?,?,?,?,?)')
 
     @staticmethod
     def build_remotely(result):
@@ -74,7 +75,9 @@ class StorageDict(dict, IStorage):
         return StorageDict(result.primary_keys,
                            result.columns,
                            result.name,
-                           result.tokens
+                           result.tokens,
+                           result.storage_id,
+                           result.indexed_on
                            )
 
     @staticmethod
@@ -85,12 +88,13 @@ class StorageDict(dict, IStorage):
             config.session.execute(StorageDict._prepared_store_meta,
                                    [storage_args.storage_id, storage_args.class_name,
                                     storage_args.name,
-                                    storage_args.tokens, storage_args.primary_keys, storage_args.columns])
+                                    storage_args.tokens, storage_args.primary_keys,
+                                    storage_args.columns, storage_args.indexed_on])
         except Exception as ex:
             log.error("Error creating the StorageDict metadata: %s %s", storage_args, ex)
             raise ex
 
-    def __init__(self, primary_keys, columns, name=None, tokens=None, storage_id=None, **kwargs):
+    def __init__(self, primary_keys, columns, name=None, tokens=None, storage_id=None, indexed_args=None, **kwargs):
         """
         Creates a new block.
 
@@ -114,26 +118,14 @@ class StorageDict(dict, IStorage):
         else:
             self._tokens = tokens
 
-        if name is None:
-            ksp = config.execution_name
-        else:
-            name = name.encode('UTF8')
-            (ksp, _) = self._extract_ks_tab(name)
-
-        if storage_id is not None:
-            self._storage_id = storage_id
-        elif name is not None:
-            if '.' in name:
-                self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, name)
-            else:
-                self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, ksp + '.' + name)
-        else:
-            self._storage_id = None
+        self._storage_id = storage_id
 
         class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
-        self._build_args = self.args(primary_keys, columns, name, self._tokens, self._storage_id, class_name)
+        self._build_args = self.args(primary_keys, columns, name, self._tokens,
+                                     self._storage_id, indexed_args, class_name)
         self._primary_keys = primary_keys
         self._columns = columns
+        self._indexed_args = indexed_args
 
         key_names = map(lambda a: a[0], self._primary_keys)
         column_names = map(lambda a: a[0], self._columns)
@@ -202,17 +194,23 @@ class StorageDict(dict, IStorage):
         """
         return [i for i in self.iterkeys()]
 
+    def values(self):
+        """
+        This method return a list of all the values of the PersistentDict.
+        Returns:
+          list: a list of values
+        """
+        return [i for i in self.itervalues()]
+
     def __iter__(self):
         return self.iterkeys()
 
     def make_persistent(self, name):
         self._is_persistent = True
         (self._ksp, self._table) = self._extract_ks_tab(name)
-        self._build_args = self._build_args._replace(name=self._ksp + "." + self._table)
 
-        if self._storage_id is None:
-            self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, name)
-            self._build_args = self._build_args._replace(storage_id=self._storage_id)
+        self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table)
+        self._build_args = self._build_args._replace(storage_id=self._storage_id,name=self._ksp + "." + self._table)
         self._store_meta(self._build_args)
         if config.id_create_schema == -1:
             query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy'," \
@@ -319,7 +317,7 @@ class StorageDict(dict, IStorage):
         """
         if self._is_persistent:
             ik = self._hcache.iterkeys(config.prefetch_size)
-            return NamedIterator(ik, self._key_builder)
+            return NamedIterator(ik, self._key_builder, self)
         else:
             return dict.iterkeys(self)
 
@@ -335,8 +333,7 @@ class StorageDict(dict, IStorage):
                                            self._column_builder,
                                            self._k_size,
                                            ik,
-                                           self._columns,
-                                           self._storage_id)
+                                           self)
         else:
             return dict.iteritems(self)
 
@@ -348,7 +345,7 @@ class StorageDict(dict, IStorage):
         """
         if self._is_persistent:
             ik = self._hcache.itervalues(config.prefetch_size)
-            return NamedIterator(ik, self._column_builder)
+            return NamedIterator(ik, self._column_builder, self)
         else:
             return dict.itervalues(self)
 

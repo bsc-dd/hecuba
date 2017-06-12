@@ -647,13 +647,17 @@ TEST(TestingCacheTable, PutRowStringC) {
     CacheTable* T = new CacheTable(table_meta, test_session, config);
 
 
-    std::shared_ptr<void> result = T->get_crow(buffer);
 
-    EXPECT_FALSE(result == NULL);
+    //TupleRow *t = new TupleRow(T._test_get_keys_factory()->get_metadata(), sizeof(int) + sizeof(float), buffer);
 
-    if (result != NULL) {
+    std::vector<std::shared_ptr<void>> results = T->get_crow(buffer);
 
-        const void *v = result.get();
+
+    EXPECT_FALSE(results.empty());
+
+    if (!results.empty()) {
+
+        const void *v = results[0].get();
         int64_t addr;
         memcpy(&addr, v, sizeof(char *));
         char *d = reinterpret_cast<char *>(addr);
@@ -665,12 +669,14 @@ TEST(TestingCacheTable, PutRowStringC) {
     memcpy(buffer, &val, sizeof(int));
     memcpy(buffer + sizeof(int), &f, sizeof(float));
 
+
     char *substitue = (char*) malloc(sizeof("71919"));
     memcpy(substitue,"71919",sizeof("71919"));
     char** payload2 = (char**)malloc(sizeof(char*));
     *payload2=substitue;
 
     T->put_crow(buffer,payload2);
+
 
     delete(T);
     //With the aim to synchronize
@@ -682,13 +688,13 @@ TEST(TestingCacheTable, PutRowStringC) {
     memcpy(buffer, &val, sizeof(int));
     memcpy(buffer + sizeof(int), &f, sizeof(float));
 
-    result = T->get_crow(buffer);
+    results = T->get_crow(buffer);
 
 
-    EXPECT_FALSE(result == NULL);
+    EXPECT_FALSE(results.empty());
 
-    if (result != 0) {
-        const void *v = result.get();
+    if (!results.empty()) {
+        const void *v = results[0].get();
         int64_t addr;
         memcpy(&addr, v, sizeof(char *));
         char *d = reinterpret_cast<char *>(addr);
