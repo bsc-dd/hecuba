@@ -230,7 +230,7 @@ std::vector<const TupleRow *>  CacheTable::get_crow(const TupleRow *keys) {
 
 std::vector<std::shared_ptr<void>> CacheTable::get_crow(void* keys) {
     const TupleRow* tuple_key = keys_factory->make_tuple(keys);
-    std::vector<const TupleRow*> result = get_crow(keys_factory->make_tuple(tuple_key));
+    std::vector<const TupleRow*> result = get_crow(tuple_key);
     delete(tuple_key);
     
     if (result.empty()) return std::vector<std::shared_ptr<void> >(0);
