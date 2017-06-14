@@ -284,7 +284,10 @@ class StorageDict(dict, IStorage):
             if issubclass(cres.__class__, NoneType):
                 return None
             elif self._column_builder is not None:
-                return self._column_builder(*cres)
+                if len(cres) > 0 and isinstance(cres[0], list):
+                    return [self._column_builder(*row) for row in cres]
+                else:
+                    return self._column_builder(*cres)
             else:
                 return cres[0]
 
