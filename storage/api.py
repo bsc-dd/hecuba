@@ -1,10 +1,5 @@
 # author: G. Alomar
-
-from hecuba.iter import Block
-from hecuba.dict import *
-from hecuba.storageobj import *
-from hecuba import config
-
+import uuid
 
 def init(config_file_path=None):
     """
@@ -21,6 +16,21 @@ def finish():
     """
     pass
 
+def initWorker(config_file_path=None):
+    """
+    Function that can be useful when running the application with COMPSs >= 2.0
+    It is executed at the beginning of the application
+    """
+    pass
+
+
+def finishWorker():
+    """
+    Function that can be useful when running the application with COMPSs >= 2.0
+    It is executed at the end of the application
+    """
+    pass
+
 
 def start_task(params):
     """
@@ -28,13 +38,7 @@ def start_task(params):
     Args:
         params: a list of objects (Blocks, StorageObjs, strings, ints, ...)
     """
-    if type(params) is not list:
-        raise ValueError('call start_task with a list of params')
-    if config.batch_size > 1:
-        for param in params:
-            if issubclass(param.__class__, StorageObj) or issubclass(param.__class__, Block) and param._needContext:
-                param._cntxt = context(param)
-                param._cntxt.__enter__()
+    pass
 
 
 def end_task(params):
@@ -44,29 +48,27 @@ def end_task(params):
     Args:
         params: a list of objects (Blocks, StorageObjs, strings, ints, ...)
     """
-    if config.batch_size > 1:
-        for param in params:
-            if hasattr(param, '_needContext') and param._needContext:
-                try:
-                    param._cntxt.__exit__()
-                except Exception as e:
-                    print "error trying to exit context:", e
+    pass
 
-    if config.prefetch_activated:
-        for param in params:
-            if hasattr(param, '_needContext') and param._needContext:
-                if issubclass(param.__class__, Block):
-                    persistent_dict = param.storageobj._get_default_dict()
-                    if persistent_dict.prefetch:
-                        persistent_dict.end_prefetch()
 
-    if config.statistics_activated:
-        for param in params:
-            if issubclass(param.__class__, Block) and param.supportsStatistics:
-                param.storageobj.statistics()
-            if issubclass(param.__class__, StorageObj):
-                param.statistics()
+class TaskContext(object):
+    def __init__(self, logger, values, **kwargs):
+        self.logger = logger
+        self.values = values
 
+    def __enter__(self):
+        # Do something prolog
+        start_task(self.values)
+        # Ready to start the task
+        self.logger.info("Prolog finished")
+        pass
+
+    def __exit__(self, type, value, traceback):
+        # Do something epilog
+        end_task(self.values)
+        # Finished
+        self.logger.info("Epilog finished")
+        pass
 
 def getByID(objid):
     """
@@ -81,17 +83,25 @@ def getByID(objid):
          (Block| Storageobj)
 
     """
-    objidsplit = objid.split("_")
+    """
+               TODO
+               Args:
+                   objid (str):  object identifier
+               Returns:
+                    (Block| Storageobj)
+               """
+    from hecuba import log
+    objid = objid.split("_")[0]
+    try:
+        from hecuba import config
+        query = "SELECT * FROM " + config.execution_name + ".istorage WHERE storage_id = %s"
+        results = config.session.execute(query, [uuid.UUID(objid)])[0]
+    except Exception as e:
+        log.error("Query %s failed", query)
+        raise e
+    class_name = results.class_name
 
-    if len(objidsplit) == 2:
-        objid = objidsplit[0]
-
-    if len(objidsplit) == 2:
-        results = config.session.execute("SELECT * FROM hecuba.storage_objs WHERE object_id = %s", (objid,))[0]
-        class_name = results.class_name
-    else:
-        results = config.session.execute("SELECT * FROM hecuba.blocks WHERE blockid = %s", (objid,))[0]
-        class_name = results.class_name
+    log.debug("IStorage API:getByID(%s) of class %s", objid, class_name)
     last = 0
     for key, i in enumerate(class_name):
         if i == '.' and key > last:
@@ -100,8 +110,5 @@ def getByID(objid):
     cname = class_name[last + 1:]
     mod = __import__(module, globals(), locals(), [cname], 0)
     b = getattr(mod, cname).build_remotely(results)
-
-    if len(objidsplit) == 1:
-        if config.prefetch_activated and b.supportsPrefetch:
-            b.storageobj.init_prefetch(b)
+    b._storage_id = objid
     return b

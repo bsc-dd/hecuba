@@ -25,6 +25,7 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+_install
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -134,7 +135,15 @@ crashlytics.properties
 crashlytics-build.properties
 fabric.properties
 
-    Contact GitHub API Training Shop Blog About 
-
+#Cmake
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
 
 

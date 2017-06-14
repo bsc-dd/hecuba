@@ -1,9 +1,10 @@
 import unittest
+import uuid
 
+from hecuba import Config
+Config.reset(True)  ## THIS MUST STAY ONE THE TOP
 from mock import Mock
-
-from hecuba import Config, config
-from hecuba.iter import Block
+from hecuba.hdict import StorageDict
 from app.words import Words
 
 
@@ -20,65 +21,47 @@ class BlockTest(unittest.TestCase):
         class res: pass
 
         results = res()
-        results.blockid = u"aaaablockid"
-        results.entry_point = u'localhost'
-        results.dict_name = [u'pk1']
-        results.tab = u"tab1"
-        results.ksp = u'ksp1'
-        results.tkns = [1l, 2l, 3l, 3l]
-        results.storageobj_classname = u'app.words.Words'
-        results.object_id =u'test_id'
-        old = Words.__init__
-        Words.__init__ = Mock(return_value=None)
-        b = Block.build_remotely(results)
-        self.assertIsInstance(b.storageobj, Words)
-        Words.__init__.assert_called_once_with("ksp1.tab1", myuuid='test_id')
-        Words.__init__ = old
+        results.storage_id = uuid.uuid4()
+        results.class_name = 'app.words.Words'
+        results.name = 'ksp1.tab1'
+        results.columns = [('val1', 'str')]
+        results.entry_point = 'localhost'
+        results.primary_keys = [('pk1', 'int')]
+        results.istorage_props = {}
+        results.tokens = [(1l, 2l), (2l, 3l), (3l, 4l), (3l, 5l)]
 
-    def test_init_creation(self):
-        blockid = "aaaablockid"
-        peer = 'localhost'
-        tablename = "tab1"
-        keyspace = 'ksp1'
-        tokens = [1l, 2l, 3l, 3l]
-        old = Words.__init__
-        Words.__init__ = Mock(return_value=None)
-        b = Block(blockid, peer, tablename, keyspace, tokens, 'app.words.Words')
-        self.assertIsInstance(b.storageobj, Words)
-        Words.__init__.assert_called_once_with(keyspace + "." + tablename, myuuid=None)
-        Words.__init__ = old
+        old = Words.make_persistent
+
+        Words.make_persistent = Mock(return_value=None)
+        b = Words.build_remotely(results)
+        self.assertIsInstance(b, Words)
+        Words.make_persistent.assert_called_once_with("ksp1.tab1")
+        Words.make_persistent = old
 
     def test_iter_and_get_sets(self):
         """
         The iterator should read the same elements I can get with a __getitem__
         :return:
         """
-        blockid = "aaaablockid"
-        peer = 'localhost'
-        tablename = "tab1"
-        keyspace = 'ksp1'
-        tokens = [1l, 2l, 3l, 3l]
-        b = Block(blockid, peer, tablename, keyspace, tokens, 'app.words.Words')
-        b.storageobj._get_default_dict().is_persistent = False
-        self.assertIsInstance(b.storageobj, Words)
+        b = StorageDict([('pk1', 'str')], [('val', 'int')])
+        b.is_persistent = False
 
         b['test1'] = 123124
         self.assertEqual(123124, b['test1'])
 
-
     def test_getID(self):
         """
-        Check the id is the same
+        Checks that the id is the same
         :return:
         """
-        from hecuba.iter import Block
-        old = Block.__init__
-        Block.__init__ = Mock(return_value=None)
-        bl = Block()
-        bl.blockid = 'myuuid'
-        self.assertEquals('myuuid', bl.getID())
-        self.assertNotEquals('myuuid2', bl.getID())
-        Block.__init__ = old
+        from hecuba.hdict import StorageDict
+        old = StorageDict.__init__
+        StorageDict.__init__ = Mock(return_value=None)
+        bl = StorageDict()
+        u = uuid.uuid4()
+        bl._storage_id = u
+        self.assertEquals(str(u), bl.getID())
+        StorageDict.__init__ = old
 
 
 if __name__ == '__main__':

@@ -7,11 +7,10 @@ from app.result import Result
 
 #@task(returns = dict)
 def wordcountTask(block, words):
-    block.storageobj.init_prefetch(block)
     from storage.api import start_task, end_task
     start_task([block, words])
     partialResult = {}
-    for words in block.itervalues():
+    for words in block.words.itervalues():
         parsedWords = words.split(',')
         for word in parsedWords:
             partialResult[word] = partialResult.get(word, 0) + 1
@@ -21,16 +20,15 @@ def wordcountTask(block, words):
 #@task()
 def reduceTask(localResults, result):
     for word, instances in localResults.iteritems():
-        result[word] = instances
+        result.instances[word] = instances
 
 
 def runme():
 
-    words = Words('Words')
+    words = Words('wordcount.wordobj')
     result = Result()
-    result.make_persistent('Result')
-    result.empty_persistent()
-
+    result.make_persistent('result')
+    result.delete_persistent()
     localResults = {}
     for ind, block in enumerate(words.split()):
         localResults[ind] = wordcountTask(block, words)
