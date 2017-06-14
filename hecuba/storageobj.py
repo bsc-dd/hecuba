@@ -464,4 +464,4 @@ class StorageObj(object, IStorage):
             Returns:
                 storage_id of the object, followed by '_1'
         """
-        return '%s_1' % str(self._storage_id)
+        return str(self._storage_id)

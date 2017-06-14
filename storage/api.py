@@ -91,7 +91,6 @@ def getByID(objid):
                     (Block| Storageobj)
                """
     from hecuba import log
-    objid = objid.split("_")[0]
     try:
         from hecuba import config
         query = "SELECT * FROM " + config.execution_name + ".istorage WHERE storage_id = %s"
