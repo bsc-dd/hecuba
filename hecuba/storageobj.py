@@ -307,7 +307,8 @@ class StorageObj(object, IStorage):
         """
         self._is_persistent = True
         (self._ksp, self._table) = self._extract_ks_tab(name)
-        self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table)
+        if self._storage_id is None:
+            self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table)
 
         self._build_args = self.args(self._ksp + '.' + self._table,
                                      self._tokens,

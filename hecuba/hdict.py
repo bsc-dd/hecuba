@@ -209,7 +209,8 @@ class StorageDict(dict, IStorage):
         self._is_persistent = True
         (self._ksp, self._table) = self._extract_ks_tab(name)
 
-        self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table)
+        if self._storage_id is None:
+            self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table)
         self._build_args = self._build_args._replace(storage_id=self._storage_id,name=self._ksp + "." + self._table)
         self._store_meta(self._build_args)
         if config.id_create_schema == -1:
