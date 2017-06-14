@@ -458,10 +458,3 @@ class StorageObj(object, IStorage):
         else:
             super(StorageObj, self).__setattr__(key, value)
 
-    def getID(self):
-        """
-            This function returns the ID of the StorageObj
-            Returns:
-                storage_id of the object, followed by '_1'
-        """
-        return str(self._storage_id)

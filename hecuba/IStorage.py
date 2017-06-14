@@ -120,4 +120,11 @@ class IStorage:
         raise Exception("to be implemented")
 
     def getID(self):
-        raise Exception("to be implemented")
+        """
+        Obtains the id of the storage element
+        Returns:
+            self._storage_id: id of the block
+        """
+        # raise Exception("to be implemented")
+        return str(self._storage_id)
+
