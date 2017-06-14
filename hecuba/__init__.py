@@ -309,12 +309,12 @@ def hecuba_filter(lambda_filter, iterable):
         indexed_args = iterable._storage_father._indexed_args
         father = iterable._storage_father
         import inspect
-        from byteplay import Code
+        from byteplay import Code, LOAD_GLOBAL, LOAD_CONST
         func = Code.from_code(lambda_filter.func_code)
         far_values = {}
         for ind, entry in enumerate(func.code):
-            if (str(entry[0]) == 'LOAD_GLOBAL') and (not str(entry[1]) == 'random'):
-                func.code[ind] = ('LOAD_CONST', str(lambda_filter.func_globals[str(entry[1])]))
+            if (entry[0] == LOAD_GLOBAL) and (not entry[1] == 'random'):
+                func.code[ind] = (LOAD_CONST, lambda_filter.func_globals[entry[1]])
                 far_values[entry[1]] = str(lambda_filter.func_globals[str(entry[1])])
         lambda_filter.func_code = func.to_code()
         inspected_function = inspect.getsource(lambda_filter)
