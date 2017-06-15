@@ -56,15 +56,13 @@ public class StorageItf {
                     throw new storage.StorageException("Problem obtaining hostaddress:" + e);
 	            }
 	        }
-	        closeCassandra();
 	        System.out.println("Result for objectID " + objectID + ":" + toReturnHN.get(0));
 	        return toReturnHN;
         }
         if(class_name == "hecuba.hdict.StorageObj"){
 	        System.out.println("Result for objectID " + objectID + ": []");
-	        closeCassandra();
         }
-	    return resultSet;
+	return resultSet;
     }
 
 
