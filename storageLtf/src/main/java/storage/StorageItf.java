@@ -19,18 +19,18 @@ public class StorageItf {
      * @return
      * @throws storage.StorageException
      */
-    public static List<String> getLocations(String objectID) throws storage.StorageException {
+    public static List<String> getLocations(String objectID){
+        System.err.println("getLocations input: " + objectID);
         UUID uuid = UUID.fromString(objectID.replace(" ", ""));
-	    List<String> resultSet = Collections.<String>emptyList();
         checkCassandra();
-        Row storage_info = session.execute("SELECT class_name FROM hecuba.istorage WHERE storage_id = ?", uuid).one();
+        Row storage_info = session.execute("SELECT * FROM hecuba.istorage WHERE storage_id = ?", uuid).one();
         String class_name = storage_info.getString("class_name");
-        if(class_name == "hecuba.hdict.StorageDict"){
+        if(class_name.equals("hecuba.hdict.StorageDict")){
 	        Metadata metadata = cluster.getMetadata();
 	        String name = storage_info.getString("name");
 	        int pposition = name.indexOf('.');
 	        if (pposition == -1) {
-	            throw new StorageException("I cannot detect the keyspace name from " + name);
+	            System.out.println("Error calculating pposition");
 	        }
 	        final String nodeKp = name.substring(0, pposition);
 
@@ -49,35 +49,30 @@ public class StorageItf {
 	            try{
 	                InetAddress addr = InetAddress.getByName(ip);
 	                String host = addr.getHostName();
-	                String[] HNsplitted = host.split("-");   //prev Pattern.quote(".")
+	                String[] HNsplitted = host.split("-");
+                    HNsplitted = HNsplitted[0].split(Pattern.quote("."));
 	                toReturnHN.add(HNsplitted[0]);
 	            }catch(UnknownHostException e){
-                    throw new storage.StorageException("Problem obtaining hostaddress:" + e);
+                    System.out.println("Problem obtaining hostaddress:" + e);
 	            }
 	        }
-	        closeCassandra();
-	        System.out.println("Result for objectID " + objectID + ":" + toReturnHN.get(0));
+            System.err.println("getLocations result for StorageDict " + objectID + ": [" + toReturnHN.get(0) + "]");
 	        return toReturnHN;
         }
-        if(class_name == "hecuba.hdict.StorageObj"){
-	        System.out.println("Result for objectID " + objectID + ": []");
-	        closeCassandra();
+	    List<String> resultSet = Collections.<String>emptyList();
+        if(class_name.equals("hecuba.hdict.StorageObj")){
+            System.err.println("getLocations result for StorageObj  " + objectID + ": []");
         }
 	    return resultSet;
     }
-
 
     private static void checkCassandra() {
         if (cluster == null) {
             String[] nodeIP = System.getenv("CONTACT_NAMES").split(",");
             int nodePort = Integer.parseInt(System.getenv("NODE_PORT"));
-            cluster = new Cluster.Builder()
-                    .addContactPoints(nodeIP)
-                    .withPort(nodePort)
-                    .build();
+            cluster = new Cluster.Builder().addContactPoints(nodeIP).withPort(nodePort).build();
             session = cluster.connect();
         }
-
     }
 
     private static void closeCassandra() {
@@ -87,48 +82,36 @@ public class StorageItf {
             cluster.close();
             cluster = null;
         }
-
     }
 
-
-    public static void newReplica(String objectID, String node) throws StorageException {
+    public static void newReplica(String objectID, String node){
     }
 
-    public static String newVersion(String objectID, String node) throws StorageException {
-        //return "";
+    public static String newVersion(String objectID, String node){
         return objectID;
     }
 
-    public static void consolidateVersion(String objectID) throws StorageException {
+    public static void consolidateVersion(String objectID){
     }
 
-    public static void delete(String objectID) throws StorageException {
+    public static void delete(String objectID){
     }
 
-    public static void finish() throws StorageException {
+    public static void finish(){
         closeCassandra();
-
     }
 
-    public static java.lang.Object getByID(String objectID) throws StorageException {
+    public static java.lang.Object getByID(String objectID){
         return null;
     }
 
-    public static void init(String configFile) throws storage.StorageException {
-
+    public static void init(){
     }
 
-    public static void main(String[] args) throws StorageException {
-
+    public static void main(String[] args){
         StorageItf client = new StorageItf();
-
-        try {
-            client.init(null);
-        } catch (StorageException e) {
-            e.printStackTrace();
-        }
-
-        client.getLocations(args[0]).forEach(System.out::println);
+        client.init();
+        client.getLocations("25c80de1-0e4d-3706-8dfd-6e8c3bea901f");
         System.out.println("Application ended");
     }
 }
