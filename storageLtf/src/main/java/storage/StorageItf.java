@@ -40,7 +40,7 @@ public class StorageItf {
 	                        metadata.getReplicas(Metadata.quote(nodeKp), metadata.newTokenRange(token, token)).stream())
 	                .collect(groupingBy(Function.identity(), counting())).entrySet();
 
-	        ArrayList<Map.Entry<Host, Long>> result = new ArrayList<>(hostsTkns);
+                ArrayList<Map.Entry<Host, Long>> result = new ArrayList<>(hostsTkns);
 	        Collections.sort(result, Comparator.comparing(o -> (o.getValue())));
 	        List<String> toReturn;
 	        toReturn = result.stream().map(a -> a.getKey().getAddress().toString().replaceAll("^.*/", "")).collect(toList());
@@ -49,9 +49,10 @@ public class StorageItf {
 	            try{
 	                InetAddress addr = InetAddress.getByName(ip);
 	                String host = addr.getHostName();
-	                String[] HNsplitted = host.split("-");   //prev Pattern.quote(".")
-	                toReturnHN.add(HNsplitted[0]);
-	            }catch(UnknownHostException e){
+                        String[] HNsplitted = host.split("-");
+                        HNsplitted = HNsplitted[0].split(Pattern.quote("."));
+                        toReturnHN.add(HNsplitted[0]);
+                    }catch(UnknownHostException e){
                     throw new storage.StorageException("Problem obtaining hostaddress:" + e);
 	            }
 	        }

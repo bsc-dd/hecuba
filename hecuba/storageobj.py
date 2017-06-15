@@ -10,7 +10,7 @@ from hecuba import config, log
 class StorageObj(object, IStorage):
     args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name"]
     args = namedtuple('StorageObjArgs', args_names)
-    _prepared_store_meta = config.session.prepare('INSERT INTO ' + config.execution_name +
+    _prepared_store_meta = config.session.prepare('INSERT INTO hecuba' +
                                                   '.istorage (storage_id, class_name, name, tokens,istorage_props) '
                                                   ' VALUES (?,?,?,?,?)')
     """

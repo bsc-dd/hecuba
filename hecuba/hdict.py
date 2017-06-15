@@ -58,7 +58,7 @@ class StorageDict(dict, IStorage):
 
     args_names = ["primary_keys", "columns", "name", "tokens", "storage_id", "indexed_on", "class_name"]
     args = namedtuple('StorageDictArgs', args_names)
-    _prepared_store_meta = config.session.prepare('INSERT INTO ' + config.execution_name +
+    _prepared_store_meta = config.session.prepare('INSERT INTO hecuba' +
                                                   '.istorage (storage_id, class_name, name, '
                                                   'tokens,primary_keys,columns,indexed_on)'
                                                   'VALUES (?,?,?,?,?,?,?)')
