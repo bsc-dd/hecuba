@@ -7,6 +7,15 @@ from hecuba.qbeast import QbeastIterator, QbeastMeta
 
 
 class IterThriftTests(unittest.TestCase):
+
+    def test_can_be_rebuild(self):
+        it = QbeastIterator([('partid', 'int'), ('time', 'float')],
+                            [('x', 'float'), ('y', 'float'), ('z', 'float')],
+                            "test.particle", QbeastMeta('', [-.5, -.5, -.5], [3, 3, 3], 0.9))
+        from storage.api import getByID
+        it2 = getByID(it.getID())
+        self.assertEqual(it.getID(), it2.getID())
+
     def test_read_without_split(self):
         it = QbeastIterator([('partid', 'int'), ('time', 'float')],
                             [('x', 'float'), ('y', 'float'), ('z', 'float')],

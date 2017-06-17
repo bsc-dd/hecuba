@@ -110,8 +110,10 @@ class QbeastIterator(IStorage):
         # primary_keys columns name tokens
         # indexed_args nonindexed_args value_list
         # mem_filter port storage_id class_name
-
-        self._storage_id = storage_id
+        if storage_id is None:
+            self._storage_id = uuid.uuid4()
+        else:
+            self._storage_id = storage_id
         self._build_args = self._building_args(
             primary_keys,
             columns,
@@ -122,6 +124,8 @@ class QbeastIterator(IStorage):
             self._storage_id,
             self._tokens,
             class_name)
+        if storage_id is None:
+            self._store_meta(self._build_args)
 
     def split(self):
         """
@@ -180,6 +184,9 @@ class QbeastIterator(IStorage):
         self._qbeast_id = qbeast_id
         self._build_args = self._build_args._replace(qbeast_id=qbeast_id)
         config.session.execute(QbeastIterator._prepared_set_qbeast_id, [qbeast_id])
+
+    def getID(self):
+        return str(self._storage_id)
 
     def __eq__(self, other):
         return self._storage_id == other._storage_id and \
