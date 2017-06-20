@@ -33,6 +33,8 @@ public:
 
     std::vector<std::shared_ptr<void>> get_crow(void* keys);
 
+    void add_to_cache(void* keys, void* values);
+
     void put_crow(const TupleRow* row);
     void put_crow(const TupleRow* keys, const TupleRow* values);
 

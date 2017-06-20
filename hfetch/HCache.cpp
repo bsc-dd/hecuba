@@ -192,7 +192,7 @@ static PyObject *get_row(HCache *self, PyObject *args) {
     std::vector<const TupleRow *> v;
     try {
         v = self->T->get_crow(k);
-        //delete(k); //TODO decide when to do cleanup
+        delete(k); //TODO decide when to do cleanup
         }
     catch (std::exception &e) {
         std::string error_msg = "Get row error: "+std::string(e.what());
@@ -210,6 +210,9 @@ static PyObject *get_row(HCache *self, PyObject *args) {
             py_row = parser.merge_blocks_as_nparray(v, self->T->get_metadata()->get_values());
         } else {
             py_row = parser.tuples_as_py(v, self->T->get_metadata()->get_values());
+        }
+        for (uint32_t i = 0; i<v.size(); ++i) {
+            delete(v[i]);
         }
     }
     catch (std::exception &e) {

@@ -84,6 +84,23 @@ void CacheTable::put_crow(void* keys, void* values) {
 }
 
 
+/** this method only adds the data to the cache
+ *  without makingit persistent
+ * @param keys
+ * @param values
+ */
+
+void CacheTable::add_to_cache(void* keys, void* values) {
+    const TupleRow *k = keys_factory->make_tuple(keys);
+    const TupleRow *v = values_factory->make_tuple(values);
+    if (myCache) this->myCache->update(*k,v);
+    k->get_payload().reset();
+    v->get_payload().reset((void*)NULL,[](void *ptr) {});
+    delete(k);
+    delete(v);
+}
+
+
 void CacheTable::put_crow(const TupleRow* row) {
     //split into two and call put_crow(a,b);
     std::shared_ptr<const std::vector<ColumnMeta> > keys_meta = keys_factory->get_metadata();
@@ -171,7 +188,7 @@ void CacheTable::put_crow(const TupleRow* row) {
         }
         else memcpy(values+values_meta->at(i).position,row->get_element(i+nkeys),values_meta->at(i).size);
     }
-    this->put_crow(keys,values);
+    this->add_to_cache(keys,values);
 }
 
 /*
