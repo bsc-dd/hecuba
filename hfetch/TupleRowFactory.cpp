@@ -43,15 +43,14 @@ TupleRow *TupleRowFactory::make_tuple(const CassRow *row) {
     CassIterator *it = cass_iterator_from_row(row);
     while (cass_iterator_next(it)) {
         if (i >= metadata->size())
-            throw ModuleException("TupleRowFactory: Make tuple from CassRow: Access metadata at " + std::to_string(i) +
-                                  " from a max " + std::to_string(metadata->size()));
+            throw ModuleException("TupleRowFactory: The data retrieved from cassandra has more columns (>"
+                                          +std::to_string(i)+") whcih is more than configured "
+                                  +std::to_string(metadata->size()));
         cass_to_c(cass_iterator_get_column(it), buffer + metadata->at(i).position, i);
         if (metadata->at(i).position >= total_bytes)
             throw ModuleException("TupleRowFactory: Make tuple from CassRow: Writing on byte " +
                                   std::to_string(metadata->at(i).position) + " from a total of " +
                                   std::to_string(total_bytes));
-        if (i > metadata->size())
-            throw ModuleException("TupleRowFactory: Query has more columns than the ones retrieved from Cassandra");
         ++i;
     }
     cass_iterator_free(it);
