@@ -6,7 +6,7 @@
 Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges, const TableMetadata* table_meta,
                    CassSession* session,std::map<std::string,std::string> &config) {
     if (!session)
-        throw ModuleException("Prefetch: Session is Null");
+        throw ModuleException("Prefetch: Session is Null, not connected to Cassandra");
     this->session = session;
     this->table_metadata=table_meta;
 

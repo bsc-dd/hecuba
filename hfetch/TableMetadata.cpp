@@ -102,7 +102,7 @@ uint16_t TableMetadata::compute_size_of(const CassValueType VT) const {
         case CASS_VALUE_TYPE_CUSTOM:
         case CASS_VALUE_TYPE_UNKNOWN:
         default:
-            throw ModuleException("Unknown data type, can't parse");
+            throw ModuleException("Can't parse data: Unknown data type or user defined type");
             //TODO
     }
     return 0;
@@ -134,18 +134,22 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
 
     const CassSchemaMeta *schema_meta = cass_session_get_schema_meta(session);
     if (!schema_meta) {
-        throw ModuleException("TableMetadata constructor: Schema meta is NULL");
+        std::string error_msg = "TableMetadata constructor: Cassandra schema doesn't exist, probably not connected...";
+        if (session==NULL) error_msg+= "session with cassandra not stablished";
+        throw ModuleException(error_msg.c_str());
     }
 
     const CassKeyspaceMeta *keyspace_meta = cass_schema_meta_keyspace_by_name(schema_meta, this->keyspace.c_str());
     if (!keyspace_meta) {
-        throw ModuleException("Keyspace "+std::string(keyspace_name)+": constructor: Keyspace meta is NULL");
+        throw ModuleException("The keyspace "+std::string(keyspace_name)+" has no metadatas,"
+                "check the keyspace name and make sure it exists");
     }
 
 
     const CassTableMeta *table_meta = cass_keyspace_meta_table_by_name(keyspace_meta, this->table.c_str());
     if (!table_meta || (cass_table_meta_column_count(table_meta)==0)) {
-        throw ModuleException("Table "+std::string(table_name)+": Meta is NULL");
+        throw ModuleException("The table "+std::string(table_name)+" has no metadatas,"
+                " check the table name and make sure it exists");
     }
 
 //TODO Switch to unordered maps for efficiency
@@ -175,6 +179,7 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
 
 
     std::string key = keys_names[0]["name"];
+    if (key.empty()) throw ModuleException("Empty key name given on position 0");
     std::string select_where = key+"=? ";
     std::string keys = key;
     std::string col;
@@ -183,7 +188,7 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
 
     for (uint16_t i = 1; i<n_keys; ++i){
         key = keys_names[i]["name"];
-        if (key.empty()) throw ModuleException("Empty key name given, position: "+std::to_string(i));
+        if (key.empty()) throw ModuleException("Empty key name given on position: "+std::to_string(i));
         keys+=","+key;
         select_where+="AND "+key+"=? ";
         if (metadatas[key].col_type==CASS_COLUMN_TYPE_PARTITION_KEY) tokens_keys+=","+key;
@@ -193,9 +198,10 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
     std::string cols = "";
     if (!columns_names.empty()) {
         cols += columns_names[0]["name"]; //TODO Check for *
+        if (cols.empty()) throw ModuleException("Empty column name given on position 0");
         for (uint16_t i = 1; i < n_cols; ++i) {
             col = columns_names[i]["name"];
-            if (col.empty()) throw ModuleException("Empty column name given, position: " + std::to_string(i));
+            if (col.empty()) throw ModuleException("Empty column name given onposition: " + std::to_string(i));
             cols += "," + col;
         }
     }
