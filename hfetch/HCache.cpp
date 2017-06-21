@@ -188,7 +188,7 @@ static PyObject *get_row(HCache *self, PyObject *args) {
     }
     catch (std::exception &e) {
         std::string error_msg = "Get row, keys error: "+std::string(e.what());
-        PyErr_SetString(PyExc_KeyError, error_msg.c_str());
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
         return NULL;
     }
     std::vector<const TupleRow *> v;
@@ -203,7 +203,7 @@ static PyObject *get_row(HCache *self, PyObject *args) {
     }
 
     if (v.empty()){
-        PyErr_SetString(PyExc_RuntimeError,"No values found for this key: ");
+        PyErr_SetString(PyExc_KeyError,"No values found for this key: ");
         return NULL;
     }
 
