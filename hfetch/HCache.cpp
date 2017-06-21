@@ -17,7 +17,7 @@ static PyObject *connectCassandra(PyObject *self, PyObject *args) {
     for (uint16_t i = 0; i < contact_p_len; ++i) {
         char *str_temp;
         if (!PyArg_Parse(PyList_GetItem(py_contact_points, i), "s", &str_temp)) {
-            PyErr_SetString(PyExc_RuntimeError, "invalid contact point");
+            PyErr_SetString(PyExc_RuntimeError, "Invalid contact point for Cassandra, not a string");
             return NULL;
         };
         contact_points += std::string(str_temp) + ",";
@@ -25,7 +25,7 @@ static PyObject *connectCassandra(PyObject *self, PyObject *args) {
 
     try {
         storage = std::make_shared<StorageInterface>(nodePort, contact_points);
-        //storage = new StorageInterface(nodePort, contact_points);
+        //TODO storage = new StorageInterface(nodePort, contact_points);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -48,7 +48,8 @@ static PyObject *put_row(HCache *self, PyObject *args) {
         k = parser.make_tuple(py_keys, self->T->get_metadata()->get_keys());
     }
     catch (ModuleException e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
+        std::string error_msg = "Put_row, keys error: "+std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
         return NULL;
     }
     if (self->has_numpy) {
@@ -166,7 +167,8 @@ static PyObject *put_row(HCache *self, PyObject *args) {
             delete(v);
         }
         catch (std::exception &e) {
-            PyErr_SetString(PyExc_RuntimeError, e.what());
+            std::string err_msg = "Put row "+std::string(e.what());
+            PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
             return NULL;
         }
     }
@@ -185,14 +187,14 @@ static PyObject *get_row(HCache *self, PyObject *args) {
         k = parser.make_tuple(py_keys, self->T->get_metadata()->get_keys());
     }
     catch (std::exception &e) {
-        std::string error_msg = "PyParser, keys error: "+std::string(e.what());
+        std::string error_msg = "Get row, keys error: "+std::string(e.what());
         PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
         return NULL;
     }
     std::vector<const TupleRow *> v;
     try {
         v = self->T->get_crow(k);
-        delete(k); //TODO decide when to do cleanup
+        delete(k);
         }
     catch (std::exception &e) {
         std::string error_msg = "Get row error: "+std::string(e.what());
@@ -216,7 +218,7 @@ static PyObject *get_row(HCache *self, PyObject *args) {
         }
     }
     catch (std::exception &e) {
-        std::string error_msg = "Pyparser, values error: "+std::string(e.what());
+        std::string error_msg = "Get row, values error: "+std::string(e.what());
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
@@ -865,7 +867,7 @@ static PyObject *create_iter_items(HCache *self, PyObject *args) {
     }
     //hiter_init(iter, args, args);
     if (!self->T) {
-        PyErr_SetString(PyExc_RuntimeError, "Can't make iterator from null table");
+        PyErr_SetString(PyExc_RuntimeError, "Can't make an iteritems from a null table");
         return NULL;
     }
 
@@ -919,6 +921,10 @@ static PyObject *create_iter_keys(HCache *self, PyObject *args) {
     HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
     iter->baseTable = self->T;
     //hiter_init(iter, args, args);
+    if (!self->T) {
+        PyErr_SetString(PyExc_RuntimeError, "Can't make an iterkeys from a null table");
+        return NULL;
+    }
     try {
         iter->P = storage->get_iterator(self->T->get_metadata(), self->token_ranges, config);
     } catch (ModuleException e) {
@@ -969,7 +975,10 @@ static PyObject *create_iter_values(HCache *self, PyObject *args) {
     HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
     iter->baseTable = self->T;
     //hiter_init(iter, args, args);
-
+    if (!self->T) {
+        PyErr_SetString(PyExc_RuntimeError, "Can't make an itervalues from a null table");
+        return NULL;
+    }
     try {
         iter->P = storage->get_iterator(self->T->get_metadata(), self->token_ranges, config);
     } catch (ModuleException e) {
