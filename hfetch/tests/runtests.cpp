@@ -139,7 +139,7 @@ void setupcassandra() {
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     std::cout << "SETTING UP CASSANDRA" << std::endl;
-    setupcassandra();
+    //setupcassandra();
     std::cout << "DONE, CASSANDRA IS UP" << std::endl;
     return RUN_ALL_TESTS();
 
@@ -292,6 +292,77 @@ TEST(TestingPocoCache, ReplaceOp) {
 }
 
 
+
+/** Testing custom comparators for TupleRow **/
+TEST(TupleTest, TestNulls) {
+    const uint16_t i = 123;
+    const uint16_t j = 456;
+    int32_t size = sizeof(uint16_t);
+    auto sizes = vector<uint16_t>(2, size);
+    char *buffer = (char *) malloc(size * 2);
+    char *buffer2 = (char *) malloc(size * 2);
+    memcpy(buffer, &i, size);
+    memcpy(buffer + size, &j, size);
+    memcpy(buffer2, &i, size);
+    memcpy(buffer2 + size, &j, size);
+
+    ColumnMeta cm1=ColumnMeta();
+    cm1.info={{"name","ciao"}};
+    cm1.type=CASS_VALUE_TYPE_INT;
+    cm1.position=0;
+    cm1.size=sizeof(uint16_t);
+
+    ColumnMeta cm2=ColumnMeta();
+    cm2.info={{"name","ciaociao"}};
+    cm2.type=CASS_VALUE_TYPE_INT;
+    cm2.position=sizeof(uint16_t);
+    cm2.size=sizeof(uint16_t);
+
+    std::vector<ColumnMeta> v = {cm1,cm2};
+    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
+
+
+
+    TupleRow t1 = TupleRow(metas,sizeof(uint16_t) * 2, buffer);
+    TupleRow t2 = TupleRow(metas,sizeof(uint16_t) * 2, buffer2);
+
+    //Equality
+    EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
+    EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
+
+    t1.setNull(1);
+    t2.setNull(1);
+    EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
+    EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
+    t1.unsetNull(1);
+    EXPECT_FALSE(!(t1 < t2) && !(t2 < t1));
+    EXPECT_FALSE(!(t1 > t2) && !(t2 > t1));
+
+    t2.unsetNull(1);
+    EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
+    EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
+    t1.setNull(1);
+    t2.setNull(0);
+    EXPECT_FALSE(!(t1 < t2) && !(t2 < t1));
+    EXPECT_FALSE(!(t1 > t2) && !(t2 > t1));
+    t1.setNull(0);
+    EXPECT_FALSE(!(t1 < t2) && !(t2 < t1));
+    EXPECT_FALSE(!(t1 > t2) && !(t2 > t1));
+    t2.setNull(1);
+    EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
+    EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
+    t1.unsetNull(0);
+    t1.unsetNull(1);
+    t2.unsetNull(0);
+    t2.unsetNull(1);
+    EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
+    EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
+    EXPECT_FALSE(t1.get_element(1)==nullptr);
+    t1.setNull(1);
+    EXPECT_TRUE(t1.get_element(1)==nullptr);
+    EXPECT_FALSE(t2.get_element(1)==nullptr);
+
+}
 
 
 

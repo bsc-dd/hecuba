@@ -29,6 +29,7 @@ TupleRow::TupleRow(std::shared_ptr <const std::vector<ColumnMeta>> metas,
                                     });
 
     this->payload_size = payload_size;
+    this->null_values = 0;
 }
 
 
@@ -74,6 +75,7 @@ TupleRow &TupleRow::operator=(TupleRow &t) {
 bool operator<(const TupleRow &lhs, const TupleRow &rhs) {
     if (lhs.payload_size != rhs.payload_size) return lhs.payload_size < rhs.payload_size;
     if (lhs.metadata != rhs.metadata) return lhs.metadata < rhs.metadata;
+    if (lhs.null_values!=rhs.null_values) return lhs.null_values < rhs.null_values;
     return memcmp(lhs.payload.get(), rhs.payload.get(), lhs.payload_size) < 0;
 }
 
@@ -85,6 +87,7 @@ bool operator<=(const TupleRow &lhs, const TupleRow &rhs) {
 
     if (lhs.payload_size != rhs.payload_size) return lhs.payload_size < rhs.payload_size;
     if (lhs.metadata != rhs.metadata) return lhs.metadata < rhs.metadata;
+    if (lhs.null_values!=rhs.null_values) return lhs.null_values < rhs.null_values;
     return memcmp(lhs.payload.get(), rhs.payload.get(), lhs.payload_size) <= 0;
 }
 
@@ -96,5 +99,6 @@ bool operator==(const TupleRow &lhs, const TupleRow &rhs) {
 
     if (lhs.payload_size != rhs.payload_size) return lhs.payload_size < rhs.payload_size;
     if (lhs.metadata != rhs.metadata) return lhs.metadata < rhs.metadata;
+    if (lhs.null_values!=rhs.null_values) return lhs.null_values < rhs.null_values;
     return memcmp(lhs.payload.get(), rhs.payload.get(), lhs.payload_size) == 0;
 }
