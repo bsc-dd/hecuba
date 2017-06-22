@@ -81,7 +81,7 @@ int PythonParser::py_to_c(PyObject *obj, void *data, CassValueType type) const {
             break;
         }
         case CASS_VALUE_TYPE_BIGINT: {
-            if (PyLong_Check(obj)) {
+            if (PyLong_Check(obj)||PyInt_Check(obj)) {
                 ok = PyArg_Parse(obj, "L", data);
             }
             else {
@@ -122,7 +122,7 @@ int PythonParser::py_to_c(PyObject *obj, void *data, CassValueType type) const {
             break;
         }
         case CASS_VALUE_TYPE_COUNTER: {
-            if (PyLong_Check(obj)) {
+            if (PyLong_Check(obj)||PyInt_Check(obj)) {
                 ok = PyArg_Parse(obj, Py_U_LONGLONG, data);
             }
             else {
@@ -136,7 +136,7 @@ int PythonParser::py_to_c(PyObject *obj, void *data, CassValueType type) const {
             return 0;
         }
         case CASS_VALUE_TYPE_DOUBLE: {
-            if (PyFloat_Check(obj)) {
+            if (PyFloat_Check(obj)||PyInt_Check(obj)) {
                 cass_double_t t;
                 ok = PyArg_Parse(obj, Py_DOUBLE, &t);
                 memcpy(data, &t, sizeof(t));
@@ -147,7 +147,7 @@ int PythonParser::py_to_c(PyObject *obj, void *data, CassValueType type) const {
             break;
         }
         case CASS_VALUE_TYPE_FLOAT: {
-            if (PyFloat_Check(obj)) {
+            if (PyFloat_Check(obj)||PyInt_Check(obj)) {
                 cass_float_t t;
                 ok = PyArg_Parse(obj, Py_FLOAT, &t); /* A string */
                 memcpy(data, &t, sizeof(t));
@@ -231,7 +231,7 @@ int PythonParser::py_to_c(PyObject *obj, void *data, CassValueType type) const {
             break;
         }
         case CASS_VALUE_TYPE_VARINT: {
-            if (PyLong_Check(obj)) {
+            if (PyLong_Check(obj)||PyInt_Check(obj)) {
                 ok = PyArg_Parse(obj, Py_LONG, data);
             }
             else {
