@@ -4,6 +4,7 @@
 #include "../CacheTable.h"
 #include "../StorageInterface.h"
 
+
 using namespace std;
 
 #define PY_ERR_CHECK if (PyErr_Occurred()){PyErr_Print(); PyErr_Clear();}
@@ -293,6 +294,90 @@ TEST(TestingPocoCache, ReplaceOp) {
 
 
 
+/** Testing custom comparators for TupleRow **/
+TEST(TupleTest, TestNulls) {
+    const uint16_t i = 123;
+    const uint16_t j = 456;
+    int32_t size = sizeof(uint16_t);
+    auto sizes = vector<uint16_t>(2, size);
+    char *buffer = (char *) malloc(size * 2);
+    char *buffer2 = (char *) malloc(size * 2);
+    memcpy(buffer, &i, size);
+    memcpy(buffer + size, &j, size);
+    memcpy(buffer2, &i, size);
+    memcpy(buffer2 + size, &j, size);
+
+    ColumnMeta cm1=ColumnMeta();
+    cm1.info={{"name","ciao"}};
+    cm1.type=CASS_VALUE_TYPE_INT;
+    cm1.position=0;
+    cm1.size=sizeof(uint16_t);
+
+    ColumnMeta cm2=ColumnMeta();
+    cm2.info={{"name","ciaociao"}};
+    cm2.type=CASS_VALUE_TYPE_INT;
+    cm2.position=sizeof(uint16_t);
+    cm2.size=sizeof(uint16_t);
+
+    std::vector<ColumnMeta> v = {cm1,cm2};
+    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
+
+
+
+    TupleRow t1 = TupleRow(metas,sizeof(uint16_t) * 2, buffer);
+    TupleRow t2 = TupleRow(metas,sizeof(uint16_t) * 2, buffer2);
+
+    //Equality
+    EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
+    EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
+
+    //same position null, they are equal
+    t1.setNull(1);
+    t2.setNull(1);
+    EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
+    EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
+    //one position is null they differ
+    t1.unsetNull(1);
+    EXPECT_FALSE(!(t1 < t2) && !(t2 < t1));
+    EXPECT_FALSE(!(t1 > t2) && !(t2 > t1));
+    EXPECT_TRUE(t1<t2);// And the one with nulls is smaller
+    //they both have all elements set to non null and they are equal again
+    t2.unsetNull(1);
+    EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
+    EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
+    //setting different positions to null make them differ
+    t1.setNull(1);
+    t2.setNull(0);
+    EXPECT_FALSE(!(t1 < t2) && !(t2 < t1));
+    EXPECT_FALSE(!(t1 > t2) && !(t2 > t1));
+    //and t2 should be smaller than t1 since it has a smaller element null
+    EXPECT_TRUE(t2<t1);
+    //they have all elements to null but t2 has position 1 to valid
+    t1.setNull(0);
+    EXPECT_FALSE(!(t1 < t2) && !(t2 < t1));
+    EXPECT_FALSE(!(t1 > t2) && !(t2 > t1));
+    EXPECT_TRUE(t2<t1);
+    //All elements are null, they must be equal
+    t2.setNull(1);
+    EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
+    EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
+    //No nulls in any tuple, they mjust be equal
+    t1.unsetNull(0);
+    t1.unsetNull(1);
+    t2.unsetNull(0);
+    t2.unsetNull(1);
+    EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
+    EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
+    //getting an element no null returns a valid ptr
+    EXPECT_FALSE(t1.get_element(1)==nullptr);
+    //getting a null element returns a null ptr
+    t1.setNull(1);
+    EXPECT_TRUE(t1.get_element(1)==nullptr);
+    //however, the other tuple still returns a valid ptr for the same position
+    EXPECT_FALSE(t2.get_element(1)==nullptr);
+    t1.unsetNull(1);
+}
+
 
 
 /** Testing custom comparators for TupleRow **/
@@ -435,6 +520,238 @@ TEST(TestingCacheTable, GetRowC) {
     cass_session_free(test_session);
 
 }
+
+
+
+
+
+TEST(TestingCacheTable, StoreNull) {
+
+    /** CONNECT **/
+    CassSession *test_session = NULL;
+    CassCluster *test_cluster = NULL;
+
+    CassFuture *connect_future = NULL;
+    test_cluster = cass_cluster_new();
+    test_session = cass_session_new();
+
+    cass_cluster_set_contact_points(test_cluster, contact_p);
+    cass_cluster_set_port(test_cluster, nodePort);
+
+    connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
+
+
+    CassError rc = cass_future_error_code(connect_future);
+    EXPECT_TRUE(rc == CASS_OK);
+
+    cass_future_free(connect_future);
+
+
+//partid int,time float,x float,y float,z float, PRIMARY KEY(partid,time)
+
+    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
+    std::vector< std::map<std::string,std::string> > colsnames = { {{"name", "x"}},{{"name", "y"}},{{"name", "z"}}};
+
+    std::vector<std::pair<int64_t, int64_t> > tokens = {};
+
+    std::map <std::string, std::string> config;
+    config["writer_par"] = "4";
+    config["writer_buffer"] = "20";
+    config["cache_size"] = "10";
+
+
+    TableMetadata* table_meta = new TableMetadata(particles_wr_table,keyspace,keysnames,colsnames,test_session);
+
+    CacheTable* cache = new CacheTable(table_meta, test_session, config);
+
+
+    char *buffer = (char *) malloc(sizeof(int)+sizeof(float)); //keys
+
+    int32_t k1 = 3682;
+    float k2 = 143.2;
+    memcpy(buffer, &k1, sizeof(int));
+    memcpy(buffer + sizeof(int), &k2, sizeof(float));
+
+    float v[] = {0.01, 1.25, 0.98};
+
+    char *buffer2 = (char *) malloc(sizeof(float)*3); //values
+    memcpy(buffer2, &v, sizeof(float)*3);
+
+
+    TupleRow *keys = new TupleRow(table_meta->get_keys(), sizeof(int)+sizeof(float), buffer);
+    TupleRow *values = new TupleRow(table_meta->get_values(), sizeof(float)*3, buffer2);
+
+
+    values->setNull(1);
+
+    cache->put_crow(keys, values);
+
+    delete(keys);
+    delete(values);
+    delete(cache);
+
+    /*** now we write into another table with text ***/
+
+    keysnames = {{{"name", "partid"}},{{"name","time"}}};
+    colsnames = { {{"name", "x"}},{{"name", "ciao"}}};
+
+    tokens = {};
+
+
+
+    table_meta = new TableMetadata(words_wr_table,keyspace,keysnames,colsnames,test_session);
+
+    cache = new CacheTable(table_meta, test_session, config);
+
+
+    buffer = (char *) malloc(sizeof(int)+sizeof(float)); //keys
+
+    k1 = 3682;
+    k2 = 143.2;
+    memcpy(buffer, &k1, sizeof(int));
+    memcpy(buffer + sizeof(int), &k2, sizeof(float));
+
+    float v1 = 23.12;
+    std::string *v2 = new std::string("someBeautiful, and randomText");
+
+    buffer2 = (char *) malloc(sizeof(float)+sizeof(char*)); //values
+    memcpy(buffer2, &v1, sizeof(float));
+    memcpy(buffer2+sizeof(float), &v2, sizeof(char*));
+
+
+    keys = new TupleRow(table_meta->get_keys(), sizeof(int)+sizeof(float), buffer);
+    values = new TupleRow(table_meta->get_values(), sizeof(float)*3, buffer2);
+
+
+    values->setNull(1);
+
+    cache->put_crow(keys, values);
+
+    delete(keys);
+    delete(values);
+    delete(cache);
+
+    CassFuture *close_future = cass_session_close(test_session);
+    cass_future_wait(close_future);
+    cass_future_free(close_future);
+
+    cass_cluster_free(test_cluster);
+    cass_session_free(test_session);
+}
+
+
+
+
+
+
+TEST(TestingCacheTable, ReadNull) {
+
+    /** CONNECT **/
+    CassSession *test_session = NULL;
+    CassCluster *test_cluster = NULL;
+
+    CassFuture *connect_future = NULL;
+    test_cluster = cass_cluster_new();
+    test_session = cass_session_new();
+
+    cass_cluster_set_contact_points(test_cluster, contact_p);
+    cass_cluster_set_port(test_cluster, nodePort);
+
+    connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
+
+
+    CassError rc = cass_future_error_code(connect_future);
+    EXPECT_TRUE(rc == CASS_OK);
+
+    cass_future_free(connect_future);
+
+
+//partid int,time float,x float,y float,z float, PRIMARY KEY(partid,time)
+
+    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
+    std::vector< std::map<std::string,std::string> > colsnames = { {{"name", "x"}},{{"name", "y"}},{{"name", "z"}}};
+
+    std::vector<std::pair<int64_t, int64_t> > tokens = {};
+
+    std::map <std::string, std::string> config;
+    config["writer_par"] = "4";
+    config["writer_buffer"] = "20";
+    config["cache_size"] = "10";
+
+
+    TableMetadata* table_meta = new TableMetadata(particles_wr_table,keyspace,keysnames,colsnames,test_session);
+
+    CacheTable* cache = new CacheTable(table_meta, test_session, config);
+
+
+    char *buffer = (char *) malloc(sizeof(int)+sizeof(float)); //keys
+
+    int32_t k1 = 4682;
+    float k2 = 93.2;
+    memcpy(buffer, &k1, sizeof(int));
+    memcpy(buffer + sizeof(int), &k2, sizeof(float));
+
+    float v[] = {4.43, 9.99, 1.238};
+
+    char *buffer2 = (char *) malloc(sizeof(float)*3); //values
+    memcpy(buffer2, &v, sizeof(float)*3);
+
+
+    TupleRow *keys = new TupleRow(table_meta->get_keys(), sizeof(int)+sizeof(float), buffer);
+    TupleRow *values = new TupleRow(table_meta->get_values(), sizeof(float)*3, buffer2);
+
+
+    values->setNull(1);
+
+    cache->put_crow(keys, values);
+
+    delete(keys);
+    delete(values);
+    delete(cache);
+
+
+    //now we read the data
+
+    keysnames = {{{"name", "partid"}},{{"name","time"}}};
+    colsnames = { {{"name", "x"}},{{"name", "y"}},{{"name", "z"}}};
+
+    tokens = {};
+
+    table_meta = new TableMetadata(particles_wr_table,keyspace,keysnames,colsnames,test_session);
+
+    cache = new CacheTable(table_meta, test_session, config);
+
+
+    buffer = (char *) malloc(sizeof(int)+sizeof(float)); //keys
+
+    memcpy(buffer, &k1, sizeof(int));
+    memcpy(buffer + sizeof(int), &k2, sizeof(float));
+
+    keys = new TupleRow(table_meta->get_keys(), sizeof(int)+sizeof(float), buffer);
+
+
+    std::vector <const TupleRow*> results = cache->get_crow(keys);
+    ASSERT_TRUE(results.size()==1);
+    const TupleRow* read_values = results[0];
+    const float *v0 = (float*) read_values->get_element(0);
+    const float *v1 = (float*) read_values->get_element(1);
+    const float *v2 = (float*) read_values->get_element(2);
+    EXPECT_DOUBLE_EQ(*v0,v[0]);
+    EXPECT_TRUE(v1== nullptr);
+    EXPECT_DOUBLE_EQ(*v2,v[2]);
+
+    delete(keys);
+    delete(read_values);
+    delete(cache);
+
+    CassFuture *close_future = cass_session_close(test_session);
+    cass_future_wait(close_future);
+    cass_future_free(close_future);
+
+    cass_cluster_free(test_cluster);
+    cass_session_free(test_session);
+}
+
 
 
 TEST(TestingCacheTable, GetRowStringC) {

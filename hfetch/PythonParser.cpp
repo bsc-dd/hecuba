@@ -25,16 +25,18 @@ TupleRow *PythonParser::make_tuple(PyObject* obj,std::shared_ptr<const std::vect
     const std::vector<ColumnMeta>* localMeta=metadata.get();
     if (size_t(PyList_Size(obj))!=metadata->size())
         throw ModuleException("PythonParser: Got less python elements than columns configured");
-    uint32_t total_bytes = localMeta->at(localMeta->size()-1).position+localMeta->at(localMeta->size()-1).size;
+    uint16_t total_bytes = localMeta->at(localMeta->size()-1).position+localMeta->at(localMeta->size()-1).size;
 
     char *buffer = (char *) malloc(total_bytes);
+    TupleRow *new_tuple = new TupleRow(metadata, total_bytes, buffer);
     for (uint16_t i = 0; i < PyList_Size(obj); ++i) {
         PyObject *obj_to_conver = PyList_GetItem(obj, i);
         if (localMeta->at(i).position >= total_bytes)
             throw ModuleException("PythonParser: Make tuple from PyObj: Writing on byte "+std::to_string(localMeta->at(i).position)+" from a total of "+std::to_string(total_bytes));
-        py_to_c(obj_to_conver, buffer + localMeta->at(i).position, localMeta->at(i).type);
+        if (obj_to_conver != Py_None)  py_to_c(obj_to_conver, buffer + localMeta->at(i).position, localMeta->at(i).type);
+        else new_tuple->setNull(i);
     }
-    return new TupleRow(metadata, total_bytes, buffer);
+    return new_tuple;
 }
 
 /***
@@ -311,7 +313,7 @@ PyObject *PythonParser::c_to_py(const void *V,const ColumnMeta &meta) const {
 
     char const *py_flag = 0;
     PyObject *py_value = Py_None;
-    if (V == 0) {
+    if (V == 0 || V == nullptr) {
         return py_value;
     }
 
@@ -599,6 +601,8 @@ PyObject *PythonParser::merge_blocks_as_nparray(std::vector<const TupleRow *> &b
             uint64_t nbytes = 0;
             for (const TupleRow *block:blocks) {
                 void **data = (void **) block->get_element(pos);
+                if (data == nullptr)
+                    throw ModuleException("Trying to build a numpyarray but one block has Null data, position: "+std::to_string(pos));
                 uint64_t *block_bytes = (uint64_t *) *data;
                 nbytes += *block_bytes;
             }
@@ -607,14 +611,18 @@ PyObject *PythonParser::merge_blocks_as_nparray(std::vector<const TupleRow *> &b
             if (metadata->at(pos).info.size() < 2) throw ModuleException("Info size is less than 2");
             if (metadata->at(pos).info.find("partition")->second == "partition") {
                 for (uint32_t i = 0; i < blocks.size(); ++i) {
+                    //we already checked for a block being null, no need to do the same here again
                     char **data = (char **) blocks[i]->get_element(pos);
                     uint64_t *block_bytes = (uint64_t *) *data;
 
                     uint32_t *block_id = (uint32_t *) blocks[i]->get_element(pos + (uint16_t) 1);
 
+                    if (block_id == nullptr)
+                        throw ModuleException("Trying to build a partitioned numpyarray but one block id has Null data, position: "+std::to_string(pos));
                     memcpy(final_array + *block_id * maxarray_size, *data + sizeof(uint64_t), *block_bytes);
                 }
             } else {
+                //we already checked for a block being null, no need to do the same here again
                 char **data = (char **) blocks[0]->get_element(pos);
                 uint64_t *block_bytes = (uint64_t *) *data;
                 char *bytes_array = *data + sizeof(uint64_t);
@@ -747,16 +755,18 @@ std::vector<const TupleRow *> PythonParser::make_tuples_with_npy(PyObject *obj, 
             void *block = extract_array(PyList_GetItem(obj, i));
             //build the tuple with the first block and other information
             char *buffer = (char *) malloc(total_bytes);
+            TupleRow* new_tuple = new TupleRow(metadata, total_bytes, buffer);
             for (uint16_t j = 0; j < PyList_Size(obj); ++j) {
                 PyObject *obj_to_conver = PyList_GetItem(obj, j);
                 if (i != j) {
-                    py_to_c(obj_to_conver, buffer + metadata->at(j).position, metadata->at(j).type);
+                    if (obj_to_conver != Py_None) py_to_c(obj_to_conver, buffer + metadata->at(j).position, metadata->at(j).type);
+                    else new_tuple->setNull(j);
                 } else {
                     //numpy
                     memcpy(buffer + metadata->at(j).position, &block, sizeof(void *));
                 }
             }
-            tuples.push_back(new TupleRow(metadata, total_bytes, buffer));
+            tuples.push_back(const_cast<TupleRow*>(new_tuple));
         }
     }
     return tuples;
@@ -766,17 +776,23 @@ std::vector<const TupleRow *> PythonParser::make_tuples_with_npy(PyObject *obj, 
 
 
 std::vector<const TupleRow *> PythonParser::blocks_to_tuple(std::vector<void *> &blocks, std::shared_ptr<const std::vector<ColumnMeta> > metadata, PyObject *obj) const {
-    uint32_t total_bytes = metadata->at(metadata->size()-1).position+metadata->at(metadata->size()-1).size;
+    uint16_t total_bytes = metadata->at(metadata->size()-1).position+metadata->at(metadata->size()-1).size;
 
 /*** FIRST BLOCK ***/
     //build the first tuple with the first block and other information
     char *buffer = (char *) malloc(total_bytes);
+
+    //first tuple holds all data
+    TupleRow *first_tuple =  new TupleRow(metadata, total_bytes, buffer);
+
     for (uint16_t i = 0; i < PyList_Size(obj); ++i) {
         PyObject *obj_to_conver = PyList_GetItem(obj, i);
         //copy
         if (get_arr_type(metadata->at(i)) == NPY_NOTYPE) {
             //average column
-            py_to_c(obj_to_conver, buffer + metadata->at(i).position, metadata->at(i).type);
+            if (obj_to_conver != Py_None)  py_to_c(obj_to_conver, buffer + metadata->at(i).position, metadata->at(i).type);
+            else first_tuple->setNull(i);
+
         } else {
             //numpy
             memcpy(buffer + metadata->at(i).position, &blocks[0], sizeof(void *));
@@ -793,8 +809,7 @@ std::vector<const TupleRow *> PythonParser::blocks_to_tuple(std::vector<void *> 
 
 
     std::vector<const TupleRow *> tuple_blocks(blocks.size());
-    //first tuple holds all data
-    tuple_blocks[0] = new TupleRow(metadata, total_bytes, buffer);
+    tuple_blocks[0] = first_tuple;
 
     //build the rest
     for (uint32_t nb = 1; nb < blocks.size(); ++nb) {

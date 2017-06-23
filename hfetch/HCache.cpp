@@ -42,7 +42,13 @@ static PyObject *put_row(HCache *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_values)) {
         return NULL;
     }
-
+    for (uint16_t key_i = 0; key_i<PyList_Size(py_keys); ++key_i){
+        if (PyList_GetItem(py_keys,key_i)==Py_None) {
+            std::string error_msg = "Keys can't be None, key_position: "+std::to_string(key_i);
+            PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+            return NULL;
+        }
+    }
     TupleRow *k;
     try {
         k = parser.make_tuple(py_keys, self->T->get_metadata()->get_keys());
@@ -181,6 +187,15 @@ static PyObject *get_row(HCache *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, "O", &py_keys)) {
         return NULL;
     }
+
+    for (uint16_t key_i = 0; key_i<PyList_Size(py_keys); ++key_i){
+        if (PyList_GetItem(py_keys,key_i)==Py_None) {
+            std::string error_msg = "Keys can't be None, key_position: "+std::to_string(key_i);
+            PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+            return NULL;
+        }
+    }
+
     TupleRow *k = NULL;
 
     try {

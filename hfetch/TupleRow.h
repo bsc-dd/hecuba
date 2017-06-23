@@ -18,6 +18,8 @@ private:
     std::shared_ptr<void> payload;
     std::shared_ptr<const std::vector<ColumnMeta> > metadata;
     uint16_t payload_size;
+    uint32_t null_values;
+
 public:
 
     /* Constructor */
@@ -37,7 +39,21 @@ public:
 
     TupleRow& operator=(TupleRow& other );
 
+
+    /* Set methods */
+
+    void setNull(uint32_t position) {
+        null_values=null_values|(0x1<<position);
+    }
+
+    void unsetNull(uint32_t position) {
+        null_values=null_values &!(0x1<<position);
+    }
+
     /* Get methods */
+    bool isNull(uint32_t position) const {
+        return  null_values&(0x1<<position);
+    }
 
     inline std::shared_ptr<void>  get_payload() const{
         return this->payload;
@@ -51,7 +67,8 @@ inline const uint16_t get_payload_size() const {
     }
 
     inline const void* get_element(int32_t position) const {
-        if (position < 0 || payload.get() == 0) return 0;
+        if (position < 0 || payload.get() == nullptr) return nullptr;
+        if (isNull(position)) return nullptr;
         return (const char *) payload.get() + metadata->at(position).position;
     }
 

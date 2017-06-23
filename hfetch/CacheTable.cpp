@@ -110,43 +110,48 @@ void CacheTable::put_crow(const TupleRow* row) {
 
     char* keys = (char*) malloc(keys_meta->at(nkeys-(uint16_t)1).position+keys_meta->at(nkeys-(uint16_t)1).size);
     char* values = (char*) malloc(values_meta->at(nvalues-(uint16_t)1).position+values_meta->at(nvalues-(uint16_t)1).size);
-
+    TupleRow *k = keys_factory->make_tuple(keys);
+    TupleRow *v = values_factory->make_tuple(values);
     //Copy keys
     for (uint16_t i=0; i<nkeys; ++i) {
         CassValueType type = keys_meta->at(i).type;
-        if (type==CASS_VALUE_TYPE_BLOB) {
-            char **from = (char**) row->get_element(i);
-            char *from_data = *from;
+        const void *element_i = row->get_element(i);
+        if (element_i != nullptr) {
+            if (type == CASS_VALUE_TYPE_BLOB) {
+                char **from = (char **) element_i;
+                char *from_data = *from;
 
-            uint64_t *size = (uint64_t*)from_data;
+                uint64_t *size = (uint64_t *) from_data;
 
-            void *new_data = malloc(*size);
-            memcpy(new_data,from_data,*size+sizeof(uint64_t));
-            //Copy ptr
-            memcpy(keys+keys_meta->at(i).position,&new_data,keys_meta->at(i).size);
-        } else if (type==CASS_VALUE_TYPE_TEXT || type==CASS_VALUE_TYPE_VARCHAR || type == CASS_VALUE_TYPE_ASCII) {
+                void *new_data = malloc(*size);
+                memcpy(new_data, from_data, *size + sizeof(uint64_t));
+                //Copy ptr
+                memcpy(keys + keys_meta->at(i).position, &new_data, keys_meta->at(i).size);
+            } else if (type == CASS_VALUE_TYPE_TEXT || type == CASS_VALUE_TYPE_VARCHAR ||
+                       type == CASS_VALUE_TYPE_ASCII) {
 
-            char **from = (char**) row->get_element(i);
-            char *from_data = *from;
+                char **from = (char **) element_i;
+                char *from_data = *from;
 
-            uint64_t size = strlen(from_data);
+                uint64_t size = strlen(from_data);
 
-            void *new_data = malloc(size);
-            memcpy(new_data,from_data,size);
-            //Copy ptr
-            memcpy(keys+keys_meta->at(i).position,&new_data,keys_meta->at(i).size);
+                void *new_data = malloc(size);
+                memcpy(new_data, from_data, size);
+                //Copy ptr
+                memcpy(keys + keys_meta->at(i).position, &new_data, keys_meta->at(i).size);
+            } else if (type == CASS_VALUE_TYPE_UUID) {
+
+                uint64_t **from = (uint64_t **) element_i;
+
+                uint64_t size = sizeof(uint64_t) * 2;
+                void *new_data = malloc(size);
+                memcpy(new_data, *from, size);
+                //Copy ptr
+                memcpy(keys + keys_meta->at(i).position, &new_data, keys_meta->at(i).size);
+            }
+            else memcpy(keys + keys_meta->at(i).position, element_i, keys_meta->at(i).size);
         }
-        else if (type==CASS_VALUE_TYPE_UUID){
-
-            uint64_t **from = (uint64_t**) row->get_element(i);
-
-            uint64_t size = sizeof(uint64_t)*2;
-            void *new_data = malloc(size);
-            memcpy(new_data,*from,size);
-            //Copy ptr
-            memcpy(keys+keys_meta->at(i).position,&new_data,keys_meta->at(i).size);
-        }
-        else memcpy(keys+keys_meta->at(i).position,row->get_element(i),keys_meta->at(i).size);
+        else  k->setNull(i);
     }
 
 
@@ -154,8 +159,10 @@ void CacheTable::put_crow(const TupleRow* row) {
     for (uint16_t i=0; i<nvalues; ++i) {
 
         CassValueType type = values_meta->at(i).type;
+        const void *element_i = row->get_element(i+nkeys);
+        if (element_i != nullptr) {
         if (type==CASS_VALUE_TYPE_BLOB) {
-            char **from = (char**) row->get_element(i+nkeys);
+            char **from = (char**) element_i;
             char *from_data = *from;
 
             uint64_t *size = (uint64_t*)from_data;
@@ -166,7 +173,7 @@ void CacheTable::put_crow(const TupleRow* row) {
             memcpy(values+values_meta->at(i).position,&new_data,values_meta->at(i).size);
         } else if (type==CASS_VALUE_TYPE_TEXT || type==CASS_VALUE_TYPE_VARCHAR || type == CASS_VALUE_TYPE_ASCII) {
 
-            char **from = (char**) row->get_element(i+nkeys);
+            char **from = (char**) element_i;
             char *from_data = *from;
 
             uint64_t size = strlen(from_data);
@@ -178,7 +185,7 @@ void CacheTable::put_crow(const TupleRow* row) {
         }
         else if (type==CASS_VALUE_TYPE_UUID){
 
-            uint64_t **from = (uint64_t**) row->get_element(i+nkeys);
+            uint64_t **from = (uint64_t**)element_i;
 
             uint64_t size = sizeof(uint64_t)*2;
             void *new_data = malloc(size);
@@ -186,7 +193,9 @@ void CacheTable::put_crow(const TupleRow* row) {
             //Copy ptr
             memcpy(values+values_meta->at(i).position,&new_data,values_meta->at(i).size);
         }
-        else memcpy(values+values_meta->at(i).position,row->get_element(i+nkeys),values_meta->at(i).size);
+        else memcpy(values+values_meta->at(i).position,element_i,values_meta->at(i).size);
+        }
+        else v->setNull(i);
     }
     this->add_to_cache(keys,values);
 }
