@@ -139,7 +139,7 @@ void setupcassandra() {
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     std::cout << "SETTING UP CASSANDRA" << std::endl;
-    //setupcassandra();
+    setupcassandra();
     std::cout << "DONE, CASSANDRA IS UP" << std::endl;
     return RUN_ALL_TESTS();
 
@@ -330,38 +330,51 @@ TEST(TupleTest, TestNulls) {
     EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
     EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
 
+    //same position null, they are equal
     t1.setNull(1);
     t2.setNull(1);
     EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
     EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
+    //one position is null they differ
     t1.unsetNull(1);
     EXPECT_FALSE(!(t1 < t2) && !(t2 < t1));
     EXPECT_FALSE(!(t1 > t2) && !(t2 > t1));
-
+    EXPECT_TRUE(t1<t2);// And the one with nulls is smaller
+    //they both have all elements set to non null and they are equal again
     t2.unsetNull(1);
     EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
     EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
+    //setting different positions to null make them differ
     t1.setNull(1);
     t2.setNull(0);
     EXPECT_FALSE(!(t1 < t2) && !(t2 < t1));
     EXPECT_FALSE(!(t1 > t2) && !(t2 > t1));
+    //and t2 should be smaller than t1 since it has a smaller element null
+    EXPECT_TRUE(t2<t1);
+    //they have all elements to null but t2 has position 1 to valid
     t1.setNull(0);
     EXPECT_FALSE(!(t1 < t2) && !(t2 < t1));
     EXPECT_FALSE(!(t1 > t2) && !(t2 > t1));
+    EXPECT_TRUE(t2<t1);
+    //All elements are null, they must be equal
     t2.setNull(1);
     EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
     EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
+    //No nulls in any tuple, they mjust be equal
     t1.unsetNull(0);
     t1.unsetNull(1);
     t2.unsetNull(0);
     t2.unsetNull(1);
     EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
     EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
+    //getting an element no null returns a valid ptr
     EXPECT_FALSE(t1.get_element(1)==nullptr);
+    //getting a null element returns a null ptr
     t1.setNull(1);
     EXPECT_TRUE(t1.get_element(1)==nullptr);
+    //however, the other tuple still returns a valid ptr for the same position
     EXPECT_FALSE(t2.get_element(1)==nullptr);
-
+    t1.unsetNull(1);
 }
 
 

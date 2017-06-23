@@ -35,33 +35,37 @@ TupleRow::TupleRow(std::shared_ptr <const std::vector<ColumnMeta>> metas,
 
 TupleRow::TupleRow(const TupleRow &t) {
     this->payload_size=t.payload_size;
-
     this->payload = t.payload;
     this->metadata = t.metadata;
+    this->null_values = t.null_values;
 }
 
 TupleRow::TupleRow(const TupleRow *t) {
     this->payload_size=t->payload_size;
     this->payload = t->payload;
     this->metadata = t->metadata;
+    this->null_values = t->null_values;
 }
 
 TupleRow::TupleRow(TupleRow &t) {
     this->payload_size=t.payload_size;
     this->payload = t.payload;
     this->metadata = t.metadata;
+    this->null_values = t.null_values;
 }
 
 TupleRow::TupleRow(TupleRow *t) {
     this->payload_size=t->payload_size;
     this->payload = t->payload;
     this->metadata = t->metadata;
+    this->null_values = t->null_values;
 }
 
 TupleRow &TupleRow::operator=(const TupleRow &t) {
     this->payload_size=t.payload_size;
     this->payload = t.payload;
     this->metadata = t.metadata;
+    this->null_values = t.null_values;
     return *this;
 }
 
@@ -69,6 +73,7 @@ TupleRow &TupleRow::operator=(TupleRow &t) {
     this->payload_size=t.payload_size;
     this->payload = t.payload;
     this->metadata = t.metadata;
+    this->null_values = t.null_values;
     return *this;
 }
 
