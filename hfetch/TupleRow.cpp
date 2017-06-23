@@ -6,8 +6,11 @@ TupleRow::TupleRow(std::shared_ptr <const std::vector<ColumnMeta>> metas,
                    uint16_t payload_size, void *buffer) {
     this->metadata = metas;
     //create data structures
+
+    this->payload_size = payload_size;
+    this->null_values = 0;
     payload = std::shared_ptr<void>(buffer,
-                                    [metas](void *ptr) {
+                                    [metas,this](void *ptr) {
                                         for (uint16_t i=0; i<metas->size(); ++i) {
                                             switch ( metas->at(i).type) {
                                                 case CASS_VALUE_TYPE_BLOB:
@@ -15,9 +18,11 @@ TupleRow::TupleRow(std::shared_ptr <const std::vector<ColumnMeta>> metas,
                                                 case CASS_VALUE_TYPE_VARCHAR:
                                                 case CASS_VALUE_TYPE_UUID:
                                                 case CASS_VALUE_TYPE_ASCII: {
-                                                    int64_t *addr = (int64_t * )((char *) ptr +  metas->at(i).position);
-                                                    char *d = reinterpret_cast<char *>(*addr);
-                                                    free(d);
+                                                    if (!this->isNull(i)) {
+                                                        int64_t *addr = (int64_t * )((char *) ptr +  metas->at(i).position);
+                                                        char *d = reinterpret_cast<char *>(*addr);
+                                                        free(d);
+                                                    }
                                                     break;
                                                 }
                                                 default:
@@ -28,8 +33,6 @@ TupleRow::TupleRow(std::shared_ptr <const std::vector<ColumnMeta>> metas,
 
                                     });
 
-    this->payload_size = payload_size;
-    this->null_values = 0;
 }
 
 
