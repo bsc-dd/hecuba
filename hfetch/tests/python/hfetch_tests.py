@@ -72,6 +72,46 @@ class Hfetch_Tests(unittest.TestCase):
         self.assertFalse(fails)
 
 
+    def test_write_nulls_simple(self):
+        from hfetch import connectCassandra
+        from hfetch import Hcache
+        '''''''''
+        Simple test to store text and retrieve it
+
+        Analyzes:
+        - HCache
+        - Put_row (write data mixed with nulls)
+        '''''''''
+
+        table = "nulls"
+
+        config.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
+        config.session.execute("CREATE TABLE %s.%s(partid int PRIMARY KEY, time float, data text);" % (self.keyspace, table))
+
+        num_items = int(pow(10, 3))
+
+        try:
+            connectCassandra(self.contact_names, self.nodePort)
+        except Exception:
+            print 'can\'t connect, verify the contact points and port', self.contact_names, self.nodePort
+
+        nblocks = 10
+        t_f = pow(-2, 63)  # Token begin range
+        t_t = pow(2, 63) - 1
+        # Token blocks
+        tkn_size = (t_t - t_f) / (num_items / nblocks)
+        tokens = [(a, a + tkn_size) for a in xrange(t_f, t_t - tkn_size, tkn_size)]
+
+        keys = ["partid"]
+        values = ["time","data"]
+
+        hcache_config = {'cache_size': '10', 'writer_buffer': 20}
+
+        cache = Hcache(self.keyspace, table, "", tokens, keys, values, hcache_config)
+        import random
+        for i in xrange(0, num_items):
+            cache.put_row([i], [12,None])#random.sample({i,None},1)+random.sample({'SomeRandomText',None},1))
+        time.sleep(10)
 
     def test_iterate_brute(self):
         from hfetch import connectCassandra
@@ -626,6 +666,11 @@ class Hfetch_Tests(unittest.TestCase):
                 someid = u
             i += 1
 
+        #by recreating the cache we wait until all the data is written
+
+        cache = Hcache(self.keyspace, table, "WHERE token(partid)>=? AND token(partid)<?;",
+                       tokens, keys, values
+                       , {'cache_size': '10', 'writer_buffer': 20})
         #Read data
         itera = cache.iteritems(10)
         found = False
