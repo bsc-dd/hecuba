@@ -77,8 +77,6 @@ void CacheTable::put_crow(void* keys, void* values) {
     const TupleRow *k = keys_factory->make_tuple(keys);
     const TupleRow *v = values_factory->make_tuple(values);
     this->put_crow(k,v);
-    k->get_payload().reset();
-    v->get_payload().reset((void*)NULL,[](void *ptr) {});
     delete(k);
     delete(v);
 }
@@ -94,8 +92,6 @@ void CacheTable::add_to_cache(void* keys, void* values) {
     const TupleRow *k = keys_factory->make_tuple(keys);
     const TupleRow *v = values_factory->make_tuple(values);
     if (myCache) this->myCache->update(*k,v);
-    k->get_payload().reset();
-    v->get_payload().reset((void*)NULL,[](void *ptr) {});
     delete(k);
     delete(v);
 }
@@ -254,17 +250,9 @@ std::vector<const TupleRow *>  CacheTable::get_crow(const TupleRow *keys) {
 }
 
 
-std::vector<std::shared_ptr<void>> CacheTable::get_crow(void* keys) {
+std::vector<const TupleRow*> CacheTable::get_crow(void* keys) {
     const TupleRow* tuple_key = keys_factory->make_tuple(keys);
     std::vector<const TupleRow*> result = get_crow(tuple_key);
     delete(tuple_key);
-    
-    if (result.empty()) return std::vector<std::shared_ptr<void> >(0);
-    
-    std::vector<std::shared_ptr<void>> payloads(result.size());
-    for (uint32_t i = 0; i<result.size(); ++i) {
-        payloads[i]=result[i]->get_payload();
-        delete(result[i]);
-    }
-    return payloads;
+    return  result;
 }
