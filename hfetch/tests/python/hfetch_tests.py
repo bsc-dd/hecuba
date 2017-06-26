@@ -22,6 +22,57 @@ class Hfetch_Tests(unittest.TestCase):
         #config.session.execute("DROP KEYSPACE IF EXISTS %s;" % cls.keyspace)
         pass
 
+    def test_connection(self):
+        from hfetch import connectCassandra
+        test_contact_names = []
+        test_node_port = None
+        fails = False
+        try:
+            connectCassandra(test_contact_names,test_node_port)
+        except TypeError:
+            fails = True
+        except Exception, e:
+            self.fail(e.message)
+
+        self.assertTrue(fails)
+        fails = False
+
+        test_node_port = self.nodePort
+        test_contact_names = ['']
+        try:
+            connectCassandra(test_contact_names,test_node_port)
+        except RuntimeError:
+            fails = True
+        except Exception, e:
+            self.fail(e.message)
+
+        self.assertTrue(fails)
+        fails = False
+
+        #if no contact point specified, connects to 127.0.0.1
+        try:
+            self.contact_names.index('127.0.0.1')  #raises value error if not present
+            test_contact_names = []
+            connectCassandra(test_contact_names, test_node_port)
+        except ValueError:
+            pass
+        except Exception, e:
+            self.fail(e.message)
+
+        test_node_port = self.nodePort
+        test_contact_names = self.contact_names
+        fails = False
+
+        try:
+            connectCassandra(test_contact_names, test_node_port)
+        except RuntimeError:
+            fails = True
+        except Exception, e:
+            self.fail(e.message)
+        self.assertFalse(fails)
+
+
+
     def test_iterate_brute(self):
         from hfetch import connectCassandra
         from hfetch import Hcache
