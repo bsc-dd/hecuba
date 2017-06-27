@@ -202,17 +202,19 @@ TEST(TestingPocoCache, InsertGetDeleteOps) {
 
     TupleRow *key1 = new TupleRow( metas,sizeof(uint16_t) * 2, b2);
     myCache.add(*key1, t1);
+    delete(t1);
 
     EXPECT_EQ(myCache.getAllKeys().size(), 1);
-    TupleRow t = *(myCache.getAllKeys().begin());
+    /*TupleRow t = *(myCache.getAllKeys().begin());
     EXPECT_TRUE(t == *key1);
-    EXPECT_FALSE(&t == key1);
+    EXPECT_FALSE(&t == key1);*/
     /**
      * Reason: Cache builds its own copy of key1 through the copy constructor. They are equal but not the same object
      **/
     myCache.clear();
     //Removes all references, and deletes all objects. Key1 is still active thanks to our ref
     delete (key1);
+    int x = 0;
 }
 
 
@@ -1211,14 +1213,6 @@ TEST(TestingPrefetch, GetNextC) {
 
     cass_future_free(connect_future);
 
-    char *buffer = (char *) malloc(sizeof(int) + sizeof(float));
-
-    int val = 1234;
-    memcpy(buffer, &val, sizeof(int));
-
-    float f = 12340;
-    memcpy(buffer + sizeof(int), &f, sizeof(float));
-
     ColumnMeta cm1=ColumnMeta();
     cm1.info={{"name","partid"}};
     cm1.type=CASS_VALUE_TYPE_INT;
@@ -1261,9 +1255,8 @@ TEST(TestingPrefetch, GetNextC) {
     Prefetch *P = new Prefetch(tokens,table_meta,test_session,config);
 
 
-    TupleRow *result = P->get_cnext();
-    EXPECT_FALSE(result == NULL);
-    uint16_t it = 1;
+    TupleRow *result = NULL;
+    uint16_t it = 0;
 
 
     while ((result = P->get_cnext())!=NULL) {
@@ -1274,6 +1267,7 @@ TEST(TestingPrefetch, GetNextC) {
         std::string empty_str="";
         std::string result_str(d);
         EXPECT_TRUE(result_str>empty_str);
+        delete(result);
         ++it;
     }
 
@@ -1370,9 +1364,8 @@ TEST(TestingPrefetch, GetNextAndUpdateCache) {
     Prefetch *P = new Prefetch(tokens,table_meta,test_session,config);
 
 
-    TupleRow *result = P->get_cnext();
-    EXPECT_FALSE(result == NULL);
-    uint16_t it = 1;
+    TupleRow *result = NULL;
+    uint16_t it = 0;
 
 
     while ((result = P->get_cnext())!=NULL) {
@@ -1383,6 +1376,7 @@ TEST(TestingPrefetch, GetNextAndUpdateCache) {
         std::string empty_str="";
         std::string result_str(d);
         EXPECT_TRUE(result_str>empty_str);
+        delete(result);
         ++it;
     }
 
@@ -1500,8 +1494,10 @@ TEST(TestingStorageInterfaceCpp,IteratePrefetch){
 
     Prefetch *P = StorageI->get_iterator(particles_table, keyspace, keysnames, read_colsnames, tokens,config);
     int it= 0;
-    while (P->get_cnext()) {
+    TupleRow *T = NULL;
+    while ((T=P->get_cnext())!=NULL) {
         ++it;
+        delete(T);
     }
     EXPECT_EQ(it,10001);
     delete(P);
