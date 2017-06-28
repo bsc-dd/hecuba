@@ -5,7 +5,7 @@ TupleRow::TupleRow(std::shared_ptr<const std::vector<ColumnMeta>> metas,
                    uint32_t payload_size, void *buffer) {
 
     metadatas = metas;
-    payload = std::shared_ptr<TupleRowData>(new TupleRowData(buffer, payload_size),
+    payload = std::shared_ptr<TupleRowData>(new TupleRowData(buffer, payload_size, (uint32_t) metas->size()),
                                             [metas](TupleRowData *holder) {
                                                 for (uint16_t i = 0; i < metas->size(); ++i) {
                                                     switch (metas->at(i).type) {

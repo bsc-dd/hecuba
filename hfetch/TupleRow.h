@@ -80,13 +80,14 @@ private:
 
         /* Attributes */
         void *data;
-        uint32_t null_values, length;
+        uint32_t length;
+        std::vector<uint32_t> null_values;
 
 
         /* Constructors */
-        TupleRowData(void *data_ptr, uint32_t length) {
+        TupleRowData(void *data_ptr, uint32_t length, uint32_t nelem) {
             this->data = data_ptr;
-            this->null_values = 0;
+            this->null_values = std::vector<uint32_t>(nelem, 0);
             this->length = length;
         }
 
@@ -97,22 +98,25 @@ private:
 
         /* Modifiers */
         void setNull(uint32_t position) {
-            this->null_values |= (0x1 << position);
+            if (!null_values.empty()) this->null_values[(ssize_t) floor(position / 32.0)] |= (0x1 << position % 32);
         }
 
         void unsetNull(uint32_t position) {
-            this->null_values &= !(0x1 << position);
+            if (!null_values.empty()) this->null_values[(ssize_t) floor(position / 32.0)] &= !(0x1 << position % 32);
         }
 
         /* Get methods */
         bool isNull(uint32_t position) const {
-            return data == nullptr || (this->null_values & (0x1 << position)) > 0;
+            if (!data || null_values.empty()) return true;
+            return (this->null_values[(ssize_t) floor(position / 32.0)] & (0x1 << position % 32)) > 0;
         }
 
 
         /* Comparators */
         bool operator<(TupleRowData &rhs) {
             if (this->length != rhs.length) return this->length < rhs.length;
+            if (this->null_values.size() != rhs.null_values.size())
+                return this->null_values < rhs.null_values;
             if (this->null_values != rhs.null_values)
                 return this->null_values < rhs.null_values;
             return memcmp(this->data, rhs.data, this->length) < 0;
@@ -124,6 +128,8 @@ private:
 
         bool operator<=(TupleRowData &rhs) {
             if (this->length != rhs.length) return this->length < rhs.length;
+            if (this->null_values.size() != rhs.null_values.size())
+                return this->null_values < rhs.null_values;
             if (this->null_values != rhs.null_values)
                 return this->null_values < rhs.null_values;
             return memcmp(this->data, rhs.data, this->length) <= 0;
@@ -134,9 +140,11 @@ private:
         }
 
         bool operator==(TupleRowData &rhs) {
-            if (this->length != rhs.length) return this->length < rhs.length;
+            if (this->length != rhs.length) return false;
+            if (this->null_values.size() != rhs.null_values.size())
+                return false;
             if (this->null_values != rhs.null_values)
-                return this->null_values < rhs.null_values;
+                return false;
             return memcmp(this->data, rhs.data, length) == 0;
         }
 
