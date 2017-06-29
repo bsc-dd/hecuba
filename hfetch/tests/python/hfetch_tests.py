@@ -24,6 +24,8 @@ class Hfetch_Tests(unittest.TestCase):
 
     def test_connection(self):
         from hfetch import connectCassandra
+
+        # Test behaviour when NodePort is None (should return TypeError)
         test_contact_names = []
         test_node_port = None
         fails = False
@@ -37,11 +39,25 @@ class Hfetch_Tests(unittest.TestCase):
         self.assertTrue(fails)
         fails = False
 
+        # Test behaviour when contact_names is an empty text (should return ValueError)
+        test_node_port = self.nodePort
+        test_contact_names = [123456789]
+        try:
+            connectCassandra(test_contact_names,test_node_port)
+        except TypeError:
+            fails = True
+        except Exception, e:
+            self.fail(e.message)
+
+        self.assertTrue(fails)
+        fails = False
+
+        # Test behaviour when contact_names is an empty text (should return ValueError)
         test_node_port = self.nodePort
         test_contact_names = ['']
         try:
             connectCassandra(test_contact_names,test_node_port)
-        except RuntimeError:
+        except ValueError:
             fails = True
         except Exception, e:
             self.fail(e.message)
@@ -177,6 +193,66 @@ class Hfetch_Tests(unittest.TestCase):
 
         self.assertEqual(count, nparts)
         print "finshed after %d" % (time.time() - start)
+
+    def test_type_error(self):
+        from hfetch import connectCassandra
+        from hfetch import Hcache
+        '''''''''
+        This test iterates over a set of particles, performing get_row operations
+
+        Analyzes:
+        - HCache
+        - Get_row (setting TypeError properly)
+        '''''''''
+
+        self.keyspace = 'test'
+        table = 'particle'
+        num_keys = 10000 #num keys must be multiple of expected_errors
+        expected_errors = 10
+
+        config.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
+        config.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
+                               "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
+
+        for i in xrange(0, num_keys):
+            vals = ','.join(str(e) for e in [i, i / .1, i / .2, i / .3, i / .4, "'" + str(i * 60) + "'"])
+            config.session.execute(
+                "INSERT INTO %s.%s(partid , time , x, y , z,ciao ) VALUES (%s)" % (self.keyspace, table, vals))
+
+        try:
+            connectCassandra(self.contact_names, self.nodePort)
+        except Exception:
+            print 'can\'t connect, verify the contact points and port', self.contact_names, self.nodePort
+
+        token_ranges = []
+
+        cache_size = 10000
+
+        keys = ["partid", "time"]
+        values = ["ciao", "x", "y", "z"]
+
+        cache_config = {'cache_size': cache_size}
+
+        cache = Hcache(self.keyspace, table, "", token_ranges, keys, values, cache_config)
+
+        type_errors = 0
+        # clustering key
+
+        for pk in xrange(0, num_keys):
+            ck = pk * 10
+            if pk % (num_keys/expected_errors) == 0:
+                pk = 'wrong'
+            try:
+                result = cache.get_row([pk, ck])
+                self.assertEqual(len(result), len(values))
+            except KeyError as e:
+                self.fail("Error when retrieving value from cache: "+str(e)+" -- "+str([pk, ck]))
+            except TypeError as e:
+                print "mykey ", ck/10
+                print e.message
+                type_errors = type_errors + 1
+
+        self.assertEqual(expected_errors,type_errors)
 
 
 

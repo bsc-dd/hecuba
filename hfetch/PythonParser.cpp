@@ -54,8 +54,8 @@ void error_parsing(std::string type, PyObject* obj) {
     PyObject* repr = PyObject_Str(obj);
     int ok = PyString_AsStringAndSize(repr, &l_temp, &l_size);
     if (ok<0)
-        throw ModuleException("Parse from python to c, found sth that can't be represented nor parsed");
-    throw ModuleException("Parse from python to c, expected "+type+", found: "+std::string(l_temp,(size_t)l_size));
+        throw TypeErrorException("Parse from python to c, found sth that can't be represented nor parsed");
+    throw TypeErrorException("Parse from python to c, expected "+type+", found: "+std::string(l_temp,(size_t)l_size));
 }
 
 

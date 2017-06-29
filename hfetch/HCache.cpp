@@ -17,15 +17,23 @@ static PyObject *connectCassandra(PyObject *self, PyObject *args) {
     for (uint16_t i = 0; i < contact_p_len; ++i) {
         char *str_temp;
         if (!PyArg_Parse(PyList_GetItem(py_contact_points, i), "s", &str_temp)) {
-            PyErr_SetString(PyExc_RuntimeError, "Invalid contact point for Cassandra, not a string");
+            PyErr_SetString(PyExc_TypeError, "Invalid contact point for Cassandra, not a string");
             return NULL;
         };
+        if (!strlen(str_temp)) {
+            PyErr_SetString(PyExc_ValueError, "Empty string as a contact point is invalid");
+            return NULL;
+        }
         contact_points += std::string(str_temp) + ",";
     }
 
     try {
         storage = std::make_shared<StorageInterface>(nodePort, contact_points);
         //TODO storage = new StorageInterface(nodePort, contact_points);
+    }
+    catch (ModuleException &e ) {
+        PyErr_SetString(PyExc_OSError,e.what());
+        return NULL;
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -53,7 +61,11 @@ static PyObject *put_row(HCache *self, PyObject *args) {
     try {
         k = parser.make_tuple(py_keys, self->T->get_metadata()->get_keys());
     }
-    catch (ModuleException e) {
+    catch (TypeErrorException& e) {
+        PyErr_SetString(PyExc_TypeError, e.what());
+        return NULL;
+    }
+    catch (std::exception& e) {
         std::string error_msg = "Put_row, keys error: "+std::string(e.what());
         PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
         return NULL;
@@ -81,7 +93,7 @@ static PyObject *put_row(HCache *self, PyObject *args) {
             try {
                 temp = storage->make_writer(metas->at(numpy_pos).info.find("npy_table")->second.c_str(), self->T->get_metadata()->get_keyspace(),
                                             numpy_keys, numpy_columns, config);
-            } catch (ModuleException e) {
+            } catch (std::exception& e) {
                 PyErr_SetString(PyExc_RuntimeError, e.what());
                 return NULL;
             }
@@ -99,6 +111,10 @@ static PyObject *put_row(HCache *self, PyObject *args) {
             std::vector<const TupleRow *> value_list;
             try {
                 value_list = parser.make_tuples_with_npy(npy_list, temp->get_metadata()->get_values());
+            }
+            catch (TypeErrorException& e) {
+                PyErr_SetString(PyExc_TypeError, e.what());
+                return NULL;
             }
             catch (std::exception &e) {
                 PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -139,6 +155,10 @@ static PyObject *put_row(HCache *self, PyObject *args) {
                 v = parser.make_tuple(py_values, self->T->get_metadata()->get_values());
                 self->T->put_crow(k, v);
             }
+            catch (TypeErrorException& e) {
+                PyErr_SetString(PyExc_TypeError, e.what());
+                return NULL;
+            }
             catch (std::exception &e) {
                 PyErr_SetString(PyExc_RuntimeError, e.what());
                 return NULL;
@@ -172,6 +192,10 @@ static PyObject *put_row(HCache *self, PyObject *args) {
             self->T->put_crow(k, v);
             delete(v);
         }
+        catch (TypeErrorException& e) {
+            PyErr_SetString(PyExc_TypeError, e.what());
+            return NULL;
+        }
         catch (std::exception &e) {
             std::string err_msg = "Put row "+std::string(e.what());
             PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
@@ -201,6 +225,10 @@ static PyObject *get_row(HCache *self, PyObject *args) {
     try {
         k = parser.make_tuple(py_keys, self->T->get_metadata()->get_keys());
     }
+    catch (TypeErrorException& e) {
+        PyErr_SetString(PyExc_TypeError, e.what());
+        return NULL;
+    }
     catch (std::exception &e) {
         std::string error_msg = "Get row, keys error: "+std::string(e.what());
         PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
@@ -218,7 +246,7 @@ static PyObject *get_row(HCache *self, PyObject *args) {
     }
 
     if (v.empty()){
-        PyErr_SetString(PyExc_KeyError,"No values found for this key: ");
+        PyErr_SetString(PyExc_KeyError,"No values found for this key");
         return NULL;
     }
 
@@ -231,6 +259,10 @@ static PyObject *get_row(HCache *self, PyObject *args) {
         for (uint32_t i = 0; i<v.size(); ++i) {
             delete(v[i]);
         }
+    }
+    catch (TypeErrorException& e) {
+        PyErr_SetString(PyExc_TypeError, e.what());
+        return NULL;
     }
     catch (std::exception &e) {
         std::string error_msg = "Get row, values error: "+std::string(e.what());
@@ -361,7 +393,7 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
             self->has_numpy = true;
         }
         else {
-            PyErr_SetString(PyExc_RuntimeError, "Can't parse column names, expected String, Dict or Unicode");
+            PyErr_SetString(PyExc_TypeError, "Can't parse column names, expected String, Dict or Unicode");
             return -1;
         }
     }
@@ -369,7 +401,7 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
 
     try {
         self->T = storage->make_cache(table, keyspace, keys_names, columns_names, config);
-    } catch (ModuleException e) {
+    } catch (std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return -1;
     }
@@ -515,7 +547,7 @@ static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
             else columns_names[i]["partition"] = "no-partition";
         }
         else {
-            PyErr_SetString(PyExc_RuntimeError, "Can't parse column names, expected String, Dict or Unicode");
+            PyErr_SetString(PyExc_TypeError, "Can't parse column names, expected String, Dict or Unicode");
             return -1;
         }
     }
@@ -551,7 +583,7 @@ static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
 
     try {
         self->P = storage->get_iterator(table, keyspace, keys_names, columns_names, self->token_ranges, config);
-    } catch (ModuleException e) {
+    } catch (std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return -1;
     }
@@ -582,7 +614,19 @@ static PyObject *get_next(HIterator *self) {
     else {
         row_metas = self->P->get_metadata()->get_keys();
     }
-    PyObject *py_row = parser.tuples_as_py(temp, row_metas);
+    PyObject *py_row;
+    try {
+        py_row = parser.tuples_as_py(temp, row_metas);
+    }
+    catch (TypeErrorException& e) {
+        PyErr_SetString(PyExc_TypeError, e.what());
+        return NULL;
+    }
+    catch (std::exception& e){
+        std::string error_msg = "Get next, parse result: "+std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError,error_msg.c_str());
+        return NULL;
+    }
 
     if (self->update_cache&&self->P->get_type() != "values") {
         self->baseTable->put_crow(result);
@@ -659,6 +703,10 @@ static PyObject *write_cass(HWriter *self, PyObject *args) {
         self->W->write_to_cassandra(k, v);
         delete(k);
         delete(v);
+    }
+    catch (TypeErrorException& e) {
+        PyErr_SetString(PyExc_TypeError, e.what());
+        return NULL;
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -738,7 +786,7 @@ static int hwriter_init(HWriter *self, PyObject *args, PyObject *kwds) {
             self->has_numpy = true;
         }
         else {
-            PyErr_SetString(PyExc_RuntimeError, "Can't parse column names, expected String, Dict or Unicode");
+            PyErr_SetString(PyExc_TypeError, "Can't parse column names, expected String, Dict or Unicode");
             return -1;
         }
     }
@@ -768,7 +816,7 @@ static int hwriter_init(HWriter *self, PyObject *args, PyObject *kwds) {
     }
     try {
         self->W = storage->make_writer(table, keyspace, keys_names, columns_names, config);
-    } catch (ModuleException e) {
+    } catch (std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return -1;
     }
@@ -882,13 +930,13 @@ static PyObject *create_iter_items(HCache *self, PyObject *args) {
     }
     //hiter_init(iter, args, args);
     if (!self->T) {
-        PyErr_SetString(PyExc_RuntimeError, "Can't make an iteritems from a null table");
+        PyErr_SetString(PyExc_RuntimeError, "Tried to create iteritems, but the cache didn't exist");
         return NULL;
     }
 
     try {
         iter->P = storage->get_iterator( self->T->get_metadata(), self->token_ranges, config);
-    } catch (ModuleException e) {
+    } catch (std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
@@ -937,12 +985,12 @@ static PyObject *create_iter_keys(HCache *self, PyObject *args) {
     iter->baseTable = self->T;
     //hiter_init(iter, args, args);
     if (!self->T) {
-        PyErr_SetString(PyExc_RuntimeError, "Can't make an iterkeys from a null table");
+        PyErr_SetString(PyExc_RuntimeError,"Tried to create iterkeys, but the cache didn't exist");
         return NULL;
     }
     try {
         iter->P = storage->get_iterator(self->T->get_metadata(), self->token_ranges, config);
-    } catch (ModuleException e) {
+    } catch (std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
@@ -991,12 +1039,12 @@ static PyObject *create_iter_values(HCache *self, PyObject *args) {
     iter->baseTable = self->T;
     //hiter_init(iter, args, args);
     if (!self->T) {
-        PyErr_SetString(PyExc_RuntimeError, "Can't make an itervalues from a null table");
+        PyErr_SetString(PyExc_RuntimeError, "Tried to create itervalues, but the cache didn't exist");
         return NULL;
     }
     try {
         iter->P = storage->get_iterator(self->T->get_metadata(), self->token_ranges, config);
-    } catch (ModuleException e) {
+    } catch (std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }

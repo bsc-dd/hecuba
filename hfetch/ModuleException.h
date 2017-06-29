@@ -4,22 +4,32 @@
 #define HFETCH_MODULEEXCEPTION_H
 
 
-class ModuleException :public std::exception {
+class ModuleException : public std::exception {
 public:
 
-    explicit ModuleException(const std::string& message);
+    ModuleException() {};
+
+    explicit ModuleException(const std::string &message);
 
     virtual ~ModuleException() throw() {}
 
-        virtual const char* what() const throw()
-        {
-            return exc_msg.c_str();
-        }
+    virtual const char *what() const throw() {
+        return exc_msg.c_str();
+    }
 
-private:
+protected:
 
     std::string exc_msg;
 };
 
+
+class TypeErrorException : public ModuleException {
+public:
+
+    TypeErrorException() {};
+
+    explicit TypeErrorException(const std::string &message);
+
+};
 
 #endif //HFETCH_MODULEEXCEPTION_H
