@@ -10,9 +10,9 @@ from hecuba import config, log
 class StorageObj(object, IStorage):
     args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name"]
     args = namedtuple('StorageObjArgs', args_names)
-    _prepared_store_meta = config.session.prepare('INSERT INTO ' + config.execution_name + '.istorage '
-                                                                                           '(storage_id, class_name, name, tokens,istorage_props) '
-                                                                                           ' VALUES (?,?,?,?,?)')
+    _prepared_store_meta = config.session.prepare('INSERT INTO ' + config.execution_name +
+                                                  '.istorage (storage_id, class_name, name, tokens,istorage_props) '
+                                                  ' VALUES (?,?,?,?,?)')
     """
     This class is where information will be stored in Hecuba.
     The information can be in memory, stored in a python dictionary or local variables, or saved in a
@@ -89,13 +89,7 @@ class StorageObj(object, IStorage):
         else:
             self._tokens = tokens
 
-        if storage_id is not None:
-            self._storage_id = storage_id
-        elif name is not None:
-            self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table)
-        elif storage_id is None:
-            self._storage_id = None
-
+        self._storage_id = storage_id
         self._istorage_props = istorage_props
 
         self._class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
@@ -117,7 +111,12 @@ class StorageObj(object, IStorage):
                 log.debug("CREATING INTERNAL StorageDict with %s", args)
                 pd = StorageDict.build_remotely(args)
             else:
-                pd = StorageDict(per_dict['primary_keys'], per_dict['columns'], tokens=self._tokens)
+                if 'indexed_values' in per_dict:
+                    indexed_args = per_dict['indexed_values']
+                else:
+                    indexed_args = None
+                pd = StorageDict(per_dict['primary_keys'], per_dict['columns'],
+                                 tokens=self._tokens, indexed_args=indexed_args)
             setattr(self, table_name, pd)
             self._persistent_dicts.append(pd)
 
@@ -145,7 +144,7 @@ class StorageObj(object, IStorage):
     _sub_tuple_case = re.compile(' *< *([\w:, ]+)+ *>')
     _val_case = re.compile('.*@ClassField +(\w+) +%s' % _valid_type)
     _so_val_case = re.compile('.*@ClassField +(\w+) +([\w.]+)')
-    _index_vars = re.compile('.*@Index_on *([A-z0-9,]+)+([A-z0-9, ]+)')
+    _index_vars = re.compile('.*@Index_on *([A-z0-9]+) +([A-z0-9, ]+)')
 
     @classmethod
     def _parse_comments(self, comments):
@@ -314,7 +313,8 @@ class StorageObj(object, IStorage):
         """
         self._is_persistent = True
         (self._ksp, self._table) = self._extract_ks_tab(name)
-        self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table)
+        if self._storage_id is None:
+            self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table)
 
         self._build_args = self.args(self._ksp + '.' + self._table,
                                      self._tokens,

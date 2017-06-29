@@ -45,7 +45,7 @@ def setup_packages():
     metadata = dict(  name="Hecuba",
         version="0.1",
 
-        packages=['hecuba', 'storage'], #find_packages(),
+        packages=['hecuba', 'hecuba.qthrift', 'storage'], #find_packages(),
 
         #install_requires=['nose', 'cassandra-driver', 'mock'],
         zip_safe=False,

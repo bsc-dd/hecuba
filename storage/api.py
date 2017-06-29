@@ -1,7 +1,20 @@
 # author: G. Alomar
 import uuid
 
+def init(config_file_path=None):
+    """
+    Function that can be useful when running the application with COMPSs >= 2.0
+    It is executed at the beginning of the application
+    """
+    pass
 
+
+def finish():
+    """
+    Function that can be useful when running the application with COMPSs >= 2.0
+    It is executed at the end of the application
+    """
+    pass
 
 def initWorker(config_file_path=None):
     """
@@ -77,12 +90,8 @@ def getByID(objid):
                Returns:
                     (Block| Storageobj)
                """
-    objidsplit = objid.split("_")
     from hecuba import log
-
-    if len(objidsplit) == 2:
-        objid = objidsplit[0]
-    results = ''
+    objid = objid.split("_")[0]
     try:
         from hecuba import config
         query = "SELECT * FROM " + config.execution_name + ".istorage WHERE storage_id = %s"

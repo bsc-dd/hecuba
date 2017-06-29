@@ -163,12 +163,14 @@ static PyObject *put_row(HCache *self, PyObject *args) {
         try {
             TupleRow *v = parser.make_tuple(py_values, self->T->get_metadata()->get_values());
             self->T->put_crow(k, v);
+            delete(v);
         }
         catch (std::exception &e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
             return NULL;
         }
     }
+    delete(k);
     Py_RETURN_NONE;
 }
 
@@ -177,35 +179,45 @@ static PyObject *get_row(HCache *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, "O", &py_keys)) {
         return NULL;
     }
-    std::vector<const TupleRow *> v;
+    TupleRow *k = NULL;
+
     try {
-        TupleRow *k = parser.make_tuple(py_keys, self->T->get_metadata()->get_keys());
-        v = self->T->get_crow(k);
-        //delete(k); //TODO decide when to do cleanup
+        k = parser.make_tuple(py_keys, self->T->get_metadata()->get_keys());
     }
     catch (std::exception &e) {
-        std::cerr << e.what() << std::endl;
+        std::string error_msg = "PyParser, keys error: "+std::string(e.what());
+        PyErr_SetString(PyExc_KeyError, error_msg.c_str());
+        return NULL;
+    }
+    std::vector<const TupleRow *> v;
+    try {
+        v = self->T->get_crow(k);
+        //delete(k); //TODO decide when to do cleanup
+        }
+    catch (std::exception &e) {
+        std::string error_msg = "Get row error: "+std::string(e.what());
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
 
-    if (v.empty()) {
-        PyErr_SetString(PyExc_KeyError,"No rows found for this key");
+    if (v.empty()){
+        PyErr_SetString(PyExc_RuntimeError,"No values found for this key: ");
         return NULL;
     }
 
     try {
         if (self->has_numpy) {
             py_row = parser.merge_blocks_as_nparray(v, self->T->get_metadata()->get_values());
-        }else {
+        } else {
             py_row = parser.tuples_as_py(v, self->T->get_metadata()->get_values());
         }
     }
     catch (std::exception &e) {
-        std::cerr << e.what() << std::endl;
+        std::string error_msg = "Pyparser, values error: "+std::string(e.what());
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
+
     return py_row;
 }
 
@@ -552,9 +564,10 @@ static PyObject *get_next(HIterator *self) {
     }
     PyObject *py_row = parser.tuples_as_py(temp, row_metas);
 
-    if (self->update_cache) {
+    if (self->update_cache&&self->P->get_type() != "values") {
         self->baseTable->put_crow(result);
-    } else delete (result);
+    }
+    delete (result);
     return py_row;
 }
 
@@ -624,6 +637,8 @@ static PyObject *write_cass(HWriter *self, PyObject *args) {
         TupleRow *k = parser.make_tuple(py_keys, self->W->get_metadata()->get_keys());
         TupleRow *v = parser.make_tuple(py_values, self->W->get_metadata()->get_values());
         self->W->write_to_cassandra(k, v);
+        delete(k);
+        delete(v);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
