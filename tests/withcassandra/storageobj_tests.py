@@ -32,8 +32,8 @@ class Test2StorageObj(StorageObj):
 
 class Test3StorageObj(StorageObj):
     '''
-       @ClassField myso Test2StorageObj
-       @ClassField myso2 TestStorageObj
+       @ClassField myso tests.withcassandra.storageobj_tests.Test2StorageObj
+       @ClassField myso2 tests.withcassandra.storageobj_tests.TestStorageObj
        @ClassField myint int
        @ClassField mystr str
     '''
@@ -50,6 +50,12 @@ class Test4StorageObj(StorageObj):
 class Test5StorageObj(StorageObj):
     '''
        @ClassField test2 dict<<position:int>,myso:tests.withcassandra.storageobj_tests.Test2StorageObj>
+    '''
+    pass
+
+class Test6StorageObj(StorageObj):
+    '''
+       @ClassField test3 dict<<int>,str,str>
     '''
     pass
 
@@ -142,6 +148,7 @@ class StorageObjTest(unittest.TestCase):
 
     def test_make_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS hecuba_test.words")
+        config.session.execute("DROP TABLE IF EXISTS hecuba_test.nonames_test3")
         nopars = Words()
         self.assertFalse(nopars._is_persistent)
         nopars.ciao = 1
@@ -159,6 +166,14 @@ class StorageObjTest(unittest.TestCase):
 
         count, = config.session.execute('SELECT count(*) FROM hecuba_test.wordsso_words')[0]
         self.assertEqual(10, count)
+
+        nopars2 = Test6StorageObj("hecuba_test.nonames")
+        nopars2.test3[0] = '1', '2'
+        rval0, rval1 = config.session.execute(
+            "SELECT val0, val1 FROM hecuba_test.nonames_test3 WHERE key0 = 0")[0]
+
+        self.assertEqual('1', rval0)
+        self.assertEqual('2', rval1)
 
     def test_empty_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS hecuba.wordsso_words")
@@ -342,7 +357,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals('Link', query_res.name)
         error = False
         try:
-            self.assertEquals(70, query_res.weight)
+            _ = query_res.weight
         except Exception as AttributeError:
             error = True
         self.assertEquals(True, error)
@@ -353,7 +368,7 @@ class StorageObjTest(unittest.TestCase):
             query_res = row
         error = False
         try:
-            self.assertEquals(50, query_res.weight)
+            _ = query_res.weight
         except Exception as AttributeError:
             error = True
         self.assertEquals(True, error)
@@ -399,6 +414,29 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals('Link', my_nested_so.test2.myso.name)
         my_nested_so.test2.myso.age = 10
         self.assertEquals(10, my_nested_so.test2.myso.age)
+
+    def test_nestedso_retrievedata(self):
+        config.session.execute("DROP TABLE IF EXISTS hecuba.myso")
+        config.session.execute("DROP TABLE IF EXISTS hecuba.mynewso_test2")
+
+        my_nested_so = Test5StorageObj('mynewso')
+
+        self.assertEquals(True, my_nested_so._is_persistent)
+        self.assertEquals(True, my_nested_so.test2._is_persistent)
+        self.assertEquals(True, my_nested_so.test2.myso._is_persistent)
+
+        my_nested_so.test2.myso.name = 'Link'
+        self.assertEquals('Link', my_nested_so.test2.myso.name)
+        my_nested_so.test2.myso.age = 10
+        self.assertEquals(10, my_nested_so.test2.myso.age)
+
+        del my_nested_so
+
+        my_nested_so2 = Test5StorageObj('mynewso')
+
+        self.assertEquals('Link', my_nested_so2.test2.myso.name)
+        self.assertEquals(10, my_nested_so2.test2.myso.age)
+
 
 
 if __name__ == '__main__':

@@ -8,14 +8,7 @@ from hecuba import config, log
 import uuid
 
 
-def process_path(module_path):
-    last = 0
-    for key, i in enumerate(module_path):
-        if i == '.' and key > last:
-            last = key
-    module = module_path[:last]
-    cname = module_path[last + 1:]
-    return cname, module
+
 
 
 class NamedIterator:
@@ -235,20 +228,20 @@ class StorageDict(dict, IStorage):
                 except Exception as ex:
                     print "Error creating the StorageDict keyspace:", query_keyspace, ex
 
-        columns = map(lambda a: a[0] + " " + a[1], self._primary_keys + self._columns)
+        columns = map(lambda a: a, self._primary_keys + self._columns)
         for ind, entry in enumerate(columns):
-            if entry.split(' ')[1] not in IStorage.valid_types:
-                class_name, module = process_path(entry.split(' ')[1])
+            if entry[1] not in IStorage.valid_types:
+                class_name, module = IStorage.process_path(entry[1])
                 mod = __import__(module, globals(), locals(), [class_name], 0)
-                so = getattr(mod, class_name)(entry.split(' ')[0])
-                setattr(self, entry.split(' ')[0], so)
-                columns[ind] = entry.split(' ')[0] + ' ' + 'uuid'
+                so = getattr(mod, class_name)(entry[0])
+                setattr(self, entry[0], so)
+                columns[ind] = entry[0], 'uuid'
 
         pks = map(lambda a: a[0], self._primary_keys)
         query_table = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" \
                       % (self._ksp,
                          self._table,
-                         str.join(',', columns),
+                         ",".join("%s %s" % tup for tup in columns),
                          str.join(',', pks))
         try:
             log.debug('MAKE PERSISTENCE: %s', query_table)

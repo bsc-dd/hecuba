@@ -33,6 +33,16 @@ class IStorage:
                     'counter': 'counter'}
 
     @staticmethod
+    def process_path(module_path):
+        last = 0
+        for key, i in enumerate(module_path):
+            if i == '.' and key > last:
+                last = key
+        module = module_path[:last]
+        cname = module_path[last + 1:]
+        return cname, module
+
+    @staticmethod
     def build_remotely(new_args):
         raise Exception("to be implemented")
 

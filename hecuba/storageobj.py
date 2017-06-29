@@ -7,16 +7,6 @@ from hdict import StorageDict
 from hecuba import config, log
 
 
-def process_path(module_path):
-    last = 0
-    for key, i in enumerate(module_path):
-        if i == '.' and key > last:
-            last = key
-    module = module_path[:last]
-    cname = module_path[last + 1:]
-    return cname, module
-
-
 class StorageObj(object, IStorage):
     args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name"]
     args = namedtuple('StorageObjArgs', args_names)
@@ -44,7 +34,7 @@ class StorageObj(object, IStorage):
             so = StorageObj(new_args.name.encode('utf8'), new_args.tokens, new_args.storage_id, new_args.istorage_props)
 
         else:
-            class_name, module = process_path(class_name)
+            class_name, module = IStorage.process_path(class_name)
             mod = __import__(module, globals(), locals(), [class_name], 0)
 
             so = getattr(mod, class_name)(new_args.name.encode('utf8'), new_args.tokens,
@@ -134,13 +124,9 @@ class StorageObj(object, IStorage):
         storageobjs = filter(lambda (k, t): t['type'] not in IStorage.valid_types, self._persistent_props.iteritems())
         for table_name, per_dict in storageobjs:
             so_name = "%s.%s" % (self._ksp, table_name)
-            if '.' in per_dict['type']:
-                cname, module = process_path(per_dict['type'])
-                mod = __import__(module, globals(), locals(), [cname], 0)
-                so = getattr(mod, cname)()
-            else:
-                mod = __import__('tests.withcassandra.storageobj_tests', globals(), locals(), [per_dict['type']], 0)
-                so = getattr(mod, per_dict['type'])()
+            cname, module = IStorage.process_path(per_dict['type'])
+            mod = __import__(module, globals(), locals(), [cname], 0)
+            so = getattr(mod, cname)()
             setattr(self, table_name, so)
 
         if name is not None:
@@ -178,14 +164,16 @@ class StorageObj(object, IStorage):
                 table_name, dict_keys, dict_values = m.groups()
                 primary_keys = []
                 for ind, key in enumerate(dict_keys.split(",")):
-                    try:
-                        name, value = StorageObj._data_type.match(key).groups()
-                    except re.error:
-                        if ':' in key:
-                            raise SyntaxError
-                        else:
-                            name = "key" + str(ind)
-                            value = key
+                    match = StorageObj._data_type.match(key)
+                    if match is not None:
+                        # an IStorage with a name
+                        name, value = match.groups()
+                    elif ':' in key:
+                        raise SyntaxError
+                    else:
+                        name = "key" + str(ind)
+                        value = key
+
                     name = name.replace(' ', '')
                     primary_keys.append((name, StorageObj._conversions[value]))
                 dict_values = dict_values.replace(' ', '')
@@ -241,14 +229,15 @@ class StorageObj(object, IStorage):
                 else:
                     columns = []
                     for ind, val in enumerate(dict_values.split(",")):
-                        try:
-                            name, value = StorageObj._data_type.match(val).groups()
-                        except Exception:
-                            if ':' in val:
-                                name, value = StorageObj._so_data_type.match(val).groups()
-                            else:
-                                name = "val" + str(ind)
-                                value = val
+                        match = StorageObj._data_type.match(val)
+                        if match is not None:
+                            # an IStorage with a name
+                            name, value = match.groups()
+                        elif ':' in val:
+                            name, value = StorageObj._so_data_type.match(val).groups()
+                        else:
+                            name = "val" + str(ind)
+                            value = val
                         name = name.replace(' ', '')
                         try:
                             columns.append((name, StorageObj._conversions[value]))
@@ -369,13 +358,9 @@ class StorageObj(object, IStorage):
         storageobjs = filter(lambda (k, t): t['type'] not in IStorage.valid_types, self._persistent_props.iteritems())
         for table_name, per_dict in storageobjs:
             so_name = "%s.%s" % (self._ksp, table_name)
-            if '.' in per_dict['type']:
-                cname, module = process_path(per_dict['type'])
-                mod = __import__(module, globals(), locals(), [cname], 0)
-                so = getattr(mod, cname)(so_name)
-            else:
-                mod = __import__('tests.withcassandra.storageobj_tests', globals(), locals(), [per_dict['type']], 0) #TO FIX
-                so = getattr(mod, per_dict['type'])(so_name)
+            cname, module = IStorage.process_path(per_dict['type'])
+            mod = __import__(module, globals(), locals(), [cname], 0)
+            so = getattr(mod, cname)(so_name)
             for key, var in getattr(self, table_name).__dict__.iteritems():
                 if key[0] != '_' and type(var) in IStorage.python_types:
                     setattr(so, key, var)

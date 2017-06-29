@@ -64,9 +64,8 @@ class StorageDictTest(unittest.TestCase):
 
         for i in range(100):
             pd[i] = 'ciao' + str(i)
-        time.sleep(4)
-        count, = config.session.execute('SELECT count(*) FROM hecuba.tab10')[0]
         del pd
+        count, = config.session.execute('SELECT count(*) FROM hecuba.tab10')[0]
         self.assertEqual(count, 100)
 
     def test_make_persistent(self):
