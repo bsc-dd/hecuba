@@ -1,25 +1,25 @@
 import unittest
 import time
 
-from hecuba import config
+from cassandra.cluster import Cluster
 
 
 
 class Hfetch_Tests(unittest.TestCase):
-    keyspace = "test"
+    keyspace = "hfetch_test"
     contact_names = ['127.0.0.1']
     nodePort = 9042
+    cluster = Cluster(contact_names,port=nodePort)
+    session = cluster.connect()
 
     @classmethod
     def setUpClass(cls):
-        config.reset(mock_cassandra=False)
-        config.session.execute("CREATE KEYSPACE IF NOT EXISTS %s WITH replication "
+        cls.session.execute("CREATE KEYSPACE IF NOT EXISTS %s WITH replication "
                                "= {'class': 'SimpleStrategy', 'replication_factor': 1};" % cls.keyspace)
-        time.sleep(5)
 
     @classmethod
     def tearDownClass(cls):
-        #config.session.execute("DROP KEYSPACE IF EXISTS %s;" % cls.keyspace)
+        #self.session.execute("DROP KEYSPACE IF EXISTS %s;" % cls.keyspace)
         pass
 
     def test_connection(self):
@@ -101,8 +101,8 @@ class Hfetch_Tests(unittest.TestCase):
 
         table = "nulls"
 
-        config.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
-        config.session.execute("CREATE TABLE %s.%s(partid int PRIMARY KEY, time float, data text);" % (self.keyspace, table))
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
+        self.session.execute("CREATE TABLE %s.%s(partid int PRIMARY KEY, time float, data text);" % (self.keyspace, table))
 
         num_items = int(pow(10, 3))
 
@@ -144,13 +144,13 @@ class Hfetch_Tests(unittest.TestCase):
         table = "particle"
         nparts = 10000  # Num particles in range
 
-        config.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
-        config.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
+        self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
                                "x float, y float, z float, PRIMARY KEY(partid,time));"% (self.keyspace,table))
 
         for i in xrange(0,nparts):
             vals = ','.join(str(e) for e in [i,i/.1,i/.2,i/.3,i/.4,"'"+str(i*60)+"'"])
-            config.session.execute("INSERT INTO %s.%s(partid , time , x, y , z,ciao ) VALUES (%s)"% (self.keyspace,table,vals))
+            self.session.execute("INSERT INTO %s.%s(partid , time , x, y , z,ciao ) VALUES (%s)"% (self.keyspace,table,vals))
 
         try:
             connectCassandra(self.contact_names, self.nodePort)
@@ -210,13 +210,13 @@ class Hfetch_Tests(unittest.TestCase):
         num_keys = 10000 #num keys must be multiple of expected_errors
         expected_errors = 10
 
-        config.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
-        config.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
+        self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
                                "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
 
         for i in xrange(0, num_keys):
             vals = ','.join(str(e) for e in [i, i / .1, i / .2, i / .3, i / .4, "'" + str(i * 60) + "'"])
-            config.session.execute(
+            self.session.execute(
                 "INSERT INTO %s.%s(partid , time , x, y , z,ciao ) VALUES (%s)" % (self.keyspace, table, vals))
 
         try:
@@ -271,13 +271,13 @@ class Hfetch_Tests(unittest.TestCase):
         table = 'particle'
         num_keys = 10001
 
-        config.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
-        config.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
+        self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
                                "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
 
         for i in xrange(0, num_keys):
             vals = ','.join(str(e) for e in [i, i / .1, i / .2, i / .3, i / .4, "'" + str(i * 60) + "'"])
-            config.session.execute(
+            self.session.execute(
                 "INSERT INTO %s.%s(partid , time , x, y , z,ciao ) VALUES (%s)" % (self.keyspace, table, vals))
 
 
@@ -368,8 +368,8 @@ class Hfetch_Tests(unittest.TestCase):
 
         table = "bulk"
 
-        config.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
-        config.session.execute("CREATE TABLE %s.%s(partid int PRIMARY KEY, data text);" % (self.keyspace, table))
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
+        self.session.execute("CREATE TABLE %s.%s(partid int PRIMARY KEY, data text);" % (self.keyspace, table))
 
 
         num_items = int(pow(10, 3))
@@ -427,15 +427,15 @@ class Hfetch_Tests(unittest.TestCase):
         num_keys = 20
 
 
-        config.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
-        config.session.execute(
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
+        self.session.execute(
             "CREATE TABLE %s.%s(position int PRIMARY KEY, wordinfo text);" % (self.keyspace, table))
 
 
 
         for i in xrange(0, num_keys):
             vals = ','.join(str(e) for e in [i,"'someRandomTextForTesting purposes - " + str(i * 60) + "'"])
-            config.session.execute(
+            self.session.execute(
                 "INSERT INTO %s.%s(position , wordinfo ) VALUES (%s)" % (self.keyspace, table, vals))
 
         try:
@@ -500,13 +500,13 @@ class Hfetch_Tests(unittest.TestCase):
         table = "particle"
         nelems = 10001
 
-        config.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
-        config.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
+        self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
                                "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
 
         for i in xrange(0, nelems):
             vals = ','.join(str(e) for e in [i, i / .1, i / .2, i / .3, i / .4, "'" + str(i * 60) + "'"])
-            config.session.execute(
+            self.session.execute(
                 "INSERT INTO %s.%s(partid , time , x, y , z,ciao ) VALUES (%s)" % (self.keyspace, table, vals))
 
         try:
@@ -572,13 +572,13 @@ class Hfetch_Tests(unittest.TestCase):
         table = 'particle'
         nelems = 500
 
-        config.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
-        config.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
+        self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
                                "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
 
         for i in xrange(0, nelems):
             vals = ','.join(str(e) for e in [i, i / .1, i / .2, i / .3, i / .4, "'" + str(i * 60) + "'"])
-            config.session.execute(
+            self.session.execute(
                 "INSERT INTO %s.%s(partid , time , x, y , z,ciao ) VALUES (%s)" % (self.keyspace, table, vals))
 
         try:
@@ -624,13 +624,13 @@ class Hfetch_Tests(unittest.TestCase):
         table = 'particle'
         num_keys = 10001
 
-        config.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
-        config.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
+        self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
                                "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
 
         for i in xrange(0, num_keys):
             vals = ','.join(str(e) for e in [i, i / .1, i / .2, i / .3, i / .4, "'" + str(i * 60) + "'"])
-            config.session.execute(
+            self.session.execute(
                 "INSERT INTO %s.%s(partid , time , x, y , z,ciao ) VALUES (%s)" % (self.keyspace, table, vals))
 
 
@@ -704,8 +704,8 @@ class Hfetch_Tests(unittest.TestCase):
         
         table = "uuid"
 
-        config.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
-        config.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid uuid, data int, PRIMARY KEY(partid));" % (self.keyspace, table))
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
+        self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid uuid, data int, PRIMARY KEY(partid));" % (self.keyspace, table))
 
         nelem = 1000
         nblocks = 10
@@ -785,12 +785,12 @@ class Hfetch_Tests(unittest.TestCase):
         length_row=100
 
 
-        config.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
-        config.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(position int, wordinfo text, PRIMARY KEY(position));" % (self.keyspace, table))
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
+        self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(position int, wordinfo text, PRIMARY KEY(position));" % (self.keyspace, table))
 
         for i in xrange(0, nelems):
             vals = ','.join([str(i),"'"+''.join(random.choice(string.ascii_uppercase+string.ascii_lowercase+" "+ string.digits) for _ in range(length_row))+"'"])
-            config.session.execute(
+            self.session.execute(
                 "INSERT INTO %s.%s(position,wordinfo) VALUES (%s)" % (self.keyspace, table, vals))
 
         try:
@@ -840,16 +840,16 @@ class Hfetch_Tests(unittest.TestCase):
         table_write = "particle_write"
         nparts = 6000  # Num particles in range
 
-        config.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
-        config.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
+        self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
                                "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
 
-        config.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float,"
+        self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float,"
                                "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table_write))
 
         for i in xrange(0, nparts):
             vals = ','.join(str(e) for e in [i, i / .1, i / .2, i / .3, i / .4, "'" + str(i * 60) + "'"])
-            config.session.execute(
+            self.session.execute(
                 "INSERT INTO %s.%s(partid , time , x, y , z,ciao ) VALUES (%s)" % (self.keyspace, table, vals))
 
 

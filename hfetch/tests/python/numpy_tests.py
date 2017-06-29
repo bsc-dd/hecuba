@@ -1,25 +1,25 @@
 import unittest
 import time
 
-from hecuba import config
+from cassandra.cluster import Cluster
 
 
 
 class Hfetch_Tests(unittest.TestCase):
-    keyspace = "test"
+    keyspace = "hnumpy_test"
     contact_names = ['127.0.0.1']
     nodePort = 9042
+    cluster = Cluster(contact_names,port=nodePort)
+    session = cluster.connect()
 
     @classmethod
     def setUpClass(cls):
-        config.reset(mock_cassandra=False)
-        config.session.execute("CREATE KEYSPACE IF NOT EXISTS %s WITH replication "
+        cls.session.execute("CREATE KEYSPACE IF NOT EXISTS %s WITH replication "
                                "= {'class': 'SimpleStrategy', 'replication_factor': 1};" % cls.keyspace)
-        time.sleep(5)
 
     @classmethod
     def tearDownClass(cls):
-        #config.session.execute("DROP KEYSPACE IF EXISTS %s;" % cls.keyspace)
+        #self.session.execute("DROP KEYSPACE IF EXISTS %s;" % cls.keyspace)
         pass
 
     def test_multidim(self):
@@ -44,8 +44,8 @@ class Hfetch_Tests(unittest.TestCase):
 
         table = "arrays"
 
-        config.session.execute("DROP TABLE if exists test.arrays;")
-        config.session.execute("CREATE TABLE test.arrays(partid int PRIMARY KEY, image_block blob, image_block_pos int);")
+        self.session.execute("DROP TABLE if exists test.arrays;")
+        self.session.execute("CREATE TABLE test.arrays(partid int PRIMARY KEY, image_block blob, image_block_pos int);")
 
         a = Hcache(self.keyspace, table, "WHERE token(partid)>=? AND token(partid)<?;",
                    [], ["partid"],
@@ -74,7 +74,7 @@ class Hfetch_Tests(unittest.TestCase):
             print 'Array sent ', bigarr
             print 'Array retrieved ', result[0]
         time.sleep(2)
-        config.session.execute("DROP TABLE test.arrays;")
+        self.session.execute("DROP TABLE test.arrays;")
 
 
     def test_nopart(self):
@@ -102,8 +102,8 @@ class Hfetch_Tests(unittest.TestCase):
 
         table = "arrays"
 
-        config.session.execute("DROP TABLE if exists test.arrays;")
-        config.session.execute("CREATE TABLE test.arrays(partid int PRIMARY KEY, image_block blob);")
+        self.session.execute("DROP TABLE if exists test.arrays;")
+        self.session.execute("CREATE TABLE test.arrays(partid int PRIMARY KEY, image_block blob);")
 
 
         a = Hcache("test", table, "WHERE token(partid)>=? AND token(partid)<?;",
@@ -123,7 +123,7 @@ class Hfetch_Tests(unittest.TestCase):
         print 'Elapsed time', time.time() - t1
 
         time.sleep(2)
-        config.session.execute("DROP TABLE test.arrays;")
+        self.session.execute("DROP TABLE test.arrays;")
 
 
 
@@ -142,8 +142,8 @@ class Hfetch_Tests(unittest.TestCase):
         elem_dim = 2048
         txt_elem_dim = str(elem_dim)
 
-        config.session.execute("DROP TABLE if exists test.arrays;")
-        config.session.execute("CREATE TABLE test.arrays(partid int , image_block blob, image_block_pos int, PRIMARY KEY(partid,image_block_pos));")
+        self.session.execute("DROP TABLE if exists test.arrays;")
+        self.session.execute("CREATE TABLE test.arrays(partid int , image_block blob, image_block_pos int, PRIMARY KEY(partid,image_block_pos));")
 
         try:
             connectCassandra(self.contact_names, self.nodePort)
@@ -172,7 +172,7 @@ class Hfetch_Tests(unittest.TestCase):
         print '2D, elem dimension: ', elem_dim
 
         time.sleep(2)
-        config.session.execute("DROP TABLE test.arrays;")
+        self.session.execute("DROP TABLE test.arrays;")
 
 
 
@@ -200,11 +200,11 @@ class Hfetch_Tests(unittest.TestCase):
 
         table = "arrays"
 
-        config.session.execute("DROP TABLE if exists test.arrays;")
-        config.session.execute("DROP TABLE if exists test.arrays_aux;")
-        config.session.execute("CREATE TABLE test.arrays(partid int PRIMARY KEY, image uuid);")
+        self.session.execute("DROP TABLE if exists test.arrays;")
+        self.session.execute("DROP TABLE if exists test.arrays_aux;")
+        self.session.execute("CREATE TABLE test.arrays(partid int PRIMARY KEY, image uuid);")
 
-        config.session.execute("CREATE TABLE test.arrays_aux(uuid uuid,  position int, data blob, PRIMARY KEY (uuid,position));")
+        self.session.execute("CREATE TABLE test.arrays_aux(uuid uuid,  position int, data blob, PRIMARY KEY (uuid,position));")
 
 
         time.sleep(1)
@@ -229,8 +229,8 @@ class Hfetch_Tests(unittest.TestCase):
         print '2D, elem dimension: ', elem_dim
 
         time.sleep(3)
-        config.session.execute("DROP TABLE test.arrays;")
-        config.session.execute("DROP TABLE test.arrays_aux;")
+        self.session.execute("DROP TABLE test.arrays;")
+        self.session.execute("DROP TABLE test.arrays_aux;")
 
 
     def test_arr_put_get(self):
@@ -256,8 +256,8 @@ class Hfetch_Tests(unittest.TestCase):
 
         table = "arrays"
 
-        config.session.execute("DROP TABLE if exists test.arrays;")
-        config.session.execute("CREATE TABLE test.arrays(partid int , image_block blob, image_block_pos int, PRIMARY KEY(partid,image_block_pos));")
+        self.session.execute("DROP TABLE if exists test.arrays;")
+        self.session.execute("CREATE TABLE test.arrays(partid int , image_block blob, image_block_pos int, PRIMARY KEY(partid,image_block_pos));")
 
         time.sleep(3)
         a = Hcache("test", table, "WHERE token(partid)>=? AND token(partid)<?;",
@@ -285,4 +285,4 @@ class Hfetch_Tests(unittest.TestCase):
         except KeyError:
             print 'not found'
 
-        config.session.execute("DROP TABLE test.arrays;")
+        self.session.execute("DROP TABLE test.arrays;")
