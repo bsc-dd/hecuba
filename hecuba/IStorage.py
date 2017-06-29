@@ -13,6 +13,8 @@ class IStorage:
     valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map',
                    'bigint', 'blob', 'counter', 'dict', 'float']
 
+    python_types = [int, str, bool, float, tuple, set, dict, long, bytearray]
+
     _conversions = {'atomicint': 'counter',
                     'str': 'text',
                     'bool': 'boolean',
@@ -29,6 +31,16 @@ class IStorage:
                     'buffer': 'blob',
                     'bytearray': 'blob',
                     'counter': 'counter'}
+
+    @staticmethod
+    def process_path(module_path):
+        last = 0
+        for key, i in enumerate(module_path):
+            if i == '.' and key > last:
+                last = key
+        module = module_path[:last]
+        cname = module_path[last + 1:]
+        return cname, module
 
     @staticmethod
     def build_remotely(new_args):

@@ -102,7 +102,7 @@ uint16_t TableMetadata::compute_size_of(const CassValueType VT) const {
         case CASS_VALUE_TYPE_CUSTOM:
         case CASS_VALUE_TYPE_UNKNOWN:
         default:
-            throw ModuleException("Unknown data type, can't parse");
+            throw ModuleException("Can't parse data: Unknown data type or user defined type");
             //TODO
     }
     return 0;
@@ -116,30 +116,40 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
 
 
     if (keys_names.empty()) throw ModuleException("TableMetadata: No keys received");
-    if (columns_names.empty()) throw ModuleException("TableMetadata: 0 columns names received");
 
-    uint32_t n_cols = (uint32_t) columns_names.size(); //TODO check for *
     uint32_t n_keys = (uint32_t) keys_names.size();
-
+    uint32_t n_cols = (uint32_t) columns_names.size(); //TODO check for *
+    for (uint32_t i= 0; i<n_keys; ++i) {
+        std::transform(keys_names[i]["name"].begin(), keys_names[i]["name"].end(), keys_names[i]["name"].begin(), ::tolower);
+    }
+    for (uint32_t i= 0; i<n_cols; ++i) {
+        std::transform(columns_names[i]["name"].begin(), columns_names[i]["name"].end(), columns_names[i]["name"].begin(), ::tolower);
+    }
     this->table=std::string(table_name);
+    std::transform(this->table.begin(), this->table.end(), this->table.begin(), ::tolower);
     this->keyspace=std::string(keyspace_name);
+    std::transform(this->keyspace.begin(), this->keyspace.end(), this->keyspace.begin(), ::tolower);
 
 
 
     const CassSchemaMeta *schema_meta = cass_session_get_schema_meta(session);
     if (!schema_meta) {
-        throw ModuleException("Cache particles_table: constructor: Schema meta is NULL");
+        std::string error_msg = "TableMetadata constructor: Cassandra schema doesn't exist, probably not connected...";
+        if (session==NULL) error_msg+= "session with cassandra not stablished";
+        throw ModuleException(error_msg.c_str());
     }
 
-    const CassKeyspaceMeta *keyspace_meta = cass_schema_meta_keyspace_by_name(schema_meta, keyspace_name);
+    const CassKeyspaceMeta *keyspace_meta = cass_schema_meta_keyspace_by_name(schema_meta, this->keyspace.c_str());
     if (!keyspace_meta) {
-        throw ModuleException("Keyspace "+std::string(keyspace_name)+": constructor: Schema meta is NULL");
+        throw ModuleException("The keyspace "+std::string(keyspace_name)+" has no metadatas,"
+                "check the keyspace name and make sure it exists");
     }
 
 
-    const CassTableMeta *table_meta = cass_keyspace_meta_table_by_name(keyspace_meta, table_name);
+    const CassTableMeta *table_meta = cass_keyspace_meta_table_by_name(keyspace_meta, this->table.c_str());
     if (!table_meta || (cass_table_meta_column_count(table_meta)==0)) {
-        throw ModuleException("Table "+std::string(table_name)+": Meta is NULL or have 0 cols");
+        throw ModuleException("The table "+std::string(table_name)+" has no metadatas,"
+                " check the table name and make sure it exists");
     }
 
 //TODO Switch to unordered maps for efficiency
@@ -158,8 +168,7 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
 
         const CassDataType *type = cass_column_meta_data_type(cmeta);
 
-        //std::string meta_col_name(value);
-        metadatas[value]= {};// columns_names[j],cass_data_type_type(type)
+        metadatas[value]= {};
         metadatas[value].type = cass_data_type_type(type);
         metadatas[value].size = compute_size_of(metadatas[value].type);
         metadatas[value].col_type = cass_column_meta_type(cmeta);
@@ -170,6 +179,7 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
 
 
     std::string key = keys_names[0]["name"];
+    if (key.empty()) throw ModuleException("Empty key name given on position 0");
     std::string select_where = key+"=? ";
     std::string keys = key;
     std::string col;
@@ -178,18 +188,22 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
 
     for (uint16_t i = 1; i<n_keys; ++i){
         key = keys_names[i]["name"];
-        if (key.empty()) throw ModuleException("Empty key name given, position: "+std::to_string(i));
+        if (key.empty()) throw ModuleException("Empty key name given on position: "+std::to_string(i));
         keys+=","+key;
         select_where+="AND "+key+"=? ";
         if (metadatas[key].col_type==CASS_COLUMN_TYPE_PARTITION_KEY) tokens_keys+=","+key;
     }
     if (tokens_keys.empty()) throw ModuleException("No partition key detected among the keys: "+keys);
 
-    std::string cols = columns_names[0]["name"]; //TODO Check for *
-    for (uint16_t i = 1; i<n_cols; ++i){
-        col = columns_names[i]["name"];
-        if (col.empty()) throw ModuleException("Empty column name given, position: "+std::to_string(i));
-        cols+=","+columns_names[i]["name"];
+    std::string cols = "";
+    if (!columns_names.empty()) {
+        cols += columns_names[0]["name"]; //TODO Check for *
+        if (cols.empty()) throw ModuleException("Empty column name given on position 0");
+        for (uint16_t i = 1; i < n_cols; ++i) {
+            col = columns_names[i]["name"];
+            if (col.empty()) throw ModuleException("Empty column name given onposition: " + std::to_string(i));
+            cols += "," + col;
+        }
     }
 
     std::string select_tokens_where =" token("+tokens_keys+")>=? AND token("+tokens_keys+")<? ";
@@ -209,13 +223,15 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
     std::vector<ColumnMeta> keys_meta(n_keys);
     std::vector<ColumnMeta> cols_meta(n_cols);
 
-    cols_meta[0]=metadatas[columns_names[0]["name"]];
-    cols_meta[0].info=columns_names[0];
-    cols_meta[0].position = 0;
-    for (uint16_t i = 1; i < cols_meta.size(); ++i) {
-        cols_meta[i]=metadatas[columns_names[i]["name"]];
-        cols_meta[i].info=columns_names[i];
-        cols_meta[i].position = cols_meta[i - 1].position + cols_meta[i - 1].size;
+    if (!columns_names.empty()) {
+        cols_meta[0] = metadatas[columns_names[0]["name"]];
+        cols_meta[0].info = columns_names[0];
+        cols_meta[0].position = 0;
+        for (uint16_t i = 1; i < cols_meta.size(); ++i) {
+            cols_meta[i] = metadatas[columns_names[i]["name"]];
+            cols_meta[i].info = columns_names[i];
+            cols_meta[i].position = cols_meta[i - 1].position + cols_meta[i - 1].size;
+        }
     }
 
     keys_meta[0]=metadatas[keys_names[0]["name"]];

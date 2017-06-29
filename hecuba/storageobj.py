@@ -34,12 +34,7 @@ class StorageObj(object, IStorage):
             so = StorageObj(new_args.name.encode('utf8'), new_args.tokens, new_args.storage_id, new_args.istorage_props)
 
         else:
-            last = 0
-            for key, i in enumerate(class_name):
-                if i == '.' and key > last:
-                    last = key
-            module = class_name[:last]
-            class_name = class_name[last + 1:]
+            class_name, module = IStorage.process_path(class_name)
             mod = __import__(module, globals(), locals(), [class_name], 0)
 
             so = getattr(mod, class_name)(new_args.name.encode('utf8'), new_args.tokens,
@@ -77,6 +72,7 @@ class StorageObj(object, IStorage):
         log.debug("CREATED StorageObj(%s)", name)
         self._is_persistent = False
         self._persistent_dicts = []
+        self._storage_objs = []
         self._attr_to_column = {}
         if name is None:
             self._ksp = config.execution_name
@@ -124,14 +120,21 @@ class StorageObj(object, IStorage):
             setattr(self, table_name, pd)
             self._persistent_dicts.append(pd)
 
+        storageobjs = filter(lambda (k, t): t['type'] not in IStorage.valid_types, self._persistent_props.iteritems())
+        for table_name, per_dict in storageobjs:
+            so_name = "%s.%s" % (self._ksp, table_name)
+            cname, module = IStorage.process_path(per_dict['type'])
+            mod = __import__(module, globals(), locals(), [cname], 0)
+            so = getattr(mod, cname)()
+            setattr(self, table_name, so)
+
         if name is not None:
             self.make_persistent(name)
 
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.getID() == other.getID()
 
-    _valid_type = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer|' \
-                  'numpy.ndarray|counter)'
+    _valid_type = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer|numpy.ndarray|counter)'
     _data_type = re.compile('(\w+) *: *%s' % _valid_type)
     _so_data_type = re.compile('(\w+)*:(\w.+)')
     _dict_case = re.compile('.*@ClassField +(\w+) +dict+ *< *< *([\w:, ]+)+ *> *, *([\w+:., <>]+) *>')
@@ -160,14 +163,16 @@ class StorageObj(object, IStorage):
                 table_name, dict_keys, dict_values = m.groups()
                 primary_keys = []
                 for ind, key in enumerate(dict_keys.split(",")):
-                    try:
-                        name, value = StorageObj._data_type.match(key).groups()
-                    except re.error:
-                        if ':' in key:
-                            raise SyntaxError
-                        else:
-                            name = "key" + str(ind)
-                            value = key
+                    match = StorageObj._data_type.match(key)
+                    if match is not None:
+                        # an IStorage with a name
+                        name, value = match.groups()
+                    elif ':' in key:
+                        raise SyntaxError
+                    else:
+                        name = "key" + str(ind)
+                        value = key
+
                     name = name.replace(' ', '')
                     primary_keys.append((name, StorageObj._conversions[value]))
                 dict_values = dict_values.replace(' ', '')
@@ -223,14 +228,15 @@ class StorageObj(object, IStorage):
                 else:
                     columns = []
                     for ind, val in enumerate(dict_values.split(",")):
-                        try:
-                            name, value = StorageObj._data_type.match(val).groups()
-                        except re.error:
-                            if ':' in val:
-                                name, value = StorageObj._so_data_type.match(val).groups()
-                            else:
-                                name = "val" + str(ind)
-                                value = val
+                        match = StorageObj._data_type.match(val)
+                        if match is not None:
+                            # an IStorage with a name
+                            name, value = match.groups()
+                        elif ':' in val:
+                            name, value = StorageObj._so_data_type.match(val).groups()
+                        else:
+                            name = "val" + str(ind)
+                            value = val
                         name = name.replace(' ', '')
                         try:
                             columns.append((name, StorageObj._conversions[value]))
@@ -330,7 +336,7 @@ class StorageObj(object, IStorage):
                        '( storage_id uuid PRIMARY KEY, '
         for key, entry in self._persistent_props.iteritems():
             query_simple += str(key) + ' '
-            if entry['type'] != 'dict':
+            if entry['type'] != 'dict' and entry['type'] in IStorage.valid_types:
                 query_simple += entry['type'] + ', '
             else:
                 query_simple += 'uuid, '
@@ -346,7 +352,20 @@ class StorageObj(object, IStorage):
             pd = getattr(self, table_name)
             sd_name = self._ksp + "." + self._table+"_"+table_name
             pd.make_persistent(sd_name)
+            setattr(self, table_name, pd)
             is_props[sd_name] = str(pd._storage_id)
+
+        storageobjs = filter(lambda (k, t): t['type'] not in IStorage.valid_types, self._persistent_props.iteritems())
+        for table_name, per_dict in storageobjs:
+            so_name = "%s.%s" % (self._ksp, table_name)
+            cname, module = IStorage.process_path(per_dict['type'])
+            mod = __import__(module, globals(), locals(), [cname], 0)
+            so = getattr(mod, cname)(so_name)
+            for key, var in getattr(self, table_name).__dict__.iteritems():
+                if key[0] != '_' and type(var) in IStorage.python_types:
+                    setattr(so, key, var)
+            setattr(self, table_name, so)
+            self._storage_objs.append(so)
 
         if changed or self._storage_id is None:
             if self._storage_id is None:
@@ -373,8 +392,14 @@ class StorageObj(object, IStorage):
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
         self._is_persistent = False
-        for pers_dict in self._persistent_dicts:
-            pers_dict.delete_persistent()
+
+        if hasattr(self, '_persistent_dicts'):
+            for pers_dict in self._persistent_dicts:
+                pers_dict.delete_persistent()
+
+        if hasattr(self, '_storage_objs'):
+            for so in self._storage_objs:
+                so.delete_persistent()
 
         query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
         log.debug("DELETE PERSISTENT: %s", query)
@@ -457,4 +482,3 @@ class StorageObj(object, IStorage):
                 super(StorageObj, self).__setattr__(key, value)
         else:
             super(StorageObj, self).__setattr__(key, value)
-

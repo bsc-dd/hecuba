@@ -31,15 +31,13 @@ public:
     std::vector<const TupleRow *> get_crow(const TupleRow *py_keys);
 
 
-    std::vector<std::shared_ptr<void>> get_crow(void* keys);
+    std::vector<const TupleRow*> get_crow(void* keys);
+
+    void add_to_cache(void* keys, void* values);
 
     void put_crow(const TupleRow* row);
+
     void put_crow(const TupleRow* keys, const TupleRow* values);
-
-    /** TESTING METHODS **/
-
-    TupleRowFactory* _test_get_keys_factory(){ return keys_factory;}
-    TupleRowFactory* _test_get_value_factory(){ return values_factory;}
 
     const TableMetadata* get_metadata() {
         return table_metadata;

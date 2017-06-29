@@ -4,11 +4,12 @@ from hecuba import config
 from hecuba.hdict import StorageDict
 from app.words import Words
 import uuid
+import time
 
 
-class StorageObjTest(unittest.TestCase):
+class StorageDictTest(unittest.TestCase):
     def test_init_empty(self):
-        # done
+        config.session.execute("DROP TABLE IF EXISTS ksp.tab1")
         tablename = "ksp.tab1"
         tokens = [(1l, 2l), (2l, 3l), (3l, 4l)]
         nopars = StorageDict([('position', 'int')], [('value', 'int')], tablename, tokens)
@@ -31,7 +32,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(nopars._is_persistent, rebuild._is_persistent)
 
     def test_init_empty_def_keyspace(self):
-        # done
+        config.session.execute("DROP TABLE IF EXISTS hecuba.tab1")
         tablename = "tab1"
         tokens = [(1l, 2l), (2l, 3l), (3l, 4l)]
         nopars = StorageDict([('position', 'int')], [('value', 'int')], tablename, tokens)
@@ -245,6 +246,43 @@ class StorageObjTest(unittest.TestCase):
             self.assertAlmostEquals(a[1], b.x, delta=delta)
             self.assertAlmostEquals(a[2], b.y, delta=delta)
             self.assertAlmostEquals(a[3], b.z, delta=delta)
+
+    def test_composed_key_return_list_iteritems_test(self):
+        # in process
+        config.session.execute("DROP TABLE IF EXISTS hecuba.tab13")
+        config.session.execute(
+            "CREATE TABLE IF NOT EXISTS hecuba.tab13(pid int,time float, value text,x float,y float,z float, PRIMARY KEY(pid,time))")
+        tablename = "tab13"
+        pd = StorageDict([('pid', 'int'), ('time', 'float')],
+                         [('value', 'text'),
+                          ('x', 'float'),
+                          ('y', 'float'), ('z', 'float')], tablename)
+
+        what_should_be = {}
+        for i in range(100):
+            pd[i, i + 100] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
+            what_should_be[i, i + 100] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
+
+        del pd
+
+        count, = config.session.execute('SELECT count(*) FROM hecuba.tab13')[0]
+        self.assertEqual(count, 100)
+        pd = StorageDict([('pid', 'int')],
+                         [('time', 'float'), ('value', 'text'),
+                          ('x', 'float'),
+                          ('y', 'float'), ('z', 'float')], tablename)
+        count = 0
+        res = {}
+        for key, val in pd.iteritems():
+            self.assertTrue(isinstance(key, int))
+            self.assertTrue(isinstance(val[0], float))
+            res[key] = val
+            count += 1
+        self.assertEqual(count, 100)
+        # casting to avoid 1.0000001 float python problem
+        data = set([(key, int(val.time), val.value, int(val.x), int(val.y), int(val.z)) for key, val in pd.iteritems()])
+        data2 = set([(key[0], int(key[1]), val[0], int(val[1]), int(val[2]), int(val[3])) for key, val in what_should_be.iteritems()])
+        self.assertEqual(data, data2)
 
 
 if __name__ == '__main__':

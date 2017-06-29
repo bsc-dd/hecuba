@@ -8,6 +8,9 @@ from hecuba import config, log
 import uuid
 
 
+
+
+
 class NamedIterator:
     def __init__(self, hiterator, builder, father):
         self.hiterator = hiterator
@@ -224,14 +227,21 @@ class StorageDict(dict, IStorage):
                 except Exception as ex:
                     print "Error creating the StorageDict keyspace:", query_keyspace, ex
 
-        columns = map(lambda a: a[0] + " " + a[1], self._primary_keys + self._columns)
+        columns = map(lambda a: a, self._primary_keys + self._columns)
+        for ind, entry in enumerate(columns):
+            if entry[1] not in IStorage.valid_types:
+                class_name, module = IStorage.process_path(entry[1])
+                mod = __import__(module, globals(), locals(), [class_name], 0)
+                so = getattr(mod, class_name)(entry[0])
+                setattr(self, entry[0], so)
+                columns[ind] = entry[0], 'uuid'
+
         pks = map(lambda a: a[0], self._primary_keys)
         query_table = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" \
                       % (self._ksp,
                          self._table,
-                         str.join(',', columns),
+                         ",".join("%s %s" % tup for tup in columns),
                          str.join(',', pks))
-        # print query_table
         try:
             log.debug('MAKE PERSISTENCE: %s', query_table)
             config.session.execute(query_table)
@@ -284,7 +294,10 @@ class StorageDict(dict, IStorage):
             if issubclass(cres.__class__, NoneType):
                 return None
             elif self._column_builder is not None:
-                return self._column_builder(*cres)
+                if len(cres) > 0 and isinstance(cres[0], list):
+                    return [self._column_builder(*row) for row in cres]
+                else:
+                    return self._column_builder(*cres)
             else:
                 return cres[0]
 
