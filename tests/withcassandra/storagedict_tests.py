@@ -4,11 +4,12 @@ from hecuba import config
 from hecuba.hdict import StorageDict
 from app.words import Words
 import uuid
+import time
 
 
-class StorageObjTest(unittest.TestCase):
+class StorageDictTest(unittest.TestCase):
     def test_init_empty(self):
-        # done
+        config.session.execute("DROP TABLE IF EXISTS ksp.tab1")
         tablename = "ksp.tab1"
         tokens = [(1l, 2l), (2l, 3l), (3l, 4l)]
         nopars = StorageDict([('position', 'int')], [('value', 'int')], tablename, tokens)
@@ -31,7 +32,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(nopars._is_persistent, rebuild._is_persistent)
 
     def test_init_empty_def_keyspace(self):
-        # done
+        config.session.execute("DROP TABLE IF EXISTS hecuba.tab1")
         tablename = "tab1"
         tokens = [(1l, 2l), (2l, 3l), (3l, 4l)]
         nopars = StorageDict([('position', 'int')], [('value', 'int')], tablename, tokens)
