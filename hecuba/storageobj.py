@@ -10,7 +10,7 @@ from hecuba import config, log
 class StorageObj(object, IStorage):
     args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name"]
     args = namedtuple('StorageObjArgs', args_names)
-    _prepared_store_meta = config.session.prepare('INSERT INTO ' + config.execution_name +
+    _prepared_store_meta = config.session.prepare('INSERT INTO hecuba' +
                                                   '.istorage (storage_id, class_name, name, tokens,istorage_props) '
                                                   ' VALUES (?,?,?,?,?)')
     """
@@ -482,12 +482,3 @@ class StorageObj(object, IStorage):
                 super(StorageObj, self).__setattr__(key, value)
         else:
             super(StorageObj, self).__setattr__(key, value)
-
-    def getID(self):
-        """
-            This function returns the ID of the StorageObj
-            Returns:
-                storage_id of the object, followed by '_1'
-        """
-        return '%s_1' % str(self._storage_id)
-

@@ -61,7 +61,7 @@ class StorageDict(dict, IStorage):
 
     args_names = ["primary_keys", "columns", "name", "tokens", "storage_id", "indexed_on", "class_name"]
     args = namedtuple('StorageDictArgs', args_names)
-    _prepared_store_meta = config.session.prepare('INSERT INTO ' + config.execution_name +
+    _prepared_store_meta = config.session.prepare('INSERT INTO hecuba' +
                                                   '.istorage (storage_id, class_name, name, '
                                                   'tokens,primary_keys,columns,indexed_on)'
                                                   'VALUES (?,?,?,?,?,?,?)')
@@ -97,7 +97,7 @@ class StorageDict(dict, IStorage):
             log.error("Error creating the StorageDict metadata: %s %s", storage_args, ex)
             raise ex
 
-    def __init__(self, primary_keys, columns, name=None, tokens=None, storage_id=None, indexed_args=None, **kwargs):
+    def __init__(self, primary_keys, columns, name=None, tokens=None, storage_id=None, indexed_args=[], **kwargs):
         """
         Creates a new block.
 
@@ -314,14 +314,6 @@ class StorageDict(dict, IStorage):
             dict.__setitem__(self, key, val)
         else:
             self._hcache.put_row(self._make_key(key), self._make_value(val))
-
-    def getID(self):
-        """
-        Obtains the id of the block
-        Returns:
-            self._storage_id: id of the block
-        """
-        return str(self._storage_id)
 
     def iterkeys(self):
         """

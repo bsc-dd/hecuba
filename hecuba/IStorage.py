@@ -5,7 +5,7 @@ from hecuba import config, log
 
 
 class IStorage:
-    _select_istorage_meta = config.session.prepare("SELECT * FROM " + config.execution_name + ".istorage WHERE storage_id = ?")
+    _select_istorage_meta = config.session.prepare("SELECT * FROM hecuba.istorage WHERE storage_id = ?")
     args_names = []
     args = namedtuple("IStorage", [])
     _build_args = args()
@@ -132,4 +132,11 @@ class IStorage:
         raise Exception("to be implemented")
 
     def getID(self):
-        raise Exception("to be implemented")
+        """
+        Obtains the id of the storage element
+        Returns:
+            self._storage_id: id of the block
+        """
+        # raise Exception("to be implemented")
+        return str(self._storage_id)
+

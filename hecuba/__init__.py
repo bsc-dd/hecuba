@@ -105,10 +105,13 @@ class Config:
             log.warn('using default REPLICA_FACTOR: %d', singleton.repl_factor)
 
         try:
-            singleton.execution_name = os.environ['EXECUTION_NAME']
+            user_defined_execution_name = os.environ['EXECUTION_NAME']
+            if user_defined_execution_name == 'hecuba':
+                raise RuntimeError('Error: the application keyspace cannot be \'hecuba\'. This keyspace is reserved for storing metadata.')
+            singleton.execution_name = user_defined_execution_name
             log.info('EXECUTION_NAME: %s', singleton.execution_name)
         except KeyError:
-            singleton.execution_name = 'hecuba'
+            singleton.execution_name = 'my_app'
             log.warn('using default EXECUTION_NAME: %s', singleton.execution_name)
 
         if mock_cassandra:
@@ -143,19 +146,18 @@ class Config:
                 connectCassandra(singleton.contact_names, singleton.nodePort)
                 if singleton.id_create_schema == -1:
                     singleton.session.execute(
-                        ('CREATE KEYSPACE IF NOT EXISTS ' + singleton.execution_name +
+                        ('CREATE KEYSPACE IF NOT EXISTS hecuba' +
                          " WITH replication = {'class': 'SimpleStrategy', "
                          "'replication_factor': %d }" % singleton.repl_factor))
 
-                    singleton.session.execute('CREATE TYPE IF NOT EXISTS ' +
-                                              singleton.execution_name + '.q_meta('
+                    singleton.session.execute('CREATE TYPE IF NOT EXISTS hecuba.q_meta('
                                                                          'mem_filter text, '
                                                                          'from_point frozen < list < float >>,'
                                                                          'to_point frozen < list < float >>,'
                                                                          'precision float)')
 
                     singleton.session.execute(
-                        'CREATE TABLE IF NOT EXISTS ' + singleton.execution_name +
+                        'CREATE TABLE IF NOT EXISTS hecuba' +
                         '.istorage (storage_id uuid, '
                         'class_name text,name text, '
                         'istorage_props map<text,text>, '
