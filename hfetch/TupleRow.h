@@ -97,18 +97,24 @@ private:
         }
 
         /* Modifiers */
+        /*
+         * Every position of the null values vector represents 32 values
+         * of the data payload. Therefore, to decide which bucket inside the vector
+         * we need to access the position must be divided by 32. This is accomplished by
+         * doing bit shifting (5 positions to the right since 2^5=32).
+         */
         void setNull(uint32_t position) {
-            if (!null_values.empty()) this->null_values[(ssize_t) floor(position / 32.0)] |= (0x1 << position % 32);
+            if (!null_values.empty()) this->null_values[position>>5] |= (0x1 << (position % 32));
         }
 
         void unsetNull(uint32_t position) {
-            if (!null_values.empty()) this->null_values[(ssize_t) floor(position / 32.0)] &= !(0x1 << position % 32);
+            if (!null_values.empty()) this->null_values[position>>5] &= !(0x1 << (position % 32));
         }
 
         /* Get methods */
         bool isNull(uint32_t position) const {
             if (!data || null_values.empty()) return true;
-            return (this->null_values[(ssize_t) floor(position / 32.0)] & (0x1 << position % 32)) > 0;
+            return (this->null_values[position>>5] & (0x1 << position % 32)) > 0;
         }
 
 
