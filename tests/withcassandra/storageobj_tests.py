@@ -156,6 +156,7 @@ class StorageObjTest(unittest.TestCase):
 
     def test_make_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS hecuba_test.words")
+        config.session.execute("DROP TABLE IF EXISTS hecuba_test.wordsso_words")
         config.session.execute("DROP TABLE IF EXISTS hecuba_test.nonames_test3")
         nopars = Words()
         self.assertFalse(nopars._is_persistent)
@@ -177,15 +178,14 @@ class StorageObjTest(unittest.TestCase):
 
         nopars2 = Test6StorageObj("hecuba_test.nonames")
         nopars2.test3[0] = '1', '2'
-        rval0, rval1 = config.session.execute(
-            "SELECT val0, val1 FROM hecuba_test.nonames_test3 WHERE key0 = 0")[0]
+        rval0, rval1 = config.session.execute("SELECT val0, val1 FROM hecuba_test.nonames_test3 WHERE key0 = 0")[0]
 
         self.assertEqual('1', rval0)
         self.assertEqual('2', rval1)
 
     def test_empty_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS hecuba.wordsso_words")
-        config.session.execute("DROP TABLE IF EXISTS hecuba.wordsso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.wordsso_words")
+        config.session.execute("DROP TABLE IF EXISTS my_app.wordsso")
         from app.words import Words
         so = Words()
         so.make_persistent("wordsso")
@@ -198,33 +198,33 @@ class StorageObjTest(unittest.TestCase):
 
         del so
 
-        count, = config.session.execute('SELECT count(*) FROM hecuba.wordsso_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.wordsso_words')[0]
         self.assertEqual(10, count)
         so = Words()
         so.make_persistent("wordsso")
         so.delete_persistent()
 
-        count, = config.session.execute('SELECT count(*) FROM hecuba.wordsso_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.wordsso_words')[0]
         self.assertEqual(0, count)
 
     def test_simple_stores_after_make_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS hecuba.t2")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2")
         so = Test2StorageObj()
         so.name = 'caio'
         so.age = 1000
         so.make_persistent("t2")
-        count, = config.session.execute("SELECT COUNT(*) FROM hecuba.t2")[0]
+        count, = config.session.execute("SELECT COUNT(*) FROM my_app.t2")[0]
         self.assertEqual(count, 1)
         self.assertEqual(so.name, 'caio')
         self.assertEqual(so.age, 1000)
 
     def test_simple_attributes(self):
-        config.session.execute("DROP TABLE IF EXISTS hecuba.t2")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2")
         so = Test2StorageObj()
         so.make_persistent("t2")
         so.name = 'caio'
         so.age = 1000
-        count, = config.session.execute("SELECT COUNT(*) FROM hecuba.t2")[0]
+        count, = config.session.execute("SELECT COUNT(*) FROM my_app.t2")[0]
         self.assertEqual(count, 1)
         self.assertEqual(so.name, 'caio')
         self.assertEqual(so.age, 1000)
@@ -238,8 +238,8 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(b.test._indexed_args, ['x', 'y', 'z'])
 
     def test_nestedso_notpersistent(self):
-        config.session.execute("DROP TABLE IF EXISTS hecuba.mynewso")
-        config.session.execute("DROP TABLE IF EXISTS hecuba.myso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.myso")
 
         my_nested_so = Test3StorageObj()
 
@@ -250,7 +250,7 @@ class StorageObjTest(unittest.TestCase):
 
         error = False
         try:
-            config.session.execute('SELECT * FROM hecuba.myso')
+            config.session.execute('SELECT * FROM my_app.myso')
         except cassandra.InvalidRequest:
             error = True
         self.assertEquals(True, error)
@@ -267,14 +267,14 @@ class StorageObjTest(unittest.TestCase):
 
         error = False
         try:
-            config.session.execute('SELECT * FROM hecuba.myso')
+            config.session.execute('SELECT * FROM my_app.myso')
         except cassandra.InvalidRequest:
             error = True
         self.assertEquals(True, error)
 
     def test_nestedso_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS hecuba.mynewso")
-        config.session.execute("DROP TABLE IF EXISTS hecuba.myso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.myso")
 
         my_nested_so = Test3StorageObj('mynewso')
         self.assertEquals(True, my_nested_so._is_persistent)
@@ -286,7 +286,7 @@ class StorageObjTest(unittest.TestCase):
         my_nested_so.myso.age = 10
         error = False
         try:
-            result = config.session.execute('SELECT * FROM hecuba.myso')
+            result = config.session.execute('SELECT * FROM my_app.myso')
         except cassandra.InvalidRequest:
             error = True
         self.assertEquals(False, error)
@@ -310,8 +310,8 @@ class StorageObjTest(unittest.TestCase):
             self.assertEqual('position0', value.value)
 
     def test_nestedso_topersistent(self):
-        config.session.execute("DROP TABLE IF EXISTS hecuba.mynewso")
-        config.session.execute("DROP TABLE IF EXISTS hecuba.myso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.myso")
 
         my_nested_so = Test3StorageObj()
 
@@ -321,7 +321,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(10, my_nested_so.myso.age)
         error = False
         try:
-            result = config.session.execute('SELECT * FROM hecuba.myso')
+            result = config.session.execute('SELECT * FROM my_app.myso')
         except cassandra.InvalidRequest:
             error = True
         self.assertEquals(True, error)
@@ -330,7 +330,7 @@ class StorageObjTest(unittest.TestCase):
 
         error = False
         try:
-            result = config.session.execute('SELECT * FROM hecuba.myso')
+            result = config.session.execute('SELECT * FROM my_app.myso')
         except cassandra.InvalidRequest:
             error = True
         self.assertEquals(False, error)
@@ -340,9 +340,9 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals('Link', query_res.name)
 
     def test_nestedso_sets_gets(self):
-        config.session.execute("DROP TABLE IF EXISTS hecuba.mynewso")
-        config.session.execute("DROP TABLE IF EXISTS hecuba.myso")
-        config.session.execute("DROP TABLE IF EXISTS hecuba.myso2_test")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.myso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.myso2_test")
 
         my_nested_so = Test3StorageObj()
 
@@ -354,7 +354,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(70, my_nested_so.myso.weight)
         error = False
         try:
-            result = config.session.execute('SELECT * FROM hecuba.myso')
+            result = config.session.execute('SELECT * FROM my_app.myso')
         except cassandra.InvalidRequest:
             error = True
         self.assertEquals(True, error)
@@ -363,7 +363,7 @@ class StorageObjTest(unittest.TestCase):
 
         error = False
         try:
-            result = config.session.execute('SELECT * FROM hecuba.myso')
+            result = config.session.execute('SELECT * FROM my_app.myso')
         except cassandra.InvalidRequest:
             error = True
         self.assertEquals(False, error)
@@ -379,7 +379,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(True, error)
         my_nested_so.myso.weight = 50
         self.assertEquals(50, my_nested_so.myso.weight)
-        result = config.session.execute('SELECT * FROM hecuba.myso')
+        result = config.session.execute('SELECT * FROM my_app.myso')
         for row in result:
             query_res = row
         error = False
@@ -391,12 +391,12 @@ class StorageObjTest(unittest.TestCase):
         for i in range(0, 100):
             my_nested_so.myso2.test[i] = 'position' + str(i)
         time.sleep(5)
-        count, = config.session.execute("SELECT COUNT(*) FROM hecuba.myso2_test")[0]
+        count, = config.session.execute("SELECT COUNT(*) FROM my_app.myso2_test")[0]
         self.assertEquals(100, count)
 
     def test_nestedso_deletepersistent(self):
-        config.session.execute("DROP TABLE IF EXISTS hecuba.mynewso")
-        config.session.execute("DROP TABLE IF EXISTS hecuba.myso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.myso")
 
         my_nested_so = Test3StorageObj('mynewso')
 
@@ -411,14 +411,14 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(False, my_nested_so._is_persistent)
         entries = 0
         try:
-            result = config.session.execute('SELECT * FROM hecuba.myso')
+            result = config.session.execute('SELECT * FROM my_app.myso')
         except cassandra.InvalidRequest:
             entries += 1
         self.assertEquals(0, entries)
 
     def test_nestedso_dictofsos(self):
-        config.session.execute("DROP TABLE IF EXISTS hecuba.myso")
-        config.session.execute("DROP TABLE IF EXISTS hecuba.mynewso_test2")
+        config.session.execute("DROP TABLE IF EXISTS my_app.myso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_test2")
 
         my_nested_so = Test5StorageObj('mynewso')
 
@@ -432,8 +432,8 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(10, my_nested_so.test2.myso.age)
 
     def test_nestedso_retrievedata(self):
-        config.session.execute("DROP TABLE IF EXISTS hecuba.myso")
-        config.session.execute("DROP TABLE IF EXISTS hecuba.mynewso_test2")
+        config.session.execute("DROP TABLE IF EXISTS my_app.myso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_test2")
 
         my_nested_so = Test5StorageObj('mynewso')
 

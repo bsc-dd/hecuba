@@ -9,7 +9,7 @@ import time
 
 class StorageDictTest(unittest.TestCase):
     def test_init_empty(self):
-        config.session.execute("DROP TABLE IF EXISTS ksp.tab1")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab1")
         tablename = "ksp.tab1"
         tokens = [(1l, 2l), (2l, 3l), (3l, 4l)]
         nopars = StorageDict([('position', 'int')], [('value', 'int')], tablename, tokens)
@@ -32,7 +32,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(nopars._is_persistent, rebuild._is_persistent)
 
     def test_init_empty_def_keyspace(self):
-        config.session.execute("DROP TABLE IF EXISTS hecuba.tab1")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab1")
         tablename = "tab1"
         tokens = [(1l, 2l), (2l, 3l), (3l, 4l)]
         nopars = StorageDict([('position', 'int')], [('value', 'int')], tablename, tokens)
@@ -57,7 +57,7 @@ class StorageDictTest(unittest.TestCase):
     def test_simple_insertions(self):
         # in process
         config.session.execute(
-            "CREATE TABLE IF NOT EXISTS hecuba.tab10(position int, value text, PRIMARY KEY(position))")
+            "CREATE TABLE IF NOT EXISTS my_app.tab10(position int, value text, PRIMARY KEY(position))")
         tablename = "tab10"
         tokens = [(1l, 2l), (2l, 3l), (3l, 4l)]
         pd = StorageDict([('position', 'int')], [('value', 'text')], tablename, tokens)
@@ -65,12 +65,12 @@ class StorageDictTest(unittest.TestCase):
         for i in range(100):
             pd[i] = 'ciao' + str(i)
         del pd
-        count, = config.session.execute('SELECT count(*) FROM hecuba.tab10')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.tab10')[0]
         self.assertEqual(count, 100)
 
     def test_make_persistent(self):
         # done
-        config.session.execute("DROP TABLE IF EXISTS hecuba.t_make_words")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t_make_words")
         nopars = Words()
         self.assertFalse(nopars._is_persistent)
         nopars.ciao = 1
@@ -81,20 +81,20 @@ class StorageDictTest(unittest.TestCase):
             nopars.words[i] = 'ciao' + str(i)
 
         count, = config.session.execute(
-            "SELECT count(*) FROM system_schema.tables WHERE keyspace_name = 'hecuba' and table_name = 't_make_words'")[
+            "SELECT count(*) FROM system_schema.tables WHERE keyspace_name = 'my_app' and table_name = 't_make_words'")[
             0]
         self.assertEqual(0, count)
 
         nopars.make_persistent("t_make")
 
         del nopars
-        count, = config.session.execute('SELECT count(*) FROM hecuba.t_make_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.t_make_words')[0]
         self.assertEqual(10, count)
 
     def test_empty_persistent(self):
         # done
-        config.session.execute("DROP TABLE IF EXISTS hecuba.wordsso_words")
-        config.session.execute("DROP TABLE IF EXISTS hecuba.wordsso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.wordsso_words")
+        config.session.execute("DROP TABLE IF EXISTS my_app.wordsso")
         from app.words import Words
         so = Words()
         so.make_persistent("wordsso")
@@ -106,21 +106,21 @@ class StorageDictTest(unittest.TestCase):
             so.words[i] = str.join(',', map(lambda a: "ciao", range(i)))
 
         del so
-        count, = config.session.execute('SELECT count(*) FROM hecuba.wordsso_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.wordsso_words')[0]
         self.assertEqual(10, count)
 
         so = Words("wordsso")
         so.delete_persistent()
         so.words.delete_persistent()
 
-        count, = config.session.execute('SELECT count(*) FROM hecuba.wordsso_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.wordsso_words')[0]
         self.assertEqual(0, count)
 
     def test_simple_iteritems_test(self):
         # in process
-        config.session.execute("DROP TABLE IF EXISTS hecuba.tab_a1")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a1")
         config.session \
-            .execute("CREATE TABLE IF NOT EXISTS hecuba.tab_a1(position int, value text, PRIMARY KEY(position))")
+            .execute("CREATE TABLE IF NOT EXISTS my_app.tab_a1(position int, value text, PRIMARY KEY(position))")
 
         pd = StorageDict([('position', 'int')], [('value', 'text')], "tab_a1")
 
@@ -129,7 +129,7 @@ class StorageDictTest(unittest.TestCase):
             pd[i] = 'ciao' + str(i)
             what_should_be[i] = 'ciao' + str(i)
         del pd
-        count, = config.session.execute('SELECT count(*) FROM hecuba.tab_a1')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.tab_a1')[0]
         self.assertEqual(count, 100)
         pd = StorageDict([('position', 'int')], [('value', 'text')], "tab_a1")
         count = 0
@@ -142,9 +142,9 @@ class StorageDictTest(unittest.TestCase):
 
     def test_simple_itervalues_test(self):
         # in process
-        config.session.execute("DROP TABLE IF EXISTS hecuba.tab_a2")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a2")
         config.session.execute(
-            "CREATE TABLE IF NOT EXISTS hecuba.tab_a2(position int, value text, PRIMARY KEY(position))")
+            "CREATE TABLE IF NOT EXISTS my_app.tab_a2(position int, value text, PRIMARY KEY(position))")
         tablename = "tab_a2"
         pd = StorageDict([('position', 'int')], [('value', 'text')], tablename)
 
@@ -153,7 +153,7 @@ class StorageDictTest(unittest.TestCase):
             pd[i] = 'ciao' + str(i)
             what_should_be.add('ciao' + str(i))
         del pd
-        count, = config.session.execute('SELECT count(*) FROM hecuba.tab_a2')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.tab_a2')[0]
 
         self.assertEqual(count, 100)
 
@@ -168,9 +168,9 @@ class StorageDictTest(unittest.TestCase):
 
     def test_simple_iterkeys_test(self):
         # in process
-        config.session.execute("DROP TABLE IF EXISTS hecuba.tab_a3")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a3")
         config.session.execute(
-            "CREATE TABLE IF NOT EXISTS hecuba.tab_a3(position int, value text, PRIMARY KEY(position))")
+            "CREATE TABLE IF NOT EXISTS my_app.tab_a3(position int, value text, PRIMARY KEY(position))")
         tablename = "tab_a3"
         pd = StorageDict([('position', 'int')], [('value', 'text')], tablename)
 
@@ -179,7 +179,7 @@ class StorageDictTest(unittest.TestCase):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd
-        count, = config.session.execute('SELECT count(*) FROM hecuba.tab_a3')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.tab_a3')[0]
         self.assertEqual(count, 100)
         pd = StorageDict([('position', 'int')], [('value', 'text')], tablename)
         count = 0
@@ -192,16 +192,16 @@ class StorageDictTest(unittest.TestCase):
 
     def test_simple_contains(self):
         # in process
-        config.session.execute("DROP TABLE IF EXISTS hecuba.tab_a4")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a4")
         config.session.execute(
-            "CREATE TABLE hecuba.tab_a4(position int, value text, PRIMARY KEY(position))")
+            "CREATE TABLE my_app.tab_a4(position int, value text, PRIMARY KEY(position))")
         tablename = "tab_a4"
         pd = StorageDict([('position', 'int')], [('value', 'text')], tablename)
 
         for i in range(100):
             pd[i] = 'ciao' + str(i)
         del pd
-        count, = config.session.execute('SELECT count(*) FROM hecuba.tab_a4')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.tab_a4')[0]
         self.assertEqual(count, 100)
 
         pd = StorageDict([('position', 'int')], [('value', 'text')], tablename)
@@ -210,9 +210,9 @@ class StorageDictTest(unittest.TestCase):
 
     def test_composed_iteritems_test(self):
         # in process
-        config.session.execute("DROP TABLE IF EXISTS hecuba.tab12")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab12")
         config.session.execute(
-            "CREATE TABLE IF NOT EXISTS hecuba.tab12(pid int,time int, value text,x float,y float,z float, PRIMARY KEY(pid,time))")
+            "CREATE TABLE IF NOT EXISTS my_app.tab12(pid int,time int, value text,x float,y float,z float, PRIMARY KEY(pid,time))")
         tablename = "tab12"
         pd = StorageDict([('pid', 'int'), ('time', 'int')],
                          [('value', 'text'),
@@ -226,7 +226,7 @@ class StorageDictTest(unittest.TestCase):
 
         del pd
 
-        count, = config.session.execute('SELECT count(*) FROM hecuba.tab12')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.tab12')[0]
         self.assertEqual(count, 100)
         pd = StorageDict([('pid', 'int'), ('time', 'int')],
                          [('value', 'text'),
@@ -249,9 +249,9 @@ class StorageDictTest(unittest.TestCase):
 
     def test_composed_key_return_list_iteritems_test(self):
         # in process
-        config.session.execute("DROP TABLE IF EXISTS hecuba.tab13")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab13")
         config.session.execute(
-            "CREATE TABLE IF NOT EXISTS hecuba.tab13(pid int,time float, value text,x float,y float,z float, PRIMARY KEY(pid,time))")
+            "CREATE TABLE IF NOT EXISTS my_app.tab13(pid int,time float, value text,x float,y float,z float, PRIMARY KEY(pid,time))")
         tablename = "tab13"
         pd = StorageDict([('pid', 'int'), ('time', 'float')],
                          [('value', 'text'),
@@ -265,7 +265,7 @@ class StorageDictTest(unittest.TestCase):
 
         del pd
 
-        count, = config.session.execute('SELECT count(*) FROM hecuba.tab13')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.tab13')[0]
         self.assertEqual(count, 100)
         pd = StorageDict([('pid', 'int')],
                          [('time', 'float'), ('value', 'text'),
