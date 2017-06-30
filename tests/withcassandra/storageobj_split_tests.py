@@ -23,7 +23,7 @@ class StorageObjSplitTest(unittest.TestCase):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd, sto
-        count, = config.session.execute('SELECT count(*) FROM hecuba.tab30_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.tab30_words')[0]
         self.assertEqual(count, 10000)
 
         sto = TestSimple("tab30")
@@ -53,7 +53,7 @@ class StorageObjSplitTest(unittest.TestCase):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd, sto
-        count, = config.session.execute('SELECT count(*) FROM hecuba.tab30_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.tab30_words')[0]
         self.assertEqual(count, 10000)
 
         sto = TestSimple("tab30")
@@ -85,7 +85,7 @@ class StorageObjSplitTest(unittest.TestCase):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd, sto
-        count, = config.session.execute('SELECT count(*) FROM hecuba.tab31_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.tab31_words')[0]
         self.assertEqual(count, 10000)
 
         sto = TestSimple("tab31")
@@ -112,7 +112,7 @@ class StorageObjSplitTest(unittest.TestCase):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd, sto
-        count, = config.session.execute('SELECT count(*) FROM hecuba.tab32_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.tab32_words')[0]
         self.assertEqual(count, 10000)
 
         sto = TestSimple("tab32")

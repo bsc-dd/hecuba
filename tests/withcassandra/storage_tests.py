@@ -21,7 +21,6 @@ class StorageTests(unittest.TestCase):
 
     def test_getByID_storage_obj(self):
         b = Words('testspace.tt')
-        self.assertRegexpMatches(b.getID(), '.*_1')
         new_block = getByID(b.getID())
         self.assertEqual(b, new_block)
 
