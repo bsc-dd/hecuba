@@ -42,30 +42,106 @@
 class PythonParser{
 
 public:
-    PythonParser();
+    PythonParser(std::shared_ptr<std::vector<ColumnMeta> > metadatas);
 
     ~PythonParser();
 
     TupleRow* make_tuple(PyObject* obj,std::shared_ptr<const std::vector<ColumnMeta> > metadata) const;
-    PyObject *merge_blocks_as_nparray(std::vector<const TupleRow *> &blocks,std::shared_ptr<const std::vector<ColumnMeta> > metadata) const;
-    PyObject* tuples_as_py(std::vector<const TupleRow *> &values, std::shared_ptr<const std::vector<ColumnMeta> > metadata) const;
 
-    std::vector<void *> split_array(PyObject *py_array);
-    std::vector<const TupleRow *> make_tuples_with_npy(PyObject *obj, std::shared_ptr<const std::vector<ColumnMeta> > metadata);
+    PyObject* make_pylist(std::vector<const TupleRow *> &values, std::shared_ptr<const std::vector<ColumnMeta> > metadata) const;
 
-    void *extract_array(PyObject *py_array) const;
-
-    std::vector<const TupleRow *> blocks_to_tuple(std::vector<void *> &blocks,std::shared_ptr<const std::vector<ColumnMeta> > metadata , PyObject *obj) const;
-
-    const NPY_TYPES get_arr_type(const ColumnMeta& column_meta) const;
-
-    PyArray_Dims *get_arr_dims(const ColumnMeta& column_meta) const;
 private:
 
-    PyObject* c_to_py(const void *V,const ColumnMeta &meta) const;
+    class InnerParser{
+    public:
+        InnerParser(){};//to be removed
+        InnerParser(ColumnMeta& CM) {}
+        virtual ~InnerParser() {};
+        virtual int16_t py_to_c(PyObject* element,void* payload);
+        virtual PyObject* c_to_py(const void* payload);
 
-    int py_to_c(PyObject *obj, void *data, CassValueType type) const;
+        void error_parsing(std::string type, PyObject* obj) {
+            char *l_temp;
+            Py_ssize_t l_size;
+            PyObject* repr = PyObject_Str(obj);
+            int ok = PyString_AsStringAndSize(repr, &l_temp, &l_size);
+            if (ok<0)
+                throw TypeErrorException("Parse from python to c, found sth that can't be represented nor parsed");
+            throw TypeErrorException("Parse from python to c, expected "+type+", found: "+std::string(l_temp,(size_t)l_size));
+        }
 
+    private:
+    };
+
+
+    class TextParser: private InnerParser {
+
+    public:
+        TextParser(ColumnMeta& CM){
+            if (CM.size!=sizeof(char*))
+                throw ModuleException("Bad size allocated for a text");
+        }
+
+        int16_t py_to_c(PyObject* text, void* payload) {
+            if (text==Py_None) return -1;
+            if (PyString_Check(text)) {
+                char *l_temp;
+                Py_ssize_t l_size;
+                // PyString_AsStringAndSize returns internal string buffer of obj, not a copy.
+                if (PyString_AsStringAndSize(text, &l_temp, &l_size) < 0) error_parsing("PyString",text);
+                char *permanent = (char *) malloc(l_size + 1);
+                memcpy(permanent, l_temp, l_size);
+                permanent[l_size] = '\0';
+                memcpy(payload, &permanent, sizeof(char *));
+                return 0;
+            }
+            error_parsing("PyString",text);
+        }
+
+        PyObject* c_to_py(const void* payload) {
+            if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to txtptr, found NULL");
+            int64_t  *addr = (int64_t*) ((char*)payload);
+            char *d = reinterpret_cast<char *>(*addr);
+            if (d == nullptr) throw ModuleException("Error parsing from C to Py, expected ptr to text, found NULL");
+            return PyUnicode_FromString(d);
+        }
+    private:
+    };
+
+
+    class Int32Parser: private InnerParser {
+
+    public:
+        Int32Parser(ColumnMeta& CM){
+            if (CM.size!=sizeof(int32_t))
+                throw ModuleException("Bad size allocated for a Int32");
+        }
+
+        int16_t py_to_c(PyObject* myint, void* payload) {
+            if (myint==Py_None)
+                return -1;
+            if (PyInt_Check(myint)) {
+                int32_t t; //TODO it might be safe to pass the payload instead of the var t
+                if (PyArg_Parse(myint, Py_INT, &t)<0) error_parsing("PyInt32",myint);
+                memcpy(payload, &t, sizeof(t));
+            }
+            error_parsing("PyInt32",myint);
+        }
+
+        PyObject* c_to_py(const void* payload) {
+            if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to int, found NULL");
+            const int32_t *temp = reinterpret_cast<const int32_t *>(payload);
+            try {
+                return Py_BuildValue(Py_INT, *temp);
+            }
+            catch(std::exception &e) {
+                throw ModuleException("Error parsing from C to Py, expected Int "+std::string(e.what()));
+            }
+        }
+
+    private:
+    };
+    std::vector<InnerParser> parsers;
 };
 
 
