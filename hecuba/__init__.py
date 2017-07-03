@@ -141,9 +141,25 @@ class Config:
                 singleton.cluster = Cluster(contact_points=singleton.contact_names, port=singleton.nodePort,
                                             default_retry_policy=_NRetry(5))
                 singleton.session = singleton.cluster.connect()
-                from hfetch import connectCassandra
+                try:
+                    from hfetch import connectCassandra
+                except ImportError, e:
+                    log.info('HFetch not found, make sure the Pythonpath points to the installation folder '+ e.message)
                 # connecting c++ bindings
-                connectCassandra(singleton.contact_names, singleton.nodePort)
+                try:
+                    connectCassandra(singleton.contact_names, singleton.nodePort)
+                except TypeError, e:
+                    #Wrong contact names (not a list of strings)
+                    log.info('Initializing hecuba: ' + e.message + str(singleton.contact_names))
+                except ValueError, e:
+                    #Empty string found as one of the contact names
+                    log.info('Initializing hecuba: ' + e.message + str(singleton.contact_names))
+                except OSError, e:
+                    #Problem connecting with cassandra, too many requests, network issues...
+                    log.info('Initializing hecuba: Connection with Cassandra cant be established: '+ e.message)
+                except RuntimeError, e:
+                    print 'Exception initializing hecuba: ', e.message
+
                 if singleton.id_create_schema == -1:
                     singleton.session.execute(
                         ('CREATE KEYSPACE IF NOT EXISTS hecuba' +
