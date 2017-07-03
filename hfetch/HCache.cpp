@@ -59,7 +59,7 @@ static PyObject *put_row(HCache *self, PyObject *args) {
     }
     TupleRow *k;
     try {
-        k = parser.make_tuple(py_keys, self->T->get_metadata()->get_keys());
+        k = self->keysParser->make_tuple(py_keys);
     }
     catch (TypeErrorException& e) {
         PyErr_SetString(PyExc_TypeError, e.what());
@@ -70,139 +70,21 @@ static PyObject *put_row(HCache *self, PyObject *args) {
         PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
         return NULL;
     }
-    if (self->has_numpy) {
-        // check partition TODO
-        uint16_t numpy_pos = 0;
-        std::shared_ptr<const std::vector<ColumnMeta> > metas = self->T->get_metadata()->get_values();
-        while (parser.get_arr_type(metas->at(numpy_pos)) == NPY_NOTYPE && numpy_pos < metas->size()) ++numpy_pos;
-        if (numpy_pos == metas->size()) {
-            PyErr_SetString(PyExc_RuntimeError, "Sth went wrong looking for the numpy");
-            return NULL;
-        }
-        //external
-        if (metas->at(numpy_pos).info.size() == 5) {
-            /*** PREPARE WRITER FOR AUXILIARY TABLE ***/
-            std::map<std::string, std::string> config;
-            std::vector<std::map<std::string, std::string> > numpy_columns(2);
-            std::vector<std::map<std::string, std::string> > numpy_keys(1,{{"name","uuid"}});
-            numpy_columns[0] = {{"name","data"}, {"type",(metas->at(numpy_pos).info.find("type")->second)},
-                                {"dims",std::string(metas->at(numpy_pos).info.find("dims")->second)},
-                                {"partition",std::string(metas->at(numpy_pos).info.find("partition")->second)}};
-            numpy_columns[1] = {{"name","position"}};
-            Writer *temp = NULL;
-            try {
-                temp = storage->make_writer(metas->at(numpy_pos).info.find("npy_table")->second.c_str(), self->T->get_metadata()->get_keyspace(),
-                                            numpy_keys, numpy_columns, config);
-            } catch (std::exception& e) {
-                PyErr_SetString(PyExc_RuntimeError, e.what());
-                return NULL;
-            }
-
-            /*** Retrieve numpy array ***/
-
-            PyObject *npy_list = PyList_New(1);
-
-            PyObject *array = PyList_GetItem(py_values, numpy_pos);
-
-            PyList_SetItem(npy_list, 0, array);
-            Py_INCREF(array);
-
-
-            std::vector<const TupleRow *> value_list;
-            try {
-                value_list = parser.make_tuples_with_npy(npy_list, temp->get_metadata()->get_values());
-            }
-            catch (TypeErrorException& e) {
-                PyErr_SetString(PyExc_TypeError, e.what());
-                return NULL;
-            }
-            catch (std::exception &e) {
-                PyErr_SetString(PyExc_RuntimeError, e.what());
-                return NULL;
-            }
-            Py_DECREF(npy_list);
-
-            /*** Generate UUID ***/
-            CassUuid uuid;
-            CassUuidGen *uuid_gen = cass_uuid_gen_new();
-            cass_uuid_gen_random(uuid_gen, &uuid);
-            cass_uuid_gen_free(uuid_gen);
-
-            uint64_t *c_uuid = (uint64_t *) malloc(sizeof(uint64_t) * 2);
-            *c_uuid = uuid.time_and_version;
-            *(c_uuid + 1) = uuid.clock_seq_and_node;
-
-            void *payload = malloc(sizeof(uint64_t *));
-            memcpy(payload, &c_uuid, sizeof(uint64_t *));
-
-            /*** Store array ***/
-            TupleRow *numpy_key = new TupleRow(temp->get_metadata()->get_keys(), sizeof(uint64_t) * 2, payload);
-
-            for (const TupleRow *T:value_list) {
-                TupleRow *key_copy = new TupleRow(numpy_key);
-                temp->write_to_cassandra(key_copy, T);
-            }
-
-            /*** Store UUID ***/
-
-            PyObject *py_uuid = PyByteArray_FromStringAndSize((char *) c_uuid, sizeof(uint64_t) * 2);
-
-            //delete (numpy_key);//if deleted, the payload isnt copied because on PyList_SetItem seems to be freed
-
-            PyList_SetItem(py_values, numpy_pos, py_uuid);
-            const TupleRow *v;
-            try {
-                v = parser.make_tuple(py_values, self->T->get_metadata()->get_values());
-                self->T->put_crow(k, v);
-            }
-            catch (TypeErrorException& e) {
-                PyErr_SetString(PyExc_TypeError, e.what());
-                return NULL;
-            }
-            catch (std::exception &e) {
-                PyErr_SetString(PyExc_RuntimeError, e.what());
-                return NULL;
-            }
-            /*** Done storing the numpy array ***/
-
-            try {
-                delete (temp); //Blocking operation
-            }
-            catch (std::exception &e) {
-                PyErr_SetString(PyExc_RuntimeError, e.what());
-                return NULL;
-            }
-        } else {
-            //local
-            try {
-                std::vector<const TupleRow *> value_list = parser.make_tuples_with_npy(py_values, metas);
-                for (const TupleRow *T:value_list) {
-                    TupleRow *key_copy = new TupleRow(k);
-                    self->T->put_crow(key_copy, T);
-                }
-            }
-            catch (std::exception &e) {
-                PyErr_SetString(PyExc_RuntimeError, e.what());
-                return NULL;
-            }
-        }
-    } else {
-        try {
-            TupleRow *v = parser.make_tuple(py_values, self->T->get_metadata()->get_values());
-            self->T->put_crow(k, v);
-            delete(v);
-        }
-        catch (TypeErrorException& e) {
-            PyErr_SetString(PyExc_TypeError, e.what());
-            return NULL;
-        }
-        catch (std::exception &e) {
-            std::string err_msg = "Put row "+std::string(e.what());
-            PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
-            return NULL;
-        }
+    try {
+        TupleRow *v = self->valuesParser->make_tuple(py_values);
+        self->T->put_crow(k, v);
+        delete(k);
+        delete(v);
     }
-    delete(k);
+    catch (TypeErrorException& e) {
+        PyErr_SetString(PyExc_TypeError, e.what());
+        return NULL;
+    }
+    catch (std::exception &e) {
+        std::string err_msg = "Put row "+std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
+        return NULL;
+    }
     Py_RETURN_NONE;
 }
 
@@ -223,7 +105,7 @@ static PyObject *get_row(HCache *self, PyObject *args) {
     TupleRow *k = NULL;
 
     try {
-        k = parser.make_tuple(py_keys, self->T->get_metadata()->get_keys());
+        k = self->keysParser->make_tuple(py_keys);
     }
     catch (TypeErrorException& e) {
         PyErr_SetString(PyExc_TypeError, e.what());
@@ -251,11 +133,7 @@ static PyObject *get_row(HCache *self, PyObject *args) {
     }
 
     try {
-        if (self->has_numpy) {
-            py_row = parser.merge_blocks_as_nparray(v, self->T->get_metadata()->get_values());
-        } else {
-            py_row = parser.tuples_as_py(v, self->T->get_metadata()->get_values());
-        }
+        py_row = self->valuesParser->make_pylist(v);
         for (uint32_t i = 0; i<v.size(); ++i) {
             delete(v[i]);
         }
@@ -275,7 +153,10 @@ static PyObject *get_row(HCache *self, PyObject *args) {
 
 
 static void hcache_dealloc(HCache *self) {
+    delete(self->keysParser);
+    delete(self->valuesParser);
     delete (self->T);
+
     self->ob_type->tp_free((PyObject *) self);
 }
 
@@ -401,6 +282,8 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
 
     try {
         self->T = storage->make_cache(table, keyspace, keys_names, columns_names, config);
+        self->keysParser = new PythonParser(self->T->get_metadata()->get_keys());
+        self->valuesParser = new PythonParser(self->T->get_metadata()->get_values());
     } catch (std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return -1;
@@ -583,6 +466,10 @@ static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
 
     try {
         self->P = storage->get_iterator(table, keyspace, keys_names, columns_names, self->token_ranges, config);
+
+        if (self->P->get_type() == "items") self->rowParser = new PythonParser(self->P->get_metadata()->get_items());
+        else if (self->P->get_type() == "values") self->rowParser = new PythonParser(self->P->get_metadata()->get_values());
+        else self->rowParser = new PythonParser(self->P->get_metadata()->get_keys());
     } catch (std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return -1;
@@ -593,8 +480,6 @@ static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
 
 
 static PyObject *get_next(HIterator *self) {
-
-
     const TupleRow *result;
     try {
         result = self->P->get_cnext();
@@ -608,15 +493,10 @@ static PyObject *get_next(HIterator *self) {
         return NULL;
     }
     std::vector<const TupleRow *> temp = {result};
-    std::shared_ptr<const std::vector<ColumnMeta> > row_metas;
-    if (self->P->get_type() == "items") row_metas = self->P->get_metadata()->get_items();
-    else if (self->P->get_type() == "values") row_metas = self->P->get_metadata()->get_values();
-    else {
-        row_metas = self->P->get_metadata()->get_keys();
-    }
+
     PyObject *py_row;
     try {
-        py_row = parser.tuples_as_py(temp, row_metas);
+        py_row = self->rowParser->make_pylist(temp);
     }
     catch (TypeErrorException& e) {
         PyErr_SetString(PyExc_TypeError, e.what());
@@ -636,6 +516,7 @@ static PyObject *get_next(HIterator *self) {
 }
 
 static void hiter_dealloc(HIterator *self) {
+    if (self->rowParser) delete(self->rowParser);
     if (self->P) delete (self->P);
     self->ob_type->tp_free((PyObject *) self);
 }
@@ -698,8 +579,8 @@ static PyObject *write_cass(HWriter *self, PyObject *args) {
     }
 
     try {
-        TupleRow *k = parser.make_tuple(py_keys, self->W->get_metadata()->get_keys());
-        TupleRow *v = parser.make_tuple(py_values, self->W->get_metadata()->get_values());
+        TupleRow *k = self->keysParser->make_tuple(py_keys);
+        TupleRow *v = self->valuesParser->make_tuple(py_values);
         self->W->write_to_cassandra(k, v);
         delete(k);
         delete(v);
@@ -816,6 +697,8 @@ static int hwriter_init(HWriter *self, PyObject *args, PyObject *kwds) {
     }
     try {
         self->W = storage->make_writer(table, keyspace, keys_names, columns_names, config);
+        self->keysParser = new PythonParser(self->W->get_metadata()->get_keys());
+        self->valuesParser = new PythonParser(self->W->get_metadata()->get_values());
     } catch (std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return -1;
@@ -825,6 +708,8 @@ static int hwriter_init(HWriter *self, PyObject *args, PyObject *kwds) {
 }
 
 static void hwriter_dealloc(HWriter *self) {
+    if (self->keysParser) delete(self->keysParser);
+    if (self->valuesParser) delete(self->valuesParser);
     if (self->W) delete (self->W);
     self->ob_type->tp_free((PyObject *) self);
 }
@@ -1084,7 +969,6 @@ inithfetch(void) {
     m = Py_InitModule3("hfetch", module_methods, "c++ bindings for hecuba cache & prefetch");
     f = m->ob_type->tp_dealloc;
     m->ob_type->tp_dealloc = module_dealloc;
-    parser = PythonParser();
 
     PyModule_AddObject(m, "Hcache", (PyObject *) &hfetch_HCacheType);
     PyModule_AddObject(m, "HIterator", (PyObject *) &hfetch_HIterType);

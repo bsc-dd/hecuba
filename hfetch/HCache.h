@@ -33,7 +33,7 @@
 
 
 std::shared_ptr<StorageInterface> storage; //StorageInterface* storage;
-PythonParser parser;
+
 
 
 typedef struct {
@@ -41,6 +41,7 @@ typedef struct {
     CacheTable *T;
     std::vector<std::pair<int64_t, int64_t>> token_ranges;
     bool has_numpy;
+    PythonParser *keysParser, *valuesParser;
 } HCache;
 
 
@@ -50,6 +51,7 @@ typedef struct {
     CacheTable *baseTable;
     std::vector<std::pair<int64_t, int64_t>> token_ranges;
     bool update_cache;
+    PythonParser *rowParser;
 } HIterator;
 
 
@@ -58,6 +60,7 @@ typedef struct {
     Writer *W;
     CacheTable *baseTable;
     bool has_numpy;
+    PythonParser *keysParser, *valuesParser;
 } HWriter;
 
 static PyObject* create_iter_keys(HCache *self, PyObject* args);

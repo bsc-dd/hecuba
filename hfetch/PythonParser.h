@@ -42,25 +42,24 @@
 class PythonParser{
 
 public:
-    PythonParser(std::shared_ptr<std::vector<ColumnMeta> > metadatas);
+    PythonParser(std::shared_ptr<const std::vector<ColumnMeta> > metadatas);
 
     ~PythonParser();
 
-    TupleRow* make_tuple(PyObject* obj,std::shared_ptr<const std::vector<ColumnMeta> > metadata) const;
+    TupleRow* make_tuple(PyObject* obj) const;
 
-    PyObject* make_pylist(std::vector<const TupleRow *> &values, std::shared_ptr<const std::vector<ColumnMeta> > metadata) const;
+    PyObject* make_pylist(std::vector<const TupleRow *> &values) const;
 
 private:
-
     class InnerParser{
     public:
         InnerParser(){};//to be removed
-        InnerParser(ColumnMeta& CM) {}
+        InnerParser(const ColumnMeta& CM) {}
         virtual ~InnerParser() {};
-        virtual int16_t py_to_c(PyObject* element,void* payload);
-        virtual PyObject* c_to_py(const void* payload);
+        virtual int16_t py_to_c(PyObject* element,void* payload) const;
+        virtual PyObject* c_to_py(const void* payload) const;
 
-        void error_parsing(std::string type, PyObject* obj) {
+        void error_parsing(std::string type, PyObject* obj) const{
             char *l_temp;
             Py_ssize_t l_size;
             PyObject* repr = PyObject_Str(obj);
@@ -74,15 +73,15 @@ private:
     };
 
 
-    class TextParser: private InnerParser {
+    class TextParser: public InnerParser {
 
     public:
-        TextParser(ColumnMeta& CM){
+        TextParser(const ColumnMeta& CM):InnerParser(CM){
             if (CM.size!=sizeof(char*))
                 throw ModuleException("Bad size allocated for a text");
         }
 
-        int16_t py_to_c(PyObject* text, void* payload) {
+        virtual int16_t py_to_c(PyObject* text, void* payload) const {
             if (text==Py_None) return -1;
             if (PyString_Check(text)) {
                 char *l_temp;
@@ -96,9 +95,10 @@ private:
                 return 0;
             }
             error_parsing("PyString",text);
+            return -2;
         }
 
-        PyObject* c_to_py(const void* payload) {
+        PyObject* c_to_py(const void* payload) const {
             if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to txtptr, found NULL");
             int64_t  *addr = (int64_t*) ((char*)payload);
             char *d = reinterpret_cast<char *>(*addr);
@@ -109,26 +109,29 @@ private:
     };
 
 
-    class Int32Parser: private InnerParser {
+    class Int32Parser: public InnerParser {
 
     public:
-        Int32Parser(ColumnMeta& CM){
+        Int32Parser(const ColumnMeta& CM):InnerParser(CM){
             if (CM.size!=sizeof(int32_t))
                 throw ModuleException("Bad size allocated for a Int32");
         }
 
-        int16_t py_to_c(PyObject* myint, void* payload) {
+        virtual int16_t py_to_c(PyObject* myint, void* payload) const {
             if (myint==Py_None)
                 return -1;
+
             if (PyInt_Check(myint)) {
                 int32_t t; //TODO it might be safe to pass the payload instead of the var t
                 if (PyArg_Parse(myint, Py_INT, &t)<0) error_parsing("PyInt32",myint);
                 memcpy(payload, &t, sizeof(t));
+                return 0;
             }
             error_parsing("PyInt32",myint);
+            return -2;
         }
 
-        PyObject* c_to_py(const void* payload) {
+        PyObject* c_to_py(const void* payload) const {
             if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to int, found NULL");
             const int32_t *temp = reinterpret_cast<const int32_t *>(payload);
             try {
@@ -141,7 +144,8 @@ private:
 
     private:
     };
-    std::vector<InnerParser> parsers;
+    std::vector<InnerParser*> parsers;
+    std::shared_ptr<const std::vector<ColumnMeta> > metas; //TODO To be removed
 };
 
 

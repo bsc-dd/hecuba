@@ -5,14 +5,20 @@
  * extracting the information from Cassandra to decide the types to be used
  * @param table_meta Holds the table information
  */
-PythonParser::PythonParser(std::shared_ptr<std::vector<ColumnMeta> > metadatas) {
-    this->parsers = std::vector<InnerParser>(metadatas->size());
+PythonParser::PythonParser(std::shared_ptr<const std::vector<ColumnMeta> > metadatas) {
+    this->parsers = std::vector<InnerParser*>(metadatas->size());
     for (uint32_t meta_i = 0; meta_i<metadatas->size(); ++meta_i) {
-        parsers[meta_i] = InnerParser(metadatas->at(meta_i));
+        if (metadatas->at(meta_i).type==CASS_VALUE_TYPE_INT) parsers[meta_i]=new Int32Parser(metadatas->at(meta_i));
+        else if (metadatas->at(meta_i).type==CASS_VALUE_TYPE_TEXT) parsers[meta_i] = new TextParser(metadatas->at(meta_i));
+        else parsers[meta_i]= new InnerParser(metadatas->at(meta_i));
     }
+    this->metas = metadatas;
 }
 
 PythonParser::~PythonParser() {
+    for (InnerParser *parser : this->parsers) {
+        delete(parser);
+    }
 
 }
 /*** TUPLE BUILDERS ***/
@@ -23,17 +29,18 @@ PythonParser::~PythonParser() {
  * @return TupleRow with a copy of the values in obj
  * @post The python object can be deleted
  */
-TupleRow *PythonParser::make_tuple(PyObject* obj,std::shared_ptr<const std::vector<ColumnMeta> > metadata) const {
+TupleRow *PythonParser::make_tuple(PyObject* obj) const {
     if (!PyList_Check(obj)) throw ModuleException("PythonParser: Make tuple: Expected python list");
-    const std::vector<ColumnMeta>* localMeta=metadata.get();
-    if (size_t(PyList_Size(obj))!=metadata->size())
+    const std::vector<ColumnMeta>* localMeta=metas.get();
+    if (size_t(PyList_Size(obj))!=localMeta->size())
         throw ModuleException("PythonParser: Got less python elements than columns configured");
     uint32_t total_bytes = localMeta->at(localMeta->size()-1).position+localMeta->at(localMeta->size()-1).size;
 
     char *buffer = (char *) malloc(total_bytes);
-    TupleRow *new_tuple = new TupleRow(metadata, total_bytes, buffer);
+    TupleRow *new_tuple = new TupleRow(metas, total_bytes, buffer);
     for (uint32_t i = 0; i < PyList_Size(obj); ++i) {
-        if (this->parsers[i].py_to_c(PyList_GetItem(obj, i), buffer)<0) new_tuple->setNull(i);
+        PyObject* some = PyList_GetItem(obj, i);
+        if (this->parsers[i]->py_to_c(some, buffer+metas->at(i).position)<0) new_tuple->setNull(i);
     }
     return new_tuple;
 }
@@ -45,7 +52,7 @@ TupleRow *PythonParser::make_tuple(PyObject* obj,std::shared_ptr<const std::vect
  */
 
 
-PyObject *PythonParser::make_pylist(std::vector<const TupleRow *> &values, std::shared_ptr<const std::vector<ColumnMeta> > metadata) const {
+PyObject *PythonParser::make_pylist(std::vector<const TupleRow *> &values) const {
 
     PyObject *list;
     //store to cache
@@ -54,19 +61,19 @@ PyObject *PythonParser::make_pylist(std::vector<const TupleRow *> &values, std::
         throw ModuleException("TupleRowFactory: Marshalling from c to python a NULL tuple, unsupported");
     list = PyList_New(tuple->n_elem());
     for (uint16_t i = 0; i < tuple->n_elem(); i++) {
-        if (i >= metadata->size())
+        if (i >= metas->size())
             throw ModuleException("TupleRowFactory: Tuple as py access meta at " + std::to_string(i) +
-                                          " from a max " + std::to_string(metadata->size()));
-        PyList_SetItem(list, i, this->parsers[i].c_to_py(tuple->get_element(i)));
+                                          " from a max " + std::to_string(metas->size()));
+        PyList_SetItem(list, i, this->parsers[i]->c_to_py(tuple->get_element(i)));
     }
     return list;
 
 }
 
-int16_t PythonParser::InnerParser::py_to_c(PyObject* element,void* payload) {
+int16_t PythonParser::InnerParser::py_to_c(PyObject* element,void* payload) const{
     throw ModuleException("Not implemented");
 }
 
-PyObject* PythonParser::InnerParser::c_to_py(const void* payload) {
+PyObject* PythonParser::InnerParser::c_to_py(const void* payload) const{
     throw ModuleException("Not implemented");
 }
