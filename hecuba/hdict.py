@@ -21,9 +21,14 @@ class NamedIterator:
         return self
 
     def next(self):
-        n = self.hiterator.get_next()
-        if self.builder is not None:
-            return self.builder(*n)
+        try:
+            n = self.hiterator.get_next()
+            if self.builder is not None:
+                return self.builder(*n)
+        except TypeError, e:
+            log.info('NamedIterator: Incorrect data types retrieved on next() ' + e.message)
+        except RuntimeError, e:
+            log.info('NamedIterator: Unknown error on next() ' + e.message)
         else:
             return n[0]
 
@@ -162,9 +167,12 @@ class StorageDict(dict, IStorage):
             try:
                 self._hcache.get_row(self._make_key(key))
                 return True
-            except Exception as e:
-                print "Exception in persistentDict.__contains__:", e
-                return False
+            except TypeError, e:
+                log.info('StorageDict: Incorrect data types on __contains__ ' + e.message
+                         + ' Keys: ' + str(key))
+            except RuntimeError, e:
+                log.info('StorageDict: Unknown error on __contains__ ' + e.message)
+        return False
 
     def _make_key(self, key):
         if isinstance(key, str) or isinstance(key, unicode) or not isinstance(key, Iterable):
@@ -258,11 +266,22 @@ class StorageDict(dict, IStorage):
                                 'writer_par': config.write_callbacks_number,
                                 'write_buffer': config.write_buffer_size})
         log.debug("HCACHE params %s", self._hcache_params)
-        self._hcache = Hcache(*self._hcache_params)
+        try:
+            self._hcache = Hcache(*self._hcache_params)
+        except TypeError, e:
+            log.info('StorageDict: Incorrect data types creating Hcache on make_persistent ' + e.message
+                     + ' Args: ' + str(*self._hcache_params))
+        except RuntimeError, e:
+            log.info('StorageDict: Unknown error creating Hcache ' + e.message)
         # Storing all in-memory values to cassandra
         for key, value in dict.iteritems(self):
-            self._hcache.put_row(self._make_key(key), self._make_value(value))
-
+            try:
+                self._hcache.put_row(self._make_key(key), self._make_value(value))
+            except TypeError, e:
+                log.info('StorageDict: Incorrect data types on make_persistent '+ e.message
+                         + ' Keys: ' + str(key) +' Values: '+ str(value))
+            except RuntimeError, e:
+                log.info('StorageDict: Unknown error on make_persistent ' + e.message)
 
     def stop_persistent(self):
         log.debug('STOP PERSISTENCE: %s', self._table)
@@ -288,7 +307,15 @@ class StorageDict(dict, IStorage):
             to_return = dict.__getitem__(self, key)
             return to_return
         else:
-            cres = self._hcache.get_row(self._make_key(key))
+            cres = None
+            try:
+                cres = self._hcache.get_row(self._make_key(key))
+            except TypeError, e:
+                log.info('StorageDict: Incorrect data types on __get_item__ ' + e.message
+                         + ' Keys: ' + str(key))
+            except RuntimeError, e:
+                log.info('StorageDict: Unknown error on __get_item__ ' + e.message)
+
             log.debug("GET ITEM %s[%s]", cres, cres.__class__)
 
             if issubclass(cres.__class__, NoneType):
@@ -313,7 +340,15 @@ class StorageDict(dict, IStorage):
         if not self._is_persistent:
             dict.__setitem__(self, key, val)
         else:
-            self._hcache.put_row(self._make_key(key), self._make_value(val))
+            try:
+                self._hcache.put_row(self._make_key(key), self._make_value(val))
+            except TypeError, e:
+                log.info('StorageDict: Incorrect data types on __set_item__ ' + e.message
+                         + ' Keys: ' + str(key) + ' Values: ' + str(val))
+            except RuntimeError, e:
+                log.info('StorageDict: Unknown error on __set_item__ ' + e.message)
+
+
 
     def iterkeys(self):
         """
@@ -322,7 +357,15 @@ class StorageDict(dict, IStorage):
             iterkeys(self): list of keys
         """
         if self._is_persistent:
-            ik = self._hcache.iterkeys(config.prefetch_size)
+            ik = None
+            try:
+                ik = self._hcache.iterkeys(config.prefetch_size)
+            except TypeError, e:
+                log.info('StorageDict: Incorrect data types creating an iterkeys ' + e.message
+                         + ' Args: ' + str(config.prefetch_size))
+            except RuntimeError, e:
+                log.info('StorageDict: Unknown error creating an iterkeys ' + e.message)
+
             return NamedIterator(ik, self._key_builder, self)
         else:
             return dict.iterkeys(self)
@@ -334,7 +377,15 @@ class StorageDict(dict, IStorage):
             BlockItemsIter(self): list of key,val pairs
         """
         if self._is_persistent:
-            ik = self._hcache.iteritems(config.prefetch_size)
+            ik = None
+            try:
+                ik = self._hcache.iteritems(config.prefetch_size)
+            except TypeError, e:
+                log.info('StorageDict: Incorrect data types creating an iteritems ' + e.message
+                         + ' Args: ' + str(config.prefetch_size))
+            except RuntimeError, e:
+                log.info('StorageDict: Unknown error creating an iteritems ' + e.message)
+
             return NamedItemsIterator(self._key_builder,
                                            self._column_builder,
                                            self._k_size,
@@ -350,7 +401,15 @@ class StorageDict(dict, IStorage):
             BlockValuesIter(self): list of values
         """
         if self._is_persistent:
-            ik = self._hcache.itervalues(config.prefetch_size)
+            ik = None
+            try:
+                ik = self._hcache.itervalues(config.prefetch_size)
+            except TypeError, e:
+                log.info('StorageDict: Incorrect data types creating an itervalues ' + e.message
+                         + ' Args: ' + str(config.prefetch_size))
+            except RuntimeError, e:
+                log.info('StorageDict: Unknown error creating an itervalues ' + e.message)
+
             return NamedIterator(ik, self._column_builder, self)
         else:
             return dict.itervalues(self)
