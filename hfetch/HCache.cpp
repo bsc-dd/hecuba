@@ -271,7 +271,6 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
                 config["cache_size"] = "0";
             }
             else columns_names[i]["partition"] = "no-partition";
-            self->has_numpy = true;
         }
         else {
             PyErr_SetString(PyExc_TypeError, "Can't parse column names, expected String, Dict or Unicode");
@@ -282,8 +281,8 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
 
     try {
         self->T = storage->make_cache(table, keyspace, keys_names, columns_names, config);
-        self->keysParser = new PythonParser(self->T->get_metadata()->get_keys());
-        self->valuesParser = new PythonParser(self->T->get_metadata()->get_values());
+        self->keysParser = new PythonParser(storage, self->T->get_metadata()->get_keys());
+        self->valuesParser = new PythonParser(storage, self->T->get_metadata()->get_values());
     } catch (std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return -1;
@@ -467,9 +466,9 @@ static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
     try {
         self->P = storage->get_iterator(table, keyspace, keys_names, columns_names, self->token_ranges, config);
 
-        if (self->P->get_type() == "items") self->rowParser = new PythonParser(self->P->get_metadata()->get_items());
-        else if (self->P->get_type() == "values") self->rowParser = new PythonParser(self->P->get_metadata()->get_values());
-        else self->rowParser = new PythonParser(self->P->get_metadata()->get_keys());
+        if (self->P->get_type() == "items") self->rowParser = new PythonParser(storage, self->P->get_metadata()->get_items());
+        else if (self->P->get_type() == "values") self->rowParser = new PythonParser(storage, self->P->get_metadata()->get_values());
+        else self->rowParser = new PythonParser(storage, self->P->get_metadata()->get_keys());
     } catch (std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return -1;
@@ -506,10 +505,6 @@ static PyObject *get_next(HIterator *self) {
         std::string error_msg = "Get next, parse result: "+std::string(e.what());
         PyErr_SetString(PyExc_RuntimeError,error_msg.c_str());
         return NULL;
-    }
-
-    if (self->update_cache&&self->P->get_type() != "values") {
-        self->baseTable->put_crow(result);
     }
     delete (result);
     return py_row;
@@ -664,7 +659,6 @@ static int hwriter_init(HWriter *self, PyObject *args, PyObject *kwds) {
                 columns_names[i]["partition"] = "partition";
             }
             else columns_names[i]["partition"] = "no-partition";
-            self->has_numpy = true;
         }
         else {
             PyErr_SetString(PyExc_TypeError, "Can't parse column names, expected String, Dict or Unicode");
@@ -697,8 +691,8 @@ static int hwriter_init(HWriter *self, PyObject *args, PyObject *kwds) {
     }
     try {
         self->W = storage->make_writer(table, keyspace, keys_names, columns_names, config);
-        self->keysParser = new PythonParser(self->W->get_metadata()->get_keys());
-        self->valuesParser = new PythonParser(self->W->get_metadata()->get_values());
+        self->keysParser = new PythonParser(storage, self->W->get_metadata()->get_keys());
+        self->valuesParser = new PythonParser(storage, self->W->get_metadata()->get_values());
     } catch (std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return -1;
@@ -808,11 +802,7 @@ static PyObject *create_iter_items(HCache *self, PyObject *args) {
     config["type"] = "items";
 
     HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
-    iter->baseTable = self->T;
-    iter->update_cache = false;
-    if (config.find("update_cache") != config.end()) {
-        iter->update_cache = true;
-    }
+
     //hiter_init(iter, args, args);
     if (!self->T) {
         PyErr_SetString(PyExc_RuntimeError, "Tried to create iteritems, but the cache didn't exist");
@@ -867,7 +857,7 @@ static PyObject *create_iter_keys(HCache *self, PyObject *args) {
     config["type"] = "keys";
 
     HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
-    iter->baseTable = self->T;
+
     //hiter_init(iter, args, args);
     if (!self->T) {
         PyErr_SetString(PyExc_RuntimeError,"Tried to create iterkeys, but the cache didn't exist");
@@ -921,7 +911,7 @@ static PyObject *create_iter_values(HCache *self, PyObject *args) {
     config["type"] = "values";
 
     HIterator *iter = (HIterator *) hiter_new(&hfetch_HIterType, args, args);
-    iter->baseTable = self->T;
+
     //hiter_init(iter, args, args);
     if (!self->T) {
         PyErr_SetString(PyExc_RuntimeError, "Tried to create itervalues, but the cache didn't exist");

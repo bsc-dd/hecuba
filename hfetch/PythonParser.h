@@ -3,11 +3,6 @@
 
 #include <python2.7/Python.h>
 
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#define NO_IMPORT_ARRAY
-#define PY_ARRAY_UNIQUE_SYMBOL cool_ARRAY_API
-#include "numpy/arrayobject.h"
-
 #include <cassert>
 #include <cstring>
 #include <string>
@@ -22,6 +17,8 @@
 #include "TupleRow.h"
 #include "ModuleException.h"
 #include "TableMetadata.h"
+#include "StorageInterface.h"
+#include "NumpyStorage.h"
 
 
 #define Py_STRING "s"
@@ -42,7 +39,7 @@
 class PythonParser{
 
 public:
-    PythonParser(std::shared_ptr<const std::vector<ColumnMeta> > metadatas);
+    PythonParser(std::shared_ptr<StorageInterface> storage,std::shared_ptr<const std::vector<ColumnMeta> > metadatas);
 
     ~PythonParser();
 
@@ -98,7 +95,7 @@ private:
             return -2;
         }
 
-        PyObject* c_to_py(const void* payload) const {
+        virtual PyObject* c_to_py(const void* payload) const {
             if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to txtptr, found NULL");
             int64_t  *addr = (int64_t*) ((char*)payload);
             char *d = reinterpret_cast<char *>(*addr);
@@ -106,6 +103,40 @@ private:
             return PyUnicode_FromString(d);
         }
     private:
+    };
+
+    class NumpyParser: public InnerParser {
+    public:
+        NumpyParser(const ColumnMeta& CM):InnerParser(CM){
+            if (CM.size!=sizeof(char*))
+                throw ModuleException("Bad size allocated for a Int32");
+            table=CM.info.at("table");
+        }
+
+        virtual int16_t py_to_c(PyObject* myint, void* payload) const {
+            if (myint==Py_None)
+                return -1;
+            //np_storage->store(table,keyspace,attribute_name)
+            error_parsing("Numpy",myint);
+            return -2;
+        }
+
+        virtual PyObject* c_to_py(const void* payload) const {
+            if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to bytes, found NULL");
+            //np_storage->read()
+        }
+
+        void setStorage(std::shared_ptr<StorageInterface> storage) {
+            ArrayPartitioner algorithm = ArrayPartitioner();
+            np_storage = new NumpyStorage(storage, algorithm);
+        }
+
+    private:
+        NumpyStorage *np_storage;
+        std::string table;
+        std::string keyspace;
+        std::string attribute_name;
+
     };
 
 
@@ -131,7 +162,7 @@ private:
             return -2;
         }
 
-        PyObject* c_to_py(const void* payload) const {
+        virtual PyObject* c_to_py(const void* payload) const {
             if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to int, found NULL");
             const int32_t *temp = reinterpret_cast<const int32_t *>(payload);
             try {
