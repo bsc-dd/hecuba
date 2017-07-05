@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <vector>
+#include <cstring>
 
 //Represents a block of data belonging to an array
 struct Partition {
@@ -28,12 +29,12 @@ class ArrayPartitioner {
 public:
     virtual ~ArrayPartitioner() {};
 
-    virtual std::vector<Partition> make_partitions(ArrayMetadata metas, void* data);
+    virtual std::vector<Partition> make_partitions(ArrayMetadata metas, void* data) const;
 };
 
 
 class ZorderPartitioner:public ArrayPartitioner {
-    std::vector<Partition> make_partitions(ArrayMetadata metas, void* data);
+    std::vector<Partition> make_partitions(ArrayMetadata metas, void* data) const;
 };
 
 #endif //HFETCH_ARRAYPARTITIONER_H

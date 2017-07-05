@@ -98,7 +98,11 @@ uint16_t TableMetadata::compute_size_of(const CassValueType VT) const {
             std::cerr << "Tuple data type supported yet" << std::endl;
             break;
         }
-        case CASS_VALUE_TYPE_UDT:
+        case CASS_VALUE_TYPE_UDT: {
+            //TODO numpy
+            return sizeof(void*);
+            break;
+        }
         case CASS_VALUE_TYPE_CUSTOM:
         case CASS_VALUE_TYPE_UNKNOWN:
         default:

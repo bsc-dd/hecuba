@@ -7,7 +7,7 @@ PythonParser::PythonParser(std::shared_ptr<StorageInterface> storage, std::share
     for (uint32_t meta_i = 0; meta_i<metadatas->size(); ++meta_i) {
         if (metadatas->at(meta_i).type==CASS_VALUE_TYPE_INT) parsers[meta_i] = new Int32Parser(metadatas->at(meta_i));
         else if (metadatas->at(meta_i).type==CASS_VALUE_TYPE_TEXT) parsers[meta_i] = new TextParser(metadatas->at(meta_i));
-        else if (metadatas->at(meta_i).info.find("dims") != metadatas->at(meta_i).info.end()) {
+        else if (metadatas->at(meta_i).info.find("table") != metadatas->at(meta_i).info.end()) {
             NumpyParser *NP = new NumpyParser(metadatas->at(meta_i));
             NP->setStorage(storage);
             parsers[meta_i] = NP;
