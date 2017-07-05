@@ -253,13 +253,11 @@ void TupleRowFactory::bind( CassStatement *statement,const TupleRow *row,  u_int
                 case CASS_VALUE_TYPE_VARCHAR:
                 case CASS_VALUE_TYPE_TEXT:
                 case CASS_VALUE_TYPE_ASCII: {
-                    std::cout << "TEXT BIND " << std::endl;
                     int64_t *addr = (int64_t *) element_i;
                     const char *d = reinterpret_cast<char *>(*addr);
                     CassError rc = cass_statement_bind_string(statement, bind_pos, d);
                     CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [text], column:" +
                                localMeta->at(bind_pos).info[0]);
-                    std::cout << "TEXT BIND DONE" << std::endl;
                     break;
                 }
                 case CASS_VALUE_TYPE_VARINT:
@@ -273,12 +271,10 @@ void TupleRowFactory::bind( CassStatement *statement,const TupleRow *row,  u_int
                 }
                 case CASS_VALUE_TYPE_BLOB: {
                     //key is a ptr to the bytearray
-                    std::cout << "BLOB BIND " << std::endl;
                     const unsigned char **byte_array = (const unsigned char **) element_i;
                     uint64_t **num_bytes = (uint64_t **) byte_array;
                     const unsigned char *bytes = *byte_array + sizeof(uint64_t);
                     cass_statement_bind_bytes(statement, bind_pos, bytes, **num_bytes);
-                    std::cout << "BLOB BIND DONE" << std::endl;
                     break;
                 }
                 case CASS_VALUE_TYPE_BOOLEAN: {
@@ -330,7 +326,6 @@ void TupleRowFactory::bind( CassStatement *statement,const TupleRow *row,  u_int
                     break;
                 }
                 case CASS_VALUE_TYPE_UUID: {
-                    std::cout << "UUID BIND " << std::endl;
                     const uint64_t **uuid = (const uint64_t **) element_i;
 
                     const uint64_t *time_and_version = *uuid;
@@ -340,7 +335,6 @@ void TupleRowFactory::bind( CassStatement *statement,const TupleRow *row,  u_int
                     CassError rc = cass_statement_bind_uuid(statement, bind_pos, cass_uuid);
                     CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UUID], column:" +
                                metadata->at(bind_pos).info[0]);
-                    std::cout << "UUID BIND DONE" << std::endl;
                     break;
                 }
                 case CASS_VALUE_TYPE_TIMEUUID: {
