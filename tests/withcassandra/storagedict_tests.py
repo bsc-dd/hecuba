@@ -4,7 +4,20 @@ from hecuba import config
 from hecuba.hdict import StorageDict
 from app.words import Words
 import uuid
-import time
+
+
+class MyStorageDict(StorageDict):
+    '''
+    @TypeSpec <<position:int>,val:int>
+    '''
+    pass
+
+
+class MyStorageDict2(StorageDict):
+    '''
+    @TypeSpec <<position:int, position2:text>,val:int>
+    '''
+    pass
 
 
 class StorageDictTest(unittest.TestCase):
@@ -12,7 +25,10 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab1")
         tablename = "ksp.tab1"
         tokens = [(1l, 2l), (2l, 3l), (3l, 4l)]
-        nopars = StorageDict([('position', 'int')], [('value', 'int')], tablename, tokens)
+        nopars = StorageDict(tablename,
+                             [('position', 'int')],
+                             [('value', 'int')],
+                             tokens)
         self.assertEqual("tab1", nopars._table)
         self.assertEqual("ksp", nopars._ksp)
 
@@ -35,7 +51,10 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab1")
         tablename = "tab1"
         tokens = [(1l, 2l), (2l, 3l), (3l, 4l)]
-        nopars = StorageDict([('position', 'int')], [('value', 'int')], tablename, tokens)
+        nopars = StorageDict(tablename,
+                             [('position', 'int')],
+                             [('value', 'int')],
+                             tokens)
         self.assertEqual("tab1", nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
 
@@ -60,7 +79,10 @@ class StorageDictTest(unittest.TestCase):
             "CREATE TABLE IF NOT EXISTS my_app.tab10(position int, value text, PRIMARY KEY(position))")
         tablename = "tab10"
         tokens = [(1l, 2l), (2l, 3l), (3l, 4l)]
-        pd = StorageDict([('position', 'int')], [('value', 'text')], tablename, tokens)
+        pd = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'text')],
+                         tokens)
 
         for i in range(100):
             pd[i] = 'ciao' + str(i)
@@ -122,7 +144,9 @@ class StorageDictTest(unittest.TestCase):
         config.session \
             .execute("CREATE TABLE IF NOT EXISTS my_app.tab_a1(position int, value text, PRIMARY KEY(position))")
 
-        pd = StorageDict([('position', 'int')], [('value', 'text')], "tab_a1")
+        pd = StorageDict("tab_a1",
+                         [('position', 'int')],
+                         [('value', 'text')])
 
         what_should_be = {}
         for i in range(100):
@@ -131,7 +155,9 @@ class StorageDictTest(unittest.TestCase):
         del pd
         count, = config.session.execute('SELECT count(*) FROM my_app.tab_a1')[0]
         self.assertEqual(count, 100)
-        pd = StorageDict([('position', 'int')], [('value', 'text')], "tab_a1")
+        pd = StorageDict("tab_a1",
+                         [('position', 'int')],
+                         [('value', 'text')])
         count = 0
         res = {}
         for key, val in pd.iteritems():
@@ -146,7 +172,9 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute(
             "CREATE TABLE IF NOT EXISTS my_app.tab_a2(position int, value text, PRIMARY KEY(position))")
         tablename = "tab_a2"
-        pd = StorageDict([('position', 'int')], [('value', 'text')], tablename)
+        pd = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'text')])
 
         what_should_be = set()
         for i in range(100):
@@ -157,7 +185,9 @@ class StorageDictTest(unittest.TestCase):
 
         self.assertEqual(count, 100)
 
-        pd = StorageDict([('position', 'int')], [('value', 'text')], tablename)
+        pd = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'text')])
         count = 0
         res = set()
         for val in pd.itervalues():
@@ -172,7 +202,9 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute(
             "CREATE TABLE IF NOT EXISTS my_app.tab_a3(position int, value text, PRIMARY KEY(position))")
         tablename = "tab_a3"
-        pd = StorageDict([('position', 'int')], [('value', 'text')], tablename)
+        pd = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'text')])
 
         what_should_be = set()
         for i in range(100):
@@ -181,7 +213,9 @@ class StorageDictTest(unittest.TestCase):
         del pd
         count, = config.session.execute('SELECT count(*) FROM my_app.tab_a3')[0]
         self.assertEqual(count, 100)
-        pd = StorageDict([('position', 'int')], [('value', 'text')], tablename)
+        pd = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'text')])
         count = 0
         res = set()
         for val in pd.iterkeys():
@@ -196,7 +230,9 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute(
             "CREATE TABLE my_app.tab_a4(position int, value text, PRIMARY KEY(position))")
         tablename = "tab_a4"
-        pd = StorageDict([('position', 'int')], [('value', 'text')], tablename)
+        pd = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'text')])
 
         for i in range(100):
             pd[i] = 'ciao' + str(i)
@@ -204,7 +240,9 @@ class StorageDictTest(unittest.TestCase):
         count, = config.session.execute('SELECT count(*) FROM my_app.tab_a4')[0]
         self.assertEqual(count, 100)
 
-        pd = StorageDict([('position', 'int')], [('value', 'text')], tablename)
+        pd = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'text')])
         for i in range(100):
             self.assertTrue(i in pd)
 
@@ -214,10 +252,9 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute(
             "CREATE TABLE IF NOT EXISTS my_app.tab12(pid int,time int, value text,x float,y float,z float, PRIMARY KEY(pid,time))")
         tablename = "tab12"
-        pd = StorageDict([('pid', 'int'), ('time', 'int')],
-                         [('value', 'text'),
-                          ('x', 'float'),
-                          ('y', 'float'), ('z', 'float')], tablename)
+        pd = StorageDict(tablename,
+                         [('pid', 'int'), ('time', 'int')],
+                         [('value', 'text'), ('x', 'float'), ('y', 'float'), ('z', 'float')])
 
         what_should_be = {}
         for i in range(100):
@@ -228,10 +265,9 @@ class StorageDictTest(unittest.TestCase):
 
         count, = config.session.execute('SELECT count(*) FROM my_app.tab12')[0]
         self.assertEqual(count, 100)
-        pd = StorageDict([('pid', 'int'), ('time', 'int')],
-                         [('value', 'text'),
-                          ('x', 'float'),
-                          ('y', 'float'), ('z', 'float')], tablename)
+        pd = StorageDict(tablename,
+                         [('pid', 'int'), ('time', 'int')],
+                         [('value', 'text'), ('x', 'float'), ('y', 'float'), ('z', 'float')])
         count = 0
         res = {}
         for key, val in pd.iteritems():
@@ -253,10 +289,9 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute(
             "CREATE TABLE IF NOT EXISTS my_app.tab13(pid int,time float, value text,x float,y float,z float, PRIMARY KEY(pid,time))")
         tablename = "tab13"
-        pd = StorageDict([('pid', 'int'), ('time', 'float')],
-                         [('value', 'text'),
-                          ('x', 'float'),
-                          ('y', 'float'), ('z', 'float')], tablename)
+        pd = StorageDict(tablename,
+                         [('pid', 'int'), ('time', 'float')],
+                         [('value', 'text'), ('x', 'float'), ('y', 'float'), ('z', 'float')])
 
         what_should_be = {}
         for i in range(100):
@@ -267,10 +302,9 @@ class StorageDictTest(unittest.TestCase):
 
         count, = config.session.execute('SELECT count(*) FROM my_app.tab13')[0]
         self.assertEqual(count, 100)
-        pd = StorageDict([('pid', 'int')],
-                         [('time', 'float'), ('value', 'text'),
-                          ('x', 'float'),
-                          ('y', 'float'), ('z', 'float')], tablename)
+        pd = StorageDict(tablename,
+                         [('pid', 'int')],
+                         [('time', 'float'), ('value', 'text'), ('x', 'float'), ('y', 'float'), ('z', 'float')])
         count = 0
         res = {}
         for key, val in pd.iteritems():
@@ -284,6 +318,50 @@ class StorageDictTest(unittest.TestCase):
         data2 = set([(key[0], int(key[1]), val[0], int(val[1]), int(val[2]), int(val[3])) for key, val in what_should_be.iteritems()])
         self.assertEqual(data, data2)
 
+    def test_storagedict_newinterface_localmemory(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.my_dict")
+
+        my_dict = MyStorageDict()
+        my_dict[0] = 1
+        error = False
+        try:
+            result = config.session.execute('SELECT * FROM my_app.my_dict')[0]
+        except Exception as e:
+            error = True
+        self.assertEquals(True, error)
+
+    def test_storagedict_newinterface_memorytopersistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.my_dict")
+
+        my_dict = MyStorageDict()
+        my_dict[0] = 1
+        error = False
+        try:
+            result = config.session.execute('SELECT * FROM my_app.my_dict')[0]
+        except Exception as e:
+            error = True
+        self.assertEquals(True, error)
+
+        my_dict.make_persistent('my_dict')
+        count, = config.session.execute('SELECT count(*) FROM my_app.my_dict')[0]
+        self.assertEquals(1, count)
+
+    def test_storagedict_newinterface_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.my_dict")
+
+        my_dict = MyStorageDict()
+        my_dict[0] = 1
+        my_dict.make_persistent('my_dict')
+        count, = config.session.execute('SELECT count(*) FROM my_app.my_dict')[0]
+        self.assertEquals(1, count)
+
+        my_dict[1] = 2
+        count, = config.session.execute('SELECT count(*) FROM my_app.my_dict')[0]
+        self.assertEquals(2, count)
+
+        my_dict2 = MyStorageDict('my_dict')
+        self.assertEquals(1, my_dict2[0])
+        self.assertEquals(2, my_dict2[1])
 
 if __name__ == '__main__':
     unittest.main()

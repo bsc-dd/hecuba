@@ -115,7 +115,7 @@ class StorageObj(object, IStorage):
                     indexed_args = per_dict['indexed_values']
                 else:
                     indexed_args = None
-                pd = StorageDict(per_dict['primary_keys'], per_dict['columns'],
+                pd = StorageDict(None, per_dict['primary_keys'], per_dict['columns'],
                                  tokens=self._tokens, indexed_args=indexed_args)
             setattr(self, table_name, pd)
             self._persistent_dicts.append(pd)

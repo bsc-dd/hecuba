@@ -16,10 +16,10 @@ class PersistentDict_Tests(unittest.TestCase):
         config.session.execute('DROP KEYSPACE IF EXISTS ksp')
         config.session.execute("CREATE KEYSPACE ksp WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};")
         config.session.execute("CREATE TABLE ksp.tb1(pk1 int, val1 text,PRIMARY KEY(pk1))")
-        pd = StorageDict([('pk1', 'int')], [('val1', 'text')], 'ksp.tb1')
+        pd = StorageDict('ksp.tb1', [('pk1', 'int')], [('val1', 'text')])
         for i in range(100):
             pd[i] = 'ciao'+str(i)
-        del pd # To force hfetch to flush data
+        del pd  # To force hfetch to flush data
         count, = config.session.execute('SELECT count(*) FROM ksp.tb1')[0]
 
         self.assertEqual(count, 100)
@@ -28,10 +28,10 @@ class PersistentDict_Tests(unittest.TestCase):
         config.session.execute('DROP KEYSPACE IF EXISTS ksp')
         config.session.execute("CREATE KEYSPACE ksp WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};")
         config.session.execute("CREATE TABLE ksp.tb1(pk1 int, val1 text,PRIMARY KEY(pk1))")
-        pd = StorageDict([('pk1', 'int')], [('val1', 'text')], 'ksp.tb1')
+        pd = StorageDict('ksp.tb1', [('pk1', 'int')], [('val1', 'text')])
         for i in range(10000):
             pd[i] = 'ciao'+str(i)
-        del pd # To force hfetch to flush data
+        del pd  # To force hfetch to flush data
         count, = config.session.execute('SELECT count(*) FROM ksp.tb1 LIMIT 10002')[0]
         self.assertEqual(count, 10000)
 
@@ -39,10 +39,10 @@ class PersistentDict_Tests(unittest.TestCase):
         config.session.execute('DROP KEYSPACE IF EXISTS ksp')
         config.session.execute("CREATE KEYSPACE ksp WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};")
         config.session.execute("CREATE TABLE ksp.tb1(pk1 int, val1 text,PRIMARY KEY(pk1))")
-        pd = StorageDict([('pk1', 'int')], [('val1', 'text')], 'ksp.tb1')
+        pd = StorageDict('ksp.tb1', [('pk1', 'int')], [('val1', 'text')])
         for i in range(1000000):
             pd[i] = 'ciao'+str(i)
-        del pd # To force hfetch to flush data
+        del pd  # To force hfetch to flush data
         count, = config.session.execute('SELECT count(*) FROM ksp.tb1')[0]
 
         self.assertEqual(count, 1000000)
@@ -51,14 +51,14 @@ class PersistentDict_Tests(unittest.TestCase):
         config.session.execute('DROP KEYSPACE IF EXISTS ksp')
         config.session.execute("CREATE KEYSPACE ksp WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};")
         config.session.execute("CREATE TABLE ksp.tb1(pk1 int, val1 text,PRIMARY KEY(pk1))")
-        pd = StorageDict([('pk1', 'int')], [('val1', 'text')], 'ksp.tb1')
+        pd = StorageDict('ksp.tb1', [('pk1', 'int')], [('val1', 'text')])
         for i in range(100):
             pd[i] = 'ciao'+str(i)
-        del pd # To force hfetch to flush data
+        del pd  # To force hfetch to flush data
         count, = config.session.execute('SELECT count(*) FROM ksp.tb1')[0]
 
         self.assertEqual(count, 100)
-        pd = StorageDict([('pk1', 'int')], [('val1', 'text')], 'ksp.tb1')
+        pd = StorageDict('ksp.tb1', [('pk1', 'int')], [('val1', 'text')])
         for i in range(100):
             self.assertEqual(pd[i], u'ciao'+str(i))
 
@@ -67,14 +67,14 @@ class PersistentDict_Tests(unittest.TestCase):
         config.session.execute(
             "CREATE KEYSPACE ksp WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};")
         config.session.execute("CREATE TABLE ksp.tb1(pk1 int, name text,age int,PRIMARY KEY(pk1))")
-        pd = StorageDict([('pk1', 'int')], [('name', 'text'), ('age', 'int')], 'ksp.tb1')
+        pd = StorageDict('ksp.tb1', [('pk1', 'int')], [('name', 'text'), ('age', 'int')])
         for i in range(100):
             pd[i] = ('ciao' + str(i), i)
         del pd  # To force hfetch to flush data
         count, = config.session.execute('SELECT count(*) FROM ksp.tb1')[0]
 
         self.assertEqual(count, 100)
-        pd = StorageDict([('pk1', 'int')], [('name', 'text'), ('age', 'int')], 'ksp.tb1')
+        pd = StorageDict('ksp.tb1', [('pk1', 'int')], [('name', 'text'), ('age', 'int')])
         for i in range(100):
             name, age = pd[i]
             self.assertEqual(name, u'ciao' + str(i))
