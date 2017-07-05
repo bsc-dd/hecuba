@@ -24,6 +24,8 @@ public:
 
     void write_to_cassandra(const TupleRow *keys, const TupleRow *values);
 
+    void write_to_cassandra(void *keys, void *values);
+
     void set_error_occurred(std::string error, const void * keys, const void * values);
 
     const TableMetadata* get_metadata() {

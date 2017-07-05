@@ -143,8 +143,13 @@ void Writer::write_to_cassandra(const TupleRow *keys, const TupleRow *values) {
         call_async();
     }
 }
-
-
+void Writer::write_to_cassandra(void *keys, void *values) {
+    const TupleRow *k = k_factory->make_tuple(keys);
+    const TupleRow *v = v_factory->make_tuple(values);
+    this->write_to_cassandra(k, v);
+    delete (k);
+    delete (v);
+}
 void Writer::call_async() {
 
     //current write data
