@@ -2,7 +2,7 @@ import uuid
 from collections import namedtuple
 from time import time
 from hecuba import config, log
-
+import re
 
 class IStorage:
     _select_istorage_meta = config.session.prepare("SELECT * FROM hecuba.istorage WHERE storage_id = ?")
@@ -10,10 +10,18 @@ class IStorage:
     args = namedtuple("IStorage", [])
     _build_args = args()
 
-    valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map',
-                   'bigint', 'blob', 'counter', 'dict', 'float']
+    _valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map', 'bigint', 'blob', 'counter', 'dict', 'float']
 
-    python_types = [int, str, bool, float, tuple, set, dict, long, bytearray]
+    _hecuba_valid_types = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer|numpy.ndarray|counter)'
+    _data_type = re.compile('(\w+) *: *%s' % _hecuba_valid_types)
+    _so_data_type = re.compile('(\w+)*:(\w.+)')
+    _list_case = re.compile('.*@ClassField +(\w+) +list+ *< *([\w:\.+]+) *>')
+    _sub_dict_case = re.compile(' *< *< *([\w:, ]+)+ *> *, *([\w+:, <>]+) *>')
+    _sub_tuple_case = re.compile(' *< *([\w:, ]+)+ *>')
+    _val_case = re.compile('.*@ClassField +(\w+) +%s' % _hecuba_valid_types)
+    _so_val_case = re.compile('.*@ClassField +(\w+) +([\w.]+)')
+
+    _python_types = [int, str, bool, float, tuple, set, dict, long, bytearray]
 
     _conversions = {'atomicint': 'counter',
                     'str': 'text',

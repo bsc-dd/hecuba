@@ -1,7 +1,6 @@
-import re
 from collections import namedtuple
 import uuid
-
+import re
 from IStorage import IStorage
 from hdict import StorageDict
 from hecuba import config, log
@@ -120,7 +119,7 @@ class StorageObj(object, IStorage):
             setattr(self, table_name, pd)
             self._persistent_dicts.append(pd)
 
-        storageobjs = filter(lambda (k, t): t['type'] not in IStorage.valid_types, self._persistent_props.iteritems())
+        storageobjs = filter(lambda (k, t): t['type'] not in IStorage._valid_types, self._persistent_props.iteritems())
         for table_name, per_dict in storageobjs:
             so_name = "%s.%s" % (self._ksp, table_name)
             cname, module = IStorage.process_path(per_dict['type'])
@@ -134,16 +133,8 @@ class StorageObj(object, IStorage):
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.getID() == other.getID()
 
-    _valid_type = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer|numpy.ndarray|counter)'
-    _data_type = re.compile('(\w+) *: *%s' % _valid_type)
-    _so_data_type = re.compile('(\w+)*:(\w.+)')
     _dict_case = re.compile('.*@ClassField +(\w+) +dict+ *< *< *([\w:, ]+)+ *> *, *([\w+:., <>]+) *>')
     _tuple_case = re.compile('.*@ClassField +(\w+) +tuple+ *< *([\w, +]+) *>')
-    _list_case = re.compile('.*@ClassField +(\w+) +list+ *< *([\w:\.+]+) *>')
-    _sub_dict_case = re.compile(' *< *< *([\w:, ]+)+ *> *, *([\w+:, <>]+) *>')
-    _sub_tuple_case = re.compile(' *< *([\w:, ]+)+ *>')
-    _val_case = re.compile('.*@ClassField +(\w+) +%s' % _valid_type)
-    _so_val_case = re.compile('.*@ClassField +(\w+) +([\w.]+)')
     _index_vars = re.compile('.*@Index_on *([A-z0-9]+) +([A-z0-9, ]+)')
 
     @classmethod
@@ -163,8 +154,8 @@ class StorageObj(object, IStorage):
                 table_name, dict_keys, dict_values = m.groups()
                 primary_keys = []
                 for ind, key in enumerate(dict_keys.split(",")):
-                    match = StorageObj._data_type.match(key)
-                    if match is not None:
+                    match = IStorage._data_type.match(key)
+                    if match is not None and match.lastindex > 1:
                         # an IStorage with a name
                         name, value = match.groups()
                     elif ':' in key:
@@ -174,16 +165,16 @@ class StorageObj(object, IStorage):
                         value = key
 
                     name = name.replace(' ', '')
-                    primary_keys.append((name, StorageObj._conversions[value]))
+                    primary_keys.append((name, IStorage._conversions[value]))
                 dict_values = dict_values.replace(' ', '')
                 if dict_values.startswith('dict'):
-                    n = StorageObj._sub_dict_case.match(dict_values[4:])
+                    n = IStorage._sub_dict_case.match(dict_values[4:])
                     # Matching @ClassField of a sub dict
                     dict_keys2, dict_values2 = n.groups()
                     primary_keys2 = []
                     for ind, key in enumerate(dict_keys2.split(",")):
                         try:
-                            name, value = StorageObj._data_type.match(key).groups()
+                            name, value = IStorage._data_type.match(key).groups()
                         except ValueError:
                             if ':' in key:
                                 raise SyntaxError
@@ -191,27 +182,27 @@ class StorageObj(object, IStorage):
                                 name = "key" + str(ind)
                                 value = key
                         name = name.replace(' ', '')
-                        primary_keys2.append((name, StorageObj._conversions[value]))
+                        primary_keys2.append((name, IStorage._conversions[value]))
                     columns2 = []
                     dict_values2 = dict_values2.replace(' ', '')
                     if dict_values2.startswith('tuple'):
                         dict_values2 = dict_values2[6:]
                     for ind, val in enumerate(dict_values2.split(",")):
                         try:
-                            name, value = StorageObj._data_type.match(val).groups()
+                            name, value = IStorage._data_type.match(val).groups()
                         except ValueError:
                             if ':' in key:
                                 raise SyntaxError
                             else:
                                 name = "val" + str(ind)
                                 value = val
-                        columns2.append((name, StorageObj._conversions[value]))
+                        columns2.append((name, IStorage._conversions[value]))
                     columns = {
                         'type': 'dict',
                         'primary_keys': primary_keys2,
                         'columns': columns2}
                 elif dict_values.startswith('tuple'):
-                    n = StorageObj._sub_tuple_case.match(dict_values[5:])
+                    n = IStorage._sub_tuple_case.match(dict_values[5:])
                     tuple_values = list(n.groups())[0]
                     columns = []
                     for ind, val in enumerate(tuple_values.split(",")):
@@ -224,22 +215,22 @@ class StorageObj(object, IStorage):
                                 name = "val" + str(ind)
                                 value = val
                         name = name.replace(' ', '')
-                        columns.append((name, StorageObj._conversions[value]))
+                        columns.append((name, IStorage._conversions[value]))
                 else:
                     columns = []
                     for ind, val in enumerate(dict_values.split(",")):
-                        match = StorageObj._data_type.match(val)
+                        match = IStorage._data_type.match(val)
                         if match is not None:
                             # an IStorage with a name
                             name, value = match.groups()
                         elif ':' in val:
-                            name, value = StorageObj._so_data_type.match(val).groups()
+                            name, value = IStorage._so_data_type.match(val).groups()
                         else:
                             name = "val" + str(ind)
                             value = val
                         name = name.replace(' ', '')
                         try:
-                            columns.append((name, StorageObj._conversions[value]))
+                            columns.append((name, IStorage._conversions[value]))
                         except KeyError:
                             columns.append((name, value))
                 if table_name in this:
@@ -258,33 +249,33 @@ class StorageObj(object, IStorage):
                     conversion = ''
                     for ind, val in enumerate(simple_type_split):
                         if ind == 0:
-                            conversion += StorageObj._conversions[val]
+                            conversion += IStorage._conversions[val]
                         else:
-                            conversion += "," + StorageObj._conversions[val]
+                            conversion += "," + IStorage._conversions[val]
                     this[table_name] = {
                         'type': 'tuple<' + conversion + '>'
                     }
                 else:
-                    m = StorageObj._list_case.match(line)
+                    m = IStorage._list_case.match(line)
                     if m is not None:
                         table_name, simple_type = m.groups()
 
                         try:
-                            conversion = StorageObj._conversions[simple_type]
+                            conversion = IStorage._conversions[simple_type]
                         except KeyError:
                             conversion = simple_type
                         this[table_name] = {
                             'type': 'list<' + conversion + '>'
                         }
                     else:
-                        m = StorageObj._val_case.match(line)
+                        m = IStorage._val_case.match(line)
                         if m is not None:
                             table_name, simple_type = m.groups()
                             this[table_name] = {
-                                'type': StorageObj._conversions[simple_type]
+                                'type': IStorage._conversions[simple_type]
                             }
                         else:
-                            m = StorageObj._so_val_case.match(line)
+                            m = IStorage._so_val_case.match(line)
                             if m is not None:
                                 table_name, simple_type = m.groups()
                                 this[table_name] = {
@@ -336,7 +327,7 @@ class StorageObj(object, IStorage):
                        '( storage_id uuid PRIMARY KEY, '
         for key, entry in self._persistent_props.iteritems():
             query_simple += str(key) + ' '
-            if entry['type'] != 'dict' and entry['type'] in IStorage.valid_types:
+            if entry['type'] != 'dict' and entry['type'] in IStorage._valid_types:
                 query_simple += entry['type'] + ', '
             else:
                 query_simple += 'uuid, '
@@ -355,14 +346,14 @@ class StorageObj(object, IStorage):
             setattr(self, table_name, pd)
             is_props[sd_name] = str(pd._storage_id)
 
-        storageobjs = filter(lambda (k, t): t['type'] not in IStorage.valid_types, self._persistent_props.iteritems())
+        storageobjs = filter(lambda (k, t): t['type'] not in IStorage._valid_types, self._persistent_props.iteritems())
         for table_name, per_dict in storageobjs:
             so_name = "%s.%s" % (self._ksp, table_name)
             cname, module = IStorage.process_path(per_dict['type'])
             mod = __import__(module, globals(), locals(), [cname], 0)
             so = getattr(mod, cname)(so_name)
             for key, var in getattr(self, table_name).__dict__.iteritems():
-                if key[0] != '_' and type(var) in IStorage.python_types:
+                if key[0] != '_' and type(var) in IStorage._python_types:
                     setattr(so, key, var)
             setattr(self, table_name, so)
             self._storage_objs.append(so)

@@ -163,13 +163,8 @@ class StorageDict(dict, IStorage):
                self._tokens == other.token_ranges \
                and self._table == other.table_name and self._ksp == other.keyspace
 
-    _valid_type = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer|numpy.ndarray|counter)'
-    _data_type = re.compile('(\w+) *: *%s' % _valid_type)
-    _so_data_type = re.compile('(\w+)*:(\w.+)')
     _dict_case = re.compile('.*@TypeSpec + *< *< *([\w:, ]+)+ *> *, *([\w+:., <>]+) *>')
     _tuple_case = re.compile('.*@TypeSpec +(\w+) +tuple+ *< *([\w, +]+) *>')
-    _sub_dict_case = re.compile(' *< *< *([\w:, ]+)+ *> *, *([\w+:, <>]+) *>')
-    _sub_tuple_case = re.compile(' *< *([\w:, ]+)+ *>')
     _index_vars = re.compile('.*@Index_on *([A-z0-9, ]+)')
 
     @classmethod
@@ -189,7 +184,7 @@ class StorageDict(dict, IStorage):
                 dict_keys, dict_values = m.groups()
                 primary_keys = []
                 for ind, key in enumerate(dict_keys.split(",")):
-                    match = StorageDict._data_type.match(key)
+                    match = IStorage._data_type.match(key)
                     if match is not None:
                         # an IStorage with a name
                         name, value = match.groups()
@@ -203,13 +198,13 @@ class StorageDict(dict, IStorage):
                     primary_keys.append((name, StorageDict._conversions[value]))
                 dict_values = dict_values.replace(' ', '')
                 if dict_values.startswith('dict'):
-                    n = StorageDict._sub_dict_case.match(dict_values[4:])
+                    n = IStorage._sub_dict_case.match(dict_values[4:])
                     # Matching @TypeSpec of a sub dict
                     dict_keys2, dict_values2 = n.groups()
                     primary_keys2 = []
                     for ind, key in enumerate(dict_keys2.split(",")):
                         try:
-                            name, value = StorageDict._data_type.match(key).groups()
+                            name, value = IStorage._data_type.match(key).groups()
                         except ValueError:
                             if ':' in key:
                                 raise SyntaxError
@@ -224,7 +219,7 @@ class StorageDict(dict, IStorage):
                         dict_values2 = dict_values2[6:]
                     for ind, val in enumerate(dict_values2.split(",")):
                         try:
-                            name, value = StorageDict._data_type.match(val).groups()
+                            name, value = IStorage._data_type.match(val).groups()
                         except ValueError:
                             if ':' in key:
                                 raise SyntaxError
@@ -237,7 +232,7 @@ class StorageDict(dict, IStorage):
                         'primary_keys': primary_keys2,
                         'columns': columns2}
                 elif dict_values.startswith('tuple'):
-                    n = StorageDict._sub_tuple_case.match(dict_values[5:])
+                    n = IStorage._sub_tuple_case.match(dict_values[5:])
                     tuple_values = list(n.groups())[0]
                     columns = []
                     for ind, val in enumerate(tuple_values.split(",")):
@@ -254,12 +249,12 @@ class StorageDict(dict, IStorage):
                 else:
                     columns = []
                     for ind, val in enumerate(dict_values.split(",")):
-                        match = StorageDict._data_type.match(val)
+                        match = IStorage._data_type.match(val)
                         if match is not None:
                             # an IStorage with a name
                             name, value = match.groups()
                         elif ':' in val:
-                            name, value = StorageDict._so_data_type.match(val).groups()
+                            name, value = IStorage._so_data_type.match(val).groups()
                         else:
                             name = "val" + str(ind)
                             value = val
@@ -268,7 +263,7 @@ class StorageDict(dict, IStorage):
                             columns.append((name, StorageDict._conversions[value]))
                         except KeyError:
                             columns.append((name, value))
-                name = str(self).replace('\'>','').split('.')[-1]
+                name = str(self).replace('\'>', '').split('.')[-1]
                 if self.__class__.__name__ in this:
                     this[name].update({'type': 'dict', 'primary_keys': primary_keys, 'columns': columns})
                 else:
@@ -278,7 +273,7 @@ class StorageDict(dict, IStorage):
                         'columns': columns}
             m = StorageDict._index_vars.match(line)
             if m is not None:
-                name = str(self).replace('\'>','').split('.')[-1]
+                name = str(self).replace('\'>', '').split('.')[-1]
                 indexed_values = m.groups()
                 indexed_values = indexed_values.replace(' ', '').split(',')
                 if name in this:
@@ -346,7 +341,7 @@ class StorageDict(dict, IStorage):
 
         if self._storage_id is None:
             self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table)
-        self._build_args = self._build_args._replace(storage_id=self._storage_id,name=self._ksp + "." + self._table)
+        self._build_args = self._build_args._replace(storage_id=self._storage_id, name=self._ksp + "." + self._table)
         self._store_meta(self._build_args)
         if config.id_create_schema == -1:
             query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy'," \
@@ -361,7 +356,7 @@ class StorageDict(dict, IStorage):
 
         columns = map(lambda a: a, self._primary_keys + self._columns)
         for ind, entry in enumerate(columns):
-            if entry[1] not in IStorage.valid_types:
+            if entry[1] not in IStorage._valid_types:
                 class_name, module = IStorage.process_path(entry[1])
                 mod = __import__(module, globals(), locals(), [class_name], 0)
                 so = getattr(mod, class_name)(entry[0])
@@ -394,7 +389,6 @@ class StorageDict(dict, IStorage):
         # Storing all in-memory values to cassandra
         for key, value in dict.iteritems(self):
             self._hcache.put_row(self._make_key(key), self._make_value(value))
-
 
     def stop_persistent(self):
         log.debug('STOP PERSISTENCE: %s', self._table)
@@ -468,10 +462,10 @@ class StorageDict(dict, IStorage):
         if self._is_persistent:
             ik = self._hcache.iteritems(config.prefetch_size)
             return NamedItemsIterator(self._key_builder,
-                                           self._column_builder,
-                                           self._k_size,
-                                           ik,
-                                           self)
+                                      self._column_builder,
+                                      self._k_size,
+                                      ik,
+                                      self)
         else:
             return dict.iteritems(self)
 
@@ -486,4 +480,3 @@ class StorageDict(dict, IStorage):
             return NamedIterator(ik, self._column_builder, self)
         else:
             return dict.itervalues(self)
-
