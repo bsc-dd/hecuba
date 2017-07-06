@@ -8,22 +8,24 @@ TupleRow::TupleRow(std::shared_ptr<const std::vector<ColumnMeta>> metas,
     payload = std::shared_ptr<TupleRowData>(new TupleRowData(buffer, payload_size, (uint32_t) metas->size()),
                                             [metas](TupleRowData *holder) {
                                                 for (uint16_t i = 0; i < metas->size(); ++i) {
-                                                    switch (metas->at(i).type) {
-                                                        case CASS_VALUE_TYPE_BLOB:
-                                                        case CASS_VALUE_TYPE_TEXT:
-                                                        case CASS_VALUE_TYPE_VARCHAR:
-                                                        case CASS_VALUE_TYPE_UUID:
-                                                        case CASS_VALUE_TYPE_ASCII: {
-                                                            if (!holder->isNull(i)) {
-                                                                int64_t *addr = (int64_t *) ((char *) holder->data +
-                                                                                             metas->at(i).position);
-                                                                char *d = reinterpret_cast<char *>(*addr);
-                                                                free(d);
+                                                    if (metas->at(i).info.find("free")==metas->at(i).info.end()) {
+                                                        switch (metas->at(i).type) {
+                                                            case CASS_VALUE_TYPE_BLOB:
+                                                            case CASS_VALUE_TYPE_TEXT:
+                                                            case CASS_VALUE_TYPE_VARCHAR:
+                                                            case CASS_VALUE_TYPE_UUID:
+                                                            case CASS_VALUE_TYPE_ASCII: {
+                                                                if (!holder->isNull(i)) {
+                                                                    int64_t *addr = (int64_t *) ((char *) holder->data +
+                                                                                                 metas->at(i).position);
+                                                                    char *d = reinterpret_cast<char *>(*addr);
+                                                                    free(d);
+                                                                }
+                                                                break;
                                                             }
-                                                            break;
+                                                            default:
+                                                                break;
                                                         }
-                                                        default:
-                                                            break;
                                                     }
                                                 }
                                                 delete (holder);
