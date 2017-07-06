@@ -1,12 +1,13 @@
 #include "TableMetadata.h"
+#include "ArrayPartitioner.h"
 
 /***
  * Returns the allocation number of bytes required to allocate a type of data
  * @param VT Cassandra Type
  * @return Allocation size needed to store data of type VT
  */
-uint16_t TableMetadata::compute_size_of(const CassValueType VT) const {
-    switch (VT) {
+uint16_t TableMetadata::compute_size_of(const ColumnMeta &CM) const {
+    switch (CM.type) {
         case CASS_VALUE_TYPE_TEXT:
         case CASS_VALUE_TYPE_VARCHAR:
         case CASS_VALUE_TYPE_ASCII: {
@@ -99,9 +100,10 @@ uint16_t TableMetadata::compute_size_of(const CassValueType VT) const {
             break;
         }
         case CASS_VALUE_TYPE_UDT: {
-            //TODO numpy
-            return sizeof(void*);
-            break;
+            if (CM.info.find("numpy")!=CM.info.end()) {
+                return sizeof(ArrayMetadata);
+            }
+            throw ModuleException("Can't parse data: User defined type not supported");
         }
         case CASS_VALUE_TYPE_CUSTOM:
         case CASS_VALUE_TYPE_UNKNOWN:
@@ -174,7 +176,6 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
 
         metadatas[value]= {};
         metadatas[value].type = cass_data_type_type(type);
-        metadatas[value].size = compute_size_of(metadatas[value].type);
         metadatas[value].col_type = cass_column_meta_type(cmeta);
     }
     cass_iterator_free(iterator);
@@ -230,20 +231,24 @@ TableMetadata::TableMetadata(const char* table_name, const char* keyspace_name,
     if (!columns_names.empty()) {
         cols_meta[0] = metadatas[columns_names[0]["name"]];
         cols_meta[0].info = columns_names[0];
+        cols_meta[0].size = compute_size_of(cols_meta[0]);
         cols_meta[0].position = 0;
         for (uint16_t i = 1; i < cols_meta.size(); ++i) {
             cols_meta[i] = metadatas[columns_names[i]["name"]];
             cols_meta[i].info = columns_names[i];
+            cols_meta[i].size = compute_size_of(cols_meta[i]);
             cols_meta[i].position = cols_meta[i - 1].position + cols_meta[i - 1].size;
         }
     }
 
     keys_meta[0]=metadatas[keys_names[0]["name"]];
     keys_meta[0].info=keys_names[0];
+    keys_meta[0].size = compute_size_of(keys_meta[0]);
     keys_meta[0].position = 0;
     for (uint16_t i = 1; i < keys_meta.size(); ++i) {
         keys_meta[i]=metadatas[keys_names[i]["name"]];
         keys_meta[i].info=keys_names[i];
+        keys_meta[i].size = compute_size_of(keys_meta[i]);
         keys_meta[i].position = keys_meta[i - 1].position + keys_meta[i - 1].size;
     }
 

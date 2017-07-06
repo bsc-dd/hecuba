@@ -23,13 +23,13 @@ public:
 
     NumpyStorage(std::shared_ptr<StorageInterface> storage, ArrayPartitioner &algorithm);
 
-    ArrayMetadata store(std::string table, std::string keyspace, std::string attr_name, const CassUuid &storage_id, PyArrayObject* numpy) const;
+    ArrayMetadata* store(std::string table, std::string keyspace, std::string attr_name, const CassUuid &storage_id, PyArrayObject* numpy) const;
 
     PyObject* read(std::string table, TupleRow* keys, ArrayMetadata &np);
 
 private:
 
-    ArrayMetadata get_np_metadata(PyArrayObject* numpy) const;
+    ArrayMetadata* get_np_metadata(PyArrayObject* numpy) const;
 
     std::shared_ptr<StorageInterface> storage;
 

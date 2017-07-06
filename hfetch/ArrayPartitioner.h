@@ -16,7 +16,7 @@ struct Partition {
     int32_t cluster_id;
     void *data;
 };
-
+//TODO Inherit from CassUserType, pass the user type directly
 //Represents the shape and type of an array
 struct ArrayMetadata {
     std::vector<int32_t > dims;
@@ -29,12 +29,12 @@ class ArrayPartitioner {
 public:
     virtual ~ArrayPartitioner() {};
 
-    virtual std::vector<Partition> make_partitions(ArrayMetadata metas, void* data) const;
+    virtual std::vector<Partition> make_partitions(ArrayMetadata *metas, void* data) const;
 };
 
 
 class ZorderPartitioner:public ArrayPartitioner {
-    std::vector<Partition> make_partitions(ArrayMetadata metas, void* data) const;
+    std::vector<Partition> make_partitions(ArrayMetadata *metas, void* data) const;
 };
 
 #endif //HFETCH_ARRAYPARTITIONER_H

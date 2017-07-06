@@ -108,8 +108,8 @@ private:
     class NumpyParser: public InnerParser {
     public:
         NumpyParser(const ColumnMeta& CM):InnerParser(CM){
-            if (CM.size!=sizeof(char*))
-                throw ModuleException("Bad size allocated for a Int32");
+            if (CM.size!=sizeof(ArrayMetadata))
+                throw ModuleException("Bad size allocated for a Numpy");
             table=CM.info.at("table");
             attribute_name=CM.info.at("name");
             keyspace=CM.info.at("keyspace");
@@ -119,12 +119,11 @@ private:
         }
 
         virtual int16_t py_to_c(PyObject* numpy, void* payload) const {
-            if (numpy==Py_None)
-                return -1;
+            if (numpy==Py_None) return -1;
             PyArrayObject *arr;
-            int ok = PyArray_OutputConverter(numpy, &arr);
-            if (!ok) error_parsing("Numpy",numpy); //failed to convert array from PyObject to PyArray
-            np_storage->store(table,keyspace,attribute_name,storage_id,arr);
+            if (!PyArray_OutputConverter(numpy, &arr)) error_parsing("Numpy",numpy); //failed to convert array from PyObject to PyArray
+            ArrayMetadata *metas = np_storage->store(table,keyspace,attribute_name,storage_id,arr);
+            memcpy(payload,&metas,sizeof(metas));
             return 0;
 
         }

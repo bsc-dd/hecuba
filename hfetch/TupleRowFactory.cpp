@@ -1,4 +1,5 @@
 #include "TupleRowFactory.h"
+#include "ArrayPartitioner.h"
 
 /***
  * Builds a tuple factory to retrieve tuples based on rows and keys
@@ -384,8 +385,30 @@ void TupleRowFactory::bind( CassStatement *statement,const TupleRow *row,  u_int
                     break;
                 }
                 case CASS_VALUE_TYPE_UDT: {
+                    const char **true_ptr = (const char **)(element_i);
+                    const ArrayMetadata *array_metas = (ArrayMetadata*)(*true_ptr);
+                    //TODO decide if we want to keep the type creation here or not
 
-                    //TODO Numpy meta
+                    CassDataType* data_type = cass_data_type_new_udt(2);
+                    cass_data_type_add_sub_value_type_by_name(data_type, "dims", CASS_VALUE_TYPE_LIST);
+                    cass_data_type_add_sub_value_type_by_name(data_type, "type", CASS_VALUE_TYPE_INT);
+
+                    CassUserType* user_type = cass_user_type_new_from_data_type(data_type);
+                    cass_data_type_free(data_type);
+
+                    cass_user_type_set_int32_by_name(user_type,"type",array_metas->inner_type);
+
+                    CassCollection * list = cass_collection_new(CASS_COLLECTION_TYPE_LIST, array_metas->dims.size());
+                    for (int32_t dim:array_metas->dims) {
+                        cass_collection_append_int32(list, dim);
+                    }
+
+                    cass_user_type_set_collection_by_name(user_type,"dims",list);
+
+                    CassError rc = cass_statement_bind_user_type(statement, bind_pos, user_type);
+                    CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [ArrayMetadata as UDT], column:" +
+                               localMeta->at(bind_pos).info[0]);
+                    cass_user_type_free(user_type);
                     break;
                 }
                 case CASS_VALUE_TYPE_CUSTOM:

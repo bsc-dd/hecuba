@@ -256,6 +256,7 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
             columns_names[i]["name"] = PyString_AsString(py_name);
             columns_names[i]["table"]  = std::string(table)+"_numpies";
             columns_names[i]["keyspace"]  = std::string(keyspace);
+            columns_names[i]["numpy"]  = "true";
             if (!PyByteArray_Check(py_storage_id)) {
                 //Object is UUID python class
                 uint32_t len = sizeof(uint64_t)*2;

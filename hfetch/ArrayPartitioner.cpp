@@ -6,8 +6,12 @@
  * @param data
  * @return
  */
-std::vector<Partition> ArrayPartitioner::make_partitions(ArrayMetadata metas, void* data) const {
-    uint64_t arrsize=3*5*sizeof(double);
+std::vector<Partition> ArrayPartitioner::make_partitions(ArrayMetadata *metas, void* data) const {
+    uint64_t arrsize=1;
+
+    for (int32_t dim:metas->dims)arrsize*=dim;
+    arrsize*=sizeof(double); //TODO pass from metas->type to metas->size
+
     void *tobewritten = malloc(sizeof(uint64_t)+arrsize);
     memcpy(tobewritten,&arrsize,sizeof(uint64_t));
 
@@ -16,7 +20,7 @@ std::vector<Partition> ArrayPartitioner::make_partitions(ArrayMetadata metas, vo
 }
 
 
-std::vector<Partition> ZorderPartitioner::make_partitions(ArrayMetadata metas, void* data) const {
+std::vector<Partition> ZorderPartitioner::make_partitions(ArrayMetadata *metas, void* data) const {
     /**
      * here we should implement some sort of algorithm which returns
      * the chunks of data with their block_id and cluster_id
