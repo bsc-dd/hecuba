@@ -2,8 +2,7 @@
 
 
 NumpyStorage::NumpyStorage(std::string table, std::string keyspace, std::shared_ptr<StorageInterface> storage, ArrayPartitioner &algorithm) {
-    this->storage = storage;
-    this->partitioner = algorithm;
+
     std::vector< std::map<std::string,std::string> > keysnames = {
             {{"name", "storage_id"}},{{"name","attr_name"}},
             {{"name", "cluster_id"}},{{"name","block_id"}}
@@ -16,12 +15,17 @@ NumpyStorage::NumpyStorage(std::string table, std::string keyspace, std::shared_
     config["writer_par"] = "4";
     config["writer_buffer"] = "20";
 
+    this->storage = storage;
+    this->partitioner = algorithm;
     this->writer = this->storage->make_writer(table.c_str(),keyspace.c_str(),keysnames,colsnames,config);
 }
 
 
 NumpyStorage::~NumpyStorage() {
-    if (writer) delete (writer);
+    if (writer) {
+        delete (writer->get_metadata());
+        delete (writer);
+    }
 };
 
 
@@ -37,7 +41,7 @@ const ArrayMetadata* NumpyStorage::store(std::string attr_name, const CassUuid &
     for (Partition part: parts) {
         keys = (char*) malloc(keys_size);
         //UUID
-        c_uuid = new uint64_t[2];
+        c_uuid = (uint64_t*) malloc(sizeof(uint64_t)*2);//new uint64_t[2];
         c_uuid[0] = storage_id.time_and_version;
         c_uuid[1] = storage_id.clock_seq_and_node;
         memcpy(keys, &c_uuid, sizeof(uint64_t*));
@@ -75,13 +79,13 @@ PyObject* NumpyStorage::read(std::string table, std::string keyspace, std::strin
     };
 
     std::map <std::string, std::string> config;
-    config["writer_par"] = "4";
-    config["writer_buffer"] = "20";
+    config["cache_size"] = "0";
+    config["writer_par"] = "1";
+    config["writer_buffer"] = "0";
 
     CacheTable* cache = this->storage->make_cache(table.c_str(),keyspace.c_str(),keysnames,colsnames,config);
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = cache->get_metadata()->get_keys();
-    const ColumnMeta last_col_meta = keys_metas->at(keys_metas->size()-1);
-    uint32_t keys_size = last_col_meta.size+last_col_meta.position;
+    uint32_t keys_size = (*--keys_metas->end()).size+(*--keys_metas->end()).position;
 
 
     std::vector<const TupleRow*> result, all_results;
@@ -111,7 +115,8 @@ PyObject* NumpyStorage::read(std::string table, std::string keyspace, std::strin
         all_results.insert(all_results.end(),result.begin(),result.end());
         for (const TupleRow* row:result) {
             block = (int32_t *) row->get_element(0);
-            all_partitions.push_back(Partition(*block,cluster_id,row->get_element(1)));
+            char **chunk = (char**) row->get_element(1);
+            all_partitions.push_back(Partition(*block,cluster_id,*chunk));
         }
         ++cluster_id;
     }
@@ -126,7 +131,7 @@ PyObject* NumpyStorage::read(std::string table, std::string keyspace, std::strin
 
     void * data = partitioner.merge_partitions(arr_meta,all_partitions);
 
-    for (const TupleRow* item:result) delete(item);
+    for (const TupleRow* item:all_results) delete(item);
     npy_intp *dims = new npy_intp[arr_meta->dims.size()];
     for (uint32_t i = 0; i<arr_meta->dims.size(); ++i) {
         dims[i]=arr_meta->dims[i];
@@ -150,6 +155,19 @@ ArrayMetadata* NumpyStorage::get_np_metadata(PyArrayObject *numpy) const {
 
     ArrayMetadata *shape_and_type = new ArrayMetadata();
     shape_and_type->inner_type = PyArray_TYPE(numpy);
+    //TODO implement as a union
+    if (shape_and_type->inner_type == NPY_INT8) shape_and_type->elem_size = sizeof(int8_t);
+    else if (shape_and_type->inner_type == NPY_INT16) shape_and_type->elem_size = sizeof(int16_t);
+    else if (shape_and_type->inner_type == NPY_INT32) shape_and_type->elem_size = sizeof(int32_t);
+    else if (shape_and_type->inner_type == NPY_INT64) shape_and_type->elem_size = sizeof(int64_t);
+    else if (shape_and_type->inner_type == NPY_DOUBLE) shape_and_type->elem_size = sizeof(double);
+    else if (shape_and_type->inner_type == NPY_FLOAT) shape_and_type->elem_size = sizeof(double); //TODO Confirm this
+    else if (shape_and_type->inner_type == NPY_BOOL) shape_and_type->elem_size = sizeof(bool);
+    else if (shape_and_type->inner_type == NPY_BYTE) shape_and_type->elem_size = sizeof(char);
+    else if (shape_and_type->inner_type == NPY_LONG) shape_and_type->elem_size = sizeof(long);
+    else if (shape_and_type->inner_type == NPY_LONGLONG) shape_and_type->elem_size = sizeof(long long);
+    else if (shape_and_type->inner_type == NPY_SHORT) shape_and_type->elem_size = sizeof(short);
+    else throw ModuleException("Numpy data type still not supported");
     shape_and_type->dims=std::vector<int32_t>((uint64_t)ndims);//PyArray_SHAPE()
     for (int32_t dim = 0; dim<ndims; ++dim){
         shape_and_type->dims[dim]=(int32_t) shape[dim];

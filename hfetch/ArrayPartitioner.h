@@ -21,9 +21,7 @@ struct Partition {
 struct ArrayMetadata {
     std::vector<int32_t > dims;
     int32_t inner_type;
-    uint64_t block_size;
-    uint64_t cluster_size;
-
+    uint32_t elem_size;
 };
 
 

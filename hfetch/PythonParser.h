@@ -108,7 +108,7 @@ private:
     class NumpyParser: public InnerParser {
     public:
         NumpyParser(const ColumnMeta& CM):InnerParser(CM){
-            if (CM.size!=sizeof(ArrayMetadata))
+            if (CM.size!=sizeof(ArrayMetadata*))
                 throw ModuleException("Bad size allocated for a Numpy");
             table=CM.info.at("table");
             attribute_name=CM.info.at("name");
