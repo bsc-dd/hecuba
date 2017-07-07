@@ -21,17 +21,19 @@ class NumpyStorage {
 
 public:
 
-    NumpyStorage(std::shared_ptr<StorageInterface> storage, ArrayPartitioner &algorithm);
+    NumpyStorage(std::string table, std::string keyspace, std::shared_ptr<StorageInterface> storage, ArrayPartitioner &algorithm);
 
-    ArrayMetadata* store(std::string table, std::string keyspace, std::string attr_name, const CassUuid &storage_id, PyArrayObject* numpy) const;
+    ~NumpyStorage();
+    const ArrayMetadata* store(std::string attr_name, const CassUuid &storage_id, PyArrayObject* numpy) const;
 
-    PyObject* read(std::string table, TupleRow* keys, ArrayMetadata &np);
+    PyObject* read(std::string table, std::string keyspace, std::string attr_name, const CassUuid &storage_id,const ArrayMetadata *arr_meta);
 
 private:
 
     ArrayMetadata* get_np_metadata(PyArrayObject* numpy) const;
 
     std::shared_ptr<StorageInterface> storage;
+    Writer *writer;
 
     ArrayPartitioner partitioner;
 

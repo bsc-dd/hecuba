@@ -117,25 +117,32 @@ private:
             uint64_t *uuid = (uint64_t*) CM.info.at("storage_id").c_str();
             storage_id = {*uuid,*(uuid+1)};
         }
-
+        ~NumpyParser() {
+            delete(np_storage);
+        }
         virtual int16_t py_to_c(PyObject* numpy, void* payload) const {
             if (numpy==Py_None) return -1;
             PyArrayObject *arr;
             if (!PyArray_OutputConverter(numpy, &arr)) error_parsing("Numpy",numpy); //failed to convert array from PyObject to PyArray
-            ArrayMetadata *metas = np_storage->store(table,keyspace,attribute_name,storage_id,arr);
-            memcpy(payload,&metas,sizeof(metas));
+            const ArrayMetadata *metas = np_storage->store(attribute_name,storage_id,arr);
+            memcpy(payload,&metas,sizeof(ArrayMetadata*));
             return 0;
 
         }
 
         virtual PyObject* c_to_py(const void* payload) const {
             if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to bytes, found NULL");
-            //np_storage->read()
+            //Receives a Arraymetadata
+            const ArrayMetadata** metas = (const ArrayMetadata**) payload;
+            PyObject *arr = np_storage->read(table,keyspace,attribute_name,storage_id,*metas);
+            if (!arr) return Py_None;
+            return  arr;
+
         }
 
         void setStorage(std::shared_ptr<StorageInterface> storage) {
             ArrayPartitioner algorithm = ArrayPartitioner();
-            np_storage = new NumpyStorage(storage, algorithm);
+            np_storage = new NumpyStorage(table,keyspace,storage, algorithm);
         }
 
     private:
