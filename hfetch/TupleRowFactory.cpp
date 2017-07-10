@@ -220,7 +220,55 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             //TODO
             break;
         }
-        case CASS_VALUE_TYPE_UDT:
+        case CASS_VALUE_TYPE_UDT: {
+            ArrayMetadata *arr_metas = new ArrayMetadata();
+            CassIterator* udt_iterator = cass_iterator_fields_from_user_type(lhs);
+            if (udt_iterator==NULL) throw ModuleException("Value retrieved from cassandra is not a UDT");
+            while (cass_iterator_next(udt_iterator)) {
+                const char* field_name;
+                size_t field_name_length;
+                /* Get UDT field name */
+                cass_iterator_get_user_type_field_name(udt_iterator,
+                                                       &field_name, &field_name_length);
+                  /* Get UDT field value */
+                const CassValue* field_value =
+                        cass_iterator_get_user_type_field_value(udt_iterator);
+
+
+                if (strcmp(field_name,"dims")==0) {
+                    CassIterator *list_it = cass_iterator_from_collection(field_value);
+                    if (list_it==NULL) throw ModuleException("Value retrieved from UDT as dims is not a collection");
+                    int32_t dim = -1;
+                    arr_metas->dims=std::vector<int32_t >();
+                    while (cass_iterator_next(list_it)) {
+                        CassError rc = cass_value_get_int32(cass_iterator_get_value(list_it),&dim);
+                        CHECK_CASS("TupleRowFactory: Cassandra to C parse List unsuccessful on UDT(np.dims), column:" + std::to_string(col));
+                        if (rc==CASS_ERROR_LIB_NULL_VALUE) throw ModuleException("UDT can't have the attribute dims set null");
+                        arr_metas->dims.push_back(dim);
+                    }
+                    if (dim==-1) throw ModuleException("UDT can't have the attribute dims empty");
+                    cass_iterator_free(list_it);
+                }
+                else if (strcmp(field_name,"type")==0) {
+                    CassError rc = cass_value_get_int32(field_value, &arr_metas->inner_type);
+                    CHECK_CASS("TupleRowFactory: Cassandra to C parse int32 unsuccessful on UDT(np.type), column:" + std::to_string(col));
+                    if (rc==CASS_ERROR_LIB_NULL_VALUE) throw ModuleException("UDT can't have the attribute type set null");
+
+                }
+                else if (strcmp(field_name,"type_size")==0) {
+                    int32_t type;
+                    CassError rc = cass_value_get_int32(field_value, &type);
+                    CHECK_CASS("TupleRowFactory: Cassandra to C parse int32 unsuccessful on UDT(np.elem_size), column:" + std::to_string(col));
+                    if (rc==CASS_ERROR_LIB_NULL_VALUE) throw ModuleException("UDT can't have the attribute elem_size set null");
+                    arr_metas->elem_size = (uint32_t) type;
+                }
+                else throw ModuleException("User defined type lacks some field or not supported");
+
+            }
+            cass_iterator_free(udt_iterator);
+            memcpy(data,&arr_metas,sizeof(ArrayMetadata*));
+            break;
+        }
         case CASS_VALUE_TYPE_CUSTOM:
         case CASS_VALUE_TYPE_UNKNOWN:
         default:
@@ -385,30 +433,37 @@ void TupleRowFactory::bind( CassStatement *statement,const TupleRow *row,  u_int
                     break;
                 }
                 case CASS_VALUE_TYPE_UDT: {
-                    const char **true_ptr = (const char **)(element_i);
-                    const ArrayMetadata *array_metas = (ArrayMetadata*)(*true_ptr);
-                    //TODO decide if we want to keep the type creation here or not
+                    if (localMeta->at(i).info.find("numpy")!=localMeta->at(i).info.end()) {
 
-                    CassDataType* data_type = cass_data_type_new_udt(2);
-                    cass_data_type_add_sub_value_type_by_name(data_type, "dims", CASS_VALUE_TYPE_LIST);
-                    cass_data_type_add_sub_value_type_by_name(data_type, "type", CASS_VALUE_TYPE_INT);
+                        const char **true_ptr = (const char **) (element_i);
+                        const ArrayMetadata *array_metas = (ArrayMetadata *) (*true_ptr);
+                        //TODO decide if we want to keep the type creation here or not
 
-                    CassUserType* user_type = cass_user_type_new_from_data_type(data_type);
-                    cass_data_type_free(data_type);
+                        CassDataType *data_type = cass_data_type_new_udt(3);
+                        cass_data_type_add_sub_value_type_by_name(data_type, "dims", CASS_VALUE_TYPE_LIST);
+                        cass_data_type_add_sub_value_type_by_name(data_type, "type", CASS_VALUE_TYPE_INT);
+                        cass_data_type_add_sub_value_type_by_name(data_type, "type_size", CASS_VALUE_TYPE_INT);
 
-                    cass_user_type_set_int32_by_name(user_type,"type",array_metas->inner_type);
+                        CassUserType *user_type = cass_user_type_new_from_data_type(data_type);
+                        cass_data_type_free(data_type);
 
-                    CassCollection * list = cass_collection_new(CASS_COLLECTION_TYPE_LIST, array_metas->dims.size());
-                    for (int32_t dim:array_metas->dims) {
-                        cass_collection_append_int32(list, dim);
+                        cass_user_type_set_int32_by_name(user_type, "type", array_metas->inner_type);
+                        cass_user_type_set_int32_by_name(user_type, "type_size", (int32_t) array_metas->elem_size);
+
+                        CassCollection *list = cass_collection_new(CASS_COLLECTION_TYPE_LIST, array_metas->dims.size());
+                        for (int32_t dim:array_metas->dims) {
+                            cass_collection_append_int32(list, dim);
+                        }
+
+                        cass_user_type_set_collection_by_name(user_type, "dims", list);
+
+                        CassError rc = cass_statement_bind_user_type(statement, bind_pos, user_type);
+                        CHECK_CASS(
+                                "TupleRowFactory: Cassandra binding query unsuccessful [ArrayMetadata as UDT], column:" +
+                                localMeta->at(bind_pos).info[0]);
+                        cass_user_type_free(user_type);
                     }
-
-                    cass_user_type_set_collection_by_name(user_type,"dims",list);
-
-                    CassError rc = cass_statement_bind_user_type(statement, bind_pos, user_type);
-                    CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [ArrayMetadata as UDT], column:" +
-                               localMeta->at(bind_pos).info[0]);
-                    cass_user_type_free(user_type);
+                    else throw ModuleException("User defined types other than Numpy not supported");
                     break;
                 }
                 case CASS_VALUE_TYPE_CUSTOM:
