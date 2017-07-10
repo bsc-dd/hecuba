@@ -10,31 +10,10 @@
 + Python 2, starting from 2.7.5. Tested with versions 2.7.5 to 2.7.13. Python 3 not supported.
 + Python module: distutils
 
-### Setting up the environment:
-
-**Marenostrum III:**
-
+### Opensuse
+Requirements on OpenSuse 42.2
 ```
-module unload intel/13.0.1
-module unload openmpi/1.8.1
-module unload transfer/1.0
-module unload bsc/current
-module load gcc/4.9.1
-module load PYTHON/2.7.12
-module load CMAKE/3.5.0
-
-export CC=gcc
-export CXX=g++-4.9.1
-
-python setup.py install --user
-```
-(Will produce warnings about conflicts with includes from gcc 4.3 (/usr/include) this path is hardcoded into CMake itself) 
-
-
-**Juron:**
-
-```
-module load cmake/3.6.1
+sudo zypper install cmake python-devel gcc-c++ libtool python-numpy-devel
 ```
 
 
@@ -58,3 +37,20 @@ A file named `setup.py` should be present inside the root folder. By running the
 This procedure will launch a cmake process which builds a submodule of the application producing a lot of output, which is completly normal. It may occur that the compiler picked by Cmake doesn't support C++11 which will stop the building procedure. In this case, the environment flags `CC` and `CXX` should be defined to point to the C and C++ compilers respectively and the installing command relaunched. At this point the installation should proceed and finish without producing more errors.
 
 Bear in mind that for being able to use Numpy arrays, the Numpy developer package should be present on the system. It contains all the necessary headers.
+
+
+## LICENSING 
+
+Copyright 2017 Barcelona Supercomputing Center
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

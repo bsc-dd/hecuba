@@ -95,7 +95,8 @@ class StorageDict(dict, IStorage):
             log.error("Error creating the StorageDict metadata: %s %s", storage_args, ex)
             raise ex
 
-    def __init__(self, name=None, primary_keys=None, columns=None, tokens=None, storage_id=None, indexed_args=[], **kwargs):
+    def __init__(self, name=None, primary_keys=None, columns=None, tokens=None,
+                 storage_id=None, indexed_args=[], **kwargs):
         """
         Creates a new block.
 

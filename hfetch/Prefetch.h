@@ -14,15 +14,15 @@ class Prefetch {
 
 public:
 
-    Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges, const TableMetadata* table_meta,
-             CassSession* session,std::map<std::string,std::string> &config);
+    Prefetch(const std::vector <std::pair<int64_t, int64_t>> &token_ranges, const TableMetadata *table_meta,
+             CassSession *session, std::map <std::string, std::string> &config);
 
     ~Prefetch();
 
     TupleRow *get_cnext();
 
 
-    const TableMetadata* get_metadata() {
+    const TableMetadata *get_metadata() {
         return table_metadata;
     }
 
@@ -35,16 +35,16 @@ private:
     void consume_tokens();
 
 /** no ownership **/
-    CassSession* session;
+    CassSession *session;
     TupleRowFactory t_factory;
     std::atomic<bool> completed;
 
 /** ownership **/
 
-    const TableMetadata* table_metadata;
-    std::thread* worker;
-    tbb::concurrent_bounded_queue<TupleRow*> data;
-    std::vector<std::pair<int64_t, int64_t>> tokens;
+    const TableMetadata *table_metadata;
+    std::thread *worker;
+    tbb::concurrent_bounded_queue<TupleRow *> data;
+    std::vector <std::pair<int64_t, int64_t>> tokens;
     const CassPrepared *prepared_query;
     std::string type;
 

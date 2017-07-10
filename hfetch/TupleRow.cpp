@@ -1,7 +1,7 @@
 #include "TupleRow.h"
 
 
-TupleRow::TupleRow(std::shared_ptr<const std::vector<ColumnMeta>> metas,
+TupleRow::TupleRow(std::shared_ptr<const std::vector <ColumnMeta>> metas,
                    uint32_t payload_size, void *buffer) {
 
     metadatas = metas;
@@ -15,7 +15,7 @@ TupleRow::TupleRow(std::shared_ptr<const std::vector<ColumnMeta>> metas,
                                                         case CASS_VALUE_TYPE_UUID:
                                                         case CASS_VALUE_TYPE_ASCII: {
                                                             if (!holder->isNull(i)) {
-                                                                int64_t *addr = (int64_t *) ((char *) holder->data +
+                                                                int64_t *addr = (int64_t * )((char *) holder->data +
                                                                                              metas->at(i).position);
                                                                 char *d = reinterpret_cast<char *>(*addr);
                                                                 free(d);

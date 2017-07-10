@@ -4,18 +4,21 @@ from time import time
 from hecuba import config, log
 import re
 
+
 class IStorage:
     _select_istorage_meta = config.session.prepare("SELECT * FROM hecuba.istorage WHERE storage_id = ?")
     args_names = []
     args = namedtuple("IStorage", [])
     _build_args = args()
 
-    _valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map', 'bigint', 'blob', 'counter', 'dict', 'float']
+    _valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map', 'bigint', 'blob',
+                    'counter', 'dict', 'float']
 
-    _hecuba_valid_types = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer|numpy.ndarray|counter)'
+    _hecuba_valid_types = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer' \
+                          '|numpy.ndarray|counter)'
     _data_type = re.compile('(\w+) *: *%s' % _hecuba_valid_types)
     _so_data_type = re.compile('(\w+)*:(\w.+)')
-    _list_case = re.compile('.*@ClassField +(\w+) +list+ *< *([\w:\.+]+) *>')
+    _list_case = re.compile('.*@ClassField +(\w+) +list+ *< *([\w:.+]+) *>')
     _sub_dict_case = re.compile(' *< *< *([\w:, ]+)+ *> *, *([\w+:, <>]+) *>')
     _sub_tuple_case = re.compile(' *< *([\w:, ]+)+ *>')
     _val_case = re.compile('.*@ClassField +(\w+) +%s' % _hecuba_valid_types)
@@ -65,7 +68,7 @@ class IStorage:
             self.__class__._store_meta(new_args)
 
             yield self.__class__.build_remotely(new_args)
-        log.debug('completed split of %s in %f', self.__class__.__name__, time()-st)
+        log.debug('completed split of %s in %f', self.__class__.__name__, time() - st)
 
     @staticmethod
     def _tokens_partitions(tokens, min_number_of_tokens, number_of_blocks):
@@ -93,7 +96,7 @@ class IStorage:
             for i in xrange(0, len(tokens), splits):
                 yield tokens[i:i + splits]
             if len(tokens) % splits > 0:
-                yield tokens[len(tokens)/splits * splits + 1:]
+                yield tokens[len(tokens) / splits * splits + 1:]
 
     @staticmethod
     def _discrete_token_ranges(tokens):
@@ -147,4 +150,3 @@ class IStorage:
         """
         # raise Exception("to be implemented")
         return str(self._storage_id)
-

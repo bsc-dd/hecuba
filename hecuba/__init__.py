@@ -107,7 +107,8 @@ class Config:
         try:
             user_defined_execution_name = os.environ['EXECUTION_NAME']
             if user_defined_execution_name == 'hecuba':
-                raise RuntimeError('Error: the application keyspace cannot be \'hecuba\'. This keyspace is reserved for storing metadata.')
+                raise RuntimeError('Error: the application keyspace cannot be \'hecuba\'. '
+                                   'This keyspace is reserved for storing metadata.')
             singleton.execution_name = user_defined_execution_name
             log.info('EXECUTION_NAME: %s', singleton.execution_name)
         except KeyError:
@@ -151,10 +152,10 @@ class Config:
                          "'replication_factor': %d }" % singleton.repl_factor))
 
                     singleton.session.execute('CREATE TYPE IF NOT EXISTS hecuba.q_meta('
-                                                                         'mem_filter text, '
-                                                                         'from_point frozen < list < float >>,'
-                                                                         'to_point frozen < list < float >>,'
-                                                                         'precision float)')
+                                              'mem_filter text, '
+                                              'from_point frozen < list < float >>,'
+                                              'to_point frozen < list < float >>,'
+                                              'precision float)')
 
                     singleton.session.execute(
                         'CREATE TABLE IF NOT EXISTS hecuba' +
@@ -397,9 +398,9 @@ def hecuba_filter(lambda_filter, iterable):
             to_p.append(max_arguments[indexed_element])
         from qbeast import QbeastMeta, QbeastIterator
         qmeta = QbeastMeta(
-             reduced_filtered,
-             from_p, to_p,
-             precision)
+            reduced_filtered,
+            from_p, to_p,
+            precision)
         it = QbeastIterator(father._primary_keys, father._columns,
                             father._ksp + "." + father._table,
                             qmeta)
@@ -412,7 +413,6 @@ def hecuba_filter(lambda_filter, iterable):
 if not filter == hecuba_filter:
     python_filter = filter
     filter = hecuba_filter
-
 
 global config
 config = Config()

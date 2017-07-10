@@ -20,20 +20,22 @@ PythonParser::~PythonParser() {
  * @return TupleRow with a copy of the values in obj
  * @post The python object can be deleted
  */
-TupleRow *PythonParser::make_tuple(PyObject* obj,std::shared_ptr<const std::vector<ColumnMeta> > metadata) const {
+TupleRow *PythonParser::make_tuple(PyObject *obj, std::shared_ptr<const std::vector <ColumnMeta> > metadata) const {
     if (!PyList_Check(obj)) throw ModuleException("PythonParser: Make tuple: Expected python list");
-    const std::vector<ColumnMeta>* localMeta=metadata.get();
-    if (size_t(PyList_Size(obj))!=metadata->size())
+    const std::vector <ColumnMeta> *localMeta = metadata.get();
+    if (size_t(PyList_Size(obj)) != metadata->size())
         throw ModuleException("PythonParser: Got less python elements than columns configured");
-    uint16_t total_bytes = localMeta->at(localMeta->size()-1).position+localMeta->at(localMeta->size()-1).size;
+    uint16_t total_bytes = localMeta->at(localMeta->size() - 1).position + localMeta->at(localMeta->size() - 1).size;
 
     char *buffer = (char *) malloc(total_bytes);
     TupleRow *new_tuple = new TupleRow(metadata, total_bytes, buffer);
     for (uint16_t i = 0; i < PyList_Size(obj); ++i) {
         PyObject *obj_to_conver = PyList_GetItem(obj, i);
         if (localMeta->at(i).position >= total_bytes)
-            throw ModuleException("PythonParser: Make tuple from PyObj: Writing on byte "+std::to_string(localMeta->at(i).position)+" from a total of "+std::to_string(total_bytes));
-        if (obj_to_conver != Py_None)  py_to_c(obj_to_conver, buffer + localMeta->at(i).position, localMeta->at(i).type);
+            throw ModuleException("PythonParser: Make tuple from PyObj: Writing on byte " +
+                                  std::to_string(localMeta->at(i).position) + " from a total of " +
+                                  std::to_string(total_bytes));
+        if (obj_to_conver != Py_None) py_to_c(obj_to_conver, buffer + localMeta->at(i).position, localMeta->at(i).type);
         else new_tuple->setNull(i);
     }
     return new_tuple;
@@ -48,14 +50,15 @@ TupleRow *PythonParser::make_tuple(PyObject* obj,std::shared_ptr<const std::vect
  * @return 0 if succeeds, -1 otherwise
  */
 
-void error_parsing(std::string type, PyObject* obj) {
+void error_parsing(std::string type, PyObject *obj) {
     char *l_temp;
     Py_ssize_t l_size;
-    PyObject* repr = PyObject_Str(obj);
+    PyObject *repr = PyObject_Str(obj);
     int ok = PyString_AsStringAndSize(repr, &l_temp, &l_size);
-    if (ok<0)
+    if (ok < 0)
         throw TypeErrorException("Parse from python to c, found sth that can't be represented nor parsed");
-    throw TypeErrorException("Parse from python to c, expected "+type+", found: "+std::string(l_temp,(size_t)l_size));
+    throw TypeErrorException(
+            "Parse from python to c, expected " + type + ", found: " + std::string(l_temp, (size_t) l_size));
 }
 
 
@@ -76,18 +79,16 @@ int PythonParser::py_to_c(PyObject *obj, void *data, CassValueType type) const {
                 memcpy(permanent, l_temp, l_size);
                 permanent[l_size] = '\0';
                 memcpy(data, &permanent, sizeof(char *));
-            }
-            else {
-                error_parsing("PyString",obj);
+            } else {
+                error_parsing("PyString", obj);
             }
             break;
         }
         case CASS_VALUE_TYPE_BIGINT: {
-            if (PyLong_Check(obj)||PyInt_Check(obj)) {
+            if (PyLong_Check(obj) || PyInt_Check(obj)) {
                 ok = PyArg_Parse(obj, "L", data);
-            }
-            else {
-                error_parsing("PyLong",obj);
+            } else {
+                error_parsing("PyLong", obj);
             }
             break;
         }
@@ -106,29 +107,26 @@ int PythonParser::py_to_c(PyObject *obj, void *data, CassValueType type) const {
                 memcpy(permanent + sizeof(uint64_t), l_temp, int_size);
                 //copy pointer
                 memcpy(data, &permanent, sizeof(char *));
-            }
-            else {
-                error_parsing("PyByteArray",obj);
+            } else {
+                error_parsing("PyByteArray", obj);
             }
             break;
         }
         case CASS_VALUE_TYPE_BOOLEAN: {
-            if (PyBool_Check(obj)){
+            if (PyBool_Check(obj)) {
                 bool *temp = static_cast<bool *>(data);
                 if (obj == Py_True) *temp = true;
                 else *temp = false;
-            }
-            else {
-                error_parsing("PyBool",obj);
+            } else {
+                error_parsing("PyBool", obj);
             }
             break;
         }
         case CASS_VALUE_TYPE_COUNTER: {
-            if (PyLong_Check(obj)||PyInt_Check(obj)) {
+            if (PyLong_Check(obj) || PyInt_Check(obj)) {
                 ok = PyArg_Parse(obj, Py_U_LONGLONG, data);
-            }
-            else {
-                error_parsing("PyUnsignedLongLong (K)",obj);
+            } else {
+                error_parsing("PyUnsignedLongLong (K)", obj);
             }
             break;
         }
@@ -138,24 +136,22 @@ int PythonParser::py_to_c(PyObject *obj, void *data, CassValueType type) const {
             return 0;
         }
         case CASS_VALUE_TYPE_DOUBLE: {
-            if (PyFloat_Check(obj)||PyInt_Check(obj)) {
+            if (PyFloat_Check(obj) || PyInt_Check(obj)) {
                 cass_double_t t;
                 ok = PyArg_Parse(obj, Py_DOUBLE, &t);
                 memcpy(data, &t, sizeof(t));
-            }
-            else {
-                error_parsing("PyDouble",obj);
+            } else {
+                error_parsing("PyDouble", obj);
             }
             break;
         }
         case CASS_VALUE_TYPE_FLOAT: {
-            if (PyFloat_Check(obj)||PyInt_Check(obj)) {
+            if (PyFloat_Check(obj) || PyInt_Check(obj)) {
                 cass_float_t t;
                 ok = PyArg_Parse(obj, Py_FLOAT, &t); /* A string */
                 memcpy(data, &t, sizeof(t));
-            }
-            else {
-                error_parsing("PyDoubleAsFloat",obj);
+            } else {
+                error_parsing("PyDoubleAsFloat", obj);
             }
             break;
         }
@@ -164,9 +160,8 @@ int PythonParser::py_to_c(PyObject *obj, void *data, CassValueType type) const {
                 int32_t t;
                 ok = PyArg_Parse(obj, Py_INT, &t); /* A string */
                 memcpy(data, &t, sizeof(t));
-            }
-            else {
-                error_parsing("PyInt",obj);
+            } else {
+                error_parsing("PyInt", obj);
             }
             break;
         }
@@ -177,14 +172,14 @@ int PythonParser::py_to_c(PyObject *obj, void *data, CassValueType type) const {
         case CASS_VALUE_TYPE_UUID: {
             if (!PyByteArray_Check(obj)) {
                 //Object is UUID python class
-                uint32_t len = sizeof(uint64_t)*2;
+                uint32_t len = sizeof(uint64_t) * 2;
 
                 char *permanent = (char *) malloc(len);
 
                 memcpy(data, &permanent, sizeof(char *));
                 PyObject *bytes = PyObject_GetAttrString(obj, "time_low"); //32b
                 if (!bytes)
-                    error_parsing("python UUID",obj);
+                    error_parsing("python UUID", obj);
                 uint64_t time_low = (uint32_t) PyLong_AsLongLong(bytes);
 
                 bytes = PyObject_GetAttrString(obj, "time_mid"); //16b
@@ -203,7 +198,7 @@ int PythonParser::py_to_c(PyObject *obj, void *data, CassValueType type) const {
                 bytes = PyObject_GetAttrString(obj, "node"); //48b
                 uint64_t second = (uint64_t) PyLong_AsLongLong(bytes);
 
-                uint64_t first = (time_hi_version<< 48) + (time_mid << 32) + (time_low );
+                uint64_t first = (time_hi_version << 48) + (time_mid << 32) + (time_low);
 
                 memcpy(permanent, &first, sizeof(first));
                 permanent += sizeof(first);
@@ -215,10 +210,10 @@ int PythonParser::py_to_c(PyObject *obj, void *data, CassValueType type) const {
 
             } else {
                 //UUID as bytes
-                uint32_t len = sizeof(uint64_t)*2;
-                if (PyByteArray_Size(obj)!=len) {
+                uint32_t len = sizeof(uint64_t) * 2;
+                if (PyByteArray_Size(obj) != len) {
                     error_parsing("UUID received has size " + std::to_string(PyByteArray_Size(obj)) +
-                                          ", expected was: " + std::to_string(len), obj);
+                                  ", expected was: " + std::to_string(len), obj);
                 }
                 char *permanent = (char *) malloc(len);
 
@@ -226,18 +221,17 @@ int PythonParser::py_to_c(PyObject *obj, void *data, CassValueType type) const {
                 char *cpp_bytes = NULL;
                 cpp_bytes = PyByteArray_AsString(obj);
                 if (!cpp_bytes)
-                    error_parsing("UUID Bytes are null",obj);
+                    error_parsing("UUID Bytes are null", obj);
 
                 memcpy(permanent, cpp_bytes, len);
             }
             break;
         }
         case CASS_VALUE_TYPE_VARINT: {
-            if (PyLong_Check(obj)||PyInt_Check(obj)) {
+            if (PyLong_Check(obj) || PyInt_Check(obj)) {
                 ok = PyArg_Parse(obj, Py_LONG, data);
-            }
-            else {
-                error_parsing("PyLong as Varint",obj);
+            } else {
+                error_parsing("PyLong as Varint", obj);
             }
             break;
         }
@@ -260,19 +254,17 @@ int PythonParser::py_to_c(PyObject *obj, void *data, CassValueType type) const {
         case CASS_VALUE_TYPE_SMALL_INT: {
             if (PyInt_Check(obj)) {
                 ok = PyArg_Parse(obj, Py_INT, data);
-            }
-            else {
-                error_parsing("PyInt as SmallInt",obj);
+            } else {
+                error_parsing("PyInt as SmallInt", obj);
             }
             break;
         }
         case CASS_VALUE_TYPE_TINY_INT: {
             if (PyInt_Check(obj)) {
-            ok = PyArg_Parse(obj, Py_SHORT_INT, data);
-        }
-            else {
-            error_parsing("PyInt as TinyInt",obj);
-        }
+                ok = PyArg_Parse(obj, Py_SHORT_INT, data);
+            } else {
+                error_parsing("PyInt as TinyInt", obj);
+            }
             break;
         }
         case CASS_VALUE_TYPE_LIST: {
@@ -296,7 +288,8 @@ int PythonParser::py_to_c(PyObject *obj, void *data, CassValueType type) const {
         case CASS_VALUE_TYPE_UNKNOWN:
         default:
             //TODO
-            throw ModuleException("PythonParser: Marshall from Py to C: Unsupported type: Not recognized by Cassandra or Custom type");
+            throw ModuleException(
+                    "PythonParser: Marshall from Py to C: Unsupported type: Not recognized by Cassandra or Custom type");
     }
     return ok;
 }
@@ -309,7 +302,7 @@ int PythonParser::py_to_c(PyObject *obj, void *data, CassValueType type) const {
  * @return The equivalent object V in Python using the Cassandra Value type to choose the correct transformation
  */
 
-PyObject *PythonParser::c_to_py(const void *V,const ColumnMeta &meta) const {
+PyObject *PythonParser::c_to_py(const void *V, const ColumnMeta &meta) const {
 
     char const *py_flag = 0;
     PyObject *py_value = Py_None;
@@ -321,7 +314,7 @@ PyObject *PythonParser::c_to_py(const void *V,const ColumnMeta &meta) const {
         case CASS_VALUE_TYPE_VARCHAR:
         case CASS_VALUE_TYPE_TEXT:
         case CASS_VALUE_TYPE_ASCII: {
-            int64_t  *addr = (int64_t*) V;
+            int64_t *addr = (int64_t *) V;
             char *d = reinterpret_cast<char *>(*addr);
             if (d == nullptr) throw ModuleException("Error parsing from C to Py, expected ptr to text, found NULL");
             py_value = PyUnicode_FromString(d);
@@ -330,13 +323,14 @@ PyObject *PythonParser::c_to_py(const void *V,const ColumnMeta &meta) const {
         case CASS_VALUE_TYPE_BIGINT: {
             py_flag = Py_LONGLONG;
             const int64_t *temp = reinterpret_cast<const int64_t *>(V);
-            if (temp == nullptr) throw ModuleException("Error parsing from C to Py, expected ptr to bigint, found NULL");
+            if (temp == nullptr)
+                throw ModuleException("Error parsing from C to Py, expected ptr to bigint, found NULL");
             try {
                 py_value = Py_BuildValue(py_flag, *temp);
             }
-            catch(std::exception &e) {
+            catch (std::exception &e) {
                 PyErr_Print();
-                throw ModuleException("Error parsing from C to Py, expected Bigint(int64) "+std::string(e.what()));
+                throw ModuleException("Error parsing from C to Py, expected Bigint(int64) " + std::string(e.what()));
             }
             break;
         }
@@ -344,7 +338,7 @@ PyObject *PythonParser::c_to_py(const void *V,const ColumnMeta &meta) const {
             int64_t *addr = (int64_t *) V;
 
             char *d = reinterpret_cast<char *>(*addr);
-            if (d== nullptr) throw ModuleException("Expected ptr to bytes, found NULL");
+            if (d == nullptr) throw ModuleException("Expected ptr to bytes, found NULL");
             //d points to [uint32,bytearray] which stands for num_bytes and bytes
 
             uint64_t nbytes = *reinterpret_cast<uint64_t * >(d);
@@ -370,7 +364,8 @@ PyObject *PythonParser::c_to_py(const void *V,const ColumnMeta &meta) const {
         }
         case CASS_VALUE_TYPE_BOOLEAN: {
             const bool *temp = reinterpret_cast<const bool *>(V);
-            if (temp == nullptr) throw ModuleException("Error parsing from C to Py, expected ptr to boolean, found NULL");
+            if (temp == nullptr)
+                throw ModuleException("Error parsing from C to Py, expected ptr to boolean, found NULL");
             if (*temp) py_value = Py_True;
             else py_value = Py_False;
             break;
@@ -378,13 +373,14 @@ PyObject *PythonParser::c_to_py(const void *V,const ColumnMeta &meta) const {
         case CASS_VALUE_TYPE_COUNTER: {
             py_flag = Py_U_LONGLONG;
             const int64_t *temp = reinterpret_cast<const int64_t *>(V);
-            if (temp== nullptr) throw ModuleException("Error parsing from C to Py, expected ptr to int64(counter), found NULL");
+            if (temp == nullptr)
+                throw ModuleException("Error parsing from C to Py, expected ptr to int64(counter), found NULL");
             try {
                 py_value = Py_BuildValue(py_flag, *temp);
             }
-            catch(std::exception &e) {
+            catch (std::exception &e) {
                 PyErr_Print();
-                throw ModuleException("Error parsing from C to Py, expected Counter(int64) "+std::string(e.what()));
+                throw ModuleException("Error parsing from C to Py, expected Counter(int64) " + std::string(e.what()));
             }
             break;
         }
@@ -396,13 +392,14 @@ PyObject *PythonParser::c_to_py(const void *V,const ColumnMeta &meta) const {
         case CASS_VALUE_TYPE_DOUBLE: {
             py_flag = Py_DOUBLE;
             const double *temp = reinterpret_cast<const double *>(V);
-            if (temp == nullptr) throw ModuleException("Error parsing from C to Py, expected ptr to double, found NULL");
+            if (temp == nullptr)
+                throw ModuleException("Error parsing from C to Py, expected ptr to double, found NULL");
             try {
                 py_value = Py_BuildValue(py_flag, *temp);
             }
-            catch(std::exception &e) {
+            catch (std::exception &e) {
                 PyErr_Print();
-                throw ModuleException("Error parsing from C to Py, expected Double "+std::string(e.what()));
+                throw ModuleException("Error parsing from C to Py, expected Double " + std::string(e.what()));
             }
             break;
         }
@@ -413,9 +410,9 @@ PyObject *PythonParser::c_to_py(const void *V,const ColumnMeta &meta) const {
             try {
                 py_value = Py_BuildValue(py_flag, *temp);
             }
-            catch(std::exception &e) {
+            catch (std::exception &e) {
                 PyErr_Print();
-                throw ModuleException("Error parsing from C to Py, expected Float "+std::string(e.what()));
+                throw ModuleException("Error parsing from C to Py, expected Float " + std::string(e.what()));
             }
             break;
         }
@@ -426,9 +423,9 @@ PyObject *PythonParser::c_to_py(const void *V,const ColumnMeta &meta) const {
             try {
                 py_value = Py_BuildValue(py_flag, *temp);
             }
-            catch(std::exception &e) {
+            catch (std::exception &e) {
                 PyErr_Print();
-                throw ModuleException("Error parsing from C to Py, expected Int "+std::string(e.what()));
+                throw ModuleException("Error parsing from C to Py, expected Int " + std::string(e.what()));
             }
             break;
         }
@@ -440,7 +437,8 @@ PyObject *PythonParser::c_to_py(const void *V,const ColumnMeta &meta) const {
             char **data = (char **) V;
             char *it = *data;
 
-            if (it == nullptr) throw ModuleException("Error parsing from C to Py, expected ptr to UUID bits, found NULL");
+            if (it == nullptr)
+                throw ModuleException("Error parsing from C to Py, expected ptr to UUID bits, found NULL");
             char final[CASS_UUID_STRING_LENGTH];
 
             //trick to transform the data back, since it was parsed using the cassandra generator
@@ -452,13 +450,14 @@ PyObject *PythonParser::c_to_py(const void *V,const ColumnMeta &meta) const {
         case CASS_VALUE_TYPE_VARINT: {
             py_flag = Py_LONG;
             const int64_t *temp = reinterpret_cast<const int64_t *>(V);
-            if (temp == nullptr) throw ModuleException("Error parsing from C to Py, expected ptr to int64(Varint), found NULL");
+            if (temp == nullptr)
+                throw ModuleException("Error parsing from C to Py, expected ptr to int64(Varint), found NULL");
             try {
                 py_value = Py_BuildValue(py_flag, *temp);
             }
-            catch(std::exception &e) {
+            catch (std::exception &e) {
                 PyErr_Print();
-                throw ModuleException("Error parsing from C to Py, expected int64(Varint) "+std::string(e.what()));
+                throw ModuleException("Error parsing from C to Py, expected int64(Varint) " + std::string(e.what()));
             }
             break;
         }
@@ -481,26 +480,28 @@ PyObject *PythonParser::c_to_py(const void *V,const ColumnMeta &meta) const {
         case CASS_VALUE_TYPE_SMALL_INT: {
             py_flag = Py_INT;
             const int16_t *temp = reinterpret_cast<const int16_t *>(V);
-            if (temp == nullptr) throw ModuleException("Error parsing from C to Py, expected ptr to int16(Smallint), found NULL");
+            if (temp == nullptr)
+                throw ModuleException("Error parsing from C to Py, expected ptr to int16(Smallint), found NULL");
             try {
                 py_value = Py_BuildValue(py_flag, *temp);
             }
-            catch(std::exception &e) {
+            catch (std::exception &e) {
                 PyErr_Print();
-                throw ModuleException("Error parsing from C to Py, expected int16(Smallint) "+std::string(e.what()));
+                throw ModuleException("Error parsing from C to Py, expected int16(Smallint) " + std::string(e.what()));
             }
             break;
         }
         case CASS_VALUE_TYPE_TINY_INT: {
             py_flag = Py_SHORT_INT;
             const int8_t *temp = reinterpret_cast<const int8_t *>(V);
-            if (temp == nullptr) throw ModuleException("Error parsing from C to Py, expected ptr to int16(Tinyint), found NULL");
+            if (temp == nullptr)
+                throw ModuleException("Error parsing from C to Py, expected ptr to int16(Tinyint), found NULL");
             try {
                 py_value = Py_BuildValue(py_flag, *temp);
             }
-            catch(std::exception &e) {
+            catch (std::exception &e) {
                 PyErr_Print();
-                throw ModuleException("Error parsing from C to Py, expected int8(Tinyint) "+std::string(e.what()));
+                throw ModuleException("Error parsing from C to Py, expected int8(Tinyint) " + std::string(e.what()));
             }
             break;
         }
@@ -536,12 +537,13 @@ PyObject *PythonParser::c_to_py(const void *V,const ColumnMeta &meta) const {
  * @return A list with the information from tuple preserving its order
  */
 
-PyObject *PythonParser::tuples_as_py(std::vector<const TupleRow *> &values, std::shared_ptr<const std::vector<ColumnMeta> > metadata) const {
+PyObject *PythonParser::tuples_as_py(std::vector<const TupleRow *> &values,
+                                     std::shared_ptr<const std::vector <ColumnMeta> > metadata) const {
 
     PyObject *list;
     PyObject *result = PyList_New(values.size());
-        //store to cache
-    for (uint32_t val_i = 0; val_i<values.size(); ++val_i) {
+    //store to cache
+    for (uint32_t val_i = 0; val_i < values.size(); ++val_i) {
         const TupleRow *tuple = values[val_i];
         if (tuple == 0)
             throw ModuleException("TupleRowFactory: Marshalling from c to python a NULL tuple, unsupported");
@@ -554,14 +556,14 @@ PyObject *PythonParser::tuples_as_py(std::vector<const TupleRow *> &values, std:
             PyObject *inte = c_to_py(tuple->get_element(i), metadata->at(i));
             PyList_SetItem(list, i, inte);
         }
-        PyList_SetItem(result,val_i,list);
+        PyList_SetItem(result, val_i, list);
     }
-    if (values.size()==1) {
-      PyObject* to_ret = PyList_GetItem(result,0); //Borrows a ref, doesnt increment the refcount
-      Py_INCREF(to_ret); //Increment the obj, since we want a reference
-      Py_DECREF(result); //Set the result list to be garbage collected
-                        //this also decrements to_ret refcount by one
-      return to_ret;
+    if (values.size() == 1) {
+        PyObject *to_ret = PyList_GetItem(result, 0); //Borrows a ref, doesnt increment the refcount
+        Py_INCREF(to_ret); //Increment the obj, since we want a reference
+        Py_DECREF(result); //Set the result list to be garbage collected
+        //this also decrements to_ret refcount by one
+        return to_ret;
 
     }
 
@@ -570,7 +572,8 @@ PyObject *PythonParser::tuples_as_py(std::vector<const TupleRow *> &values, std:
 }
 
 
-PyObject *PythonParser::merge_blocks_as_nparray(std::vector<const TupleRow *> &blocks,std::shared_ptr<const std::vector<ColumnMeta> > metadata) const {
+PyObject *PythonParser::merge_blocks_as_nparray(std::vector<const TupleRow *> &blocks,
+                                                std::shared_ptr<const std::vector <ColumnMeta> > metadata) const {
     //for each member in metadata:
     // if member is simple: c_to_py
     // elif numpy:
@@ -586,15 +589,15 @@ PyObject *PythonParser::merge_blocks_as_nparray(std::vector<const TupleRow *> &b
         if (metadata->at(pos).info.size() == 1 || get_arr_type(metadata->at(pos)) == NPY_NOTYPE) {
             PyObject *inte = c_to_py(blocks[0]->get_element(pos), metadata->at(pos));
 
-           int ok = PyList_Append(list, inte);
+            int ok = PyList_Append(list, inte);
             Py_DECREF(inte);
             if (ok < 0)
                 throw ModuleException(
                         "Can't append object in position" + std::to_string(pos) + " toPyList on merge np array");
         } else if (metadata->at(pos).info.size() == 5) {
             //external, Add none, because it will get replaced
-            PyObject* data_null = PyInt_FromLong(0);
-             PyList_Append(list, data_null);
+            PyObject *data_null = PyInt_FromLong(0);
+            PyList_Append(list, data_null);
             Py_DECREF(data_null);
         } else {
             //object is a numpy array
@@ -602,8 +605,9 @@ PyObject *PythonParser::merge_blocks_as_nparray(std::vector<const TupleRow *> &b
             for (const TupleRow *block:blocks) {
                 void **data = (void **) block->get_element(pos);
                 if (data == nullptr)
-                    throw ModuleException("Trying to build a numpyarray but one block has Null data, position: "+std::to_string(pos));
-                uint64_t *block_bytes = (uint64_t *) *data;
+                    throw ModuleException("Trying to build a numpyarray but one block has Null data, position: " +
+                                          std::to_string(pos));
+                uint64_t *block_bytes = (uint64_t * ) * data;
                 nbytes += *block_bytes;
             }
 
@@ -613,18 +617,20 @@ PyObject *PythonParser::merge_blocks_as_nparray(std::vector<const TupleRow *> &b
                 for (uint32_t i = 0; i < blocks.size(); ++i) {
                     //we already checked for a block being null, no need to do the same here again
                     char **data = (char **) blocks[i]->get_element(pos);
-                    uint64_t *block_bytes = (uint64_t *) *data;
+                    uint64_t *block_bytes = (uint64_t * ) * data;
 
                     uint32_t *block_id = (uint32_t *) blocks[i]->get_element(pos + (uint16_t) 1);
 
                     if (block_id == nullptr)
-                        throw ModuleException("Trying to build a partitioned numpyarray but one block id has Null data, position: "+std::to_string(pos));
+                        throw ModuleException(
+                                "Trying to build a partitioned numpyarray but one block id has Null data, position: " +
+                                std::to_string(pos));
                     memcpy(final_array + *block_id * maxarray_size, *data + sizeof(uint64_t), *block_bytes);
                 }
             } else {
                 //we already checked for a block being null, no need to do the same here again
                 char **data = (char **) blocks[0]->get_element(pos);
-                uint64_t *block_bytes = (uint64_t *) *data;
+                uint64_t *block_bytes = (uint64_t * ) * data;
                 char *bytes_array = *data + sizeof(uint64_t);
 
                 memcpy(final_array, bytes_array, *block_bytes);
@@ -653,8 +659,8 @@ PyObject *PythonParser::merge_blocks_as_nparray(std::vector<const TupleRow *> &b
 }
 
 
-const NPY_TYPES PythonParser::get_arr_type(const ColumnMeta& column_meta) const {
-    if (column_meta.info.size()  < 2) {
+const NPY_TYPES PythonParser::get_arr_type(const ColumnMeta &column_meta) const {
+    if (column_meta.info.size() < 2) {
         return NPY_NOTYPE;
     }
     if (column_meta.info.find("type")->second == "bool")
@@ -700,7 +706,7 @@ const NPY_TYPES PythonParser::get_arr_type(const ColumnMeta& column_meta) const 
     return NPY_NOTYPE;
 }
 
-PyArray_Dims *PythonParser::get_arr_dims(const ColumnMeta& column_meta) const {
+PyArray_Dims *PythonParser::get_arr_dims(const ColumnMeta &column_meta) const {
     if (column_meta.info.size() < 3)
         throw ModuleException("Numpy array metadata must consist of [name,type,dimensions,partition]");
 
@@ -708,29 +714,28 @@ PyArray_Dims *PythonParser::get_arr_dims(const ColumnMeta& column_meta) const {
 
     ssize_t n = std::count(temp.begin(), temp.end(), 'x') + 1;
 
-    npy_intp* ptr = new npy_intp[n];//[n];
+    npy_intp *ptr = new npy_intp[n];//[n];
 
     size_t pos = 0;
     uint16_t i = 0;
     while ((pos = temp.find('x')) != temp.npos) {
-        if (i>n) throw ModuleException("Bad formed dimensions array");
-        ptr[i]=std::atoi(temp.substr(0, pos).c_str());
+        if (i > n) throw ModuleException("Bad formed dimensions array");
+        ptr[i] = std::atoi(temp.substr(0, pos).c_str());
         temp = temp.substr(pos + 1, temp.size());
         //we assume pos(x)+1 <= dimensions length
         ++i;
     }
-    ptr[i]=std::atoi(temp.c_str());
-    PyArray_Dims *dims = new PyArray_Dims{ptr,(int)n};
+    ptr[i] = std::atoi(temp.c_str());
+    PyArray_Dims *dims = new PyArray_Dims{ptr, (int) n};
     return dims;
 }
 
 
-
-
 //for each np array transform into tuples, if in the next positions arrays are to be found, ignore them
-std::vector<const TupleRow *> PythonParser::make_tuples_with_npy(PyObject *obj, std::shared_ptr<const std::vector<ColumnMeta> > metadata) {
+std::vector<const TupleRow *>
+PythonParser::make_tuples_with_npy(PyObject *obj, std::shared_ptr<const std::vector <ColumnMeta> > metadata) {
     if (!PyList_Check(obj)) throw ModuleException("PythonParser: Make tuple with numpy: Expected list");
-    uint16_t total_bytes = metadata->at(metadata->size()-1).position+metadata->at(metadata->size()-1).size;
+    uint16_t total_bytes = metadata->at(metadata->size() - 1).position + metadata->at(metadata->size() - 1).size;
     uint16_t nelem = (uint16_t) PyList_Size(obj);
     if (nelem > metadata->size())
         throw ModuleException(
@@ -745,7 +750,8 @@ std::vector<const TupleRow *> PythonParser::make_tuples_with_npy(PyObject *obj, 
 //find arrays
     std::vector<const TupleRow *> tuples = std::vector<const TupleRow *>();
     for (uint16_t i = 0; i < PyList_Size(obj); ++i) {
-        if (get_arr_type(metadata->at(i)) != NPY_NOTYPE && metadata->at(i).info.find("partition")->second == "partition") {
+        if (get_arr_type(metadata->at(i)) != NPY_NOTYPE &&
+            metadata->at(i).info.find("partition")->second == "partition") {
             //found a np array
             std::vector<void *> blocks;
             blocks = split_array(PyList_GetItem(obj, i));
@@ -755,42 +761,44 @@ std::vector<const TupleRow *> PythonParser::make_tuples_with_npy(PyObject *obj, 
             void *block = extract_array(PyList_GetItem(obj, i));
             //build the tuple with the first block and other information
             char *buffer = (char *) malloc(total_bytes);
-            TupleRow* new_tuple = new TupleRow(metadata, total_bytes, buffer);
+            TupleRow *new_tuple = new TupleRow(metadata, total_bytes, buffer);
             for (uint16_t j = 0; j < PyList_Size(obj); ++j) {
                 PyObject *obj_to_conver = PyList_GetItem(obj, j);
                 if (i != j) {
-                    if (obj_to_conver != Py_None) py_to_c(obj_to_conver, buffer + metadata->at(j).position, metadata->at(j).type);
+                    if (obj_to_conver != Py_None)
+                        py_to_c(obj_to_conver, buffer + metadata->at(j).position, metadata->at(j).type);
                     else new_tuple->setNull(j);
                 } else {
                     //numpy
                     memcpy(buffer + metadata->at(j).position, &block, sizeof(void *));
                 }
             }
-            tuples.push_back(const_cast<TupleRow*>(new_tuple));
+            tuples.push_back(const_cast<TupleRow *>(new_tuple));
         }
     }
     return tuples;
 }
 
 
-
-
-std::vector<const TupleRow *> PythonParser::blocks_to_tuple(std::vector<void *> &blocks, std::shared_ptr<const std::vector<ColumnMeta> > metadata, PyObject *obj) const {
-    uint16_t total_bytes = metadata->at(metadata->size()-1).position+metadata->at(metadata->size()-1).size;
+std::vector<const TupleRow *>
+PythonParser::blocks_to_tuple(std::vector<void *> &blocks, std::shared_ptr<const std::vector <ColumnMeta> > metadata,
+                              PyObject *obj) const {
+    uint16_t total_bytes = metadata->at(metadata->size() - 1).position + metadata->at(metadata->size() - 1).size;
 
 /*** FIRST BLOCK ***/
     //build the first tuple with the first block and other information
     char *buffer = (char *) malloc(total_bytes);
 
     //first tuple holds all data
-    TupleRow *first_tuple =  new TupleRow(metadata, total_bytes, buffer);
+    TupleRow *first_tuple = new TupleRow(metadata, total_bytes, buffer);
 
     for (uint16_t i = 0; i < PyList_Size(obj); ++i) {
         PyObject *obj_to_conver = PyList_GetItem(obj, i);
         //copy
         if (get_arr_type(metadata->at(i)) == NPY_NOTYPE) {
             //average column
-            if (obj_to_conver != Py_None)  py_to_c(obj_to_conver, buffer + metadata->at(i).position, metadata->at(i).type);
+            if (obj_to_conver != Py_None)
+                py_to_c(obj_to_conver, buffer + metadata->at(i).position, metadata->at(i).type);
             else first_tuple->setNull(i);
 
         } else {
@@ -832,7 +840,6 @@ std::vector<const TupleRow *> PythonParser::blocks_to_tuple(std::vector<void *> 
 }
 
 
-
 void *PythonParser::extract_array(PyObject *py_array) const {
     if (!PyArray_Check(py_array)) throw ModuleException("PythonParser: Extract array: Expected numpy array");
     ssize_t nbytes_s = 0;
@@ -840,7 +847,7 @@ void *PythonParser::extract_array(PyObject *py_array) const {
     int ok;
     PyArrayObject *arr;
     try {
-      //  _import_array();
+        //  _import_array();
         ok = PyArray_OutputConverter(py_array, &arr);
         if (!ok) throw ModuleException("error parsing PyArray to obj");
         original_payload = PyArray_DATA(arr);
@@ -867,7 +874,6 @@ void *PythonParser::extract_array(PyObject *py_array) const {
 }
 
 
-
 std::vector<void *> PythonParser::split_array(PyObject *py_array) {
     if (!PyArray_Check(py_array)) throw ModuleException("PythonParser: Split array: Expected numpy array");
     //we have an array so we extract the bytes
@@ -876,7 +882,7 @@ std::vector<void *> PythonParser::split_array(PyObject *py_array) {
 
     PyArrayObject *arr;
     try {
-      //  _import_array();
+        //  _import_array();
         if (!PyArray_OutputConverter(py_array, &arr))
             throw ModuleException("error parsing PyArray to obj");
         data = PyArray_DATA(arr);
@@ -890,7 +896,7 @@ std::vector<void *> PythonParser::split_array(PyObject *py_array) {
     }
 
     //then we split the payload
-    uint32_t nblocks = (uint32_t) (nbytes - (nbytes % maxarray_size))/maxarray_size; //number of subarrays
+    uint32_t nblocks = (uint32_t)(nbytes - (nbytes % maxarray_size)) / maxarray_size; //number of subarrays
     if (nbytes % maxarray_size != 0) ++nblocks; //we don't want to lose data
     uint64_t block_size = std::min(nbytes, (uint64_t) maxarray_size);//bytes per block
 

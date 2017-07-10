@@ -1,6 +1,7 @@
 # author: G. Alomar
 import uuid
 
+
 def init(config_file_path=None):
     """
     Function that can be useful when running the application with COMPSs >= 2.0
@@ -15,6 +16,7 @@ def finish():
     It is executed at the end of the application
     """
     pass
+
 
 def initWorker(config_file_path=None):
     """
@@ -69,6 +71,7 @@ class TaskContext(object):
         # Finished
         self.logger.info("Epilog finished")
         pass
+
 
 def getByID(objid):
     """

@@ -1,25 +1,23 @@
-import unittest
 import time
-
+import unittest
 from cassandra.cluster import Cluster
-
 
 
 class Hfetch_Tests(unittest.TestCase):
     keyspace = "hnumpy_test"
     contact_names = ['127.0.0.1']
     nodePort = 9042
-    cluster = Cluster(contact_names,port=nodePort)
+    cluster = Cluster(contact_names, port=nodePort)
     session = cluster.connect()
 
     @classmethod
     def setUpClass(cls):
         cls.session.execute("CREATE KEYSPACE IF NOT EXISTS %s WITH replication "
-                               "= {'class': 'SimpleStrategy', 'replication_factor': 1};" % cls.keyspace)
+                            "= {'class': 'SimpleStrategy', 'replication_factor': 1};" % cls.keyspace)
 
     @classmethod
     def tearDownClass(cls):
-        #self.session.execute("DROP KEYSPACE IF EXISTS %s;" % cls.keyspace)
+        # self.session.execute("DROP KEYSPACE IF EXISTS %s;" % cls.keyspace)
         pass
 
     def test_multidim(self):
@@ -41,7 +39,6 @@ class Hfetch_Tests(unittest.TestCase):
             print e
             print 'can\'t connect, verify the contact points and port', self.contact_names, self.nodePort
 
-
         table = "arrays"
 
         self.session.execute("DROP TABLE if exists test.arrays;")
@@ -52,22 +49,22 @@ class Hfetch_Tests(unittest.TestCase):
                    [{"name": "image_block", "type": "int", "dims": "5x5x5", "partition": "true"},
                     "image_block_pos"], {})
 
-        #prepare data
+        # prepare data
         bigarr = np.arange(pow(elem_dim, dims)).reshape(elem_dim, elem_dim, elem_dim)
-        temp =100
+        temp = 100
         keys = [temp]
         values = [bigarr.astype('i')]
 
-        #insert
+        # insert
         a.put_row(keys, values)
 
         # othw we ask for the row before it has been processed
         time.sleep(2)
 
-        #retrieve
+        # retrieve
         keys = [100]
         result = a.get_row(keys)
-        if np.array_equal(bigarr,result[0]):
+        if np.array_equal(bigarr, result[0]):
             print 'Created and retrieved are equal'
         else:
             print 'Created and retrieved arrays differ, sth went wrong '
@@ -75,7 +72,6 @@ class Hfetch_Tests(unittest.TestCase):
             print 'Array retrieved ', result[0]
         time.sleep(2)
         self.session.execute("DROP TABLE test.arrays;")
-
 
     def test_nopart(self):
         from hfetch import connectCassandra
@@ -92,19 +88,16 @@ class Hfetch_Tests(unittest.TestCase):
         txt_elem_dim = str(elem_dim)
         dims = 2
 
-
         try:
             connectCassandra(self.contact_names, self.nodePort)
         except RuntimeError, e:
             print e
             print 'can\'t connect, verify the contact points and port', self.contact_names, self.nodePort
 
-
         table = "arrays"
 
         self.session.execute("DROP TABLE if exists test.arrays;")
         self.session.execute("CREATE TABLE test.arrays(partid int PRIMARY KEY, image_block blob);")
-
 
         a = Hcache("test", table, "WHERE token(partid)>=? AND token(partid)<?;",
                    [], ["partid"],
@@ -125,8 +118,6 @@ class Hfetch_Tests(unittest.TestCase):
         time.sleep(2)
         self.session.execute("DROP TABLE test.arrays;")
 
-
-
     def test_part(self):
         from hfetch import connectCassandra
         from hfetch import Hcache
@@ -143,7 +134,8 @@ class Hfetch_Tests(unittest.TestCase):
         txt_elem_dim = str(elem_dim)
 
         self.session.execute("DROP TABLE if exists test.arrays;")
-        self.session.execute("CREATE TABLE test.arrays(partid int , image_block blob, image_block_pos int, PRIMARY KEY(partid,image_block_pos));")
+        self.session.execute(
+            "CREATE TABLE test.arrays(partid int , image_block blob, image_block_pos int, PRIMARY KEY(partid,image_block_pos));")
 
         try:
             connectCassandra(self.contact_names, self.nodePort)
@@ -174,8 +166,6 @@ class Hfetch_Tests(unittest.TestCase):
         time.sleep(2)
         self.session.execute("DROP TABLE test.arrays;")
 
-
-
     def test_npy_uuid(self):
         from hfetch import connectCassandra
         from hfetch import Hcache
@@ -204,26 +194,25 @@ class Hfetch_Tests(unittest.TestCase):
         self.session.execute("DROP TABLE if exists test.arrays_aux;")
         self.session.execute("CREATE TABLE test.arrays(partid int PRIMARY KEY, image uuid);")
 
-        self.session.execute("CREATE TABLE test.arrays_aux(uuid uuid,  position int, data blob, PRIMARY KEY (uuid,position));")
-
+        self.session.execute(
+            "CREATE TABLE test.arrays_aux(uuid uuid,  position int, data blob, PRIMARY KEY (uuid,position));")
 
         time.sleep(1)
 
         a = Hcache("test", table, "WHERE token(partid)>=? AND token(partid)<?;",
-                   [], ["partid"],[{"name": "image",
+                   [], ["partid"], [{"name": "image",
                                      "type": "double",
                                      "dims": txt_elem_dim + 'x' + txt_elem_dim,
                                      "partition": "true",
                                      "npy_table": "arrays_aux"}], {})
 
-
         bigarr = np.arange(pow(elem_dim, 2)).reshape(elem_dim, elem_dim)
         bigarr.itemset(0, 14.0)
-        #print 'Array to be written', bigarr.astype('d')
+        # print 'Array to be written', bigarr.astype('d')
 
         t1 = time.time()
-        #print a.get_row([300])
-        a.put_row( [300],[bigarr.astype('d')])
+        # print a.get_row([300])
+        a.put_row([300], [bigarr.astype('d')])
 
         print 'Elapsed time', time.time() - t1
         print '2D, elem dimension: ', elem_dim
@@ -231,7 +220,6 @@ class Hfetch_Tests(unittest.TestCase):
         time.sleep(3)
         self.session.execute("DROP TABLE test.arrays;")
         self.session.execute("DROP TABLE test.arrays_aux;")
-
 
     def test_arr_put_get(self):
         from hfetch import connectCassandra
@@ -257,7 +245,8 @@ class Hfetch_Tests(unittest.TestCase):
         table = "arrays"
 
         self.session.execute("DROP TABLE if exists test.arrays;")
-        self.session.execute("CREATE TABLE test.arrays(partid int , image_block blob, image_block_pos int, PRIMARY KEY(partid,image_block_pos));")
+        self.session.execute(
+            "CREATE TABLE test.arrays(partid int , image_block blob, image_block_pos int, PRIMARY KEY(partid,image_block_pos));")
 
         time.sleep(3)
         a = Hcache("test", table, "WHERE token(partid)>=? AND token(partid)<?;",
@@ -270,7 +259,7 @@ class Hfetch_Tests(unittest.TestCase):
         print 'Array to be written', bigarr.astype('d')
 
         t1 = time.time()
-        keys =[300]
+        keys = [300]
         a.put_row(keys, [bigarr.astype('d')])
 
         # othw we ask for the row before it has been processed
