@@ -395,9 +395,8 @@ class StorageDict(dict, IStorage):
                           'using \'es.bsc.qbeast.index.QbeastIndex\';'
             try:
                 config.session.execute(index_query)
-            except Exception as e:
-                print "Error creating Custom index:", e
-                print "Query used:", index_query
+            except Exception as ex:
+                log.error("Error creating the Qbeast custom index: %s %s", index_query, ex)
 
     def stop_persistent(self):
         log.debug('STOP PERSISTENCE: %s', self._table)
