@@ -364,8 +364,6 @@ class StorageObj(object, IStorage):
                 self._build_args = self._build_args._replace(storage_id=self._storage_id, istorage_props=is_props)
         self._store_meta(self._build_args)
 
-        self._is_persistent = True
-
         # Persisting attributes stored in memory
         for key, val in self.__dict__.iteritems():
             setattr(self, key, val)
@@ -459,11 +457,11 @@ class StorageObj(object, IStorage):
                 prepared = config.session.prepare(query)
                 if not type(value) == dict and not type(value) == StorageDict:
                     if type(value) == str:
-                        values = [self._storage_id, "" + str(value) + ""]
+                        values = [uuid.UUID(self._storage_id), "" + str(value) + ""]
                     else:
-                        values = [self._storage_id, value]
+                        values = [uuid.UUID(self._storage_id), value]
                 else:
-                    values = [self._storage_id, str(value._storage_id)]
+                    values = [uuid.UUID(self._storage_id), str(value._storage_id)]
                 log.debug("SETATTR: ", query)
                 try:
                     config.session.execute(prepared, values)
