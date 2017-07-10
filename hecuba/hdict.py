@@ -390,12 +390,13 @@ class StorageDict(dict, IStorage):
         for key, value in dict.iteritems(self):
             self._hcache.put_row(self._make_key(key), self._make_value(value))
         if hasattr(self, '_indexed_args') and self._indexed_args is not None:
-            index_query = 'CREATE CUSTOM INDEX IF NOT EXISTS ' + str(self._table) + '_idx ON ' + str(self._ksp) + '.' + str(self._table) + ' (' + str.join(',', self._indexed_args) + ') using \'es.bsc.qbeast.index.QbeastIndex\';'
+            index_query = 'CREATE CUSTOM INDEX IF NOT EXISTS ' + str(self._table) + '_idx ON '\
+                          + str(self._ksp) + '.' + str(self._table) + ' (' + str.join(',', self._indexed_args) + ') ' \
+                          'using \'es.bsc.qbeast.index.QbeastIndex\';'
             try:
                 config.session.execute(index_query)
-            except Exception as e:
-                print "Error creating Custom index:", e
-                print "Query used:", index_query
+            except Exception as ex:
+                log.error("Error creating the Qbeast custom index: %s %s", index_query, ex)
 
     def stop_persistent(self):
         log.debug('STOP PERSISTENCE: %s', self._table)

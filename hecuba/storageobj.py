@@ -52,9 +52,11 @@ class StorageObj(object, IStorage):
         try:
 
             config.session.execute(StorageObj._prepared_store_meta,
-                                   [storage_args.storage_id, storage_args.class_name,
+                                   [storage_args.storage_id,
+                                    storage_args.class_name,
                                     storage_args.name,
-                                    storage_args.tokens, storage_args.istorage_props])
+                                    storage_args.tokens,
+                                    storage_args.istorage_props])
         except Exception as ex:
             print "Error creating the StorageDict metadata:", storage_args, ex
             raise ex
@@ -341,10 +343,11 @@ class StorageObj(object, IStorage):
         for table_name, _ in dictionaries:
             changed = True
             pd = getattr(self, table_name)
-            sd_name = self._ksp + "." + self._table+"_"+table_name
+            sd_name = self._ksp + "." + self._table + "_" + table_name
             pd.make_persistent(sd_name)
+            super(StorageObj, self).__setattr__(table_name, pd)
             setattr(self, table_name, pd)
-            is_props[sd_name] = pd._storage_id
+            is_props[sd_name] = str(pd._storage_id)
 
         storageobjs = filter(lambda (k, t): t['type'] not in IStorage._valid_types, self._persistent_props.iteritems())
         for table_name, per_dict in storageobjs:
@@ -355,6 +358,7 @@ class StorageObj(object, IStorage):
             for key, var in getattr(self, table_name).__dict__.iteritems():
                 if key[0] != '_' and type(var) in IStorage._python_types:
                     setattr(so, key, var)
+            super(StorageObj, self).__setattr__(table_name, so)
             setattr(self, table_name, so)
             self._storage_objs.append(so)
 
@@ -426,7 +430,6 @@ class StorageObj(object, IStorage):
                     result = config.session.execute(query)
                     for row in result:
                         for row_key, row_var in vars(row).iteritems():
-                            # if not row_key == 'name':
                             if row_var is not None:
                                 return row_var
                 except Exception as ex:
@@ -446,22 +449,29 @@ class StorageObj(object, IStorage):
                 key: name of the value that we want to obtain
                 value: value that we want to save
         """
-        if issubclass(value.__class__, IStorage):
-            super(StorageObj, self).__setattr__(key, value)
-        elif key[0] is '_' or key is 'storage_id':
+        if key[0] is '_' or key is 'storage_id':
             object.__setattr__(self, key, value)
         elif hasattr(self, '_is_persistent') and self._is_persistent:
             if key in self._persistent_attrs:
                 query = "INSERT INTO %s.%s (storage_id,%s) VALUES (?,?)" \
                         % (self._ksp, self._table, key)
                 prepared = config.session.prepare(query)
-                if not type(value) == dict and not type(value) == StorageDict:
+                if not type(value) == dict and not issubclass(value.__class__, IStorage):
                     if type(value) == str:
-                        values = [uuid.UUID(self._storage_id), "" + str(value) + ""]
+                        if type(self._storage_id) == uuid.UUID:
+                            values = [self._storage_id, "" + str(value) + ""]
+                        else:
+                            values = [uuid.UUID(self._storage_id), "" + str(value) + ""]
                     else:
-                        values = [uuid.UUID(self._storage_id), value]
+                        if type(self._storage_id) == uuid.UUID:
+                            values = [self._storage_id, value]
+                        else:
+                            values = [uuid.UUID(self._storage_id), value]
                 else:
-                    values = [uuid.UUID(self._storage_id), str(value._storage_id)]
+                    if type(self._storage_id) == uuid.UUID:
+                        values = [self._storage_id, value._storage_id]
+                    else:
+                        values = [uuid.UUID(self._storage_id), uuid.UUID(value._storage_id)]
                 log.debug("SETATTR: ", query)
                 try:
                     config.session.execute(prepared, values)
