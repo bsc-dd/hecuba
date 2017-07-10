@@ -1,25 +1,23 @@
-import unittest
 import time
-
+import unittest
 from cassandra.cluster import Cluster
-
 
 
 class Hfetch_Tests(unittest.TestCase):
     keyspace = "hfetch_test"
     contact_names = ['127.0.0.1']
     nodePort = 9042
-    cluster = Cluster(contact_names,port=nodePort)
+    cluster = Cluster(contact_names, port=nodePort)
     session = cluster.connect()
 
     @classmethod
     def setUpClass(cls):
         cls.session.execute("CREATE KEYSPACE IF NOT EXISTS %s WITH replication "
-                               "= {'class': 'SimpleStrategy', 'replication_factor': 1};" % cls.keyspace)
+                            "= {'class': 'SimpleStrategy', 'replication_factor': 1};" % cls.keyspace)
 
     @classmethod
     def tearDownClass(cls):
-        #self.session.execute("DROP KEYSPACE IF EXISTS %s;" % cls.keyspace)
+        # self.session.execute("DROP KEYSPACE IF EXISTS %s;" % cls.keyspace)
         pass
 
     def test_connection(self):
@@ -30,7 +28,7 @@ class Hfetch_Tests(unittest.TestCase):
         test_node_port = None
         fails = False
         try:
-            connectCassandra(test_contact_names,test_node_port)
+            connectCassandra(test_contact_names, test_node_port)
         except TypeError:
             fails = True
         except Exception, e:
@@ -43,7 +41,7 @@ class Hfetch_Tests(unittest.TestCase):
         test_node_port = self.nodePort
         test_contact_names = [123456789]
         try:
-            connectCassandra(test_contact_names,test_node_port)
+            connectCassandra(test_contact_names, test_node_port)
         except TypeError:
             fails = True
         except Exception, e:
@@ -56,7 +54,7 @@ class Hfetch_Tests(unittest.TestCase):
         test_node_port = self.nodePort
         test_contact_names = ['']
         try:
-            connectCassandra(test_contact_names,test_node_port)
+            connectCassandra(test_contact_names, test_node_port)
         except ValueError:
             fails = True
         except Exception, e:
@@ -65,9 +63,9 @@ class Hfetch_Tests(unittest.TestCase):
         self.assertTrue(fails)
         fails = False
 
-        #if no contact point specified, connects to 127.0.0.1
+        # if no contact point specified, connects to 127.0.0.1
         try:
-            self.contact_names.index('127.0.0.1')  #raises value error if not present
+            self.contact_names.index('127.0.0.1')  # raises value error if not present
             test_contact_names = []
             connectCassandra(test_contact_names, test_node_port)
         except ValueError:
@@ -87,7 +85,6 @@ class Hfetch_Tests(unittest.TestCase):
             self.fail(e.message)
         self.assertFalse(fails)
 
-
     def test_write_nulls_simple(self):
         from hfetch import connectCassandra
         from hfetch import Hcache
@@ -102,7 +99,8 @@ class Hfetch_Tests(unittest.TestCase):
         table = "nulls"
 
         self.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
-        self.session.execute("CREATE TABLE %s.%s(partid int PRIMARY KEY, time float, data text);" % (self.keyspace, table))
+        self.session.execute(
+            "CREATE TABLE %s.%s(partid int PRIMARY KEY, time float, data text);" % (self.keyspace, table))
 
         num_items = int(pow(10, 3))
 
@@ -119,14 +117,13 @@ class Hfetch_Tests(unittest.TestCase):
         tokens = [(a, a + tkn_size) for a in xrange(t_f, t_t - tkn_size, tkn_size)]
 
         keys = ["partid"]
-        values = ["time","data"]
+        values = ["time", "data"]
 
         hcache_config = {'cache_size': '10', 'writer_buffer': 20}
 
         cache = Hcache(self.keyspace, table, "", tokens, keys, values, hcache_config)
-        import random
         for i in xrange(0, num_items):
-            cache.put_row([i], [12,None])#random.sample({i,None},1)+random.sample({'SomeRandomText',None},1))
+            cache.put_row([i], [12, None])  # random.sample({i,None},1)+random.sample({'SomeRandomText',None},1))
         time.sleep(10)
 
     def test_iterate_brute(self):
@@ -144,13 +141,14 @@ class Hfetch_Tests(unittest.TestCase):
         table = "particle"
         nparts = 10000  # Num particles in range
 
-        self.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
         self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
-                               "x float, y float, z float, PRIMARY KEY(partid,time));"% (self.keyspace,table))
+                             "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
 
-        for i in xrange(0,nparts):
-            vals = ','.join(str(e) for e in [i,i/.1,i/.2,i/.3,i/.4,"'"+str(i*60)+"'"])
-            self.session.execute("INSERT INTO %s.%s(partid , time , x, y , z,ciao ) VALUES (%s)"% (self.keyspace,table,vals))
+        for i in xrange(0, nparts):
+            vals = ','.join(str(e) for e in [i, i / .1, i / .2, i / .3, i / .4, "'" + str(i * 60) + "'"])
+            self.session.execute(
+                "INSERT INTO %s.%s(partid , time , x, y , z,ciao ) VALUES (%s)" % (self.keyspace, table, vals))
 
         try:
             connectCassandra(self.contact_names, self.nodePort)
@@ -160,8 +158,8 @@ class Hfetch_Tests(unittest.TestCase):
 
         p = 100  # Num partitions
 
-        t_f = pow(-2,63)  # Token begin range
-        t_t = pow(2,63)-1
+        t_f = pow(-2, 63)  # Token begin range
+        t_t = pow(2, 63) - 1
         # Token blocks
         tkn_size = (t_t - t_f) / (nparts / p)
         tkns = [(a, a + tkn_size) for a in xrange(t_f, t_t - tkn_size, tkn_size)]
@@ -173,9 +171,7 @@ class Hfetch_Tests(unittest.TestCase):
 
         token_query = "WHERE token(partid)>=? AND token(partid)<?;"
 
-
-
-        cache = Hcache(self.keyspace,table, token_query , tkns, keys, values, hcache_config)
+        cache = Hcache(self.keyspace, table, token_query, tkns, keys, values, hcache_config)
 
         hiter_config = {"prefetch_size": 100, "update_cache": "yes"}
 
@@ -186,7 +182,7 @@ class Hfetch_Tests(unittest.TestCase):
         while True:
             try:
                 i = hiter.get_next()
-                self.assertEqual(len(i),len(keys)+len(values))
+                self.assertEqual(len(i), len(keys) + len(values))
             except StopIteration:
                 break
             count += 1
@@ -207,12 +203,12 @@ class Hfetch_Tests(unittest.TestCase):
 
         self.keyspace = 'test'
         table = 'particle'
-        num_keys = 10000 #num keys must be multiple of expected_errors
+        num_keys = 10000  # num keys must be multiple of expected_errors
         expected_errors = 10
 
         self.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
         self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
-                               "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
+                             "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
 
         for i in xrange(0, num_keys):
             vals = ','.join(str(e) for e in [i, i / .1, i / .2, i / .3, i / .4, "'" + str(i * 60) + "'"])
@@ -240,21 +236,19 @@ class Hfetch_Tests(unittest.TestCase):
 
         for pk in xrange(0, num_keys):
             ck = pk * 10
-            if pk % (num_keys/expected_errors) == 0:
+            if pk % (num_keys / expected_errors) == 0:
                 pk = 'wrong'
             try:
                 result = cache.get_row([pk, ck])
                 self.assertEqual(len(result), len(values))
             except KeyError as e:
-                self.fail("Error when retrieving value from cache: "+str(e)+" -- "+str([pk, ck]))
+                self.fail("Error when retrieving value from cache: " + str(e) + " -- " + str([pk, ck]))
             except TypeError as e:
-                print "mykey ", ck/10
+                print "mykey ", ck / 10
                 print e.message
                 type_errors = type_errors + 1
 
-        self.assertEqual(expected_errors,type_errors)
-
-
+        self.assertEqual(expected_errors, type_errors)
 
     def test_get_row(self):
         from hfetch import connectCassandra
@@ -271,33 +265,30 @@ class Hfetch_Tests(unittest.TestCase):
         table = 'particle'
         num_keys = 10001
 
-        self.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
         self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
-                               "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
+                             "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
 
         for i in xrange(0, num_keys):
             vals = ','.join(str(e) for e in [i, i / .1, i / .2, i / .3, i / .4, "'" + str(i * 60) + "'"])
             self.session.execute(
                 "INSERT INTO %s.%s(partid , time , x, y , z,ciao ) VALUES (%s)" % (self.keyspace, table, vals))
 
-
         try:
             connectCassandra(self.contact_names, self.nodePort)
         except Exception:
             print 'can\'t connect, verify the contact points and port', self.contact_names, self.nodePort
-
 
         token_ranges = []
 
         cache_size = 10001
 
         keys = ["partid", "time"]
-        values =  ["ciao", "x", "y", "z"]
+        values = ["ciao", "x", "y", "z"]
 
         cache_config = {'cache_size': cache_size}
 
-        cache = Hcache(self.keyspace, table, "", token_ranges, keys,values,cache_config)
-
+        cache = Hcache(self.keyspace, table, "", token_ranges, keys, values, cache_config)
 
         # clustering key
         t1 = time.time()
@@ -308,8 +299,6 @@ class Hfetch_Tests(unittest.TestCase):
                 self.assertEqual(len(result), len(values))
             except KeyError as e:
                 print "Error when retrieving value from cache:", e, [pk, ck]
-
-
 
         print 'time - load C++ cache with cassandra data: ', time.time() - t1
 
@@ -345,14 +334,13 @@ class Hfetch_Tests(unittest.TestCase):
         for pk in xrange(0, num_keys):
             ck = pk * 10
             try:
-                result = py_dict[(pk,ck)]
+                result = py_dict[(pk, ck)]
                 self.assertEqual(len(result), len(values))
             except KeyError as e:
                 print "Error when retrieving value from cache:", e, [pk, ck]
         print 'time - read data from the python dict: ', time.time() - t1
         # print 'size ', len(py_dict)
         # print 'items in res: ',len(py_dict[1])
-
 
     def test_put_row_text(self):
         from hfetch import connectCassandra
@@ -368,9 +356,8 @@ class Hfetch_Tests(unittest.TestCase):
 
         table = "bulk"
 
-        self.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
         self.session.execute("CREATE TABLE %s.%s(partid int PRIMARY KEY, data text);" % (self.keyspace, table))
-
 
         num_items = int(pow(10, 3))
 
@@ -379,35 +366,32 @@ class Hfetch_Tests(unittest.TestCase):
         except Exception:
             print 'can\'t connect, verify the contact points and port', self.contact_names, self.nodePort
 
-        nblocks=10
+        nblocks = 10
         t_f = pow(-2, 63)  # Token begin range
         t_t = pow(2, 63) - 1
         # Token blocks
         tkn_size = (t_t - t_f) / (num_items / nblocks)
         tokens = [(a, a + tkn_size) for a in xrange(t_f, t_t - tkn_size, tkn_size)]
 
-
         keys = ["partid"]
         values = ["data"]
 
         hcache_config = {'cache_size': '10', 'writer_buffer': 20}
 
-
-        cache = Hcache(self.keyspace, table, "",tokens, keys, values, hcache_config)
-        for i in xrange(0,num_items):
+        cache = Hcache(self.keyspace, table, "", tokens, keys, values, hcache_config)
+        for i in xrange(0, num_items):
             cache.put_row([i], ['someRandomText'])
 
-        #it doesnt make sense to count the read elements
+        # it doesnt make sense to count the read elements
         # because the data is still being written async
         hiter = cache.iteritems(10)
         while True:
             try:
                 data = hiter.get_next()
-                self.assertEqual(len(data),len(keys)+len(values))
-                self.assertEqual(data[1],'someRandomText')
+                self.assertEqual(len(data), len(keys) + len(values))
+                self.assertEqual(data[1], 'someRandomText')
             except StopIteration:
                 break
-
 
     def test_iterators(self):
         from hfetch import connectCassandra
@@ -421,20 +405,15 @@ class Hfetch_Tests(unittest.TestCase):
         - Iteritems (read text)
         '''''''''
 
-
-        
         table = "words"
         num_keys = 20
 
-
-        self.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
         self.session.execute(
             "CREATE TABLE %s.%s(position int PRIMARY KEY, wordinfo text);" % (self.keyspace, table))
 
-
-
         for i in xrange(0, num_keys):
-            vals = ','.join(str(e) for e in [i,"'someRandomTextForTesting purposes - " + str(i * 60) + "'"])
+            vals = ','.join(str(e) for e in [i, "'someRandomTextForTesting purposes - " + str(i * 60) + "'"])
             self.session.execute(
                 "INSERT INTO %s.%s(position , wordinfo ) VALUES (%s)" % (self.keyspace, table, vals))
 
@@ -443,13 +422,13 @@ class Hfetch_Tests(unittest.TestCase):
         except Exception:
             print 'can\'t connect, verify the contact points and port', self.contact_names, self.nodePort
 
-        tkns = [(pow(-2, 63)+1, pow(2, 63)-1)]
+        tkns = [(pow(-2, 63) + 1, pow(2, 63) - 1)]
         keys = ["position"]
         values = ["wordinfo"]
         hcache_config = {'cache_size': 100, 'writer_buffer': 20}
 
-        cache = Hcache(self.keyspace,table, "WHERE token(position)>=? AND token(position)<?;", tkns,keys, values,hcache_config)
-
+        cache = Hcache(self.keyspace, table, "WHERE token(position)>=? AND token(position)<?;", tkns, keys, values,
+                       hcache_config)
 
         iter_config = {"prefetch_size": 100, "update_cache": "yes"}
         myIter = cache.iteritems(iter_config)
@@ -466,7 +445,7 @@ class Hfetch_Tests(unittest.TestCase):
 
         assert (type(first_key[0]) == int)
         somedata = cache.get_row(first_key)
-        #self.assertEqual((first_key + somedata), first_data)
+        # self.assertEqual((first_key + somedata), first_data)
         assert ((first_key + somedata) == first_data)
 
         count = len(data)
@@ -481,8 +460,6 @@ class Hfetch_Tests(unittest.TestCase):
 
         print 'data was: \n', data
 
-
-
     def test_small_brute(self):
         from hfetch import connectCassandra
         from hfetch import Hcache
@@ -495,14 +472,12 @@ class Hfetch_Tests(unittest.TestCase):
         - Iterkeys
         '''''''''
 
-
-        
         table = "particle"
         nelems = 10001
 
-        self.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
         self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
-                               "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
+                             "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
 
         for i in xrange(0, nelems):
             vals = ','.join(str(e) for e in [i, i / .1, i / .2, i / .3, i / .4, "'" + str(i * 60) + "'"])
@@ -514,11 +489,10 @@ class Hfetch_Tests(unittest.TestCase):
         except Exception:
             print 'can\'t connect, verify the contact points and port', self.contact_names, self.nodePort
 
-
         nblocks = 100
 
-        t_f = pow(-2,63)  # Token begin range
-        t_t = pow(2,63)-1
+        t_f = pow(-2, 63)  # Token begin range
+        t_t = pow(2, 63) - 1
         # Token blocks
         tkn_size = (t_t - t_f) / (nelems / nblocks)
         tokens = [(a, a + tkn_size) for a in xrange(t_f, t_t - tkn_size, tkn_size)]
@@ -531,10 +505,9 @@ class Hfetch_Tests(unittest.TestCase):
         # this should fail since a key can not be a column name at the same time (key=time, column=time)
         try:
             cache = Hcache(self.keyspace, table, "WHERE token(partid)>=? AND token(partid)<?;",
-                       tokens, keys, values,hcache_config)
+                           tokens, keys, values, hcache_config)
         except RuntimeError, e:
-            self.assertTrue(True,e)
-
+            self.assertTrue(True, e)
 
         keys = ["partid", "time"]
         values = ["x"]
@@ -543,7 +516,7 @@ class Hfetch_Tests(unittest.TestCase):
             cache = Hcache(self.keyspace, table, "WHERE token(partid)>=? AND token(partid)<?;",
                            tokens, keys, values, hcache_config)
         except RuntimeError, e:
-            self.assertFalse(True,e)
+            self.assertFalse(True, e)
 
         to = cache.iterkeys(10000)
 
@@ -551,14 +524,12 @@ class Hfetch_Tests(unittest.TestCase):
         while True:
             try:
                 res = to.get_next()
-                self.assertEqual(len(res),len(keys))
+                self.assertEqual(len(res), len(keys))
             except StopIteration:
                 break
             counter = counter + 1
 
-        self.assertEqual(counter,nelems)
-
-
+        self.assertEqual(counter, nelems)
 
     def test_simpletest(self):
         from hfetch import connectCassandra
@@ -572,9 +543,9 @@ class Hfetch_Tests(unittest.TestCase):
         table = 'particle'
         nelems = 500
 
-        self.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
         self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
-                               "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
+                             "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
 
         for i in xrange(0, nelems):
             vals = ','.join(str(e) for e in [i, i / .1, i / .2, i / .3, i / .4, "'" + str(i * 60) + "'"])
@@ -590,13 +561,14 @@ class Hfetch_Tests(unittest.TestCase):
         values = ["x", "y", "z"]
         token_ranges = []
         # empty configuration parameter (the last dictionary) means to use the default config
-        table = Hcache(self.keyspace,table,"WHERE token(partid)>=? AND token(partid)<?;", token_ranges,keys,values,{})
+        table = Hcache(self.keyspace, table, "WHERE token(partid)>=? AND token(partid)<?;", token_ranges, keys, values,
+                       {})
 
         def get_data(cache, keys):
             data = None
             try:
                 data = cache.get_row(keys)
-                self.assertEqual(len(data),len(values))
+                self.assertEqual(len(data), len(values))
             except KeyError:
                 print 'not found'
             return data
@@ -605,10 +577,7 @@ class Hfetch_Tests(unittest.TestCase):
         lost = get_data(table, [133, 1330])
         lost = get_data(table, [433, 4330])
         q2 = get_data(table, [433, 4330])
-        self.assertEqual(q1,q2)
-
-
-
+        self.assertEqual(q1, q2)
 
     def test_get_row_key_error(self):
         from hfetch import connectCassandra
@@ -624,15 +593,14 @@ class Hfetch_Tests(unittest.TestCase):
         table = 'particle'
         num_keys = 10001
 
-        self.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
         self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
-                               "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
+                             "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
 
         for i in xrange(0, num_keys):
             vals = ','.join(str(e) for e in [i, i / .1, i / .2, i / .3, i / .4, "'" + str(i * 60) + "'"])
             self.session.execute(
                 "INSERT INTO %s.%s(partid , time , x, y , z,ciao ) VALUES (%s)" % (self.keyspace, table, vals))
-
 
         token_ranges = [(8070430489100699999, 8070450532247928832)]
 
@@ -656,7 +624,7 @@ class Hfetch_Tests(unittest.TestCase):
             ck = pk * 10
             try:
                 result = cache.get_row([pk, ck])
-                self.assertEqual(len(result),len(values))
+                self.assertEqual(len(result), len(values))
             except KeyError as e:
                 error_counter = error_counter + 1
 
@@ -675,7 +643,7 @@ class Hfetch_Tests(unittest.TestCase):
             ck = pk * 10
             try:
                 result = cache.get_row([pk, ck])
-                self.assertEqual(len(result),len(values))
+                self.assertEqual(len(result), len(values))
             except KeyError as e:
                 error_counter = error_counter + 1
 
@@ -685,7 +653,6 @@ class Hfetch_Tests(unittest.TestCase):
             unicode(str(non_existent_keys), 'utf-8'))
 
         self.assertEqual(error_counter, non_existent_keys)
-
 
     def uuid_test(self):
         from hfetch import connectCassandra
@@ -700,23 +667,20 @@ class Hfetch_Tests(unittest.TestCase):
         - Iteritems
         '''''''''
 
-
-        
         table = "uuid"
 
-        self.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
-        self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid uuid, data int, PRIMARY KEY(partid));" % (self.keyspace, table))
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
+        self.session.execute(
+            "CREATE TABLE IF NOT EXISTS %s.%s(partid uuid, data int, PRIMARY KEY(partid));" % (self.keyspace, table))
 
         nelem = 1000
         nblocks = 10
 
-        t_f = pow(-2,63)  # Token begin range
-        t_t = pow(2,63)-1
+        t_f = pow(-2, 63)  # Token begin range
+        t_t = pow(2, 63) - 1
         # Token blocks
         tkn_size = (t_t - t_f) / (nelem / nblocks)
         tokens = [(a, a + tkn_size) for a in xrange(t_f, t_t - tkn_size, tkn_size)]
-
-
 
         try:
             connectCassandra(self.contact_names, self.nodePort)
@@ -729,25 +693,24 @@ class Hfetch_Tests(unittest.TestCase):
         # CREATE TABLE test.bulk(partid int PRIMARY KEY, data text);
         cache = Hcache(self.keyspace, table, "WHERE token(partid)>=? AND token(partid)<?;",
                        tokens, keys, values
-                   , {'cache_size': '10', 'writer_buffer': 20})
+                       , {'cache_size': '10', 'writer_buffer': 20})
 
-
-        #Write data
+        # Write data
         someid = None
         i = 0
         while i < nelem:
             u = uuid.uuid4()  # ('81da81e8-1914-11e7-908d-ecf4bb4c66c4')
             cache.put_row([u], [i])
-            if i==nelem/2:
+            if i == nelem / 2:
                 someid = u
             i += 1
 
-        #by recreating the cache we wait until all the data is written
+        # by recreating the cache we wait until all the data is written
 
         cache = Hcache(self.keyspace, table, "WHERE token(partid)>=? AND token(partid)<?;",
                        tokens, keys, values
                        , {'cache_size': '10', 'writer_buffer': 20})
-        #Read data
+        # Read data
         itera = cache.iteritems(10)
         found = False
         counter = 0
@@ -763,8 +726,6 @@ class Hfetch_Tests(unittest.TestCase):
         self.assertEqual(counter, nelem)
         self.assertTrue(found)
 
-
-
     def words_test_hiter(self):
         from hfetch import connectCassandra
         from hfetch import HIterator
@@ -779,17 +740,18 @@ class Hfetch_Tests(unittest.TestCase):
         - Iteritems
         '''
 
-
         table = "words"
-        nelems=2000
-        length_row=100
-
+        nelems = 2000
+        length_row = 100
 
         self.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
-        self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(position int, wordinfo text, PRIMARY KEY(position));" % (self.keyspace, table))
+        self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(position int, wordinfo text, PRIMARY KEY(position));" % (
+        self.keyspace, table))
 
         for i in xrange(0, nelems):
-            vals = ','.join([str(i),"'"+''.join(random.choice(string.ascii_uppercase+string.ascii_lowercase+" "+ string.digits) for _ in range(length_row))+"'"])
+            vals = ','.join([str(i), "'" + ''.join(
+                random.choice(string.ascii_uppercase + string.ascii_lowercase + " " + string.digits) for _ in
+                range(length_row)) + "'"])
             self.session.execute(
                 "INSERT INTO %s.%s(position,wordinfo) VALUES (%s)" % (self.keyspace, table, vals))
 
@@ -798,12 +760,11 @@ class Hfetch_Tests(unittest.TestCase):
         except Exception:
             print 'can\'t connect, verify the contact points and port', self.contact_names, self.nodePort
 
-
         nelem = 10
         nblocks = 2
 
-        t_f = pow(-2,63)  # Token begin range
-        t_t = pow(2,63)-1
+        t_f = pow(-2, 63)  # Token begin range
+        t_t = pow(2, 63) - 1
         # Token blocks
         tkn_size = (t_t - t_f) / (nelem / nblocks)
         tokens = [(a, a + tkn_size) for a in xrange(t_f, t_t - tkn_size, tkn_size)]
@@ -820,8 +781,6 @@ class Hfetch_Tests(unittest.TestCase):
             except StopIteration:
                 break
 
-
-
     def write_test(self):
         from hfetch import connectCassandra
         from hfetch import Hcache
@@ -835,23 +794,22 @@ class Hfetch_Tests(unittest.TestCase):
         - HWriter
         - Iteritems (updating the cache)
         '''''''''
-        
+
         table = "particle"
         table_write = "particle_write"
         nparts = 6000  # Num particles in range
 
-        self.session.execute("DROP TABLE IF EXISTS %s.%s;" %(self.keyspace, table))
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
         self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
-                               "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
+                             "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
 
         self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float,"
-                               "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table_write))
+                             "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table_write))
 
         for i in xrange(0, nparts):
             vals = ','.join(str(e) for e in [i, i / .1, i / .2, i / .3, i / .4, "'" + str(i * 60) + "'"])
             self.session.execute(
                 "INSERT INTO %s.%s(partid , time , x, y , z,ciao ) VALUES (%s)" % (self.keyspace, table, vals))
-
 
         try:
             connectCassandra(self.contact_names, self.nodePort)
@@ -869,9 +827,9 @@ class Hfetch_Tests(unittest.TestCase):
         keys = ["partid", "time"]
         values = ["x", "y", "z"]
         a = Hcache(self.keyspace, table, "WHERE token(partid)>=? AND token(partid)<?;", tkns, keys,
-                   values,{self.keyspace: '100', 'writer_buffer': 20})
+                   values, {self.keyspace: '100', 'writer_buffer': 20})
 
-        writer = HWriter("test", table_write, keys, values,{'writer_buffer': 20})
+        writer = HWriter("test", table_write, keys, values, {'writer_buffer': 20})
 
         def readAll(iter, wr):
             count = 1

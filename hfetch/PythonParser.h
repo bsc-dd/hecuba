@@ -6,6 +6,7 @@
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define NO_IMPORT_ARRAY
 #define PY_ARRAY_UNIQUE_SYMBOL cool_ARRAY_API
+
 #include "numpy/arrayobject.h"
 
 #include <cassert>
@@ -39,30 +40,39 @@
 //bytes
 #define maxarray_size 65536
 
-class PythonParser{
+class PythonParser {
 
 public:
     PythonParser();
 
     ~PythonParser();
 
-    TupleRow* make_tuple(PyObject* obj,std::shared_ptr<const std::vector<ColumnMeta> > metadata) const;
-    PyObject *merge_blocks_as_nparray(std::vector<const TupleRow *> &blocks,std::shared_ptr<const std::vector<ColumnMeta> > metadata) const;
-    PyObject* tuples_as_py(std::vector<const TupleRow *> &values, std::shared_ptr<const std::vector<ColumnMeta> > metadata) const;
+    TupleRow *make_tuple(PyObject *obj, std::shared_ptr<const std::vector <ColumnMeta> > metadata) const;
+
+    PyObject *merge_blocks_as_nparray(std::vector<const TupleRow *> &blocks,
+                                      std::shared_ptr<const std::vector <ColumnMeta> > metadata) const;
+
+    PyObject *tuples_as_py(std::vector<const TupleRow *> &values,
+                           std::shared_ptr<const std::vector <ColumnMeta> > metadata) const;
 
     std::vector<void *> split_array(PyObject *py_array);
-    std::vector<const TupleRow *> make_tuples_with_npy(PyObject *obj, std::shared_ptr<const std::vector<ColumnMeta> > metadata);
+
+    std::vector<const TupleRow *>
+    make_tuples_with_npy(PyObject *obj, std::shared_ptr<const std::vector <ColumnMeta> > metadata);
 
     void *extract_array(PyObject *py_array) const;
 
-    std::vector<const TupleRow *> blocks_to_tuple(std::vector<void *> &blocks,std::shared_ptr<const std::vector<ColumnMeta> > metadata , PyObject *obj) const;
+    std::vector<const TupleRow *>
+    blocks_to_tuple(std::vector<void *> &blocks, std::shared_ptr<const std::vector <ColumnMeta> > metadata,
+                    PyObject *obj) const;
 
-    const NPY_TYPES get_arr_type(const ColumnMeta& column_meta) const;
+    const NPY_TYPES get_arr_type(const ColumnMeta &column_meta) const;
 
-    PyArray_Dims *get_arr_dims(const ColumnMeta& column_meta) const;
+    PyArray_Dims *get_arr_dims(const ColumnMeta &column_meta) const;
+
 private:
 
-    PyObject* c_to_py(const void *V,const ColumnMeta &meta) const;
+    PyObject *c_to_py(const void *V, const ColumnMeta &meta) const;
 
     int py_to_c(PyObject *obj, void *data, CassValueType type) const;
 

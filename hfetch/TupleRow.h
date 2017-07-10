@@ -18,7 +18,7 @@ class TupleRow {
 public:
 
     /* Constructor */
-    TupleRow(std::shared_ptr<const std::vector<ColumnMeta> > metas, uint32_t payload_size, void *buffer);
+    TupleRow(std::shared_ptr<const std::vector <ColumnMeta> > metas, uint32_t payload_size, void *buffer);
 
     /* Copy constructors */
     TupleRow(const TupleRow &t);
@@ -81,7 +81,7 @@ private:
         /* Attributes */
         void *data;
         uint32_t length;
-        std::vector<uint32_t> null_values;
+        std::vector <uint32_t> null_values;
 
 
         /* Constructors */
@@ -104,17 +104,17 @@ private:
          * doing bit shifting (5 positions to the right since 2^5=32).
          */
         void setNull(uint32_t position) {
-            if (!null_values.empty()) this->null_values[position>>5] |= (0x1 << (position % 32));
+            if (!null_values.empty()) this->null_values[position >> 5] |= (0x1 << (position % 32));
         }
 
         void unsetNull(uint32_t position) {
-            if (!null_values.empty()) this->null_values[position>>5] &= !(0x1 << (position % 32));
+            if (!null_values.empty()) this->null_values[position >> 5] &= !(0x1 << (position % 32));
         }
 
         /* Get methods */
         bool isNull(uint32_t position) const {
             if (!data || null_values.empty()) return true;
-            return (this->null_values[position>>5] & (0x1 << position % 32)) > 0;
+            return (this->null_values[position >> 5] & (0x1 << position % 32)) > 0;
         }
 
 
@@ -157,8 +157,8 @@ private:
     };
 
 
-    std::shared_ptr<TupleRowData> payload;
-    std::shared_ptr<const std::vector<ColumnMeta>> metadatas;
+    std::shared_ptr <TupleRowData> payload;
+    std::shared_ptr<const std::vector <ColumnMeta>> metadatas;
 };
 
 #endif //TUPLEROW_H

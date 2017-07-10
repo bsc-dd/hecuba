@@ -13,8 +13,8 @@
 
 class Writer {
 public:
-    Writer(const TableMetadata* table_meta, CassSession *session,
-           std::map<std::string,std::string> &config);
+    Writer(const TableMetadata *table_meta, CassSession *session,
+           std::map <std::string, std::string> &config);
 
     ~Writer();
 
@@ -24,9 +24,9 @@ public:
 
     void write_to_cassandra(const TupleRow *keys, const TupleRow *values);
 
-    void set_error_occurred(std::string error, const void * keys, const void * values);
+    void set_error_occurred(std::string error, const void *keys, const void *values);
 
-    const TableMetadata* get_metadata() {
+    const TableMetadata *get_metadata() {
         return table_metadata;
     }
 
@@ -41,12 +41,12 @@ private:
     TupleRowFactory *k_factory;
     TupleRowFactory *v_factory;
 
-    tbb::concurrent_bounded_queue<std::pair<const TupleRow *, const TupleRow *>> data;
+    tbb::concurrent_bounded_queue <std::pair<const TupleRow *, const TupleRow *>> data;
 
     uint32_t max_calls;
-    std::atomic<uint32_t> ncallbacks;
-    std::atomic<uint32_t> error_count;
-    const TableMetadata* table_metadata;
+    std::atomic <uint32_t> ncallbacks;
+    std::atomic <uint32_t> error_count;
+    const TableMetadata *table_metadata;
 
     static void callback(CassFuture *future, void *ptr);
 };
