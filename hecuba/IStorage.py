@@ -15,7 +15,7 @@ class IStorage:
                     'counter', 'dict', 'float']
 
     _hecuba_valid_types = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer' \
-                          '|numpy.ndarray|counter) '
+                          '|numpy.ndarray|counter)'
     _data_type = re.compile('(\w+) *: *%s' % _hecuba_valid_types)
     _so_data_type = re.compile('(\w+)*:(\w.+)')
     _list_case = re.compile('.*@ClassField +(\w+) +list+ *< *([\w:.+]+) *>')
