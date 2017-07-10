@@ -344,11 +344,11 @@ class StorageObj(object, IStorage):
             sd_name = self._ksp + "." + self._table+"_"+table_name
             pd.make_persistent(sd_name)
             setattr(self, table_name, pd)
-            is_props[sd_name] = str(pd._storage_id)
+            is_props[sd_name] = pd._storage_id
 
         storageobjs = filter(lambda (k, t): t['type'] not in IStorage._valid_types, self._persistent_props.iteritems())
         for table_name, per_dict in storageobjs:
-            so_name = "%s.%s" % (self._ksp, table_name)
+            so_name = "%s.%s_%s" % (self._ksp, self._table, table_name)
             cname, module = IStorage.process_path(per_dict['type'])
             mod = __import__(module, globals(), locals(), [cname], 0)
             so = getattr(mod, cname)(so_name)
