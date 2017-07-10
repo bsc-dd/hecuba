@@ -10,6 +10,12 @@
 + Python 2, starting from 2.7.5. Tested with versions 2.7.5 to 2.7.13. Python 3 not supported.
 + Python module: distutils
 
+### Opensuse
+Requirements on OpenSuse 42.2
+```
+sudo zypper install cmake python-devel gcc-c++ libtool python-numpy-devel
+```
+
 
 ### 3rd party software:
 They are automatically downloaded if they can not be located in the system by cmake.
