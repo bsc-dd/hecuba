@@ -10,33 +10,6 @@
 + Python 2, starting from 2.7.5. Tested with versions 2.7.5 to 2.7.13. Python 3 not supported.
 + Python module: distutils
 
-### Setting up the environment:
-
-**Marenostrum III:**
-
-```
-module unload intel/13.0.1
-module unload openmpi/1.8.1
-module unload transfer/1.0
-module unload bsc/current
-module load gcc/4.9.1
-module load PYTHON/2.7.12
-module load CMAKE/3.5.0
-
-export CC=gcc
-export CXX=g++-4.9.1
-
-python setup.py install --user
-```
-(Will produce warnings about conflicts with includes from gcc 4.3 (/usr/include) this path is hardcoded into CMake itself) 
-
-
-**Juron:**
-
-```
-module load cmake/3.6.1
-```
-
 
 ### 3rd party software:
 They are automatically downloaded if they can not be located in the system by cmake.
