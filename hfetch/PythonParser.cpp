@@ -3,7 +3,7 @@
 
 PythonParser::PythonParser(std::shared_ptr<StorageInterface> storage, std::shared_ptr<const std::vector<ColumnMeta> > metadatas) {
     this->metas = metadatas;
-    this->parsers = std::vector<InnerParser*>(metadatas->size());
+    this->parsers = std::vector<UnitParser*>(metadatas->size());
     for (uint32_t meta_i = 0; meta_i<metadatas->size(); ++meta_i) {
         if (metadatas->at(meta_i).type==CASS_VALUE_TYPE_INT) parsers[meta_i] = new Int32Parser(metadatas->at(meta_i));
         else if (metadatas->at(meta_i).type==CASS_VALUE_TYPE_TEXT) parsers[meta_i] = new TextParser(metadatas->at(meta_i));
@@ -12,12 +12,12 @@ PythonParser::PythonParser(std::shared_ptr<StorageInterface> storage, std::share
             NP->setStorage(storage);
             parsers[meta_i] = NP;
         }
-        else parsers[meta_i]= new InnerParser(metadatas->at(meta_i));
+        else parsers[meta_i]= new UnitParser(metadatas->at(meta_i));
     }
 }
 
 PythonParser::~PythonParser() {
-    for (InnerParser *parser : this->parsers) {
+    for (UnitParser *parser : this->parsers) {
         delete(parser);
     }
 }
@@ -65,12 +65,4 @@ PyObject *PythonParser::make_pylist(std::vector<const TupleRow *> &values) const
         PyList_SetItem(list, i, this->parsers[i]->c_to_py(tuple->get_element(i)));
     }
     return list;
-}
-
-int16_t PythonParser::InnerParser::py_to_c(PyObject* element,void* payload) const{
-    throw ModuleException("Not implemented");
-}
-
-PyObject* PythonParser::InnerParser::c_to_py(const void* payload) const{
-    throw ModuleException("Not implemented");
 }

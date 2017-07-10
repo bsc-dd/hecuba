@@ -79,9 +79,12 @@ if (NOT $ENV{LD_LIBRARY_PATH}  STREQUAL "")
     string(REGEX MATCHALL "[^ ]+" LIST_LIBS ${ENV_LIBS})
 endif (NOT $ENV{LD_LIBRARY_PATH}  STREQUAL "")
 
-
-set(SOURCE_FILES StorageInterface.cpp Prefetch.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp TableMetadata.cpp HCache.cpp PythonParser.cpp NumpyStorage.cpp ArrayPartitioner.cpp)
-set(HEADER_FILES StorageInterface.h Prefetch.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h TableMetadata.h HCache.h PythonParser.h NumpyStorage.h ArrayPartitioner.h)
+set(CPP_SRC_FILES StorageInterface.cpp Prefetch.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp TableMetadata.cpp ArrayPartitioner.cpp)
+set(CPP_H_FILES StorageInterface.h Prefetch.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h TableMetadata.h ArrayPartitioner.h)
+set(PY_SRC_FILES HCache.cpp PythonParser.cpp UnitParser.cpp NumpyStorage.cpp)
+set(PY_H_FILES HCache.h PythonParser.h UnitParser.h NumpyStorage.h)
+set(SOURCE_FILES ${CPP_SRC_FILES} ${PY_SRC_FILES})
+set(HEADER_FILES ${CPP_H_FILES} ${PY_H_FILES})
 #set(CMAKE_SKIP_RPATH 1)
 #set(MY_PATHS "${ORIGIN}")
 #CMake main target
