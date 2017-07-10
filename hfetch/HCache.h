@@ -6,7 +6,6 @@
 #define PY_ARRAY_UNIQUE_SYMBOL cool_ARRAY_API
 
 #include "numpy/arrayobject.h"
-//#include "structmember.h"
 
 
 #include <tuple>

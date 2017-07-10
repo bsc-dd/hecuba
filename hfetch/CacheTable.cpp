@@ -83,7 +83,7 @@ void CacheTable::put_crow(void* keys, void* values) {
 
 
 /** this method only adds the data to the cache
- *  without makingit persistent
+ *  without making it persistent
  * @param keys
  * @param values
  */
