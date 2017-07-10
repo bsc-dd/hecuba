@@ -58,3 +58,20 @@ A file named `setup.py` should be present inside the root folder. By running the
 This procedure will launch a cmake process which builds a submodule of the application producing a lot of output, which is completly normal. It may occur that the compiler picked by Cmake doesn't support C++11 which will stop the building procedure. In this case, the environment flags `CC` and `CXX` should be defined to point to the C and C++ compilers respectively and the installing command relaunched. At this point the installation should proceed and finish without producing more errors.
 
 Bear in mind that for being able to use Numpy arrays, the Numpy developer package should be present on the system. It contains all the necessary headers.
+
+
+## LICENSING 
+
+Copyright 2017 Barcelona Supercomputing Center
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
