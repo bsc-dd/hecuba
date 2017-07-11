@@ -15,8 +15,10 @@ log.addHandler(stderrLogger)
 
 if 'DEBUG' in os.environ and os.environ['DEBUG'].lower() == "true":
     log.setLevel(logging.DEBUG)
+elif 'HECUBA_LOG' in os.environ:
+    log.setLevel(os.environ['HECUBA_LOG'].upper())
 else:
-    log.setLevel(logging.INFO)
+    log.setLevel(logging.ERROR)
 
 
 class _NRetry(RetryPolicy):
