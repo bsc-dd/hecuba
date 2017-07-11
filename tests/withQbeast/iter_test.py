@@ -1,51 +1,35 @@
+import struct
 import unittest
-from uuid import UUID, uuid4
+from uuid import uuid4
 
-from cassandra.cluster import Cluster
-from thrift.protocol import TBinaryProtocol
-from thrift.transport import TSocket
-from thrift.transport import TTransport
+from mock import Mock
 
 from hecuba.qbeast import IndexedIterValue
-from hecuba.qthrift import QbeastMaster
-from hecuba.qthrift .ttypes import FilteringArea
+from hecuba.qthrift.ttypes import Result, ColumnMeta, BasicTypes
+from tests.withQbeast import wrapWorker
 
 
 class IterThriftTests(unittest.TestCase):
     def simple_get_test(self):
-        transport = TSocket.TSocket("localhost", 2600)
-        # Buffering is critical. Raw sockets are very slow
-        transport = TTransport.TFramedTransport(transport)
 
-        # Wrap in a protocol
-        protocol = TBinaryProtocol.TBinaryProtocol(transport)
-
-        transport.open()
-        # Create a client to use the protocol encoder
-        client = QbeastMaster.Client(protocol)
-        area = FilteringArea([-.5, -.5, -.5], [3, 3, 3])
         partition = uuid4()
-        cluster = Cluster()
-        session = cluster.connect("hecuba")
-        session.execute('INSERT INTO hecuba.istorage(storage_id,tokens) VALUES (%s,%s)',
-                        (partition, [-(1 << 31), (1 << 31) - 1]))
+        from hecuba.qthrift.QbeastWorker import Iface as WorkerIface
+        m_mock = WorkerIface()
 
-        qquid = client.initQuery(['time', 'partid', 'x', 'y', 'z'], 'test_qbeast',
-                                 'particle_particle_idx_d8tree', area, 0.1, 100,
-                                 [str(partition)])
+        r = Result(hasMore=False, count=10,
+                   metadata={0: ColumnMeta(columnName='key', type=BasicTypes.INT),
+                             1: ColumnMeta(columnName='value', type=BasicTypes.TEXT)},
+                   data=[{0: struct.pack('I', i), 1: struct.pack("i", len(str(i)))+struct.pack("s", str(i))} for i in range(10)])
+        m_mock.get = Mock(return_value=r)
+        w = wrapWorker(m_mock)
 
-        try:
-            UUID(qquid)
-        except ValueError:
-            self.fail("Wrong qquid format")
-
-        it = IndexedIterValue(partition, "localhost")
+        it = IndexedIterValue(partition, "localhost", lambda a:a)
 
         read = 0
+        results = set()
         for i in it:
             read += 1
-            print i
-        self.assertGreater(read, 0)
-        print 'read ', read, 'elements'
-
-
+            results.add(i[1])
+        self.assertEquals(read, 10)
+        self.assertEqual(set(map(str, range(10))), results)
+        w[0].serverTransport.close()
