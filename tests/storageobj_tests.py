@@ -2,7 +2,7 @@ import unittest
 
 from mock import Mock
 
-import IStorage
+from hecuba.IStorage import IStorage
 from app.words import Words
 from hecuba import config, Config
 from hecuba.storageobj import StorageObj

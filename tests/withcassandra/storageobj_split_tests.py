@@ -14,7 +14,7 @@ class TestSimple(StorageObj):
 class StorageObjSplitTest(unittest.TestCase):
     def test_simple_iterkeys_split_test(self):
         # in process
-        tablename = "tab30"
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab30")
         sto = TestSimple("tab30")
         pd = sto.words
 
@@ -44,7 +44,7 @@ class StorageObjSplitTest(unittest.TestCase):
 
     def test_build_remotely_iterkeys_split_test(self):
         # in process
-        tablename = "tab30"
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab30")
         sto = TestSimple("tab30")
         pd = sto.words
 
@@ -77,6 +77,7 @@ class StorageObjSplitTest(unittest.TestCase):
 
     def test_simple_iterkeys_split_fromSO_test(self):
         # in process
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab31")
         sto = TestSimple("tab31")
         pd = sto.words
 
@@ -104,6 +105,7 @@ class StorageObjSplitTest(unittest.TestCase):
 
     def test_build_remotely_iterkeys_split_fromSO_test(self):
         # in process
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab32")
         sto = TestSimple("tab32")
         pd = sto.words
 
@@ -134,6 +136,7 @@ class StorageObjSplitTest(unittest.TestCase):
 
     def test_split_with_different_storage_ids(self):
         # in process
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab32")
         sto = TestSimple("tab32")
         pd = sto.words
 
