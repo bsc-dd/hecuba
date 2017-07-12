@@ -2,6 +2,7 @@ import unittest
 
 from mock import Mock
 
+import IStorage
 from app.words import Words
 from hecuba import config, Config
 from hecuba.storageobj import StorageObj
@@ -99,3 +100,10 @@ class StorageObjTest(unittest.TestCase):
         config.session.execute = Mock(return_value=None)
         nopars = Words()
         config.session.execute.assert_not_called()
+
+    def test_init_pdict(self):
+        t = TestStorageObj()
+        t.test = {1: 'ciao'}
+        self.assertTrue(issubclass(t.test.__class__, IStorage))
+
+
