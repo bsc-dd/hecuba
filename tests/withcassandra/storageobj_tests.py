@@ -228,7 +228,37 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(count, 1)
         self.assertEqual(so.name, 'caio')
         self.assertEqual(so.age, 1000)
-    
+
+    def test_modify_simple_attributes(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2")
+        so = Test2StorageObj()
+        so.make_persistent("t2")
+        so.name = 'caio'
+        so.age = 1000
+        count, = config.session.execute("SELECT COUNT(*) FROM my_app.t2")[0]
+        self.assertEqual(count, 1)
+        self.assertEqual(so.name, 'caio')
+        self.assertEqual(so.age, 1000)
+        so.name = 'addio'
+        so.age = 2000
+        self.assertEqual(so.name, 'addio')
+        self.assertEqual(so.age, 2000)
+
+    def test_modify_simple_before_mkp_attributes(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2")
+        so = Test2StorageObj()
+        so.name = 'caio'
+        so.age = 1000
+        so.make_persistent("t2")
+        count, = config.session.execute("SELECT COUNT(*) FROM my_app.t2")[0]
+        self.assertEqual(count, 1)
+        self.assertEqual(so.name, 'caio')
+        self.assertEqual(so.age, 1000)
+        so.name = 'addio'
+        so.age = 2000
+        self.assertEqual(so.name, 'addio')
+        self.assertEqual(so.age, 2000)
+
     def test_parse_index_on(self):
         a = TestStorageIndexedArgsObj()
         self.assertEqual(a.test._indexed_args, ['x', 'y', 'z'])

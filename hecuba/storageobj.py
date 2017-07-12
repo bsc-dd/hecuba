@@ -367,8 +367,14 @@ class StorageObj(object, IStorage):
         self._is_persistent = True
 
         # Persisting attributes stored in memory
+        to_remove = []
         for key, val in self.__dict__.iteritems():
-            setattr(self, key, val)
+            if key[0] is not '_':
+                setattr(self, key, val)
+                to_remove.append(key)
+        for key in to_remove:
+            del self.__dict__[key]
+
 
     def stop_persistent(self):
         """
