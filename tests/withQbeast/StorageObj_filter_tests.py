@@ -1,7 +1,7 @@
 import unittest
 
 from hecuba.storageobj import StorageObj
-from hecuba import hecuba_filter, python_filter
+from hecuba import hecuba_filter, python_filter, config
 from tests.withQbeast import TestServers
 
 
@@ -45,7 +45,7 @@ class StorageObjFilterTest(unittest.TestCase):
         c2 = len(python_filter(la, filtered))
         self.assertEqual(c1, c2)
 
-    def test_filter_sampled(self):
+    def test_filter_sampled0(self):
         so = TestIndexObj().particles
         so.make_persistent('test.particle')
         from random import random
@@ -53,6 +53,24 @@ class StorageObjFilterTest(unittest.TestCase):
         la = lambda ((pid, time), (x, y, z)): x > 0 and x < 3 and y > 0 and y < 3 and z > 0 and z < 3 and random() < 1
         filtered = hecuba_filter(
             lambda ((pid, time), (x, y, z)): x > 0 and x < 3 and y > 0 and y < 3 and z > 0 and z < 3 and random() < 1,
+            so.iteritems())
+        c1 = len(python_filter(la, raw_data))
+        f = [a for a in filtered]
+        c2 = len(python_filter(la, f))
+
+        self.assertEqual(filtered._qbeast_meta.precision, 1)
+        self.assertEqual(filtered._qbeast_meta.from_point, [0, 0, 0])
+        self.assertEqual(filtered._qbeast_meta.to_point, [3, 3, 3])
+        self.assertEqual(c1, c2)
+
+    def test_filter_sampled1(self):
+        so = TestIndexObj().particles
+        so.make_persistent('test.particle')
+        import random
+        raw_data = [((i, i * 0.1), (i * 0.2, i * 0.3, i * 0.4)) for i in range(10)]
+        la = lambda ((pid, time), (x, y, z)): x > 0 and x < 3 and y > 0 and y < 3 and z > 0 and z < 3 and random.random() < 1
+        filtered = hecuba_filter(
+            lambda ((pid, time), (x, y, z)): x > 0 and x < 3 and y > 0 and y < 3 and z > 0 and z < 3 and random.random() < 1,
             so.iteritems())
         c1 = len(python_filter(la, raw_data))
         f = [a for a in filtered]
@@ -95,17 +113,15 @@ class StorageObjFilterTest(unittest.TestCase):
 
         :return:
         '''
+        config.session.execute("DROP TABLE IF EXISTS test.particle")
+        from random import random
         so = TestIndexObj().particles
         so.make_persistent('test.particle')
-        la = lambda ((pid, time), (x, y, z)): x > 0 and x < 3 and y > 0 and y < 3 and z > 0 and z < 3 and pid & 1
+        la = lambda ((pid, time), (x, y, z)): x > 0 and x < 3 and y > 0 and y < 3 and z > 0 and z < 3 and pid & 1 and random() < 1
         filtered = hecuba_filter(
-            lambda ((pid, time), (x, y, z)): x > 0 and x < 3 and y > 0 and y < 3 and z > 0 and z < 3 and pid & 1,
+            lambda ((pid, time), (x, y, z)): x > 0 and x < 3 and y > 0 and y < 3 and z > 0 and z < 3 and pid & 1 and random() < 1,
             so.iteritems())
-        c1 = len(python_filter(la, so.iteritems()))
-        c2 = len(filtered)
-
-        self.assertEqual(filtered._qbeast_meta.mem_filter, "pid & 1")
-        self.assertEqual(c1, c2)
+        self.assertEqual(filtered._qbeast_meta.mem_filter, "pid&1")
 
     def test_filter_simplified(self):
         so = TestIndexObj().particles
@@ -114,11 +130,10 @@ class StorageObjFilterTest(unittest.TestCase):
         filtered = hecuba_filter(
             lambda ((pid, time), (x, y, z)): 0 < x < 3 and 0 < y < 3 and 0 < z < 3,
             so.iteritems())
-        c1 = len(python_filter(la, so.iteritems()))
-        c2 = len(filtered)
 
-        self.assertEqual(filtered._qbeast_meta.mem_filter, "pid & 1")
-        self.assertEqual(c1, c2)
+        self.assertEqual(filtered._qbeast_meta.mem_filter, "")
+        self.assertEqual(filtered._qbeast_meta.from_point, [0.0, 0.0, 0.0])
+        self.assertEqual(filtered._qbeast_meta.to_point, [3.0, 3.0, 3.0])
 
     def test_normal_filter(self):
         self.assertEqual(10, len(filter(lambda x: x > 10, range(0, 21))))

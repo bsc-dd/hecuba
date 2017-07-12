@@ -3,6 +3,7 @@ import os
 import logging
 from cassandra.cluster import Cluster
 from cassandra.policies import RetryPolicy
+import re
 
 # Set default log.handler to avoid "No handler found" warnings.
 
@@ -308,6 +309,9 @@ class Config:
             singleton.qbeast_read_max = 10000
 
 
+filter_reg = re.compile(' *lambda *\( *\( *([\w, ]+) *\) *, *\( *([\w, ]+) *\) *\) *: *([\w<>().& ]+) *,')
+random_reg = re.compile('(.*)((random.random\(\)|random\(\)) *< *([0.1]))(.*)')
+
 def hecuba_filter(lambda_filter, iterable):
     if hasattr(iterable, '_storage_father') and hasattr(iterable._storage_father, '_indexed_args') \
             and iterable._storage_father._indexed_args is not None:
@@ -324,21 +328,31 @@ def hecuba_filter(lambda_filter, iterable):
         lambda_filter.func_code = func.to_code()
         inspected_function = inspect.getsource(lambda_filter)
         inspected_function = inspected_function.replace('\n', '')
-        key_parameters = inspected_function.split("(")[3].split(')')[0]
-        value_parameters = str(str(str(inspected_function).split("(")[3]).split(':')[0]).split(')')[1][1:]
+        m = filter_reg.match(inspected_function)
+        if m is not None:
+            key_parameters, value_parameters, function_arguments = m.groups()
+            key_parameters = re.sub(r'\s+', '', key_parameters).split(',')
+            value_parameters = re.sub(r'\s+', '', value_parameters).split(',')
         for key in far_values.keys():
             inspected_function = str(inspected_function).replace(key, far_values[key])
-
-        function_arguments = str(str(inspected_function).split(":")[1]).split(",")[0]
-        if 'random.random()' in str(function_arguments):
-            initial_index_arguments = str(str(function_arguments).split('and random.random() <')[0]).split(' and ')
-            precision = float(str(function_arguments).split('and random.random() <')[1])
-        elif 'random()' in str(function_arguments):
-            initial_index_arguments = str(str(function_arguments).split('and random() <')[0]).split(' and ')
-            precision = float(str(function_arguments).split('and random() <')[1])
+        initial_index_arguments = []
+        m = random_reg.match(function_arguments)
+        precision = 1.0
+        precision_ind = -1
+        if m is not None:
+            params = m.groups()
+            for ind,param in enumerate(params):
+                if param == 'random()' or param == 'random.random()':
+                    precision = float(params[ind+1])
+                    precision_ind = ind + 1
+                else:
+                    if param != '' and 'random()' not in param and ind != precision_ind:
+                        to_extend = param.split(' and ')
+                        if '' in to_extend:
+                            to_extend.remove('')
+                        initial_index_arguments.extend(to_extend)
         else:
-            initial_index_arguments = str(function_arguments).split(' and ')
-            precision = 1
+            initial_index_arguments = function_arguments.split(' and ')
         stripped_index_arguments = []
         for value in initial_index_arguments:
             stripped_index_arguments.append(value.replace(" ", ""))
@@ -362,7 +376,7 @@ def hecuba_filter(lambda_filter, iterable):
                     index_arguments.add(to_append)
                 else:
                     non_index_arguments.append(to_append)
-            if '>' in value:
+            elif '>' in value:
                 splitval = value.split('>')
                 for pos in splitval:
                     if pos not in indexed_args:
@@ -375,24 +389,35 @@ def hecuba_filter(lambda_filter, iterable):
                     index_arguments.add(to_append)
                 else:
                     non_index_arguments.append(to_append)
+            else:
+                non_index_arguments.append(value)
 
-        if len(non_index_arguments) > 0:
-            reduced_filtered = "lambda(" + ", ".join(key_parameters) + ", " + ", ".join(
-                value_parameters) + "):" + " and ".join(non_index_arguments)
-        else:
-            reduced_filtered = None
+        non_index_arguments = ' and '.join(non_index_arguments)
+
         min_arguments = {}
         max_arguments = {}
-
         for argument in index_arguments:
             if '<' in str(argument):
-                splitarg = (str(argument).replace(' ', '')).split('<')
-                val = str(splitarg[0])
-                max_arguments[val] = float(splitarg[1])
+                if argument.count('<') == 1:
+                    splitarg = (str(argument).replace(' ', '')).split('<')
+                    val = str(splitarg[0])
+                    max_arguments[val] = float(splitarg[1])
+                else:
+                    splitarg = (str(argument).replace(' ', '')).split('<')
+                    val = str(splitarg[1])
+                    min_arguments[val] = float(splitarg[0])
+                    max_arguments[val] = float(splitarg[2])
+
             if '>' in str(argument):
-                splitarg = (str(argument).replace(' ', '')).split('>')
-                val = str(splitarg[0])
-                min_arguments[val] = float(splitarg[1])
+                if argument.count('>') == 1:
+                    splitarg = (str(argument).replace(' ', '')).split('>')
+                    val = str(splitarg[0])
+                    min_arguments[val] = float(splitarg[1])
+                else:
+                    splitarg = (str(argument).replace(' ', '')).split('>')
+                    val = str(splitarg[1])
+                    min_arguments[val] = float(splitarg[2])
+                    max_arguments[val] = float(splitarg[0])
         from_p = []
         to_p = []
         for indexed_element in indexed_args:
@@ -400,7 +425,7 @@ def hecuba_filter(lambda_filter, iterable):
             to_p.append(max_arguments[indexed_element])
         from qbeast import QbeastMeta, QbeastIterator
         qmeta = QbeastMeta(
-            reduced_filtered,
+            non_index_arguments,
             from_p, to_p,
             precision)
         it = QbeastIterator(father._primary_keys, father._columns,
@@ -418,3 +443,4 @@ if not filter == hecuba_filter:
 
 global config
 config = Config()
+
