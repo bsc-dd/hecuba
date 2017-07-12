@@ -309,7 +309,7 @@ class Config:
             singleton.qbeast_read_max = 10000
 
 
-filter_reg = re.compile(' *lambda *\( *\( *([\w, ]+) *\) *, *\( *([\w, ]+) *\) *\) *: *([\w<>().& ]+) *,')
+filter_reg = re.compile(' *lambda *\( *\( *([\w, ]+) *\) *, *\( *([\w, ]+) *\) *\) *: *([\w<>().&*+/ ]+) *,')
 random_reg = re.compile('(.*)((random.random\(\)|random\(\)) *< *([0.1]))(.*)')
 
 def hecuba_filter(lambda_filter, iterable):
@@ -320,6 +320,7 @@ def hecuba_filter(lambda_filter, iterable):
         import inspect
         from byteplay import Code, LOAD_GLOBAL, LOAD_CONST
         func = Code.from_code(lambda_filter.func_code)
+        values = lambda_filter.func_globals
         far_values = {}
         for ind, entry in enumerate(func.code):
             if (entry[0] == LOAD_GLOBAL) and (not entry[1] == 'random'):
@@ -371,7 +372,7 @@ def hecuba_filter(lambda_filter, iterable):
                             newval = eval(pos)
                             to_append = value.replace(str(pos), str(newval))
                         except Exception as e:
-                            pass
+                            log.error("Malformed filtering predicate:" + str(pos))
                 if splitval[0] in indexed_args or splitval[1] in indexed_args:
                     index_arguments.add(to_append)
                 else:
@@ -384,7 +385,7 @@ def hecuba_filter(lambda_filter, iterable):
                             newval = eval(pos)
                             to_append = value.replace(str(pos), str(newval))
                         except Exception as e:
-                            print "error trying to replace:", e
+                            log.error("Malformed filtering predicate:" + str(pos))
                 if splitval[0] in indexed_args or splitval[1] in indexed_args:
                     index_arguments.add(to_append)
                 else:
@@ -398,26 +399,27 @@ def hecuba_filter(lambda_filter, iterable):
         max_arguments = {}
         for argument in index_arguments:
             if '<' in str(argument):
-                if argument.count('<') == 1:
-                    splitarg = (str(argument).replace(' ', '')).split('<')
+                splitarg = (str(argument).replace(' ', '')).split('<')
+                if len(splitarg) == 2:
                     val = str(splitarg[0])
                     max_arguments[val] = float(splitarg[1])
-                else:
-                    splitarg = (str(argument).replace(' ', '')).split('<')
+                elif len(splitarg) == 3:
                     val = str(splitarg[1])
                     min_arguments[val] = float(splitarg[0])
                     max_arguments[val] = float(splitarg[2])
-
+                else:
+                    log.error("Malformed filtering predicate:" + str(argument))
             if '>' in str(argument):
-                if argument.count('>') == 1:
-                    splitarg = (str(argument).replace(' ', '')).split('>')
+                splitarg = (str(argument).replace(' ', '')).split('>')
+                if len(splitarg) == 2:
                     val = str(splitarg[0])
                     min_arguments[val] = float(splitarg[1])
-                else:
-                    splitarg = (str(argument).replace(' ', '')).split('>')
+                elif len(splitarg) == 3:
                     val = str(splitarg[1])
                     min_arguments[val] = float(splitarg[2])
                     max_arguments[val] = float(splitarg[0])
+                else:
+                    log.error("Malformed filtering predicate:" + str(argument))
         from_p = []
         to_p = []
         for indexed_element in indexed_args:

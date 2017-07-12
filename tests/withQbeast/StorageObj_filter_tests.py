@@ -39,8 +39,7 @@ class StorageObjFilterTest(unittest.TestCase):
         fx, tx, fy, ty, fz, tz = 0, 3, 0, 3, 0, 3
         la = lambda ((pid, time), (x, y, z)): x > fx and x < tx and y > fy and y < ty and z > fz and z < tz
         filtered = hecuba_filter(
-            lambda ((pid, time), (x, y, z)): x > fx and x < tx and y > fy and y < ty and z > fz and z < tz,
-            so.iteritems())
+            lambda ((pid, time), (x, y, z)): x > fx and x < tx and y > fy and y < ty and z > fz and z < tz, so.iteritems())
         c1 = len(python_filter(la, raw_data))
         c2 = len(python_filter(la, filtered))
         self.assertEqual(c1, c2)
@@ -99,6 +98,24 @@ class StorageObjFilterTest(unittest.TestCase):
         self.assertEqual(filtered._qbeast_meta.precision, 1)
         self.assertEqual(filtered._qbeast_meta.from_point, [0, 0, 0])
         self.assertEqual(filtered._qbeast_meta.to_point, [3, 3, 3])
+        self.assertEqual(c1, c2)
+
+    def test_filter_sampled3(self):
+        so = TestIndexObj().particles
+        so.make_persistent('test.particle')
+        import random
+        raw_data = [((i, i * 0.1), (i * 0.2, i * 0.3, i * 0.4)) for i in range(10)]
+        la = lambda ((pid, time), (x, y, z)): x > 0 * 1000 and x < 3 * 2 and y > 0 + 4 and y < 3 * 7 and z > 0 and z < 3 and random.random() < 1
+        filtered = hecuba_filter(
+            lambda ((pid, time), (x, y, z)): x > 0 * 1000 and x < 3 * 2 and y > 0 + 4 and y < 3 * 7 and z > 0 and z < 3 and random.random() < 1,
+            so.iteritems())
+        c1 = len(python_filter(la, raw_data))
+        f = [a for a in filtered]
+        c2 = len(python_filter(la, f))
+
+        self.assertEqual(filtered._qbeast_meta.precision, 1)
+        self.assertEqual(filtered._qbeast_meta.from_point, [0, 4, 0])
+        self.assertEqual(filtered._qbeast_meta.to_point, [6, 21, 3])
         self.assertEqual(c1, c2)
 
     def test_filter_with_mem_filter(self):
