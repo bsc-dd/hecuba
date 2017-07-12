@@ -67,6 +67,16 @@ class Test6StorageObj(StorageObj):
     '''
     pass
 
+class mixObj(StorageObj):
+   '''
+   @ClassField floatField float
+   @ClassField intField int
+   @ClassField strField str
+   @ClassField intlistField list <int>
+   @ClassField floatlistField list <float>
+   @ClassField strlistField list <float>
+   @ClassField dictField dict <<int>,str>
+   '''
 
 class StorageObjTest(unittest.TestCase):
     def test_build_remotely(self):
@@ -131,6 +141,18 @@ class StorageObjTest(unittest.TestCase):
 
         self.assertEqual(name, config.execution_name + '.tt1')
         self.assertEqual(tkns, read_tkns)
+
+    def test_mixed_class(self):
+        myObj = mixObj()
+
+        myObj.floatField = 4.0
+        myObj.intField = 5
+        myObj.strField = "6"
+        myObj.intlistField=[7,8,9]
+        myObj.floatlistField=[10.0,11.0,12.0]
+        myObj.strlistField=["13.0","14.0","15.0"]
+
+        myObj.make_persistent('bla')
 
     def test_init_empty(self):
         nopars = TestStorageObj('ksp1.ttta')

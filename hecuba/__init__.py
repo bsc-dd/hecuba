@@ -318,15 +318,10 @@ def hecuba_filter(lambda_filter, iterable):
         indexed_args = iterable._storage_father._indexed_args
         father = iterable._storage_father
         import inspect
-        from byteplay import Code, LOAD_GLOBAL, LOAD_CONST
+        from byteplay import Code
         func = Code.from_code(lambda_filter.func_code)
-        values = lambda_filter.func_globals
-        far_values = {}
-        for ind, entry in enumerate(func.code):
-            if (entry[0] == LOAD_GLOBAL) and (not entry[1] == 'random'):
-                func.code[ind] = (LOAD_CONST, lambda_filter.func_globals[entry[1]])
-                far_values[entry[1]] = str(lambda_filter.func_globals[str(entry[1])])
-        lambda_filter.func_code = func.to_code()
+        if lambda_filter.func_closure is not None:
+            vars_to_vals = zip(func.freevars, map(lambda x: x.cell_contents, lambda_filter.func_closure))
         inspected_function = inspect.getsource(lambda_filter)
         inspected_function = inspected_function.replace('\n', '')
         m = filter_reg.match(inspected_function)
@@ -334,8 +329,6 @@ def hecuba_filter(lambda_filter, iterable):
             key_parameters, value_parameters, function_arguments = m.groups()
             key_parameters = re.sub(r'\s+', '', key_parameters).split(',')
             value_parameters = re.sub(r'\s+', '', value_parameters).split(',')
-        for key in far_values.keys():
-            inspected_function = str(inspected_function).replace(key, far_values[key])
         initial_index_arguments = []
         m = random_reg.match(function_arguments)
         precision = 1.0
@@ -357,10 +350,8 @@ def hecuba_filter(lambda_filter, iterable):
         stripped_index_arguments = []
         for value in initial_index_arguments:
             stripped_index_arguments.append(value.replace(" ", ""))
-        # for dict_name, props in iterable._persistent_props.iteritems():
         index_arguments = set()
         non_index_arguments = []
-        # if 'indexed_values' in props:
 
         for value in stripped_index_arguments:
             to_append = str(value)
@@ -372,7 +363,9 @@ def hecuba_filter(lambda_filter, iterable):
                             newval = eval(pos)
                             to_append = value.replace(str(pos), str(newval))
                         except Exception as e:
-                            log.error("Malformed filtering predicate:" + str(pos))
+                            for tup in vars_to_vals:
+                                if tup[0] == pos:
+                                    to_append = value.replace(str(pos), str(tup[1]))
                 if splitval[0] in indexed_args or splitval[1] in indexed_args:
                     index_arguments.add(to_append)
                 else:
@@ -385,7 +378,9 @@ def hecuba_filter(lambda_filter, iterable):
                             newval = eval(pos)
                             to_append = value.replace(str(pos), str(newval))
                         except Exception as e:
-                            log.error("Malformed filtering predicate:" + str(pos))
+                            for tup in vars_to_vals:
+                                if tup[0] == pos:
+                                    to_append = value.replace(str(pos), str(tup[1]))
                 if splitval[0] in indexed_args or splitval[1] in indexed_args:
                     index_arguments.add(to_append)
                 else:
