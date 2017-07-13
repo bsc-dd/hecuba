@@ -23,7 +23,7 @@ class QbeastMeta(object):
         self.mem_filter = mem_filter
 
 
-config.cluster.register_user_type(config.execution_name, 'q_meta', QbeastMeta)
+config.cluster.register_user_type('hecuba', 'q_meta', QbeastMeta)
 
 
 class QbeastIterator(IStorage):
@@ -40,6 +40,7 @@ class QbeastIterator(IStorage):
         'VALUES (?,?,?,?,?,?,?,?,?)')
     _prepared_set_qbeast_id = config.session.prepare(
         'INSERT INTO hecuba.istorage (storage_id,qbeast_id)VALUES (?,?)')
+    _row_namedtuple = namedtuple("row", "key,value")
 
     @staticmethod
     def build_remotely(result):
@@ -94,6 +95,10 @@ class QbeastIterator(IStorage):
         """
         log.debug("CREATED QbeastIterator(%s,%s,%s,%s)", storage_id, tokens, )
         self._selects = map(lambda a: a[0], primary_keys + columns)
+        key_namedtuple = namedtuple("key", map(lambda a: a[0], primary_keys))
+        value_namedtuple = namedtuple("value", map(lambda a: a[0], columns))
+        div = len(primary_keys)
+        self._row_builder = lambda a: self._row_namedtuple(key_namedtuple(*a[:div]), value_namedtuple(*a[div:]))
         (self._ksp, self._table) = self._extract_ks_tab(name)
         self._qbeast_meta = qbeast_meta
         self._qbeast_id = qbeast_id
@@ -251,7 +256,7 @@ class QbeastIterator(IStorage):
             self._store_meta(self._build_args)
             transport.close()
 
-        return IndexedIterValue(self._storage_id, self._entry_point)
+        return IndexedIterValue(self._storage_id, self._entry_point, self._row_builder)
 
 
 class Row:
@@ -261,7 +266,7 @@ class Row:
             v = Row.deserialize_type(metadata[key].type, value)
             cname = metadata[key].columnName
             setattr(self, cname, v)
-            if not str(cname) == 'rand':
+            if cname is not 'rand':
                 self._list.append(v)
 
     def __getitem__(self, key):
@@ -307,13 +312,14 @@ class IndexedIterValue(object):
     def __iter__(self):
         return self
 
-    def __init__(self, storage_id, host):
+    def __init__(self, storage_id, host, row_builder):
         '''
 
         Args:
             storage_dict: type IxBlock
         '''
 
+        self._row_builder = row_builder
         self._storage_id = storage_id
         workerT = TTransport.TFramedTransport(TSocket.TSocket(host, config.qbeast_worker_port))
 
@@ -332,7 +338,7 @@ class IndexedIterValue(object):
 
         if self._tmp_iter is not None:
             try:
-                return self._tmp_iter.next()
+                return self._row_builder(self._tmp_iter.next())
             except StopIteration:
                 if self._has_more is False:
                     raise StopIteration
@@ -341,7 +347,7 @@ class IndexedIterValue(object):
         result = self._worker.get(str(self._storage_id), 1000, 10000)
         self._has_more = result.hasMore
         self._tmp_iter = IndexedIterValue.deserialize(result.metadata, result.data)
-        return self._tmp_iter.next()
+        return self._row_builder(self._tmp_iter.next())
 
     @staticmethod
     def deserialize(metadata, rows):
