@@ -322,8 +322,8 @@ def hecuba_filter(lambda_filter, iterable):
         func = Code.from_code(lambda_filter.func_code)
         if lambda_filter.func_closure is not None:
             vars_to_vals = zip(func.freevars, map(lambda x: x.cell_contents, lambda_filter.func_closure))
-        inspected_function = inspect.getsource(lambda_filter)
-        inspected_function = inspected_function.replace('\n', '')
+        inspected = inspect.findsource(lambda_filter)
+        inspected_function = '\n'.join(inspected[0][inspected[1]:]).replace('\n', '')
         m = filter_reg.match(inspected_function)
         if m is not None:
             key_parameters, value_parameters, function_arguments = m.groups()
@@ -350,8 +350,10 @@ def hecuba_filter(lambda_filter, iterable):
         stripped_index_arguments = []
         for value in initial_index_arguments:
             stripped_index_arguments.append(value.replace(" ", ""))
+        # for dict_name, props in iterable._persistent_props.iteritems():
         index_arguments = set()
         non_index_arguments = []
+        # if 'indexed_values' in props:
 
         for value in stripped_index_arguments:
             to_append = str(value)
