@@ -12,7 +12,7 @@ class IStorage:
     _build_args = args()
 
     _valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map', 'bigint', 'blob',
-                    'counter', 'dict', 'float']
+                    'tuple', 'dict', 'float']
 
     _hecuba_valid_types = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer' \
                           '|numpy.ndarray|counter)'

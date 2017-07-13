@@ -76,6 +76,7 @@ class mixObj(StorageObj):
    @ClassField floatlistField list <float>
    @ClassField strlistField list <float>
    @ClassField dictField dict <<int>,str>
+   @ClassField inttupleField tuple <int,int>
    '''
 
 class StorageObjTest(unittest.TestCase):
@@ -148,11 +149,30 @@ class StorageObjTest(unittest.TestCase):
         myObj.floatField = 4.0
         myObj.intField = 5
         myObj.strField = "6"
-        myObj.intlistField=[7,8,9]
-        myObj.floatlistField=[10.0,11.0,12.0]
-        myObj.strlistField=["13.0","14.0","15.0"]
+        myObj.intlistField = [7, 8, 9]
+        myObj.floatlistField = [10.0, 11.0, 12.0]
+        myObj.strlistField = ["13.0", "14.0", "15.0"]
+        myObj.inttupleField = (1, 2)
 
-        myObj.make_persistent('bla')
+        myObj.make_persistent('hecuba_test.bla')
+
+        floatField, intField, strField, intlistField, floatlistField, strlistField, inttupleField = \
+            config.session.execute("SELECT floatField, "
+                                   "intField, "
+                                   "strField, "
+                                   "intlistField, "
+                                   "floatlistField, "
+                                   "strlistField ,"
+                                   "inttupleField "
+                                   "FROM hecuba_test.bla WHERE storage_id =" + str(myObj._storage_id))[0]
+
+        self.assertEquals(floatField, myObj.floatField)
+        self.assertEquals(intField, myObj.intField)
+        self.assertEquals(strField, myObj.strField)
+        self.assertEquals(intlistField, myObj.intlistField)
+        self.assertEquals(floatlistField, myObj.floatlistField)
+        self.assertEquals(strlistField, myObj.strlistField)
+        self.assertEquals(inttupleField, myObj.inttupleField)
 
     def test_init_empty(self):
         nopars = TestStorageObj('ksp1.ttta')

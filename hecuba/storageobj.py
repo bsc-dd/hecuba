@@ -253,7 +253,8 @@ class StorageObj(object, IStorage):
                         else:
                             conversion += "," + IStorage._conversions[val]
                     this[table_name] = {
-                        'type': 'tuple<' + conversion + '>'
+                        'type': 'tuple',
+                        'columns': conversion
                     }
                 else:
                     m = IStorage._list_case.match(line)
@@ -265,7 +266,8 @@ class StorageObj(object, IStorage):
                         except KeyError:
                             conversion = simple_type
                         this[table_name] = {
-                            'type': 'list<' + conversion + '>'
+                            'type': 'list',
+                            'columns': conversion
                         }
                     else:
                         m = IStorage._val_case.match(line)
@@ -328,7 +330,10 @@ class StorageObj(object, IStorage):
         for key, entry in self._persistent_props.iteritems():
             query_simple += str(key) + ' '
             if entry['type'] != 'dict' and entry['type'] in IStorage._valid_types:
-                query_simple += entry['type'] + ', '
+                if entry['type'] == 'list' or entry['type'] == 'tuple':
+                    query_simple += entry['type'] + '<' + entry['columns'] +  '>, '
+                else:
+                    query_simple += entry['type'] + ', '
             else:
                 query_simple += 'uuid, '
         config.session.execute(query_simple[0:len(query_simple) - 2] + ' )')
@@ -417,25 +422,21 @@ class StorageObj(object, IStorage):
             Returns:
                 value: obtained value
         """
-        if key[0] != '_' and key is not 'storage_id' and self._is_persistent:
-            if key in self._persistent_attrs:
-                try:
-                    query = "SELECT %s FROM %s.%s WHERE storage_id = %s;" \
-                            % (key, self._ksp,
-                               self._table,
-                               self._storage_id)
-                    log.debug("GETATTR: %s", query)
-                    result = config.session.execute(query)
-                    for row in result:
-                        for row_key, row_var in vars(row).iteritems():
-                            # if not row_key == 'name':
-                            if row_var is not None:
-                                return row_var
-                except Exception as ex:
-                    log.warn("GETATTR ex %s", ex)
-                    raise KeyError('value not found')
-            else:
-                return object.__getattribute__(self, key)
+        if key[0] != '_' and key is not 'storage_id' and self._is_persistent and key in self._persistent_attrs:
+            try:
+                query = "SELECT %s FROM %s.%s WHERE storage_id = %s;" \
+                        % (key, self._ksp,
+                           self._table,
+                           self._storage_id)
+                log.debug("GETATTR: %s", query)
+                result = config.session.execute(query)
+                for row in result:
+                    for row_key, row_var in vars(row).iteritems():
+                        if row_var is not None:
+                            return row_var
+            except Exception as ex:
+                log.warn("GETATTR ex %s", ex)
+                raise KeyError('value not found')
         else:
             return object.__getattribute__(self, key)
 
@@ -448,28 +449,21 @@ class StorageObj(object, IStorage):
                 key: name of the value that we want to obtain
                 value: value that we want to save
         """
-        if issubclass(value.__class__, IStorage):
-            super(StorageObj, self).__setattr__(key, value)
-        elif key[0] is '_' or key is 'storage_id':
+        if key[0] is '_' or key is 'storage_id':
             object.__setattr__(self, key, value)
-        elif hasattr(self, '_is_persistent') and self._is_persistent:
-            if key in self._persistent_attrs:
-                query = "INSERT INTO %s.%s (storage_id,%s) VALUES (?,?)" \
-                        % (self._ksp, self._table, key)
-                prepared = config.session.prepare(query)
-                if not type(value) == dict and not type(value) == StorageDict:
-                    if type(value) == str:
-                        values = [self._storage_id, "" + str(value) + ""]
-                    else:
-                        values = [self._storage_id, value]
-                else:
-                    values = [self._storage_id, str(value._storage_id)]
-                log.debug("SETATTR: ", query)
-                try:
-                    config.session.execute(prepared, values)
-                except Exception as e:
-                    print "Error setting attribute:", e
+        elif hasattr(self, '_is_persistent') and self._is_persistent and key in self._persistent_attrs:
+            query = "INSERT INTO %s.%s (storage_id,%s) VALUES (?,?)" \
+                    % (self._ksp, self._table, key)
+            prepared = config.session.prepare(query)
+            if not type(value) == dict and not type(value) == StorageDict:
+                values = [self._storage_id, "" + str(value) + ""]
             else:
-                super(StorageObj, self).__setattr__(key, value)
+                values = [self._storage_id, str(value._storage_id)]
+            log.debug("SETATTR: ", query)
+            try:
+                config.session.execute(prepared, values)
+            except Exception as e:
+                log.error("SETATTR: ", e)
         else:
             super(StorageObj, self).__setattr__(key, value)
+
