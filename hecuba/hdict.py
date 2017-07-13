@@ -390,6 +390,14 @@ class StorageDict(dict, IStorage):
         # Storing all in-memory values to cassandra
         for key, value in dict.iteritems(self):
             self._hcache.put_row(self._make_key(key), self._make_value(value))
+        if hasattr(self, '_indexed_args') and self._indexed_args is not None:
+            index_query = 'CREATE CUSTOM INDEX IF NOT EXISTS ' + str(self._table) + '_idx ON '
+            index_query += str(self._ksp) + '.' + str(self._table) + ' (' + str.join(',', self._indexed_args) + ') '
+            index_query += 'using \'es.bsc.qbeast.index.QbeastIndex\';'
+            try:
+                config.session.execute(index_query)
+            except Exception as ex:
+                log.error("Error creating the Qbeast custom index: %s %s", index_query, ex)
 
     def stop_persistent(self):
         log.debug('STOP PERSISTENCE: %s', self._table)

@@ -7,10 +7,10 @@
 + GCC 4.8 & up. GCC 6 not supported. Tested with versions 4.8.2, 4.8.5, 4.9.1.
 + CMake 3.3 & up. Tested with versions 3.5.0, 3.6.x, 3.7.1.
 + Libtools. Tested with versions 2.4.2
-+ Python 2, starting from 2.7.5. Tested with versions 2.7.5 to 2.7.13. Python 3 not supported.
-+ Python module: distutils
++ Python 2, starting from 2.7.5. Python must be configured to support UCS-4. The dynamic library of python must be available. Tested with versions 2.7.5 to 2.7.13. Python 3 not supported.
++ Python modules: distutils, numpy, six, futures
 
-### Opensuse
+### OpenSuse
 Requirements on OpenSuse 42.2
 ```
 sudo zypper install cmake python-devel gcc-c++ libtool python-numpy-devel
@@ -38,6 +38,10 @@ This procedure will launch a cmake process which builds a submodule of the appli
 
 Bear in mind that for being able to use Numpy arrays, the Numpy developer package should be present on the system. It contains all the necessary headers.
 
+### Instructions to execute with Hecuba:
+The only requirement is to set the PYTHONPATH environment variable with the site-packages directory and the LD_LIBRARY_PATH enviroment variable with the path that contain the dynamic library of python.
+
+Please, refer to the Hecuba manual to check more Hecuba configuration options.
 
 ## LICENSING 
 

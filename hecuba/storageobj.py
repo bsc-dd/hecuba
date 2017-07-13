@@ -52,9 +52,11 @@ class StorageObj(object, IStorage):
         try:
 
             config.session.execute(StorageObj._prepared_store_meta,
-                                   [storage_args.storage_id, storage_args.class_name,
+                                   [storage_args.storage_id,
+                                    storage_args.class_name,
                                     storage_args.name,
-                                    storage_args.tokens, storage_args.istorage_props])
+                                    storage_args.tokens,
+                                    storage_args.istorage_props])
         except Exception as ex:
             print "Error creating the StorageDict metadata:", storage_args, ex
             raise ex
@@ -339,18 +341,20 @@ class StorageObj(object, IStorage):
             pd = getattr(self, table_name)
             sd_name = self._ksp + "." + self._table + "_" + table_name
             pd.make_persistent(sd_name)
+            super(StorageObj, self).__setattr__(table_name, pd)
             setattr(self, table_name, pd)
             is_props[sd_name] = str(pd._storage_id)
 
         storageobjs = filter(lambda (k, t): t['type'] not in IStorage._valid_types, self._persistent_props.iteritems())
         for table_name, per_dict in storageobjs:
-            so_name = "%s.%s" % (self._ksp, table_name)
+            so_name = "%s.%s_%s" % (self._ksp, self._table, table_name)
             cname, module = IStorage.process_path(per_dict['type'])
             mod = __import__(module, globals(), locals(), [cname], 0)
             so = getattr(mod, cname)(so_name)
             for key, var in getattr(self, table_name).__dict__.iteritems():
                 if key[0] != '_' and type(var) in IStorage._python_types:
                     setattr(so, key, var)
+            super(StorageObj, self).__setattr__(table_name, so)
             setattr(self, table_name, so)
             self._storage_objs.append(so)
 
@@ -359,8 +363,6 @@ class StorageObj(object, IStorage):
                 self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, name)
                 self._build_args = self._build_args._replace(storage_id=self._storage_id, istorage_props=is_props)
         self._store_meta(self._build_args)
-
-        self._is_persistent = True
 
         # Persisting attributes stored in memory
         to_remove = filter(lambda k: k[0] is not '_', self.__dict__.keys())
@@ -417,7 +419,6 @@ class StorageObj(object, IStorage):
                     result = config.session.execute(query)
                     for row in result:
                         for row_key, row_var in vars(row).iteritems():
-                            # if not row_key == 'name':
                             if row_var is not None:
                                 return row_var
                 except Exception as ex:
@@ -437,6 +438,7 @@ class StorageObj(object, IStorage):
                 key: name of the value that we want to obtain
                 value: value that we want to save
         """
+
         if key[0] is '_':
             object.__setattr__(self, key, value)
         elif hasattr(self, '_is_persistent') and self._is_persistent and key in self._persistent_attrs:

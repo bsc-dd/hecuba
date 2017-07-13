@@ -13,14 +13,14 @@ class StorageDictSplitTest(unittest.TestCase):
         pd = StorageDict(tablename,
                          [('position', 'int')],
                          [('value', 'text')])
-
+        num_inserts = 10000
         what_should_be = set()
-        for i in range(10000):
+        for i in range(num_inserts):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd
         count, = config.session.execute('SELECT count(*) FROM my_app.tab30')[0]
-        self.assertEqual(count, 10000)
+        self.assertEqual(count, num_inserts)
 
         pd = StorageDict(tablename,
                          [('position', 'int')],
@@ -32,7 +32,7 @@ class StorageDictSplitTest(unittest.TestCase):
             for val in partition.iterkeys():
                 res.add(val)
                 count += 1
-        self.assertEqual(count, 10000)
+        self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
     def test_remote_build_iterkeys_split_test(self):
@@ -43,14 +43,14 @@ class StorageDictSplitTest(unittest.TestCase):
         pd = StorageDict(tablename,
                          [('position', 'int')],
                          [('value', 'text')])
-
+        num_inserts = 10000
         what_should_be = set()
-        for i in range(10000):
+        for i in range(num_inserts):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd
         count, = config.session.execute('SELECT count(*) FROM my_app.tab_b0')[0]
-        self.assertEqual(count, 10000)
+        self.assertEqual(count, num_inserts)
 
         pd = StorageDict(tablename,
                          [('position', 'int')],
@@ -65,7 +65,7 @@ class StorageDictSplitTest(unittest.TestCase):
             for val in rebuild.iterkeys():
                 res.add(val)
                 count += 1
-        self.assertEqual(count, 10000)
+        self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
     def test_composed_iteritems_test(self):
@@ -76,16 +76,16 @@ class StorageDictSplitTest(unittest.TestCase):
         pd = StorageDict(tablename,
                          [('pid', 'int'), ('time', 'int')],
                          [('value', 'text'), ('x', 'float'), ('y', 'float'), ('z', 'float')])
-
+        num_inserts = 10000
         what_should_be = {}
-        for i in range(10000):
+        for i in range(num_inserts):
             pd[i, i + 100] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
             what_should_be[i, i + 100] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
 
         del pd
 
         count, = config.session.execute('SELECT count(*) FROM my_app.tab_b1')[0]
-        self.assertEqual(count, 10000)
+        self.assertEqual(count, num_inserts)
         pd = StorageDict(tablename,
                          [('pid', 'int'), ('time', 'int')],
                          [('value', 'text'), ('x', 'float'), ('y', 'float'), ('z', 'float')])
@@ -95,16 +95,16 @@ class StorageDictSplitTest(unittest.TestCase):
             for key, val in partition.iteritems():
                 res[key] = val
                 count += 1
-        self.assertEqual(count, 10000)
+        self.assertEqual(count, num_inserts)
         delta = 0.0001
-        for i in range(10000):
+        for i in range(num_inserts):
             a = what_should_be[i, i + 100]
             b = res[i, i + 100]
             self.assertEqual(a[0], b.value)
             self.assertAlmostEquals(a[1], b.x, delta=delta)
             self.assertAlmostEquals(a[2], b.y, delta=delta)
             self.assertAlmostEquals(a[3], b.z, delta=delta)
-
+    '''
     def test_remote_build_composed_iteritems_test(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_b2")
         config.session.execute(
@@ -144,7 +144,7 @@ class StorageDictSplitTest(unittest.TestCase):
             self.assertAlmostEquals(a[1], b.x, delta=delta)
             self.assertAlmostEquals(a[2], b.y, delta=delta)
             self.assertAlmostEquals(a[3], b.z, delta=delta)
-
+    '''
 
 if __name__ == '__main__':
     unittest.main()

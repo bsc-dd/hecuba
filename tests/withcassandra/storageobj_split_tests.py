@@ -13,20 +13,21 @@ class TestSimple(StorageObj):
 
 class StorageObjSplitTest(unittest.TestCase):
     def test_simple_iterkeys_split_test(self):
-        # in process
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab30")
-        sto = TestSimple("tab30")
+        tablename = "tab30"
+        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + "_words")
+        sto = TestSimple(tablename)
         pd = sto.words
-
+        num_inserts = 1000
         what_should_be = set()
-        for i in range(10000):
+        for i in range(num_inserts):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd, sto
-        count, = config.session.execute('SELECT count(*) FROM my_app.tab30_words')[0]
-        self.assertEqual(count, 10000)
+        count, = config.session.execute('SELECT count(*) FROM my_app.' + tablename + '_words')[0]
+        self.assertEqual(count, num_inserts)
 
-        sto = TestSimple("tab30")
+        sto = TestSimple(tablename)
         pd = sto.words
 
         count = 0
@@ -39,24 +40,26 @@ class StorageObjSplitTest(unittest.TestCase):
                 count += 1
         del pd
         self.assertTrue(splits >= config.number_of_blocks)
-        self.assertEqual(count, 10000)
+        self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
     def test_build_remotely_iterkeys_split_test(self):
-        # in process
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab30")
-        sto = TestSimple("tab30")
+        tablename = 'tab30'
+        config.session.execute('DROP TABLE IF EXISTS my_app.' + tablename)
+        config.session.execute('DROP TABLE IF EXISTS my_app.' + tablename + '_words')
+        sto = TestSimple(tablename)
         pd = sto.words
+        num_inserts = 1000
 
         what_should_be = set()
-        for i in range(10000):
+        for i in range(num_inserts):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd, sto
-        count, = config.session.execute('SELECT count(*) FROM my_app.tab30_words')[0]
-        self.assertEqual(count, 10000)
+        count, = config.session.execute('SELECT count(*) FROM my_app.' + tablename + '_words')[0]
+        self.assertEqual(count, num_inserts)
 
-        sto = TestSimple("tab30")
+        sto = TestSimple(tablename)
         pd = sto.words
 
         count = 0
@@ -72,24 +75,25 @@ class StorageObjSplitTest(unittest.TestCase):
                 count += 1
         del pd
         self.assertTrue(splits >= config.number_of_blocks)
-        self.assertEqual(count, 10000)
+        self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
     def test_simple_iterkeys_split_fromSO_test(self):
-        # in process
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab31")
-        sto = TestSimple("tab31")
+        tablename = "tab31"
+        config.session.execute("DROP TABLE IF EXISTS myapp." + tablename)
+        config.session.execute("DROP TABLE IF EXISTS myapp." + tablename + "_words")
+        sto = TestSimple(tablename)
         pd = sto.words
-
+        num_inserts = 1000
         what_should_be = set()
-        for i in range(10000):
+        for i in range(num_inserts):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd, sto
-        count, = config.session.execute('SELECT count(*) FROM my_app.tab31_words')[0]
-        self.assertEqual(count, 10000)
+        count, = config.session.execute('SELECT count(*) FROM my_app.' + tablename + '_words')[0]
+        self.assertEqual(count, num_inserts)
 
-        sto = TestSimple("tab31")
+        sto = TestSimple(tablename)
         count = 0
         res = set()
         splits = 0
@@ -100,24 +104,25 @@ class StorageObjSplitTest(unittest.TestCase):
                 count += 1
         del sto
         self.assertTrue(splits >= config.number_of_blocks)
-        self.assertEqual(count, 10000)
+        self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
     def test_build_remotely_iterkeys_split_fromSO_test(self):
-        # in process
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab32")
-        sto = TestSimple("tab32")
+        tablename = "tab32"
+        config.session.execute("DROP TABLE IF EXISTS myapp." + tablename)
+        config.session.execute("DROP TABLE IF EXISTS myapp." + tablename + "_words")
+        sto = TestSimple(tablename)
         pd = sto.words
-
+        num_inserts = 1000
         what_should_be = set()
-        for i in range(10000):
+        for i in range(num_inserts):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd, sto
-        count, = config.session.execute('SELECT count(*) FROM my_app.tab32_words')[0]
-        self.assertEqual(count, 10000)
+        count, = config.session.execute('SELECT count(*) FROM my_app.' + tablename + '_words')[0]
+        self.assertEqual(count, num_inserts)
 
-        sto = TestSimple("tab32")
+        sto = TestSimple(tablename)
         count = 0
         res = set()
         splits = 0
@@ -131,13 +136,14 @@ class StorageObjSplitTest(unittest.TestCase):
                 count += 1
         del sto
         self.assertTrue(splits >= config.number_of_blocks)
-        self.assertEqual(count, 10000)
+        self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
     def test_split_with_different_storage_ids(self):
-        # in process
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab32")
-        sto = TestSimple("tab32")
+        tablename = "tab32"
+        config.session.execute("DROP TABLE IF EXISTS myapp." + tablename)
+        config.session.execute("DROP TABLE IF EXISTS myapp." + tablename + "_words")
+        sto = TestSimple(tablename)
         pd = sto.words
 
         ids = len(set(map(lambda x: x._storage_id, pd.split())))
