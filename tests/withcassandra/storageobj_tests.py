@@ -78,14 +78,14 @@ class Test6StorageObj(StorageObj):
 
 class mixObj(StorageObj):
    '''
-   @ClassField floatField float
+   @ClassField floatfield float
    @ClassField intField int
    @ClassField strField str
    @ClassField intlistField list <int>
    @ClassField floatlistField list <float>
-   @ClassField strlistField list <float>
+   @ClassField strlistField list <str>
    @ClassField dictField dict <<int>,str>
-   @ClassField inttupleField tuple <int,int>
+   @ClassField inttupleField tuple <int, int>
    '''
 
 class StorageObjTest(unittest.TestCase):
@@ -158,9 +158,12 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(tkns, read_tkns)
 
     def test_mixed_class(self):
+        config.session.execute("DROP TABLE IF EXISTS hecuba_test.bla")
         myObj = mixObj()
 
-        myObj.floatField = 4.0
+        myObj.make_persistent("hecuba_test.bla")
+
+        myObj.floatfield = 5.0
         myObj.intField = 5
         myObj.strField = "6"
         myObj.intlistField = [7, 8, 9]
@@ -168,19 +171,19 @@ class StorageObjTest(unittest.TestCase):
         myObj.strlistField = ["13.0", "14.0", "15.0"]
         myObj.inttupleField = (1, 2)
 
-        myObj.make_persistent('hecuba_test.bla')
-
-        floatField, intField, strField, intlistField, floatlistField, strlistField, inttupleField = \
+        floatfield, intField, strField, intlistField, floatlistField, strlistField, inttupleField = \
             config.session.execute("SELECT floatField, "
                                    "intField, "
                                    "strField, "
                                    "intlistField, "
                                    "floatlistField, "
-                                   "strlistField ,"
+                                   "strlistField, "
                                    "inttupleField "
                                    "FROM hecuba_test.bla WHERE storage_id =" + str(myObj._storage_id))[0]
 
-        self.assertEquals(floatField, myObj.floatField)
+        print "myObj.floatField:", myObj.floatfield
+
+        self.assertEquals(floatfield, myObj.floatfield)
         self.assertEquals(intField, myObj.intField)
         self.assertEquals(strField, myObj.strField)
         self.assertEquals(intlistField, myObj.intlistField)
@@ -371,7 +374,6 @@ class StorageObjTest(unittest.TestCase):
         my_other_nested = getByID(my_nested_subso.getID())
         my_other_nested.name = 'bla'
         my_other_nested.age = 5
-        self.assertEqual(name, config.execution_name + '.' + r.name2)
         try:
             result = config.session.execute('SELECT * FROM my_app.mynested_myotherso')
         except cassandra.InvalidRequest:
@@ -549,7 +551,7 @@ class StorageObjTest(unittest.TestCase):
             entries += 1
         self.assertEquals(0, entries)
 
-    def test_nestedso_dictofsos(self)
+    def test_nestedso_dictofsos(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_test2")
 
