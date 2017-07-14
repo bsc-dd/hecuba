@@ -7,7 +7,7 @@
 + GCC 4.8 & up. GCC 6 not supported. Tested with versions 4.8.2, 4.8.5, 4.9.1.
 + CMake 3.3 & up. Tested with versions 3.5.0, 3.6.x, 3.7.1.
 + Libtools. Tested with versions 2.4.2
-+ Python 2, starting from 2.7.5. Python must be configured to support UCS-4. The dynamic library of python must be available. Tested with versions 2.7.5 to 2.7.13. Python 3 not supported.
++ Python 2, starting from 2.7.6. Python must be configured to support UCS-4. The dynamic library of python must be available. Tested with versions 2.7.5 to 2.7.13. Python 3 not supported.
 + Python modules: distutils, numpy, six, futures
 
 ### OpenSuse
