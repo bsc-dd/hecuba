@@ -181,8 +181,6 @@ class StorageObjTest(unittest.TestCase):
                                    "inttupleField "
                                    "FROM hecuba_test.bla WHERE storage_id =" + str(myObj._storage_id))[0]
 
-        print "myObj.floatField:", myObj.floatfield
-
         self.assertEquals(floatfield, myObj.floatfield)
         self.assertEquals(intField, myObj.intField)
         self.assertEquals(strField, myObj.strField)
@@ -374,6 +372,7 @@ class StorageObjTest(unittest.TestCase):
         my_other_nested = getByID(my_nested_subso.getID())
         my_other_nested.name = 'bla'
         my_other_nested.age = 5
+        error = False
         try:
             result = config.session.execute('SELECT * FROM my_app.mynested_myotherso')
         except cassandra.InvalidRequest:

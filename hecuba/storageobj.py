@@ -424,7 +424,13 @@ class StorageObj(object, IStorage):
                 for row in result:
                     for row_key, row_var in vars(row).iteritems():
                         if row_var is not None:
-                            return row_var
+                            if row_var.__class__.__name__ == 'list' and row_var[0].__class__.__name__ == 'unicode':
+                                new_toreturn = []
+                                for entry in row_var:
+                                    new_toreturn.append(str(entry))
+                                return new_toreturn
+                            else:
+                                return row_var
             except Exception as ex:
                 log.warn("GETATTR ex %s", ex)
                 raise KeyError('value not found')
@@ -445,11 +451,14 @@ class StorageObj(object, IStorage):
         elif hasattr(self, '_is_persistent') and self._is_persistent and key in self._persistent_attrs:
             query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, key)
             query += " VALUES (%s,%s)"
+            storageid = self._storage_id
+            if not self._storage_id.__class__.__name__ == 'UUID':
+                storageid = uuid.UUID(self._storage_id)
             if issubclass(value.__class__, IStorage):
-                values = [self._storage_id, value._storage_id]
+                values = [storageid, value._storage_id]
                 object.__setattr__(self, key, value)
             else:
-                values = [self._storage_id, value]
+                values = [storageid, value]
             log.debug("SETATTR: ", query)
             config.session.execute(query, values)
         else:

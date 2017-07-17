@@ -228,6 +228,13 @@ class Config:
             log.warn('using default REPLICATION_STRATEGY: %s', singleton.repl_class)
 
         try:
+            singleton.storagedict_ret = int(os.environ['STORAGEDICT_RET'])
+            log.info('PREFETCH_SIZE: %s', singleton.storagedict_ret)
+        except KeyError:
+            singleton.storagedict_ret = 1000
+            log.warn('using default STORAGEDICT_RET: %s', singleton.storagedict_ret)
+
+        try:
             singleton.statistics_activated = os.environ['STATISTICS_ACTIVATED'].lower() == 'true'
             log.info('STATISTICS_ACTIVATED: %s', singleton.statistics_activated)
         except KeyError:

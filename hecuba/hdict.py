@@ -47,6 +47,8 @@ class NamedItemsIterator:
             k = self.key_builder(*n[0:self.k_size])
         if self.column_builder is None:
             v = n[self.k_size]
+            if v.__class__.__name__ == 'unicode':
+                v = str(v)
         else:
             v = self.column_builder(*n[self.k_size:])
         return self.builder(k, v)
@@ -59,9 +61,9 @@ class StorageDict(dict, IStorage):
 
     args_names = ["name", "primary_keys", "columns", "tokens", "storage_id", "indexed_on", "class_name"]
     args = namedtuple('StorageDictArgs', args_names)
-    _prepared_store_meta = config.session.prepare('INSERT INTO hecuba' +
-                                                  '.istorage (storage_id, class_name, name, '
-                                                  'tokens,primary_keys,columns,indexed_on)'
+    _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
+                                                  '(storage_id, class_name, name, tokens, '
+                                                  'primary_keys, columns, indexed_on)'
                                                   'VALUES (?,?,?,?,?,?,?)')
 
     @staticmethod
@@ -309,13 +311,13 @@ class StorageDict(dict, IStorage):
             raise Exception('wrong primary key')
 
     @staticmethod
-    def _make_value(key):
-        if isinstance(key, str) or not isinstance(key, Iterable):
-            return [key]
-        elif isinstance(key, unicode):
-            return [key.encode('ascii', 'ignore')]
+    def _make_value(value):
+        if isinstance(value, str) or not isinstance(value, Iterable):
+            return [value]
+        elif isinstance(value, unicode):
+            return [value.encode('ascii', 'ignore')]
         else:
-            return list(key)
+            return list(value)
 
     def keys(self):
         """
@@ -357,7 +359,13 @@ class StorageDict(dict, IStorage):
 
         columns = map(lambda a: a, self._primary_keys + self._columns)
         for ind, entry in enumerate(columns):
-            if entry[1] not in IStorage._valid_types:
+            _tuple_case = re.compile('.*(\w+) *< *([\w, +]+) *>')
+            n = _tuple_case.match(entry[1])
+            if n is not None:
+                iter_type, intra_type = n.groups()
+            else:
+                iter_type = entry[1]
+            if iter_type not in IStorage._valid_types:
                 class_name, module = IStorage.process_path(entry[1])
                 mod = __import__(module, globals(), locals(), [class_name], 0)
                 so = getattr(mod, class_name)(entry[0])
@@ -397,7 +405,7 @@ class StorageDict(dict, IStorage):
             try:
                 config.session.execute(index_query)
             except Exception as ex:
-                log.error("Error creating the Qbeast custom index: %s %s", index_query, ex)
+                log.warn("Error creating the Qbeast custom index: %s %s", index_query, ex)
 
     def stop_persistent(self):
         log.debug('STOP PERSISTENCE: %s', self._table)
@@ -449,6 +457,17 @@ class StorageDict(dict, IStorage):
             dict.__setitem__(self, key, val)
         else:
             self._hcache.put_row(self._make_key(key), self._make_value(val))
+
+    def __repr__(self):
+        to_return = {}
+        for item in self.iteritems():
+            to_return[item[0]] = item[1]
+            if len(to_return) == config.storagedict_ret:
+                return str(to_return)
+        if len(to_return) > 0:
+            return str(to_return)
+        return ""
+
 
     def iterkeys(self):
         """
