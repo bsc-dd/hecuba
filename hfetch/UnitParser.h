@@ -65,6 +65,35 @@ public:
 };
 
 
+class BoolParser: public UnitParser {
+public:
+    BoolParser(const ColumnMeta& CM);
+
+    virtual int16_t py_to_c(PyObject* myint, void* payload) const;
+
+    virtual PyObject* c_to_py(const void* payload) const;
+};
+
+
+class Int8Parser: public UnitParser {
+public:
+    Int8Parser(const ColumnMeta& CM);
+
+    virtual int16_t py_to_c(PyObject* myint, void* payload) const;
+
+    virtual PyObject* c_to_py(const void* payload) const;
+};
+
+
+class Int16Parser: public UnitParser {
+public:
+    Int16Parser(const ColumnMeta& CM);
+
+    virtual int16_t py_to_c(PyObject* myint, void* payload) const;
+
+    virtual PyObject* c_to_py(const void* payload) const;
+};
+
 
 class Int32Parser: public UnitParser {
 public:
@@ -76,9 +105,52 @@ public:
 };
 
 
+class Int64Parser: public UnitParser {
+public:
+    Int64Parser(const ColumnMeta& CM);
+
+    virtual int16_t py_to_c(PyObject* myint, void* payload) const;
+
+    virtual PyObject* c_to_py(const void* payload) const;
+};
+
+
+class DoubleParser: public UnitParser {
+public:
+    DoubleParser(const ColumnMeta& CM);
+
+    virtual int16_t py_to_c(PyObject* myint, void* payload) const;
+
+    virtual PyObject* c_to_py(const void* payload) const;
+
+private:
+    bool isFloat;
+};
+
+
 class TextParser: public UnitParser {
 public:
     TextParser(const ColumnMeta& CM);
+
+    virtual int16_t py_to_c(PyObject* text, void* payload) const;
+
+    virtual PyObject* c_to_py(const void* payload) const;
+};
+
+
+class BytesParser: public UnitParser {
+public:
+    BytesParser(const ColumnMeta& CM);
+
+    virtual int16_t py_to_c(PyObject* text, void* payload) const;
+
+    virtual PyObject* c_to_py(const void* payload) const;
+};
+
+
+class UuidParser: public UnitParser {
+public:
+    UuidParser(const ColumnMeta& CM);
 
     virtual int16_t py_to_c(PyObject* text, void* payload) const;
 

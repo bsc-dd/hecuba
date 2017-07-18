@@ -4,15 +4,42 @@
 PythonParser::PythonParser(std::shared_ptr<StorageInterface> storage, std::shared_ptr<const std::vector<ColumnMeta> > metadatas) {
     this->metas = metadatas;
     this->parsers = std::vector<UnitParser*>(metadatas->size());
-    for (uint32_t meta_i = 0; meta_i<metadatas->size(); ++meta_i) {
-        if (metadatas->at(meta_i).type==CASS_VALUE_TYPE_INT) parsers[meta_i] = new Int32Parser(metadatas->at(meta_i));
-        else if (metadatas->at(meta_i).type==CASS_VALUE_TYPE_TEXT) parsers[meta_i] = new TextParser(metadatas->at(meta_i));
-        else if (metadatas->at(meta_i).info.find("table") != metadatas->at(meta_i).info.end()) {
-            NumpyParser *NP = new NumpyParser(metadatas->at(meta_i));
+    uint32_t meta_i = 0;
+    for (const ColumnMeta CM : *metadatas) {
+        if (CM.type && CASS_VALUE_TYPE_INT) {
+            parsers[meta_i] = new Int32Parser(CM);
+        }
+        else if (CM.type && (CASS_VALUE_TYPE_BIGINT || CASS_VALUE_TYPE_BIGINT )) {
+            parsers[meta_i] = new Int64Parser(CM);
+        }
+        else if (CM.type && CASS_VALUE_TYPE_BOOLEAN) {
+            parsers[meta_i] = new BoolParser(CM);
+        }
+        else if (CM.type && (CASS_VALUE_TYPE_TEXT || CASS_VALUE_TYPE_VARCHAR ||  CASS_VALUE_TYPE_ASCII)) {
+            parsers[meta_i] = new TextParser(CM);
+        }
+        else if (CM.type && CASS_VALUE_TYPE_BLOB) {
+            parsers[meta_i] = new BytesParser(CM);
+        }
+        else if (CM.type && (CASS_VALUE_TYPE_DOUBLE||CASS_VALUE_TYPE_FLOAT)) {
+            parsers[meta_i] = new DoubleParser(CM);
+        }
+        else if (CM.type && CASS_VALUE_TYPE_UUID) {
+            parsers[meta_i] = new UuidParser(CM);
+        }
+        else if (CM.type && CASS_VALUE_TYPE_SMALL_INT) {
+            parsers[meta_i] = new Int16Parser(CM);
+        }
+        else if (CM.type && CASS_VALUE_TYPE_TINY_INT) {
+            parsers[meta_i] = new Int8Parser(CM);
+        }
+        else if (CM.info.find("table") != CM.info.end()) {
+            NumpyParser *NP = new NumpyParser(CM);
             NP->setStorage(storage);
             parsers[meta_i] = NP;
         }
-        else parsers[meta_i]= new UnitParser(metadatas->at(meta_i));
+        else parsers[meta_i]= new UnitParser(CM);
+        ++meta_i;
     }
 }
 
