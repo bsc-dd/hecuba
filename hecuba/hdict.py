@@ -47,7 +47,7 @@ class NamedItemsIterator:
             k = self.key_builder(*n[0:self.k_size])
         if self.column_builder is None:
             v = n[self.k_size]
-            if v.__class__.__name__ == 'unicode':
+            if isinstance(v, unicode):
                 v = str(v)
         else:
             v = self.column_builder(*n[self.k_size:])
@@ -405,7 +405,7 @@ class StorageDict(dict, IStorage):
             try:
                 config.session.execute(index_query)
             except Exception as ex:
-                log.warn("Error creating the Qbeast custom index: %s %s", index_query, ex)
+                log.error("Error creating the Qbeast custom index: %s %s", index_query, ex)
 
     def stop_persistent(self):
         log.debug('STOP PERSISTENCE: %s', self._table)
