@@ -228,6 +228,13 @@ class Config:
             log.warn('using default REPLICATION_STRATEGY: %s', singleton.repl_class)
 
         try:
+            singleton.hecuba_print_limit = int(os.environ['HECUBA_PRINT_LIMIT'])
+            log.info('HECUBA_PRINT_LIMIT: %s', singleton.hecuba_print_limit)
+        except KeyError:
+            singleton.hecuba_print_limit = 1000
+            log.warn('using default HECUBA_PRINT_LIMIT: %s', singleton.hecuba_print_limit)
+
+        try:
             singleton.statistics_activated = os.environ['STATISTICS_ACTIVATED'].lower() == 'true'
             log.info('STATISTICS_ACTIVATED: %s', singleton.statistics_activated)
         except KeyError:

@@ -424,7 +424,13 @@ class StorageObj(object, IStorage):
                 for row in result:
                     for row_key, row_var in vars(row).iteritems():
                         if row_var is not None:
-                            return row_var
+                            if row_var.__class__.__name__ == 'list' and row_var[0].__class__.__name__ == 'unicode':
+                                new_toreturn = []
+                                for entry in row_var:
+                                    new_toreturn.append(str(entry))
+                                return new_toreturn
+                            else:
+                                return row_var
             except Exception as ex:
                 log.warn("GETATTR ex %s", ex)
                 raise KeyError('value not found')

@@ -74,9 +74,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(nopars._is_persistent, rebuild._is_persistent)
 
     def test_simple_insertions(self):
-        # in process
-        config.session.execute(
-            "CREATE TABLE IF NOT EXISTS my_app.tab10(position int, value text, PRIMARY KEY(position))")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab10")
         tablename = "tab10"
         tokens = [(1l, 2l), (2l, 3l), (3l, 4l)]
         pd = StorageDict(tablename,
@@ -90,8 +88,50 @@ class StorageDictTest(unittest.TestCase):
         count, = config.session.execute('SELECT count(*) FROM my_app.tab10')[0]
         self.assertEqual(count, 100)
 
+    def test_dict_print(self):
+        tablename = "tab10"
+        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+        pd = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'text')])
+
+        self.assertEquals(pd.__repr__(), "")
+
+        pd[0] = 'a'
+        self.assertEquals(pd.__repr__(), "{0: 'a'}")
+
+        pd[1] = 'b'
+        self.assertEquals(pd.__repr__(), "{0: 'a', 1: 'b'}")
+
+        for i in range(1100):
+            pd[i] = str(i)
+        self.assertEquals(pd.__repr__().count(':'), 1000)
+
+    def test_get_strs(self):
+        tablename = "tab10"
+        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+        pd = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'text')])
+        pd[0] = 'str1'
+        self.assertEquals(pd[0], 'str1')
+        '''
+        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+        pd = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'list<text>')])
+        pd[0] = ['str1', 'str2']
+        self.assertEquals(pd[0], ['str1', 'str2'])
+
+        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+        pd = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'tuple<text,text>')])
+        pd[0] = 'str1', 'str2'
+        self.assertEquals(pd[0], 'str1', 'str2')
+        '''
+
     def test_make_persistent(self):
-        # done
         config.session.execute("DROP TABLE IF EXISTS my_app.t_make_words")
         nopars = Words()
         self.assertFalse(nopars._is_persistent)
@@ -114,7 +154,6 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(10, count)
 
     def test_empty_persistent(self):
-        # done
         config.session.execute("DROP TABLE IF EXISTS my_app.wordsso_words")
         config.session.execute("DROP TABLE IF EXISTS my_app.wordsso")
         from app.words import Words
@@ -139,10 +178,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(0, count)
 
     def test_simple_iteritems_test(self):
-        # in process
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a1")
-        config.session \
-            .execute("CREATE TABLE IF NOT EXISTS my_app.tab_a1(position int, value text, PRIMARY KEY(position))")
 
         pd = StorageDict("tab_a1",
                          [('position', 'int')],
@@ -167,10 +203,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(what_should_be, res)
 
     def test_simple_itervalues_test(self):
-        # in process
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a2")
-        config.session.execute(
-            "CREATE TABLE IF NOT EXISTS my_app.tab_a2(position int, value text, PRIMARY KEY(position))")
         tablename = "tab_a2"
         pd = StorageDict(tablename,
                          [('position', 'int')],
@@ -197,10 +230,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(what_should_be, res)
 
     def test_simple_iterkeys_test(self):
-        # in process
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a3")
-        config.session.execute(
-            "CREATE TABLE IF NOT EXISTS my_app.tab_a3(position int, value text, PRIMARY KEY(position))")
         tablename = "tab_a3"
         pd = StorageDict(tablename,
                          [('position', 'int')],
@@ -225,10 +255,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(what_should_be, res)
 
     def test_simple_contains(self):
-        # in process
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a4")
-        config.session.execute(
-            "CREATE TABLE my_app.tab_a4(position int, value text, PRIMARY KEY(position))")
         tablename = "tab_a4"
         pd = StorageDict(tablename,
                          [('position', 'int')],
@@ -247,10 +274,7 @@ class StorageDictTest(unittest.TestCase):
             self.assertTrue(i in pd)
 
     def test_composed_iteritems_test(self):
-        # in process
         config.session.execute("DROP TABLE IF EXISTS my_app.tab12")
-        config.session.execute(
-            "CREATE TABLE IF NOT EXISTS my_app.tab12(pid int,time int, value text,x float,y float,z float, PRIMARY KEY(pid,time))")
         tablename = "tab12"
         pd = StorageDict(tablename,
                          [('pid', 'int'), ('time', 'int')],
@@ -284,10 +308,7 @@ class StorageDictTest(unittest.TestCase):
             self.assertAlmostEquals(a[3], b.z, delta=delta)
 
     def test_composed_key_return_list_iteritems_test(self):
-        # in process
         config.session.execute("DROP TABLE IF EXISTS my_app.tab13")
-        config.session.execute(
-            "CREATE TABLE IF NOT EXISTS my_app.tab13(pid int,time float, value text,x float,y float,z float, PRIMARY KEY(pid,time))")
         tablename = "tab13"
         pd = StorageDict(tablename,
                          [('pid', 'int'), ('time', 'float')],
