@@ -497,7 +497,7 @@ static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
     try {
         self->P = storage->get_iterator(table, keyspace, keys_names, columns_names, self->token_ranges, config);
 
-        if (self->P->get_type() == "items") self->rowParser = new PythonParser(storage, self->P->get_metadata()->get_items());
+        if (self->P->get_type() == "items") {self->rowParser = new PythonParser(storage, self->P->get_metadata()->get_items()); std::cout << "items" << std::endl;}
         else if (self->P->get_type() == "values") self->rowParser = new PythonParser(storage, self->P->get_metadata()->get_values());
         else self->rowParser = new PythonParser(storage, self->P->get_metadata()->get_keys());
     } catch (std::exception& e) {
@@ -842,6 +842,7 @@ static PyObject *create_iter_items(HCache *self, PyObject *args) {
 
     try {
         iter->P = storage->get_iterator( self->T->get_metadata(), self->token_ranges, config);
+        iter->rowParser = new PythonParser(storage, iter->P->get_metadata()->get_items());
     } catch (std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
@@ -896,6 +897,7 @@ static PyObject *create_iter_keys(HCache *self, PyObject *args) {
     }
     try {
         iter->P = storage->get_iterator(self->T->get_metadata(), self->token_ranges, config);
+        iter->rowParser = new PythonParser(storage, iter->P->get_metadata()->get_keys());
     } catch (std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
@@ -950,6 +952,7 @@ static PyObject *create_iter_values(HCache *self, PyObject *args) {
     }
     try {
         iter->P = storage->get_iterator(self->T->get_metadata(), self->token_ranges, config);
+        iter->rowParser = new PythonParser(storage, iter->P->get_metadata()->get_values());
     } catch (std::exception& e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
