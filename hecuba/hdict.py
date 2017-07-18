@@ -462,12 +462,11 @@ class StorageDict(dict, IStorage):
         to_return = {}
         for item in self.iteritems():
             to_return[item[0]] = item[1]
-            if len(to_return) == config.storagedict_ret:
+            if len(to_return) == config.hecuba_print_limit:
                 return str(to_return)
         if len(to_return) > 0:
             return str(to_return)
         return ""
-
 
     def iterkeys(self):
         """

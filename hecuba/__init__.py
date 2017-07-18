@@ -228,11 +228,11 @@ class Config:
             log.warn('using default REPLICATION_STRATEGY: %s', singleton.repl_class)
 
         try:
-            singleton.storagedict_ret = int(os.environ['HECUBA_PRINT_LIMIT'])
-            log.info('PREFETCH_SIZE: %s', singleton.storagedict_ret)
+            singleton.hecuba_print_limit = int(os.environ['HECUBA_PRINT_LIMIT'])
+            log.info('HECUBA_PRINT_LIMIT: %s', singleton.hecuba_print_limit)
         except KeyError:
-            singleton.storagedict_ret = 1000
-            log.warn('using default STORAGEDICT_RET: %s', singleton.storagedict_ret)
+            singleton.hecuba_print_limit = 1000
+            log.warn('using default HECUBA_PRINT_LIMIT: %s', singleton.hecuba_print_limit)
 
         try:
             singleton.statistics_activated = os.environ['STATISTICS_ACTIVATED'].lower() == 'true'
