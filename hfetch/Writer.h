@@ -13,8 +13,8 @@
 
 class Writer {
 public:
-    Writer(const TableMetadata* table_meta, CassSession *session,
-           std::map<std::string,std::string> &config);
+    Writer(const TableMetadata *table_meta, CassSession *session,
+           std::map<std::string, std::string> &config);
 
     ~Writer();
 
@@ -26,9 +26,9 @@ public:
 
     void write_to_cassandra(void *keys, void *values);
 
-    void set_error_occurred(std::string error, const void * keys, const void * values);
+    void set_error_occurred(std::string error, const void *keys, const void *values);
 
-    const TableMetadata* get_metadata() {
+    const TableMetadata *get_metadata() {
         return table_metadata;
     }
 
@@ -48,7 +48,7 @@ private:
     uint32_t max_calls;
     std::atomic<uint32_t> ncallbacks;
     std::atomic<uint32_t> error_count;
-    const TableMetadata* table_metadata;
+    const TableMetadata *table_metadata;
 
     static void callback(CassFuture *future, void *ptr);
 };

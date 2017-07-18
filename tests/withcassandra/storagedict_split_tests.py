@@ -1,28 +1,30 @@
 import unittest
 
-from hecuba.IStorage import IStorage
 from hecuba import config
 from hecuba.hdict import StorageDict
 
 
 class StorageDictSplitTest(unittest.TestCase):
     def test_simple_iterkeys_split_test(self):
-        # in process
-        config.session.execute("DROP TABLE IF EXISTS hecuba.tab30")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab30")
         config.session.execute(
-            "CREATE TABLE IF NOT EXISTS hecuba.tab30(position int, value text, PRIMARY KEY(position))")
+            "CREATE TABLE IF NOT EXISTS my_app.tab30(position int, value text, PRIMARY KEY(position))")
         tablename = "tab30"
-        pd = StorageDict([('position', 'int')], [('value', 'text')], tablename)
-
+        pd = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'text')])
+        num_inserts = 10000
         what_should_be = set()
-        for i in range(10000):
+        for i in range(num_inserts):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd
-        count, = config.session.execute('SELECT count(*) FROM hecuba.tab30')[0]
-        self.assertEqual(count, 10000)
+        count, = config.session.execute('SELECT count(*) FROM my_app.tab30')[0]
+        self.assertEqual(count, num_inserts)
 
-        pd = StorageDict([('position', 'int')], [('value', 'text')], tablename)
+        pd = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'text')])
 
         count = 0
         res = set()
@@ -30,26 +32,29 @@ class StorageDictSplitTest(unittest.TestCase):
             for val in partition.iterkeys():
                 res.add(val)
                 count += 1
-        self.assertEqual(count, 10000)
+        self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
     def test_remote_build_iterkeys_split_test(self):
-        # in process
-        config.session.execute("DROP TABLE IF EXISTS hecuba.tab_b0")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_b0")
         config.session.execute(
-            "CREATE TABLE IF NOT EXISTS hecuba.tab_b0(position int, value text, PRIMARY KEY(position))")
+            "CREATE TABLE IF NOT EXISTS my_app.tab_b0(position int, value text, PRIMARY KEY(position))")
         tablename = "tab_b0"
-        pd = StorageDict([('position', 'int')], [('value', 'text')], tablename)
-
+        pd = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'text')])
+        num_inserts = 10000
         what_should_be = set()
-        for i in range(10000):
+        for i in range(num_inserts):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd
-        count, = config.session.execute('SELECT count(*) FROM hecuba.tab_b0')[0]
-        self.assertEqual(count, 10000)
+        count, = config.session.execute('SELECT count(*) FROM my_app.tab_b0')[0]
+        self.assertEqual(count, num_inserts)
 
-        pd = StorageDict([('position', 'int')], [('value', 'text')], tablename)
+        pd = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'text')])
 
         count = 0
         res = set()
@@ -60,59 +65,54 @@ class StorageDictSplitTest(unittest.TestCase):
             for val in rebuild.iterkeys():
                 res.add(val)
                 count += 1
-        self.assertEqual(count, 10000)
+        self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
     def test_composed_iteritems_test(self):
-        # in process
-        config.session.execute("DROP TABLE IF EXISTS hecuba.tab_b1")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_b1")
         config.session.execute(
-            "CREATE TABLE IF NOT EXISTS hecuba.tab_b1(pid int,time int, value text,x float,y float,z float, PRIMARY KEY(pid,time))")
+            "CREATE TABLE IF NOT EXISTS my_app.tab_b1(pid int,time int, value text,x float,y float,z float, PRIMARY KEY(pid,time))")
         tablename = "tab_b1"
-        pd = StorageDict([('pid', 'int'), ('time', 'int')],
-                         [('value', 'text'),
-                          ('x', 'float'),
-                          ('y', 'float'), ('z', 'float')], tablename)
-
+        pd = StorageDict(tablename,
+                         [('pid', 'int'), ('time', 'int')],
+                         [('value', 'text'), ('x', 'float'), ('y', 'float'), ('z', 'float')])
+        num_inserts = 10000
         what_should_be = {}
-        for i in range(10000):
+        for i in range(num_inserts):
             pd[i, i + 100] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
             what_should_be[i, i + 100] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
 
         del pd
 
-        count, = config.session.execute('SELECT count(*) FROM hecuba.tab_b1')[0]
-        self.assertEqual(count, 10000)
-        pd = StorageDict([('pid', 'int'), ('time', 'int')],
-                         [('value', 'text'),
-                          ('x', 'float'),
-                          ('y', 'float'), ('z', 'float')], tablename)
+        count, = config.session.execute('SELECT count(*) FROM my_app.tab_b1')[0]
+        self.assertEqual(count, num_inserts)
+        pd = StorageDict(tablename,
+                         [('pid', 'int'), ('time', 'int')],
+                         [('value', 'text'), ('x', 'float'), ('y', 'float'), ('z', 'float')])
         count = 0
         res = {}
         for partition in pd.split():
             for key, val in partition.iteritems():
                 res[key] = val
                 count += 1
-        self.assertEqual(count, 10000)
+        self.assertEqual(count, num_inserts)
         delta = 0.0001
-        for i in range(10000):
+        for i in range(num_inserts):
             a = what_should_be[i, i + 100]
             b = res[i, i + 100]
             self.assertEqual(a[0], b.value)
             self.assertAlmostEquals(a[1], b.x, delta=delta)
             self.assertAlmostEquals(a[2], b.y, delta=delta)
             self.assertAlmostEquals(a[3], b.z, delta=delta)
-
+    '''
     def test_remote_build_composed_iteritems_test(self):
-        # in process
-        config.session.execute("DROP TABLE IF EXISTS hecuba.tab_b2")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_b2")
         config.session.execute(
-            "CREATE TABLE IF NOT EXISTS hecuba.tab_b2(pid int,time int, value text,x float,y float,z float, PRIMARY KEY(pid,time))")
+            "CREATE TABLE IF NOT EXISTS my_app.tab_b2(pid int,time int, value text,x float,y float,z float, PRIMARY KEY(pid,time))")
         tablename = "tab_b2"
-        pd = StorageDict([('pid', 'int'), ('time', 'int')],
-                         [('value', 'text'),
-                          ('x', 'float'),
-                          ('y', 'float'), ('z', 'float')], tablename)
+        pd = StorageDict(tablename,
+                         [('pid', 'int'), ('time', 'int')],
+                         [('value', 'text'), ('x', 'float'), ('y', 'float'), ('z', 'float')])
 
         what_should_be = {}
         for i in range(10000):
@@ -121,12 +121,11 @@ class StorageDictSplitTest(unittest.TestCase):
 
         del pd
 
-        count, = config.session.execute('SELECT count(*) FROM hecuba.tab_b2')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.tab_b2')[0]
         self.assertEqual(count, 10000)
-        pd = StorageDict([('pid', 'int'), ('time', 'int')],
-                         [('value', 'text'),
-                          ('x', 'float'),
-                          ('y', 'float'), ('z', 'float')], tablename)
+        pd = StorageDict(tablename,
+                         [('pid', 'int'), ('time', 'int')],
+                         [('value', 'text'), ('x', 'float'), ('y', 'float'), ('z', 'float')])
         count = 0
         res = {}
         for partition in pd.split():
@@ -145,7 +144,7 @@ class StorageDictSplitTest(unittest.TestCase):
             self.assertAlmostEquals(a[1], b.x, delta=delta)
             self.assertAlmostEquals(a[2], b.y, delta=delta)
             self.assertAlmostEquals(a[3], b.z, delta=delta)
-
+    '''
 
 if __name__ == '__main__':
     unittest.main()

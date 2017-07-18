@@ -12,35 +12,36 @@ struct Partition {
         this->cluster_id = cluster;
         this->data = chunk;
     }
+
     int32_t block_id;
     int32_t cluster_id;
     const void *data;
 };
+
 //TODO Inherit from CassUserType, pass the user type directly
 //Represents the shape and type of an array
 struct ArrayMetadata {
-    std::vector<int32_t > dims;
+    std::vector<int32_t> dims;
     int32_t inner_type;
     uint32_t elem_size;
 };
-
 
 
 class SpaceFillingCurve {
 public:
     virtual ~SpaceFillingCurve() {};
 
-    virtual std::vector<Partition> make_partitions(const ArrayMetadata *metas, void* data) const;
+    virtual std::vector<Partition> make_partitions(const ArrayMetadata *metas, void *data) const;
 
-    virtual void* merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks) const;
+    virtual void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks) const;
 
 };
 
 
-class ZorderCurve:public SpaceFillingCurve {
-    std::vector<Partition> make_partitions(const ArrayMetadata *metas, void* data) const;
+class ZorderCurve : public SpaceFillingCurve {
+    std::vector<Partition> make_partitions(const ArrayMetadata *metas, void *data) const;
 
-    virtual void* merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks) const;
+    virtual void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks) const;
 
 };
 

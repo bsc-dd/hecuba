@@ -1,2 +1,0 @@
-contact_names = ["172.20.10.13"]
-nodePort = 19042

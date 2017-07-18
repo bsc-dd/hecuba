@@ -6,6 +6,7 @@
 std::string error(cass_error_desc(rc));\
 throw ModuleException(error);};\
 
+
 #include <cassert>
 #include <cstring>
 #include <string>
@@ -21,40 +22,38 @@ throw ModuleException(error);};\
 #include "TupleRow.h"
 
 
-
-
-
-class TupleRowFactory{
+class TupleRowFactory {
 
 public:
     TupleRowFactory(std::shared_ptr<const std::vector<ColumnMeta> > row_info);
 
     //Used to pass TupleRowFactory by reference
-    TupleRowFactory(){};
+    TupleRowFactory() {};
 
     ~TupleRowFactory() {}
 
-    TupleRow* make_tuple(const CassRow* row);
+    TupleRow *make_tuple(const CassRow *row);
 
-    TupleRow* make_tuple(void *data);
+    TupleRow *make_tuple(void *data);
 
 
-    void bind(CassStatement *statement,const  TupleRow *row,  u_int16_t offset) const;
+    void bind(CassStatement *statement, const TupleRow *row, u_int16_t offset) const;
 
-    inline std::shared_ptr<const std::vector<ColumnMeta>> get_metadata() const{
+    inline std::shared_ptr<const std::vector<ColumnMeta>> get_metadata() const {
         return metadata;
     }
 
-    inline const uint16_t n_elements() const{
-        return (uint16_t) this->metadata->size();
+    inline const uint16_t n_elements() const {
+        return (uint16_t)
+                this->metadata->size();
     }
 
 private:
-    std::shared_ptr<const std::vector<ColumnMeta > > metadata;
+    std::shared_ptr<const std::vector<ColumnMeta> > metadata;
 
     uint16_t total_bytes;
 
-    int cass_to_c(const CassValue *lhs,void * data, int16_t col) const;
+    int cass_to_c(const CassValue *lhs, void *data, int16_t col) const;
 
 };
 

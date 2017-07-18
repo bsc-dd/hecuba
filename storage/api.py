@@ -1,6 +1,7 @@
 # author: G. Alomar
 import uuid
 
+
 def init(config_file_path=None):
     """
     Function that can be useful when running the application with COMPSs >= 2.0
@@ -15,6 +16,7 @@ def finish():
     It is executed at the end of the application
     """
     pass
+
 
 def initWorker(config_file_path=None):
     """
@@ -70,6 +72,7 @@ class TaskContext(object):
         self.logger.info("Epilog finished")
         pass
 
+
 def getByID(objid):
     """
     We rebuild the object from its id. The id can either be:
@@ -91,10 +94,9 @@ def getByID(objid):
                     (Block| Storageobj)
                """
     from hecuba import log
-    objid = objid.split("_")[0]
     try:
         from hecuba import config
-        query = "SELECT * FROM " + config.execution_name + ".istorage WHERE storage_id = %s"
+        query = "SELECT * FROM hecuba.istorage WHERE storage_id = %s"
         results = config.session.execute(query, [uuid.UUID(objid)])[0]
     except Exception as e:
         log.error("Query %s failed", query)

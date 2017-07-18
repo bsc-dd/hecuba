@@ -1,8 +1,6 @@
 #include "StorageInterface.h"
 
 
-
-
 StorageInterface::StorageInterface(int nodePort, std::string contact_points) {
     CassFuture *connect_future = NULL;
     cluster = cass_cluster_new();
@@ -20,10 +18,10 @@ StorageInterface::StorageInterface(int nodePort, std::string contact_points) {
     //cass_cluster_set_num_threads_io (cluster, 2);
     //cass_cluster_set_core_connections_per_host (cluster, 4);
     //cass_cluster_set_request_timeout (cluster, uiRequestTimeoutInMS);
-    cass_cluster_set_pending_requests_low_water_mark (cluster, 20000);
+    cass_cluster_set_pending_requests_low_water_mark(cluster, 20000);
     cass_cluster_set_pending_requests_high_water_mark(cluster, 17000000);
 
-    cass_cluster_set_write_bytes_high_water_mark(cluster,17000000); //>128elements^3D * 8B_Double
+    cass_cluster_set_write_bytes_high_water_mark(cluster, 17000000); //>128elements^3D * 8B_Double
 
     // Provide the cluster object as configuration to connect the session
     connect_future = cass_session_connect(session, cluster);
@@ -34,7 +32,7 @@ StorageInterface::StorageInterface(int nodePort, std::string contact_points) {
         size_t l;
         cass_future_error_message(connect_future, &dmsg, &l);
         std::string msg2(dmsg, l);
-        throw ModuleException(msg+" - "+msg2);
+        throw ModuleException(msg + " - " + msg2);
     }
     cass_future_free(connect_future);
 }
@@ -43,8 +41,6 @@ StorageInterface::StorageInterface(int nodePort, std::string contact_points) {
 StorageInterface::~StorageInterface() {
     disconnectCassandra();
 }
-
-
 
 
 int StorageInterface::disconnectCassandra() {
@@ -59,26 +55,23 @@ int StorageInterface::disconnectCassandra() {
 }
 
 
-
-CacheTable* StorageInterface::make_cache(const char *table, const char *keyspace,
-                                         std::vector<std::map<std::string,std::string> > &keys_names,
-                                         std::vector<std::map<std::string,std::string> > &columns_names,
+CacheTable *StorageInterface::make_cache(const char *table, const char *keyspace,
+                                         std::vector<std::map<std::string, std::string>> &keys_names,
+                                         std::vector<std::map<std::string, std::string>> &columns_names,
                                          std::map<std::string, std::string> &config) {
     if (!session) throw ModuleException("StorageInterface not connected to any node");
-    TableMetadata* table_meta = new TableMetadata(table,keyspace,keys_names,columns_names,session);
+    TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names, session);
     return new CacheTable(table_meta, session, config);
 }
 
 
-
-
-Writer* StorageInterface::make_writer(const char *table,const char *keyspace,
-                                      std::vector<std::map<std::string,std::string> > &keys_names,
-                                      std::vector<std::map<std::string,std::string> > &columns_names,
-                                      std::map<std::string,std::string> &config) {
+Writer *StorageInterface::make_writer(const char *table, const char *keyspace,
+                                      std::vector<std::map<std::string, std::string>> &keys_names,
+                                      std::vector<std::map<std::string, std::string>> &columns_names,
+                                      std::map<std::string, std::string> &config) {
     if (!session) throw ModuleException("StorageInterface not connected to any node");
-    TableMetadata* table_meta = new TableMetadata(table,keyspace,keys_names,columns_names,session);
-    return new Writer(table_meta,session,config);
+    TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names, session);
+    return new Writer(table_meta, session, config);
 
 }
 
@@ -95,21 +88,20 @@ Writer* StorageInterface::make_writer(const char *table,const char *keyspace,
  * @param prefetch_size
  * @return
  */
-Prefetch* StorageInterface::get_iterator(const char *table,const char *keyspace,
-                                         std::vector<std::map<std::string,std::string> > &keys_names,
-                                         std::vector<std::map<std::string,std::string> > &columns_names,
-                                              const std::vector<std::pair<int64_t, int64_t>> &tokens,
-                                         std::map<std::string,std::string> &config) {
+Prefetch *StorageInterface::get_iterator(const char *table, const char *keyspace,
+                                         std::vector<std::map<std::string, std::string>> &keys_names,
+                                         std::vector<std::map<std::string, std::string>> &columns_names,
+                                         const std::vector<std::pair<int64_t, int64_t>> &tokens,
+                                         std::map<std::string, std::string> &config) {
     if (!session) throw ModuleException("StorageInterface not connected to any node");
-    TableMetadata* table_meta = new TableMetadata(table,keyspace,keys_names,columns_names,session);
-    return new Prefetch(tokens, table_meta, session,config);
+    TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names, session);
+    return new Prefetch(tokens, table_meta, session, config);
 }
 
 
-
-Prefetch* StorageInterface::get_iterator(const TableMetadata* table_meta,
-                       const std::vector<std::pair<int64_t, int64_t>> &tokens,
-                                         std::map<std::string,std::string> &config) {
+Prefetch *StorageInterface::get_iterator(const TableMetadata *table_meta,
+                                         const std::vector<std::pair<int64_t, int64_t>> &tokens,
+                                         std::map<std::string, std::string> &config) {
     if (!session) throw ModuleException("StorageInterface not connected to any node");
-    return new Prefetch(tokens, table_meta, session,config);
+    return new Prefetch(tokens, table_meta, session, config);
 }

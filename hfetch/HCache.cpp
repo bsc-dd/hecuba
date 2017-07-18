@@ -31,8 +31,8 @@ static PyObject *connectCassandra(PyObject *self, PyObject *args) {
         storage = std::make_shared<StorageInterface>(nodePort, contact_points);
         //TODO storage = new StorageInterface(nodePort, contact_points);
     }
-    catch (ModuleException &e ) {
-        PyErr_SetString(PyExc_OSError,e.what());
+    catch (ModuleException &e) {
+        PyErr_SetString(PyExc_OSError, e.what());
         return NULL;
     }
     catch (std::exception &e) {
@@ -50,9 +50,9 @@ static PyObject *put_row(HCache *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_values)) {
         return NULL;
     }
-    for (uint16_t key_i = 0; key_i<PyList_Size(py_keys); ++key_i){
-        if (PyList_GetItem(py_keys,key_i)==Py_None) {
-            std::string error_msg = "Keys can't be None, key_position: "+std::to_string(key_i);
+    for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
+        if (PyList_GetItem(py_keys, key_i) == Py_None) {
+            std::string error_msg = "Keys can't be None, key_position: " + std::to_string(key_i);
             PyErr_SetString(PyExc_TypeError, error_msg.c_str());
             return NULL;
         }
@@ -61,27 +61,27 @@ static PyObject *put_row(HCache *self, PyObject *args) {
     try {
         k = self->keysParser->make_tuple(py_keys);
     }
-    catch (TypeErrorException& e) {
+    catch (TypeErrorException &e) {
         PyErr_SetString(PyExc_TypeError, e.what());
         return NULL;
     }
-    catch (std::exception& e) {
-        std::string error_msg = "Put_row, keys error: "+std::string(e.what());
+    catch (std::exception &e) {
+        std::string error_msg = "Put_row, keys error: " + std::string(e.what());
         PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
         return NULL;
     }
     try {
         TupleRow *v = self->valuesParser->make_tuple(py_values);
         self->T->put_crow(k, v);
-        delete(k);
-        delete(v);
+        delete (k);
+        delete (v);
     }
-    catch (TypeErrorException& e) {
+    catch (TypeErrorException &e) {
         PyErr_SetString(PyExc_TypeError, e.what());
         return NULL;
     }
     catch (std::exception &e) {
-        std::string err_msg = "Put row "+std::string(e.what());
+        std::string err_msg = "Put row " + std::string(e.what());
         PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
         return NULL;
     }
@@ -94,9 +94,9 @@ static PyObject *get_row(HCache *self, PyObject *args) {
         return NULL;
     }
 
-    for (uint16_t key_i = 0; key_i<PyList_Size(py_keys); ++key_i){
-        if (PyList_GetItem(py_keys,key_i)==Py_None) {
-            std::string error_msg = "Keys can't be None, key_position: "+std::to_string(key_i);
+    for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
+        if (PyList_GetItem(py_keys, key_i) == Py_None) {
+            std::string error_msg = "Keys can't be None, key_position: " + std::to_string(key_i);
             PyErr_SetString(PyExc_TypeError, error_msg.c_str());
             return NULL;
         }
@@ -107,43 +107,43 @@ static PyObject *get_row(HCache *self, PyObject *args) {
     try {
         k = self->keysParser->make_tuple(py_keys);
     }
-    catch (TypeErrorException& e) {
+    catch (TypeErrorException &e) {
         PyErr_SetString(PyExc_TypeError, e.what());
         return NULL;
     }
     catch (std::exception &e) {
-        std::string error_msg = "Get row, keys error: "+std::string(e.what());
+        std::string error_msg = "Get row, keys error: " + std::string(e.what());
         PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
         return NULL;
     }
     std::vector<const TupleRow *> v;
     try {
         v = self->T->get_crow(k);
-        delete(k);
-        }
+        delete (k);
+    }
     catch (std::exception &e) {
-        std::string error_msg = "Get row error: "+std::string(e.what());
+        std::string error_msg = "Get row error: " + std::string(e.what());
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
 
-    if (v.empty()){
-        PyErr_SetString(PyExc_KeyError,"No values found for this key");
+    if (v.empty()) {
+        PyErr_SetString(PyExc_KeyError, "No values found for this key");
         return NULL;
     }
 
     try {
         py_row = self->valuesParser->make_pylist(v);
-        for (uint32_t i = 0; i<v.size(); ++i) {
-            delete(v[i]);
+        for (uint32_t i = 0; i < v.size(); ++i) {
+            delete (v[i]);
         }
     }
-    catch (TypeErrorException& e) {
+    catch (TypeErrorException &e) {
         PyErr_SetString(PyExc_TypeError, e.what());
         return NULL;
     }
     catch (std::exception &e) {
-        std::string error_msg = "Get row, values error: "+std::string(e.what());
+        std::string error_msg = "Get row, values error: " + std::string(e.what());
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
@@ -153,8 +153,8 @@ static PyObject *get_row(HCache *self, PyObject *args) {
 
 
 static void hcache_dealloc(HCache *self) {
-    delete(self->keysParser);
-    delete(self->valuesParser);
+    delete (self->keysParser);
+    delete (self->valuesParser);
     delete (self->T);
 
     self->ob_type->tp_free((PyObject *) self);
@@ -211,7 +211,7 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     uint16_t keys_size = (uint16_t) PyList_Size(py_keys_names);
     uint16_t cols_size = (uint16_t) PyList_Size(py_cols_names);
 
-    self->token_ranges = std::vector<std::pair<int64_t, int64_t>>(tokens_size);
+    self->token_ranges = std::vector<std::pair<int64_t, int64_t >>(tokens_size);
     for (uint16_t i = 0; i < tokens_size; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_tokens, i);
         int64_t t_a, t_b;
@@ -223,7 +223,7 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     }
 
 
-    std::vector<std::map<std::string, std::string> > keys_names(keys_size);
+    std::vector<std::map<std::string, std::string>> keys_names(keys_size);
 
     for (uint16_t i = 0; i < keys_size; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_keys_names, i);
@@ -231,21 +231,20 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
         if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
             return -1;
         }
-        keys_names[i] = {{"name",std::string(str_temp)}};
+        keys_names[i] = {{"name", std::string(str_temp)}};
     }
 
     std::vector<std::map<std::string, std::string>> columns_names(cols_size);
     for (uint16_t i = 0; i < cols_size; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_cols_names, i);
-        
+
         if (PyString_Check(obj_to_convert) || PyUnicode_Check(obj_to_convert)) {
             char *str_temp;
             if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
                 return -1;
             };
-            columns_names[i] = {{"name",std::string(str_temp)}};
-        }
-        else if (PyDict_Check(obj_to_convert)) {
+            columns_names[i] = {{"name", std::string(str_temp)}};
+        } else if (PyDict_Check(obj_to_convert)) {
             //CASE NUMPY
             PyObject *dict;
             if (!PyArg_Parse(obj_to_convert, "O", &dict)) {
@@ -254,13 +253,13 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
 
             PyObject *py_name = PyDict_GetItem(dict, PyString_FromString("name"));
             columns_names[i]["name"] = PyString_AsString(py_name);
-            columns_names[i]["table"]  = std::string(table)+"_numpies";
-            columns_names[i]["keyspace"]  = std::string(keyspace);
-            columns_names[i]["numpy"]  = "true";
+            columns_names[i]["table"] = std::string(table) + "_numpies";
+            columns_names[i]["keyspace"] = std::string(keyspace);
+            columns_names[i]["numpy"] = "true";
             if (!PyByteArray_Check(py_storage_id)) {
                 //Object is UUID python class
-                uint32_t len = sizeof(uint64_t)*2;
-                uint64_t *uuid = (uint64_t*) malloc (len);
+                uint32_t len = sizeof(uint64_t) * 2;
+                uint64_t *uuid = (uint64_t *) malloc(len);
 
                 PyObject *bytes = PyObject_GetAttrString(py_storage_id, "time_low"); //32b
                 if (!bytes) throw TypeErrorException("Error parsing python UUID");
@@ -282,28 +281,26 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
                 bytes = PyObject_GetAttrString(py_storage_id, "node"); //48b
 
 
-                *(uuid+1) = (uint64_t) PyLong_AsLongLong(bytes);
-                *(uuid+1) += clock_seq_hi_variant << 56;
-                *(uuid+1) += clock_seq_low << 48;
+                *(uuid + 1) = (uint64_t) PyLong_AsLongLong(bytes);
+                *(uuid + 1) += clock_seq_hi_variant << 56;
+                *(uuid + 1) += clock_seq_low << 48;
 
-                columns_names[i]["storage_id"] = std::string((char*)uuid, len);
+                columns_names[i]["storage_id"] = std::string((char *) uuid, len);
                 free(uuid);
-            }
-            else {
-                uint32_t len = sizeof(uint64_t)*2;
+            } else {
+                uint32_t len = sizeof(uint64_t) * 2;
                 uint32_t len_found = (uint32_t) PyByteArray_Size(py_storage_id);
-                if (len_found!=len) {
+                if (len_found != len) {
                     std::string error_msg = "UUID received has size " + std::to_string(len_found) +
                                             ", expected was: " + std::to_string(len);
-                    PyErr_SetString(PyExc_ValueError,error_msg.c_str());
+                    PyErr_SetString(PyExc_ValueError, error_msg.c_str());
                 }
 
                 char *cpp_bytes = PyByteArray_AsString(py_storage_id);
 
                 columns_names[i]["storage_id"] = std::string(cpp_bytes, len);
             }
-        }
-        else {
+        } else {
             PyErr_SetString(PyExc_TypeError, "Can't parse column names, expected String, Dict or Unicode");
             return -1;
         }
@@ -314,7 +311,7 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
         self->T = storage->make_cache(table, keyspace, keys_names, columns_names, config);
         self->keysParser = new PythonParser(storage, self->T->get_metadata()->get_keys());
         self->valuesParser = new PythonParser(storage, self->T->get_metadata()->get_values());
-    } catch (std::exception& e) {
+    } catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return -1;
     }
@@ -399,7 +396,7 @@ static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
     uint16_t keys_size = (uint16_t) PyList_Size(py_keys_names);
     uint16_t cols_size = (uint16_t) PyList_Size(py_cols_names);
 
-    self->token_ranges = std::vector<std::pair<int64_t, int64_t>>(tokens_size);
+    self->token_ranges = std::vector<std::pair<int64_t, int64_t >>(tokens_size);
     for (uint16_t i = 0; i < tokens_size; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_tokens, i);
         int64_t t_a, t_b;
@@ -411,7 +408,7 @@ static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
     }
 
 
-    std::vector<std::map<std::string, std::string> > keys_names(keys_size);
+    std::vector<std::map<std::string, std::string>> keys_names(keys_size);
 
     for (uint16_t i = 0; i < keys_size; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_keys_names, i);
@@ -419,7 +416,7 @@ static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
         if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
             return -1;
         }
-        keys_names[i] = {{"name",std::string(str_temp)}};
+        keys_names[i] = {{"name", std::string(str_temp)}};
     }
 
     std::vector<std::map<std::string, std::string>> columns_names(cols_size);
@@ -431,9 +428,8 @@ static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
             if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
                 return -1;
             };
-            columns_names[i] = {{"name",std::string(str_temp)}};
-        }
-        else if (PyDict_Check(obj_to_convert)) {
+            columns_names[i] = {{"name", std::string(str_temp)}};
+        } else if (PyDict_Check(obj_to_convert)) {
             //CASE NUMPY
             PyObject *dict;
             if (!PyArg_Parse(obj_to_convert, "O", &dict)) {
@@ -456,10 +452,8 @@ static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
             PyObject *py_arr_partition = PyDict_GetItem(dict, PyString_FromString("partition"));
             if (std::strcmp(PyString_AsString(py_arr_partition), "true") == 0) {
                 columns_names[i]["partition"] = "partition";
-            }
-            else columns_names[i]["partition"] = "no-partition";
-        }
-        else {
+            } else columns_names[i]["partition"] = "no-partition";
+        } else {
             PyErr_SetString(PyExc_TypeError, "Can't parse column names, expected String, Dict or Unicode");
             return -1;
         }
@@ -496,11 +490,14 @@ static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
 
     try {
         self->P = storage->get_iterator(table, keyspace, keys_names, columns_names, self->token_ranges, config);
-
-        if (self->P->get_type() == "items") {self->rowParser = new PythonParser(storage, self->P->get_metadata()->get_items()); std::cout << "items" << std::endl;}
-        else if (self->P->get_type() == "values") self->rowParser = new PythonParser(storage, self->P->get_metadata()->get_values());
+        if (self->P->get_type() == "items") {
+            self->rowParser = new PythonParser(storage, self->P->get_metadata()->get_items());
+            std::cout << "items" << std::endl;
+        }
+        else if (self->P->get_type() == "values")
+            self->rowParser = new PythonParser(storage, self->P->get_metadata()->get_values());
         else self->rowParser = new PythonParser(storage, self->P->get_metadata()->get_keys());
-    } catch (std::exception& e) {
+    } catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return -1;
     }
@@ -528,13 +525,13 @@ static PyObject *get_next(HIterator *self) {
     try {
         py_row = self->rowParser->make_pylist(temp);
     }
-    catch (TypeErrorException& e) {
+    catch (TypeErrorException &e) {
         PyErr_SetString(PyExc_TypeError, e.what());
         return NULL;
     }
-    catch (std::exception& e){
-        std::string error_msg = "Get next, parse result: "+std::string(e.what());
-        PyErr_SetString(PyExc_RuntimeError,error_msg.c_str());
+    catch (std::exception &e) {
+        std::string error_msg = "Get next, parse result: " + std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
         return NULL;
     }
     delete (result);
@@ -542,7 +539,7 @@ static PyObject *get_next(HIterator *self) {
 }
 
 static void hiter_dealloc(HIterator *self) {
-    if (self->rowParser) delete(self->rowParser);
+    if (self->rowParser) delete (self->rowParser);
     if (self->P) delete (self->P);
     self->ob_type->tp_free((PyObject *) self);
 }
@@ -608,10 +605,10 @@ static PyObject *write_cass(HWriter *self, PyObject *args) {
         TupleRow *k = self->keysParser->make_tuple(py_keys);
         TupleRow *v = self->valuesParser->make_tuple(py_values);
         self->W->write_to_cassandra(k, v);
-        delete(k);
-        delete(v);
+        delete (k);
+        delete (v);
     }
-    catch (TypeErrorException& e) {
+    catch (TypeErrorException &e) {
         PyErr_SetString(PyExc_TypeError, e.what());
         return NULL;
     }
@@ -643,7 +640,7 @@ static int hwriter_init(HWriter *self, PyObject *args, PyObject *kwds) {
     uint16_t keys_size = (uint16_t) PyList_Size(py_keys_names);
     uint16_t cols_size = (uint16_t) PyList_Size(py_cols_names);
 
-    std::vector<std::map<std::string, std::string> > keys_names(keys_size);
+    std::vector<std::map<std::string, std::string>> keys_names(keys_size);
 
     for (uint16_t i = 0; i < keys_size; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_keys_names, i);
@@ -651,7 +648,7 @@ static int hwriter_init(HWriter *self, PyObject *args, PyObject *kwds) {
         if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
             return -1;
         }
-        keys_names[i] = {{"name",std::string(str_temp)}};
+        keys_names[i] = {{"name", std::string(str_temp)}};
     }
 
     std::vector<std::map<std::string, std::string>> columns_names(cols_size);
@@ -663,9 +660,8 @@ static int hwriter_init(HWriter *self, PyObject *args, PyObject *kwds) {
             if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
                 return -1;
             };
-            columns_names[i] = {{"name",std::string(str_temp)}};
-        }
-        else if (PyDict_Check(obj_to_convert)) {
+            columns_names[i] = {{"name", std::string(str_temp)}};
+        } else if (PyDict_Check(obj_to_convert)) {
             //CASE NUMPY
             PyObject *dict;
             if (!PyArg_Parse(obj_to_convert, "O", &dict)) {
@@ -688,10 +684,8 @@ static int hwriter_init(HWriter *self, PyObject *args, PyObject *kwds) {
             PyObject *py_arr_partition = PyDict_GetItem(dict, PyString_FromString("partition"));
             if (std::strcmp(PyString_AsString(py_arr_partition), "true") == 0) {
                 columns_names[i]["partition"] = "partition";
-            }
-            else columns_names[i]["partition"] = "no-partition";
-        }
-        else {
+            } else columns_names[i]["partition"] = "no-partition";
+        } else {
             PyErr_SetString(PyExc_TypeError, "Can't parse column names, expected String, Dict or Unicode");
             return -1;
         }
@@ -724,7 +718,7 @@ static int hwriter_init(HWriter *self, PyObject *args, PyObject *kwds) {
         self->W = storage->make_writer(table, keyspace, keys_names, columns_names, config);
         self->keysParser = new PythonParser(storage, self->W->get_metadata()->get_keys());
         self->valuesParser = new PythonParser(storage, self->W->get_metadata()->get_values());
-    } catch (std::exception& e) {
+    } catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return -1;
     }
@@ -733,8 +727,8 @@ static int hwriter_init(HWriter *self, PyObject *args, PyObject *kwds) {
 }
 
 static void hwriter_dealloc(HWriter *self) {
-    if (self->keysParser) delete(self->keysParser);
-    if (self->valuesParser) delete(self->valuesParser);
+    if (self->keysParser) delete (self->keysParser);
+    if (self->valuesParser) delete (self->valuesParser);
     if (self->W) delete (self->W);
     self->ob_type->tp_free((PyObject *) self);
 }
@@ -825,10 +819,9 @@ static PyObject *create_iter_items(HCache *self, PyObject *args) {
                 config[conf_key] = std::to_string(c_val);
             }
         }
-    }
-    else if PyInt_Check((py_config)) {
+    } else if PyInt_Check((py_config)) {
         int32_t c_val = (int32_t) PyInt_AsLong(py_config);
-        config["prefetch_size"]= std::to_string(c_val);
+        config["prefetch_size"] = std::to_string(c_val);
     }
     config["type"] = "items";
 
@@ -841,9 +834,9 @@ static PyObject *create_iter_items(HCache *self, PyObject *args) {
     }
 
     try {
-        iter->P = storage->get_iterator( self->T->get_metadata(), self->token_ranges, config);
+        iter->P = storage->get_iterator(self->T->get_metadata(), self->token_ranges, config);
         iter->rowParser = new PythonParser(storage, iter->P->get_metadata()->get_items());
-    } catch (std::exception& e) {
+    } catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
@@ -881,10 +874,9 @@ static PyObject *create_iter_keys(HCache *self, PyObject *args) {
             }
 
         }
-    }
-    else if PyInt_Check((py_config)) {
+    } else if PyInt_Check((py_config)) {
         int32_t c_val = (int32_t) PyInt_AsLong(py_config);
-        config["prefetch_size"]= std::to_string(c_val);
+        config["prefetch_size"] = std::to_string(c_val);
     }
     config["type"] = "keys";
 
@@ -892,13 +884,13 @@ static PyObject *create_iter_keys(HCache *self, PyObject *args) {
 
     //hiter_init(iter, args, args);
     if (!self->T) {
-        PyErr_SetString(PyExc_RuntimeError,"Tried to create iterkeys, but the cache didn't exist");
+        PyErr_SetString(PyExc_RuntimeError, "Tried to create iterkeys, but the cache didn't exist");
         return NULL;
     }
     try {
         iter->P = storage->get_iterator(self->T->get_metadata(), self->token_ranges, config);
         iter->rowParser = new PythonParser(storage, iter->P->get_metadata()->get_keys());
-    } catch (std::exception& e) {
+    } catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
@@ -936,10 +928,9 @@ static PyObject *create_iter_values(HCache *self, PyObject *args) {
             }
 
         }
-    }
-    else if PyInt_Check((py_config)) {
+    } else if PyInt_Check((py_config)) {
         int32_t c_val = (int32_t) PyInt_AsLong(py_config);
-        config["prefetch_size"]= std::to_string(c_val);
+        config["prefetch_size"] = std::to_string(c_val);
     }
     config["type"] = "values";
 
@@ -953,7 +944,7 @@ static PyObject *create_iter_values(HCache *self, PyObject *args) {
     try {
         iter->P = storage->get_iterator(self->T->get_metadata(), self->token_ranges, config);
         iter->rowParser = new PythonParser(storage, iter->P->get_metadata()->get_values());
-    } catch (std::exception& e) {
+    } catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
@@ -999,6 +990,7 @@ inithfetch(void) {
     PyModule_AddObject(m, "HWriter", (PyObject *) &hfetch_HWriterType);
     if (_import_array() < 0) {
         PyErr_Print();
-        PyErr_SetString(PyExc_ImportError, "numpy.core.multiarray failed to import"); NUMPY_IMPORT_ARRAY_RETVAL;
+        PyErr_SetString(PyExc_ImportError, "numpy.core.multiarray failed to import");
+        NUMPY_IMPORT_ARRAY_RETVAL;
     }
 }

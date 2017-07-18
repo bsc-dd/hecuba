@@ -16,20 +16,19 @@
 #include "UnitParser.h"
 
 
-
-class PythonParser{
+class PythonParser {
 
 public:
-    PythonParser(std::shared_ptr<StorageInterface> storage,std::shared_ptr<const std::vector<ColumnMeta> > metadatas);
+    PythonParser(std::shared_ptr<StorageInterface> storage, std::shared_ptr<const std::vector<ColumnMeta> > metadatas);
 
     ~PythonParser();
 
-    TupleRow* make_tuple(PyObject* obj) const;
+    TupleRow *make_tuple(PyObject *obj) const;
 
-    PyObject* make_pylist(std::vector<const TupleRow *> &values) const;
+    PyObject *make_pylist(std::vector<const TupleRow *> &values) const;
 
 private:
-    std::vector<UnitParser*> parsers;
+    std::vector<UnitParser *> parsers;
     std::shared_ptr<const std::vector<ColumnMeta> > metas; //TODO To be removed
 };
 

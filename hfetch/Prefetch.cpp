@@ -3,28 +3,26 @@
 #define MAX_TRIES 10
 #define default_prefetch_size 100
 
-Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges, const TableMetadata* table_meta,
-                   CassSession* session,std::map<std::string,std::string> &config) {
+Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges, const TableMetadata *table_meta,
+                   CassSession *session, std::map<std::string, std::string> &config) {
     if (!session)
         throw ModuleException("Prefetch: Session is Null, not connected to Cassandra");
     this->session = session;
-    this->table_metadata=table_meta;
+    this->table_metadata = table_meta;
 
-    const char* query;
-    if (config["type"]=="keys") {
+    const char *query;
+    if (config["type"] == "keys") {
         this->t_factory = TupleRowFactory(table_meta->get_keys());
-        query=table_meta->get_select_keys_tokens();
-        this->type="keys";
-    }
-    else if (config["type"]=="values") {
+        query = table_meta->get_select_keys_tokens();
+        this->type = "keys";
+    } else if (config["type"] == "values") {
         this->t_factory = TupleRowFactory(table_meta->get_values());
-        query=table_meta->get_select_values_tokens();
-        this->type="values";
-    }
-    else {
+        query = table_meta->get_select_values_tokens();
+        this->type = "values";
+    } else {
         this->t_factory = TupleRowFactory(table_meta->get_items());
-        query=table_meta->get_select_all_tokens();
-        this->type="items";
+        query = table_meta->get_select_all_tokens();
+        this->type = "items";
     }
 
     this->tokens = token_ranges;
@@ -37,19 +35,19 @@ Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges,
 
     int32_t prefetch_size = default_prefetch_size;
 
-    if (config.find("prefetch_size")!=config.end()) {
+    if (config.find("prefetch_size") != config.end()) {
         std::string prefetch_size_str = config["prefetch_size"];
         try {
             prefetch_size = std::stoi(prefetch_size_str);
         }
         catch (std::exception &e) {
             std::string msg(e.what());
-            msg+= " Malformed value in config for prefetch_size";
+            msg += " Malformed value in config for prefetch_size";
             throw ModuleException(msg);
         }
     }
 
-    if (prefetch_size<=0)
+    if (prefetch_size <= 0)
         throw ModuleException("Prefetch size must be > 0");
 
     this->data.set_capacity(prefetch_size);
@@ -72,9 +70,8 @@ Prefetch::~Prefetch() {
 }
 
 
-
 TupleRow *Prefetch::get_cnext() {
-    if (completed&&data.empty()) return NULL;
+    if (completed && data.empty()) return NULL;
     TupleRow *response;
     try {
         data.pop(response);
@@ -110,7 +107,7 @@ void Prefetch::consume_tokens() {
             //If Consumer sets capacity 0, we stop fetching data
             if (data.capacity() == 0) {
                 cass_future_free(future);
-                completed=true;
+                completed = true;
                 data.abort();
                 return;
             }

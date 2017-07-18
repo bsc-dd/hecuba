@@ -35,142 +35,144 @@
 
 class UnitParser {
 public:
-    UnitParser(const ColumnMeta& CM) {}
+    UnitParser(const ColumnMeta &CM) {}
 
     virtual ~UnitParser() {};
+
     /***
      *
      * @param element Python Object to be transformed to C++
      * @param payload Pointer where the element should be placed once translated
      * @return 0 if successful, -1 if the element is a Py_None, -2 on error
      */
-    virtual int16_t py_to_c(PyObject* element,void* payload) const;
+    virtual int16_t py_to_c(PyObject *element, void *payload) const;
 
     /***
      * @param payload Element to be transformed to a Python Object
      * @return Python Object representing the element pointed by payload represented as the type in Cassandra
      * @throw ModuleException if Python can't parse the object or does not match the Cassandra type
      */
-    virtual PyObject* c_to_py(const void* payload) const;
+    virtual PyObject *c_to_py(const void *payload) const;
 
-    void error_parsing(std::string type, PyObject* obj) const{
+    void error_parsing(std::string type, PyObject *obj) const {
         char *l_temp;
         Py_ssize_t l_size;
-        PyObject* repr = PyObject_Str(obj);
+        PyObject *repr = PyObject_Str(obj);
         int ok = PyString_AsStringAndSize(repr, &l_temp, &l_size);
-        if (ok<0)
+        if (ok < 0)
             throw TypeErrorException("Parse from python to c, found sth that can't be represented nor parsed");
-        throw TypeErrorException("Parse from python to c, expected "+type+", found: "+std::string(l_temp,(size_t)l_size));
+        throw TypeErrorException(
+                "Parse from python to c, expected " + type + ", found: " + std::string(l_temp, (size_t) l_size));
     }
 };
 
 
-class BoolParser: public UnitParser {
+class BoolParser : public UnitParser {
 public:
-    BoolParser(const ColumnMeta& CM);
+    BoolParser(const ColumnMeta &CM);
 
-    virtual int16_t py_to_c(PyObject* myint, void* payload) const;
+    virtual int16_t py_to_c(PyObject *myint, void *payload) const;
 
-    virtual PyObject* c_to_py(const void* payload) const;
+    virtual PyObject *c_to_py(const void *payload) const;
 };
 
 
-class Int8Parser: public UnitParser {
+class Int8Parser : public UnitParser {
 public:
-    Int8Parser(const ColumnMeta& CM);
+    Int8Parser(const ColumnMeta &CM);
 
-    virtual int16_t py_to_c(PyObject* myint, void* payload) const;
+    virtual int16_t py_to_c(PyObject *myint, void *payload) const;
 
-    virtual PyObject* c_to_py(const void* payload) const;
+    virtual PyObject *c_to_py(const void *payload) const;
 };
 
 
-class Int16Parser: public UnitParser {
+class Int16Parser : public UnitParser {
 public:
-    Int16Parser(const ColumnMeta& CM);
+    Int16Parser(const ColumnMeta &CM);
 
-    virtual int16_t py_to_c(PyObject* myint, void* payload) const;
+    virtual int16_t py_to_c(PyObject *myint, void *payload) const;
 
-    virtual PyObject* c_to_py(const void* payload) const;
+    virtual PyObject *c_to_py(const void *payload) const;
 };
 
 
-class Int32Parser: public UnitParser {
+class Int32Parser : public UnitParser {
 public:
-    Int32Parser(const ColumnMeta& CM);
+    Int32Parser(const ColumnMeta &CM);
 
-    virtual int16_t py_to_c(PyObject* myint, void* payload) const;
+    virtual int16_t py_to_c(PyObject *myint, void *payload) const;
 
-    virtual PyObject* c_to_py(const void* payload) const;
+    virtual PyObject *c_to_py(const void *payload) const;
 };
 
 
-class Int64Parser: public UnitParser {
+class Int64Parser : public UnitParser {
 public:
-    Int64Parser(const ColumnMeta& CM);
+    Int64Parser(const ColumnMeta &CM);
 
-    virtual int16_t py_to_c(PyObject* myint, void* payload) const;
+    virtual int16_t py_to_c(PyObject *myint, void *payload) const;
 
-    virtual PyObject* c_to_py(const void* payload) const;
+    virtual PyObject *c_to_py(const void *payload) const;
 };
 
 
-class DoubleParser: public UnitParser {
+class DoubleParser : public UnitParser {
 public:
-    DoubleParser(const ColumnMeta& CM);
+    DoubleParser(const ColumnMeta &CM);
 
-    virtual int16_t py_to_c(PyObject* myint, void* payload) const;
+    virtual int16_t py_to_c(PyObject *myint, void *payload) const;
 
-    virtual PyObject* c_to_py(const void* payload) const;
+    virtual PyObject *c_to_py(const void *payload) const;
 
 private:
     bool isFloat;
 };
 
 
-class TextParser: public UnitParser {
+class TextParser : public UnitParser {
 public:
-    TextParser(const ColumnMeta& CM);
+    TextParser(const ColumnMeta &CM);
 
-    virtual int16_t py_to_c(PyObject* text, void* payload) const;
+    virtual int16_t py_to_c(PyObject *text, void *payload) const;
 
-    virtual PyObject* c_to_py(const void* payload) const;
+    virtual PyObject *c_to_py(const void *payload) const;
 };
 
 
-class BytesParser: public UnitParser {
+class BytesParser : public UnitParser {
 public:
-    BytesParser(const ColumnMeta& CM);
+    BytesParser(const ColumnMeta &CM);
 
-    virtual int16_t py_to_c(PyObject* text, void* payload) const;
+    virtual int16_t py_to_c(PyObject *text, void *payload) const;
 
-    virtual PyObject* c_to_py(const void* payload) const;
+    virtual PyObject *c_to_py(const void *payload) const;
 };
 
 
-class UuidParser: public UnitParser {
+class UuidParser : public UnitParser {
 public:
-    UuidParser(const ColumnMeta& CM);
+    UuidParser(const ColumnMeta &CM);
 
-    virtual int16_t py_to_c(PyObject* text, void* payload) const;
+    virtual int16_t py_to_c(PyObject *text, void *payload) const;
 
-    virtual PyObject* c_to_py(const void* payload) const;
+    virtual PyObject *c_to_py(const void *payload) const;
 };
 
 
-class NumpyParser: public UnitParser {
+class NumpyParser : public UnitParser {
 public:
-    NumpyParser(const ColumnMeta& CM);
+    NumpyParser(const ColumnMeta &CM);
 
     ~NumpyParser();
 
-    virtual int16_t py_to_c(PyObject* numpy, void* payload) const;
+    virtual int16_t py_to_c(PyObject *numpy, void *payload) const;
 
-    virtual PyObject* c_to_py(const void* payload) const;
+    virtual PyObject *c_to_py(const void *payload) const;
 
     inline void setStorage(std::shared_ptr<StorageInterface> storage) {
         SpaceFillingCurve algorithm = ZorderCurve();
-        np_storage = new NumpyStorage(table,keyspace,storage, algorithm);
+        np_storage = new NumpyStorage(table, keyspace, storage, algorithm);
     }
 
 private:

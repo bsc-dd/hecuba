@@ -3,12 +3,12 @@ set(CMAKE_CXX_STANDARD 11)
 
 #If the default compiler doesn't support C++11, set the environment vars [CC,CXX] pointing to the compilers binaries
 # desired to compile C and C++ respectively
-IF(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+IF (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
     SET(CMAKE_BUILD_TYPE Release) #Release|Debug|RelWithDebInfo|MinSizeRel
-ENDIF(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+ENDIF (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -fPIC")
-SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fPIC")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall")
 set(ENABLE_PRECOMPILED_HEADERS OFF)
 
@@ -16,9 +16,9 @@ set(ENABLE_PRECOMPILED_HEADERS OFF)
 LINK_DIRECTORIES(${CMAKE_CURRENT_LIST_DIR}/_install/lib64 ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 
 get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
-foreach(dir ${dirs})
+foreach (dir ${dirs})
     message(STATUS "Dir for includes='${dir}'")
-endforeach()
+endforeach ()
 
 message("CMAKE_CXX_FLAGS_DEBUG is ${CMAKE_CXX_FLAGS_DEBUG}")
 message("CMAKE_CXX_FLAGS_RELEASE is ${CMAKE_CXX_FLAGS_RELEASE}")
@@ -31,38 +31,38 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/_install/lib)
 
 #if the user has set custom compiler paths, forward to submodules
 if (${CC})
-    set (CMAKE_SUBPROJECT_FLAGSCMAKE_SUBPROJECT_FLAGSCMAKE_SUBPROJECT_FLAGS ${CMAKE_SUBPROJECT_FLAGS} " -DCMAKE_C_COMPILER${CC}")
-endif()
+    set(CMAKE_SUBPROJECT_FLAGSCMAKE_SUBPROJECT_FLAGSCMAKE_SUBPROJECT_FLAGS ${CMAKE_SUBPROJECT_FLAGS} " -DCMAKE_C_COMPILER${CC}")
+endif ()
 
 if (${CXX})
-    set (CMAKE_SUBPROJECT_FLAGS ${CMAKE_SUBPROJECT_FLAGS} " -DCMAKE_CXX_COMPILER=${CXX}")
-endif()
+    set(CMAKE_SUBPROJECT_FLAGS ${CMAKE_SUBPROJECT_FLAGS} " -DCMAKE_CXX_COMPILER=${CXX}")
+endif ()
 
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake) #folder with FindCmakes
 
 #Add environment $CPLUS_INCLUDE_PATH include paths
-if (NOT $ENV{CPLUS_INCLUDE_PATH}  STREQUAL "")
-    string (REPLACE ":" " " INCLUDES $ENV{CPLUS_INCLUDE_PATH})
-    string (REPLACE "//" "/" INCLUDES ${INCLUDES})
+if (NOT $ENV{CPLUS_INCLUDE_PATH} STREQUAL "")
+    string(REPLACE ":" " " INCLUDES $ENV{CPLUS_INCLUDE_PATH})
+    string(REPLACE "//" "/" INCLUDES ${INCLUDES})
     string(REGEX MATCHALL "[^ ]+" LIST_INCLUDES ${INCLUDES})
-endif (NOT $ENV{CPLUS_INCLUDE_PATH}  STREQUAL "")
+endif (NOT $ENV{CPLUS_INCLUDE_PATH} STREQUAL "")
 include_directories(${LIST_INCLUDES})
 
 
 #Add environment $C_INCLUDE_PATH include paths
-if (NOT $ENV{C_INCLUDE_PATH}  STREQUAL "")
-    string (REPLACE ":" " " INCLUDES $ENV{C_INCLUDE_PATH})
-    string (REPLACE "//" "/" INCLUDES ${INCLUDES})
+if (NOT $ENV{C_INCLUDE_PATH} STREQUAL "")
+    string(REPLACE ":" " " INCLUDES $ENV{C_INCLUDE_PATH})
+    string(REPLACE "//" "/" INCLUDES ${INCLUDES})
     string(REGEX MATCHALL "[^ ]+" LIST_INCLUDES ${INCLUDES})
-endif (NOT $ENV{C_INCLUDE_PATH}  STREQUAL "")
+endif (NOT $ENV{C_INCLUDE_PATH} STREQUAL "")
 include_directories(${LIST_INCLUDES})
 
 
 #Add environment $CPATH include paths
-if (NOT $ENV{CPATH}  STREQUAL "")
-    string (REPLACE ":" " " INCLUDES $ENV{CPATH})
-    string (REPLACE "//" "/" INCLUDES ${INCLUDES})
+if (NOT $ENV{CPATH} STREQUAL "")
+    string(REPLACE ":" " " INCLUDES $ENV{CPATH})
+    string(REPLACE "//" "/" INCLUDES ${INCLUDES})
     string(REGEX MATCHALL "[^ ]+" LIST_INCLUDES ${INCLUDES})
 endif (NOT $ENV{CPATH} STREQUAL "")
 include_directories(${LIST_INCLUDES})
@@ -71,13 +71,12 @@ include_directories(${LIST_INCLUDES})
 include_directories(${CMAKE_CURRENT_LIST_DIR}/_install/include)
 
 
-
 #LD_LIBRARY being picked by the compiler (probably)
-if (NOT $ENV{LD_LIBRARY_PATH}  STREQUAL "")
-    string (REPLACE ":" " " ENV_LIBS $ENV{LD_LIBRARY_PATH})
-    string (REPLACE "//" "/" ENV_LIBS ${ENV_LIBS})
+if (NOT $ENV{LD_LIBRARY_PATH} STREQUAL "")
+    string(REPLACE ":" " " ENV_LIBS $ENV{LD_LIBRARY_PATH})
+    string(REPLACE "//" "/" ENV_LIBS ${ENV_LIBS})
     string(REGEX MATCHALL "[^ ]+" LIST_LIBS ${ENV_LIBS})
-endif (NOT $ENV{LD_LIBRARY_PATH}  STREQUAL "")
+endif (NOT $ENV{LD_LIBRARY_PATH} STREQUAL "")
 
 set(CPP_SRC_FILES StorageInterface.cpp Prefetch.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp TableMetadata.cpp SpaceFillingCurve.cpp)
 set(CPP_H_FILES StorageInterface.h Prefetch.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h TableMetadata.h SpaceFillingCurve.h)
@@ -89,7 +88,7 @@ set(HEADER_FILES ${CPP_H_FILES} ${PY_H_FILES})
 #set(MY_PATHS "${ORIGIN}")
 #CMake main target
 # use, i.e. don't skip the full RPATH for the build tree
-SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
+SET(CMAKE_SKIP_BUILD_RPATH FALSE)
 
 # when building, don't use the install RPATH already
 # (but later on when installing)
@@ -125,17 +124,17 @@ IF (NOT LIBUV)
             BUILD_IN_SOURCE 1
             INSTALL_COMMAND make COMMAND make install
     )
-    set (LIBUV_EXTERNAL LIBUV)
+    set(LIBUV_EXTERNAL LIBUV)
     add_dependencies(hfetch LIBUV)
     target_link_libraries(hfetch uv)
-else()
-    set (LIBUV_EXTERNAL)
+else ()
+    set(LIBUV_EXTERNAL)
     message(STATUS "Using system's LIBUV: " ${LIBUV})
     set(ALL_LIBS ${ALL_LIBS} ${LIBUV})
-endif()
+endif ()
 
 
-if(NOT POCO)
+if (NOT POCO)
     message("Downloading Poco Libs")
     unset(POCO) #to avoid name clash
     ExternalProject_Add(
@@ -147,11 +146,10 @@ if(NOT POCO)
     )
     add_dependencies(hfetch POCO)
     target_link_libraries(hfetch ${CMAKE_CURRENT_LIST_DIR}/_install/lib/libPocoFoundation.so)
-else()
+else ()
     message(STATUS "Using system's POCO: " ${POCO})
     set(ALL_LIBS ${ALL_LIBS} ${POCO})
-endif()
-
+endif ()
 
 
 if (NOT CASS)
@@ -169,10 +167,10 @@ if (NOT CASS)
     )
     add_dependencies(hfetch CASS)
     set(ALL_LIBS ${ALL_LIBS} ${CMAKE_CURRENT_LIST_DIR}/_install/lib/libcassandra.so)
-else()
+else ()
     message(STATUS "Using system's C++ Cassandra driver: " ${CASS})
-    set(ALL_LIBS ${ALL_LIBS}  ${CASS})
-endif()
+    set(ALL_LIBS ${ALL_LIBS} ${CASS})
+endif ()
 
 
 # FIND PACKAGES
@@ -185,7 +183,7 @@ if (NOT TBB_FOUND)
     set(TBB_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/_install/include)
     message(STATUS "TBB libraries not found, using downloaded TBB")
     FIND_PACKAGE(TBB)
-endif()
+endif ()
 
 
 if (NOT TBB_FOUND)
@@ -200,21 +198,18 @@ if (NOT TBB_FOUND)
             CMAKE_COMMAND echo
             BUILD_COMMAND make tbb tbb_build_prefix=${build_prefix}
             BUILD_IN_SOURCE 1
-            INSTALL_COMMAND mkdir -p  ${CMAKE_CURRENT_LIST_DIR}/_install/lib
-            COMMAND  mkdir -p ${CMAKE_CURRENT_LIST_DIR}/_install/include
-            COMMAND cp -r build/${build_prefix}_release/libtbb.so build/${build_prefix}_release/libtbb.so.2  ${CMAKE_CURRENT_LIST_DIR}/_install/lib
+            INSTALL_COMMAND mkdir -p ${CMAKE_CURRENT_LIST_DIR}/_install/lib
+            COMMAND mkdir -p ${CMAKE_CURRENT_LIST_DIR}/_install/include
+            COMMAND cp -r build/${build_prefix}_release/libtbb.so build/${build_prefix}_release/libtbb.so.2 ${CMAKE_CURRENT_LIST_DIR}/_install/lib
             COMMAND cp -r include/tbb ${CMAKE_CURRENT_LIST_DIR}/_install/include
     )
     add_dependencies(hfetch TBB)
     set(ALL_LIBS ${ALL_LIBS} ${CMAKE_CURRENT_LIST_DIR}/_install/lib/libtbb.so)
-else()
+else ()
     message(STATUS "Using system's TBB: " ${TBB_LIBRARIES})
     set(ALL_LIBS ${ALL_LIBS} ${TBB_LIBRARIES})
     include_directories(${TBB_INCLUDE_DIRS})
-endif()
-
-
-
+endif ()
 
 
 #Python dependencies
@@ -225,16 +220,15 @@ find_package(NumPy 1.8)
 
 if (NUMPY_FOUND)
     include_directories(${NUMPY_INCLUDE_DIR})
-else()
+else ()
     message("Numpy headers not found, Numpy arrays support won't be available")
-endif()
+endif ()
 
 include_directories(${PYTHON_INCLUDE_DIRS})
 set(ALL_LIBS ${ALL_LIBS} ${PYTHON_LIBRARIES})
 
 
 target_link_libraries(hfetch ${ALL_LIBS})
-
 
 
 if (DEFINED ENV{GTEST_ROOT})
@@ -249,10 +243,10 @@ if (DEFINED ENV{GTEST_ROOT})
             add_executable(hfetch_test tests/runtests.cpp)
             set_target_properties(hfetch_test
                     PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
-            target_link_libraries( hfetch_test ${ALL_LIBS} ${PT}  ${GTEST_BOTH_LIBRARIES} hfetch )
+            target_link_libraries(hfetch_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch)
             add_test(test hfetch_test)
-        else()
+        else ()
             message(STATUS "If GTest is installed, point the environment var GTEST_ROOT to its root (/home/user/local)")
-        endif(GTest_FOUND)
-    endif(PT)
-endif(DEFINED ENV{GTEST_ROOT})
+        endif (GTest_FOUND)
+    endif (PT)
+endif (DEFINED ENV{GTEST_ROOT})

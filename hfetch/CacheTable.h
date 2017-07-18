@@ -17,35 +17,35 @@
 class CacheTable {
 
 public:
-    CacheTable(const TableMetadata* table_meta,
+    CacheTable(const TableMetadata *table_meta,
                CassSession *session,
-               std::map<std::string,std::string> &config);
+               std::map<std::string, std::string> &config);
 
     ~CacheTable();
 
 
     /** C++ METHODS **/
 
-    void put_crow(void* keys,void* values);
+    void put_crow(void *keys, void *values);
 
     std::vector<const TupleRow *> get_crow(const TupleRow *py_keys);
 
 
-    std::vector<const TupleRow*> get_crow(void* keys);
+    std::vector<const TupleRow *> get_crow(void *keys);
 
-    void add_to_cache(void* keys, void* values);
+    void add_to_cache(void *keys, void *values);
 
-    void put_crow(const TupleRow* row);
+    void put_crow(const TupleRow *row);
 
-    void put_crow(const TupleRow* keys, const TupleRow* values);
+    void put_crow(const TupleRow *keys, const TupleRow *values);
 
-    const TableMetadata* get_metadata() {
+    const TableMetadata *get_metadata() {
         return table_metadata;
     }
 
 private:
 
-    std::vector<const TupleRow *>  retrieve_from_cassandra(const TupleRow *keys);
+    std::vector<const TupleRow *> retrieve_from_cassandra(const TupleRow *keys);
 
     /* CASSANDRA INFORMATION FOR RETRIEVING DATA */
     CassSession *session;
@@ -57,9 +57,9 @@ private:
     TupleRowFactory *keys_factory;
     TupleRowFactory *values_factory;
 
-    const TableMetadata* table_metadata;
+    const TableMetadata *table_metadata;
 
-    Writer* writer;
+    Writer *writer;
 
 };
 

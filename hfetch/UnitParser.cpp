@@ -95,7 +95,7 @@ Int32Parser::Int32Parser(const ColumnMeta &CM) : UnitParser(CM) {
 
 int16_t Int32Parser::py_to_c(PyObject *myint, void *payload) const {
     if (myint == Py_None) return -1;
-    if (PyInt_Check(myint) && PyArg_Parse(myint, Py_INT,  payload)) return 0;
+    if (PyInt_Check(myint) && PyArg_Parse(myint, Py_INT, payload)) return 0;
     error_parsing("PyInt to Int32", myint);
     return -2;
 }
@@ -137,23 +137,21 @@ PyObject *Int64Parser::c_to_py(const void *payload) const {
 
 DoubleParser::DoubleParser(const ColumnMeta &CM) : UnitParser(CM) {
     this->isFloat = false;
-    if (CM.type==CASS_VALUE_TYPE_FLOAT) {
+    if (CM.type == CASS_VALUE_TYPE_FLOAT) {
         this->isFloat = true;
         if (CM.size != sizeof(float))
             throw ModuleException("Bad size allocated for a PyDouble transformed to Float");
-    }
-    else if (CM.size != sizeof(double)) throw ModuleException("Bad size allocated for a PyDouble");
+    } else if (CM.size != sizeof(double)) throw ModuleException("Bad size allocated for a PyDouble");
 }
 
 int16_t DoubleParser::py_to_c(PyObject *obj, void *payload) const {
     if (obj == Py_None) return -1;
     if (!PyFloat_Check(obj) && !PyInt_Check(obj)) error_parsing("PyDouble", obj);
     if (isFloat) {
-            float t;
-            if (!PyArg_Parse(obj, Py_FLOAT, &t)) error_parsing("PyDouble as Float", obj);
-            memcpy(payload, &t, sizeof(t));
-    }
-    else{
+        float t;
+        if (!PyArg_Parse(obj, Py_FLOAT, &t)) error_parsing("PyDouble as Float", obj);
+        memcpy(payload, &t, sizeof(t));
+    } else {
         double t;
         if (!PyArg_Parse(obj, Py_FLOAT, &t)) error_parsing("PyDouble as Double", obj);
         memcpy(payload, &t, sizeof(t));
@@ -166,8 +164,7 @@ PyObject *DoubleParser::c_to_py(const void *payload) const {
     if (isFloat) {
         const float *temp = reinterpret_cast<const float *>(payload);
         return Py_BuildValue(Py_FLOAT, *temp);
-    }
-    else {
+    } else {
         const double *temp = reinterpret_cast<const double *>(payload);
         return Py_BuildValue(Py_DOUBLE, *temp);
     }
@@ -288,8 +285,7 @@ int16_t UuidParser::py_to_c(PyObject *obj, void *payload) const {
 
         memcpy(permanent, &second, sizeof(second));
         return 0;
-    }
-    else throw ModuleException("Parsing UUID from ByteArray not supported");
+    } else throw ModuleException("Parsing UUID from ByteArray not supported");
 }
 
 PyObject *UuidParser::c_to_py(const void *payload) const {

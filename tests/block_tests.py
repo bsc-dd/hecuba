@@ -43,7 +43,7 @@ class BlockTest(unittest.TestCase):
         The iterator should read the same elements I can get with a __getitem__
         :return:
         """
-        b = StorageDict([('pk1', 'str')], [('val', 'int')])
+        b = StorageDict(None, [('pk1', 'str')], [('val', 'int')])
         b.is_persistent = False
 
         b['test1'] = 123124
