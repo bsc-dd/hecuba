@@ -1,6 +1,6 @@
 import unittest
 import time
-
+import uuid
 from cassandra.cluster import Cluster
 
 
@@ -16,6 +16,7 @@ class Hfetch_Tests(unittest.TestCase):
     def setUpClass(cls):
         cls.session.execute("CREATE KEYSPACE IF NOT EXISTS %s WITH replication "
                                "= {'class': 'SimpleStrategy', 'replication_factor': 1};" % cls.keyspace)
+        cls.session.execute("CREATE TYPE IF NOT EXISTS %s.numpy_meta(dims frozen<list<int>>,type int,type_size int);" % cls.keyspace)
 
     @classmethod
     def tearDownClass(cls):
@@ -27,7 +28,6 @@ class Hfetch_Tests(unittest.TestCase):
         from hfetch import Hcache
         import numpy as np
         '''''''''
-        Multidimensional partition test: A numpy of more than 2 dimensions is partitioned and stored at the same table
         
         Analyzes:
         
@@ -44,13 +44,14 @@ class Hfetch_Tests(unittest.TestCase):
 
         table = "arrays"
 
-        self.session.execute("DROP TABLE if exists test.arrays;")
-        self.session.execute("CREATE TABLE test.arrays(partid int PRIMARY KEY, image_block blob, image_block_pos int);")
+        self.session.execute("DROP TABLE if exists %s.arrays;" % self.keyspace)
+        self.session.execute("DROP TABLE if exists %s.arrays_numpies;" % self.keyspace)
+        self.session.execute("CREATE TABLE %s.arrays(partid int PRIMARY KEY, image numpy_meta);" % self.keyspace)
+        self.session.execute("CREATE TABLE %s.arrays_numpies(storage_id uuid, attr_name text, cluster_id int, block_id int, payload blob,PRIMARY KEY((storage_id,attr_name,cluster_id),block_id));" % self.keyspace)
 
-        a = Hcache(self.keyspace, table, "WHERE token(partid)>=? AND token(partid)<?;",
-                   [], ["partid"],
-                   [{"name": "image_block", "type": "int", "dims": "5x5x5", "partition": "true"},
-                    "image_block_pos"], {})
+        storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self.keyspace + '.' + table)
+        time.sleep(5)
+        a = Hcache(self.keyspace, table, storage_id, [], ["partid"], [{"name": "image", "type": "numpy"}], {})
 
         #prepare data
         bigarr = np.arange(pow(elem_dim, dims)).reshape(elem_dim, elem_dim, elem_dim)
@@ -74,7 +75,8 @@ class Hfetch_Tests(unittest.TestCase):
             print 'Array sent ', bigarr
             print 'Array retrieved ', result[0]
         time.sleep(2)
-        self.session.execute("DROP TABLE test.arrays;")
+        self.session.execute("DROP TABLE %s.arrays;" % self.keyspace)
+        self.session.execute("DROP TABLE %s.arrays_numpies;" % self.keyspace)
 
 
     def test_nopart(self):
@@ -82,16 +84,14 @@ class Hfetch_Tests(unittest.TestCase):
         from hfetch import Hcache
         import numpy as np
         '''''''''
-        No partition test: An array is stored without slicing as raw bytes.
         
         Analyzes:
         
         '''''''''
 
         elem_dim = 128
-        txt_elem_dim = str(elem_dim)
         dims = 2
-
+        table = "arrays"
 
         try:
             connectCassandra(self.contact_names, self.nodePort)
@@ -100,18 +100,15 @@ class Hfetch_Tests(unittest.TestCase):
             print 'can\'t connect, verify the contact points and port', self.contact_names, self.nodePort
 
 
-        table = "arrays"
+        self.session.execute("DROP TABLE if exists %s.arrays;" % self.keyspace)
+        self.session.execute("DROP TABLE if exists %s.arrays_numpies;" % self.keyspace)
+        self.session.execute("CREATE TABLE %s.arrays(partid int PRIMARY KEY, image numpy_meta);" % self.keyspace)
+        self.session.execute("CREATE TABLE %s.arrays_numpies(storage_id uuid, attr_name text, cluster_id int, "
+            "block_id int, payload blob,PRIMARY KEY((storage_id,attr_name,cluster_id),block_id));" % self.keyspace)
 
-        self.session.execute("DROP TABLE if exists test.arrays;")
-        self.session.execute("CREATE TABLE test.arrays(partid int PRIMARY KEY, image_block blob);")
-
-
-        a = Hcache("test", table, "WHERE token(partid)>=? AND token(partid)<?;",
-                   [], ["partid"],
-                   [{"name": "image_block",
-                     "type": "double",
-                     "dims": txt_elem_dim + 'x' + txt_elem_dim,
-                     "partition": "false"}], {})
+        storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self.keyspace + '.' + table)
+        time.sleep(5)
+        a = Hcache(self.keyspace, table, storage_id, [], ["partid"], [{"name": "image", "type": "numpy"}], {})
 
         keys = [300]
         bigarr = np.arange(pow(elem_dim, dims)).reshape(elem_dim, elem_dim)
@@ -123,27 +120,31 @@ class Hfetch_Tests(unittest.TestCase):
         print 'Elapsed time', time.time() - t1
 
         time.sleep(2)
-        self.session.execute("DROP TABLE test.arrays;")
-
-
+        self.session.execute("DROP TABLE %s.arrays;" % self.keyspace)
+        self.session.execute("DROP TABLE %s.arrays_numpies;" % self.keyspace)
 
     def test_part(self):
         from hfetch import connectCassandra
         from hfetch import Hcache
         import numpy as np
         '''''''''
-        Running partition test
         
         Analyzes:
         
         '''''''''
 
         dims = 2
-        elem_dim = 2048
-        txt_elem_dim = str(elem_dim)
+        elem_dim = 128
+        table = "arrays"
 
-        self.session.execute("DROP TABLE if exists test.arrays;")
-        self.session.execute("CREATE TABLE test.arrays(partid int , image_block blob, image_block_pos int, PRIMARY KEY(partid,image_block_pos));")
+        self.session.execute("DROP TABLE if exists %s.arrays;" % self.keyspace)
+        self.session.execute("DROP TABLE if exists %s.arrays_numpies;" % self.keyspace)
+        self.session.execute("CREATE TABLE %s.arrays(partid int PRIMARY KEY, image numpy_meta);" % self.keyspace)
+        self.session.execute("CREATE TABLE %s.arrays_numpies(storage_id uuid, attr_name text, cluster_id int,"
+                             "block_id int, payload blob,"
+                             "PRIMARY KEY((storage_id,attr_name,cluster_id),block_id));" % self.keyspace)
+
+        storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self.keyspace + '.' + table)
 
         try:
             connectCassandra(self.contact_names, self.nodePort)
@@ -151,15 +152,9 @@ class Hfetch_Tests(unittest.TestCase):
             print e
             print 'can\'t connect, verify the contact points and port', self.contact_names, self.nodePort
 
-        table = "arrays"
-
-        a = Hcache("test", table, "WHERE token(partid)>=? AND token(partid)<?;",
-                   [(-8070430489100700000, 8070450532247928832)], ["partid"],
-                   [{"name": "image_block",
-                     "type": "double",
-                     "dims": txt_elem_dim + 'x' + txt_elem_dim,
-                     "partition": "true"},
-                    "image_block_pos"], {})
+        time.sleep(5)
+        a = Hcache(self.keyspace, table, storage_id, [(-8070430489100700000, 8070450532247928832)],
+                   ["partid"], [{"name": "image", "type": "numpy"}], {})
 
         keys = [300]
         bigarr = np.arange(pow(elem_dim, dims)).reshape(elem_dim, elem_dim)
@@ -172,7 +167,8 @@ class Hfetch_Tests(unittest.TestCase):
         print '2D, elem dimension: ', elem_dim
 
         time.sleep(2)
-        self.session.execute("DROP TABLE test.arrays;")
+        self.session.execute("DROP TABLE %s.arrays;" % self.keyspace)
+        self.session.execute("DROP TABLE %s.arrays_numpies;" % self.keyspace)
 
 
 
@@ -181,15 +177,14 @@ class Hfetch_Tests(unittest.TestCase):
         from hfetch import Hcache
         import numpy as np
         '''''''''
-        Running npy_uuid test
         
         Analyzes:
         
         '''''''''
 
         dims = 2
-        elem_dim = 2048
-        txt_elem_dim = str(elem_dim)
+        elem_dim = 128
+        table = "arrays"
 
         print 'Dimensions: ', dims, ' Element in each dim: ', elem_dim
         try:
@@ -198,23 +193,18 @@ class Hfetch_Tests(unittest.TestCase):
             print e
             print 'can\'t connect, verify the contact points and port', self.contact_names, self.nodePort
 
-        table = "arrays"
 
-        self.session.execute("DROP TABLE if exists test.arrays;")
-        self.session.execute("DROP TABLE if exists test.arrays_aux;")
-        self.session.execute("CREATE TABLE test.arrays(partid int PRIMARY KEY, image uuid);")
+        self.session.execute("DROP TABLE if exists %s.arrays;" % self.keyspace)
+        self.session.execute("DROP TABLE if exists %s.arrays_numpies;" % self.keyspace)
+        self.session.execute("CREATE TABLE %s.arrays(partid int PRIMARY KEY, image numpy_meta);" % self.keyspace)
+        self.session.execute("CREATE TABLE %s.arrays_numpies(storage_id uuid, attr_name text, cluster_id int, "
+                             "block_id int, payload blob,PRIMARY KEY((storage_id,attr_name,cluster_id),block_id));" % self.keyspace)
 
-        self.session.execute("CREATE TABLE test.arrays_aux(uuid uuid,  position int, data blob, PRIMARY KEY (uuid,position));")
+        storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self.keyspace + '.' + table)
 
+        time.sleep(5)
 
-        time.sleep(1)
-
-        a = Hcache("test", table, "WHERE token(partid)>=? AND token(partid)<?;",
-                   [], ["partid"],[{"name": "image",
-                                     "type": "double",
-                                     "dims": txt_elem_dim + 'x' + txt_elem_dim,
-                                     "partition": "true",
-                                     "npy_table": "arrays_aux"}], {})
+        a = Hcache(self.keyspace, table, storage_id, [], ["partid"], [{"name": "image", "type": "numpy"}], {})
 
 
         bigarr = np.arange(pow(elem_dim, 2)).reshape(elem_dim, elem_dim)
@@ -229,9 +219,8 @@ class Hfetch_Tests(unittest.TestCase):
         print '2D, elem dimension: ', elem_dim
 
         time.sleep(3)
-        self.session.execute("DROP TABLE test.arrays;")
-        self.session.execute("DROP TABLE test.arrays_aux;")
-
+        self.session.execute("DROP TABLE %s.arrays;" % self.keyspace)
+        self.session.execute("DROP TABLE %s.arrays_numpies;" % self.keyspace)
 
     def test_arr_put_get(self):
         from hfetch import connectCassandra
@@ -244,8 +233,8 @@ class Hfetch_Tests(unittest.TestCase):
         
         '''''''''
         dims = 2
-        elem_dim = 2048
-        txt_elem_dim = str(elem_dim)
+        elem_dim = 128
+        table = "arrays"
 
         print 'Dimensions: ', dims, ' Element in each dim: ', elem_dim
         try:
@@ -254,16 +243,16 @@ class Hfetch_Tests(unittest.TestCase):
             print e
             print 'can\'t connect, verify the contact points and port', self.contact_names, self.nodePort
 
-        table = "arrays"
 
-        self.session.execute("DROP TABLE if exists test.arrays;")
-        self.session.execute("CREATE TABLE test.arrays(partid int , image_block blob, image_block_pos int, PRIMARY KEY(partid,image_block_pos));")
+        self.session.execute("DROP TABLE if exists %s.arrays;" % self.keyspace)
+        self.session.execute("DROP TABLE if exists %s.arrays_numpies;" % self.keyspace)
+        self.session.execute("CREATE TABLE %s.arrays(partid int PRIMARY KEY, image numpy_meta);" % self.keyspace)
+        self.session.execute("CREATE TABLE %s.arrays_numpies(storage_id uuid, attr_name text, cluster_id int, "
+                             "block_id int, payload blob,PRIMARY KEY((storage_id,attr_name,cluster_id),block_id));" % self.keyspace)
 
-        time.sleep(3)
-        a = Hcache("test", table, "WHERE token(partid)>=? AND token(partid)<?;",
-                   [], ["partid"], [
-                       {"name": "image_block", "type": "double", "dims": txt_elem_dim + 'x' + txt_elem_dim,
-                        "partition": "true"}, "image_block_pos"], {})
+        storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self.keyspace + '.' + table)
+        time.sleep(5)
+        a = Hcache(self.keyspace, table, storage_id, [], ["partid"], [{"name": "image", "type": "numpy"}], {})
 
         bigarr = np.arange(pow(elem_dim, dims)).reshape(elem_dim, elem_dim)
         bigarr.itemset(0, 14.0)
@@ -279,10 +268,11 @@ class Hfetch_Tests(unittest.TestCase):
         try:
             result = a.get_row([300])
             resarr = result[0]
-            print "And the result is... ", resarr.reshape((2048, 2048))
+            print "And the result is... ", resarr.reshape((elem_dim, elem_dim))
             print 'Elapsed time', time.time() - t1
             print '2D, elem dimension: ', elem_dim
         except KeyError:
             print 'not found'
 
-        self.session.execute("DROP TABLE test.arrays;")
+        self.session.execute("DROP TABLE %s.arrays;" % self.keyspace)
+        self.session.execute("DROP TABLE %s.arrays_numpies;" % self.keyspace)

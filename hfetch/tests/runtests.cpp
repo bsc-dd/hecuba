@@ -796,6 +796,85 @@ TEST(TestingCacheTable, StoreNullBulkText) {
 
 
 
+TEST(TestingCacheTable, StoreNumpies) {
+
+    /** CONNECT **/
+    CassSession *test_session = NULL;
+    CassCluster *test_cluster = NULL;
+
+    CassFuture *connect_future = NULL;
+    test_cluster = cass_cluster_new();
+    test_session = cass_session_new();
+
+    cass_cluster_set_contact_points(test_cluster, contact_p);
+    cass_cluster_set_port(test_cluster, nodePort);
+
+    connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
+
+
+    CassError rc = cass_future_error_code(connect_future);
+    EXPECT_TRUE(rc == CASS_OK);
+
+    cass_future_free(connect_future);
+
+
+//partid int,time float,x float,y float,z float, PRIMARY KEY(partid,time)
+
+    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "uuid"}},{{"name","position"}}};
+    std::vector< std::map<std::string,std::string> > colsnames = {{{"name", "data"}}};
+
+    std::vector<std::pair<int64_t, int64_t> > tokens = {};
+
+    std::map <std::string, std::string> config;
+    config["writer_par"] = "4";
+    config["writer_buffer"] = "20";
+    config["cache_size"] = "10";
+
+
+//    fireandforget("CREATE TABLE test.arrays_aux(uuid uuid,  position int, data blob, PRIMARY KEY (uuid,position));", test_session);
+    TableMetadata* table_meta = new TableMetadata("arrays_aux",keyspace,keysnames,colsnames,test_session);
+
+    CacheTable* cache = new CacheTable(table_meta, test_session, config);
+
+    char *buffer = (char *) malloc(sizeof(uint64_t *) + sizeof(int)); //keys
+    uint64_t *uuid = (uint64_t*) malloc(sizeof(uint64_t)*2);
+    *uuid=123;
+    *(uuid+1)=456;
+
+    memcpy(buffer, &uuid, sizeof(uint64_t *));
+    int32_t k2 = 789;
+    memcpy(buffer + sizeof(uint64_t*), &k2, sizeof(int));
+
+    std::string txtbytes = "somerandombytes";
+    uint64_t nbytes = strlen(txtbytes.c_str());
+
+    char *bytes = (char *) malloc(nbytes + sizeof(uint64_t));
+    char *buffer2 = (char *) malloc(sizeof(char *)); //values
+    memcpy(buffer2, &bytes, sizeof(char *));
+
+    memcpy(bytes, &nbytes, sizeof(uint64_t));
+    bytes += sizeof(uint64_t);
+    memcpy(bytes, txtbytes.c_str(), nbytes);
+
+    TupleRow *keys = new TupleRow(table_meta->get_keys(), sizeof(uint64_t *) + sizeof(int), buffer);
+    TupleRow *values = new TupleRow(table_meta->get_values(), sizeof(char *), buffer2);
+
+    cache->put_crow(keys, values);
+    delete (keys);
+    delete (values);
+
+    delete(cache);
+
+
+    CassFuture *close_future = cass_session_close(test_session);
+    cass_future_wait(close_future);
+    cass_future_free(close_future);
+
+    cass_cluster_free(test_cluster);
+    cass_session_free(test_session);
+}
+
+
 
 
 TEST(TestingCacheTable, ReadNull) {
