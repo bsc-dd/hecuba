@@ -451,14 +451,11 @@ class StorageObj(object, IStorage):
         elif hasattr(self, '_is_persistent') and self._is_persistent and key in self._persistent_attrs:
             query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, key)
             query += " VALUES (%s,%s)"
-            storageid = self._storage_id
-            if not self._storage_id.__class__.__name__ == 'UUID':
-                storageid = uuid.UUID(self._storage_id)
             if issubclass(value.__class__, IStorage):
-                values = [storageid, value._storage_id]
+                values = [self._storage_id, value._storage_id]
                 object.__setattr__(self, key, value)
             else:
-                values = [storageid, value]
+                values = [self._storage_id, value]
             log.debug("SETATTR: ", query)
             config.session.execute(query, values)
         else:
