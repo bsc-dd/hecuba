@@ -25,6 +25,7 @@
 
 
 #include "ModuleException.h"
+#include "SpaceFillingCurve.h"
 
 
 struct ColumnMeta {

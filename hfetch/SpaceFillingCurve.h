@@ -26,9 +26,9 @@ struct ArrayMetadata {
 
 
 
-class ArrayPartitioner {
+class SpaceFillingCurve {
 public:
-    virtual ~ArrayPartitioner() {};
+    virtual ~SpaceFillingCurve() {};
 
     virtual std::vector<Partition> make_partitions(const ArrayMetadata *metas, void* data) const;
 
@@ -37,7 +37,7 @@ public:
 };
 
 
-class ZorderPartitioner:public ArrayPartitioner {
+class ZorderCurve:public SpaceFillingCurve {
     std::vector<Partition> make_partitions(const ArrayMetadata *metas, void* data) const;
 
     virtual void* merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks) const;

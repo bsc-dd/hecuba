@@ -1,7 +1,7 @@
 #include "NumpyStorage.h"
 
 
-NumpyStorage::NumpyStorage(std::string table, std::string keyspace, std::shared_ptr<StorageInterface> storage, ArrayPartitioner &algorithm) {
+NumpyStorage::NumpyStorage(std::string table, std::string keyspace, std::shared_ptr<StorageInterface> storage, SpaceFillingCurve &algorithm) {
 
     std::vector< std::map<std::string,std::string> > keysnames = {
             {{"name", "storage_id"}},{{"name","attr_name"}},

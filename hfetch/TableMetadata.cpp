@@ -1,5 +1,4 @@
 #include "TableMetadata.h"
-#include "ArrayPartitioner.h"
 
 /***
  * Returns the allocation number of bytes required to allocate a type of data

@@ -1,5 +1,4 @@
 #include "TupleRowFactory.h"
-#include "ArrayPartitioner.h"
 
 /***
  * Builds a tuple factory to retrieve tuples based on rows and keys

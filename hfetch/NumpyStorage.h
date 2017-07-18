@@ -2,7 +2,7 @@
 #define HFETCH_NUMPYSTORAGE_H
 
 #include "StorageInterface.h"
-#include "ArrayPartitioner.h"
+#include "SpaceFillingCurve.h"
 
 
 #include <python2.7/Python.h>
@@ -21,7 +21,7 @@ class NumpyStorage {
 
 public:
 
-    NumpyStorage(std::string table, std::string keyspace, std::shared_ptr<StorageInterface> storage, ArrayPartitioner &algorithm);
+    NumpyStorage(std::string table, std::string keyspace, std::shared_ptr<StorageInterface> storage, SpaceFillingCurve &algorithm);
 
     ~NumpyStorage();
     const ArrayMetadata* store(std::string attr_name, const CassUuid &storage_id, PyArrayObject* numpy) const;
@@ -35,7 +35,7 @@ private:
     std::shared_ptr<StorageInterface> storage;
     Writer *writer;
 
-    ArrayPartitioner partitioner;
+    SpaceFillingCurve partitioner;
 
 };
 

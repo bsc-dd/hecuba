@@ -1,5 +1,4 @@
 #include "TupleRow.h"
-#include "ArrayPartitioner.h"
 
 
 TupleRow::TupleRow(std::shared_ptr<const std::vector<ColumnMeta>> metas,

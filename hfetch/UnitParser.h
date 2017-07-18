@@ -169,7 +169,7 @@ public:
     virtual PyObject* c_to_py(const void* payload) const;
 
     inline void setStorage(std::shared_ptr<StorageInterface> storage) {
-        ArrayPartitioner algorithm = ArrayPartitioner();
+        SpaceFillingCurve algorithm = ZorderCurve();
         np_storage = new NumpyStorage(table,keyspace,storage, algorithm);
     }
 
