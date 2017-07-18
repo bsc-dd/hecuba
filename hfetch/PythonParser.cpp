@@ -6,34 +6,34 @@ PythonParser::PythonParser(std::shared_ptr<StorageInterface> storage, std::share
     this->parsers = std::vector<UnitParser*>(metadatas->size());
     uint32_t meta_i = 0;
     for (const ColumnMeta CM : *metadatas) {
-        if (CM.type && CASS_VALUE_TYPE_INT) {
+        if (CM.type == CASS_VALUE_TYPE_INT) {
             parsers[meta_i] = new Int32Parser(CM);
         }
-        else if (CM.type && (CASS_VALUE_TYPE_BIGINT || CASS_VALUE_TYPE_BIGINT )) {
+        else if (CM.type == CASS_VALUE_TYPE_BIGINT || CM.type == CASS_VALUE_TYPE_VARINT) {
             parsers[meta_i] = new Int64Parser(CM);
         }
-        else if (CM.type && CASS_VALUE_TYPE_BOOLEAN) {
+        else if (CM.type == CASS_VALUE_TYPE_BOOLEAN) {
             parsers[meta_i] = new BoolParser(CM);
         }
-        else if (CM.type && (CASS_VALUE_TYPE_TEXT || CASS_VALUE_TYPE_VARCHAR ||  CASS_VALUE_TYPE_ASCII)) {
+        else if (CM.type == CASS_VALUE_TYPE_TEXT || CM.type == CASS_VALUE_TYPE_VARCHAR || CM.type ==  CASS_VALUE_TYPE_ASCII) {
             parsers[meta_i] = new TextParser(CM);
         }
-        else if (CM.type && CASS_VALUE_TYPE_BLOB) {
+        else if (CM.type == CASS_VALUE_TYPE_BLOB) {
             parsers[meta_i] = new BytesParser(CM);
         }
-        else if (CM.type && (CASS_VALUE_TYPE_DOUBLE||CASS_VALUE_TYPE_FLOAT)) {
+        else if (CM.type == CASS_VALUE_TYPE_DOUBLE || CM.type == CASS_VALUE_TYPE_FLOAT) {
             parsers[meta_i] = new DoubleParser(CM);
         }
-        else if (CM.type && CASS_VALUE_TYPE_UUID) {
+        else if (CM.type == CASS_VALUE_TYPE_UUID) {
             parsers[meta_i] = new UuidParser(CM);
         }
-        else if (CM.type && CASS_VALUE_TYPE_SMALL_INT) {
+        else if (CM.type == CASS_VALUE_TYPE_SMALL_INT) {
             parsers[meta_i] = new Int16Parser(CM);
         }
-        else if (CM.type && CASS_VALUE_TYPE_TINY_INT) {
+        else if (CM.type == CASS_VALUE_TYPE_TINY_INT) {
             parsers[meta_i] = new Int8Parser(CM);
         }
-        else if (CM.info.find("table") != CM.info.end()) {
+        else if (CM.type == CASS_VALUE_TYPE_UDT && CM.info.find("table") != CM.info.end()) {
             NumpyParser *NP = new NumpyParser(CM);
             NP->setStorage(storage);
             parsers[meta_i] = NP;
