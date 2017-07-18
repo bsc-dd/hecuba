@@ -293,11 +293,16 @@ int16_t UuidParser::py_to_c(PyObject *obj, void *payload) const {
 }
 
 PyObject *UuidParser::c_to_py(const void *payload) const {
-    if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to txtptr, found NULL");
-    int64_t *addr = (int64_t *) ((char *) payload);
-    char *d = reinterpret_cast<char *>(*addr);
-    if (d == nullptr) throw ModuleException("Error parsing from C to Py, expected ptr to text, found NULL");
-    return PyUnicode_FromString(d);
+    char **data = (char **) payload;
+    char *it = *data;
+
+    if (it == nullptr) throw ModuleException("Error parsing from C to Py, expected ptr to UUID bits, found NULL");
+    char final[CASS_UUID_STRING_LENGTH];
+
+    //trick to transform the data back, since it was parsed using the cassandra generator
+    CassUuid uuid = {*((uint64_t *) it), *((uint64_t *) it + 1)};
+    cass_uuid_string(uuid, final);
+    return PyString_FromString(final);
 }
 
 
