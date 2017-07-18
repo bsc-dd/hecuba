@@ -169,6 +169,7 @@ class StorageDict(dict, IStorage):
     _dict_case = re.compile('.*@TypeSpec + *< *< *([\w:, ]+)+ *> *, *([\w+:., <>]+) *>')
     _tuple_case = re.compile('.*@TypeSpec +(\w+) +tuple+ *< *([\w, +]+) *>')
     _index_vars = re.compile('.*@Index_on *([A-z0-9, ]+)')
+    _other_case = re.compile(' *(\w+) *< *([\w, +]+) *>')
 
     @classmethod
     def _parse_comments(self, comments):
@@ -359,8 +360,7 @@ class StorageDict(dict, IStorage):
 
         columns = map(lambda a: a, self._primary_keys + self._columns)
         for ind, entry in enumerate(columns):
-            _tuple_case = re.compile('.*(\w+) *< *([\w, +]+) *>')
-            n = _tuple_case.match(entry[1])
+            n = StorageDict._other_case.match(entry[1])
             if n is not None:
                 iter_type, intra_type = n.groups()
             else:
