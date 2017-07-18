@@ -492,7 +492,6 @@ static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
         self->P = storage->get_iterator(table, keyspace, keys_names, columns_names, self->token_ranges, config);
         if (self->P->get_type() == "items") {
             self->rowParser = new PythonParser(storage, self->P->get_metadata()->get_items());
-            std::cout << "items" << std::endl;
         }
         else if (self->P->get_type() == "values")
             self->rowParser = new PythonParser(storage, self->P->get_metadata()->get_values());
