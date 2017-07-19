@@ -172,9 +172,8 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     const char *table, *keyspace;
     PyObject *py_tokens, *py_keys_names, *py_cols_names, *py_config, *py_storage_id;
 
-    if (!PyArg_ParseTuple(args, "ssOOOOO", &keyspace, &table,
-                          &py_storage_id, &py_tokens, &py_keys_names, &py_cols_names,
-                          &py_config)) {
+    if (!PyArg_ParseTuple(args, "ssOOOOO", &keyspace, &table, &py_storage_id, &py_tokens,
+                          &py_keys_names, &py_cols_names, &py_config)) {
         return -1;
     };
 
@@ -182,14 +181,11 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     /** PARSE CONFIG **/
 
     std::map<std::string, std::string> config;
-    int type_check = PyDict_Check(py_config);
-    if (type_check) {
-        PyObject *dict;
-        if (!PyArg_Parse(py_config, "O", &dict)) {
-            return -1;
-        };
 
-        PyObject *key, *value;
+    if (PyDict_Check(py_config)) {
+        PyObject *dict, *key, *value;;
+        if (!PyArg_Parse(py_config, "O", &dict)) return -1;
+
         Py_ssize_t pos = 0;
         while (PyDict_Next(dict, &pos, &key, &value)) {
             std::string conf_key(PyString_AsString(key));
@@ -211,14 +207,11 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     uint16_t keys_size = (uint16_t) PyList_Size(py_keys_names);
     uint16_t cols_size = (uint16_t) PyList_Size(py_cols_names);
 
+    int64_t t_a, t_b;
     self->token_ranges = std::vector<std::pair<int64_t, int64_t >>(tokens_size);
     for (uint16_t i = 0; i < tokens_size; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_tokens, i);
-        int64_t t_a, t_b;
-        if (!PyArg_ParseTuple(obj_to_convert, "LL", &t_a, &t_b)) {
-            return -1;
-        };
-
+        if (!PyArg_ParseTuple(obj_to_convert, "LL", &t_a, &t_b)) return -1;
         self->token_ranges[i] = std::make_pair(t_a, t_b);
     }
 
@@ -245,17 +238,32 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
             };
             columns_names[i] = {{"name", std::string(str_temp)}};
         } else if (PyDict_Check(obj_to_convert)) {
-            //CASE NUMPY
             PyObject *dict;
             if (!PyArg_Parse(obj_to_convert, "O", &dict)) {
                 return -1;
             };
 
-            PyObject *py_name = PyDict_GetItem(dict, PyString_FromString("name"));
-            columns_names[i]["name"] = PyString_AsString(py_name);
-            columns_names[i]["table"] = std::string(table) + "_numpies";
-            columns_names[i]["keyspace"] = std::string(keyspace);
-            columns_names[i]["numpy"] = "true";
+            PyObject *key, *value;
+            Py_ssize_t pos = 0;
+            while (PyDict_Next(dict, &pos, &key, &value)) {
+                std::string conf_key(PyString_AsString(key));
+                if (PyString_Check(value)) {
+                    std::string conf_val(PyString_AsString(value));
+                    columns_names[i][conf_key] = conf_val;
+                    if (conf_key == "type" && conf_val == "numpy") {
+                        //CASE NUMPY
+                        columns_names[i]["table"] = std::string(table) + "_numpies";
+                        columns_names[i]["keyspace"] = std::string(keyspace);
+                        columns_names[i]["numpy"] = "true";
+                    }
+                }
+                if (PyInt_Check(value)) {
+                    int32_t c_val = (int32_t) PyInt_AsLong(value);
+                    columns_names[i][conf_key] = std::to_string(c_val);
+                }
+            }
+
+
             if (!PyByteArray_Check(py_storage_id)) {
                 //Object is UUID python class
                 uint32_t len = sizeof(uint64_t) * 2;
@@ -492,8 +500,7 @@ static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
         self->P = storage->get_iterator(table, keyspace, keys_names, columns_names, self->token_ranges, config);
         if (self->P->get_type() == "items") {
             self->rowParser = new PythonParser(storage, self->P->get_metadata()->get_items());
-        }
-        else if (self->P->get_type() == "values")
+        } else if (self->P->get_type() == "values")
             self->rowParser = new PythonParser(storage, self->P->get_metadata()->get_values());
         else self->rowParser = new PythonParser(storage, self->P->get_metadata()->get_keys());
     } catch (std::exception &e) {

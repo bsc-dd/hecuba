@@ -26,10 +26,13 @@ PythonParser::PythonParser(std::shared_ptr<StorageInterface> storage,
             parsers[meta_i] = new Int16Parser(CM);
         } else if (CM.type == CASS_VALUE_TYPE_TINY_INT) {
             parsers[meta_i] = new Int8Parser(CM);
-        } else if (CM.type == CASS_VALUE_TYPE_UDT && CM.info.find("table") != CM.info.end()) {
-            NumpyParser *NP = new NumpyParser(CM);
-            NP->setStorage(storage);
-            parsers[meta_i] = NP;
+        } else if (CM.type == CASS_VALUE_TYPE_UDT) {
+            std::map<std::string, std::string>::const_iterator it = CM.info.find("type");
+            if (it != CM.info.end() && it->second == "numpy") {
+                NumpyParser *NP = new NumpyParser(CM);
+                NP->setStorage(storage);
+                parsers[meta_i] = NP;
+            } else throw ModuleException("Support for UDT other than Numpy not implemented");
         } else parsers[meta_i] = new UnitParser(CM);
         ++meta_i;
     }
