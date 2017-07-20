@@ -172,9 +172,8 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     const char *table, *keyspace;
     PyObject *py_tokens, *py_keys_names, *py_cols_names, *py_config, *py_storage_id;
 
-    if (!PyArg_ParseTuple(args, "ssOOOOO", &keyspace, &table,
-                          &py_storage_id, &py_tokens, &py_keys_names, &py_cols_names,
-                          &py_config)) {
+    if (!PyArg_ParseTuple(args, "ssOOOOO", &keyspace, &table, &py_storage_id, &py_tokens,
+                          &py_keys_names, &py_cols_names, &py_config)) {
         return -1;
     };
 
@@ -182,14 +181,11 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     /** PARSE CONFIG **/
 
     std::map<std::string, std::string> config;
-    int type_check = PyDict_Check(py_config);
-    if (type_check) {
-        PyObject *dict;
-        if (!PyArg_Parse(py_config, "O", &dict)) {
-            return -1;
-        };
 
-        PyObject *key, *value;
+    if (PyDict_Check(py_config)) {
+        PyObject *dict, *key, *value;;
+        if (!PyArg_Parse(py_config, "O", &dict)) return -1;
+
         Py_ssize_t pos = 0;
         while (PyDict_Next(dict, &pos, &key, &value)) {
             std::string conf_key(PyString_AsString(key));
@@ -211,14 +207,11 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     uint16_t keys_size = (uint16_t) PyList_Size(py_keys_names);
     uint16_t cols_size = (uint16_t) PyList_Size(py_cols_names);
 
+    int64_t t_a, t_b;
     self->token_ranges = std::vector<std::pair<int64_t, int64_t >>(tokens_size);
     for (uint16_t i = 0; i < tokens_size; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_tokens, i);
-        int64_t t_a, t_b;
-        if (!PyArg_ParseTuple(obj_to_convert, "LL", &t_a, &t_b)) {
-            return -1;
-        };
-
+        if (!PyArg_ParseTuple(obj_to_convert, "LL", &t_a, &t_b)) return -1;
         self->token_ranges[i] = std::make_pair(t_a, t_b);
     }
 
@@ -245,7 +238,6 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
             };
             columns_names[i] = {{"name", std::string(str_temp)}};
         } else if (PyDict_Check(obj_to_convert)) {
-            //CASE NUMPY
             PyObject *dict;
             if (!PyArg_Parse(obj_to_convert, "O", &dict)) {
                 return -1;
@@ -253,12 +245,13 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
 
             PyObject *py_name = PyDict_GetItem(dict, PyString_FromString("name"));
             columns_names[i]["name"] = PyString_AsString(py_name);
-            PyObject *type;
-            if (type = PyDict_GetItem(dict, PyString_FromString("type"))) {
+            PyObject *type = PyDict_GetItem(dict, PyString_FromString("type"));
+            if (type) {
                 if (std::strcmp(PyString_AsString(type),"numpy_meta") == 0) {
                     columns_names[i]["table"] = std::string(table) + "_numpies";
                     columns_names[i]["keyspace"] = std::string(keyspace);
                     columns_names[i]["numpy"] = "true";
+                    columns_names[i]["type"] = "numpy_meta";
 
                     if (!PyByteArray_Check(py_storage_id)) {
                         //Object is UUID python class

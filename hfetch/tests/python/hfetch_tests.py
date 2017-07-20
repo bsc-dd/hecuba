@@ -829,7 +829,7 @@ class Hfetch_Tests(unittest.TestCase):
         a = Hcache(self.keyspace, table, "WHERE token(partid)>=? AND token(partid)<?;", tkns, keys,
                    values, {self.keyspace: '100', 'writer_buffer': 20})
 
-        writer = HWriter("test", table_write, keys, values, {'writer_buffer': 20})
+        writer = HWriter(self.keyspace, table_write, keys, values, {'writer_buffer': 20})
 
         def readAll(iter, wr):
             count = 1
