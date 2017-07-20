@@ -80,8 +80,8 @@ class StorageObjSplitTest(unittest.TestCase):
 
     def test_simple_iterkeys_split_fromSO_test(self):
         tablename = "tab31"
-        config.session.execute("DROP TABLE IF EXISTS myapp." + tablename)
-        config.session.execute("DROP TABLE IF EXISTS myapp." + tablename + "_words")
+        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + "_words")
         sto = TestSimple(tablename)
         pd = sto.words
         num_inserts = 1000
@@ -109,8 +109,8 @@ class StorageObjSplitTest(unittest.TestCase):
 
     def test_build_remotely_iterkeys_split_fromSO_test(self):
         tablename = "tab32"
-        config.session.execute("DROP TABLE IF EXISTS myapp." + tablename)
-        config.session.execute("DROP TABLE IF EXISTS myapp." + tablename + "_words")
+        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + "_words")
         sto = TestSimple(tablename)
         pd = sto.words
         num_inserts = 1000
@@ -141,8 +141,8 @@ class StorageObjSplitTest(unittest.TestCase):
 
     def test_split_with_different_storage_ids(self):
         tablename = "tab32"
-        config.session.execute("DROP TABLE IF EXISTS myapp." + tablename)
-        config.session.execute("DROP TABLE IF EXISTS myapp." + tablename + "_words")
+        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + "_words")
         sto = TestSimple(tablename)
         pd = sto.words
 

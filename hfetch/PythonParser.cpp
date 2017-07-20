@@ -28,7 +28,7 @@ PythonParser::PythonParser(std::shared_ptr<StorageInterface> storage,
             parsers[meta_i] = new Int8Parser(CM);
         } else if (CM.type == CASS_VALUE_TYPE_UDT) {
             std::map<std::string, std::string>::const_iterator it = CM.info.find("type");
-            if (it != CM.info.end() && it->second == "numpy") {
+            if (it != CM.info.end() && it->second == "numpy_meta") {
                 NumpyParser *NP = new NumpyParser(CM);
                 NP->setStorage(storage);
                 parsers[meta_i] = NP;
