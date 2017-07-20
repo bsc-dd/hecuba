@@ -153,7 +153,7 @@ int16_t DoubleParser::py_to_c(PyObject *obj, void *payload) const {
         memcpy(payload, &t, sizeof(t));
     } else {
         double t;
-        if (!PyArg_Parse(obj, Py_FLOAT, &t)) error_parsing("PyDouble as Double", obj);
+        if (!PyArg_Parse(obj, Py_DOUBLE, &t)) error_parsing("PyDouble as Double", obj);
         memcpy(payload, &t, sizeof(t));
     }
     return 0;
