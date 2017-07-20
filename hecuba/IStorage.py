@@ -12,7 +12,7 @@ class IStorage:
     _build_args = args()
 
     _valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map', 'bigint', 'blob',
-                    'tuple', 'dict', 'float']
+                    'tuple', 'dict', 'float', 'numpy_meta']
 
     _hecuba_valid_types = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer' \
                           '|numpy.ndarray|counter)'
@@ -41,7 +41,8 @@ class IStorage:
                     'long': 'bigint',
                     'buffer': 'blob',
                     'bytearray': 'blob',
-                    'counter': 'counter'}
+                    'counter': 'counter',
+                    'numpy.ndarray': 'numpy_meta'}
 
     @staticmethod
     def process_path(module_path):

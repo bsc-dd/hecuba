@@ -7,6 +7,7 @@ from hecuba import config
 from hecuba.storageobj import StorageObj
 import cassandra
 from storage.api import getByID
+import numpy as np
 
 
 class Result(StorageObj):
@@ -75,6 +76,21 @@ class Test6StorageObj(StorageObj):
        @ClassField test3 dict<<int>,str,str>
     '''
     pass
+
+
+class TestStorageObjNumpy(StorageObj):
+    '''
+       @ClassField mynumpy numpy.ndarray
+    '''
+    pass
+
+
+class TestStorageObjNumpyDict(StorageObj):
+    '''
+       @ClassField mynumpydict dict<<int>,numpy.ndarray>
+    '''
+    pass
+
 
 class mixObj(StorageObj):
    '''
@@ -238,8 +254,11 @@ class StorageObjTest(unittest.TestCase):
 
         nopars2 = Test6StorageObj("hecuba_test.nonames")
         nopars2.test3[0] = '1', '2'
+        time.sleep(2)
         result = config.session.execute("SELECT val0, val1 FROM hecuba_test.nonames_test3 WHERE key0 = 0")
 
+        rval0 = None
+        rval1 = None
         for row in result:
             rval0 = row.val0
             rval1 = row.val1
@@ -586,6 +605,71 @@ class StorageObjTest(unittest.TestCase):
 
         self.assertEquals('Link', my_nested_so2.test2.myso.name)
         self.assertEquals(10, my_nested_so2.test2.myso.age)
+
+    def test_numpy_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy_numpies")
+        my_so = TestStorageObjNumpy('mynewso')
+
+    def test_numpy_set(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy_numpies")
+        my_so = TestStorageObjNumpy()
+        my_so.mynumpy = np.random.rand(3, 2)
+        my_so.make_persistent('mynewso')
+
+    def test_numpy_get(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy_numpies")
+        my_so = TestStorageObjNumpy('mynewso')
+        mynumpy = np.random.rand(3, 2)
+        my_so.mynumpy = mynumpy
+        import time
+        time.sleep(2)
+        self.assertTrue(np.array_equal([mynumpy], my_so.mynumpy))
+
+    def test_numpy_topersistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy_numpies")
+        my_so = TestStorageObjNumpy()
+        my_so.mynumpy = np.random.rand(3, 2)
+        my_so.make_persistent('mynewso')
+
+    def test_numpydict_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpydict")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpydict_numpies")
+        my_so = TestStorageObjNumpyDict('mynewso')
+
+    def test_numpydict_set(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpydict")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpydict_numpies")
+        my_so = TestStorageObjNumpyDict('mynewso')
+        my_so.mynumpydict[0] = np.random.rand(3, 2)
+
+    def test_numpydict_to_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpydict")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpydict_numpies")
+        my_so = TestStorageObjNumpyDict()
+        my_so.mynumpydict[0] = np.random.rand(3, 2)
+        my_so.make_persistent('mynewso')
+
+    def test_numpydict_get(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpydict")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpydict_numpies")
+        my_so = TestStorageObjNumpyDict('mynewso')
+        mynumpydict = np.random.rand(3, 2)
+        my_so.mynumpydict[0] = mynumpydict
+        import time
+        time.sleep(2)
+        self.assertTrue(np.array_equal(mynumpydict, my_so.mynumpydict[0]))
 
 
 if __name__ == '__main__':

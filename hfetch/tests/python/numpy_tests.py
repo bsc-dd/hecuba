@@ -51,7 +51,7 @@ class Hfetch_Tests(unittest.TestCase):
 
         storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self.keyspace + '.' + table)
         time.sleep(5)
-        a = Hcache(self.keyspace, table, storage_id, [], ["partid"], [{"name": "image", "type": "numpy"}], {})
+        a = Hcache(self.keyspace, table, storage_id, [], ["partid"], [{"name": "image", "type": "numpy_meta"}], {})
 
         #prepare data
         bigarr = np.arange(pow(elem_dim, dims)).reshape(elem_dim, elem_dim, elem_dim)
@@ -108,7 +108,7 @@ class Hfetch_Tests(unittest.TestCase):
 
         storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self.keyspace + '.' + table)
         time.sleep(5)
-        a = Hcache(self.keyspace, table, storage_id, [], ["partid"], [{"name": "image", "type": "numpy"}], {})
+        a = Hcache(self.keyspace, table, storage_id, [], ["partid"], [{"name": "image", "type": "numpy_meta"}], {})
 
         keys = [300]
         bigarr = np.arange(pow(elem_dim, dims)).reshape(elem_dim, elem_dim)
@@ -154,7 +154,7 @@ class Hfetch_Tests(unittest.TestCase):
 
         time.sleep(5)
         a = Hcache(self.keyspace, table, storage_id, [(-8070430489100700000, 8070450532247928832)],
-                   ["partid"], [{"name": "image", "type": "numpy"}], {})
+                   ["partid"], [{"name": "image", "type": "numpy_meta"}], {})
 
         keys = [300]
         bigarr = np.arange(pow(elem_dim, dims)).reshape(elem_dim, elem_dim)
@@ -204,7 +204,7 @@ class Hfetch_Tests(unittest.TestCase):
 
         time.sleep(5)
 
-        a = Hcache(self.keyspace, table, storage_id, [], ["partid"], [{"name": "image", "type": "numpy"}], {})
+        a = Hcache(self.keyspace, table, storage_id, [], ["partid"], [{"name": "image", "type": "numpy_meta"}], {})
 
 
         bigarr = np.arange(pow(elem_dim, 2)).reshape(elem_dim, elem_dim)
@@ -252,7 +252,7 @@ class Hfetch_Tests(unittest.TestCase):
 
         storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self.keyspace + '.' + table)
         time.sleep(5)
-        a = Hcache(self.keyspace, table, storage_id, [], ["partid"], [{"name": "image", "type": "numpy"}], {})
+        a = Hcache(self.keyspace, table, storage_id, [], ["partid"], [{"name": "image", "type": "numpy_meta"}], {})
 
         bigarr = np.arange(pow(elem_dim, dims)).reshape(elem_dim, elem_dim)
         bigarr.itemset(0, 14.0)

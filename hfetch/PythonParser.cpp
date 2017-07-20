@@ -26,7 +26,7 @@ PythonParser::PythonParser(std::shared_ptr<StorageInterface> storage,
             parsers[meta_i] = new Int16Parser(CM);
         } else if (CM.type == CASS_VALUE_TYPE_TINY_INT) {
             parsers[meta_i] = new Int8Parser(CM);
-        } else if (CM.type == CASS_VALUE_TYPE_UDT && CM.info.find("table") != CM.info.end()) {
+        } else if (CM.type == CASS_VALUE_TYPE_UDT && CM.info.find("numpy") != CM.info.end()) {
             NumpyParser *NP = new NumpyParser(CM);
             NP->setStorage(storage);
             parsers[meta_i] = NP;

@@ -7,7 +7,7 @@ from IStorage import IStorage
 from hecuba import config, log
 import uuid
 import re
-
+import numpy as np
 
 class NamedIterator:
     def __init__(self, hiterator, builder, father):
@@ -313,7 +313,7 @@ class StorageDict(dict, IStorage):
 
     @staticmethod
     def _make_value(value):
-        if isinstance(value, str) or not isinstance(value, Iterable):
+        if isinstance(value, str) or not isinstance(value, Iterable) or isinstance(value, np.ndarray):
             return [value]
         elif isinstance(value, unicode):
             return [value.encode('ascii', 'ignore')]
@@ -387,9 +387,21 @@ class StorageDict(dict, IStorage):
         key_names = map(lambda a: a[0].encode('UTF8'), self._primary_keys)
         column_names = map(lambda a: a[0].encode('UTF8'), self._columns)
 
+        config.session.execute('CREATE TYPE IF NOT EXISTS ' + self._ksp + '.numpy_meta('
+                                                                          'dims frozen<list<int>>,'
+                                                                          'type int,'
+                                                                          'type_size int);')
+        config.session.execute('CREATE TABLE IF NOT EXISTS ' +
+                               str(self._ksp) + '.' + str(self._table) + '_' + 'numpies'
+                               '( storage_id uuid , '
+                               'attr_name text, '
+                               'cluster_id int, '
+                               'block_id int, '
+                               'payload blob, '
+                               'PRIMARY KEY((storage_id,attr_name,cluster_id),block_id))')
         self._hcache_params = (self._ksp, self._table,
                                self._storage_id,
-                               self._tokens, key_names, column_names,
+                               self._tokens, key_names, map(lambda x: {"name": x[0], "type": x[1]}, self._columns),
                                {'cache_size': config.max_cache_size,
                                 'writer_par': config.write_callbacks_number,
                                 'write_buffer': config.write_buffer_size})

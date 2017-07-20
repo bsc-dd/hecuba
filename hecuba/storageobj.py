@@ -4,6 +4,8 @@ import re
 from IStorage import IStorage
 from hdict import StorageDict
 from hecuba import config, log
+import numpy as np
+from hfetch import Hcache
 
 
 class StorageObj(object, IStorage):
@@ -71,6 +73,9 @@ class StorageObj(object, IStorage):
                 istorage_props dict(string,string) a map with the storage id of each contained istorage object.
         """
         log.debug("CREATED StorageObj(%s)", name)
+        self._storageobj_caches = []
+        self._attribute_caches_params = {}
+        self._attribute_caches = {}
         self._is_persistent = False
         self._persistent_dicts = []
         self._storage_objs = []
@@ -327,14 +332,38 @@ class StorageObj(object, IStorage):
                        '( storage_id uuid PRIMARY KEY, '
         for key, entry in self._persistent_props.iteritems():
             query_simple += str(key) + ' '
+            if (entry['type'] == 'numpy_meta'):
+                config.session.execute('CREATE TYPE IF NOT EXISTS ' + self._ksp + '.numpy_meta('
+                                       'dims frozen<list<int>>,'
+                                       'type int,'
+                                       'type_size int);')
+                config.session.execute('CREATE TABLE IF NOT EXISTS ' + str(self._ksp) + '.' + str(self._table) + '_' + 'numpies'
+                                       '( storage_id uuid , '
+                                       'attr_name text, '
+                                       'cluster_id int, '
+                                       'block_id int, '
+                                       'payload blob, '
+                                       'PRIMARY KEY((storage_id,attr_name,cluster_id),block_id))')
+
+                self._attribute_caches_params[key] = (self._ksp, self._table,
+                                                      self._storage_id,
+                                                      self._tokens, ['storage_id'], [{'name': key, 'type': 'numpy_meta'}],
+                                                      {'cache_size': config.max_cache_size,
+                                                       'writer_par': config.write_callbacks_number,
+                                                       'write_buffer': config.write_buffer_size})
+                self._storageobj_caches.append(key)
+
             if entry['type'] != 'dict' and entry['type'] in IStorage._valid_types:
                 if entry['type'] == 'list' or entry['type'] == 'tuple':
-                    query_simple += entry['type'] + '<' + entry['columns'] +  '>, '
+                    query_simple += entry['type'] + '<' + entry['columns'] + '>, '
                 else:
                     query_simple += entry['type'] + ', '
             else:
                 query_simple += 'uuid, '
         config.session.execute(query_simple[0:len(query_simple) - 2] + ' )')
+
+        for key, val in self._attribute_caches_params.iteritems():
+            self._attribute_caches[key] = Hcache(*val)
 
         dictionaries = filter(lambda (k, t): t['type'] == 'dict', self._persistent_props.iteritems())
         is_props = self._build_args.istorage_props
@@ -403,6 +432,13 @@ class StorageObj(object, IStorage):
         log.debug("DELETE PERSISTENT: %s", query)
         config.session.execute(query)
 
+    def _make_key(self, key):
+        return [key]
+
+    @staticmethod
+    def _make_value(value):
+        return [value]
+
     def __getattr__(self, key):
         """
             Given a key, this function reads the configuration table in order to know if the attribute can be found:
@@ -414,26 +450,34 @@ class StorageObj(object, IStorage):
                 value: obtained value
         """
         if key[0] != '_' and self._is_persistent and key in self._persistent_attrs:
-            try:
-                query = "SELECT %s FROM %s.%s WHERE storage_id = %s;" \
-                        % (key, self._ksp,
-                           self._table,
-                           self._storage_id)
-                log.debug("GETATTR: %s", query)
-                result = config.session.execute(query)
-                for row in result:
-                    for row_key, row_var in vars(row).iteritems():
-                        if row_var is not None:
-                            if row_var.__class__.__name__ == 'list' and row_var[0].__class__.__name__ == 'unicode':
-                                new_toreturn = []
-                                for entry in row_var:
-                                    new_toreturn.append(str(entry))
-                                return new_toreturn
-                            else:
-                                return row_var
-            except Exception as ex:
-                log.warn("GETATTR ex %s", ex)
-                raise KeyError('value not found')
+            if key in self._attribute_caches:
+                try:
+                    cres = self._attribute_caches[key].get_row(self._make_key(self._storage_id))
+                    return cres
+                except Exception as ex:
+                    log.warn("GETATTR of a numpy ex %s", ex)
+                    raise KeyError('value not found')
+            else:
+                try:
+                    query = "SELECT %s FROM %s.%s WHERE storage_id = %s;" \
+                            % (key, self._ksp,
+                               self._table,
+                               self._storage_id)
+                    log.debug("GETATTR: %s", query)
+                    result = config.session.execute(query)
+                    for row in result:
+                        for row_key, row_var in vars(row).iteritems():
+                            if row_var is not None:
+                                if row_var.__class__.__name__ == 'list' and row_var[0].__class__.__name__ == 'unicode':
+                                    new_toreturn = []
+                                    for entry in row_var:
+                                        new_toreturn.append(str(entry))
+                                    return new_toreturn
+                                else:
+                                    return row_var
+                except Exception as ex:
+                    log.warn("GETATTR ex %s", ex)
+                    raise KeyError('value not found')
         else:
             return object.__getattribute__(self, key)
 
@@ -449,14 +493,17 @@ class StorageObj(object, IStorage):
         if key[0] is '_':
             object.__setattr__(self, key, value)
         elif hasattr(self, '_is_persistent') and self._is_persistent and key in self._persistent_attrs:
-            query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, key)
-            query += " VALUES (%s,%s)"
-            if issubclass(value.__class__, IStorage):
-                values = [self._storage_id, value._storage_id]
-                object.__setattr__(self, key, value)
+            if type(value) == np.ndarray:
+                self._attribute_caches[key].put_row(self._make_key(self._storage_id), self._make_value(value))
             else:
-                values = [self._storage_id, value]
-            log.debug("SETATTR: ", query)
-            config.session.execute(query, values)
+                query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, key)
+                query += " VALUES (%s,%s)"
+                if issubclass(value.__class__, IStorage):
+                    values = [self._storage_id, value._storage_id]
+                    object.__setattr__(self, key, value)
+                else:
+                    values = [self._storage_id, value]
+                log.debug("SETATTR: ", query)
+                config.session.execute(query, values)
         else:
             object.__setattr__(self, key, value)

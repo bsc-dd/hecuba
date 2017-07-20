@@ -253,52 +253,58 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
 
             PyObject *py_name = PyDict_GetItem(dict, PyString_FromString("name"));
             columns_names[i]["name"] = PyString_AsString(py_name);
-            columns_names[i]["table"] = std::string(table) + "_numpies";
-            columns_names[i]["keyspace"] = std::string(keyspace);
-            columns_names[i]["numpy"] = "true";
-            if (!PyByteArray_Check(py_storage_id)) {
-                //Object is UUID python class
-                uint32_t len = sizeof(uint64_t) * 2;
-                uint64_t *uuid = (uint64_t *) malloc(len);
+            PyObject *type;
+            if (type = PyDict_GetItem(dict, PyString_FromString("type"))) {
+                if (std::strcmp(PyString_AsString(type),"numpy_meta") == 0) {
+                    columns_names[i]["table"] = std::string(table) + "_numpies";
+                    columns_names[i]["keyspace"] = std::string(keyspace);
+                    columns_names[i]["numpy"] = "true";
 
-                PyObject *bytes = PyObject_GetAttrString(py_storage_id, "time_low"); //32b
-                if (!bytes) throw TypeErrorException("Error parsing python UUID");
+                    if (!PyByteArray_Check(py_storage_id)) {
+                        //Object is UUID python class
+                        uint32_t len = sizeof(uint64_t) * 2;
+                        uint64_t *uuid = (uint64_t *) malloc(len);
 
-                uint64_t time_low = (uint32_t) PyLong_AsLongLong(bytes);
+                        PyObject *bytes = PyObject_GetAttrString(py_storage_id, "time_low"); //32b
+                        if (!bytes) throw TypeErrorException("Error parsing python UUID");
 
-                bytes = PyObject_GetAttrString(py_storage_id, "time_mid"); //16b
-                uint64_t time_mid = (uint16_t) PyLong_AsLongLong(bytes);
+                        uint64_t time_low = (uint32_t) PyLong_AsLongLong(bytes);
 
-                bytes = PyObject_GetAttrString(py_storage_id, "time_hi_version"); //16b
-                uint64_t time_hi_version = (uint16_t) PyLong_AsLongLong(bytes);
+                        bytes = PyObject_GetAttrString(py_storage_id, "time_mid"); //16b
+                        uint64_t time_mid = (uint16_t) PyLong_AsLongLong(bytes);
 
-                *uuid = (time_hi_version << 48) + (time_mid << 32) + (time_low);
+                        bytes = PyObject_GetAttrString(py_storage_id, "time_hi_version"); //16b
+                        uint64_t time_hi_version = (uint16_t) PyLong_AsLongLong(bytes);
 
-                bytes = PyObject_GetAttrString(py_storage_id, "clock_seq_hi_variant"); //8b
-                uint64_t clock_seq_hi_variant = (uint64_t) PyLong_AsLongLong(bytes);
-                bytes = PyObject_GetAttrString(py_storage_id, "clock_seq_low"); //8b
-                uint64_t clock_seq_low = (uint64_t) PyLong_AsLongLong(bytes);
-                bytes = PyObject_GetAttrString(py_storage_id, "node"); //48b
+                        *uuid = (time_hi_version << 48) + (time_mid << 32) + (time_low);
+
+                        bytes = PyObject_GetAttrString(py_storage_id, "clock_seq_hi_variant"); //8b
+                        uint64_t clock_seq_hi_variant = (uint64_t) PyLong_AsLongLong(bytes);
+                        bytes = PyObject_GetAttrString(py_storage_id, "clock_seq_low"); //8b
+                        uint64_t clock_seq_low = (uint64_t) PyLong_AsLongLong(bytes);
+                        bytes = PyObject_GetAttrString(py_storage_id, "node"); //48b
 
 
-                *(uuid + 1) = (uint64_t) PyLong_AsLongLong(bytes);
-                *(uuid + 1) += clock_seq_hi_variant << 56;
-                *(uuid + 1) += clock_seq_low << 48;
+                        *(uuid + 1) = (uint64_t) PyLong_AsLongLong(bytes);
+                        *(uuid + 1) += clock_seq_hi_variant << 56;
+                        *(uuid + 1) += clock_seq_low << 48;
 
-                columns_names[i]["storage_id"] = std::string((char *) uuid, len);
-                free(uuid);
-            } else {
-                uint32_t len = sizeof(uint64_t) * 2;
-                uint32_t len_found = (uint32_t) PyByteArray_Size(py_storage_id);
-                if (len_found != len) {
-                    std::string error_msg = "UUID received has size " + std::to_string(len_found) +
-                                            ", expected was: " + std::to_string(len);
-                    PyErr_SetString(PyExc_ValueError, error_msg.c_str());
-                }
+                        columns_names[i]["storage_id"] = std::string((char *) uuid, len);
+                        free(uuid);
+                    } else {
+                        uint32_t len = sizeof(uint64_t) * 2;
+                        uint32_t len_found = (uint32_t) PyByteArray_Size(py_storage_id);
+                        if (len_found != len) {
+                            std::string error_msg = "UUID received has size " + std::to_string(len_found) +
+                                                    ", expected was: " + std::to_string(len);
+                            PyErr_SetString(PyExc_ValueError, error_msg.c_str());
+                        }
 
-                char *cpp_bytes = PyByteArray_AsString(py_storage_id);
+                        char *cpp_bytes = PyByteArray_AsString(py_storage_id);
 
-                columns_names[i]["storage_id"] = std::string(cpp_bytes, len);
+                        columns_names[i]["storage_id"] = std::string(cpp_bytes, len);
+                    }
+               }
             }
         } else {
             PyErr_SetString(PyExc_TypeError, "Can't parse column names, expected String, Dict or Unicode");
