@@ -245,6 +245,15 @@ if (DEFINED ENV{GTEST_ROOT})
                     PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
             target_link_libraries(hfetch_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch)
             add_test(test hfetch_test)
+
+
+
+            add_executable(py_hfetch_test tests/pytests.cpp)
+            set_target_properties(py_hfetch_test
+                    PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
+            target_link_libraries(py_hfetch_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch)
+            add_test(test py_hfetch_test)
+
         else ()
             message(STATUS "If GTest is installed, point the environment var GTEST_ROOT to its root (/home/user/local)")
         endif (GTest_FOUND)
