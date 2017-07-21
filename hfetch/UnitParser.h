@@ -55,14 +55,18 @@ public:
     virtual PyObject *c_to_py(const void *payload) const;
 
     void error_parsing(std::string type, PyObject *obj) const {
+        std::string error_message;
         char *l_temp;
         Py_ssize_t l_size;
         PyObject *repr = PyObject_Str(obj);
-        int ok = PyString_AsStringAndSize(repr, &l_temp, &l_size);
-        if (ok < 0)
-            throw TypeErrorException("Parse from python to c, found sth that can't be represented nor parsed");
-        throw TypeErrorException(
-                "Parse from python to c, expected " + type + ", found: " + std::string(l_temp, (size_t) l_size));
+        if (PyString_AsStringAndSize(repr, &l_temp, &l_size) < 0) {
+            error_message = "Parse from python to c, found sth that can't be represented nor parsed";
+        } else
+            error_message = "Parse from python to c, expected data type " + type +
+                            " but the value found is " + std::string(l_temp, (size_t) l_size);
+        if (repr && repr->ob_type) error_message += " with type " + std::string(repr->ob_type->tp_name);
+
+        throw TypeErrorException(error_message);
     }
 };
 
