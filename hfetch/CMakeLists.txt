@@ -80,7 +80,7 @@ endif (NOT $ENV{LD_LIBRARY_PATH} STREQUAL "")
 
 
 set(SOURCE_FILES StorageInterface.cpp Prefetch.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp TableMetadata.cpp HCache.cpp PythonParser.cpp)
-set(HEADER_FILES StorageInterface.h Prefetch.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h TableMetadata.h HCache.h PythonParser.h)
+set(HEADER_FILES StorageInterface.h Prefetch.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h TableMetadata.h HCache.h PythonParser.h LRUPersistentStrategy.h TupleRowCache.h)
 #set(CMAKE_SKIP_RPATH 1)
 #set(MY_PATHS "${ORIGIN}")
 #CMake main target

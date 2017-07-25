@@ -48,7 +48,7 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
     this->writer = new Writer(table_meta, session, config);
     this->keys_factory = new TupleRowFactory(table_meta->get_keys());
     this->values_factory = new TupleRowFactory(table_meta->get_values());
-    if (cache_size) this->myCache = new Poco::LRUCache<TupleRow, TupleRow>(cache_size);
+    if (cache_size) this->myCache = new TupleRowCache<TupleRow, TupleRow>(cache_size);
 };
 
 

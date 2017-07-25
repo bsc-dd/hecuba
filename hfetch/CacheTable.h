@@ -7,10 +7,10 @@
 #include <string>
 #include <memory>
 
-#include "Poco/LRUCache.h"
 
 #include "TupleRow.h"
 #include "TupleRowFactory.h"
+#include "TupleRowCache.h"
 #include "Writer.h"
 
 
@@ -19,7 +19,7 @@ class CacheTable {
 public:
     CacheTable(const TableMetadata *table_meta,
                CassSession *session,
-               std::map <std::string, std::string> &config);
+               std::map<std::string, std::string> &config);
 
     ~CacheTable();
 
@@ -52,7 +52,7 @@ private:
     const CassPrepared *prepared_query;
 
     //Key based on copy constructor, Value based on Poco:SharedPtr
-    Poco::LRUCache <TupleRow, TupleRow> *myCache;
+    TupleRowCache<TupleRow, TupleRow> *myCache;
 
     TupleRowFactory *keys_factory;
     TupleRowFactory *values_factory;
