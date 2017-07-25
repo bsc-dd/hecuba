@@ -52,7 +52,7 @@ private:
     const CassPrepared *prepared_query;
 
     //Key based on copy constructor, Value based on Poco:SharedPtr
-    Poco::TupleRowCache<TupleRow, TupleRow> *myCache;
+    TupleRowCache<TupleRow, TupleRow> *myCache;
 
     TupleRowFactory *keys_factory;
     TupleRowFactory *values_factory;

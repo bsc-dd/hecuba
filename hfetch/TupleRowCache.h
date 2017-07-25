@@ -7,34 +7,29 @@
 #include "Poco/AbstractCache.h"
 #include "LRUPersistentStrategy.h"
 
-namespace Poco {
+template<
+        class TKey,
+        class TValue,
+        class TMutex = Poco::FastMutex,
+        class TEventMutex = Poco::FastMutex
+>
+class TupleRowCache : public Poco::AbstractCache<TKey, TValue, LRUPersistentStrategy<TKey, TValue>, TMutex, TEventMutex>
+    /// An LRUCache implements Least Recently Used caching. The default size for a cache is 1024 entries.
+{
+public:
+    TupleRowCache(long size = 1024) :
+            Poco::AbstractCache<TKey, TValue, LRUPersistentStrategy<TKey, TValue>, TMutex, TEventMutex>(
+                    LRUPersistentStrategy<TKey, TValue>(size)) {
+    }
 
-    template<
-            class TKey,
-            class TValue,
-            class TMutex = FastMutex,
-            class TEventMutex = FastMutex
-    >
-    class TupleRowCache : public AbstractCache<TKey, TValue, LRUPersistentStrategy<TKey, TValue>, TMutex, TEventMutex>
-        /// An LRUCache implements Least Recently Used caching. The default size for a cache is 1024 entries.
-    {
-    public:
-        TupleRowCache(long size = 1024) :
-                AbstractCache<TKey, TValue, LRUPersistentStrategy<TKey, TValue>, TMutex, TEventMutex>(
-                        LRUPersistentStrategy<TKey, TValue>(size)) {
-        }
+    ~TupleRowCache() {
+    }
 
-        ~TupleRowCache() {
-        }
+private:
+    TupleRowCache(const TupleRowCache &aCache);
 
-    private:
-        TupleRowCache(const TupleRowCache &aCache);
-
-        TupleRowCache &operator=(const TupleRowCache &aCache);
-    };
-
-
-} // namespace Poco
+    TupleRowCache &operator=(const TupleRowCache &aCache);
+};
 
 
 #endif // Foundation_HFECTHCache_INCLUDED
