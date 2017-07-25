@@ -1,6 +1,3 @@
-// Copyright (c) 2006, Applied Informatics Software Engineering GmbH. and Contributors.
-// SPDX-License-Identifier:	BSL-1.0
-
 #ifndef HFETCHCache_INCLUDED
 #define HFETCHCache_INCLUDED
 
@@ -14,7 +11,7 @@ template<
         class TEventMutex = Poco::FastMutex
 >
 class TupleRowCache : public Poco::AbstractCache<TKey, TValue, LRUPersistentStrategy<TKey, TValue>, TMutex, TEventMutex>
-    /// An LRUCache implements Least Recently Used caching. The default size for a cache is 1024 entries.
+
 {
 public:
     TupleRowCache(long size = 1024) :
