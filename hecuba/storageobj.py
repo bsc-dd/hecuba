@@ -448,15 +448,21 @@ class StorageObj(object, IStorage):
         """
         if key[0] is '_':
             object.__setattr__(self, key, value)
-        elif hasattr(self, '_is_persistent') and self._is_persistent and key in self._persistent_attrs:
-            query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, key)
-            query += " VALUES (%s,%s)"
-            if issubclass(value.__class__, IStorage):
-                values = [self._storage_id, value._storage_id]
-                object.__setattr__(self, key, value)
+        elif (not config.hecuba_type_checking or
+              (issubclass(value.__class__, IStorage))) or \
+             ((not key in self._persistent_attrs) or
+              (IStorage._conversions[value.__class__.__name__] == self._persistent_props[key]['type'])):
+            if hasattr(self, '_is_persistent') and self._is_persistent and key in self._persistent_attrs:
+                query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, key)
+                query += " VALUES (%s,%s)"
+                if issubclass(value.__class__, IStorage):
+                    values = [self._storage_id, value._storage_id]
+                    object.__setattr__(self, key, value)
+                else:
+                    values = [self._storage_id, value]
+                log.debug("SETATTR: ", query)
+                config.session.execute(query, values)
             else:
-                values = [self._storage_id, value]
-            log.debug("SETATTR: ", query)
-            config.session.execute(query, values)
+                object.__setattr__(self, key, value)
         else:
-            object.__setattr__(self, key, value)
+            raise KeyError

@@ -323,6 +323,44 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(so.name, 'addio')
         self.assertEqual(so.age, 2000)
 
+    def test_paranoid_setattr_nonpersistent(self):
+        config.hecuba_type_checking = True
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2")
+        so = Test2StorageObj()
+        so.name = 'my_name'
+        self.assertEquals(so.name, 'my_name')
+        def setNameTest():
+            so.name = 1
+        self.assertRaises(KeyError, setNameTest)
+        so.age = 1
+        self.assertEquals(so.age, 1)
+        def setAgeTest():
+            so.age = 'my_name'
+        self.assertRaises(KeyError, setAgeTest)
+        config.hecuba_type_checking = False
+
+    def test_paranoid_setattr_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2")
+        config.hecuba_type_checking = True
+        so = Test2StorageObj("t2")
+        so.name = 'my_name'
+        result = config.session.execute("SELECT name FROM my_app.t2")
+        for row in result:
+            cass_name = row.name
+        self.assertEquals(cass_name, 'my_name')
+        def setNameTest():
+            so.name = 1
+        self.assertRaises(KeyError, setNameTest)
+        so.age = 1
+        result = config.session.execute("SELECT age FROM my_app.t2")
+        for row in result:
+            cass_age = row.age
+        self.assertEquals(cass_age, 1)
+        def setAgeTest():
+            so.age = 'my_name'
+        self.assertRaises(KeyError, setAgeTest)
+        config.hecuba_type_checking = False
+
     def test_parse_index_on(self):
         a = TestStorageIndexedArgsObj()
         self.assertEqual(a.test._indexed_args, ['x', 'y', 'z'])
@@ -339,8 +377,8 @@ class StorageObjTest(unittest.TestCase):
 
         my_nested_so.myso.name = 'Link'
         self.assertEquals('Link', my_nested_so.myso.name)
-        my_nested_so.myso.age = '10'
-        self.assertEquals('10', my_nested_so.myso.age)
+        my_nested_so.myso.age = 10
+        self.assertEquals(10, my_nested_so.myso.age)
 
         error = False
         try:
@@ -356,8 +394,8 @@ class StorageObjTest(unittest.TestCase):
 
         my_nested_so2.myotherso.name = 'Link'
         self.assertEquals('Link', my_nested_so2.myotherso.name)
-        my_nested_so2.myotherso.age = '10'
-        self.assertEquals('10', my_nested_so2.myotherso.age)
+        my_nested_so2.myotherso.age = 10
+        self.assertEquals(10, my_nested_so2.myotherso.age)
 
         error = False
         try:

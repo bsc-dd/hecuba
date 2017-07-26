@@ -453,10 +453,26 @@ class StorageDict(dict, IStorage):
            Returns:
         """
         log.debug('SET ITEM %s->%s', key, val)
-        if not self._is_persistent:
-            dict.__setitem__(self, key, val)
+
+        if isinstance(val, Iterable) and not isinstance(val, str):
+            col_types = map(lambda x: IStorage._conversions[x.__class__.__name__], val)
+            spec_col_types = map(lambda x: x[1], self._columns)
         else:
-            self._hcache.put_row(self._make_key(key), self._make_value(val))
+            col_types = IStorage._conversions[val.__class__.__name__]
+            spec_col_types = map(lambda x: x[1], self._columns)[0]
+        if isinstance(key, Iterable) and not isinstance(key, str):
+            key_types = map(lambda x: IStorage._conversions[x.__class__.__name__], key)
+            spec_key_types = map(lambda x: x[1], self._primary_keys)
+        else:
+            key_types = IStorage._conversions[key.__class__.__name__]
+            spec_key_types = map(lambda x: x[1], self._primary_keys)[0]
+        if (not config.hecuba_type_checking) or ((col_types == spec_col_types) and (key_types == spec_key_types)):
+            if not self._is_persistent:
+                dict.__setitem__(self, key, val)
+            else:
+                self._hcache.put_row(self._make_key(key), self._make_value(val))
+        else:
+            raise KeyError
 
     def __repr__(self):
         to_return = {}
