@@ -448,10 +448,10 @@ class StorageObj(object, IStorage):
         """
         if key[0] is '_':
             object.__setattr__(self, key, value)
-        elif (not config.hecuba_type_checking or
-              (issubclass(value.__class__, IStorage))) or \
-             ((not key in self._persistent_attrs) or
-              (IStorage._conversions[value.__class__.__name__] == self._persistent_props[key]['type'])):
+        elif key not in self._persistent_attrs or \
+             issubclass(value.__class__, IStorage) or \
+             (not config.hecuba_type_checking or \
+              IStorage._conversions[value.__class__.__name__] == self._persistent_props[key]['type']):
             if hasattr(self, '_is_persistent') and self._is_persistent and key in self._persistent_attrs:
                 query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, key)
                 query += " VALUES (%s,%s)"
@@ -465,4 +465,4 @@ class StorageObj(object, IStorage):
             else:
                 object.__setattr__(self, key, value)
         else:
-            raise KeyError
+            raise ValueError

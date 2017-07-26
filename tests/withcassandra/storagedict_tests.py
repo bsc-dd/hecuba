@@ -163,7 +163,7 @@ class StorageDictTest(unittest.TestCase):
 
         def set_wrong_val_1():
             pd[0] = 1
-        self.assertRaises(KeyError, set_wrong_val_1)
+        self.assertRaises(ValueError, set_wrong_val_1)
 
         def set_wrong_val_2():
             pd['bla'] = 'bla'
@@ -179,11 +179,11 @@ class StorageDictTest(unittest.TestCase):
         self.assertEquals(pd[0, 'pos1'], ('bla', 1))
 
         def set_wrong_val_1():
-            pd[0] = 1
-        self.assertRaises(KeyError, set_wrong_val_1)
+            pd[0, 'pos1'] = 1, 'bla'
+        self.assertRaises(ValueError, set_wrong_val_1)
 
         def set_wrong_val_2():
-            pd['bla'] = 'bla'
+            pd['pos1', 0] = 'bla', 1
         self.assertRaises(KeyError, set_wrong_val_2)
         config.hecuba_type_checking = False
 
@@ -200,7 +200,7 @@ class StorageDictTest(unittest.TestCase):
 
         def set_wrong_val_test():
             pd[0] = 1
-        self.assertRaises(KeyError, set_wrong_val_test)
+        self.assertRaises(ValueError, set_wrong_val_test)
         config.hecuba_type_checking = False
 
     def test_paranoid_setitem_multiple_persistent(self):
@@ -214,11 +214,37 @@ class StorageDictTest(unittest.TestCase):
 
         def set_wrong_val():
             pd[0, 'pos1'] = 'bla', 'bla1'
-        self.assertRaises(KeyError, set_wrong_val)
+        self.assertRaises(ValueError, set_wrong_val)
 
         def set_wrong_key():
             pd['bla', 'pos1'] = 'bla', 1
         self.assertRaises(KeyError, set_wrong_key)
+        config.hecuba_type_checking = False
+
+    def test_paranoid_setitemfloat_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a1")
+        config.hecuba_type_checking = True
+        pd = StorageDict("tab_a1",
+                         [('position', 'int')],
+                         [('value', 'float')])
+        pd[0] = 2.0
+        result = config.session.execute('SELECT value FROM my_app.tab_a1 WHERE position = 0')
+        for row in result:
+            self.assertEquals(row.value, 2.0)
+
+        def set_wrong_val_test():
+            pd[0] = 1
+        self.assertRaises(ValueError, set_wrong_val_test)
+        config.hecuba_type_checking = False
+
+    def test_paranoid_setitemfloat_multiple_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a2")
+        config.hecuba_type_checking = True
+        pd = StorageDict("tab_a2",
+                         [('position1', 'int'), ('position2', 'text')],
+                         [('value1', 'text'), ('value2', 'float')])
+        pd[0, 'pos1'] = ['bla', 1.0]
+        self.assertEquals(pd[0, 'pos1'], ('bla', 1.0))
         config.hecuba_type_checking = False
 
     def test_empty_persistent(self):

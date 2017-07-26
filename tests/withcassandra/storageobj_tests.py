@@ -39,6 +39,14 @@ class Test2StorageObj(StorageObj):
     pass
 
 
+class Test2StorageObjFloat(StorageObj):
+    '''
+       @ClassField name str
+       @ClassField age float
+    '''
+    pass
+
+
 class Test3StorageObj(StorageObj):
     '''
        @ClassField myso tests.withcassandra.storageobj_tests.Test2StorageObj
@@ -331,12 +339,12 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(so.name, 'my_name')
         def setNameTest():
             so.name = 1
-        self.assertRaises(KeyError, setNameTest)
+        self.assertRaises(ValueError, setNameTest)
         so.age = 1
         self.assertEquals(so.age, 1)
         def setAgeTest():
             so.age = 'my_name'
-        self.assertRaises(KeyError, setAgeTest)
+        self.assertRaises(ValueError, setAgeTest)
         config.hecuba_type_checking = False
 
     def test_paranoid_setattr_persistent(self):
@@ -350,7 +358,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(cass_name, 'my_name')
         def setNameTest():
             so.name = 1
-        self.assertRaises(KeyError, setNameTest)
+        self.assertRaises(ValueError, setNameTest)
         so.age = 1
         result = config.session.execute("SELECT age FROM my_app.t2")
         for row in result:
@@ -358,7 +366,14 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(cass_age, 1)
         def setAgeTest():
             so.age = 'my_name'
-        self.assertRaises(KeyError, setAgeTest)
+        self.assertRaises(ValueError, setAgeTest)
+        config.hecuba_type_checking = False
+
+    def test_paranoid_setattr_float(self):
+        config.hecuba_type_checking = True
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2")
+        so = Test2StorageObjFloat("t2")
+        so.age = 2.0
         config.hecuba_type_checking = False
 
     def test_parse_index_on(self):
