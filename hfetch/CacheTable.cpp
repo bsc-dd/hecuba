@@ -13,7 +13,7 @@
  * @param session
  */
 CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
-                       std::map <std::string, std::string> &config) {
+                       std::map<std::string, std::string> &config) {
 
     if (!session)
         throw ModuleException("CacheTable: Session is Null");
@@ -39,8 +39,13 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
 
     CassFuture *future = cass_session_prepare(session, table_meta->get_select_query());
     CassError rc = cass_future_error_code(future);
-    CHECK_CASS("CacheTable: Prepare query failed");
+    CHECK_CASS("CacheTable: Select row query preparation failed");
     this->prepared_query = cass_future_get_prepared(future);
+    cass_future_free(future);
+    future = cass_session_prepare(session, table_meta->get_delete_query());
+    rc = cass_future_error_code(future);
+    this->delete_query = cass_future_get_prepared(future);
+    CHECK_CASS("CacheTable: Delete row query preparation failed");
     cass_future_free(future);
     this->myCache = NULL;
     this->session = session;
@@ -63,6 +68,8 @@ CacheTable::~CacheTable() {
     delete (values_factory);
     if (prepared_query != NULL) cass_prepared_free(prepared_query);
     prepared_query = NULL;
+    if (delete_query != NULL) cass_prepared_free(delete_query);
+    delete_query = NULL;
     delete (table_metadata);
 }
 
@@ -99,9 +106,9 @@ void CacheTable::add_to_cache(void *keys, void *values) {
 
 void CacheTable::put_crow(const TupleRow *row) {
     //split into two and call put_crow(a,b);
-    std::shared_ptr<const std::vector <ColumnMeta> > keys_meta = keys_factory->get_metadata();
+    std::shared_ptr<const std::vector<ColumnMeta> > keys_meta = keys_factory->get_metadata();
     uint16_t nkeys = (uint16_t) keys_meta->size();
-    std::shared_ptr<const std::vector <ColumnMeta> > values_meta = values_factory->get_metadata();
+    std::shared_ptr<const std::vector<ColumnMeta> > values_meta = values_factory->get_metadata();
     uint16_t nvalues = (uint16_t) values_meta->size();
 
     char *keys = (char *) malloc(
@@ -236,7 +243,7 @@ std::vector<const TupleRow *> CacheTable::retrieve_from_cassandra(const TupleRow
 
 std::vector<const TupleRow *> CacheTable::get_crow(const TupleRow *keys) {
     if (myCache) {
-        Poco::SharedPtr <TupleRow> ptrElem = myCache->get(*keys);
+        Poco::SharedPtr<TupleRow> ptrElem = myCache->get(*keys);
         if (!ptrElem.isNull()) return std::vector<const TupleRow *> {new TupleRow(ptrElem.get())};
     }
 
@@ -253,4 +260,31 @@ std::vector<const TupleRow *> CacheTable::get_crow(void *keys) {
     std::vector<const TupleRow *> result = get_crow(tuple_key);
     delete (tuple_key);
     return result;
+}
+
+
+void CacheTable::delete_crow(const TupleRow *keys) {
+
+    //Remove row from Cassandra
+    CassStatement *statement = cass_prepared_bind(delete_query);
+
+    this->keys_factory->bind(statement, keys, 0);
+
+    CassFuture *query_future = cass_session_execute(session, statement);
+    const CassResult *result = cass_future_get_result(query_future);
+    CassError rc = cass_future_error_code(query_future);
+    if (result == NULL) {
+        /* Handle error */
+        std::string error(cass_error_desc(rc));
+        cass_future_free(query_future);
+        cass_statement_free(statement);
+        throw ModuleException("CacheTable: Delete row error on result" + error);
+    }
+
+    cass_future_free(query_future);
+    cass_statement_free(statement);
+    cass_result_free(result);
+
+    //Remove entry from cache
+    if (myCache) myCache->Remove(*keys);
 }
