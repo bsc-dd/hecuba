@@ -210,7 +210,9 @@ class StorageDictTest(unittest.TestCase):
                          [('position1', 'int'), ('position2', 'text')],
                          [('value1', 'text'), ('value2', 'int')])
         pd[0, 'pos1'] = 'bla', 1
-        self.assertEquals(pd[0, 'pos1'], ('bla', 1))
+        for result in pd.itervalues():
+            self.assertEquals(result.value1, 'bla')
+            self.assertEquals(result.value2, 1)
 
         def set_wrong_val():
             pd[0, 'pos1'] = 'bla', 'bla1'
@@ -222,13 +224,13 @@ class StorageDictTest(unittest.TestCase):
         config.hecuba_type_checking = False
 
     def test_paranoid_setitemfloat_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a1")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a3")
         config.hecuba_type_checking = True
-        pd = StorageDict("tab_a1",
+        pd = StorageDict("tab_a3",
                          [('position', 'int')],
                          [('value', 'float')])
         pd[0] = 2.0
-        result = config.session.execute('SELECT value FROM my_app.tab_a1 WHERE position = 0')
+        result = config.session.execute('SELECT value FROM my_app.tab_a3 WHERE position = 0')
         for row in result:
             self.assertEquals(row.value, 2.0)
 
@@ -238,9 +240,9 @@ class StorageDictTest(unittest.TestCase):
         config.hecuba_type_checking = False
 
     def test_paranoid_setitemfloat_multiple_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a2")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a4")
         config.hecuba_type_checking = True
-        pd = StorageDict("tab_a2",
+        pd = StorageDict("tab_a4",
                          [('position1', 'int'), ('position2', 'text')],
                          [('value1', 'text'), ('value2', 'float')])
         pd[0, 'pos1'] = ['bla', 1.0]
