@@ -308,6 +308,29 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(so.name, 'addio')
         self.assertEqual(so.age, 2000)
 
+    def test_delattr_nonpersistent(self):
+        so = Test2StorageObj()
+        so.name = 'caio'
+        del so.name
+
+        def del_attr():
+            my_val = so.name
+        self.assertRaises(AttributeError, del_attr)
+
+    def test_delattr_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.t3")
+        so = Test2StorageObj("t3")
+        so.name = 'caio'
+        del so.name
+
+        def del_attr1():
+            my_val = so.name
+        self.assertRaises(AttributeError, del_attr1)
+
+        def del_attr2():
+            my_val = so.random_val
+        self.assertRaises(AttributeError, del_attr1)
+
     def test_modify_simple_before_mkp_attributes(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.t2")
         so = Test2StorageObj()

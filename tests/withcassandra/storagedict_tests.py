@@ -143,8 +143,7 @@ class StorageDictTest(unittest.TestCase):
             nopars.words[i] = 'ciao' + str(i)
 
         count, = config.session.execute(
-            "SELECT count(*) FROM system_schema.tables WHERE keyspace_name = 'my_app' and table_name = 't_make_words'")[
-            0]
+            "SELECT count(*) FROM system_schema.tables WHERE keyspace_name = 'my_app' and table_name = 't_make_words'")[0]
         self.assertEqual(0, count)
 
         nopars.make_persistent("t_make")
@@ -272,6 +271,52 @@ class StorageDictTest(unittest.TestCase):
                          [('value', 'text')])
         for i in range(100):
             self.assertTrue(i in pd)
+
+    def test_deleteitem_nonpersistent(self):
+        pd = StorageDict(None,
+                         [('position', 'int')],
+                         [('value', 'text')])
+        pd[0] = 'to_delete'
+        del pd[0]
+
+        def del_val():
+            val = pd[0]
+        self.assertRaises(KeyError, del_val)
+
+        pd = StorageDict(None,
+                         [('position', 'text')],
+                         [('value', 'int')])
+        pd['pos0'] = 0
+        del pd['pos0']
+
+        def del_val():
+            val = pd['pos0']
+        self.assertRaises(KeyError, del_val)
+
+    def test_deleteitem_persistent(self):
+        tablename = "tab_a5"
+        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+        pd = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'text')])
+        pd[0] = 'to_delete'
+        del pd[0]
+
+        def del_val():
+            val = pd[0]
+        self.assertRaises(KeyError, del_val)
+
+        tablename = "tab_a6"
+        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+        pd = StorageDict(tablename,
+                         [('position', 'text')],
+                         [('value', 'int')])
+        pd['pos1'] = 0
+        del pd['pos1']
+
+        def del_val():
+            val = pd['pos1']
+        self.assertRaises(KeyError, del_val)
 
     def test_composed_iteritems_test(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab12")
