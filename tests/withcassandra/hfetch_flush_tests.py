@@ -35,6 +35,7 @@ class StorageDictTest(unittest.TestCase):
         count, = config.session.execute("SELECT count(*) FROM ksp.tb1 LIMIT " + str(num_inserts + 1))[0]
         self.assertEqual(count, num_inserts)
 
+    '''
     def test_flush_items_1M(self):
         config.session.execute("DROP KEYSPACE IF EXISTS ksp")
         config.session.execute("CREATE KEYSPACE ksp WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};")
@@ -47,6 +48,7 @@ class StorageDictTest(unittest.TestCase):
         count, = config.session.execute("SELECT count(*) FROM ksp.tb1")[0]
 
         self.assertEqual(count, num_inserts)
+    '''
 
     def test_write_and_then_read(self):
         config.session.execute("DROP KEYSPACE IF EXISTS ksp")

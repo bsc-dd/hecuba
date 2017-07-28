@@ -746,7 +746,7 @@ class Hfetch_Tests(unittest.TestCase):
 
         self.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
         self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(position int, wordinfo text, PRIMARY KEY(position));" % (
-        self.keyspace, table))
+            self.keyspace, table))
 
         for i in xrange(0, nelems):
             vals = ','.join([str(i), "'" + ''.join(
@@ -850,6 +850,42 @@ class Hfetch_Tests(unittest.TestCase):
         print "finshed into %d" % (time.time() - start)
 
 
+    def test_coherency(self):
+        from hfetch import connectCassandra
+        from hfetch import Hcache
+        from hfetch import HWriter
+
+        '''''''''
+         Analyzes:
+         - HCache
+         '''''''''
+
+        table = "particle"
+        nparts = 10000  # Num particles in range
+
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
+        self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float,"
+                             "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
+
+        try:
+            connectCassandra(self.contact_names, self.nodePort)
+        except Exception:
+            print 'can\'t connect, verify the contact points and port', self.contact_names, self.nodePort
+
+        tkns = []
+        keys = ["partid", "time"]
+        values = ["x", "y", "z"]
+        cache = Hcache(self.keyspace, table, "WHERE token(partid)>=? AND token(partid)<?;", tkns, keys,
+                       values, {'cache_size': '1', 'writer_buffer': 20})
+        for i in xrange(0, nparts):
+            cache.put_row([i, i / .1], [i / .2, i / .3, i / .4])
+
+        for i in reversed(xrange(0,nparts)):#xrange(nparts, -1, -1):
+            try:
+                cache.get_row([i, i / .1])
+            except KeyError:
+                str_k = str([i, i / .1])
+                self.fail(str_k+" not found")
 
     def test_delete_row(self):
         from hfetch import connectCassandra
@@ -893,7 +929,7 @@ class Hfetch_Tests(unittest.TestCase):
         cache = Hcache(self.keyspace, table, "", token_ranges, keys, values, cache_config)
         pk = 0
         ck = pk * 10
-        
+
         try:
             result = cache.get_row([pk, ck])
             self.assertEqual(len(result), len(values))
