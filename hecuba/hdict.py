@@ -99,7 +99,7 @@ class StorageDict(dict, IStorage):
             raise ex
 
     def __init__(self, name=None, primary_keys=None, columns=None, tokens=None,
-                 storage_id=None, indexed_args=[], **kwargs):
+                 storage_id=None, indexed_args=None, **kwargs):
         """
         Creates a new block.
 
@@ -136,7 +136,7 @@ class StorageDict(dict, IStorage):
             try:
                 self._indexed_args = self._persistent_props[self.__class__.__name__]['indexed_values']
             except:
-                pass
+                self._indexed_args = indexed_args
         else:
             self._primary_keys = primary_keys
             self._columns = columns
@@ -399,7 +399,7 @@ class StorageDict(dict, IStorage):
         # Storing all in-memory values to cassandra
         for key, value in dict.iteritems(self):
             self._hcache.put_row(self._make_key(key), self._make_value(value))
-        if hasattr(self, '_indexed_args') and not self._indexed_args == []:
+        if hasattr(self, '_indexed_args') and self._indexed_args is not None:
             index_query = 'CREATE CUSTOM INDEX IF NOT EXISTS ' + str(self._table) + '_idx ON '
             index_query += str(self._ksp) + '.' + str(self._table) + ' (' + str.join(',', self._indexed_args) + ') '
             index_query += 'using \'es.bsc.qbeast.index.QbeastIndex\';'
@@ -476,11 +476,8 @@ class StorageDict(dict, IStorage):
         return ""
 
     def update(self, other=None, **kwargs):
-        print "other:", other
         if other is not None:
             for k, v in other.items() if isinstance(other, Mapping) else other:
-                print "k:", k
-                print "v:", v
                 self[k] = v
         for k, v in kwargs.items():
             self[k] = v

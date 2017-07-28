@@ -431,9 +431,11 @@ class StorageObj(object, IStorage):
                                 return new_toreturn
                             else:
                                 return row_var
+                        else:
+                            raise AttributeError
             except Exception as ex:
                 log.warn("GETATTR ex %s", ex)
-                raise KeyError('value not found')
+                raise AttributeError('value not found')
         else:
             return object.__getattribute__(self, key)
 
@@ -460,3 +462,13 @@ class StorageObj(object, IStorage):
             config.session.execute(query, values)
         else:
             object.__setattr__(self, key, value)
+
+    def __delattr__(self, item):
+        if item[0] is '_':
+            object.__delattr__(self, item)
+        elif hasattr(self, '_is_persistent') and self._is_persistent and item in self._persistent_attrs:
+            query = "UPDATE %s.%s SET %s = null WHERE storage_id = %s" \
+                    % (self._ksp, self._table, item, self._storage_id)
+            config.session.execute(query)
+        else:
+            object.__delattr__(self, item)
