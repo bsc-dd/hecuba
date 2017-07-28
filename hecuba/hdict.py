@@ -453,7 +453,7 @@ class StorageDict(dict, IStorage):
            Returns:
         """
         log.debug('SET ITEM %s->%s', key, val)
-        if (not config.hecuba_type_checking):
+        if not config.hecuba_type_checking:
             if not self._is_persistent:
                 dict.__setitem__(self, key, val)
             else:
