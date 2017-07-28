@@ -235,11 +235,25 @@ class Config:
             log.warn('using default HECUBA_PRINT_LIMIT: %s', singleton.hecuba_print_limit)
 
         try:
+            singleton.hecuba_type_checking = os.environ['HECUBA_TYPE_CHECKING'].lower() == 'true'
+            log.info('HECUBA_TYPE_CHECKING: %s', singleton.hecuba_type_checking)
+        except KeyError:
+            singleton.hecuba_type_checking = False
+            log.warn('using default HECUBA_TYPE_CHECKING: %s', singleton.hecuba_type_checking)
+
+        try:
             singleton.statistics_activated = os.environ['STATISTICS_ACTIVATED'].lower() == 'true'
             log.info('STATISTICS_ACTIVATED: %s', singleton.statistics_activated)
         except KeyError:
             singleton.statistics_activated = True
             log.warn('using default STATISTICS_ACTIVATED: %s', singleton.statistics_activated)
+
+        try:
+            singleton.hecuba_type_checking = os.environ['HECUBA_TYPE_CHECKING'].lower() == 'true'
+            log.info('HECUBA_TYPE_CHECKING: %s', singleton.hecuba_type_checking)
+        except KeyError:
+            singleton.hecuba_type_checking = False
+            log.warn('using default HECUBA_TYPE_CHECKING: %s', singleton.hecuba_type_checking)
 
         try:
             singleton.prefetch_size = int(os.environ['PREFETCH_SIZE'])
@@ -450,4 +464,3 @@ if not filter == hecuba_filter:
 
 global config
 config = Config()
-
