@@ -246,8 +246,8 @@ class StorageObjTest(unittest.TestCase):
 
         nopars2 = Test6StorageObj("hecuba_test.nonames")
         nopars2.test3[0] = '1', '2'
+        time.sleep(2)
         result = config.session.execute("SELECT val0, val1 FROM hecuba_test.nonames_test3 WHERE key0 = 0")
-
         for row in result:
             rval0 = row.val0
             rval1 = row.val1
@@ -316,6 +316,29 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(so.name, 'addio')
         self.assertEqual(so.age, 2000)
 
+    def test_delattr_nonpersistent(self):
+        so = Test2StorageObj()
+        so.name = 'caio'
+        del so.name
+
+        def del_attr():
+            my_val = so.name
+        self.assertRaises(AttributeError, del_attr)
+
+    def test_delattr_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.t3")
+        so = Test2StorageObj("t3")
+        so.name = 'caio'
+        del so.name
+
+        def del_attr1():
+            my_val = so.name
+        self.assertRaises(AttributeError, del_attr1)
+
+        def del_attr2():
+            my_val = so.random_val
+        self.assertRaises(AttributeError, del_attr1)
+
     def test_modify_simple_before_mkp_attributes(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.t2")
         so = Test2StorageObj()
@@ -337,14 +360,16 @@ class StorageObjTest(unittest.TestCase):
         so = Test2StorageObj()
         so.name = 'my_name'
         self.assertEquals(so.name, 'my_name')
-        def setNameTest():
+
+        def set_name_test():
             so.name = 1
-        self.assertRaises(ValueError, setNameTest)
+        self.assertRaises(TypeError, set_name_test)
         so.age = 1
         self.assertEquals(so.age, 1)
-        def setAgeTest():
+
+        def set_age_test():
             so.age = 'my_name'
-        self.assertRaises(ValueError, setAgeTest)
+        self.assertRaises(TypeError, set_age_test)
         config.hecuba_type_checking = False
 
     def test_paranoid_setattr_persistent(self):
@@ -358,7 +383,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(cass_name, 'my_name')
         def setNameTest():
             so.name = 1
-        self.assertRaises(ValueError, setNameTest)
+        self.assertRaises(TypeError, setNameTest)
         so.age = 1
         result = config.session.execute("SELECT age FROM my_app.t2")
         for row in result:
@@ -366,7 +391,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(cass_age, 1)
         def setAgeTest():
             so.age = 'my_name'
-        self.assertRaises(ValueError, setAgeTest)
+        self.assertRaises(TypeError, setAgeTest)
         config.hecuba_type_checking = False
 
     def test_paranoid_setattr_float(self):

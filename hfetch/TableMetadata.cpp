@@ -45,7 +45,7 @@ uint16_t TableMetadata::compute_size_of(const CassValueType VT) const {
             break;
         }
         case CASS_VALUE_TYPE_UUID: {
-            return sizeof(uint64_t * );
+            return sizeof(uint64_t *);
         }
         case CASS_VALUE_TYPE_TIMEUUID: {
             std::cerr << "TIMEUUID data type supported yet" << std::endl;
@@ -110,8 +110,8 @@ uint16_t TableMetadata::compute_size_of(const CassValueType VT) const {
 
 
 TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
-                             std::vector <std::map<std::string, std::string>> &keys_names,
-                             std::vector <std::map<std::string, std::string>> &columns_names,
+                             std::vector<std::map<std::string, std::string>> &keys_names,
+                             std::vector<std::map<std::string, std::string>> &columns_names,
                              CassSession *session) {
 
 
@@ -155,7 +155,7 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
 
 //TODO Switch to unordered maps for efficiency
 
-    std::map <std::string, ColumnMeta> metadatas;
+    std::map<std::string, ColumnMeta> metadatas;
 
 /*** build metadata ***/
 
@@ -205,26 +205,29 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
             cols += "," + col;
         }
     }
+    std::string keys_and_cols = keys;
+    if (!cols.empty()) keys_and_cols += ", " + cols;
 
     std::string select_tokens_where = " token(" + tokens_keys + ")>=? AND token(" + tokens_keys + ")<? ";
-
     select = "SELECT " + cols + " FROM " + this->keyspace + "." + this->table + " WHERE " + select_where + ";";
     select_keys_tokens =
             "SELECT " + keys + " FROM " + this->keyspace + "." + this->table + " WHERE " + select_tokens_where + ";";
     select_tokens_values =
             "SELECT " + cols + " FROM " + this->keyspace + "." + this->table + " WHERE " + select_tokens_where + ";";
-    select_tokens_all = "SELECT " + keys + "," + cols + " FROM " + this->keyspace + "." + this->table + " WHERE " +
+
+    select_tokens_all = "SELECT " + keys_and_cols + " FROM " + this->keyspace + "." + this->table + " WHERE " +
                         select_tokens_where + ";";
 
-    insert = "INSERT INTO " + this->keyspace + "." + this->table + "(" + keys + "," + cols + ")" + "VALUES (?";
+    insert = "INSERT INTO " + this->keyspace + "." + this->table + "(" + keys_and_cols + ")" + "VALUES (?";
     for (uint16_t i = 1; i < n_keys + n_cols; ++i) {
         insert += ",?";
     }
     insert += ");";
 
+    delete_row = "DELETE  FROM " + this->keyspace + "." + this->table + " WHERE " + select_where + ";";
 
-    std::vector <ColumnMeta> keys_meta(n_keys);
-    std::vector <ColumnMeta> cols_meta(n_cols);
+    std::vector<ColumnMeta> keys_meta(n_keys);
+    std::vector<ColumnMeta> cols_meta(n_cols);
 
     if (!columns_names.empty()) {
         cols_meta[0] = metadatas[columns_names[0]["name"]];
@@ -247,7 +250,7 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
     }
 
 
-    std::vector <ColumnMeta> items_meta(cols_meta);
+    std::vector<ColumnMeta> items_meta(cols_meta);
     items_meta.insert(items_meta.begin(), keys_meta.begin(), keys_meta.end());
     uint16_t keys_offset = keys_meta[n_keys - 1].position + keys_meta[n_keys - 1].size;
 
@@ -255,7 +258,7 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
         items_meta[i].position += keys_offset;
     }
 
-    this->cols = std::make_shared < std::vector < ColumnMeta > > (cols_meta);
-    this->keys = std::make_shared < std::vector < ColumnMeta > > (keys_meta);
-    this->items = std::make_shared < std::vector < ColumnMeta > > (items_meta);
+    this->cols = std::make_shared<std::vector<ColumnMeta> >(cols_meta);
+    this->keys = std::make_shared<std::vector<ColumnMeta> >(keys_meta);
+    this->items = std::make_shared<std::vector<ColumnMeta> >(items_meta);
 }

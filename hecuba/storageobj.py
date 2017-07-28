@@ -431,9 +431,11 @@ class StorageObj(object, IStorage):
                                 return new_toreturn
                             else:
                                 return row_var
+                        else:
+                            raise AttributeError
             except Exception as ex:
                 log.warn("GETATTR ex %s", ex)
-                raise KeyError('value not found')
+                raise AttributeError('value not found')
         else:
             return object.__getattribute__(self, key)
 
@@ -448,10 +450,10 @@ class StorageObj(object, IStorage):
         """
         if key[0] is '_':
             object.__setattr__(self, key, value)
-        elif key not in self._persistent_attrs or \
-             issubclass(value.__class__, IStorage) or \
-             (not config.hecuba_type_checking or \
-              IStorage._conversions[value.__class__.__name__] == self._persistent_props[key]['type']):
+        else:
+            if config.hecuba_type_checking and \
+                             IStorage._conversions[value.__class__.__name__] != self._persistent_props[key]['type']:
+                raise TypeError
             if hasattr(self, '_is_persistent') and self._is_persistent and key in self._persistent_attrs:
                 query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, key)
                 query += " VALUES (%s,%s)"
@@ -464,5 +466,13 @@ class StorageObj(object, IStorage):
                 config.session.execute(query, values)
             else:
                 object.__setattr__(self, key, value)
+
+    def __delattr__(self, item):
+        if item[0] is '_':
+            object.__delattr__(self, item)
+        elif hasattr(self, '_is_persistent') and self._is_persistent and item in self._persistent_attrs:
+            query = "UPDATE %s.%s SET %s = null WHERE storage_id = %s" \
+                    % (self._ksp, self._table, item, self._storage_id)
+            config.session.execute(query)
         else:
-            raise ValueError
+            object.__delattr__(self, item)

@@ -1,17 +1,5 @@
-//
-// Created by bscuser on 3/23/17.
-//
-
 #ifndef HFETCH_TABLEMETADATA_H
 #define HFETCH_TABLEMETADATA_H
-
-
-#define NAME_POS 0
-#define NPY_PARTITION 1
-#define NPY_METAS_COL 2
-#define NPY_COL_POS 3
-#define NPY_TABLE_EXTERNAL 4
-
 
 #include <cassandra.h>
 #include <cstdint>
@@ -30,13 +18,7 @@
 struct ColumnMeta {
     ColumnMeta() {}
 
-/*
-    ColumnMeta( std::map<std::string, std::string> &info, CassValueType cv_type) {
-        this->info=info;
-        this->type=cv_type;
-    }
-*/
-    ColumnMeta(std::map <std::string, std::string> &info, CassValueType cv_type, uint16_t offset, uint16_t bsize) {
+    ColumnMeta(std::map<std::string, std::string> &info, CassValueType cv_type, uint16_t offset, uint16_t bsize) {
         this->info = info;
         this->type = cv_type;
         this->position = offset;
@@ -47,7 +29,7 @@ struct ColumnMeta {
     uint16_t position, size;
     CassValueType type;
     CassColumnType col_type;
-    std::map <std::string, std::string> info;
+    std::map<std::string, std::string> info;
 };
 
 
@@ -57,19 +39,19 @@ class TableMetadata {
 public:
 
     TableMetadata(const char *table_name, const char *keyspace_name,
-                  std::vector <std::map<std::string, std::string>> &keys_names,
-                  std::vector <std::map<std::string, std::string>> &columns_names,
+                  std::vector<std::map<std::string, std::string>> &keys_names,
+                  std::vector<std::map<std::string, std::string>> &columns_names,
                   CassSession *session);
 
-    std::shared_ptr<const std::vector <ColumnMeta> > get_keys() const {
+    std::shared_ptr<const std::vector<ColumnMeta> > get_keys() const {
         return keys;
     }
 
-    std::shared_ptr<const std::vector <ColumnMeta> > get_values() const {
+    std::shared_ptr<const std::vector<ColumnMeta> > get_values() const {
         return cols;
     }
 
-    std::shared_ptr<const std::vector <ColumnMeta> > get_items() const {
+    std::shared_ptr<const std::vector<ColumnMeta> > get_items() const {
         return items;
     }
 
@@ -93,6 +75,10 @@ public:
         return insert.c_str();
     }
 
+    const char *get_delete_query() const {
+        return delete_row.c_str();
+    }
+
     const char *get_table_name() const {
         return table.c_str();
     }
@@ -105,11 +91,11 @@ private:
     uint16_t compute_size_of(const CassValueType VT) const;
 
     //uint32_t total_bytes;
-    std::shared_ptr<const std::vector <ColumnMeta> > cols;
-    std::shared_ptr<const std::vector <ColumnMeta> > keys;
-    std::shared_ptr<const std::vector <ColumnMeta> > items;
+    std::shared_ptr<const std::vector<ColumnMeta> > cols;
+    std::shared_ptr<const std::vector<ColumnMeta> > keys;
+    std::shared_ptr<const std::vector<ColumnMeta> > items;
     std::string keyspace, table;
-    std::string select, insert, select_tokens_all, select_tokens_values, select_keys_tokens;
+    std::string select, insert, select_tokens_all, select_tokens_values, select_keys_tokens, delete_row;
 
 };
 

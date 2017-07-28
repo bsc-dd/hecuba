@@ -4,6 +4,7 @@ from hecuba import config
 from hecuba.hdict import StorageDict
 from app.words import Words
 import uuid
+import time
 
 
 class MyStorageDict(StorageDict):
@@ -143,8 +144,7 @@ class StorageDictTest(unittest.TestCase):
             nopars.words[i] = 'ciao' + str(i)
 
         count, = config.session.execute(
-            "SELECT count(*) FROM system_schema.tables WHERE keyspace_name = 'my_app' and table_name = 't_make_words'")[
-            0]
+            "SELECT count(*) FROM system_schema.tables WHERE keyspace_name = 'my_app' and table_name = 't_make_words'")[0]
         self.assertEqual(0, count)
 
         nopars.make_persistent("t_make")
@@ -223,12 +223,12 @@ class StorageDictTest(unittest.TestCase):
         self.assertRaises(KeyError, set_wrong_key)
         config.hecuba_type_checking = False
 
-    def test_paranoid_setitemfloat_persistent(self):
+    def test_paranoid_setitemdouble_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a3")
         config.hecuba_type_checking = True
         pd = StorageDict("tab_a3",
                          [('position', 'int')],
-                         [('value', 'float')])
+                         [('value', 'double')])
         pd[0] = 2.0
         result = config.session.execute('SELECT value FROM my_app.tab_a3 WHERE position = 0')
         for row in result:
@@ -239,13 +239,14 @@ class StorageDictTest(unittest.TestCase):
         self.assertRaises(ValueError, set_wrong_val_test)
         config.hecuba_type_checking = False
 
-    def test_paranoid_setitemfloat_multiple_persistent(self):
+    def test_paranoid_setitemdouble_multiple_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a4")
         config.hecuba_type_checking = True
         pd = StorageDict("tab_a4",
                          [('position1', 'int'), ('position2', 'text')],
-                         [('value1', 'text'), ('value2', 'float')])
+                         [('value1', 'text'), ('value2', 'double')])
         pd[0, 'pos1'] = ['bla', 1.0]
+        time.sleep(2)
         self.assertEquals(pd[0, 'pos1'], ('bla', 1.0))
         config.hecuba_type_checking = False
 
@@ -368,6 +369,52 @@ class StorageDictTest(unittest.TestCase):
                          [('value', 'text')])
         for i in range(100):
             self.assertTrue(i in pd)
+
+    def test_deleteitem_nonpersistent(self):
+        pd = StorageDict(None,
+                         [('position', 'int')],
+                         [('value', 'text')])
+        pd[0] = 'to_delete'
+        del pd[0]
+
+        def del_val():
+            val = pd[0]
+        self.assertRaises(KeyError, del_val)
+
+        pd = StorageDict(None,
+                         [('position', 'text')],
+                         [('value', 'int')])
+        pd['pos0'] = 0
+        del pd['pos0']
+
+        def del_val():
+            val = pd['pos0']
+        self.assertRaises(KeyError, del_val)
+
+    def test_deleteitem_persistent(self):
+        tablename = "tab_a5"
+        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+        pd = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'text')])
+        pd[0] = 'to_delete'
+        del pd[0]
+
+        def del_val():
+            val = pd[0]
+        self.assertRaises(KeyError, del_val)
+
+        tablename = "tab_a6"
+        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+        pd = StorageDict(tablename,
+                         [('position', 'text')],
+                         [('value', 'int')])
+        pd['pos1'] = 0
+        del pd['pos1']
+
+        def del_val():
+            val = pd['pos1']
+        self.assertRaises(KeyError, del_val)
 
     def test_composed_iteritems_test(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab12")
