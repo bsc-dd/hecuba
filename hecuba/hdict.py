@@ -422,16 +422,6 @@ class StorageDict(dict, IStorage):
             dict.__delitem__(self, key)
         else:
             self._hcache.delete_row([key])
-    '''
-    def __del__(self):
-        if not self._is_persistent:
-            del self
-        else:
-            query = "DROP TABLE %s.%s;" % (self._ksp, self._table)
-            log.debug('DROP PERSISTENT: %s', query)
-            config.session.execute(query)
-            del self
-    '''
 
     def __getitem__(self, key):
         """
