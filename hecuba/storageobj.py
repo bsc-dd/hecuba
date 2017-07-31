@@ -337,7 +337,7 @@ class StorageObj(object, IStorage):
                                        'dims frozen<list<int>>,'
                                        'type int,'
                                        'type_size int);')
-                config.session.execute('CREATE TABLE IF NOT EXISTS ' + str(self._ksp) + '.' + str(self._table) + '_' + 'numpies'
+                config.session.execute('CREATE TABLE IF NOT EXISTS ' + self._ksp + '.' + self._table + '_' + 'numpies'
                                        '( storage_id uuid , '
                                        'attr_name text, '
                                        'cluster_id int, '
@@ -432,13 +432,6 @@ class StorageObj(object, IStorage):
         log.debug("DELETE PERSISTENT: %s", query)
         config.session.execute(query)
 
-    def _make_key(self, key):
-        return [key]
-
-    @staticmethod
-    def _make_value(value):
-        return [value]
-
     def __getattr__(self, key):
         """
             Given a key, this function reads the configuration table in order to know if the attribute can be found:
@@ -452,7 +445,7 @@ class StorageObj(object, IStorage):
         if key[0] != '_' and self._is_persistent and key in self._persistent_attrs:
             if key in self._attribute_caches:
                 try:
-                    cres = self._attribute_caches[key].get_row(self._make_key(self._storage_id))
+                    cres = self._attribute_caches[key].get_row([self._storage_id])
                     return cres
                 except Exception as ex:
                     log.warn("GETATTR of a numpy ex %s", ex)
@@ -468,7 +461,7 @@ class StorageObj(object, IStorage):
                     for row in result:
                         for row_key, row_var in vars(row).iteritems():
                             if row_var is not None:
-                                if row_var.__class__.__name__ == 'list' and row_var[0].__class__.__name__ == 'unicode':
+                                if isinstance(row_var, list) and isinstance(row_var[0], unicode):
                                     new_toreturn = []
                                     for entry in row_var:
                                         new_toreturn.append(str(entry))
@@ -494,7 +487,7 @@ class StorageObj(object, IStorage):
             object.__setattr__(self, key, value)
         elif hasattr(self, '_is_persistent') and self._is_persistent and key in self._persistent_attrs:
             if type(value) == np.ndarray:
-                self._attribute_caches[key].put_row(self._make_key(self._storage_id), self._make_value(value))
+                self._attribute_caches[key].put_row([self._storage_id], [value])
             else:
                 query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, key)
                 query += " VALUES (%s,%s)"
