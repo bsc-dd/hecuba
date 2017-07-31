@@ -121,10 +121,10 @@ void setupcassandra() {
             test_session);
 
 
-
     fireandforget("CREATE TABLE test.bytes(partid int PRIMARY KEY, data blob);", test_session);
     fireandforget("CREATE TABLE test.arrays(partid int PRIMARY KEY, image uuid);", test_session);
-    fireandforget("CREATE TABLE test.arrays_aux(uuid uuid,  position int, data blob, PRIMARY KEY (uuid,position));", test_session);
+    fireandforget("CREATE TABLE test.arrays_aux(uuid uuid,  position int, data blob, PRIMARY KEY (uuid,position));",
+                  test_session);
 
     if (test_session != NULL) {
         CassFuture *close_future = cass_session_close(test_session);
@@ -140,7 +140,7 @@ void setupcassandra() {
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     std::cout << "SETTING UP CASSANDRA" << std::endl;
-    setupcassandra();
+    //setupcassandra();
     std::cout << "DONE, CASSANDRA IS UP" << std::endl;
     return RUN_ALL_TESTS();
 
@@ -161,8 +161,125 @@ TEST(TestTBBQueue, Try_pop) {
     EXPECT_EQ(PyInt_AsLong(item.first), 123);
     EXPECT_EQ(PyInt_AsLong(item.second), 233);
 */
-     }
+}
 
+char *cesareZorder(long xr, long yr, long zr, int deep) {
+    char *key = new char[deep];
+    for (int i = 0; i < deep; i++) {
+        int mask = 1 << i;
+        key[deep - i - 1] = (char) ((xr & mask) >> i | ((yr & mask) >> i) << 1 | ((zr & mask) >> i) << 2) + '0';
+    }
+    return key;
+}
+
+char *createKey(float x, float y, float z, int deep) {
+
+    int mul = 1 << deep;
+    long xr = (long) (x * mul);
+    long yr = (long) (y * mul);
+    long zr = (long) (z * mul);
+    return cesareZorder(xr,yr,zr,deep);
+}
+
+// Pol version
+
+uint64_t computeZorder(std::vector<uint32_t> cc) {
+    uint64_t ndims = cc.size();
+    uint64_t accumulator = 0;
+    uint64_t answer = 0;
+    //(sizeof(uint64_t) * CHAR_BIT) equals to the number of bits in a uin64_t (8*8)
+    for (uint64_t i = 0; i < (sizeof(uint64_t) * CHAR_BIT) / ndims; ++i) {
+        accumulator = 0;
+        for (uint64_t dim_i = 0; dim_i < ndims; ++dim_i) {
+            accumulator |= ((cc[dim_i] & ((uint64_t) 1 << i)) << (2 * i + dim_i));
+        }
+        answer |= accumulator;// ((x & ((uint64_t)1 << i)) << 2*i) | ((y & ((uint64_t)1 << i)) << (2*i + 1)) | ((z & ((uint64_t)1 << i)) << (2*i + 2));
+    }
+    return answer;
+}
+
+// Original
+uint64_t mortonEncode_for(unsigned int x, unsigned int y, unsigned int z){
+    uint64_t answer = 0;
+    for (uint64_t i = 0; i < (sizeof(uint64_t)* CHAR_BIT)/3; ++i) {
+        answer |= ((x & ((uint64_t)1 << i)) << 2*i) | ((y & ((uint64_t)1 << i)) << (2*i + 1)) | ((z & ((uint64_t)1 << i)) << (2*i + 2));
+    }
+    return answer;
+}
+
+
+
+TEST(TestZorder, One) {
+    std::vector<uint32_t> ccs = {2, 3, 2};
+    uint64_t result = computeZorder(ccs);
+    uint64_t  original_result = mortonEncode_for(2, 3,2);
+    char* cesZord = cesareZorder(2,3,2,3);
+    uint32_t i = 0;
+    ccs = {2, 3};
+    result = computeZorder(ccs);
+    i = 0;
+
+}
+
+TEST(TestMakePartitions, 2DZorder) {
+    int32_t nrows = 4;
+    int32_t ncols = 4;
+    std::vector<int32_t> ccs = {ncols, nrows};
+    ArrayMetadata *arr_metas = new ArrayMetadata();
+    arr_metas->dims = ccs;
+    arr_metas->inner_type = CASS_VALUE_TYPE_INT;
+    arr_metas->elem_size = sizeof(int32_t);
+    ZorderCurve partitioner = ZorderCurve();
+    int32_t *data = new int32_t[ncols*nrows];
+    for (uint32_t col = 0; col<ncols; ++col) {
+        for (uint32_t row = 0; row<nrows; ++row) {
+            data[col+(ncols*row)] = (int32_t) col+(ncols*row);
+        }
+    }
+    std::vector<Partition> chunks = partitioner.make_partitions(arr_metas,data);
+    delete[](data);
+    delete(arr_metas);
+}
+
+TEST(TestMakePartitions, NDZorder) {
+    std::vector<int32_t> ccs = {128, 128 , 128, 128}; //4D 128 elements
+    ArrayMetadata *arr_metas = new ArrayMetadata();
+    arr_metas->dims = ccs;
+    arr_metas->inner_type = CASS_VALUE_TYPE_INT;
+    arr_metas->elem_size = sizeof(int32_t);
+    ZorderCurve partitioner = ZorderCurve();
+    uint64_t arr_size = 1;
+    for (int32_t size_dim:ccs) {
+        arr_size*=size_dim;
+    }
+    int32_t *data = new int32_t[arr_size];
+    for (uint32_t i = 0; i<arr_size; ++i) {
+       data[i] = i;
+    }
+    std::vector<Partition> chunks = partitioner.make_partitions(arr_metas,data);
+    delete[](data);
+    delete(arr_metas);
+}
+
+TEST(TestMakePartitions, 2DNopart) {
+    int32_t nrows = 4;
+    int32_t ncols = 4;
+    std::vector<int32_t> ccs = {ncols, nrows};
+    ArrayMetadata *arr_metas = new ArrayMetadata();
+    arr_metas->dims = ccs;
+    arr_metas->inner_type = CASS_VALUE_TYPE_INT;
+    arr_metas->elem_size = sizeof(int32_t);
+    SpaceFillingCurve partitioner = SpaceFillingCurve();
+    int32_t *data = new int32_t[ncols*nrows];
+    for (uint32_t col = 0; col<ncols; ++col) {
+        for (uint32_t row = 0; row<nrows; ++row) {
+            data[col+(ncols*row)] = (int32_t) col+(ncols*row);
+        }
+    }
+    std::vector<Partition> chunks = partitioner.make_partitions(arr_metas,data);
+    delete[](data);
+    delete(arr_metas);
+}
 
 /** Test to asses Poco Cache is performing as expected with pointer **/
 TEST(TestingPocoCache, InsertGetDeleteOps) {
@@ -171,27 +288,26 @@ TEST(TestingPocoCache, InsertGetDeleteOps) {
     size_t ss = sizeof(uint16_t) * 2;
     Poco::LRUCache<TupleRow, TupleRow> myCache(2);
 
-    ColumnMeta cm1=ColumnMeta();
-    cm1.info={{"name","ciao"}};
-    cm1.type=CASS_VALUE_TYPE_INT;
-    cm1.position=0;
-    cm1.size=sizeof(uint16_t);
+    ColumnMeta cm1 = ColumnMeta();
+    cm1.info = {{"name", "ciao"}};
+    cm1.type = CASS_VALUE_TYPE_INT;
+    cm1.position = 0;
+    cm1.size = sizeof(uint16_t);
 
-    ColumnMeta cm2=ColumnMeta();
-    cm2.info={{"name","ciaociao"}};
-    cm2.type=CASS_VALUE_TYPE_INT;
-    cm2.position=sizeof(uint16_t);
-    cm2.size=sizeof(uint16_t);
+    ColumnMeta cm2 = ColumnMeta();
+    cm2.info = {{"name", "ciaociao"}};
+    cm2.type = CASS_VALUE_TYPE_INT;
+    cm2.position = sizeof(uint16_t);
+    cm2.size = sizeof(uint16_t);
 
-    std::vector<ColumnMeta> v = {cm1,cm2};
-    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
-
+    std::vector<ColumnMeta> v = {cm1, cm2};
+    std::shared_ptr<std::vector<ColumnMeta>> metas = std::make_shared<std::vector<ColumnMeta>>(v);
 
 
     char *b2 = (char *) malloc(ss);
     memcpy(b2, &i, sizeof(uint16_t));
     memcpy(b2 + sizeof(uint16_t), &j, sizeof(uint16_t));
-    const TupleRow *t1 = new TupleRow(metas,sizeof(uint16_t)*2,b2);
+    const TupleRow *t1 = new TupleRow(metas, sizeof(uint16_t) * 2, b2);
 
     uint16_t ka = 64;
     uint16_t kb = 128;
@@ -200,9 +316,9 @@ TEST(TestingPocoCache, InsertGetDeleteOps) {
     memcpy(b2 + sizeof(uint16_t), &kb, sizeof(uint16_t));
 
 
-    TupleRow *key1 = new TupleRow( metas,sizeof(uint16_t) * 2, b2);
+    TupleRow *key1 = new TupleRow(metas, sizeof(uint16_t) * 2, b2);
     myCache.add(*key1, t1);
-    delete(t1);
+    delete (t1);
 
     EXPECT_EQ(myCache.getAllKeys().size(), 1);
     /*TupleRow t = *(myCache.getAllKeys().begin());
@@ -214,9 +330,7 @@ TEST(TestingPocoCache, InsertGetDeleteOps) {
     myCache.clear();
     //Removes all references, and deletes all objects. Key1 is still active thanks to our ref
     delete (key1);
-    int x = 0;
 }
-
 
 
 TEST(TestingPocoCache, ReplaceOp) {
@@ -225,27 +339,26 @@ TEST(TestingPocoCache, ReplaceOp) {
     size_t ss = sizeof(uint16_t) * 2;
     Poco::LRUCache<TupleRow, TupleRow> myCache(2);
 
-    ColumnMeta cm1=ColumnMeta();
-    cm1.info={{"name","ciao"}};
-    cm1.type=CASS_VALUE_TYPE_INT;
-    cm1.position=0;
-    cm1.size=sizeof(uint16_t);
+    ColumnMeta cm1 = ColumnMeta();
+    cm1.info = {{"name", "ciao"}};
+    cm1.type = CASS_VALUE_TYPE_INT;
+    cm1.position = 0;
+    cm1.size = sizeof(uint16_t);
 
-    ColumnMeta cm2=ColumnMeta();
-    cm2.info={{"name","ciaociao"}};
-    cm2.type=CASS_VALUE_TYPE_INT;
-    cm2.position=sizeof(uint16_t);
-    cm2.size=sizeof(uint16_t);
+    ColumnMeta cm2 = ColumnMeta();
+    cm2.info = {{"name", "ciaociao"}};
+    cm2.type = CASS_VALUE_TYPE_INT;
+    cm2.position = sizeof(uint16_t);
+    cm2.size = sizeof(uint16_t);
 
-    std::vector<ColumnMeta> v = {cm1,cm2};
-    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
-
+    std::vector<ColumnMeta> v = {cm1, cm2};
+    std::shared_ptr<std::vector<ColumnMeta>> metas = std::make_shared<std::vector<ColumnMeta>>(v);
 
 
     char *b2 = (char *) malloc(ss);
     memcpy(b2, &i, sizeof(uint16_t));
     memcpy(b2 + sizeof(uint16_t), &j, sizeof(uint16_t));
-    const TupleRow *t1 = new TupleRow(metas,sizeof(uint16_t)*2,b2);
+    const TupleRow *t1 = new TupleRow(metas, sizeof(uint16_t) * 2, b2);
 
     uint16_t ka = 64;
     uint16_t kb = 128;
@@ -254,7 +367,7 @@ TEST(TestingPocoCache, ReplaceOp) {
     memcpy(b2 + sizeof(uint16_t), &kb, sizeof(uint16_t));
 
 
-    TupleRow *key1 = new TupleRow( metas,sizeof(uint16_t) * 2, b2);
+    TupleRow *key1 = new TupleRow(metas, sizeof(uint16_t) * 2, b2);
     myCache.add(key1, t1);
 
     EXPECT_EQ(myCache.getAllKeys().size(), 1);
@@ -263,20 +376,20 @@ TEST(TestingPocoCache, ReplaceOp) {
     EXPECT_FALSE(&t == key1);
 
 
-    delete(t1);
+    delete (t1);
 
-    i=500;
+    i = 500;
     b2 = (char *) malloc(ss);
     memcpy(b2, &i, sizeof(uint16_t));
     memcpy(b2 + sizeof(uint16_t), &j, sizeof(uint16_t));
-    const TupleRow *t2 = new TupleRow(metas,sizeof(uint16_t)*2,b2);
-    myCache.add(*key1,t2);
-    i=123;
+    const TupleRow *t2 = new TupleRow(metas, sizeof(uint16_t) * 2, b2);
+    myCache.add(*key1, t2);
+    i = 123;
     b2 = (char *) malloc(ss);
     memcpy(b2, &i, sizeof(uint16_t));
     memcpy(b2 + sizeof(uint16_t), &j, sizeof(uint16_t));
-    const TupleRow *t3 = new TupleRow(metas,sizeof(uint16_t)*2,b2);
-    myCache.add(key1,t3);
+    const TupleRow *t3 = new TupleRow(metas, sizeof(uint16_t) * 2, b2);
+    myCache.add(key1, t3);
 
     EXPECT_EQ(myCache.getAllKeys().size(), 1);
     t = *(myCache.getAllKeys().begin());
@@ -292,6 +405,7 @@ TEST(TestingPocoCache, ReplaceOp) {
     myCache.clear();
     //Removes all references, and deletes all objects. Key1 is still active thanks to our ref
     delete (key1);
+    delete (t3);
 }
 
 
@@ -309,25 +423,24 @@ TEST(TupleTest, TestNulls) {
     memcpy(buffer2, &i, size);
     memcpy(buffer2 + size, &j, size);
 
-    ColumnMeta cm1=ColumnMeta();
-    cm1.info={{"name","ciao"}};
-    cm1.type=CASS_VALUE_TYPE_INT;
-    cm1.position=0;
-    cm1.size=sizeof(uint16_t);
+    ColumnMeta cm1 = ColumnMeta();
+    cm1.info = {{"name", "ciao"}};
+    cm1.type = CASS_VALUE_TYPE_INT;
+    cm1.position = 0;
+    cm1.size = sizeof(uint16_t);
 
-    ColumnMeta cm2=ColumnMeta();
-    cm2.info={{"name","ciaociao"}};
-    cm2.type=CASS_VALUE_TYPE_INT;
-    cm2.position=sizeof(uint16_t);
-    cm2.size=sizeof(uint16_t);
+    ColumnMeta cm2 = ColumnMeta();
+    cm2.info = {{"name", "ciaociao"}};
+    cm2.type = CASS_VALUE_TYPE_INT;
+    cm2.position = sizeof(uint16_t);
+    cm2.size = sizeof(uint16_t);
 
-    std::vector<ColumnMeta> v = {cm1,cm2};
-    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
+    std::vector<ColumnMeta> v = {cm1, cm2};
+    std::shared_ptr<std::vector<ColumnMeta>> metas = std::make_shared<std::vector<ColumnMeta>>(v);
 
 
-
-    TupleRow t1 = TupleRow(metas,sizeof(uint16_t) * 2, buffer);
-    TupleRow t2 = TupleRow(metas,sizeof(uint16_t) * 2, buffer2);
+    TupleRow t1 = TupleRow(metas, sizeof(uint16_t) * 2, buffer);
+    TupleRow t2 = TupleRow(metas, sizeof(uint16_t) * 2, buffer2);
 
     //Equality
     EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
@@ -342,7 +455,7 @@ TEST(TupleTest, TestNulls) {
     t1.unsetNull(1);
     EXPECT_FALSE(!(t1 < t2) && !(t2 < t1));
     EXPECT_FALSE(!(t1 > t2) && !(t2 > t1));
-    EXPECT_TRUE(t1<t2);// And the one with nulls is smaller
+    EXPECT_TRUE(t1 < t2);// And the one with nulls is smaller
     //they both have all elements set to non null and they are equal again
     t2.unsetNull(1);
     EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
@@ -353,12 +466,12 @@ TEST(TupleTest, TestNulls) {
     EXPECT_FALSE(!(t1 < t2) && !(t2 < t1));
     EXPECT_FALSE(!(t1 > t2) && !(t2 > t1));
     //and t2 should be smaller than t1 since it has a smaller element null
-    EXPECT_TRUE(t2<t1);
+    EXPECT_TRUE(t2 < t1);
     //they have all elements to null but t2 has position 1 to valid
     t1.setNull(0);
     EXPECT_FALSE(!(t1 < t2) && !(t2 < t1));
     EXPECT_FALSE(!(t1 > t2) && !(t2 > t1));
-    EXPECT_TRUE(t2<t1);
+    EXPECT_TRUE(t2 < t1);
     //All elements are null, they must be equal
     t2.setNull(1);
     EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
@@ -371,12 +484,12 @@ TEST(TupleTest, TestNulls) {
     EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
     EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
     //getting an element no null returns a valid ptr
-    EXPECT_FALSE(t1.get_element(1)==nullptr);
+    EXPECT_FALSE(t1.get_element(1) == nullptr);
     //getting a null element returns a null ptr
     t1.setNull(1);
-    EXPECT_TRUE(t1.get_element(1)==nullptr);
+    EXPECT_TRUE(t1.get_element(1) == nullptr);
     //however, the other tuple still returns a valid ptr for the same position
-    EXPECT_FALSE(t2.get_element(1)==nullptr);
+    EXPECT_FALSE(t2.get_element(1) == nullptr);
     t1.unsetNull(1);
 }
 
@@ -395,47 +508,46 @@ TEST(TupleTest, TupleOps) {
     memcpy(buffer2, &i, size);
     memcpy(buffer2 + size, &j, size);
 
-    ColumnMeta cm1=ColumnMeta();
-    cm1.info={{"name","ciao"}};
-    cm1.type=CASS_VALUE_TYPE_INT;
-    cm1.position=0;
-    cm1.size=sizeof(uint16_t);
+    ColumnMeta cm1 = ColumnMeta();
+    cm1.info = {{"name", "ciao"}};
+    cm1.type = CASS_VALUE_TYPE_INT;
+    cm1.position = 0;
+    cm1.size = sizeof(uint16_t);
 
-    ColumnMeta cm2=ColumnMeta();
-    cm2.info={{"name","ciaociao"}};
-    cm2.type=CASS_VALUE_TYPE_INT;
-    cm2.position=sizeof(uint16_t);
-    cm2.size=sizeof(uint16_t);
+    ColumnMeta cm2 = ColumnMeta();
+    cm2.info = {{"name", "ciaociao"}};
+    cm2.type = CASS_VALUE_TYPE_INT;
+    cm2.position = sizeof(uint16_t);
+    cm2.size = sizeof(uint16_t);
 
-    std::vector<ColumnMeta> v = {cm1,cm2};
-    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
+    std::vector<ColumnMeta> v = {cm1, cm2};
+    std::shared_ptr<std::vector<ColumnMeta>> metas = std::make_shared<std::vector<ColumnMeta>>(v);
 
 
-
-    TupleRow t1 = TupleRow(metas,sizeof(uint16_t) * 2, buffer);
-    TupleRow t2 = TupleRow(metas,sizeof(uint16_t) * 2, buffer2);
+    TupleRow t1 = TupleRow(metas, sizeof(uint16_t) * 2, buffer);
+    TupleRow t2 = TupleRow(metas, sizeof(uint16_t) * 2, buffer2);
 
     //Equality
     EXPECT_TRUE(!(t1 < t2) && !(t2 < t1));
     EXPECT_TRUE(!(t1 > t2) && !(t2 > t1));
 
 
-    cm2=ColumnMeta();
-    cm2.info={{"name","ciaociao"}};
-    cm2.type=CASS_VALUE_TYPE_INT;
-    cm2.position=sizeof(uint16_t);
-    cm2.size=sizeof(uint16_t);
+    cm2 = ColumnMeta();
+    cm2.info = {{"name", "ciaociao"}};
+    cm2.type = CASS_VALUE_TYPE_INT;
+    cm2.position = sizeof(uint16_t);
+    cm2.size = sizeof(uint16_t);
 
 
-    std::vector<ColumnMeta> v2 = {cm1,cm2};
-    std::shared_ptr<std::vector<ColumnMeta>> metas2=std::make_shared<std::vector<ColumnMeta>>(v2);
+    std::vector<ColumnMeta> v2 = {cm1, cm2};
+    std::shared_ptr<std::vector<ColumnMeta>> metas2 = std::make_shared<std::vector<ColumnMeta>>(v2);
 
 
     char *buffer3 = (char *) malloc(size * 2);
     memcpy(buffer3, &i, size);
     memcpy(buffer3 + size, &j, size);
     //Though their inner Metadata has the same values, they are different objects
-    TupleRow t3 = TupleRow(metas2,sizeof(uint16_t) * 2, buffer3);
+    TupleRow t3 = TupleRow(metas2, sizeof(uint16_t) * 2, buffer3);
     EXPECT_FALSE(!(t1 < t3) && !(t3 < t1));
     EXPECT_FALSE(!(t1 > t3) && !(t3 > t1));
 
@@ -469,17 +581,20 @@ TEST(TestingCacheTable, GetRowC) {
     memcpy(buffer + sizeof(int), &f, sizeof(float));
 
 
-    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
-    std::vector< std::map<std::string,std::string> >colsnames = { {{"name", "x"}},  {{"name", "y"}},  {{"name", "z"}},
+    std::vector<std::map<std::string, std::string> > keysnames = {{{"name", "partid"}},
+                                                                  {{"name", "time"}}};
+    std::vector<std::map<std::string, std::string> > colsnames = {{{"name", "x"}},
+                                                                  {{"name", "y"}},
+                                                                  {{"name", "z"}},
                                                                   {{"name", "ciao"}}};
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
-    std::map <std::string, std::string> config;
+    std::map<std::string, std::string> config;
     config["writer_par"] = "4";
     config["writer_buffer"] = "20";
     config["cache_size"] = "10";
 
-    TableMetadata* table_meta = new TableMetadata(particles_table,keyspace,keysnames,colsnames,test_session);
+    TableMetadata *table_meta = new TableMetadata(particles_table, keyspace, keysnames, colsnames, test_session);
 
     CacheTable *CTable = new CacheTable(table_meta, test_session, config);
 
@@ -509,9 +624,9 @@ TEST(TestingCacheTable, GetRowC) {
 
     }
 
-    delete(t);
-    delete(result);
-    delete(CTable);
+    delete (t);
+    delete (result);
+    delete (CTable);
 
 
     CassFuture *close_future = cass_session_close(test_session);
@@ -522,9 +637,6 @@ TEST(TestingCacheTable, GetRowC) {
     cass_session_free(test_session);
 
 }
-
-
-
 
 
 TEST(TestingCacheTable, StoreNull) {
@@ -551,23 +663,26 @@ TEST(TestingCacheTable, StoreNull) {
 
 //partid int,time float,x float,y float,z float, PRIMARY KEY(partid,time)
 
-    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
-    std::vector< std::map<std::string,std::string> > colsnames = { {{"name", "x"}},{{"name", "y"}},{{"name", "z"}}};
+    std::vector<std::map<std::string, std::string> > keysnames = {{{"name", "partid"}},
+                                                                  {{"name", "time"}}};
+    std::vector<std::map<std::string, std::string> > colsnames = {{{"name", "x"}},
+                                                                  {{"name", "y"}},
+                                                                  {{"name", "z"}}};
 
     std::vector<std::pair<int64_t, int64_t> > tokens = {};
 
-    std::map <std::string, std::string> config;
+    std::map<std::string, std::string> config;
     config["writer_par"] = "4";
     config["writer_buffer"] = "20";
     config["cache_size"] = "10";
 
 
-    TableMetadata* table_meta = new TableMetadata(particles_wr_table,keyspace,keysnames,colsnames,test_session);
+    TableMetadata *table_meta = new TableMetadata(particles_wr_table, keyspace, keysnames, colsnames, test_session);
 
-    CacheTable* cache = new CacheTable(table_meta, test_session, config);
+    CacheTable *cache = new CacheTable(table_meta, test_session, config);
 
 
-    char *buffer = (char *) malloc(sizeof(int)+sizeof(float)); //keys
+    char *buffer = (char *) malloc(sizeof(int) + sizeof(float)); //keys
 
     int32_t k1 = 3682;
     float k2 = 143.2;
@@ -576,37 +691,38 @@ TEST(TestingCacheTable, StoreNull) {
 
     float v[] = {0.01, 1.25, 0.98};
 
-    char *buffer2 = (char *) malloc(sizeof(float)*3); //values
-    memcpy(buffer2, &v, sizeof(float)*3);
+    char *buffer2 = (char *) malloc(sizeof(float) * 3); //values
+    memcpy(buffer2, &v, sizeof(float) * 3);
 
 
-    TupleRow *keys = new TupleRow(table_meta->get_keys(), sizeof(int)+sizeof(float), buffer);
-    TupleRow *values = new TupleRow(table_meta->get_values(), sizeof(float)*3, buffer2);
+    TupleRow *keys = new TupleRow(table_meta->get_keys(), sizeof(int) + sizeof(float), buffer);
+    TupleRow *values = new TupleRow(table_meta->get_values(), sizeof(float) * 3, buffer2);
 
 
     values->setNull(1);
 
     cache->put_crow(keys, values);
 
-    delete(keys);
-    delete(values);
-    delete(cache);
+    delete (keys);
+    delete (values);
+    delete (cache);
 
     /*** now we write into another table with text ***/
 
-    keysnames = {{{"name", "partid"}},{{"name","time"}}};
-    colsnames = { {{"name", "x"}},{{"name", "ciao"}}};
+    keysnames = {{{"name", "partid"}},
+                 {{"name", "time"}}};
+    colsnames = {{{"name", "x"}},
+                 {{"name", "ciao"}}};
 
     tokens = {};
 
 
-
-    table_meta = new TableMetadata(words_wr_table,keyspace,keysnames,colsnames,test_session);
+    table_meta = new TableMetadata(words_wr_table, keyspace, keysnames, colsnames, test_session);
 
     cache = new CacheTable(table_meta, test_session, config);
 
 
-    buffer = (char *) malloc(sizeof(int)+sizeof(float)); //keys
+    buffer = (char *) malloc(sizeof(int) + sizeof(float)); //keys
 
     k1 = 3682;
     k2 = 143.2;
@@ -616,22 +732,23 @@ TEST(TestingCacheTable, StoreNull) {
     float v1 = 23.12;
     std::string *v2 = new std::string("someBeautiful, and randomText");
 
-    buffer2 = (char *) malloc(sizeof(float)+sizeof(char*)); //values
+    buffer2 = (char *) malloc(sizeof(float) + sizeof(char *)); //values
     memcpy(buffer2, &v1, sizeof(float));
-    memcpy(buffer2+sizeof(float), &v2, sizeof(char *));
+    memcpy(buffer2 + sizeof(float), &v2, sizeof(void *));
 
 
-    keys = new TupleRow(table_meta->get_keys(), sizeof(int)+sizeof(float), buffer);
-    values = new TupleRow(table_meta->get_values(), sizeof(float)*3, buffer2);
+    keys = new TupleRow(table_meta->get_keys(), sizeof(int) + sizeof(float), buffer);
+    values = new TupleRow(table_meta->get_values(), sizeof(float) * 3, buffer2);
 
 
     values->setNull(1);
 
     cache->put_crow(keys, values);
 
-    delete(keys);
-    delete(values);
-    delete(cache);
+    delete (keys);
+    delete (values);
+    delete (cache);
+    delete (v2);
 
     CassFuture *close_future = cass_session_close(test_session);
     cass_future_wait(close_future);
@@ -640,7 +757,6 @@ TEST(TestingCacheTable, StoreNull) {
     cass_cluster_free(test_cluster);
     cass_session_free(test_session);
 }
-
 
 
 TEST(TestingCacheTable, StoreNullBulk) {
@@ -667,25 +783,27 @@ TEST(TestingCacheTable, StoreNullBulk) {
 
 //partid int,time float,x float,y float,z float, PRIMARY KEY(partid,time)
 
-    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
-    std::vector< std::map<std::string,std::string> > colsnames = { {{"name", "x"}},{{"name", "y"}},{{"name", "z"}}};
+    std::vector<std::map<std::string, std::string> > keysnames = {{{"name", "partid"}},
+                                                                  {{"name", "time"}}};
+    std::vector<std::map<std::string, std::string> > colsnames = {{{"name", "x"}},
+                                                                  {{"name", "y"}},
+                                                                  {{"name", "z"}}};
 
     std::vector<std::pair<int64_t, int64_t> > tokens = {};
 
-    std::map <std::string, std::string> config;
+    std::map<std::string, std::string> config;
     config["writer_par"] = "4";
     config["writer_buffer"] = "20";
     config["cache_size"] = "10";
 
 
-    TableMetadata* table_meta = new TableMetadata(particles_wr_table,keyspace,keysnames,colsnames,test_session);
+    TableMetadata *table_meta = new TableMetadata(particles_wr_table, keyspace, keysnames, colsnames, test_session);
 
-    CacheTable* cache = new CacheTable(table_meta, test_session, config);
+    CacheTable *cache = new CacheTable(table_meta, test_session, config);
 
-    for (uint32_t id = 0; id<8000; ++id ) {
+    for (uint32_t id = 0; id < 8000; ++id) {
         char *buffer = (char *) malloc(sizeof(int) + sizeof(float)); //keys
 
-        int32_t k1 = 3682;
         float k2 = 143.2;
         memcpy(buffer, &id, sizeof(int));
         memcpy(buffer + sizeof(int), &k2, sizeof(float));
@@ -703,11 +821,11 @@ TEST(TestingCacheTable, StoreNullBulk) {
         values->setNull(1);
 
         cache->put_crow(keys, values);
-        delete(keys);
-        delete(values);
+        delete (keys);
+        delete (values);
     }
 
-    delete(cache);
+    delete (cache);
 
 
     CassFuture *close_future = cass_session_close(test_session);
@@ -717,7 +835,6 @@ TEST(TestingCacheTable, StoreNullBulk) {
     cass_cluster_free(test_cluster);
     cass_session_free(test_session);
 }
-
 
 
 TEST(TestingCacheTable, StoreNullBulkText) {
@@ -744,22 +861,24 @@ TEST(TestingCacheTable, StoreNullBulkText) {
 
 //partid int,time float,x float,y float,z float, PRIMARY KEY(partid,time)
 
-    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
-    std::vector< std::map<std::string,std::string> > colsnames = {{{"name", "x"}},{{"name", "ciao"}}};
+    std::vector<std::map<std::string, std::string> > keysnames = {{{"name", "partid"}},
+                                                                  {{"name", "time"}}};
+    std::vector<std::map<std::string, std::string> > colsnames = {{{"name", "x"}},
+                                                                  {{"name", "ciao"}}};
 
     std::vector<std::pair<int64_t, int64_t> > tokens = {};
 
-    std::map <std::string, std::string> config;
+    std::map<std::string, std::string> config;
     config["writer_par"] = "4";
     config["writer_buffer"] = "20";
     config["cache_size"] = "10";
 
 
-    TableMetadata* table_meta = new TableMetadata(words_wr_table,keyspace,keysnames,colsnames,test_session);
+    TableMetadata *table_meta = new TableMetadata(words_wr_table, keyspace, keysnames, colsnames, test_session);
 
-    CacheTable* cache = new CacheTable(table_meta, test_session, config);
+    CacheTable *cache = new CacheTable(table_meta, test_session, config);
 
-    for (uint32_t id = 0; id<8000; ++id ) {
+    for (uint32_t id = 0; id < 8000; ++id) {
         char *buffer = (char *) malloc(sizeof(int) + sizeof(float)); //keys
 
         float k2 = 143.2;
@@ -768,7 +887,7 @@ TEST(TestingCacheTable, StoreNullBulkText) {
 
         float v[] = {0.01, 1.25, 0.98};
 
-        char *buffer2 = (char *) malloc(sizeof(float)+sizeof(char*)); //values
+        char *buffer2 = (char *) malloc(sizeof(float) + sizeof(char *)); //values
         memcpy(buffer2, &v, sizeof(float));
 
 
@@ -779,11 +898,11 @@ TEST(TestingCacheTable, StoreNullBulkText) {
         values->setNull(1);
 
         cache->put_crow(keys, values);
-        delete(keys);
-        delete(values);
+        delete (keys);
+        delete (values);
     }
 
-    delete(cache);
+    delete (cache);
 
 
     CassFuture *close_future = cass_session_close(test_session);
@@ -793,7 +912,6 @@ TEST(TestingCacheTable, StoreNullBulkText) {
     cass_cluster_free(test_cluster);
     cass_session_free(test_session);
 }
-
 
 
 TEST(TestingCacheTable, StoreNumpies) {
@@ -820,30 +938,31 @@ TEST(TestingCacheTable, StoreNumpies) {
 
 //partid int,time float,x float,y float,z float, PRIMARY KEY(partid,time)
 
-    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "uuid"}},{{"name","position"}}};
-    std::vector< std::map<std::string,std::string> > colsnames = {{{"name", "data"}}};
+    std::vector<std::map<std::string, std::string> > keysnames = {{{"name", "uuid"}},
+                                                                  {{"name", "position"}}};
+    std::vector<std::map<std::string, std::string> > colsnames = {{{"name", "data"}}};
 
     std::vector<std::pair<int64_t, int64_t> > tokens = {};
 
-    std::map <std::string, std::string> config;
+    std::map<std::string, std::string> config;
     config["writer_par"] = "4";
     config["writer_buffer"] = "20";
     config["cache_size"] = "10";
 
 
 //    fireandforget("CREATE TABLE test.arrays_aux(uuid uuid,  position int, data blob, PRIMARY KEY (uuid,position));", test_session);
-    TableMetadata* table_meta = new TableMetadata("arrays_aux",keyspace,keysnames,colsnames,test_session);
+    TableMetadata *table_meta = new TableMetadata("arrays_aux", keyspace, keysnames, colsnames, test_session);
 
-    CacheTable* cache = new CacheTable(table_meta, test_session, config);
+    CacheTable *cache = new CacheTable(table_meta, test_session, config);
 
     char *buffer = (char *) malloc(sizeof(uint64_t *) + sizeof(int)); //keys
-    uint64_t *uuid = (uint64_t*) malloc(sizeof(uint64_t)*2);
-    *uuid=123;
-    *(uuid+1)=456;
+    uint64_t *uuid = (uint64_t *) malloc(sizeof(uint64_t) * 2);
+    *uuid = 123;
+    *(uuid + 1) = 456;
 
     memcpy(buffer, &uuid, sizeof(uint64_t *));
     int32_t k2 = 789;
-    memcpy(buffer + sizeof(uint64_t*), &k2, sizeof(int));
+    memcpy(buffer + sizeof(uint64_t *), &k2, sizeof(int));
 
     std::string txtbytes = "somerandombytes";
     uint64_t nbytes = strlen(txtbytes.c_str());
@@ -863,7 +982,7 @@ TEST(TestingCacheTable, StoreNumpies) {
     delete (keys);
     delete (values);
 
-    delete(cache);
+    delete (cache);
 
 
     CassFuture *close_future = cass_session_close(test_session);
@@ -873,8 +992,6 @@ TEST(TestingCacheTable, StoreNumpies) {
     cass_cluster_free(test_cluster);
     cass_session_free(test_session);
 }
-
-
 
 
 TEST(TestingCacheTable, ReadNull) {
@@ -901,23 +1018,26 @@ TEST(TestingCacheTable, ReadNull) {
 
 //partid int,time float,x float,y float,z float, PRIMARY KEY(partid,time)
 
-    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
-    std::vector< std::map<std::string,std::string> > colsnames = { {{"name", "x"}},{{"name", "y"}},{{"name", "z"}}};
+    std::vector<std::map<std::string, std::string> > keysnames = {{{"name", "partid"}},
+                                                                  {{"name", "time"}}};
+    std::vector<std::map<std::string, std::string> > colsnames = {{{"name", "x"}},
+                                                                  {{"name", "y"}},
+                                                                  {{"name", "z"}}};
 
     std::vector<std::pair<int64_t, int64_t> > tokens = {};
 
-    std::map <std::string, std::string> config;
+    std::map<std::string, std::string> config;
     config["writer_par"] = "4";
     config["writer_buffer"] = "20";
     config["cache_size"] = "10";
 
 
-    TableMetadata* table_meta = new TableMetadata(particles_wr_table,keyspace,keysnames,colsnames,test_session);
+    TableMetadata *table_meta = new TableMetadata(particles_wr_table, keyspace, keysnames, colsnames, test_session);
 
-    CacheTable* cache = new CacheTable(table_meta, test_session, config);
+    CacheTable *cache = new CacheTable(table_meta, test_session, config);
 
 
-    char *buffer = (char *) malloc(sizeof(int)+sizeof(float)); //keys
+    char *buffer = (char *) malloc(sizeof(int) + sizeof(float)); //keys
 
     int32_t k1 = 4682;
     float k2 = 93.2;
@@ -926,56 +1046,59 @@ TEST(TestingCacheTable, ReadNull) {
 
     float v[] = {4.43, 9.99, 1.238};
 
-    char *buffer2 = (char *) malloc(sizeof(float)*3); //values
-    memcpy(buffer2, &v, sizeof(float)*3);
+    char *buffer2 = (char *) malloc(sizeof(float) * 3); //values
+    memcpy(buffer2, &v, sizeof(float) * 3);
 
 
-    TupleRow *keys = new TupleRow(table_meta->get_keys(), sizeof(int)+sizeof(float), buffer);
-    TupleRow *values = new TupleRow(table_meta->get_values(), sizeof(float)*3, buffer2);
+    TupleRow *keys = new TupleRow(table_meta->get_keys(), sizeof(int) + sizeof(float), buffer);
+    TupleRow *values = new TupleRow(table_meta->get_values(), sizeof(float) * 3, buffer2);
 
 
     values->setNull(1);
 
     cache->put_crow(keys, values);
 
-    delete(keys);
-    delete(values);
-    delete(cache);
+    delete (keys);
+    delete (values);
+    delete (cache);
 
 
     //now we read the data
 
-    keysnames = {{{"name", "partid"}},{{"name","time"}}};
-    colsnames = { {{"name", "x"}},{{"name", "y"}},{{"name", "z"}}};
+    keysnames = {{{"name", "partid"}},
+                 {{"name", "time"}}};
+    colsnames = {{{"name", "x"}},
+                 {{"name", "y"}},
+                 {{"name", "z"}}};
 
     tokens = {};
 
-    table_meta = new TableMetadata(particles_wr_table,keyspace,keysnames,colsnames,test_session);
+    table_meta = new TableMetadata(particles_wr_table, keyspace, keysnames, colsnames, test_session);
 
     cache = new CacheTable(table_meta, test_session, config);
 
 
-    buffer = (char *) malloc(sizeof(int)+sizeof(float)); //keys
+    buffer = (char *) malloc(sizeof(int) + sizeof(float)); //keys
 
     memcpy(buffer, &k1, sizeof(int));
     memcpy(buffer + sizeof(int), &k2, sizeof(float));
 
-    keys = new TupleRow(table_meta->get_keys(), sizeof(int)+sizeof(float), buffer);
+    keys = new TupleRow(table_meta->get_keys(), sizeof(int) + sizeof(float), buffer);
 
 
-    std::vector <const TupleRow*> results = cache->get_crow(keys);
-    ASSERT_TRUE(results.size()==1);
-    const TupleRow* read_values = results[0];
-    const float *v0 = (float*) read_values->get_element(0);
-    const float *v1 = (float*) read_values->get_element(1);
-    const float *v2 = (float*) read_values->get_element(2);
-    EXPECT_DOUBLE_EQ(*v0,v[0]);
-    EXPECT_TRUE(v1== nullptr);
-    EXPECT_DOUBLE_EQ(*v2,v[2]);
+    std::vector<const TupleRow *> results = cache->get_crow(keys);
+    ASSERT_TRUE(results.size() == 1);
+    const TupleRow *read_values = results[0];
+    const float *v0 = (float *) read_values->get_element(0);
+    const float *v1 = (float *) read_values->get_element(1);
+    const float *v2 = (float *) read_values->get_element(2);
+    EXPECT_DOUBLE_EQ(*v0, v[0]);
+    EXPECT_TRUE(v1 == nullptr);
+    EXPECT_DOUBLE_EQ(*v2, v[2]);
 
-    delete(keys);
-    delete(read_values);
-    delete(cache);
+    delete (keys);
+    delete (read_values);
+    delete (cache);
 
     CassFuture *close_future = cass_session_close(test_session);
     cass_future_wait(close_future);
@@ -984,7 +1107,6 @@ TEST(TestingCacheTable, ReadNull) {
     cass_cluster_free(test_cluster);
     cass_session_free(test_session);
 }
-
 
 
 TEST(TestingCacheTable, GetRowStringC) {
@@ -1018,28 +1140,29 @@ TEST(TestingCacheTable, GetRowStringC) {
     std::vector<uint16_t> offsets = {0, sizeof(int)};
 
 
-    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
-    std::vector< std::map<std::string,std::string> >colsnames = {{{"name", "ciao"}}};
+    std::vector<std::map<std::string, std::string> > keysnames = {{{"name", "partid"}},
+                                                                  {{"name", "time"}}};
+    std::vector<std::map<std::string, std::string> > colsnames = {{{"name", "ciao"}}};
 
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
 
-    std::map <std::string, std::string> config;
+    std::map<std::string, std::string> config;
     config["writer_par"] = "4";
     config["writer_buffer"] = "20";
     config["cache_size"] = "10";
 
-    TableMetadata* table_meta = new TableMetadata(particles_table,keyspace,keysnames,colsnames,test_session);
+    TableMetadata *table_meta = new TableMetadata(particles_table, keyspace, keysnames, colsnames, test_session);
 
-    CacheTable* cache = new CacheTable(table_meta, test_session, config);
+    CacheTable *cache = new CacheTable(table_meta, test_session, config);
 
 
     TupleRow *t = new TupleRow(table_meta->get_keys(), sizeof(int) + sizeof(float), buffer);
 
-    std::vector <const TupleRow*> all_rows = cache->get_crow(t);
-    delete(t);
-    delete(cache);
-    EXPECT_EQ(all_rows.size(),1);
+    std::vector<const TupleRow *> all_rows = cache->get_crow(t);
+    delete (t);
+    delete (cache);
+    EXPECT_EQ(all_rows.size(), 1);
     const TupleRow *result = all_rows.at(0);
 
     EXPECT_FALSE(result == NULL);
@@ -1055,8 +1178,8 @@ TEST(TestingCacheTable, GetRowStringC) {
 
     }
 
-    for (const TupleRow* tuple:all_rows) {
-        delete(tuple);
+    for (const TupleRow *tuple:all_rows) {
+        delete (tuple);
     }
 
     CassFuture *close_future = cass_session_close(test_session);
@@ -1073,7 +1196,7 @@ TEST(TestingCacheTable, GetRowStringC) {
 /** Test there are no problems when requesting twice the same key **/
 TEST(TestingCacheTable, GetRowStringSameKey) {
 
-    uint32_t  n_queries = 100;
+    uint32_t n_queries = 100;
 
 
     /** CONNECT **/
@@ -1095,17 +1218,18 @@ TEST(TestingCacheTable, GetRowStringSameKey) {
 
     /** setup cache **/
 
-    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
-    std::vector< std::map<std::string,std::string> >colsnames = {{{"name", "ciao"}}};
+    std::vector<std::map<std::string, std::string> > keysnames = {{{"name", "partid"}},
+                                                                  {{"name", "time"}}};
+    std::vector<std::map<std::string, std::string> > colsnames = {{{"name", "ciao"}}};
 
 
-    std::map <std::string, std::string> config;
+    std::map<std::string, std::string> config;
     config["writer_par"] = "4";
     config["writer_buffer"] = "20";
     config["cache_size"] = "10";
 
-    TableMetadata* table_meta = new TableMetadata(particles_table,keyspace,keysnames,colsnames,test_session);
-    CacheTable* cache = new CacheTable(table_meta, test_session, config);
+    TableMetadata *table_meta = new TableMetadata(particles_table, keyspace, keysnames, colsnames, test_session);
+    CacheTable *cache = new CacheTable(table_meta, test_session, config);
 
 
     /** build key **/
@@ -1122,10 +1246,10 @@ TEST(TestingCacheTable, GetRowStringSameKey) {
 
     /** get queries **/
 
-    for (uint32_t query_i = 0; query_i<n_queries; query_i++) {
+    for (uint32_t query_i = 0; query_i < n_queries; query_i++) {
 
-        std::vector <const TupleRow*> all_rows = cache->get_crow(key);
-        EXPECT_EQ(all_rows.size(),1);
+        std::vector<const TupleRow *> all_rows = cache->get_crow(key);
+        EXPECT_EQ(all_rows.size(), 1);
 
         const TupleRow *result = all_rows.at(0);
         EXPECT_FALSE(result == NULL);
@@ -1139,14 +1263,14 @@ TEST(TestingCacheTable, GetRowStringSameKey) {
             EXPECT_STREQ(d, "74040");
         }
 
-        for (const TupleRow* tuple:all_rows) {
-            delete(tuple);
+        for (const TupleRow *tuple:all_rows) {
+            delete (tuple);
         }
     }
 
 
-    delete(key);
-    delete(cache);
+    delete (key);
+    delete (cache);
     CassFuture *close_future = cass_session_close(test_session);
     cass_future_wait(close_future);
     cass_future_free(close_future);
@@ -1180,27 +1304,28 @@ TEST(TestingCacheTable, PutRowStringC) {
 
     std::vector<uint16_t> offsets = {0, sizeof(int)};
 
-    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
-    std::vector< std::map<std::string,std::string> >colsnames = { {{"name", "ciao"}}};
+    std::vector<std::map<std::string, std::string> > keysnames = {{{"name", "partid"}},
+                                                                  {{"name", "time"}}};
+    std::vector<std::map<std::string, std::string> > colsnames = {{{"name", "ciao"}}};
 
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
 
-    std::map <std::string, std::string> config;
+    std::map<std::string, std::string> config;
     config["writer_par"] = "4";
     config["writer_buffer"] = "20";
     config["cache_size"] = "10";
 
 
-    TableMetadata* table_meta = new TableMetadata(particles_table,keyspace,keysnames,colsnames,test_session);
+    TableMetadata *table_meta = new TableMetadata(particles_table, keyspace, keysnames, colsnames, test_session);
 
-    CacheTable* T = new CacheTable(table_meta, test_session, config);
+    CacheTable *T = new CacheTable(table_meta, test_session, config);
 
 
 
     //TupleRow *t = new TupleRow(T._test_get_keys_factory()->get_metadata(), sizeof(int) + sizeof(float), buffer);
 
-    std::vector<const TupleRow*> results = T->get_crow(buffer);
+    std::vector<const TupleRow *> results = T->get_crow(buffer);
 
 
     EXPECT_FALSE(results.empty());
@@ -1214,23 +1339,25 @@ TEST(TestingCacheTable, PutRowStringC) {
 
         EXPECT_STREQ(d, "74040");
     }
-
+    for (const TupleRow *t_unit:results) {
+        delete (t_unit);
+    }
     buffer = (char *) malloc(sizeof(int) + sizeof(float));
     memcpy(buffer, &val, sizeof(int));
     memcpy(buffer + sizeof(int), &f, sizeof(float));
 
 
-    char *substitue = (char*) malloc(sizeof("71919"));
-    memcpy(substitue,"71919",sizeof("71919"));
-    char** payload2 = (char**)malloc(sizeof(char*));
-    *payload2=substitue;
+    char *substitue = (char *) malloc(sizeof("71919"));
+    memcpy(substitue, "71919", sizeof("71919"));
+    char **payload2 = (char **) malloc(sizeof(char *));
+    *payload2 = substitue;
 
-    T->put_crow(buffer,payload2);
+    T->put_crow(buffer, payload2);
 
 
-    delete(T);
+    delete (T);
     //With the aim to synchronize
-    table_meta = new TableMetadata(particles_table,keyspace,keysnames,colsnames,test_session);
+    table_meta = new TableMetadata(particles_table, keyspace, keysnames, colsnames, test_session);
     T = new CacheTable(table_meta, test_session, config);
 
 
@@ -1252,18 +1379,23 @@ TEST(TestingCacheTable, PutRowStringC) {
         EXPECT_STREQ(d, "71919");
     }
 
-    substitue = (char*) malloc(sizeof("74040"));
-    memcpy(substitue,"74040",sizeof("74040"));
-    payload2 = (char**)malloc(sizeof(char*));
-    *payload2=substitue;
+
+    for (const TupleRow *t_unit:results) {
+        delete (t_unit);
+    }
+
+    substitue = (char *) malloc(sizeof("74040"));
+    memcpy(substitue, "74040", sizeof("74040"));
+    payload2 = (char **) malloc(sizeof(char *));
+    *payload2 = substitue;
 
     buffer = (char *) malloc(sizeof(int) + sizeof(float));
     memcpy(buffer, &val, sizeof(int));
     memcpy(buffer + sizeof(int), &f, sizeof(float));
 
-    T->put_crow(buffer,payload2);
+    T->put_crow(buffer, payload2);
 
-    delete(T);
+    delete (T);
 
     CassFuture *close_future = cass_session_close(test_session);
     cass_future_wait(close_future);
@@ -1292,67 +1424,68 @@ TEST(TestingPrefetch, GetNextC) {
 
     cass_future_free(connect_future);
 
-    ColumnMeta cm1=ColumnMeta();
-    cm1.info={{"name","partid"}};
-    cm1.type=CASS_VALUE_TYPE_INT;
-    cm1.position=0;
-    cm1.size=sizeof(int);
+    ColumnMeta cm1 = ColumnMeta();
+    cm1.info = {{"name", "partid"}};
+    cm1.type = CASS_VALUE_TYPE_INT;
+    cm1.position = 0;
+    cm1.size = sizeof(int);
 
-    ColumnMeta cm2=ColumnMeta();
-    cm2.info={{"name","time"}};
-    cm2.type=CASS_VALUE_TYPE_FLOAT;
-    cm2.position=sizeof(int);
-    cm2.size=sizeof(float);
+    ColumnMeta cm2 = ColumnMeta();
+    cm2.info = {{"name", "time"}};
+    cm2.type = CASS_VALUE_TYPE_FLOAT;
+    cm2.position = sizeof(int);
+    cm2.size = sizeof(float);
 
-    std::vector<ColumnMeta> v = {cm1,cm2};
-    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
+    std::vector<ColumnMeta> v = {cm1, cm2};
+    std::shared_ptr<std::vector<ColumnMeta>> metas = std::make_shared<std::vector<ColumnMeta>>(v);
 
-    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
-    std::vector< std::map<std::string,std::string> >colsnames = { {{"name", "ciao"}}};
+    std::vector<std::map<std::string, std::string> > keysnames = {{{"name", "partid"}},
+                                                                  {{"name", "time"}}};
+    std::vector<std::map<std::string, std::string> > colsnames = {{{"name", "ciao"}}};
 
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
-    int64_t bigi= 9223372036854775807;
+    int64_t bigi = 9223372036854775807;
     std::vector<std::pair<int64_t, int64_t> > tokens = {
-            std::pair<int64_t, int64_t>(-bigi -1,  -bigi/2),
-            std::pair<int64_t, int64_t>(-bigi/2,0),
-            std::pair<int64_t, int64_t>(0,bigi/2),
-            std::pair<int64_t, int64_t>(bigi/2, bigi)
+            std::pair<int64_t, int64_t>(-bigi - 1, -bigi / 2),
+            std::pair<int64_t, int64_t>(-bigi / 2, 0),
+            std::pair<int64_t, int64_t>(0, bigi / 2),
+            std::pair<int64_t, int64_t>(bigi / 2, bigi)
     };
 
 
-    std::map <std::string, std::string> config;
+    std::map<std::string, std::string> config;
     config["writer_par"] = "4";
     config["writer_buffer"] = "20";
     config["cache_size"] = "10";
-    config["prefetch_size"]="100";
+    config["prefetch_size"] = "100";
 
 
-    TableMetadata* table_meta = new TableMetadata(particles_table,keyspace,keysnames,colsnames,test_session);
+    TableMetadata *table_meta = new TableMetadata(particles_table, keyspace, keysnames, colsnames, test_session);
 
     CacheTable T = CacheTable(table_meta, test_session, config);
 
-    Prefetch *P = new Prefetch(tokens,table_meta,test_session,config);
+    Prefetch *P = new Prefetch(tokens, table_meta, test_session, config);
 
 
     TupleRow *result = NULL;
     uint16_t it = 0;
 
 
-    while ((result = P->get_cnext())!=NULL) {
+    while ((result = P->get_cnext()) != NULL) {
         const void *v = result->get_element(2);
         int64_t addr;
         memcpy(&addr, v, sizeof(char *));
         char *d = reinterpret_cast<char *>(addr);
-        std::string empty_str="";
+        std::string empty_str = "";
         std::string result_str(d);
-        EXPECT_TRUE(result_str>empty_str);
-        delete(result);
+        EXPECT_TRUE(result_str > empty_str);
+        delete (result);
         ++it;
     }
 
-    EXPECT_EQ(it,10001);
+    EXPECT_EQ(it, 10001);
 
-    delete(P);
+    delete (P);
 
     CassFuture *close_future = cass_session_close(test_session);
     cass_future_wait(close_future);
@@ -1369,11 +1502,10 @@ TEST(TestingPrefetch, GetNextC) {
 /*** CACHE API TESTS ***/
 
 
-TEST(TestingStorageInterfaceCpp,ConnectDisconnect){
-    StorageInterface* StorageI= new StorageInterface(nodePort,contact_p);
-    delete(StorageI);
+TEST(TestingStorageInterfaceCpp, ConnectDisconnect) {
+    StorageInterface *StorageI = new StorageInterface(nodePort, contact_p);
+    delete (StorageI);
 }
-
 
 
 TEST(TestingPrefetch, GetNextAndUpdateCache) {
@@ -1400,68 +1532,69 @@ TEST(TestingPrefetch, GetNextAndUpdateCache) {
     float f = 12340;
     memcpy(buffer + sizeof(int), &f, sizeof(float));
 
-    ColumnMeta cm1=ColumnMeta();
-    cm1.info={{"name","partid"}};
-    cm1.type=CASS_VALUE_TYPE_INT;
-    cm1.position=0;
-    cm1.size=sizeof(int);
+    ColumnMeta cm1 = ColumnMeta();
+    cm1.info = {{"name", "partid"}};
+    cm1.type = CASS_VALUE_TYPE_INT;
+    cm1.position = 0;
+    cm1.size = sizeof(int);
 
-    ColumnMeta cm2=ColumnMeta();
-    cm2.info={{"name","time"}};
-    cm2.type=CASS_VALUE_TYPE_FLOAT;
-    cm2.position=sizeof(int);
-    cm2.size=sizeof(float);
+    ColumnMeta cm2 = ColumnMeta();
+    cm2.info = {{"name", "time"}};
+    cm2.type = CASS_VALUE_TYPE_FLOAT;
+    cm2.position = sizeof(int);
+    cm2.size = sizeof(float);
 
-    std::vector<ColumnMeta> v = {cm1,cm2};
-    std::shared_ptr<std::vector<ColumnMeta>> metas=std::make_shared<std::vector<ColumnMeta>>(v);
+    std::vector<ColumnMeta> v = {cm1, cm2};
+    std::shared_ptr<std::vector<ColumnMeta>> metas = std::make_shared<std::vector<ColumnMeta>>(v);
 
-    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
-    std::vector< std::map<std::string,std::string> >colsnames = { {{"name", "ciao"}}};
+    std::vector<std::map<std::string, std::string> > keysnames = {{{"name", "partid"}},
+                                                                  {{"name", "time"}}};
+    std::vector<std::map<std::string, std::string> > colsnames = {{{"name", "ciao"}}};
 
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
-    int64_t bigi= 9223372036854775807;
+    int64_t bigi = 9223372036854775807;
     std::vector<std::pair<int64_t, int64_t> > tokens = {
-            std::pair<int64_t, int64_t>(-bigi -1,  -bigi/2),
-            std::pair<int64_t, int64_t>(-bigi/2,0),
-            std::pair<int64_t, int64_t>(0,bigi/2),
-            std::pair<int64_t, int64_t>(bigi/2, bigi)
+            std::pair<int64_t, int64_t>(-bigi - 1, -bigi / 2),
+            std::pair<int64_t, int64_t>(-bigi / 2, 0),
+            std::pair<int64_t, int64_t>(0, bigi / 2),
+            std::pair<int64_t, int64_t>(bigi / 2, bigi)
     };
 
 
-    std::map <std::string, std::string> config;
+    std::map<std::string, std::string> config;
     config["writer_par"] = "4";
     config["writer_buffer"] = "20";
     config["cache_size"] = "100";
-    config["prefetch_size"]="30";
-    config["update_cache"]="true";
+    config["prefetch_size"] = "30";
+    config["update_cache"] = "true";
 
-    TableMetadata* table_meta = new TableMetadata(particles_table,keyspace,keysnames,colsnames,test_session);
+    TableMetadata *table_meta = new TableMetadata(particles_table, keyspace, keysnames, colsnames, test_session);
 
     CacheTable T = CacheTable(table_meta, test_session, config);
 
     //By default iterates items
-    Prefetch *P = new Prefetch(tokens,table_meta,test_session,config);
+    Prefetch *P = new Prefetch(tokens, table_meta, test_session, config);
 
 
     TupleRow *result = NULL;
     uint16_t it = 0;
 
 
-    while ((result = P->get_cnext())!=NULL) {
+    while ((result = P->get_cnext()) != NULL) {
         const void *v = result->get_element(2);
         int64_t addr;
         memcpy(&addr, v, sizeof(char *));
         char *d = reinterpret_cast<char *>(addr);
-        std::string empty_str="";
+        std::string empty_str = "";
         std::string result_str(d);
-        EXPECT_TRUE(result_str>empty_str);
-        delete(result);
+        EXPECT_TRUE(result_str > empty_str);
+        delete (result);
         ++it;
     }
 
-    EXPECT_EQ(it,10001);
+    EXPECT_EQ(it, 10001);
 
-    delete(P);
+    delete (P);
 
     CassFuture *close_future = cass_session_close(test_session);
     cass_future_wait(close_future);
@@ -1472,114 +1605,117 @@ TEST(TestingPrefetch, GetNextAndUpdateCache) {
 }
 
 
-
-TEST(TestingStorageInterfaceCpp,CreateAndDelCache){
+TEST(TestingStorageInterfaceCpp, CreateAndDelCache) {
     /** KEYS **/
 
-    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
-    std::vector< std::map<std::string,std::string> >read_colsnames = {{{"name","x"}}, {{"name", "ciao"}}};
-    std::vector< std::map<std::string,std::string> >write_colsnames = {{{"name","y"}}, {{"name", "ciao"}}};
+    std::vector<std::map<std::string, std::string> > keysnames = {{{"name", "partid"}},
+                                                                  {{"name", "time"}}};
+    std::vector<std::map<std::string, std::string> > read_colsnames = {{{"name", "x"}},
+                                                                       {{"name", "ciao"}}};
+    std::vector<std::map<std::string, std::string> > write_colsnames = {{{"name", "y"}},
+                                                                        {{"name", "ciao"}}};
 
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
 
 
-    int64_t bigi= 9223372036854775807;
+    int64_t bigi = 9223372036854775807;
     std::vector<std::pair<int64_t, int64_t> > tokens = {
-            std::pair<int64_t, int64_t>(-bigi -1,  -bigi/2),
-            std::pair<int64_t, int64_t>(-bigi/2,0),
-            std::pair<int64_t, int64_t>(0,bigi/2),
-            std::pair<int64_t, int64_t>(bigi/2, bigi)
+            std::pair<int64_t, int64_t>(-bigi - 1, -bigi / 2),
+            std::pair<int64_t, int64_t>(-bigi / 2, 0),
+            std::pair<int64_t, int64_t>(0, bigi / 2),
+            std::pair<int64_t, int64_t>(bigi / 2, bigi)
     };
 
 
-
-    std::map <std::string, std::string> config;
+    std::map<std::string, std::string> config;
     config["writer_par"] = "4";
     config["writer_buffer"] = "20";
     config["cache_size"] = "10";
 
-    StorageInterface *StorageI = new StorageInterface(nodePort,contact_p);
-    CacheTable* table= StorageI->make_cache(particles_table, keyspace, keysnames, read_colsnames, config);
+    StorageInterface *StorageI = new StorageInterface(nodePort, contact_p);
+    CacheTable *table = StorageI->make_cache(particles_table, keyspace, keysnames, read_colsnames, config);
 
-    delete(table);
-    delete(StorageI);
+    delete (table);
+    delete (StorageI);
 }
 
 
-
-TEST(TestingStorageInterfaceCpp,CreateAndDelCacheWrong){
+TEST(TestingStorageInterfaceCpp, CreateAndDelCacheWrong) {
     /** This test demonstrates that deleting the Cache provider
      * before deleting cache instances doesnt raise exceptions
      * or enter in any kind of lock
      * **/
 
-    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
-    std::vector< std::map<std::string,std::string> >read_colsnames = {{{"name","x"}}, {{"name", "ciao"}}};
+    std::vector<std::map<std::string, std::string> > keysnames = {{{"name", "partid"}},
+                                                                  {{"name", "time"}}};
+    std::vector<std::map<std::string, std::string> > read_colsnames = {{{"name", "x"}},
+                                                                       {{"name", "ciao"}}};
 
 
-    int64_t bigi= 9223372036854775807;
+    int64_t bigi = 9223372036854775807;
     std::vector<std::pair<int64_t, int64_t> > tokens = {
-            std::pair<int64_t, int64_t>(-bigi -1,  -bigi/2),
-            std::pair<int64_t, int64_t>(-bigi/2,0),
-            std::pair<int64_t, int64_t>(0,bigi/2),
-            std::pair<int64_t, int64_t>(bigi/2, bigi)
+            std::pair<int64_t, int64_t>(-bigi - 1, -bigi / 2),
+            std::pair<int64_t, int64_t>(-bigi / 2, 0),
+            std::pair<int64_t, int64_t>(0, bigi / 2),
+            std::pair<int64_t, int64_t>(bigi / 2, bigi)
     };
 
 
-
-    std::map <std::string, std::string> config;
+    std::map<std::string, std::string> config;
     config["writer_par"] = "4";
     config["writer_buffer"] = "20";
     config["cache_size"] = "10";
 
-    StorageInterface *StorageI = new StorageInterface(nodePort,contact_p);
-    CacheTable* table= StorageI->make_cache(particles_table, keyspace, keysnames, read_colsnames, config);
+    StorageInterface *StorageI = new StorageInterface(nodePort, contact_p);
+    CacheTable *table = StorageI->make_cache(particles_table, keyspace, keysnames, read_colsnames, config);
 
-    delete(StorageI);
-    delete(table);
+    delete (StorageI);
+    delete (table);
 }
 
 
-TEST(TestingStorageInterfaceCpp,IteratePrefetch){
+TEST(TestingStorageInterfaceCpp, IteratePrefetch) {
     /** This test demonstrates that deleting the Cache provider
      * before deleting cache instances doesnt raise exceptions
      * or enter in any kind of lock
      * **/
 
-    std::vector< std::map<std::string,std::string> > keysnames = {{{"name", "partid"}},{{"name","time"}}};
-    std::vector< std::map<std::string,std::string> >read_colsnames = {{{"name","x"}},{{"name", "ciao"}}};
+    std::vector<std::map<std::string, std::string> > keysnames = {{{"name", "partid"}},
+                                                                  {{"name", "time"}}};
+    std::vector<std::map<std::string, std::string> > read_colsnames = {{{"name", "x"}},
+                                                                       {{"name", "ciao"}}};
 
     std::string token_pred = "WHERE token(partid)>=? AND token(partid)<?";
 
 
-    int64_t bigi= 9223372036854775807;
+    int64_t bigi = 9223372036854775807;
     std::vector<std::pair<int64_t, int64_t> > tokens = {
-            std::pair<int64_t, int64_t>(-bigi -1,  -bigi/2),
-            std::pair<int64_t, int64_t>(-bigi/2,0),
-            std::pair<int64_t, int64_t>(0,bigi/2),
-            std::pair<int64_t, int64_t>(bigi/2, bigi)
+            std::pair<int64_t, int64_t>(-bigi - 1, -bigi / 2),
+            std::pair<int64_t, int64_t>(-bigi / 2, 0),
+            std::pair<int64_t, int64_t>(0, bigi / 2),
+            std::pair<int64_t, int64_t>(bigi / 2, bigi)
     };
 
 
-
-    std::map <std::string, std::string> config;
+    std::map<std::string, std::string> config;
     config["writer_par"] = "4";
     config["writer_buffer"] = "20";
     config["cache_size"] = "10";
     config["prefetch_size"] = "100";
 
-    StorageInterface *StorageI = new StorageInterface(nodePort,contact_p);
-    CacheTable* table= StorageI->make_cache(particles_table, keyspace, keysnames, read_colsnames, config);
+    StorageInterface *StorageI = new StorageInterface(nodePort, contact_p);
+    CacheTable *table = StorageI->make_cache(particles_table, keyspace, keysnames, read_colsnames, config);
 
-    Prefetch *P = StorageI->get_iterator(particles_table, keyspace, keysnames, read_colsnames, tokens,config);
-    int it= 0;
+    Prefetch *P = StorageI->get_iterator(particles_table, keyspace, keysnames, read_colsnames, tokens, config);
+    int it = 0;
     TupleRow *T = NULL;
-    while ((T=P->get_cnext())!=NULL) {
+    while ((T = P->get_cnext()) != NULL) {
         ++it;
-        delete(T);
+        delete (T);
     }
-    EXPECT_EQ(it,10001);
-    delete(P);
-    delete(table);
-    delete(StorageI);
+    EXPECT_EQ(it, 10001);
+    delete (P->get_metadata());
+    delete (P);
+    delete (table);
+    delete (StorageI);
 }

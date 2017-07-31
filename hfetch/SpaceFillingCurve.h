@@ -4,17 +4,20 @@
 #include <iostream>
 #include <vector>
 #include <cstring>
+#include "limits.h"
+
+#define BLOCK_SIZE 16
 
 //Represents a block of data belonging to an array
 struct Partition {
-    Partition(int32_t block, int32_t cluster, const void *chunk) {
+    Partition(uint32_t block, uint32_t cluster, const void *chunk) {
         this->block_id = block;
         this->cluster_id = cluster;
         this->data = chunk;
     }
 
-    int32_t block_id;
-    int32_t cluster_id;
+    uint32_t block_id;
+    uint32_t cluster_id;
     const void *data;
 };
 
@@ -39,9 +42,13 @@ public:
 
 
 class ZorderCurve : public SpaceFillingCurve {
+
+public:
+    ~ZorderCurve() {};
+
     std::vector<Partition> make_partitions(const ArrayMetadata *metas, void *data) const;
 
-    virtual void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks) const;
+    void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks) const;
 
 };
 
