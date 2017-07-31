@@ -451,7 +451,29 @@ class StorageObj(object, IStorage):
         if key[0] is '_':
             object.__setattr__(self, key, value)
         else:
+            if value.__class__.__name__ == 'dict' and self._persistent_props[key]['type'] == 'dict':
+                if value == {}:
+                    return
+                else:
+                    query = "SELECT table_name FROM system_schema.tables WHERE keyspace_name = '" + self._ksp + "'"
+                    result = config.session.execute(query)
+                    prev_storagedict = getattr(self, key)
+                    copies = '_1'
+                    if prev_storagedict._table.count('_') > 1:
+                        curr_table = '_'.join(prev_storagedict._table.split('_')[0:-1])
+                    else:
+                        curr_table = prev_storagedict._table
+                    _tablename_finder = re.compile('.*' + curr_table + '_([0-9]+)')
+                    for row in result:
+                        m = _tablename_finder.match(row.table_name)
+                        if m is not None:
+                            copies = int(m.groups()[0]) + 1
+                    setattr(self, key, StorageDict(curr_table + '_' + str(copies), prev_storagedict._primary_keys, prev_storagedict._columns))
+                    for k, v in value.iteritems():
+                        getattr(self, key)[k] = v
+                    return
             if config.hecuba_type_checking and \
+                             key in self._persistent_attrs and \
                              IStorage._conversions[value.__class__.__name__] != self._persistent_props[key]['type']:
                 raise TypeError
             if hasattr(self, '_is_persistent') and self._is_persistent and key in self._persistent_attrs:

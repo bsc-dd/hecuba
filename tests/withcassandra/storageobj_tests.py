@@ -666,5 +666,21 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(10, my_nested_so2.test2.myso.age)
 
 
+    def test_storagedict_assign(self):
+        config.hecuba_type_checking = True
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2_test")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2_test_1")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2_test_2")
+        so = TestStorageObj("t2")
+        self.assertEquals('t2_test', so.test._table)
+        so.test = {}
+        self.assertEquals('t2_test', so.test._table)
+        so.test = {1: 'a', 2: 'b'}
+        self.assertEquals('t2_test_1', so.test._table)
+        so.test = {3: 'c', 4: 'd'}
+        self.assertEquals('t2_test_2', so.test._table)
+        config.hecuba_type_checking = False
+
 if __name__ == '__main__':
     unittest.main()

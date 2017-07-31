@@ -42,7 +42,8 @@ class IStorage:
                     'buffer': 'blob',
                     'bytearray': 'blob',
                     'counter': 'counter',
-                    'double': 'double'}
+                    'double': 'double',
+                    'StorageDict': 'dict'}
 
     @staticmethod
     def process_path(module_path):
