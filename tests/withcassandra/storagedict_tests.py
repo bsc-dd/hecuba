@@ -386,6 +386,7 @@ class StorageDictTest(unittest.TestCase):
 
     def test_update(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a4")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a5")
         tablename = "tab_a4"
         pd = StorageDict(tablename,
                          [('position', 'int')],
@@ -397,6 +398,20 @@ class StorageDictTest(unittest.TestCase):
         pd.update({0: 'a', 1: 'b'})
         self.assertEquals(pd[0], 'a')
         self.assertEquals(pd[1], 'b')
+        pd.update({2: 'c', 3: 'd'})
+        self.assertEquals(pd[0], 'a')
+        self.assertEquals(pd[1], 'b')
+        self.assertEquals(pd[2], 'c')
+        self.assertEquals(pd[3], 'd')
+        tablename = "tab_a5"
+        pd2 = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'text')])
+        pd2[0] = 'final_a'
+        pd2[4] = 'final_4'
+        pd.update(pd2)
+        self.assertEquals(pd[0], 'final_a')
+        self.assertEquals(pd[4], 'final_4')
 
 
 if __name__ == '__main__':

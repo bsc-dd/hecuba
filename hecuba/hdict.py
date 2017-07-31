@@ -477,8 +477,12 @@ class StorageDict(dict, IStorage):
 
     def update(self, other=None, **kwargs):
         if other is not None:
-            for k, v in other.items() if isinstance(other, Mapping) else other:
-                self[k] = v
+            if isinstance(other, StorageDict):
+                for k, v in other.iteritems():
+                    self[k] = v
+            else:
+                for k, v in other.items() if isinstance(other, Mapping) else other:
+                    self[k] = v
         for k, v in kwargs.items():
             self[k] = v
 
