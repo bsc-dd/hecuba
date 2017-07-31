@@ -424,7 +424,7 @@ class StorageObj(object, IStorage):
                 for row in result:
                     for row_key, row_var in vars(row).iteritems():
                         if row_var is not None:
-                            if row_var.__class__.__name__ == 'list' and row_var[0].__class__.__name__ == 'unicode':
+                            if isinstance(row_var, list) and isinstance(row_var[0], unicode):
                                 new_toreturn = []
                                 for entry in row_var:
                                     new_toreturn.append(str(entry))
@@ -439,6 +439,8 @@ class StorageObj(object, IStorage):
         else:
             return object.__getattribute__(self, key)
 
+    _tablename_finder = re.compile('([A-z0-9_]+)_([0-9]+)$')
+
     def __setattr__(self, key, value):
         """
             Given a key and its value, this function saves it (depending on if it's persistent or not):
@@ -451,7 +453,7 @@ class StorageObj(object, IStorage):
         if key[0] is '_':
             object.__setattr__(self, key, value)
         else:
-            if value.__class__.__name__ == 'dict' and self._persistent_props[key]['type'] == 'dict':
+            if isinstance(value, dict) and not isinstance(value, StorageDict) and self._persistent_props[key]['type'] == 'dict':
                 if value == {}:
                     return
                 else:
@@ -459,15 +461,18 @@ class StorageObj(object, IStorage):
                     result = config.session.execute(query)
                     prev_storagedict = getattr(self, key)
                     copies = 1
-                    if prev_storagedict._table.count('_') > 1:
-                        curr_table = '_'.join(prev_storagedict._table.split('_')[0:-1])
+                    m = StorageObj._tablename_finder.match(prev_storagedict._table)
+                    if m is not None:
+                        grouped = m.groups()
+                        curr_table = grouped[0]
                     else:
                         curr_table = prev_storagedict._table
-                    _tablename_finder = re.compile('.*' + curr_table + '_([0-9]+)')
                     for row in result:
-                        m = _tablename_finder.match(row.table_name)
+                        m = StorageObj._tablename_finder.match(row.table_name)
                         if m is not None:
-                            copies = int(m.groups()[0]) + 1
+                            grouped = m.groups()
+                            if grouped[0] == curr_table:
+                                copies = int(grouped[1]) + 1
                     setattr(self, key, StorageDict(curr_table + '_' + str(copies), prev_storagedict._primary_keys, prev_storagedict._columns))
                     for k, v in value.iteritems():
                         getattr(self, key)[k] = v
