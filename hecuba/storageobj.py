@@ -458,7 +458,7 @@ class StorageObj(object, IStorage):
                     query = "SELECT table_name FROM system_schema.tables WHERE keyspace_name = '" + self._ksp + "'"
                     result = config.session.execute(query)
                     prev_storagedict = getattr(self, key)
-                    copies = '_1'
+                    copies = 1
                     if prev_storagedict._table.count('_') > 1:
                         curr_table = '_'.join(prev_storagedict._table.split('_')[0:-1])
                     else:
