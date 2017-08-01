@@ -516,17 +516,67 @@ class StorageDictTest(unittest.TestCase):
         my_dict = MyStorageDict()
         my_dict[0] = 1
         my_dict.make_persistent('my_dict')
-        time.sleep(2)
+        time.sleep(1)
         count, = config.session.execute('SELECT count(*) FROM my_app.my_dict')[0]
         self.assertEquals(1, count)
 
         my_dict[1] = 2
+        time.sleep(1)
         count, = config.session.execute('SELECT count(*) FROM my_app.my_dict')[0]
         self.assertEquals(2, count)
 
         my_dict2 = MyStorageDict('my_dict')
         self.assertEquals(1, my_dict2[0])
         self.assertEquals(2, my_dict2[1])
+
+    def test_update(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a4")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a5")
+        tablename = "tab_a4"
+        pd = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'text')])
+        pd[0] = 'prev_a'
+        pd[1] = 'prev_b'
+        self.assertEquals(pd[0], 'prev_a')
+        self.assertEquals(pd[1], 'prev_b')
+        pd.update({0: 'a', 1: 'b'})
+        time.sleep(1)
+        self.assertEquals(pd[0], 'a')
+        self.assertEquals(pd[1], 'b')
+        pd.update({2: 'c', 3: 'd'})
+        time.sleep(1)
+        self.assertEquals(pd[0], 'a')
+        self.assertEquals(pd[1], 'b')
+        self.assertEquals(pd[2], 'c')
+        self.assertEquals(pd[3], 'd')
+        tablename = "tab_a5"
+        pd2 = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'text')])
+        pd2[0] = 'final_a'
+        pd2[4] = 'final_4'
+        pd.update(pd2)
+        time.sleep(1)
+        self.assertEquals(pd[0], 'final_a')
+        self.assertEquals(pd[4], 'final_4')
+
+    def test_update_kwargs(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a6")
+        tablename = "tab_a6"
+        pd = StorageDict(tablename,
+                         [('position', 'text')],
+                         [('value', 'text')])
+        pd['val1'] = 'old_a'
+        pd['val2'] = 'old_b'
+        time.sleep(2)
+        self.assertEquals(pd['val1'], 'old_a')
+        self.assertEquals(pd['val2'], 'old_b')
+        pd.update(val1='new_a', val2='new_b')
+        time.sleep(2)
+        self.assertEquals(pd['val1'], 'new_a')
+        self.assertEquals(pd['val2'], 'new_b')
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,6 +1,7 @@
 # author: G. Alomar
 from collections import Iterable
 from collections import namedtuple
+from collections import Mapping
 from types import NoneType
 from hfetch import Hcache
 from IStorage import IStorage
@@ -98,7 +99,7 @@ class StorageDict(dict, IStorage):
             raise ex
 
     def __init__(self, name=None, primary_keys=None, columns=None, tokens=None,
-                 storage_id=None, indexed_args=[], **kwargs):
+                 storage_id=None, indexed_args=None, **kwargs):
         """
         Creates a new block.
 
@@ -135,7 +136,7 @@ class StorageDict(dict, IStorage):
             try:
                 self._indexed_args = self._persistent_props[self.__class__.__name__]['indexed_values']
             except:
-                pass
+                self._indexed_args = indexed_args
         else:
             self._primary_keys = primary_keys
             self._columns = columns
@@ -507,6 +508,17 @@ class StorageDict(dict, IStorage):
         if len(to_return) > 0:
             return str(to_return)
         return ""
+
+    def update(self, other=None, **kwargs):
+        if other is not None:
+            if isinstance(other, StorageDict):
+                for k, v in other.iteritems():
+                    self[k] = v
+            else:
+                for k, v in other.items() if isinstance(other, Mapping) else other:
+                    self[k] = v
+        for k, v in kwargs.items():
+            self[k] = v
 
     def iterkeys(self):
         """
