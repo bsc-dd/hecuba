@@ -102,4 +102,3 @@ class StorageObjTest(unittest.TestCase):
         config.session.execute.assert_not_called()
 
 
-

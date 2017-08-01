@@ -144,8 +144,7 @@ class StorageDictTest(unittest.TestCase):
             nopars.words[i] = 'ciao' + str(i)
 
         count, = config.session.execute(
-            "SELECT count(*) FROM system_schema.tables WHERE keyspace_name = 'my_app' and table_name = 't_make_words'")[
-            0]
+            "SELECT count(*) FROM system_schema.tables WHERE keyspace_name = 'my_app' and table_name = 't_make_words'")[0]
         self.assertEqual(0, count)
 
         nopars.make_persistent("t_make")
@@ -153,6 +152,103 @@ class StorageDictTest(unittest.TestCase):
         del nopars
         count, = config.session.execute('SELECT count(*) FROM my_app.t_make_words')[0]
         self.assertEqual(10, count)
+
+    def test_paranoid_setitem_nonpersistent(self):
+        config.hecuba_type_checking = True
+        pd = StorageDict(None,
+                         [('position', 'int')],
+                         [('value', 'text')])
+        pd[0] = 'bla'
+        self.assertEquals(pd[0], 'bla')
+
+        def set_wrong_val_1():
+            pd[0] = 1
+        self.assertRaises(ValueError, set_wrong_val_1)
+
+        def set_wrong_val_2():
+            pd['bla'] = 'bla'
+        self.assertRaises(KeyError, set_wrong_val_2)
+        config.hecuba_type_checking = False
+
+    def test_paranoid_setitem_multiple_nonpersistent(self):
+        config.hecuba_type_checking = True
+        pd = StorageDict(None,
+                         [('position1', 'int'), ('position2', 'text')],
+                         [('value1', 'text'), ('value2', 'int')])
+        pd[0, 'pos1'] = 'bla', 1
+        self.assertEquals(pd[0, 'pos1'], ('bla', 1))
+
+        def set_wrong_val_1():
+            pd[0, 'pos1'] = 1, 'bla'
+        self.assertRaises(ValueError, set_wrong_val_1)
+
+        def set_wrong_val_2():
+            pd['pos1', 0] = 'bla', 1
+        self.assertRaises(KeyError, set_wrong_val_2)
+        config.hecuba_type_checking = False
+
+    def test_paranoid_setitem_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a1")
+        config.hecuba_type_checking = True
+        pd = StorageDict("tab_a1",
+                         [('position', 'int')],
+                         [('value', 'text')])
+        pd[0] = 'bla'
+        result = config.session.execute('SELECT value FROM my_app.tab_a1 WHERE position = 0')
+        for row in result:
+            self.assertEquals(row.value, 'bla')
+
+        def set_wrong_val_test():
+            pd[0] = 1
+        self.assertRaises(ValueError, set_wrong_val_test)
+        config.hecuba_type_checking = False
+
+    def test_paranoid_setitem_multiple_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a2")
+        config.hecuba_type_checking = True
+        pd = StorageDict("tab_a2",
+                         [('position1', 'int'), ('position2', 'text')],
+                         [('value1', 'text'), ('value2', 'int')])
+        pd[0, 'pos1'] = 'bla', 1
+        for result in pd.itervalues():
+            self.assertEquals(result.value1, 'bla')
+            self.assertEquals(result.value2, 1)
+
+        def set_wrong_val():
+            pd[0, 'pos1'] = 'bla', 'bla1'
+        self.assertRaises(ValueError, set_wrong_val)
+
+        def set_wrong_key():
+            pd['bla', 'pos1'] = 'bla', 1
+        self.assertRaises(KeyError, set_wrong_key)
+        config.hecuba_type_checking = False
+
+    def test_paranoid_setitemdouble_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a3")
+        config.hecuba_type_checking = True
+        pd = StorageDict("tab_a3",
+                         [('position', 'int')],
+                         [('value', 'double')])
+        pd[0] = 2.0
+        result = config.session.execute('SELECT value FROM my_app.tab_a3 WHERE position = 0')
+        for row in result:
+            self.assertEquals(row.value, 2.0)
+
+        def set_wrong_val_test():
+            pd[0] = 1
+        self.assertRaises(ValueError, set_wrong_val_test)
+        config.hecuba_type_checking = False
+
+    def test_paranoid_setitemdouble_multiple_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a4")
+        config.hecuba_type_checking = True
+        pd = StorageDict("tab_a4",
+                         [('position1', 'int'), ('position2', 'text')],
+                         [('value1', 'text'), ('value2', 'double')])
+        pd[0, 'pos1'] = ['bla', 1.0]
+        time.sleep(2)
+        self.assertEquals(pd[0, 'pos1'], ('bla', 1.0))
+        config.hecuba_type_checking = False
 
     def test_empty_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.wordsso_words")
@@ -274,12 +370,58 @@ class StorageDictTest(unittest.TestCase):
         for i in range(100):
             self.assertTrue(i in pd)
 
+    def test_deleteitem_nonpersistent(self):
+        pd = StorageDict(None,
+                         [('position', 'int')],
+                         [('value', 'text')])
+        pd[0] = 'to_delete'
+        del pd[0]
+
+        def del_val():
+            val = pd[0]
+        self.assertRaises(KeyError, del_val)
+
+        pd = StorageDict(None,
+                         [('position', 'text')],
+                         [('value', 'int')])
+        pd['pos0'] = 0
+        del pd['pos0']
+
+        def del_val():
+            val = pd['pos0']
+        self.assertRaises(KeyError, del_val)
+
+    def test_deleteitem_persistent(self):
+        tablename = "tab_a5"
+        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+        pd = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'text')])
+        pd[0] = 'to_delete'
+        del pd[0]
+
+        def del_val():
+            val = pd[0]
+        self.assertRaises(KeyError, del_val)
+
+        tablename = "tab_a6"
+        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+        pd = StorageDict(tablename,
+                         [('position', 'text')],
+                         [('value', 'int')])
+        pd['pos1'] = 0
+        del pd['pos1']
+
+        def del_val():
+            val = pd['pos1']
+        self.assertRaises(KeyError, del_val)
+
     def test_composed_iteritems_test(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab12")
         tablename = "tab12"
         pd = StorageDict(tablename,
                          [('pid', 'int'), ('time', 'int')],
-                         [('value', 'text'), ('x', 'float'), ('y', 'float'), ('z', 'float')])
+                         [('value', 'text'), ('x', 'double'), ('y', 'double'), ('z', 'double')])
 
         what_should_be = {}
         for i in range(100):
@@ -292,7 +434,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(count, 100)
         pd = StorageDict(tablename,
                          [('pid', 'int'), ('time', 'int')],
-                         [('value', 'text'), ('x', 'float'), ('y', 'float'), ('z', 'float')])
+                         [('value', 'text'), ('x', 'double'), ('y', 'double'), ('z', 'double')])
         count = 0
         res = {}
         for key, val in pd.iteritems():
@@ -312,13 +454,13 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab13")
         tablename = "tab13"
         pd = StorageDict(tablename,
-                         [('pid', 'int'), ('time', 'float')],
-                         [('value', 'text'), ('x', 'float'), ('y', 'float'), ('z', 'float')])
+                         [('pid', 'int'), ('time', 'double')],
+                         [('value', 'text'), ('x', 'double'), ('y', 'double'), ('z', 'double')])
 
         what_should_be = {}
         for i in range(100):
-            pd[i, i + 100] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
-            what_should_be[i, i + 100] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
+            pd[i, i + 100.0] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
+            what_should_be[i, i + 100.0] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
 
         del pd
 
@@ -326,7 +468,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(count, 100)
         pd = StorageDict(tablename,
                          [('pid', 'int')],
-                         [('time', 'float'), ('value', 'text'), ('x', 'float'), ('y', 'float'), ('z', 'float')])
+                         [('time', 'double'), ('value', 'text'), ('x', 'double'), ('y', 'double'), ('z', 'double')])
         count = 0
         res = {}
         for key, val in pd.iteritems():
@@ -374,10 +516,12 @@ class StorageDictTest(unittest.TestCase):
         my_dict = MyStorageDict()
         my_dict[0] = 1
         my_dict.make_persistent('my_dict')
+        time.sleep(1)
         count, = config.session.execute('SELECT count(*) FROM my_app.my_dict')[0]
         self.assertEquals(1, count)
 
         my_dict[1] = 2
+        time.sleep(1)
         count, = config.session.execute('SELECT count(*) FROM my_app.my_dict')[0]
         self.assertEquals(2, count)
 
@@ -397,9 +541,11 @@ class StorageDictTest(unittest.TestCase):
         self.assertEquals(pd[0], 'prev_a')
         self.assertEquals(pd[1], 'prev_b')
         pd.update({0: 'a', 1: 'b'})
+        time.sleep(1)
         self.assertEquals(pd[0], 'a')
         self.assertEquals(pd[1], 'b')
         pd.update({2: 'c', 3: 'd'})
+        time.sleep(1)
         self.assertEquals(pd[0], 'a')
         self.assertEquals(pd[1], 'b')
         self.assertEquals(pd[2], 'c')
@@ -411,6 +557,7 @@ class StorageDictTest(unittest.TestCase):
         pd2[0] = 'final_a'
         pd2[4] = 'final_4'
         pd.update(pd2)
+        time.sleep(1)
         self.assertEquals(pd[0], 'final_a')
         self.assertEquals(pd[4], 'final_4')
 
@@ -422,11 +569,11 @@ class StorageDictTest(unittest.TestCase):
                          [('value', 'text')])
         pd['val1'] = 'old_a'
         pd['val2'] = 'old_b'
-        time.sleep(1)
+        time.sleep(2)
         self.assertEquals(pd['val1'], 'old_a')
         self.assertEquals(pd['val2'], 'old_b')
         pd.update(val1='new_a', val2='new_b')
-        time.sleep(1)
+        time.sleep(2)
         self.assertEquals(pd['val1'], 'new_a')
         self.assertEquals(pd['val2'], 'new_b')
 

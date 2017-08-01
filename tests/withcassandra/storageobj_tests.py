@@ -39,6 +39,14 @@ class Test2StorageObj(StorageObj):
     pass
 
 
+class Test2StorageObjFloat(StorageObj):
+    '''
+       @ClassField name str
+       @ClassField age float
+    '''
+    pass
+
+
 class Test3StorageObj(StorageObj):
     '''
        @ClassField myso tests.withcassandra.storageobj_tests.Test2StorageObj
@@ -238,8 +246,8 @@ class StorageObjTest(unittest.TestCase):
 
         nopars2 = Test6StorageObj("hecuba_test.nonames")
         nopars2.test3[0] = '1', '2'
+        time.sleep(2)
         result = config.session.execute("SELECT val0, val1 FROM hecuba_test.nonames_test3 WHERE key0 = 0")
-
         for row in result:
             rval0 = row.val0
             rval1 = row.val1
@@ -308,6 +316,29 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(so.name, 'addio')
         self.assertEqual(so.age, 2000)
 
+    def test_delattr_nonpersistent(self):
+        so = Test2StorageObj()
+        so.name = 'caio'
+        del so.name
+
+        def del_attr():
+            my_val = so.name
+        self.assertRaises(AttributeError, del_attr)
+
+    def test_delattr_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.t3")
+        so = Test2StorageObj("t3")
+        so.name = 'caio'
+        del so.name
+
+        def del_attr1():
+            my_val = so.name
+        self.assertRaises(AttributeError, del_attr1)
+
+        def del_attr2():
+            my_val = so.random_val
+        self.assertRaises(AttributeError, del_attr1)
+
     def test_modify_simple_before_mkp_attributes(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.t2")
         so = Test2StorageObj()
@@ -322,6 +353,53 @@ class StorageObjTest(unittest.TestCase):
         so.age = 2000
         self.assertEqual(so.name, 'addio')
         self.assertEqual(so.age, 2000)
+
+    def test_paranoid_setattr_nonpersistent(self):
+        config.hecuba_type_checking = True
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2")
+        so = Test2StorageObj()
+        so.name = 'my_name'
+        self.assertEquals(so.name, 'my_name')
+
+        def set_name_test():
+            so.name = 1
+        self.assertRaises(TypeError, set_name_test)
+        so.age = 1
+        self.assertEquals(so.age, 1)
+
+        def set_age_test():
+            so.age = 'my_name'
+        self.assertRaises(TypeError, set_age_test)
+        config.hecuba_type_checking = False
+
+    def test_paranoid_setattr_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2")
+        config.hecuba_type_checking = True
+        so = Test2StorageObj("t2")
+        so.name = 'my_name'
+        result = config.session.execute("SELECT name FROM my_app.t2")
+        for row in result:
+            cass_name = row.name
+        self.assertEquals(cass_name, 'my_name')
+        def setNameTest():
+            so.name = 1
+        self.assertRaises(TypeError, setNameTest)
+        so.age = 1
+        result = config.session.execute("SELECT age FROM my_app.t2")
+        for row in result:
+            cass_age = row.age
+        self.assertEquals(cass_age, 1)
+        def setAgeTest():
+            so.age = 'my_name'
+        self.assertRaises(TypeError, setAgeTest)
+        config.hecuba_type_checking = False
+
+    def test_paranoid_setattr_float(self):
+        config.hecuba_type_checking = True
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2")
+        so = Test2StorageObjFloat("t2")
+        so.age = 2.0
+        config.hecuba_type_checking = False
 
     def test_parse_index_on(self):
         a = TestStorageIndexedArgsObj()
@@ -339,8 +417,8 @@ class StorageObjTest(unittest.TestCase):
 
         my_nested_so.myso.name = 'Link'
         self.assertEquals('Link', my_nested_so.myso.name)
-        my_nested_so.myso.age = '10'
-        self.assertEquals('10', my_nested_so.myso.age)
+        my_nested_so.myso.age = 10
+        self.assertEquals(10, my_nested_so.myso.age)
 
         error = False
         try:
@@ -356,8 +434,8 @@ class StorageObjTest(unittest.TestCase):
 
         my_nested_so2.myotherso.name = 'Link'
         self.assertEquals('Link', my_nested_so2.myotherso.name)
-        my_nested_so2.myotherso.age = '10'
-        self.assertEquals('10', my_nested_so2.myotherso.age)
+        my_nested_so2.myotherso.age = 10
+        self.assertEquals(10, my_nested_so2.myotherso.age)
 
         error = False
         try:
@@ -587,6 +665,22 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals('Link', my_nested_so2.test2.myso.name)
         self.assertEquals(10, my_nested_so2.test2.myso.age)
 
+
+    def test_storagedict_assign(self):
+        config.hecuba_type_checking = True
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2_test")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2_test_1")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2_test_2")
+        so = TestStorageObj("t2")
+        self.assertEquals('t2_test', so.test._table)
+        so.test = {}
+        self.assertEquals('t2_test', so.test._table)
+        so.test = {1: 'a', 2: 'b'}
+        self.assertEquals('t2_test_1', so.test._table)
+        so.test = {3: 'c', 4: 'd'}
+        self.assertEquals('t2_test_2', so.test._table)
+        config.hecuba_type_checking = False
 
 if __name__ == '__main__':
     unittest.main()

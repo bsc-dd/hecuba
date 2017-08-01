@@ -15,7 +15,7 @@ class IStorage:
                     'tuple', 'dict', 'float']
 
     _hecuba_valid_types = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer' \
-                          '|numpy.ndarray|counter)'
+                          '|numpy.ndarray|counter|double)'
     _data_type = re.compile('(\w+) *: *%s' % _hecuba_valid_types)
     _so_data_type = re.compile('(\w+)*:(\w.+)')
     _list_case = re.compile('.*@ClassField +(\w+) +list+ *< *([\w:.+]+) *>')
@@ -30,7 +30,7 @@ class IStorage:
                     'str': 'text',
                     'bool': 'boolean',
                     'decimal': 'decimal',
-                    'float': 'double',
+                    'float': 'float',
                     'int': 'int',
                     'tuple': 'tuple',
                     'list': 'list',
@@ -41,7 +41,9 @@ class IStorage:
                     'long': 'bigint',
                     'buffer': 'blob',
                     'bytearray': 'blob',
-                    'counter': 'counter'}
+                    'counter': 'counter',
+                    'double': 'double',
+                    'StorageDict': 'dict'}
 
     @staticmethod
     def process_path(module_path):

@@ -75,7 +75,7 @@ class StorageDictSplitTest(unittest.TestCase):
         tablename = "tab_b1"
         pd = StorageDict(tablename,
                          [('pid', 'int'), ('time', 'int')],
-                         [('value', 'text'), ('x', 'float'), ('y', 'float'), ('z', 'float')])
+                         [('value', 'text'), ('x', 'double'), ('y', 'double'), ('z', 'double')])
         num_inserts = 10000
         what_should_be = {}
         for i in range(num_inserts):

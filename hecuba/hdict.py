@@ -460,10 +460,44 @@ class StorageDict(dict, IStorage):
            Returns:
         """
         log.debug('SET ITEM %s->%s', key, val)
-        if not self._is_persistent:
-            dict.__setitem__(self, key, val)
+        if not config.hecuba_type_checking:
+            if not self._is_persistent:
+                dict.__setitem__(self, key, val)
+            else:
+                self._hcache.put_row(self._make_key(key), self._make_value(val))
         else:
-            self._hcache.put_row(self._make_key(key), self._make_value(val))
+            if isinstance(val, Iterable) and not isinstance(val, str):
+                col_types = map(lambda x: IStorage._conversions[x.__class__.__name__], val)
+                spec_col_types = map(lambda x: x[1], self._columns)
+                for idx, value in enumerate(spec_col_types):
+                    if value == 'double':
+                        spec_col_types[idx] = 'float'
+            else:
+                col_types = IStorage._conversions[val.__class__.__name__]
+                spec_col_types = map(lambda x: x[1], self._columns)[0]
+                if spec_col_types == 'double':
+                    spec_col_types = 'float'
+            if isinstance(key, Iterable) and not isinstance(key, str):
+                key_types = map(lambda x: IStorage._conversions[x.__class__.__name__], key)
+                spec_key_types = map(lambda x: x[1], self._primary_keys)
+                for idx, value in enumerate(spec_key_types):
+                    if value == 'double':
+                        spec_key_types[idx] = 'float'
+            else:
+                key_types = IStorage._conversions[key.__class__.__name__]
+                spec_key_types = map(lambda x: x[1], self._primary_keys)[0]
+                if spec_key_types == 'double':
+                    spec_key_types = 'float'
+            if (col_types == spec_col_types):
+                if(key_types == spec_key_types):
+                    if not self._is_persistent:
+                        dict.__setitem__(self, key, val)
+                    else:
+                        self._hcache.put_row(self._make_key(key), self._make_value(val))
+                else:
+                    raise KeyError
+            else:
+                raise ValueError
 
     def __repr__(self):
         to_return = {}
