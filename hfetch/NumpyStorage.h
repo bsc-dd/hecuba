@@ -23,7 +23,7 @@ class NumpyStorage {
 public:
 
     NumpyStorage(std::string table, std::string keyspace, std::shared_ptr<StorageInterface> storage,
-                 SpaceFillingCurve &algorithm);
+                 SpaceFillingCurve *algorithm);
 
     ~NumpyStorage();
 
@@ -39,7 +39,7 @@ private:
     std::shared_ptr<StorageInterface> storage;
     Writer *writer;
 
-    SpaceFillingCurve partitioner;
+    SpaceFillingCurve *partitioner;
 
 };
 

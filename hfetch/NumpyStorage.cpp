@@ -2,7 +2,7 @@
 
 
 NumpyStorage::NumpyStorage(std::string table, std::string keyspace, std::shared_ptr<StorageInterface> storage,
-                           SpaceFillingCurve &algorithm) {
+                           SpaceFillingCurve *algorithm) {
 
     std::vector<std::map<std::string, std::string> > keysnames = {
             {{"name", "storage_id"}},
@@ -29,6 +29,7 @@ NumpyStorage::~NumpyStorage() {
         delete (writer->get_metadata());
         delete (writer);
     }
+    delete(partitioner);
 };
 
 
@@ -36,7 +37,7 @@ const ArrayMetadata *
 NumpyStorage::store(std::string attr_name, const CassUuid &storage_id, PyArrayObject *numpy) const {
     ArrayMetadata *np_metas = get_np_metadata(numpy);
     void *data = PyArray_BYTES(numpy);
-    std::vector<Partition> parts = partitioner.make_partitions(np_metas, data); //z-order or whatever we want
+    std::vector<Partition> parts = partitioner->make_partitions(np_metas, data); //z-order or whatever we want
 
     char *keys, *values, *attr_name_c = nullptr;
 
@@ -134,7 +135,7 @@ PyObject *NumpyStorage::read(std::string table, std::string keyspace, std::strin
         throw ModuleException("no npy found on sys");
     }
 
-    void *data = partitioner.merge_partitions(arr_meta, all_partitions);
+    void *data = partitioner->merge_partitions(arr_meta, all_partitions);
 
     for (const TupleRow *item:all_results) delete (item);
     npy_intp *dims = new npy_intp[arr_meta->dims.size()];
