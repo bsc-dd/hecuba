@@ -186,11 +186,11 @@ class Config:
             log.warn('using default WORKERS_PER_NODE: %d', singleton.workers_per_node)
 
         try:
-            singleton.number_of_blocks = int(os.environ['NUMBER_OF_BLOCKS'])
-            log.info('NUMBER_OF_BLOCKS: %d', singleton.number_of_blocks)
+            singleton.number_of_partitions = int(os.environ['NUMBER_OF_BLOCKS'])
+            log.info('NUMBER_OF_BLOCKS: %d', singleton.number_of_partitions)
         except KeyError:
-            singleton.number_of_blocks = 32
-            log.warn('using default NUMBER_OF_BLOCKS: %d', singleton.number_of_blocks)
+            singleton.number_of_partitions = 32
+            log.warn('using default NUMBER_OF_BLOCKS: %d', singleton.number_of_partitions)
 
         try:
             singleton.min_number_of_tokens = int(os.environ['MIN_NUMBER_OF_TOKENS'])
