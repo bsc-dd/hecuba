@@ -71,7 +71,8 @@ class IStorage:
         st = time()
         tokens = self._build_args.tokens
 
-        for token_split in IStorage._tokens_partitions(tokens, config.min_number_of_tokens,
+        for token_split in IStorage._tokens_partitions(tokens,
+                                                       config.min_number_of_tokens,
                                                        config.number_of_partitions):
             storage_id = uuid.uuid4()
             log.debug('assigning to %s %d  tokens', str(storage_id), len(token_split))

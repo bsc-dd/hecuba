@@ -318,7 +318,6 @@ class StorageDict(dict, IStorage):
                 self._hcache.get_row(self._make_key(key))
                 return True
             except Exception as e:
-                print "Exception in StorageDict.__contains__:", e
                 return False
 
     def _make_key(self, key):
