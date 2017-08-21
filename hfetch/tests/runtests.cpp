@@ -222,8 +222,8 @@ TEST(TestZorder, One) {
 }
 
 TEST(TestMakePartitions, 2DZorder) {
-    int32_t nrows = 4;
-    int32_t ncols = 4;
+    int32_t nrows = 32;
+    int32_t ncols = 32;
     std::vector<int32_t> ccs = {ncols, nrows};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
@@ -237,6 +237,16 @@ TEST(TestMakePartitions, 2DZorder) {
         }
     }
     std::vector<Partition> chunks = partitioner.make_partitions(arr_metas,data);
+    EXPECT_EQ(chunks.size(),1);
+    uint64_t *size = (uint64_t *) chunks[0].data;
+    EXPECT_EQ(*size,ncols*nrows*arr_metas->elem_size);
+    int32_t *ret_data = (int32_t*) ++size;
+    for (uint32_t col = 0; col<ncols; ++col) {
+        for (uint32_t row = 0; row < nrows; ++row) {
+            EXPECT_EQ(ret_data[col + (ncols * row)], (int32_t) col + (ncols * row));
+        }
+    }
+
     delete[](data);
     delete(arr_metas);
 }
@@ -257,6 +267,38 @@ TEST(TestMakePartitions, NDZorder) {
        data[i] = i;
     }
     std::vector<Partition> chunks = partitioner.make_partitions(arr_metas,data);
+    EXPECT_EQ(chunks.size(),262144);
+    uint64_t *size = (uint64_t *) chunks[0].data;
+    EXPECT_EQ(*size,4096);
+
+    delete[](data);
+    delete(arr_metas);
+}
+
+TEST(TestMakePartitions, 2DZorder128Double) {
+    int32_t ncols = 128;
+    int32_t nrows = 128;
+    std::vector<int32_t> ccs = {ncols, nrows}; //4D 128 elements
+    ArrayMetadata *arr_metas = new ArrayMetadata();
+    arr_metas->dims = ccs;
+    arr_metas->inner_type = CASS_VALUE_TYPE_DOUBLE;
+    arr_metas->elem_size = sizeof(double);
+    ZorderCurve partitioner = ZorderCurve();
+    uint64_t arr_size = 1;
+    for (int32_t size_dim:ccs) {
+        arr_size*=size_dim;
+    }
+
+    double *data = new double[ncols*nrows];
+    for (uint32_t col = 0; col<ncols; ++col) {
+        for (uint32_t row = 0; row<nrows; ++row) {
+            data[col+(ncols*row)] = (double) col+(ncols*row);
+        }
+    }
+    void* end = (char*)data+arr_size;
+    std::vector<Partition> chunks = partitioner.make_partitions(arr_metas,data);
+    uint64_t *size = (uint64_t *) chunks[0].data;
+    EXPECT_EQ(*size,4096); //4*4*8
     delete[](data);
     delete(arr_metas);
 }
@@ -279,6 +321,36 @@ TEST(TestMakePartitions, 2DNopart) {
     std::vector<Partition> chunks = partitioner.make_partitions(arr_metas,data);
     delete[](data);
     delete(arr_metas);
+}
+
+
+
+TEST(TestMakePartitions, Indexes) {
+    std::vector<int32_t> ccs = {8,8};
+    ZorderCurve partitioner = ZorderCurve();
+    uint64_t id = 43;
+    std::vector<uint32_t> indexes = partitioner.getIndexes(id,ccs);
+    int x = 0;
+}
+
+
+TEST(TestMakePartitions, Indexes2ways) {
+    std::vector<int32_t> ccs = {53,28,34};
+    ZorderCurve partitioner = ZorderCurve();
+    uint64_t id = 1077;
+    std::vector<uint32_t> indexes = partitioner.getIndexes(id,ccs);
+    uint64_t computed_id = partitioner.getIdFromIndexes(ccs,indexes);
+    EXPECT_EQ(computed_id,id);
+}
+
+
+
+TEST(TestZorder, ZorderInv) {
+    std::vector<uint32_t> ccs = {23, 25, 40};
+    uint64_t result = computeZorder(ccs);
+    ZorderCurve partitioner = ZorderCurve();
+    std::vector<uint32_t > inverse = partitioner.zorderInverse(result,ccs.size());
+    EXPECT_TRUE(ccs==inverse);
 }
 
 /** Test to asses Poco Cache is performing as expected with pointer **/
