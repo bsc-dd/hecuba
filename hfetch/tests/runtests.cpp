@@ -219,33 +219,49 @@ TEST(TestZorder, One) {
 }
 
 TEST(TestMakePartitions, 2DZorder) {
-    int32_t nrows = 32;
-    int32_t ncols = 32;
-    std::vector<int32_t> ccs = {ncols, nrows};
+    int32_t nrows = 463;
+    int32_t ncols = 53;
+    std::vector<int32_t> ccs = {nrows,ncols};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
     arr_metas->inner_type = CASS_VALUE_TYPE_INT;
     arr_metas->elem_size = sizeof(int32_t);
     ZorderCurve partitioner = ZorderCurve();
     int32_t *data = new int32_t[ncols*nrows];
-    for (int32_t col = 0; col<ncols; ++col) {
-        for (int32_t row = 0; row<nrows; ++row) {
+    for (int32_t row = 0; row<nrows; ++row) {
+        for (int32_t col = 0; col<ncols; ++col) {
             data[col+(ncols*row)] = (int32_t) col+(ncols*row);
         }
     }
     std::vector<Partition> chunks = partitioner.make_partitions(arr_metas,data);
-    EXPECT_EQ(chunks.size(),1);
-    uint64_t *size = (uint64_t *) chunks[0].data;
-    EXPECT_EQ(*size,ncols*nrows*arr_metas->elem_size);
-    int32_t *ret_data = (int32_t*) ++size;
-    for (int32_t col = 0; col<ncols; ++col) {
-        for (int32_t row = 0; row < nrows; ++row) {
-            EXPECT_EQ(ret_data[col + (ncols * row)], (int32_t) col + (ncols * row));
+
+
+    std::set<int32_t> elements_found;
+    uint64_t total_elem = 0;
+    for (Partition chunk : chunks) {
+        uint64_t* size = (uint64_t *) chunk.data;
+        uint64_t nelem = *size / arr_metas->elem_size;
+        total_elem+=nelem;
+        int32_t* chunk_data = (int32_t*) ((char*) chunk.data+sizeof(uint64_t));
+        for (uint64_t pos = 0; pos<nelem; ++pos) {
+            elements_found.insert(*chunk_data);
+            ++chunk_data;
         }
     }
-
+    for (int32_t row = 0; row<nrows; ++row) {
+        for (int32_t col = 0; col<ncols; ++col) {
+            EXPECT_TRUE(elements_found.find((int32_t) col+(ncols*row))!=elements_found.end());
+        }
+    }
+    EXPECT_EQ(total_elem,ncols*nrows);
+    EXPECT_EQ(elements_found.size(),ncols*nrows);
+    EXPECT_EQ(*elements_found.begin(),0);
+    EXPECT_EQ(*elements_found.rbegin(),ncols*nrows-1);
     delete[](data);
     delete(arr_metas);
+    for (Partition chunk:chunks) {
+        free(chunk.data);
+    }
 }
 
 TEST(TestMakePartitions, NDZorder) {
@@ -275,7 +291,7 @@ TEST(TestMakePartitions, NDZorder) {
 TEST(TestMakePartitions, 2DZorder128Double) {
     int32_t ncols = 1024;
     int32_t nrows = 1024;
-    std::vector<int32_t> ccs = {ncols, nrows}; //4D 128 elements
+    std::vector<int32_t> ccs = {nrows,ncols}; //4D 128 elements
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
     arr_metas->inner_type = CASS_VALUE_TYPE_DOUBLE;
@@ -287,8 +303,8 @@ TEST(TestMakePartitions, 2DZorder128Double) {
     }
 
     double *data = new double[ncols*nrows];
-    for (int32_t col = 0; col<ncols; ++col) {
-        for (int32_t row = 0; row<nrows; ++row) {
+    for (int32_t row = 0; row<nrows; ++row) {
+        for (int32_t col = 0; col<ncols; ++col) {
             data[col+(ncols*row)] = (double) col+(ncols*row);
         }
     }
@@ -307,8 +323,8 @@ TEST(TestMakePartitions, 2DZorder128Double) {
             ++chunk_data;
         }
     }
-    for (int32_t col = 0; col<ncols; ++col) {
-        for (int32_t row = 0; row<nrows; ++row) {
+    for (int32_t row = 0; row<nrows; ++row) {
+        for (int32_t col = 0; col<ncols; ++col) {
             EXPECT_TRUE(elements_found.find((double) col+(ncols*row))!=elements_found.end());
         }
     }

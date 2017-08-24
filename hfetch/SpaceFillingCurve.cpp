@@ -92,7 +92,7 @@ std::vector<Partition> ZorderCurve::make_partitions(const ArrayMetadata *metas, 
     uint32_t ndims = (uint32_t) metas->dims.size();
 
     uint64_t dims_product = 1;
-    for (uint64_t i = 0; i < metas->dims.size() - 1; ++i) {
+    for (uint64_t i = 1; i < metas->dims.size(); ++i) {
         dims_product *= metas->dims[i];
     }
 
@@ -105,19 +105,20 @@ std::vector<Partition> ZorderCurve::make_partitions(const ArrayMetadata *metas, 
 
     // Compute the best fitting block
     uint64_t b = BLOCK_SIZE;
-    if (total_size < b) b = total_size;
+    //if (total_size < b) b = total_size;
     uint64_t block_size = b - (b % metas->elem_size);
     uint64_t row_elements = (uint64_t) std::floor(pow(block_size / metas->elem_size, (1.0 / metas->dims.size())));
     block_size = (uint64_t) pow(row_elements, ndims) * metas->elem_size;
 
     //Compute the number of blocks
-    uint64_t min_nblocks = (uint64_t) std::ceil(total_size / (double) block_size);
-    uint64_t dim_split = (uint64_t) std::ceil(pow((min_nblocks), (1.0 / metas->dims.size())));
-    uint64_t nblocks = (uint64_t) pow(dim_split, metas->dims.size());
-    /* TODO the number of blocks and size should be defined from row_elements in order to obtain cubes
-     * currently, we scale the positions and we obtain rectangles when the array has different number
-     * of elements on different axis
-     */
+    uint64_t max_block_dim = 0;
+    uint64_t nblocks = 1;
+    std::vector <uint64_t> blocks_dim(ndims);
+    for (int32_t dim = 0; dim<ndims; ++dim) {
+        blocks_dim[dim] = (uint64_t) std::ceil((double)metas->dims[dim]/row_elements);
+        nblocks *= blocks_dim[dim];
+        if (blocks_dim[dim]>max_block_dim) max_block_dim = blocks_dim[dim];
+    }
 
     //Create the blocks
     std::vector<Partition> parts = std::vector<Partition>(nblocks, {0, 0, nullptr});
@@ -127,7 +128,7 @@ std::vector<Partition> ZorderCurve::make_partitions(const ArrayMetadata *metas, 
     uint64_t row_offset = dims_product * metas->elem_size;
 
     //Fill them with the data
-    uint64_t upper_limit = (uint64_t) 1 << ((uint64_t) std::ceil(std::log2(dim_split))) * ndims;
+    uint64_t upper_limit = (uint64_t) 1 << ((uint64_t) std::ceil(std::log2(max_block_dim))) * ndims;
     uint64_t block_counter = 0;
 
     for (uint64_t zorder_id = 0; zorder_id < upper_limit; ++zorder_id) {
@@ -137,9 +138,9 @@ std::vector<Partition> ZorderCurve::make_partitions(const ArrayMetadata *metas, 
         std::vector<uint32_t> original_ccs(ccs);
         //if any element of the ccs is equal to dim_split -> is a limit of the array -> recompute chunk
         bool outside = false, bound = false;
-        for (uint32_t cc:ccs) {
-            if (cc >= dim_split) outside = true;
-            else if (cc == dim_split - 1) bound = true;
+        for (uint32_t i = 0; i<ndims; ++i) {
+            if (ccs[i] >= blocks_dim[i]) outside = true;
+            else if (ccs[i] == blocks_dim[i] - 1) bound = true;
         }
 
         if (!outside) {
@@ -187,25 +188,20 @@ std::vector<Partition> ZorderCurve::make_partitions(const ArrayMetadata *metas, 
             } else {
                 //bound
 
-                //Single copy size defined as the minimum between
-                //1 - the row_elements used to define the block
-                //2 - the remaining elements of the dim[0]
-                uint64_t single_copy_size = std::min(metas->dims[0] - offset % metas->dims[0], row_elements);
-                single_copy_size *= metas->elem_size;
-
-
                 //compute block size
                 uint64_t bound_size = metas->elem_size;
                 for (uint32_t i = 0; i < metas->dims.size(); ++i) {
                     //compute elem per dimension to be copied
-                    if (original_ccs[i] != (dim_split - 1)) {
+                    if (original_ccs[i] != (blocks_dim[i] - 1)) {
                         bound_size *= row_elements;
                     } else {
-                        bound_size *= (metas->dims[i] - (dim_split - 1) * row_elements);
+                        bound_size *= (metas->dims[i] - (blocks_dim[i] - 1) * row_elements);
                     }
                 }
 
-                if (bound_size % single_copy_size != 0) throw ModuleException("Wrong bound block size");
+                uint64_t single_copy_size;
+                if (original_ccs[0] != (blocks_dim[0] - 1)) single_copy_size=bound_size/row_elements;
+                else single_copy_size = bound_size/(metas->dims[0] - (blocks_dim[0] - 1) * row_elements);
 
                 //Create block
                 output_data = (char *) malloc(bound_size + sizeof(uint64_t)); //chunk_size
