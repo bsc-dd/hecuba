@@ -1,5 +1,5 @@
-#ifndef HFETCH_ARRAYPARTITIONER_H
-#define HFETCH_ARRAYPARTITIONER_H
+#ifndef HFETCH_SPACEFILLINGCURVE_H
+#define HFETCH_SPACEFILLINGCURVE_H
 
 #include <iostream>
 #include <vector>
@@ -58,9 +58,9 @@ public:
 
     uint64_t getIdFromIndexes(const std::vector<int32_t> &dims, const std::vector<uint32_t> &indexes) const;
 
-    std::vector<uint32_t>
-    scaleCoordinates(std::vector<int32_t> dims, uint64_t nblocks, std::vector<uint32_t> ccs) const;
+    void tessellate(std::vector<int32_t> dims, std::vector<int32_t> block_dims, uint32_t elem_size, char *data,
+                    char *output_data, char *output_data_end) const;
 
 };
 
-#endif //HFETCH_ARRAYPARTITIONER_H
+#endif //HFETCH_SPACEFILLINGCURVE_H

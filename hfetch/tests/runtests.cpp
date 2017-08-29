@@ -264,6 +264,50 @@ TEST(TestMakePartitions, 2DZorder) {
     }
 }
 
+void tessellate(uint32_t elem, uint32_t elem_size,std::vector<int32_t> dims, char* data, char* output_data){
+    if (dims.size()==1) {
+        /*std::cout << "COPY " << elem*elem_size << " BYTES FROM " << (void*) data << " TO " << (void*) output_data << std::endl;
+        std::cout << "VALUES COPIED: ";
+        for (int32_t i = 0; i<elem; ++i) {
+              std::cout << *((int32_t*) data+i) << " - ";
+        }
+        std::cout << std::endl;*/
+        memcpy(output_data,data,elem*elem_size);
+    }
+    else {
+        uint64_t dims_prod = elem_size;
+        std::vector <int32_t > onelessdim(dims.size()-1);
+        for (int32_t i = 0; i<onelessdim.size(); ++i) {
+            onelessdim[i] = dims[i];
+            dims_prod*=dims[i];
+        }
+        for (uint32_t dim = 0; dim < elem; ++dim) {
+            //COPY DIMS less last elem
+            tessellate(elem,elem_size, onelessdim, data+dim*dims_prod, output_data+onelessdim.size()*(dim*elem*elem_size));
+        }
+    }
+}
+
+TEST(TestMakePartitions, Tessellation) {
+    std::vector<int32_t> ccs = {4, 4, 4}; //4D 128 elements
+    ArrayMetadata *arr_metas = new ArrayMetadata();
+    arr_metas->dims = ccs;
+    arr_metas->inner_type = CASS_VALUE_TYPE_INT;
+    arr_metas->elem_size = sizeof(int32_t);
+    ZorderCurve partitioner = ZorderCurve();
+    uint64_t arr_size = 1;
+    for (int32_t size_dim:ccs) {
+        arr_size *= size_dim;
+    }
+    int32_t *data = new int32_t[arr_size];
+    for (uint32_t i = 0; i < arr_size; ++i) {
+        data[i] = i;
+    }
+    void *output = malloc(2*2*2*sizeof(int32_t));
+    tessellate(3,sizeof(int32_t),ccs,(char*) data,(char*) output);
+    int x = 10;
+}
+
 TEST(TestMakePartitions, NDZorder) {
     std::vector<int32_t> ccs = {17 , 17, 17}; //4D 128 elements
     ArrayMetadata *arr_metas = new ArrayMetadata();
@@ -280,17 +324,45 @@ TEST(TestMakePartitions, NDZorder) {
        data[i] = i;
     }
     std::vector<Partition> chunks = partitioner.make_partitions(arr_metas,data);
-    EXPECT_EQ(chunks.size(),262144);
-    uint64_t *size = (uint64_t *) chunks[0].data;
-    EXPECT_EQ(*size,4096);
 
+    std::set<int32_t> elements_found;
+    uint64_t total_elem = 0;
+    for (Partition chunk : chunks) {
+        uint64_t* size = (uint64_t *) chunk.data;
+        uint64_t nelem = *size / arr_metas->elem_size;
+        total_elem+=nelem;
+        int32_t* chunk_data = (int32_t*) ((char*) chunk.data+sizeof(uint64_t));
+        for (uint64_t pos = 0; pos<nelem; ++pos) {
+            elements_found.insert(*chunk_data);
+            ++chunk_data;
+        }
+    }
+    int32_t max_elem = 1;
+    for (int32_t cc:ccs) {
+        max_elem*=cc;
+    }
+    bool found;
+    for (int32_t elem = 0; elem<max_elem; ++elem) {
+        found = elements_found.find(elem)!=elements_found.end();
+        EXPECT_TRUE(found);
+        if (!found) std::cout << "Element not found: " << elem << std::endl;
+
+    }
+    EXPECT_EQ(total_elem,max_elem);
+    EXPECT_EQ(elements_found.size(),max_elem);
+    EXPECT_EQ(*elements_found.begin(),0);
+    EXPECT_EQ(*elements_found.rbegin(),max_elem-1);
     delete[](data);
     delete(arr_metas);
+    for (Partition chunk:chunks) {
+        free(chunk.data);
+    }
+
 }
 
 TEST(TestMakePartitions, 2DZorder128Double) {
-    int32_t ncols = 1024;
-    int32_t nrows = 1024;
+    int32_t ncols = 128;
+    int32_t nrows = 128;
     std::vector<int32_t> ccs = {nrows,ncols}; //4D 128 elements
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
@@ -336,6 +408,62 @@ TEST(TestMakePartitions, 2DZorder128Double) {
     delete(arr_metas);
     for (Partition chunk:chunks) {
         free(chunk.data);
+    }
+}
+
+TEST(TestMakePartitions, 2DZorderByRange) {
+
+    int32_t maxcols = 128;
+    int32_t maxrows = 128;
+    for (int32_t ncols = 1; ncols<maxcols; ++ncols) {
+        for (int32_t nrows = 1; nrows < maxrows; ++nrows) {
+            std::vector<int32_t> ccs = {nrows, ncols}; //4D 128 elements
+            ArrayMetadata *arr_metas = new ArrayMetadata();
+            arr_metas->dims = ccs;
+            arr_metas->inner_type = CASS_VALUE_TYPE_DOUBLE;
+            arr_metas->elem_size = sizeof(double);
+            ZorderCurve partitioner = ZorderCurve();
+            uint64_t arr_size = 1;
+            for (int32_t size_dim:ccs) {
+                arr_size *= size_dim;
+            }
+
+            double *data = new double[ncols * nrows];
+            for (int32_t row = 0; row < nrows; ++row) {
+                for (int32_t col = 0; col < ncols; ++col) {
+                    data[col + (ncols * row)] = (double) col + (ncols * row);
+                }
+            }
+
+            std::vector<Partition> chunks = partitioner.make_partitions(arr_metas, data);
+
+            std::set<double> elements_found;
+            uint64_t total_elem = 0;
+            for (Partition chunk : chunks) {
+                uint64_t *size = (uint64_t *) chunk.data;
+                uint64_t nelem = *size / arr_metas->elem_size;
+                total_elem += nelem;
+                double *chunk_data = (double *) ((char *) chunk.data + sizeof(uint64_t));
+                for (uint64_t pos = 0; pos < nelem; ++pos) {
+                    elements_found.insert(*chunk_data);
+                    ++chunk_data;
+                }
+            }
+            for (int32_t row = 0; row < nrows; ++row) {
+                for (int32_t col = 0; col < ncols; ++col) {
+                    EXPECT_TRUE(elements_found.find((double) col + (ncols * row)) != elements_found.end());
+                }
+            }
+            EXPECT_EQ(total_elem, ncols * nrows);
+            EXPECT_EQ(elements_found.size(), ncols * nrows);
+            EXPECT_EQ(*elements_found.begin(), 0);
+            EXPECT_EQ(*elements_found.rbegin(), ncols * nrows - 1);
+            delete[](data);
+            delete (arr_metas);
+            for (Partition chunk:chunks) {
+                free(chunk.data);
+            }
+        }
     }
 }
 
