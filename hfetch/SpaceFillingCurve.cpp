@@ -113,7 +113,7 @@ void ZorderCurve::tessellate(std::vector<int32_t> dims, std::vector<int32_t> blo
         //Dims_prod = number of elements inside the current dimension of the array
         uint64_t block_dims_prod = elem_size;
         uint64_t dims_prod = elem_size;
-        for (int32_t i = 0; i < dims.size(); ++i) {
+        for (uint32_t i = 0; i < dims.size(); ++i) {
             dims_prod *= dims[i];
             block_dims_prod *= block_dims[i];
         }
@@ -149,7 +149,7 @@ std::vector<Partition> ZorderCurve::make_partitions(const ArrayMetadata *metas, 
     uint64_t max_blocks_in_dim = 0;
     uint64_t nblocks = 1;
     std::vector<uint64_t> blocks_dim(ndims);
-    for (int32_t dim = 0; dim < ndims; ++dim) {
+    for (uint32_t dim = 0; dim < ndims; ++dim) {
         blocks_dim[dim] = (uint64_t) std::ceil((double) metas->dims[dim] / row_elements);
         nblocks *= blocks_dim[dim];
         if (blocks_dim[dim] > max_blocks_in_dim) max_blocks_in_dim = blocks_dim[dim];
@@ -183,8 +183,7 @@ std::vector<Partition> ZorderCurve::make_partitions(const ArrayMetadata *metas, 
 
             //Block parameters
             partitions[block_counter].cluster_id = (uint32_t) (zorder_id >> CLUSTER_SIZE);
-            int64_t mask = -1 << (sizeof(uint64_t) * CHAR_BIT - CLUSTER_SIZE);
-            mask = (uint64_t) mask >> sizeof(uint64_t) * CHAR_BIT - CLUSTER_SIZE;
+            int64_t mask = (uint64_t) -1 >> (sizeof(uint64_t) * CHAR_BIT - CLUSTER_SIZE);
             partitions[block_counter].block_id = (uint32_t) (zorder_id & mask);
 
             for (uint32_t i = 0; i < ndims; ++i) {
