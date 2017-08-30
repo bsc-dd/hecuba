@@ -245,10 +245,14 @@ std::vector<Partition> ZorderCurve::make_partitions(const ArrayMetadata *metas, 
 }
 
 
-
-
-
-
+/***
+ * @param dims Dimensions of the future array
+ * @param block_shape Dimensions of the block of data passed
+ * @param elem_size Size of every single element in the array
+ * @param output_array Pointer to the beginning of the position of the array where data should be written
+ * @param input_block Pointer to the beginning of the the block
+ * @param input_block_end End of the memory allocated for the block
+ */
 void ZorderCurve::copy_block_to_array(std::vector<int32_t> dims, std::vector<int32_t> block_shape, uint32_t elem_size,
                                       char *output_array, char *input_block, char *input_block_end) const {
 
@@ -283,8 +287,6 @@ void ZorderCurve::copy_block_to_array(std::vector<int32_t> dims, std::vector<int
 }
 
 
-
-
 void *ZorderCurve::merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks) const {
     uint32_t ndims = (uint32_t) metas->dims.size();
 
@@ -299,12 +301,10 @@ void *ZorderCurve::merge_partitions(const ArrayMetadata *metas, std::vector<Part
     //Compute the final block size
     block_size = (uint64_t) pow(row_elements, ndims) * metas->elem_size;
 
-    //Compute the final block size
-    uint64_t total_size = metas->elem_size;
-    //Compute the number of blocks
+    //Compute the number of blocks and the final size of the array
     //Save the highest number of blocks for a dimension to later compute the maximum ZorderId
     uint64_t max_blocks_in_dim = 0;
-
+    uint64_t total_size = metas->elem_size;
     std::vector<uint64_t> blocks_dim(ndims);
     for (uint32_t dim = 0; dim < ndims; ++dim) {
         total_size *= metas->dims[dim];
@@ -315,7 +315,11 @@ void *ZorderCurve::merge_partitions(const ArrayMetadata *metas, std::vector<Part
 
     char *data = (char *) malloc(total_size);
 
+    //Shape of the average block
+    std::vector<int32_t> block_shape(ndims, row_elements);
 
+    //For each partition compute the future position inside the new array
+    //Achieved using the cluster_id and block_id to recompute the ZorderId
     for (Partition chunk : chunks) {
         uint64_t zorder_id = chunk.cluster_id << CLUSTER_SIZE | chunk.block_id;
         //Compute position in memory
@@ -326,26 +330,28 @@ void *ZorderCurve::merge_partitions(const ArrayMetadata *metas, std::vector<Part
             if (ccs[i] >= blocks_dim[i]) outside = true;
             else if (ccs[i] == blocks_dim[i] - 1) bound = true;
         }
-        if (!outside) {
 
+
+        if (!outside) {
+            //Scale coordinates
             for (uint32_t i = 0; i < ndims; ++i) {
                 ccs[i] *= row_elements;
             }
-            std::vector<int32_t> block_shape(ndims, row_elements);
 
             //Number of elements to skip until the coordinates
             uint64_t offset = getIdFromIndexes(metas->dims, ccs);
             char *output_start = data + offset * metas->elem_size;
             char *input = (char *) chunk.data;
-            uint64_t *recomputed_block_size = (uint64_t *) input;
-            input+=+ sizeof(uint64_t);
-            char *input_ends = input + *recomputed_block_size;
+            uint64_t *retrieved_block_size = (uint64_t *) input;
+            input += +sizeof(uint64_t);
+            char *input_ends = input + *retrieved_block_size;
 
 
             if (!bound) {
 
-                if (*recomputed_block_size != block_size) throw ModuleException("Sth went wrong deciding "
-                                                                "the size of blocks while merging them into an array");
+                if (*retrieved_block_size != block_size)
+                    throw ModuleException("Sth went wrong deciding "
+                                                  "the size of blocks while merging them into an array");
                 copy_block_to_array(metas->dims, block_shape, metas->elem_size, output_start, input, input_ends);
 
 
