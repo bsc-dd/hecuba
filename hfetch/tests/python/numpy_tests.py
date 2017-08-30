@@ -23,6 +23,59 @@ class Hfetch_Tests(unittest.TestCase):
         #self.session.execute("DROP KEYSPACE IF EXISTS %s;" % cls.keyspace)
         pass
 
+    def test_simple_memory(self):
+        from hfetch import connectCassandra
+        from hfetch import Hcache
+        import numpy as np
+        '''''''''
+        
+        Analyzes:
+        
+        '''''''''
+        dims = 2
+        elem_dim = 4096
+
+        try:
+            connectCassandra(self.contact_names, self.nodePort)
+        except RuntimeError, e:
+            print e
+            print 'can\'t connect, verify the contact points and port', self.contact_names, self.nodePort
+
+
+        table = "arrays"
+
+        self.session.execute("DROP TABLE if exists %s.arrays;" % self.keyspace)
+        self.session.execute("DROP TABLE if exists %s.arrays_numpies;" % self.keyspace)
+        self.session.execute("CREATE TABLE %s.arrays(partid int PRIMARY KEY, image numpy_meta);" % self.keyspace)
+        self.session.execute("CREATE TABLE %s.arrays_numpies(storage_id uuid, attr_name text, cluster_id int, block_id int, payload blob,PRIMARY KEY((storage_id,attr_name,cluster_id),block_id));" % self.keyspace)
+
+        storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self.keyspace + '.' + table)
+        time.sleep(5)
+        a = Hcache(self.keyspace, table, storage_id, [], ["partid"], [{"name": "image", "type": "numpy_meta"}], {})
+
+        #prepare data
+
+        bigarr = np.arange(pow(elem_dim, dims)).reshape(elem_dim,elem_dim)
+#        bigarr = np.arange(4*4).reshape(4,4)
+        print 'To be written ' ,bigarr
+        temp =100
+        keys = [temp]
+        values = [bigarr.astype('i')]
+        print values
+        #insert
+        a.put_row(keys, values)
+
+        time.sleep(5)
+        a = None
+        a = Hcache(self.keyspace, table, storage_id, [], ["partid"], [{"name": "image", "type": "numpy_meta"}], {})
+        result = a.get_row(keys)
+        print result
+        if np.array_equal(bigarr,result[0]):
+            print 'Created and retrieved are equal'
+        
+        self.session.execute("DROP TABLE %s.arrays;" % self.keyspace)
+        self.session.execute("DROP TABLE %s.arrays_numpies;" % self.keyspace)
+
     def test_multidim(self):
         from hfetch import connectCassandra
         from hfetch import Hcache

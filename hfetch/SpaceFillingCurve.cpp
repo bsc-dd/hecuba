@@ -209,7 +209,7 @@ std::vector<Partition> ZorderCurve::make_partitions(const ArrayMetadata *metas, 
                 output_data_end = output_data + block_size;
 
                 //Copy the data
-                tessellate(metas->dims, block_dims,metas->elem_size , input_start, output_data, output_data_end);
+                tessellate(metas->dims, block_dims, metas->elem_size, input_start, output_data, output_data_end);
             } else {
                 //The block is a limit of the array, and its size needs to be recomputed and adjusted
                 std::vector<int32_t> bound_dims(ndims);
@@ -236,7 +236,7 @@ std::vector<Partition> ZorderCurve::make_partitions(const ArrayMetadata *metas, 
                 output_data_end = output_data + bound_size;
 
                 //Copy the data
-                tessellate(metas->dims,bound_dims, metas->elem_size,input_start, output_data, output_data_end);
+                tessellate(metas->dims, bound_dims, metas->elem_size, input_start, output_data, output_data_end);
             }
             ++block_counter;
         }
@@ -245,19 +245,133 @@ std::vector<Partition> ZorderCurve::make_partitions(const ArrayMetadata *metas, 
 }
 
 
+
+
+
+
+void ZorderCurve::copy_block_to_array(std::vector<int32_t> dims, std::vector<int32_t> block_shape, uint32_t elem_size,
+                                      char *output_array, char *input_block, char *input_block_end) const {
+
+    uint64_t elements_last_dim = (uint64_t) block_shape[block_shape.size() - 1];
+    if (dims.size() == 1) {
+        if (input_block + elements_last_dim * elem_size > input_block_end) {
+            throw ModuleException("Out of memory access copying an block into an array");
+        }
+        memcpy(output_array, input_block, elements_last_dim * elem_size);
+    } else {
+        //There are block_dims[0] subsets of the current dimension
+        uint64_t elements_current_dim = (uint64_t) block_shape[0];
+        block_shape.erase(block_shape.begin());
+        dims.erase(dims.begin());
+        //Block_dims_prod = number of elements inside the current dimension of the block
+        //Dims_prod = number of elements inside the current dimension of the array
+        uint64_t block_dims_prod = elem_size;
+        uint64_t dims_prod = elem_size;
+        for (uint32_t i = 0; i < dims.size(); ++i) {
+            dims_prod *= dims[i];
+            block_dims_prod *= block_shape[i];
+        }
+        //Output_offset = Elements written in each subset
+        uint64_t output_offset = (block_dims_prod / block_shape[block_shape.size() - 1]) * elements_last_dim;
+
+        for (uint32_t subset = 0; subset < elements_current_dim; ++subset) {
+            //Each subset is spaced as the product of its dimensions
+            copy_block_to_array(dims, block_shape, elem_size, output_array + subset * dims_prod,
+                                input_block + subset * output_offset, input_block_end);
+        }
+    }
+}
+
+
+
+
 void *ZorderCurve::merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks) const {
-    uint64_t arrsize = metas->elem_size;
+    uint32_t ndims = (uint32_t) metas->dims.size();
 
-    for (uint32_t dim:metas->dims) arrsize *= dim;
+    //Compute the best fitting block
+    //Make the block size multiple of the element size
+    uint64_t block_size = BLOCK_SIZE - (BLOCK_SIZE % metas->elem_size);
+    //Compute the max number of elements per dimension as the ndims root of the block size
+    uint64_t row_elements = (uint64_t) std::floor(pow(block_size / metas->elem_size, (1.0 / ndims)));
+    //TODO nth root returns an approximated value, which is later truncated by floor
+    // Example: 125^(1.0/3) returns 4.9 -> 4: Correct is 5
 
-    char *data = (char *) malloc(arrsize);
-    //TODO merge partitions
-    /*uint64_t block_size = arrsize; //metas->block_size;
-    for (Partition part:chunks) {
-        uint64_t *chunk_size = (uint64_t *) part.data;
-        uint64_t offset = part.block_id * block_size;
-        memcpy(data + offset, ((char *) part.data) + sizeof(uint64_t *), *chunk_size);
-    }*/
+    //Compute the final block size
+    block_size = (uint64_t) pow(row_elements, ndims) * metas->elem_size;
+
+    //Compute the final block size
+    uint64_t total_size = metas->elem_size;
+    //Compute the number of blocks
+    //Save the highest number of blocks for a dimension to later compute the maximum ZorderId
+    uint64_t max_blocks_in_dim = 0;
+
+    std::vector<uint64_t> blocks_dim(ndims);
+    for (uint32_t dim = 0; dim < ndims; ++dim) {
+        total_size *= metas->dims[dim];
+        blocks_dim[dim] = (uint64_t) std::ceil((double) metas->dims[dim] / row_elements);
+        if (blocks_dim[dim] > max_blocks_in_dim) max_blocks_in_dim = blocks_dim[dim];
+    }
+
+
+    char *data = (char *) malloc(total_size);
+
+
+    for (Partition chunk : chunks) {
+        uint64_t zorder_id = chunk.cluster_id << CLUSTER_SIZE | chunk.block_id;
+        //Compute position in memory
+        std::vector<uint32_t> ccs = zorderInverse(zorder_id, ndims); //Block coordinates
+        //if any element of the ccs is equal to dim_split -> is a limit of the array -> recompute chunk
+        bool outside = false, bound = false;
+        for (uint32_t i = 0; i < ndims; ++i) {
+            if (ccs[i] >= blocks_dim[i]) outside = true;
+            else if (ccs[i] == blocks_dim[i] - 1) bound = true;
+        }
+        if (!outside) {
+
+            for (uint32_t i = 0; i < ndims; ++i) {
+                ccs[i] *= row_elements;
+            }
+            std::vector<int32_t> block_shape(ndims, row_elements);
+
+            //Number of elements to skip until the coordinates
+            uint64_t offset = getIdFromIndexes(metas->dims, ccs);
+            char *output_start = data + offset * metas->elem_size;
+            char *input = (char *) chunk.data;
+            uint64_t *recomputed_block_size = (uint64_t *) input;
+            input+=+ sizeof(uint64_t);
+            char *input_ends = input + *recomputed_block_size;
+
+
+            if (!bound) {
+
+                if (*recomputed_block_size != block_size) throw ModuleException("Sth went wrong deciding "
+                                                                "the size of blocks while merging them into an array");
+                copy_block_to_array(metas->dims, block_shape, metas->elem_size, output_start, input, input_ends);
+
+
+            } else {
+
+                //The block is a limit of the array, and its size needs to be recomputed and adjusted
+                std::vector<int32_t> bound_dims(ndims);
+                //compute block size
+                uint64_t bound_size = metas->elem_size;
+                for (uint32_t i = 0; i < ndims; ++i) {
+                    //compute elem per dimension to be copied
+                    if (ccs[i] / row_elements != (blocks_dim[i] - 1)) {
+                        //Dimension isn't a limit, copy row_elements
+                        bound_dims[i] = (int32_t) row_elements;
+                    } else {
+                        //Is a limit, copy the remaining elements
+                        bound_dims[i] = (int32_t) (metas->dims[i] - (blocks_dim[i] - 1) * row_elements);
+                    }
+                    bound_size *= bound_dims[i];
+                }
+
+                //Copy the data
+                copy_block_to_array(metas->dims, bound_dims, metas->elem_size, output_start, input, input_ends);
+            }
+        }
+    }
     return data;
 }
 

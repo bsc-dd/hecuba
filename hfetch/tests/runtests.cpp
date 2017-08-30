@@ -264,6 +264,71 @@ TEST(TestMakePartitions, 2DZorder) {
     }
 }
 
+
+
+
+TEST(TestMakePartitions, NDZorderAndReverse) {
+    std::vector<int32_t> ccs = {17 , 17, 17}; //4D 128 elements
+    ArrayMetadata *arr_metas = new ArrayMetadata();
+    arr_metas->dims = ccs;
+    arr_metas->inner_type = CASS_VALUE_TYPE_INT;
+    arr_metas->elem_size = sizeof(int32_t);
+    ZorderCurve partitioner = ZorderCurve();
+    uint64_t arr_size = 1;
+    for (int32_t size_dim:ccs) {
+        arr_size*=size_dim;
+    }
+    int32_t *data = new int32_t[arr_size];
+    for (uint32_t i = 0; i<arr_size; ++i) {
+        data[i] = i;
+    }
+    std::vector<Partition> chunks = partitioner.make_partitions(arr_metas,data);
+
+    std::set<int32_t> elements_found;
+    uint64_t total_elem = 0;
+    for (Partition chunk : chunks) {
+        uint64_t* size = (uint64_t *) chunk.data;
+        uint64_t nelem = *size / arr_metas->elem_size;
+        total_elem+=nelem;
+        int32_t* chunk_data = (int32_t*) ((char*) chunk.data+sizeof(uint64_t));
+        for (uint64_t pos = 0; pos<nelem; ++pos) {
+            elements_found.insert(*chunk_data);
+            ++chunk_data;
+        }
+    }
+    int32_t max_elem = 1;
+    for (int32_t cc:ccs) {
+        max_elem*=cc;
+    }
+    bool found;
+    for (int32_t elem = 0; elem<max_elem; ++elem) {
+        found = elements_found.find(elem)!=elements_found.end();
+        EXPECT_TRUE(found);
+        if (!found) std::cout << "Element not found: " << elem << std::endl;
+
+    }
+    EXPECT_EQ(total_elem,max_elem);
+    EXPECT_EQ(elements_found.size(),max_elem);
+    EXPECT_EQ(*elements_found.begin(),0);
+    EXPECT_EQ(*elements_found.rbegin(),max_elem-1);
+    void * array = partitioner.merge_partitions(arr_metas,chunks);
+
+    int32_t* ptr_to_array=(int32_t*) array;
+    for (int32_t elem = 0; elem<max_elem; ++elem) {
+        EXPECT_EQ(elem,*ptr_to_array);
+        ++ptr_to_array;
+    }
+    int32_t equal = memcmp(array,data,arr_size*sizeof(int32_t));
+    EXPECT_TRUE(equal==0);
+    free(array);
+    delete[](data);
+    delete(arr_metas);
+    for (Partition chunk:chunks) {
+        free(chunk.data);
+    }
+}
+
+
 void tessellate(uint32_t elem, uint32_t elem_size,std::vector<int32_t> dims, char* data, char* output_data){
     if (dims.size()==1) {
         /*std::cout << "COPY " << elem*elem_size << " BYTES FROM " << (void*) data << " TO " << (void*) output_data << std::endl;

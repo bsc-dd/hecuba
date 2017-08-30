@@ -61,6 +61,9 @@ public:
     void tessellate(std::vector<int32_t> dims, std::vector<int32_t> block_dims, uint32_t elem_size, char *data,
                     char *output_data, char *output_data_end) const;
 
-};
+    void copy_block_to_array(std::vector<int32_t> dims, std::vector<int32_t> block_dims, uint32_t elem_size, char *data,
+                                          char *output_data, char *output_data_end) const;
+
+    };
 
 #endif //HFETCH_SPACEFILLINGCURVE_H
