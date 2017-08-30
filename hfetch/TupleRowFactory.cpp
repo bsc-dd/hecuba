@@ -395,6 +395,12 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                     break;
             }
         }
+        else {
+            //Element is a nullptr
+            CassError rc = cass_statement_bind_null(statement, bind_pos);
+            CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [Null value], column:" +
+                       localMeta->at(bind_pos).info[0]);
+        }
         //else: key was nullptr and we don't bind anything
     }
 }
