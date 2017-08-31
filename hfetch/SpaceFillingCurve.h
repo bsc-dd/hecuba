@@ -52,17 +52,23 @@ public:
 
     void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks) const;
 
-    std::vector<uint32_t> getIndexes(uint64_t id, const std::vector<int32_t> &dims) const;
+    uint64_t computeZorder(std::vector<uint32_t> cc) const;
 
     std::vector<uint32_t> zorderInverse(uint64_t id, uint64_t ndims) const;
 
+    std::vector<uint32_t> getIndexes(uint64_t id, const std::vector<int32_t> &dims) const;
+
     uint64_t getIdFromIndexes(const std::vector<int32_t> &dims, const std::vector<uint32_t> &indexes) const;
+
+
+private:
 
     void tessellate(std::vector<int32_t> dims, std::vector<int32_t> block_dims, uint32_t elem_size, char *data,
                     char *output_data, char *output_data_end) const;
 
     void copy_block_to_array(std::vector<int32_t> dims, std::vector<int32_t> block_dims, uint32_t elem_size, char *data,
                              char *output_data, char *output_data_end) const;
+
 
 };
 

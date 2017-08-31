@@ -33,7 +33,11 @@ void *SpaceFillingCurve::merge_partitions(const ArrayMetadata *metas, std::vecto
     return data;
 }
 
-uint64_t computeZorder(std::vector<uint32_t> cc) {
+
+/*** Zorder (morton encoding) algorithms ***/
+
+
+uint64_t ZorderCurve::computeZorder(std::vector<uint32_t> cc) const {
     uint64_t ndims = cc.size();
     uint64_t accumulator = 0;
     uint64_t answer = 0;
