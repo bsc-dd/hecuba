@@ -174,9 +174,9 @@ ArrayMetadata *NumpyStorage::get_np_metadata(PyArrayObject *numpy) const {
     else if (shape_and_type->inner_type == NPY_LONGLONG) shape_and_type->elem_size = sizeof(long long);
     else if (shape_and_type->inner_type == NPY_SHORT) shape_and_type->elem_size = sizeof(short);
     else throw ModuleException("Numpy data type still not supported");
-    shape_and_type->dims = std::vector<int32_t>((uint64_t) ndims);//PyArray_SHAPE()
+    shape_and_type->dims = std::vector<uint32_t>((uint64_t) ndims);//PyArray_SHAPE()
     for (int32_t dim = 0; dim < ndims; ++dim) {
-        shape_and_type->dims[dim] = (int32_t) shape[dim];
+        shape_and_type->dims[dim] = (uint32_t) shape[dim];
     }
     return shape_and_type;
 }

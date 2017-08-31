@@ -140,7 +140,7 @@ void setupcassandra() {
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     std::cout << "SETTING UP CASSANDRA" << std::endl;
-    //setupcassandra();
+    setupcassandra();
     std::cout << "DONE, CASSANDRA IS UP" << std::endl;
     return RUN_ALL_TESTS();
 
@@ -169,10 +169,10 @@ TEST(TestTBBQueue, Try_pop) {
 
 //Test to verify the Zorder produce the correct result
 TEST(TestZorder, Zorder) {
-    std::vector<uint32_t> ccs = {3, 1}; //row 3, column 2
+    std::vector<uint32_t> ccs = {0,0,0,2}; //row 3, column 2
     ZorderCurve partitioner = ZorderCurve();
     uint64_t result = partitioner.computeZorder(ccs);
-    uint64_t expected_zorder = 11;
+    uint64_t expected_zorder = 128;
     EXPECT_EQ(expected_zorder,result);
 }
 
@@ -189,7 +189,7 @@ TEST(TestZorder, ZorderInv) {
 //Verify that ZorderCurve::getIndexes returns the correct coordinates of the nth_element
 //inside an array of shape dims
 TEST(TestMakePartitions, Indexes) {
-    std::vector<int32_t> dims = {8,8};
+    std::vector<uint32_t> dims = {8,8};
     ZorderCurve partitioner = ZorderCurve();
     uint64_t nth_element = 43;
     std::vector<uint32_t> indexes = partitioner.getIndexes(nth_element,dims);
@@ -201,7 +201,7 @@ TEST(TestMakePartitions, Indexes) {
 //Verify the that transforming the coordinates to an offset and back to coordinates
 // produces the same result
 TEST(TestMakePartitions, Indexes2ways) {
-    std::vector<int32_t> ccs = {53,28,34};
+    std::vector<uint32_t> ccs = {53,28,34};
     ZorderCurve partitioner = ZorderCurve();
     uint64_t id = 1077;
     std::vector<uint32_t> indexes = partitioner.getIndexes(id,ccs);
@@ -214,17 +214,17 @@ TEST(TestMakePartitions, Indexes2ways) {
 //of uncommon dimension which make the array to
 //be undivisible in blocks of the same shape
 TEST(TestMakePartitions, 2DZorder) {
-    int32_t nrows = 463;
-    int32_t ncols = 53;
-    std::vector<int32_t> ccs = {nrows,ncols};
+    uint32_t nrows = 463;
+    uint32_t ncols = 53;
+    std::vector<uint32_t> ccs = {nrows,ncols};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
     arr_metas->inner_type = CASS_VALUE_TYPE_INT;
     arr_metas->elem_size = sizeof(int32_t);
     ZorderCurve partitioner = ZorderCurve();
     int32_t *data = new int32_t[ncols*nrows];
-    for (int32_t row = 0; row<nrows; ++row) {
-        for (int32_t col = 0; col<ncols; ++col) {
+    for (uint32_t row = 0; row<nrows; ++row) {
+        for (uint32_t col = 0; col<ncols; ++col) {
             data[col+(ncols*row)] = (int32_t) col+(ncols*row);
         }
     }
@@ -243,8 +243,8 @@ TEST(TestMakePartitions, 2DZorder) {
             ++chunk_data;
         }
     }
-    for (int32_t row = 0; row<nrows; ++row) {
-        for (int32_t col = 0; col<ncols; ++col) {
+    for (uint32_t row = 0; row<nrows; ++row) {
+        for (uint32_t col = 0; col<ncols; ++col) {
             EXPECT_TRUE(elements_found.find((int32_t) col+(ncols*row))!=elements_found.end());
         }
     }
@@ -262,7 +262,7 @@ TEST(TestMakePartitions, 2DZorder) {
 
 //Test to analyze the partitioning of a small 3D array
 TEST(TestMakePartitions, 3DZorder_Small) {
-    std::vector<int32_t> ccs = {17 , 17, 17};
+    std::vector<uint32_t> ccs = {17 , 17, 17};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
     arr_metas->inner_type = CASS_VALUE_TYPE_INT;
@@ -315,7 +315,7 @@ TEST(TestMakePartitions, 3DZorder_Small) {
 
 //Test to analyze the partitioning of a medium 3D array, approx 72MB
 TEST(TestMakePartitions, 3DZorder_Medium) {
-    std::vector<int32_t> ccs = {250 , 150, 500};
+    std::vector<uint32_t> ccs = {250 , 150, 500};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
     arr_metas->inner_type = CASS_VALUE_TYPE_INT;
@@ -369,7 +369,7 @@ TEST(TestMakePartitions, 3DZorder_Medium) {
 
 //Test to analyze the partitioning of a big 3D array, approx 256MB
 TEST(TestMakePartitions, 3DZorder_Big) {
-    std::vector<int32_t> ccs = {512 ,256 , 512};
+    std::vector<uint32_t> ccs = {512 ,256 , 512};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
     arr_metas->inner_type = CASS_VALUE_TYPE_INT;
@@ -423,7 +423,7 @@ TEST(TestMakePartitions, 3DZorder_Big) {
 //Test incrementing dimensions up to 100MB (17^4 *4=92MB)
 TEST(TestMakePartitions, NDZorder) {
     uint32_t max_dims = 6;
-    std::vector<int32_t> ccs = {17};
+    std::vector<uint32_t> ccs = {17};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     while (ccs.size()<=max_dims) {
         arr_metas->dims = ccs;
@@ -480,9 +480,9 @@ TEST(TestMakePartitions, NDZorder) {
 
 //Test partitioning 2Dimensions with Doubles
 TEST(TestMakePartitions, 2DZorder128Double) {
-    int32_t ncols = 1000;
-    int32_t nrows = 1000;
-    std::vector<int32_t> ccs = {nrows,ncols}; //4D 128 elements
+    uint32_t ncols = 1000;
+    uint32_t nrows = 1000;
+    std::vector<uint32_t> ccs = {nrows,ncols}; //4D 128 elements
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
     arr_metas->inner_type = CASS_VALUE_TYPE_DOUBLE;
@@ -494,8 +494,8 @@ TEST(TestMakePartitions, 2DZorder128Double) {
     }
 
     double *data = new double[ncols*nrows];
-    for (int32_t row = 0; row<nrows; ++row) {
-        for (int32_t col = 0; col<ncols; ++col) {
+    for (uint32_t row = 0; row<nrows; ++row) {
+        for (uint32_t col = 0; col<ncols; ++col) {
             data[col+(ncols*row)] = (double) col+(ncols*row);
         }
     }
@@ -514,8 +514,8 @@ TEST(TestMakePartitions, 2DZorder128Double) {
             ++chunk_data;
         }
     }
-    for (int32_t row = 0; row<nrows; ++row) {
-        for (int32_t col = 0; col<ncols; ++col) {
+    for (uint32_t row = 0; row<nrows; ++row) {
+        for (uint32_t col = 0; col<ncols; ++col) {
             EXPECT_TRUE(elements_found.find((double) col+(ncols*row))!=elements_found.end());
         }
     }
@@ -535,11 +535,11 @@ TEST(TestMakePartitions, 2DZorder128Double) {
 //128*128=16384 combinations tried
 TEST(TestMakePartitions, 2DZorderByRange) {
 
-    int32_t maxcols = 128;
-    int32_t maxrows = 128;
-    for (int32_t ncols = 1; ncols<maxcols; ++ncols) {
-        for (int32_t nrows = 1; nrows < maxrows; ++nrows) {
-            std::vector<int32_t> ccs = {nrows, ncols}; //4D 128 elements
+    uint32_t maxcols = 128;
+    uint32_t maxrows = 128;
+    for (uint32_t ncols = 1; ncols<maxcols; ++ncols) {
+        for (uint32_t nrows = 1; nrows < maxrows; ++nrows) {
+            std::vector<uint32_t> ccs = {nrows, ncols}; //4D 128 elements
             ArrayMetadata *arr_metas = new ArrayMetadata();
             arr_metas->dims = ccs;
             arr_metas->inner_type = CASS_VALUE_TYPE_DOUBLE;
@@ -551,8 +551,8 @@ TEST(TestMakePartitions, 2DZorderByRange) {
             }
 
             double *data = new double[ncols * nrows];
-            for (int32_t row = 0; row < nrows; ++row) {
-                for (int32_t col = 0; col < ncols; ++col) {
+            for (uint32_t row = 0; row < nrows; ++row) {
+                for (uint32_t col = 0; col < ncols; ++col) {
                     data[col + (ncols * row)] = (double) col + (ncols * row);
                 }
             }
@@ -571,8 +571,8 @@ TEST(TestMakePartitions, 2DZorderByRange) {
                     ++chunk_data;
                 }
             }
-            for (int32_t row = 0; row < nrows; ++row) {
-                for (int32_t col = 0; col < ncols; ++col) {
+            for (uint32_t row = 0; row < nrows; ++row) {
+                for (uint32_t col = 0; col < ncols; ++col) {
                     EXPECT_TRUE(elements_found.find((double) col + (ncols * row)) != elements_found.end());
                 }
             }
@@ -593,18 +593,18 @@ TEST(TestMakePartitions, 2DZorderByRange) {
 //Test to evaluate the partition algorithm which generates always a single partition
 // which is a new copy of the array data untouched
 TEST(TestMakePartitions, 2DNopart) {
-    int32_t nrows = 124;
-    int32_t ncols = 1104;
+    uint32_t nrows = 124;
+    uint32_t ncols = 1104;
     int32_t arr_size = ncols*nrows;
-    std::vector<int32_t> ccs = {ncols, nrows};
+    std::vector<uint32_t> ccs = {ncols, nrows};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
     arr_metas->inner_type = CASS_VALUE_TYPE_INT;
     arr_metas->elem_size = sizeof(int32_t);
     SpaceFillingCurve partitioner = SpaceFillingCurve();
     int32_t *data = new int32_t[arr_size];
-    for (int32_t col = 0; col<ncols; ++col) {
-        for (int32_t row = 0; row<nrows; ++row) {
+    for (uint32_t col = 0; col<ncols; ++col) {
+        for (uint32_t row = 0; row<nrows; ++row) {
             data[col+(ncols*row)] = (int32_t) col+(ncols*row);
         }
     }
@@ -626,7 +626,7 @@ TEST(TestMakePartitions, 2DNopart) {
 //Test to generate partitions of the array using Zorder and merge them back
 // into a single array and make sure both processes performed correctly
 TEST(TestMakePartitions, 3DZorderAndReverse) {
-    std::vector<int32_t> ccs = {45 , 17, 32};
+    std::vector<uint32_t> ccs = {45 , 17, 32};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
     arr_metas->inner_type = CASS_VALUE_TYPE_INT;
@@ -692,7 +692,7 @@ TEST(TestMakePartitions, 3DZorderAndReverse) {
 //Test to generate partitions of the array using Zorder and merge them back
 // into a single array and make sure both processes performed correctly
 TEST(TestMakePartitions, 4DZorderAndReverse) {
-    std::vector<int32_t> ccs = {100 , 20, 150, 30};
+    std::vector<uint32_t> ccs = {100 , 20, 150, 30};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
     arr_metas->inner_type = CASS_VALUE_TYPE_INT;
@@ -1386,10 +1386,11 @@ TEST(TestingCacheTable, StoreNullBulkText) {
     cass_session_free(test_session);
 }
 
-
+//TODO reimplement test with the current interface
+/*
 TEST(TestingCacheTable, StoreNumpies) {
 
-    /** CONNECT **/
+
     CassSession *test_session = NULL;
     CassCluster *test_cluster = NULL;
 
@@ -1465,7 +1466,7 @@ TEST(TestingCacheTable, StoreNumpies) {
     cass_cluster_free(test_cluster);
     cass_session_free(test_session);
 }
-
+*/
 
 TEST(TestingCacheTable, ReadNull) {
 

@@ -26,7 +26,7 @@ struct Partition {
 //TODO Inherit from CassUserType, pass the user type directly
 //Represents the shape and type of an array
 struct ArrayMetadata {
-    std::vector<int32_t> dims;
+    std::vector<uint32_t> dims;
     int32_t inner_type;
     uint32_t elem_size;
 };
@@ -56,17 +56,17 @@ public:
 
     std::vector<uint32_t> zorderInverse(uint64_t id, uint64_t ndims) const;
 
-    std::vector<uint32_t> getIndexes(uint64_t id, const std::vector<int32_t> &dims) const;
+    std::vector<uint32_t> getIndexes(uint64_t id, const std::vector<uint32_t> &dims) const;
 
-    uint64_t getIdFromIndexes(const std::vector<int32_t> &dims, const std::vector<uint32_t> &indexes) const;
+    uint64_t getIdFromIndexes(const std::vector<uint32_t> &dims, const std::vector<uint32_t> &indexes) const;
 
 
 private:
 
-    void tessellate(std::vector<int32_t> dims, std::vector<int32_t> block_dims, uint32_t elem_size, char *data,
+    void tessellate(std::vector<uint32_t> dims, std::vector<int32_t> block_dims, uint32_t elem_size, char *data,
                     char *output_data, char *output_data_end) const;
 
-    void copy_block_to_array(std::vector<int32_t> dims, std::vector<int32_t> block_dims, uint32_t elem_size, char *data,
+    void copy_block_to_array(std::vector<uint32_t> dims, std::vector<int32_t> block_dims, uint32_t elem_size, char *data,
                              char *output_data, char *output_data_end) const;
 
 

@@ -240,16 +240,16 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
                     CassIterator *list_it = cass_iterator_from_collection(field_value);
                     if (list_it == NULL) throw ModuleException("Value retrieved from UDT as dims is not a collection");
                     int32_t dim = -1;
-                    arr_metas->dims = std::vector<int32_t>();
+                    arr_metas->dims = std::vector<uint32_t>();
                     while (cass_iterator_next(list_it)) {
                         CassError rc = cass_value_get_int32(cass_iterator_get_value(list_it), &dim);
                         CHECK_CASS("TupleRowFactory: Cassandra to C parse List unsuccessful on UDT(np.dims), column:" +
                                    std::to_string(col));
                         if (rc == CASS_ERROR_LIB_NULL_VALUE)
                             throw ModuleException("UDT can't have the attribute dims set null");
-                        arr_metas->dims.push_back(dim);
+                        arr_metas->dims.push_back((uint32_t)dim);
                     }
-                    if (dim == -1) throw ModuleException("UDT can't have the attribute dims empty");
+                    if (dim == 0) throw ModuleException("UDT can't have the attribute dims empty or set to 0");
                     cass_iterator_free(list_it);
                 } else if (strcmp(field_name, "type") == 0) {
                     CassError rc = cass_value_get_int32(field_value, &arr_metas->inner_type);
