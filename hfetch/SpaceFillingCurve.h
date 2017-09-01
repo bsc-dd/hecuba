@@ -63,10 +63,10 @@ public:
 
 private:
 
-    void tessellate(std::vector<uint32_t> dims, std::vector<int32_t> block_dims, uint32_t elem_size, char *data,
+    void tessellate(std::vector<uint32_t> dims, std::vector<uint32_t> block_dims, uint32_t elem_size, char *data,
                     char *output_data, char *output_data_end) const;
 
-    void copy_block_to_array(std::vector<uint32_t> dims, std::vector<int32_t> block_dims, uint32_t elem_size, char *data,
+    void copy_block_to_array(std::vector<uint32_t> dims, std::vector<uint32_t> block_dims, uint32_t elem_size, char *data,
                              char *output_data, char *output_data_end) const;
 
 
