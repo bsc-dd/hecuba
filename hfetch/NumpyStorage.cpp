@@ -166,8 +166,11 @@ ArrayMetadata *NumpyStorage::get_np_metadata(PyArrayObject *numpy) const {
     else if (shape_and_type->inner_type == NPY_INT16) shape_and_type->elem_size = sizeof(int16_t);
     else if (shape_and_type->inner_type == NPY_INT32) shape_and_type->elem_size = sizeof(int32_t);
     else if (shape_and_type->inner_type == NPY_INT64) shape_and_type->elem_size = sizeof(int64_t);
-    else if (shape_and_type->inner_type == NPY_DOUBLE) shape_and_type->elem_size = sizeof(double);
-    else if (shape_and_type->inner_type == NPY_FLOAT) shape_and_type->elem_size = sizeof(double); //TODO Confirm this
+    else if (shape_and_type->inner_type == NPY_DOUBLE) shape_and_type->elem_size = sizeof(npy_double);
+    else if (shape_and_type->inner_type == NPY_FLOAT16) shape_and_type->elem_size = sizeof(npy_float16);
+    else if (shape_and_type->inner_type == NPY_FLOAT32) shape_and_type->elem_size = sizeof(npy_float32);
+    else if (shape_and_type->inner_type == NPY_FLOAT64) shape_and_type->elem_size = sizeof(npy_float64);
+    else if (shape_and_type->inner_type == NPY_FLOAT128) shape_and_type->elem_size = sizeof(npy_float128);
     else if (shape_and_type->inner_type == NPY_BOOL) shape_and_type->elem_size = sizeof(bool);
     else if (shape_and_type->inner_type == NPY_BYTE) shape_and_type->elem_size = sizeof(char);
     else if (shape_and_type->inner_type == NPY_LONG) shape_and_type->elem_size = sizeof(long);
