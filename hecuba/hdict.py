@@ -189,6 +189,7 @@ class StorageDict(dict, IStorage):
                 dict_keys, dict_values = m.groups()
                 primary_keys = []
                 for ind, key in enumerate(dict_keys.split(",")):
+                    key = key.replace(' ', '')
                     match = IStorage._data_type.match(key)
                     if match is not None:
                         # an IStorage with a name
@@ -200,6 +201,7 @@ class StorageDict(dict, IStorage):
                         value = key
 
                     name = name.replace(' ', '')
+                    value = value.replace(' ', '')
                     primary_keys.append((name, StorageDict._conversions[value]))
                 dict_values = dict_values.replace(' ', '')
                 if dict_values.startswith('dict'):
