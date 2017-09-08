@@ -14,7 +14,7 @@ class StorageDict_Tests(unittest.TestCase):
     def inmemory_contains_test(self):
         pd = StorageDict(None,
                          [('pk1', 'int')],
-                         [('val1', 'text')])
+                         [('val1', 'str')])
         pd[3] = '4'
         self.assertEqual(True, 3 in pd)
         self.assertEqual('4', pd[3])
@@ -22,7 +22,7 @@ class StorageDict_Tests(unittest.TestCase):
     def inmemory_keys_test(self):
         pd = StorageDict(None,
                          [('pk1', 'int'), ('pk2', 'int')],
-                         [('val1', 'text')])
+                         [('val1', 'str')])
 
         pd[0] = '1'
         pd[1] = '2'
@@ -33,7 +33,7 @@ class StorageDict_Tests(unittest.TestCase):
     def inmemory_composed_keys_test(self):
         pd = StorageDict(None,
                          [('pk1', 'int'), ('pk2', 'int')],
-                         [('val1', 'text')])
+                         [('val1', 'str')])
 
         pd[0, 1] = '1'
         pd[1, 1] = '2'
@@ -44,7 +44,7 @@ class StorageDict_Tests(unittest.TestCase):
     def inmemory_getitem_setitem_test(self):
         pd = StorageDict(None,
                          [('pk1', 'int'), ('pk2', 'int')],
-                         [('val1', 'text')])
+                         [('val1', 'str')])
 
         import random
         types = [random.randint(0, 100), random.random(),

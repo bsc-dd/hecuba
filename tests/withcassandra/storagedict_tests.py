@@ -16,7 +16,7 @@ class MyStorageDict(StorageDict):
 
 class MyStorageDict2(StorageDict):
     '''
-    @TypeSpec <<position:int, position2:text>,val:int>
+    @TypeSpec <<position:int, position2:str>,val:int>
     '''
     pass
 
@@ -28,7 +28,7 @@ class StorageDictTest(unittest.TestCase):
         tokens = [(1l, 2l), (2l, 3l), (3l, 4l)]
         nopars = StorageDict(tablename,
                              [('position', 'int')],
-                             [('value', 'int')],
+                             [('value', 'str')],
                              tokens)
         self.assertEqual("tab1", nopars._table)
         self.assertEqual("ksp", nopars._ksp)
@@ -80,7 +80,7 @@ class StorageDictTest(unittest.TestCase):
         tokens = [(1l, 2l), (2l, 3l), (3l, 4l)]
         pd = StorageDict(tablename,
                          [('position', 'int')],
-                         [('value', 'text')],
+                         [('value', 'str')],
                          tokens)
 
         for i in range(100):
@@ -94,7 +94,7 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         pd = StorageDict(tablename,
                          [('position', 'int')],
-                         [('value', 'text')])
+                         [('value', 'str')])
 
         self.assertEquals(pd.__repr__(), "")
 
@@ -113,21 +113,21 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         pd = StorageDict(tablename,
                          [('position', 'int')],
-                         [('value', 'text')])
+                         [('value', 'str')])
         pd[0] = 'str1'
         self.assertEquals(pd[0], 'str1')
         '''
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         pd = StorageDict(tablename,
                          [('position', 'int')],
-                         [('value', 'list<text>')])
+                         [('value', 'list<str>')])
         pd[0] = ['str1', 'str2']
         self.assertEquals(pd[0], ['str1', 'str2'])
 
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         pd = StorageDict(tablename,
                          [('position', 'int')],
-                         [('value', 'tuple<text,text>')])
+                         [('value', 'tuple<str,str>')])
         pd[0] = 'str1', 'str2'
         self.assertEquals(pd[0], 'str1', 'str2')
         '''
@@ -157,7 +157,7 @@ class StorageDictTest(unittest.TestCase):
         config.hecuba_type_checking = True
         pd = StorageDict(None,
                          [('position', 'int')],
-                         [('value', 'text')])
+                         [('value', 'str')])
         pd[0] = 'bla'
         self.assertEquals(pd[0], 'bla')
 
@@ -173,8 +173,8 @@ class StorageDictTest(unittest.TestCase):
     def test_paranoid_setitem_multiple_nonpersistent(self):
         config.hecuba_type_checking = True
         pd = StorageDict(None,
-                         [('position1', 'int'), ('position2', 'text')],
-                         [('value1', 'text'), ('value2', 'int')])
+                         [('position1', 'int'), ('position2', 'str')],
+                         [('value1', 'str'), ('value2', 'int')])
         pd[0, 'pos1'] = 'bla', 1
         self.assertEquals(pd[0, 'pos1'], ('bla', 1))
 
@@ -192,7 +192,7 @@ class StorageDictTest(unittest.TestCase):
         config.hecuba_type_checking = True
         pd = StorageDict("tab_a1",
                          [('position', 'int')],
-                         [('value', 'text')])
+                         [('value', 'str')])
         pd[0] = 'bla'
         result = config.session.execute('SELECT value FROM my_app.tab_a1 WHERE position = 0')
         for row in result:
@@ -207,8 +207,8 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a2")
         config.hecuba_type_checking = True
         pd = StorageDict("tab_a2",
-                         [('position1', 'int'), ('position2', 'text')],
-                         [('value1', 'text'), ('value2', 'int')])
+                         [('position1', 'int'), ('position2', 'str')],
+                         [('value1', 'str'), ('value2', 'int')])
         pd[0, 'pos1'] = 'bla', 1
         for result in pd.itervalues():
             self.assertEquals(result.value1, 'bla')
@@ -243,8 +243,8 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a4")
         config.hecuba_type_checking = True
         pd = StorageDict("tab_a4",
-                         [('position1', 'int'), ('position2', 'text')],
-                         [('value1', 'text'), ('value2', 'double')])
+                         [('position1', 'int'), ('position2', 'str')],
+                         [('value1', 'str'), ('value2', 'double')])
         pd[0, 'pos1'] = ['bla', 1.0]
         time.sleep(2)
         self.assertEquals(pd[0, 'pos1'], ('bla', 1.0))
@@ -279,7 +279,7 @@ class StorageDictTest(unittest.TestCase):
 
         pd = StorageDict("tab_a1",
                          [('position', 'int')],
-                         [('value', 'text')])
+                         [('value', 'str')])
 
         what_should_be = {}
         for i in range(100):
@@ -290,7 +290,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(count, 100)
         pd = StorageDict("tab_a1",
                          [('position', 'int')],
-                         [('value', 'text')])
+                         [('value', 'str')])
         count = 0
         res = {}
         for key, val in pd.iteritems():
@@ -304,7 +304,7 @@ class StorageDictTest(unittest.TestCase):
         tablename = "tab_a2"
         pd = StorageDict(tablename,
                          [('position', 'int')],
-                         [('value', 'text')])
+                         [('value', 'str')])
 
         what_should_be = set()
         for i in range(100):
@@ -317,7 +317,7 @@ class StorageDictTest(unittest.TestCase):
 
         pd = StorageDict(tablename,
                          [('position', 'int')],
-                         [('value', 'text')])
+                         [('value', 'str')])
         count = 0
         res = set()
         for val in pd.itervalues():
@@ -331,7 +331,7 @@ class StorageDictTest(unittest.TestCase):
         tablename = "tab_a3"
         pd = StorageDict(tablename,
                          [('position', 'int')],
-                         [('value', 'text')])
+                         [('value', 'str')])
 
         what_should_be = set()
         for i in range(100):
@@ -342,7 +342,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(count, 100)
         pd = StorageDict(tablename,
                          [('position', 'int')],
-                         [('value', 'text')])
+                         [('value', 'str')])
         count = 0
         res = set()
         for val in pd.iterkeys():
@@ -356,7 +356,7 @@ class StorageDictTest(unittest.TestCase):
         tablename = "tab_a4"
         pd = StorageDict(tablename,
                          [('position', 'int')],
-                         [('value', 'text')])
+                         [('value', 'str')])
 
         for i in range(100):
             pd[i] = 'ciao' + str(i)
@@ -366,14 +366,14 @@ class StorageDictTest(unittest.TestCase):
 
         pd = StorageDict(tablename,
                          [('position', 'int')],
-                         [('value', 'text')])
+                         [('value', 'str')])
         for i in range(100):
             self.assertTrue(i in pd)
 
     def test_deleteitem_nonpersistent(self):
         pd = StorageDict(None,
                          [('position', 'int')],
-                         [('value', 'text')])
+                         [('value', 'str')])
         pd[0] = 'to_delete'
         del pd[0]
 
@@ -382,7 +382,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertRaises(KeyError, del_val)
 
         pd = StorageDict(None,
-                         [('position', 'text')],
+                         [('position', 'str')],
                          [('value', 'int')])
         pd['pos0'] = 0
         del pd['pos0']
@@ -396,7 +396,7 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         pd = StorageDict(tablename,
                          [('position', 'int')],
-                         [('value', 'text')])
+                         [('value', 'str')])
         pd[0] = 'to_delete'
         del pd[0]
 
@@ -407,7 +407,7 @@ class StorageDictTest(unittest.TestCase):
         tablename = "tab_a6"
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         pd = StorageDict(tablename,
-                         [('position', 'text')],
+                         [('position', 'str')],
                          [('value', 'int')])
         pd['pos1'] = 0
         del pd['pos1']
@@ -421,7 +421,7 @@ class StorageDictTest(unittest.TestCase):
         tablename = "tab12"
         pd = StorageDict(tablename,
                          [('pid', 'int'), ('time', 'int')],
-                         [('value', 'text'), ('x', 'double'), ('y', 'double'), ('z', 'double')])
+                         [('value', 'str'), ('x', 'double'), ('y', 'double'), ('z', 'double')])
 
         what_should_be = {}
         for i in range(100):
@@ -434,7 +434,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(count, 100)
         pd = StorageDict(tablename,
                          [('pid', 'int'), ('time', 'int')],
-                         [('value', 'text'), ('x', 'double'), ('y', 'double'), ('z', 'double')])
+                         [('value', 'str'), ('x', 'double'), ('y', 'double'), ('z', 'double')])
         count = 0
         res = {}
         for key, val in pd.iteritems():
@@ -455,7 +455,7 @@ class StorageDictTest(unittest.TestCase):
         tablename = "tab13"
         pd = StorageDict(tablename,
                          [('pid', 'int'), ('time', 'double')],
-                         [('value', 'text'), ('x', 'double'), ('y', 'double'), ('z', 'double')])
+                         [('value', 'str'), ('x', 'double'), ('y', 'double'), ('z', 'double')])
 
         what_should_be = {}
         for i in range(100):
@@ -468,7 +468,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(count, 100)
         pd = StorageDict(tablename,
                          [('pid', 'int')],
-                         [('time', 'double'), ('value', 'text'), ('x', 'double'), ('y', 'double'), ('z', 'double')])
+                         [('time', 'double'), ('value', 'str'), ('x', 'double'), ('y', 'double'), ('z', 'double')])
         count = 0
         res = {}
         for key, val in pd.iteritems():
@@ -535,7 +535,7 @@ class StorageDictTest(unittest.TestCase):
         tablename = "tab_a4"
         pd = StorageDict(tablename,
                          [('position', 'int')],
-                         [('value', 'text')])
+                         [('value', 'str')])
         pd[0] = 'prev_a'
         pd[1] = 'prev_b'
         self.assertEquals(pd[0], 'prev_a')
@@ -553,7 +553,7 @@ class StorageDictTest(unittest.TestCase):
         tablename = "tab_a5"
         pd2 = StorageDict(tablename,
                          [('position', 'int')],
-                         [('value', 'text')])
+                         [('value', 'str')])
         pd2[0] = 'final_a'
         pd2[4] = 'final_4'
         pd.update(pd2)
@@ -565,8 +565,8 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a6")
         tablename = "tab_a6"
         pd = StorageDict(tablename,
-                         [('position', 'text')],
-                         [('value', 'text')])
+                         [('position', 'str')],
+                         [('value', 'str')])
         pd['val1'] = 'old_a'
         pd['val2'] = 'old_b'
         time.sleep(2)
