@@ -6,7 +6,7 @@ PythonParser::PythonParser(std::shared_ptr<StorageInterface> storage,
     this->metas = metadatas;
     this->parsers = std::vector<UnitParser *>(metadatas->size());
     uint32_t meta_i = 0;
-    for (const ColumnMeta CM : *metadatas) {
+    for (const ColumnMeta &CM : *metadatas) {
         if (CM.type == CASS_VALUE_TYPE_INT) {
             parsers[meta_i] = new Int32Parser(CM);
         } else if (CM.type == CASS_VALUE_TYPE_BIGINT || CM.type == CASS_VALUE_TYPE_VARINT) {
@@ -17,7 +17,14 @@ PythonParser::PythonParser(std::shared_ptr<StorageInterface> storage,
                    CM.type == CASS_VALUE_TYPE_ASCII) {
             parsers[meta_i] = new TextParser(CM);
         } else if (CM.type == CASS_VALUE_TYPE_BLOB) {
-            parsers[meta_i] = new BytesParser(CM);
+            std::map<std::string, std::string>::const_iterator it = CM.info.find("type");
+            if (it != CM.info.end() && it->second == "numpy_meta") {
+                NumpyParser *NP = new NumpyParser(CM);
+                NP->setStorage(storage);
+                parsers[meta_i] = NP;
+            } else {
+                parsers[meta_i] = new BytesParser(CM);
+            }
         } else if (CM.type == CASS_VALUE_TYPE_DOUBLE || CM.type == CASS_VALUE_TYPE_FLOAT) {
             parsers[meta_i] = new DoubleParser(CM);
         } else if (CM.type == CASS_VALUE_TYPE_UUID) {
@@ -27,12 +34,7 @@ PythonParser::PythonParser(std::shared_ptr<StorageInterface> storage,
         } else if (CM.type == CASS_VALUE_TYPE_TINY_INT) {
             parsers[meta_i] = new Int8Parser(CM);
         } else if (CM.type == CASS_VALUE_TYPE_UDT) {
-            std::map<std::string, std::string>::const_iterator it = CM.info.find("type");
-            if (it != CM.info.end() && it->second == "numpy_meta") {
-                NumpyParser *NP = new NumpyParser(CM);
-                NP->setStorage(storage);
-                parsers[meta_i] = NP;
-            } else throw ModuleException("Support for UDT other than Numpy not implemented");
+            throw ModuleException("Support for UDT other than Numpy not implemented");
         } else parsers[meta_i] = new UnitParser(CM);
         ++meta_i;
     }

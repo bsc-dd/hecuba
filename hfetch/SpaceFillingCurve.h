@@ -9,17 +9,22 @@
 
 #define BLOCK_SIZE 4096
 #define CLUSTER_SIZE 2
+#define CLUSTER_END_FLAG INT_MAX-1
+#define CLUSTER_ID_ARRAY INT_MAX
+
+#define ZORDER_ALGORITHM 0
+#define NO_PARTITIONS 1
 
 //Represents a block of data belonging to an array
 struct Partition {
-    Partition(uint32_t block, uint32_t cluster, void *chunk) {
+    Partition(uint32_t cluster, uint32_t block, void *chunk) {
         this->block_id = block;
         this->cluster_id = cluster;
         this->data = chunk;
     }
 
-    uint32_t block_id;
     uint32_t cluster_id;
+    uint32_t block_id;
     void *data;
 };
 
@@ -29,46 +34,101 @@ struct ArrayMetadata {
     std::vector<uint32_t> dims;
     int32_t inner_type;
     uint32_t elem_size;
+    uint8_t partition_type;
 };
 
 
 class SpaceFillingCurve {
 public:
-    virtual ~SpaceFillingCurve() {};
 
-    virtual std::vector<Partition> make_partitions(const ArrayMetadata *metas, void *data) const;
+    class PartitionGenerator {
+    public:
 
-    virtual void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks) const;
+        virtual ~PartitionGenerator() {};
+
+        virtual bool isDone() = 0;
+
+        virtual Partition getNextPartition() = 0;
+
+        virtual int32_t computeNextClusterId() = 0;
+
+        virtual void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks) = 0;
+
+    };
+
+
+    ~SpaceFillingCurve() {};
+
+    static PartitionGenerator *make_partitions_generator(const ArrayMetadata *metas, void *data);
+
+protected:
+
+    class SpaceFillingGenerator : public PartitionGenerator {
+    public:
+        SpaceFillingGenerator();
+
+        SpaceFillingGenerator(const ArrayMetadata *metas, void *data);
+
+        Partition getNextPartition();
+
+        int32_t computeNextClusterId();
+
+        bool isDone() { return done; };
+
+        void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks);
+    protected:
+        bool done;
+        const ArrayMetadata *metas;
+        void *data;
+        uint64_t total_size;
+    };
 
 };
 
 
-class ZorderCurve : public SpaceFillingCurve {
 
+
+class ZorderCurveGenerator : public SpaceFillingCurve::PartitionGenerator {
 public:
-    ~ZorderCurve() {};
+    ZorderCurveGenerator();
 
-    std::vector<Partition> make_partitions(const ArrayMetadata *metas, void *data) const;
+    ZorderCurveGenerator(const ArrayMetadata *metas, void *data);
 
-    void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks) const;
+    Partition getNextPartition();
 
-    uint64_t computeZorder(std::vector<uint32_t> cc) const;
+    int32_t computeNextClusterId();
 
-    std::vector<uint32_t> zorderInverse(uint64_t id, uint64_t ndims) const;
+    bool isDone() {
+        if (block_counter >= nblocks) done = true;
+        return done;
+    };
 
-    std::vector<uint32_t> getIndexes(uint64_t id, const std::vector<uint32_t> &dims) const;
+    uint64_t computeZorder(std::vector<uint32_t> cc);
 
-    uint64_t getIdFromIndexes(const std::vector<uint32_t> &dims, const std::vector<uint32_t> &indexes) const;
+    std::vector<uint32_t> zorderInverse(uint64_t id, uint64_t ndims);
 
+    std::vector<uint32_t> getIndexes(uint64_t id, const std::vector<uint32_t> &dims);
+
+    uint64_t getIdFromIndexes(const std::vector<uint32_t> &dims, const std::vector<uint32_t> &indexes);
+
+    void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks);
 
 private:
+    bool done;
+    const ArrayMetadata *metas;
+    void *data;
+    uint32_t ndims, row_elements;
+    uint64_t block_size, nblocks;
+    std::vector<uint32_t> block_dims, blocks_dim, bound_dims;
+    uint64_t block_counter;
 
-    void tessellate(std::vector<uint32_t> dims, std::vector<uint32_t> block_dims, uint32_t elem_size, char *data,
-                    char *output_data, char *output_data_end) const;
 
-    void copy_block_to_array(std::vector<uint32_t> dims, std::vector<uint32_t> block_dims, uint32_t elem_size, char *data,
-                             char *output_data, char *output_data_end) const;
+    static void tessellate(std::vector<uint32_t> dims, std::vector<uint32_t> block_dims, uint32_t elem_size, char *data,
+                           char *output_data, char *output_data_end);
 
+    static void
+    copy_block_to_array(std::vector<uint32_t> dims, std::vector<uint32_t> block_dims, uint32_t elem_size, char *data,
+                        char *output_data, char *output_data_end);
 
 };
 

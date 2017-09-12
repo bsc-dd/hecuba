@@ -324,7 +324,7 @@ int16_t NumpyParser::py_to_c(PyObject *numpy, void *payload) const {
     PyArrayObject *arr;
     if (!PyArray_OutputConverter(numpy, &arr))
         error_parsing("Numpy", numpy); //failed to convert array from PyObject to PyArray
-    const ArrayMetadata *metas = np_storage->store(attribute_name, storage_id, arr);
+    const ArrayMetadata *metas = np_storage->store(storage_id, arr);
     memcpy(payload, &metas, sizeof(ArrayMetadata *));
     return 0;
 }
@@ -333,7 +333,7 @@ PyObject *NumpyParser::c_to_py(const void *payload) const {
     if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to bytes, found NULL");
     //Receives a Arraymetadata
     const ArrayMetadata **metas = (const ArrayMetadata **) payload;
-    PyObject *arr = np_storage->read(table, keyspace, attribute_name, storage_id, *metas);
+    PyObject *arr = np_storage->read(table, keyspace, storage_id, *metas);
     if (!arr) return Py_None;
     return arr;
 }

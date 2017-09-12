@@ -175,8 +175,7 @@ public:
     virtual PyObject *c_to_py(const void *payload) const;
 
     inline void setStorage(std::shared_ptr<StorageInterface> storage) {
-        SpaceFillingCurve *algorithm = new ZorderCurve();
-        np_storage = new NumpyStorage(table, keyspace, storage, algorithm);
+        np_storage = new NumpyStorage(table, keyspace, storage);
     }
 
 private:

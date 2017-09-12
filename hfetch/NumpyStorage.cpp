@@ -1,8 +1,7 @@
 #include "NumpyStorage.h"
 
 
-NumpyStorage::NumpyStorage(std::string table, std::string keyspace, std::shared_ptr<StorageInterface> storage,
-                           SpaceFillingCurve *algorithm) {
+NumpyStorage::NumpyStorage(std::string table, std::string keyspace, std::shared_ptr<StorageInterface> storage) {
 
     std::vector<std::map<std::string, std::string> > keysnames = {
             {{"name", "storage_id"}},
@@ -19,7 +18,6 @@ NumpyStorage::NumpyStorage(std::string table, std::string keyspace, std::shared_
     config["writer_buffer"] = "20";
 
     this->storage = storage;
-    this->partitioner = algorithm;
     this->writer = this->storage->make_writer(table.c_str(), keyspace.c_str(), keysnames, colsnames, config);
 }
 
@@ -29,21 +27,24 @@ NumpyStorage::~NumpyStorage() {
         delete (writer->get_metadata());
         delete (writer);
     }
-    delete(partitioner);
 };
 
 
 const ArrayMetadata *
-NumpyStorage::store(std::string attr_name, const CassUuid &storage_id, PyArrayObject *numpy) const {
+NumpyStorage::store(const CassUuid &storage_id, PyArrayObject *numpy) const {
     ArrayMetadata *np_metas = get_np_metadata(numpy);
+    np_metas->partition_type = ZORDER_ALGORITHM;
     void *data = PyArray_BYTES(numpy);
-    std::vector<Partition> parts = partitioner->make_partitions(np_metas, data); //z-order or whatever we want
+    SpaceFillingCurve::PartitionGenerator* partitions_it = this->partitioner.make_partitions_generator(np_metas, data);
 
-    char *keys, *values, *attr_name_c = nullptr;
-
-    uint32_t offset = 0, keys_size = sizeof(uint64_t *) + sizeof(char *) + sizeof(int32_t) * 2;
+    char *keys = nullptr;
+    void* values = nullptr;
+    uint32_t offset = 0, keys_size = sizeof(uint64_t *) + sizeof(int32_t) * 2;
     uint64_t *c_uuid = nullptr;
-    for (Partition part: parts) {
+    int32_t half_int = -1 >> sizeof(int32_t)/2;
+    int32_t cluster_id, block_id;
+    while (!partitions_it->isDone()) {
+        Partition part = partitions_it->getNextPartition();
         keys = (char *) malloc(keys_size);
         //UUID
         c_uuid = (uint64_t *) malloc(sizeof(uint64_t) * 2);//new uint64_t[2];
@@ -51,16 +52,13 @@ NumpyStorage::store(std::string attr_name, const CassUuid &storage_id, PyArrayOb
         c_uuid[1] = storage_id.clock_seq_and_node;
         memcpy(keys, &c_uuid, sizeof(uint64_t *));
         offset = sizeof(uint64_t *);
-
-        //ATTR NAME
-        attr_name_c = strdup(attr_name.c_str());
-        memcpy(keys + offset, &attr_name_c, sizeof(char *));
-        offset += sizeof(char *);
         //Cluster id
-        memcpy(keys + offset, &part.cluster_id, sizeof(int32_t));
+        cluster_id = part.cluster_id - half_int;
+        memcpy(keys + offset, &cluster_id, sizeof(int32_t));
         offset += sizeof(int32_t);
         //Block id
-        memcpy(keys + offset, &part.block_id, sizeof(int32_t));
+        block_id = part.block_id - half_int;
+        memcpy(keys + offset, &block_id, sizeof(int32_t));
         //COPY VALUES
 
         values = (char *) malloc(sizeof(char *));
@@ -68,11 +66,13 @@ NumpyStorage::store(std::string attr_name, const CassUuid &storage_id, PyArrayOb
         //FINALLY WE WRITE THE DATA
         writer->write_to_cassandra(keys, values);
     }
+    //this->partitioner.serialize_metas();
+    delete(partitions_it);
     return np_metas;
 }
 
 
-PyObject *NumpyStorage::read(std::string table, std::string keyspace, std::string attr_name, const CassUuid &storage_id,
+PyObject *NumpyStorage::read(std::string table, std::string keyspace, const CassUuid &storage_id,
                              const ArrayMetadata *arr_meta) {
 
     std::vector<std::map<std::string, std::string> > keysnames = {
@@ -99,10 +99,16 @@ PyObject *NumpyStorage::read(std::string table, std::string keyspace, std::strin
     std::vector<Partition> all_partitions;
 
     uint64_t *c_uuid = nullptr;
-    char *buffer, *key_attr_name = nullptr;
+    char *buffer = nullptr;
     int32_t cluster_id = 0, offset = 0;
     int32_t *block = nullptr;
-    do {
+    int32_t half_int = -1 >> sizeof(int32_t)/2;
+
+    SpaceFillingCurve::PartitionGenerator* partitions_it = this->partitioner.make_partitions_generator(arr_meta,
+                                                                                                        nullptr);
+
+    while (!partitions_it->isDone()) {
+        cluster_id = partitions_it->computeNextClusterId();
         buffer = (char *) malloc(keys_size);
         //UUID
         c_uuid = new uint64_t[2];
@@ -110,10 +116,6 @@ PyObject *NumpyStorage::read(std::string table, std::string keyspace, std::strin
         c_uuid[1] = storage_id.clock_seq_and_node;
         memcpy(buffer, &c_uuid, sizeof(uint64_t *));
         offset = sizeof(uint64_t *);
-        //Attribute name
-        key_attr_name = strdup(attr_name.c_str());
-        memcpy(buffer + offset, &key_attr_name, sizeof(char *));
-        offset += sizeof(char *);
         //Cluster id
         memcpy(buffer + offset, &cluster_id, sizeof(cluster_id));
         //We fetch the data
@@ -123,10 +125,10 @@ PyObject *NumpyStorage::read(std::string table, std::string keyspace, std::strin
         for (const TupleRow *row:result) {
             block = (int32_t *) row->get_element(0);
             char **chunk = (char **) row->get_element(1);
-            all_partitions.push_back(Partition(*block, cluster_id, *chunk));
+            all_partitions.emplace_back(Partition((uint32_t) cluster_id+half_int, (uint32_t) *block+half_int,*chunk));
         }
-        ++cluster_id;
-    } while (!(result.empty()));
+    }
+
 
 
     delete (cache);
@@ -135,7 +137,7 @@ PyObject *NumpyStorage::read(std::string table, std::string keyspace, std::strin
         throw ModuleException("no npy found on sys");
     }
 
-    void *data = partitioner->merge_partitions(arr_meta, all_partitions);
+    void *data = partitions_it->merge_partitions(arr_meta, all_partitions);
 
     for (const TupleRow *item:all_results) delete (item);
     npy_intp *dims = new npy_intp[arr_meta->dims.size()];
