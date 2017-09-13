@@ -18,7 +18,7 @@ PythonParser::PythonParser(std::shared_ptr<StorageInterface> storage,
             parsers[meta_i] = new TextParser(CM);
         } else if (CM.type == CASS_VALUE_TYPE_BLOB) {
             std::map<std::string, std::string>::const_iterator it = CM.info.find("type");
-            if (it != CM.info.end() && it->second == "numpy_meta") {
+            if (it != CM.info.end() && it->second == "numpy") {
                 NumpyParser *NP = new NumpyParser(CM);
                 NP->setStorage(storage);
                 parsers[meta_i] = NP;

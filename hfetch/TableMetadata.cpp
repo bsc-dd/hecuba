@@ -99,16 +99,15 @@ uint16_t TableMetadata::compute_size_of(const ColumnMeta &CM) const {
             break;
         }
         case CASS_VALUE_TYPE_UDT: {
-            if (CM.info.find("numpy") != CM.info.end()) {
-                return sizeof(ArrayMetadata *);
-            }
             throw ModuleException("Can't parse data: User defined type not supported");
         }
         case CASS_VALUE_TYPE_CUSTOM:
         case CASS_VALUE_TYPE_UNKNOWN:
         default:
+        {
             throw ModuleException("Can't parse data: Unknown data type or user defined type");
             //TODO
+        }
     }
     return 0;
 }

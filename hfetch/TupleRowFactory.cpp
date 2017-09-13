@@ -137,7 +137,7 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
                 if (nbytes%sizeof(uint32_t)!=0) throw ModuleException("something went wrong reading the dims of a numpy");
                 arr_metas->dims=std::vector<uint32_t >(nelem);
                 memcpy(arr_metas->dims.data(),l_temp+bytes_offset,nbytes);
-                memcpy(data,&arr_metas,sizeof(*arr_metas));
+                memcpy(data,&arr_metas,sizeof(arr_metas));
 
             }
             return 0;
@@ -313,7 +313,7 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                         //size of the vector of dims
                         uint64_t size =sizeof(uint32_t)*array_metas->dims.size();
                         //plus the other metas
-                        size+=sizeof(array_metas->elem_size)+sizeof(array_metas->inner_type);
+                        size+=sizeof(array_metas->elem_size)+sizeof(array_metas->inner_type)+sizeof(array_metas->partition_type);
                         //allocate
                         byte_array = (unsigned  char*)malloc(size);
                         //copy everything
@@ -322,7 +322,9 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                         np_offset+=sizeof(array_metas->elem_size);
                         memcpy(byte_array+np_offset,&array_metas->inner_type,sizeof(array_metas->inner_type));
                         np_offset+=sizeof(array_metas->inner_type);
-                        memcpy(byte_array+np_offset,array_metas->dims.data(),size);
+                        memcpy(byte_array+np_offset,&array_metas->partition_type,sizeof(array_metas->partition_type));
+                        np_offset+=sizeof(array_metas->partition_type);
+                        memcpy(byte_array+np_offset,array_metas->dims.data(),sizeof(uint32_t)*array_metas->dims.size());
 
                         cass_statement_bind_bytes(statement, bind_pos, byte_array, size);
 

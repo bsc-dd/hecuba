@@ -5,7 +5,6 @@ NumpyStorage::NumpyStorage(std::string table, std::string keyspace, std::shared_
 
     std::vector<std::map<std::string, std::string> > keysnames = {
             {{"name", "storage_id"}},
-            {{"name", "attr_name"}},
             {{"name", "cluster_id"}},
             {{"name", "block_id"}}
     };
@@ -77,7 +76,6 @@ PyObject *NumpyStorage::read(std::string table, std::string keyspace, const Cass
 
     std::vector<std::map<std::string, std::string> > keysnames = {
             {{"name", "storage_id"}},
-            {{"name", "attr_name"}},
             {{"name", "cluster_id"}}
     };
     std::vector<std::map<std::string, std::string> > colsnames = {

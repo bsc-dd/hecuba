@@ -247,11 +247,11 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
             columns_names[i]["name"] = PyString_AsString(py_name);
             PyObject *type = PyDict_GetItem(dict, PyString_FromString("type"));
             if (type) {
-                if (std::strcmp(PyString_AsString(type),"numpy_meta") == 0) {
-                    columns_names[i]["table"] = std::string(table) + "_numpies";
+                if (std::strcmp(PyString_AsString(type), "numpy") == 0) {
+                    columns_names[i]["table"] = std::string(table);
                     columns_names[i]["keyspace"] = std::string(keyspace);
                     columns_names[i]["numpy"] = "true";
-                    columns_names[i]["type"] = "numpy_meta";
+                    columns_names[i]["type"] = "numpy";
 
                     if (!PyByteArray_Check(py_storage_id)) {
                         //Object is UUID python class
@@ -297,7 +297,7 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
 
                         columns_names[i]["storage_id"] = std::string(cpp_bytes, len);
                     }
-               }
+                }
             }
         } else {
             PyErr_SetString(PyExc_TypeError, "Can't parse column names, expected String, Dict or Unicode");
@@ -491,8 +491,7 @@ static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
         self->P = storage->get_iterator(table, keyspace, keys_names, columns_names, self->token_ranges, config);
         if (self->P->get_type() == "items") {
             self->rowParser = new PythonParser(storage, self->P->get_metadata()->get_items());
-        }
-        else if (self->P->get_type() == "values")
+        } else if (self->P->get_type() == "values")
             self->rowParser = new PythonParser(storage, self->P->get_metadata()->get_values());
         else self->rowParser = new PythonParser(storage, self->P->get_metadata()->get_keys());
     } catch (std::exception &e) {
