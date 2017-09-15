@@ -21,6 +21,12 @@ class MyStorageDict2(StorageDict):
     pass
 
 
+class MyStorageDict3(StorageDict):
+    '''
+    @TypeSpec <<str>,int>
+    '''
+
+
 class StorageDictTest(unittest.TestCase):
     def test_init_empty(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab1")
@@ -576,6 +582,15 @@ class StorageDictTest(unittest.TestCase):
         time.sleep(2)
         self.assertEquals(pd['val1'], 'new_a')
         self.assertEquals(pd['val2'], 'new_b')
+
+    def test_get(self):
+        table_name = 'tab_a7'
+        config.session.execute("DROP TABLE IF EXISTS my_app." + table_name)
+        my_text = MyStorageDict3('my_app.' + table_name)
+        self.assertEquals(0, my_text.get('word', 0))
+        my_text['word'] = my_text.get('word', 0) + 1
+        time.sleep(2)
+        self.assertEquals(1, my_text.get('word', 0))
 
 
 if __name__ == '__main__':
