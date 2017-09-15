@@ -42,24 +42,21 @@ class Hfetch_Tests(unittest.TestCase):
             print 'can\'t connect, verify the contact points and port', self.contact_names, self.nodePort
 
 
-        table = "arrays"
+        table = "arrays_numpies"
 
-        self.session.execute("DROP TABLE if exists %s.arrays;" % self.keyspace)
         self.session.execute("DROP TABLE if exists %s.arrays_numpies;" % self.keyspace)
-        self.session.execute("CREATE TABLE %s.arrays(partid int PRIMARY KEY, image numpy_meta);" % self.keyspace)
-        self.session.execute("CREATE TABLE %s.arrays_numpies(storage_id uuid, attr_name text, cluster_id int, block_id int, payload blob,PRIMARY KEY((storage_id,attr_name,cluster_id),block_id));" % self.keyspace)
+        self.session.execute("CREATE TABLE %s.arrays_numpies(storage_id uuid, cluster_id int, block_id int, payload blob,PRIMARY KEY((storage_id,cluster_id),block_id));" % self.keyspace)
 
         storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self.keyspace + '.' + table)
         time.sleep(5)
-        a = Hcache(self.keyspace, table, storage_id, [], ["partid"], [{"name": "image", "type": "numpy_meta"}], {})
+        a = Hcache(self.keyspace, table, storage_id, [], ['storage_id','cluster_id','block_id'], [{'name': "payload", 'type': 'numpy'}], {})
 
         #prepare data
 
         bigarr = np.arange(pow(elem_dim, dims)).reshape(elem_dim,elem_dim)
 #        bigarr = np.arange(4*4).reshape(4,4)
-        print 'To be written ' ,bigarr
-        temp =100
-        keys = [temp]
+        print 'To be written '
+        keys = [storage_id,-1,-1]
         values = [bigarr.astype('i')]
         print values
         #insert
@@ -67,13 +64,14 @@ class Hfetch_Tests(unittest.TestCase):
 
         time.sleep(5)
         a = None
-        a = Hcache(self.keyspace, table, storage_id, [], ["partid"], [{"name": "image", "type": "numpy_meta"}], {})
+        a = Hcache(self.keyspace, table, storage_id, [], ["storage_id",'cluster_id','block_id'], [{"name": "payload", "type": "numpy"}], {})
         result = a.get_row(keys)
+        print 'Retrieved from cassandra'
         print result
         if np.array_equal(bigarr,result[0]):
             print 'Created and retrieved are equal'
-        
-        self.session.execute("DROP TABLE %s.arrays;" % self.keyspace)
+        else:
+            self.fail('Created and retrieved ndarrays differ')
         self.session.execute("DROP TABLE %s.arrays_numpies;" % self.keyspace)
 
     def test_multidim(self):

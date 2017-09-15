@@ -79,7 +79,7 @@ if (NOT $ENV{LD_LIBRARY_PATH} STREQUAL "")
 endif (NOT $ENV{LD_LIBRARY_PATH} STREQUAL "")
 
 set(CPP_SRC_FILES StorageInterface.cpp Prefetch.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp TableMetadata.cpp SpaceFillingCurve.cpp)
-set(CPP_H_FILES StorageInterface.h Prefetch.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h TableMetadata.h SpaceFillingCurve.h)
+set(CPP_H_FILES StorageInterface.h Prefetch.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h TableMetadata.h SpaceFillingCurve.h TupleRowCache.h LRUPersistentStrategy.h)
 set(PY_SRC_FILES HCache.cpp PythonParser.cpp UnitParser.cpp NumpyStorage.cpp)
 set(PY_H_FILES HCache.h PythonParser.h UnitParser.h NumpyStorage.h)
 set(SOURCE_FILES ${CPP_SRC_FILES} ${PY_SRC_FILES})

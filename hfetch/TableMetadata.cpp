@@ -208,23 +208,26 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
             cols += "," + col;
         }
     }
+    std::string keys_and_cols = keys;
+    if (!cols.empty()) keys_and_cols += ", " + cols;
 
     std::string select_tokens_where = " token(" + tokens_keys + ")>=? AND token(" + tokens_keys + ")<? ";
-
     select = "SELECT " + cols + " FROM " + this->keyspace + "." + this->table + " WHERE " + select_where + ";";
     select_keys_tokens =
             "SELECT " + keys + " FROM " + this->keyspace + "." + this->table + " WHERE " + select_tokens_where + ";";
     select_tokens_values =
             "SELECT " + cols + " FROM " + this->keyspace + "." + this->table + " WHERE " + select_tokens_where + ";";
-    select_tokens_all = "SELECT " + keys + "," + cols + " FROM " + this->keyspace + "." + this->table + " WHERE " +
+
+    select_tokens_all = "SELECT " + keys_and_cols + " FROM " + this->keyspace + "." + this->table + " WHERE " +
                         select_tokens_where + ";";
 
-    insert = "INSERT INTO " + this->keyspace + "." + this->table + "(" + keys + "," + cols + ")" + "VALUES (?";
+    insert = "INSERT INTO " + this->keyspace + "." + this->table + "(" + keys_and_cols + ")" + "VALUES (?";
     for (uint16_t i = 1; i < n_keys + n_cols; ++i) {
         insert += ",?";
     }
     insert += ");";
 
+    delete_row = "DELETE  FROM " + this->keyspace + "." + this->table + " WHERE " + select_where + ";";
 
     std::vector<ColumnMeta> keys_meta(n_keys);
     std::vector<ColumnMeta> cols_meta(n_cols);

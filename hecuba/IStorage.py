@@ -12,10 +12,10 @@ class IStorage:
     _build_args = args()
 
     _valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map', 'bigint', 'blob',
-                    'tuple', 'dict', 'float', 'numpy_meta']
+                    'tuple', 'dict', 'float', 'numpy.ndarray']
 
     _hecuba_valid_types = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer' \
-                          '|numpy.ndarray|counter)'
+                          '|counter|double)'
     _data_type = re.compile('(\w+) *: *%s' % _hecuba_valid_types)
     _so_data_type = re.compile('(\w+)*:(\w.+)')
     _list_case = re.compile('.*@ClassField +(\w+) +list+ *< *([\w:.+]+) *>')
@@ -25,12 +25,12 @@ class IStorage:
     _so_val_case = re.compile('.*@ClassField +(\w+) +([\w.]+)')
 
     _python_types = [int, str, bool, float, tuple, set, dict, long, bytearray]
-
+    _storage_id = None
     _conversions = {'atomicint': 'counter',
                     'str': 'text',
                     'bool': 'boolean',
                     'decimal': 'decimal',
-                    'float': 'double',
+                    'float': 'float',
                     'int': 'int',
                     'tuple': 'tuple',
                     'list': 'list',
@@ -42,7 +42,8 @@ class IStorage:
                     'buffer': 'blob',
                     'bytearray': 'blob',
                     'counter': 'counter',
-                    'numpy.ndarray': 'numpy_meta'}
+                    'double': 'double',
+                    'StorageDict': 'dict'}
 
     @staticmethod
     def process_path(module_path):

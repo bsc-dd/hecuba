@@ -746,7 +746,7 @@ class Hfetch_Tests(unittest.TestCase):
 
         self.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
         self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(position int, wordinfo text, PRIMARY KEY(position));" % (
-        self.keyspace, table))
+            self.keyspace, table))
 
         for i in xrange(0, nelems):
             vals = ','.join([str(i), "'" + ''.join(
@@ -848,3 +848,101 @@ class Hfetch_Tests(unittest.TestCase):
         start = time.time()
         readAll(a.iteritems({"prefetch_size": 100, "update_cache": "yes"}), writer)
         print "finshed into %d" % (time.time() - start)
+
+
+    def test_coherency(self):
+        from hfetch import connectCassandra
+        from hfetch import Hcache
+        from hfetch import HWriter
+
+        '''''''''
+         Analyzes:
+         - HCache
+         '''''''''
+
+        table = "particle"
+        nparts = 10000  # Num particles in range
+
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
+        self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float,"
+                             "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
+
+        try:
+            connectCassandra(self.contact_names, self.nodePort)
+        except Exception:
+            print 'can\'t connect, verify the contact points and port', self.contact_names, self.nodePort
+
+        tkns = []
+        keys = ["partid", "time"]
+        values = ["x", "y", "z"]
+        cache = Hcache(self.keyspace, table, "WHERE token(partid)>=? AND token(partid)<?;", tkns, keys,
+                       values, {'cache_size': '1', 'writer_buffer': 20})
+        for i in xrange(0, nparts):
+            cache.put_row([i, i / .1], [i / .2, i / .3, i / .4])
+
+        for i in reversed(xrange(0,nparts)):#xrange(nparts, -1, -1):
+            try:
+                cache.get_row([i, i / .1])
+            except KeyError:
+                str_k = str([i, i / .1])
+                self.fail(str_k+" not found")
+
+    def test_delete_row(self):
+        from hfetch import connectCassandra
+        from hfetch import Hcache
+        '''''''''
+        This test iterates over a set of particles, performing get_row operations
+
+        Analyzes:
+        - HCache
+        - Get_row (setting TypeError properly)
+        '''''''''
+
+        self.keyspace = 'test'
+        table = 'particle'
+        num_keys = 100  # num keys must be multiple of expected_errors
+        expected_errors = 10
+
+        self.session.execute("DROP TABLE IF EXISTS %s.%s;" % (self.keyspace, table))
+        self.session.execute("CREATE TABLE IF NOT EXISTS %s.%s(partid int, time float, ciao text,"
+                             "x float, y float, z float, PRIMARY KEY(partid,time));" % (self.keyspace, table))
+
+        for i in xrange(0, num_keys):
+            vals = ','.join(str(e) for e in [i, i / .1, i / .2, i / .3, i / .4, "'" + str(i * 60) + "'"])
+            self.session.execute(
+                "INSERT INTO %s.%s(partid , time , x, y , z,ciao ) VALUES (%s)" % (self.keyspace, table, vals))
+
+        try:
+            connectCassandra(self.contact_names, self.nodePort)
+        except Exception:
+            print 'can\'t connect, verify the contact points and port', self.contact_names, self.nodePort
+
+        token_ranges = []
+
+        cache_size = 1
+
+        keys = ["partid", "time"]
+        values = ["ciao", "x", "y", "z"]
+
+        cache_config = {'cache_size': cache_size}
+
+        cache = Hcache(self.keyspace, table, "", token_ranges, keys, values, cache_config)
+        pk = 0
+        ck = pk * 10
+
+        try:
+            result = cache.get_row([pk, ck])
+            self.assertEqual(len(result), len(values))
+        except KeyError as e:
+            self.fail("Error when retrieving value from cache: " + str(e) + " -- " + str([pk, ck]))
+
+        try:
+            result = cache.delete_row([pk, ck])
+        except KeyError as e:
+            self.fail("Error when deleteing entry from cache: " + str(e) + " -- " + str([pk, ck]))
+
+        try:
+            result = cache.get_row([pk, ck])
+            self.fail("Error when retrieving value from cache, the entry shouldnt exist")
+        except KeyError as e:
+            pass

@@ -152,6 +152,48 @@ static PyObject *get_row(HCache *self, PyObject *args) {
 }
 
 
+static PyObject *delete_row(HCache *self, PyObject *args) {
+    PyObject *py_keys;
+    if (!PyArg_ParseTuple(args, "O", &py_keys)) {
+        return NULL;
+    }
+    for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
+        if (PyList_GetItem(py_keys, key_i) == Py_None) {
+            std::string error_msg = "Keys can't be None, key_position: " + std::to_string(key_i);
+            PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+            return NULL;
+        }
+    }
+    TupleRow *k;
+    try {
+        k = self->keysParser->make_tuple(py_keys);
+    }
+    catch (TypeErrorException &e) {
+        PyErr_SetString(PyExc_TypeError, e.what());
+        return NULL;
+    }
+    catch (std::exception &e) {
+        std::string error_msg = "Delete_row, keys error: " + std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    }
+    try {
+        self->T->delete_crow(k);
+        delete (k);
+    }
+    catch (TypeErrorException &e) {
+        PyErr_SetString(PyExc_TypeError, e.what());
+        return NULL;
+    }
+    catch (std::exception &e) {
+        std::string err_msg = "Delete row " + std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
+        return NULL;
+    }
+    Py_RETURN_NONE;
+}
+
+
 static void hcache_dealloc(HCache *self) {
     delete (self->keysParser);
     delete (self->valuesParser);
@@ -321,6 +363,7 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
 static PyMethodDef hcache_type_methods[] = {
         {"get_row",    (PyCFunction) get_row,            METH_VARARGS, NULL},
         {"put_row",    (PyCFunction) put_row,            METH_VARARGS, NULL},
+        {"delete_row", (PyCFunction) delete_row,         METH_VARARGS, NULL},
         {"iterkeys",   (PyCFunction) create_iter_keys,   METH_VARARGS, NULL},
         {"itervalues", (PyCFunction) create_iter_values, METH_VARARGS, NULL},
         {"iteritems",  (PyCFunction) create_iter_items,  METH_VARARGS, NULL},

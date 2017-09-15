@@ -40,7 +40,7 @@ NumpyStorage::store(const CassUuid &storage_id, PyArrayObject *numpy) const {
     void* values = nullptr;
     uint32_t offset = 0, keys_size = sizeof(uint64_t *) + sizeof(int32_t) * 2;
     uint64_t *c_uuid = nullptr;
-    int32_t half_int = -1 >> sizeof(int32_t)/2;
+    uint32_t half_int = 0;//(uint32_t)-1 >> (sizeof(uint32_t)*CHAR_BIT/2); //TODO be done properly
     int32_t cluster_id, block_id;
     while (!partitions_it->isDone()) {
         Partition part = partitions_it->getNextPartition();
@@ -100,7 +100,7 @@ PyObject *NumpyStorage::read(std::string table, std::string keyspace, const Cass
     char *buffer = nullptr;
     int32_t cluster_id = 0, offset = 0;
     int32_t *block = nullptr;
-    int32_t half_int = -1 >> sizeof(int32_t)/2;
+    int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
 
     SpaceFillingCurve::PartitionGenerator* partitions_it = this->partitioner.make_partitions_generator(arr_meta,
                                                                                                         nullptr);

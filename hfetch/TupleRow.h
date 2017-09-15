@@ -62,6 +62,10 @@ public:
         return nullptr;
     }
 
+    inline int64_t use_count() const {
+        return this->payload.use_count();
+    }
+
     /* Comparision operators */
     friend bool operator<(const TupleRow &lhs, const TupleRow &rhs);
 

@@ -1,10 +1,12 @@
 # author: G. Alomar
 from collections import Iterable
 from collections import namedtuple
+from collections import Mapping
 from types import NoneType
 from hfetch import Hcache
 from IStorage import IStorage
 from hecuba import config, log
+from hecuba.hnumpy import StorageNumpy
 import uuid
 import re
 import numpy as np
@@ -98,7 +100,7 @@ class StorageDict(dict, IStorage):
             raise ex
 
     def __init__(self, name=None, primary_keys=None, columns=None, tokens=None,
-                 storage_id=None, indexed_args=[], **kwargs):
+                 storage_id=None, indexed_args=None, **kwargs):
         """
         Creates a new block.
 
@@ -135,10 +137,10 @@ class StorageDict(dict, IStorage):
             try:
                 self._indexed_args = self._persistent_props[self.__class__.__name__]['indexed_values']
             except:
-                pass
+                self._indexed_args = indexed_args
         else:
-            self._primary_keys = primary_keys
-            self._columns = columns
+            self._primary_keys = [(col[0], 'hecuba.hnumpy.StorageNumpy') if col[1] =='numpy.ndarray' else col for col in primary_keys]
+            self._columns = [(col[0], 'hecuba.hnumpy.StorageNumpy') if col[1] =='numpy.ndarray' else col for col in columns]
             self._indexed_args = indexed_args
 
         key_names = map(lambda a: a[0], self._primary_keys)
@@ -313,7 +315,9 @@ class StorageDict(dict, IStorage):
 
     @staticmethod
     def _make_value(value):
-        if isinstance(value, str) or not isinstance(value, Iterable) or isinstance(value, np.ndarray):
+        if issubclass(value.__class__, IStorage):
+            return [uuid.UUID(value.getID())]
+        elif isinstance(value, str) or not isinstance(value, Iterable) or isinstance(value, np.ndarray):
             return [value]
         elif isinstance(value, unicode):
             return [value.encode('ascii', 'ignore')]
@@ -385,23 +389,11 @@ class StorageDict(dict, IStorage):
             log.warn("Error creating the StorageDict table: %s %s", query_table, ex)
             raise ex
         key_names = map(lambda a: a[0].encode('UTF8'), self._primary_keys)
-        column_names = map(lambda a: a[0].encode('UTF8'), self._columns)
+        column_names = [(col[0],'numpy.ndarray' ) if col[1] == 'hecuba.hnumpy.StorageNumpy' else col for col in self._columns]
 
-        config.session.execute('CREATE TYPE IF NOT EXISTS ' + self._ksp + '.numpy_meta('
-                                                                          'dims frozen<list<int>>,'
-                                                                          'type int,'
-                                                                          'type_size int);')
-        config.session.execute('CREATE TABLE IF NOT EXISTS ' +
-                               str(self._ksp) + '.' + str(self._table) + '_' + 'numpies'
-                               '( storage_id uuid , '
-                               'attr_name text, '
-                               'cluster_id int, '
-                               'block_id int, '
-                               'payload blob, '
-                               'PRIMARY KEY((storage_id,attr_name,cluster_id),block_id))')
         self._hcache_params = (self._ksp, self._table,
                                self._storage_id,
-                               self._tokens, key_names, map(lambda x: {"name": x[0], "type": x[1]}, self._columns),
+                               self._tokens, key_names, map(lambda x: {"name": x[0], "type": x[1]}, column_names),
                                {'cache_size': config.max_cache_size,
                                 'writer_par': config.write_callbacks_number,
                                 'write_buffer': config.write_buffer_size})
@@ -426,8 +418,24 @@ class StorageDict(dict, IStorage):
 
     def delete_persistent(self):
         query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
-        log.debug('DELETE PERSISTENCE: %s', query)
+        log.debug('DELETE PERSISTENT: %s', query)
         config.session.execute(query)
+
+
+    def build_istorage_obj(self,tp,so_name,storage_id):
+        table_name = so_name.split('_', 1)[1]
+        cname, module = IStorage.process_path(tp)
+        mod = __import__(module, globals(), locals(), [cname], 0)
+        so = getattr(mod, cname)(so_name)
+        so._storage_id = storage_id
+        return so
+
+
+    def __delitem__(self, key):
+        if not self._is_persistent:
+            dict.__delitem__(self, key)
+        else:
+            self._hcache.delete_row([key])
 
     def __getitem__(self, key):
         """
@@ -445,7 +453,17 @@ class StorageDict(dict, IStorage):
         else:
             cres = self._hcache.get_row(self._make_key(key))
             log.debug("GET ITEM %s[%s]", cres, cres.__class__)
+            final_results = []
+            for row in cres:
+                for column_info in self._columns:
+                    if column_info not in IStorage._valid_types:
+                        index = self._columns.index(column_info)
+                        tp = self._persistent_props[index]['type']
+                        table_name = self._persistent_props['table_name']
+                        row[index] = self.build_istorage_obj(tp,"%s.%s_%s" % (self._ksp, self._table, table_name),row[index])
+                final_results.append(row)
 
+            cres = final_results
             if issubclass(cres.__class__, NoneType):
                 return None
             elif self._column_builder is not None:
@@ -464,11 +482,49 @@ class StorageDict(dict, IStorage):
                val: the value that we want to save in that position
            Returns:
         """
+        if isinstance(val,np.ndarray):
+            val = StorageNumpy(val)
         log.debug('SET ITEM %s->%s', key, val)
-        if not self._is_persistent:
-            dict.__setitem__(self, key, val)
+        if not config.hecuba_type_checking:
+            if not self._is_persistent:
+                dict.__setitem__(self, key, val)
+            else:
+                if isinstance(val,StorageNumpy):
+                    val.make_persistent(self._ksp+'.'+self._table)
+                self._hcache.put_row(self._make_key(key), self._make_value(val))
         else:
-            self._hcache.put_row(self._make_key(key), self._make_value(val))
+            if isinstance(val, Iterable) and not isinstance(val, str):
+                col_types = map(lambda x: IStorage._conversions[x.__class__.__name__], val)
+                spec_col_types = map(lambda x: x[1], self._columns)
+                for idx, value in enumerate(spec_col_types):
+                    if value == 'double':
+                        spec_col_types[idx] = 'float'
+            else:
+                col_types = IStorage._conversions[val.__class__.__name__]
+                spec_col_types = map(lambda x: x[1], self._columns)[0]
+                if spec_col_types == 'double':
+                    spec_col_types = 'float'
+            if isinstance(key, Iterable) and not isinstance(key, str):
+                key_types = map(lambda x: IStorage._conversions[x.__class__.__name__], key)
+                spec_key_types = map(lambda x: x[1], self._primary_keys)
+                for idx, value in enumerate(spec_key_types):
+                    if value == 'double':
+                        spec_key_types[idx] = 'float'
+            else:
+                key_types = IStorage._conversions[key.__class__.__name__]
+                spec_key_types = map(lambda x: x[1], self._primary_keys)[0]
+                if spec_key_types == 'double':
+                    spec_key_types = 'float'
+            if (col_types == spec_col_types):
+                if(key_types == spec_key_types):
+                    if not self._is_persistent:
+                        dict.__setitem__(self, key, val)
+                    else:
+                        self._hcache.put_row(self._make_key(key), self._make_value(val))
+                else:
+                    raise KeyError
+            else:
+                raise ValueError
 
     def __repr__(self):
         to_return = {}
@@ -479,6 +535,17 @@ class StorageDict(dict, IStorage):
         if len(to_return) > 0:
             return str(to_return)
         return ""
+
+    def update(self, other=None, **kwargs):
+        if other is not None:
+            if isinstance(other, StorageDict):
+                for k, v in other.iteritems():
+                    self[k] = v
+            else:
+                for k, v in other.items() if isinstance(other, Mapping) else other:
+                    self[k] = v
+        for k, v in kwargs.items():
+            self[k] = v
 
     def iterkeys(self):
         """

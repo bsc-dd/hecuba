@@ -7,10 +7,10 @@
 #include <string>
 #include <memory>
 
-#include "Poco/LRUCache.h"
 
 #include "TupleRow.h"
 #include "TupleRowFactory.h"
+#include "TupleRowCache.h"
 #include "Writer.h"
 
 
@@ -23,25 +23,27 @@ public:
 
     ~CacheTable();
 
+    const TableMetadata *get_metadata() {
+        return table_metadata;
+    }
 
-    /** C++ METHODS **/
-
-    void put_crow(void *keys, void *values);
+    /*** TupleRow ops ***/
 
     std::vector<const TupleRow *> get_crow(const TupleRow *py_keys);
 
-
     std::vector<const TupleRow *> get_crow(void *keys);
-
-    void add_to_cache(void *keys, void *values);
 
     void put_crow(const TupleRow *row);
 
     void put_crow(const TupleRow *keys, const TupleRow *values);
 
-    const TableMetadata *get_metadata() {
-        return table_metadata;
-    }
+    void delete_crow(const TupleRow *keys);
+
+    /*** Raw pointers ops ***/
+
+    void put_crow(void *keys, void *values);
+
+    void add_to_cache(void *keys, void *values);
 
 private:
 
@@ -49,10 +51,10 @@ private:
 
     /* CASSANDRA INFORMATION FOR RETRIEVING DATA */
     CassSession *session;
-    const CassPrepared *prepared_query;
+    const CassPrepared *prepared_query, *delete_query;
 
     //Key based on copy constructor, Value based on Poco:SharedPtr
-    Poco::LRUCache<TupleRow, TupleRow> *myCache;
+    TupleRowCache<TupleRow, TupleRow> *myCache;
 
     TupleRowFactory *keys_factory;
     TupleRowFactory *values_factory;

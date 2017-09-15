@@ -1,17 +1,5 @@
-//
-// Created by bscuser on 3/23/17.
-//
-
 #ifndef HFETCH_TABLEMETADATA_H
 #define HFETCH_TABLEMETADATA_H
-
-
-#define NAME_POS 0
-#define NPY_PARTITION 1
-#define NPY_METAS_COL 2
-#define NPY_COL_POS 3
-#define NPY_TABLE_EXTERNAL 4
-
 
 #include <cassandra.h>
 #include <cstdint>
@@ -31,12 +19,6 @@
 struct ColumnMeta {
     ColumnMeta() {}
 
-/*
-    ColumnMeta( std::map<std::string, std::string> &info, CassValueType cv_type) {
-        this->info=info;
-        this->type=cv_type;
-    }
-*/
     ColumnMeta(std::map<std::string, std::string> &info, CassValueType cv_type, uint16_t offset, uint16_t bsize) {
         this->info = info;
         this->type = cv_type;
@@ -94,6 +76,10 @@ public:
         return insert.c_str();
     }
 
+    const char *get_delete_query() const {
+        return delete_row.c_str();
+    }
+
     const char *get_table_name() const {
         return table.c_str();
     }
@@ -110,7 +96,7 @@ private:
     std::shared_ptr<const std::vector<ColumnMeta> > keys;
     std::shared_ptr<const std::vector<ColumnMeta> > items;
     std::string keyspace, table;
-    std::string select, insert, select_tokens_all, select_tokens_values, select_keys_tokens;
+    std::string select, insert, select_tokens_all, select_tokens_values, select_keys_tokens, delete_row;
 
 };
 
