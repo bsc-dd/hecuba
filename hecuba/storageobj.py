@@ -455,8 +455,9 @@ class StorageObj(object, IStorage):
             object.__setattr__(self, attribute, value)
         else:
             if isinstance(value, dict) and \
-                    not isinstance(value, StorageDict) and \
-                            self._persistent_props[attribute]['type'] == 'dict':
+               not isinstance(value, StorageDict) and \
+               hasattr(self, '_persistent_props') and \
+               self._persistent_props[key]['type'] == 'dict':
                 if value == {}:
                     return
                 else:

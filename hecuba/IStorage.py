@@ -14,9 +14,9 @@ class IStorage:
     _valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map', 'bigint', 'blob',
                     'tuple', 'dict', 'float']
 
-    _hecuba_valid_types = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer' \
-                          '|numpy.ndarray|counter|double)'
-    _data_type = re.compile('(\w+) *: *%s' % _hecuba_valid_types)
+    _hecuba_valid_types = '(atomicint|str|bool|decimal|float|int|tuple|list|generator'
+    _hecuba_valid_types += '|frozenset|set|dict|long|buffer|numpy.ndarray|counter|double)'
+    _data_type = re.compile('(\\w+) *: *%s' % _hecuba_valid_types)
     _so_data_type = re.compile('(\w+)*:(\w.+)')
     _list_case = re.compile('.*@ClassField +(\w+) +list+ *< *([\w:.+]+) *>')
     _sub_dict_case = re.compile(' *< *< *([\w:, ]+)+ *> *, *([\w+:, <>]+) *>')
