@@ -488,7 +488,6 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(True, my_nested_so._is_persistent)
         self.assertEquals(True, my_nested_so.myso._is_persistent)
         self.assertEquals(True, my_nested_so.myso2._is_persistent)
-        self.assertEquals(True, my_nested_so.myso2.test._is_persistent)
 
         my_nested_so.myso.name = 'Link'
         my_nested_so.myso.age = 10
@@ -503,19 +502,10 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(10, query_res.age)
         self.assertEquals('Link', query_res.name)
 
-        my_nested_so.myso2.test[0] = 'position0'
-        self.assertEquals('position0', my_nested_so.myso2.test[0])
+        my_nested_so.myso2.name = 'position0'
+        self.assertEquals('position0', my_nested_so.myso2.name)
 
-        for value in my_nested_so.myso2.test.itervalues():
-            self.assertEquals('position0', value)
 
-        for key in my_nested_so.myso2.test.iterkeys():
-            self.assertEquals(0, key)
-
-        for value in my_nested_so.myso2.test.iteritems():
-            self.assertEquals(2, len(value))
-            self.assertEqual(0, value.key)
-            self.assertEqual('position0', value.value)
 
     def test_nestedso_topersistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
@@ -656,34 +646,34 @@ class StorageObjTest(unittest.TestCase):
         my_nested_so.make_persistent('mynewso')
         self.assertEquals(True, my_nested_so._is_persistent)
         self.assertEquals(True, my_nested_so.test2._is_persistent)
-        self.assertEquals(True, my_nested_so.test2.myso._is_persistent)
+        self.assertEquals(True, my_nested_so.test2[0]._is_persistent)
 
-        my_nested_so.test2.myso.name = 'Link'
-        self.assertEquals('Link', my_nested_so.test2.myso.name)
-        my_nested_so.test2.myso.age = 10
-        self.assertEquals(10, my_nested_so.test2.myso.age)
+        my_nested_so.test2[0].name = 'Link'
+        self.assertEquals('Link', my_nested_so.test2[0].name)
+        my_nested_so.test2[0].age = 10
+        self.assertEquals(10, my_nested_so.test2[0].age)
 
     def test_nestedso_retrievedata(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_test2")
 
         my_nested_so = Test5StorageObj('mynewso')
-
+        my_nested_so.test2[0] = Test2StorageObj('something')
         self.assertEquals(True, my_nested_so._is_persistent)
         self.assertEquals(True, my_nested_so.test2._is_persistent)
-        self.assertEquals(True, my_nested_so.test2.myso._is_persistent)
+        self.assertEquals(True, my_nested_so.test2[0]._is_persistent)
 
-        my_nested_so.test2.myso.name = 'Link'
-        self.assertEquals('Link', my_nested_so.test2.myso.name)
-        my_nested_so.test2.myso.age = 10
-        self.assertEquals(10, my_nested_so.test2.myso.age)
+        my_nested_so.test2[0].name = 'Link'
+        self.assertEquals('Link', my_nested_so.test2[0].name)
+        my_nested_so.test2[0].age = 10
+        self.assertEquals(10, my_nested_so.test2[0].age)
 
         del my_nested_so
 
         my_nested_so2 = Test5StorageObj('mynewso')
 
-        self.assertEquals('Link', my_nested_so2.test2.myso.name)
-        self.assertEquals(10, my_nested_so2.test2.myso.age)
+        self.assertEquals('Link', my_nested_so2.test2[0].name)
+        self.assertEquals(10, my_nested_so2.test2[0].age)
 
     def test_numpy_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
@@ -743,9 +733,10 @@ class StorageObjTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpydict")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpydict_numpies")
-        my_so = TestStorageObjNumpyDict('mynewso')
+        my_so = TestStorageObjNumpyDict()
         mynumpydict = np.random.rand(3, 2)
         my_so.mynumpydict[0] = mynumpydict
+        my_so.make_persistent('mynewso')
         import time
         time.sleep(2)
         self.assertTrue(np.array_equal(mynumpydict, my_so.mynumpydict[0]))

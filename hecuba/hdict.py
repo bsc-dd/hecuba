@@ -11,6 +11,7 @@ import uuid
 import re
 import numpy as np
 
+
 class NamedIterator:
     def __init__(self, hiterator, builder, father):
         self.hiterator = hiterator
@@ -139,8 +140,11 @@ class StorageDict(dict, IStorage):
             except:
                 self._indexed_args = indexed_args
         else:
-            self._primary_keys = [(col[0], 'hecuba.hnumpy.StorageNumpy') if col[1] =='numpy.ndarray' else col for col in primary_keys]
-            self._columns = [(col[0], 'hecuba.hnumpy.StorageNumpy') if col[1] =='numpy.ndarray' else col for col in columns]
+            self._primary_keys = [(key[0], 'hecuba.hnumpy.StorageNumpy') if key[1] == 'numpy.ndarray' else key for key
+                                  in primary_keys]
+            self._columns = [(col[0], 'hecuba.hnumpy.StorageNumpy') if col[1] == 'numpy.ndarray' else col for col in
+                             columns]
+            self._persistent_props = {'type': 'dict'}
             self._indexed_args = indexed_args
 
         key_names = map(lambda a: a[0], self._primary_keys)
@@ -362,6 +366,10 @@ class StorageDict(dict, IStorage):
                 except Exception as ex:
                     print "Error creating the StorageDict keyspace:", query_keyspace, ex
 
+        for key, value in dict.iteritems(self):
+            if issubclass(value.__class__, IStorage):
+                value.make_persistent(self._ksp + '_' + self._table + str(key))
+
         columns = map(lambda a: a, self._primary_keys + self._columns)
         for ind, entry in enumerate(columns):
             n = StorageDict._other_case.match(entry[1])
@@ -370,10 +378,6 @@ class StorageDict(dict, IStorage):
             else:
                 iter_type = entry[1]
             if iter_type not in IStorage._valid_types:
-                class_name, module = IStorage.process_path(entry[1])
-                mod = __import__(module, globals(), locals(), [class_name], 0)
-                so = getattr(mod, class_name)(entry[0])
-                setattr(self, entry[0], so)
                 columns[ind] = entry[0], 'uuid'
 
         pks = map(lambda a: a[0], self._primary_keys)
@@ -389,7 +393,8 @@ class StorageDict(dict, IStorage):
             log.warn("Error creating the StorageDict table: %s %s", query_table, ex)
             raise ex
         key_names = map(lambda a: a[0].encode('UTF8'), self._primary_keys)
-        column_names = [(col[0],'numpy.ndarray' ) if col[1] == 'hecuba.hnumpy.StorageNumpy' else col for col in self._columns]
+        column_names = [(col[0], 'numpy.ndarray') if col[1] == 'hecuba.hnumpy.StorageNumpy' else col for col in
+                        self._columns]
 
         self._hcache_params = (self._ksp, self._table,
                                self._storage_id,
@@ -421,15 +426,13 @@ class StorageDict(dict, IStorage):
         log.debug('DELETE PERSISTENT: %s', query)
         config.session.execute(query)
 
-
-    def build_istorage_obj(self,tp,so_name,storage_id):
+    def build_istorage_obj(self, tp, so_name, storage_id):
         table_name = so_name.split('_', 1)[1]
         cname, module = IStorage.process_path(tp)
         mod = __import__(module, globals(), locals(), [cname], 0)
-        so = getattr(mod, cname)(so_name)
-        so._storage_id = storage_id
+        so = getattr(mod, cname)(name=so_name, storage_id=storage_id)
+        # sso._storage_id = storage_id
         return so
-
 
     def __delitem__(self, key):
         if not self._is_persistent:
@@ -454,16 +457,21 @@ class StorageDict(dict, IStorage):
             cres = self._hcache.get_row(self._make_key(key))
             log.debug("GET ITEM %s[%s]", cres, cres.__class__)
             final_results = []
-            for row in cres:
-                for column_info in self._columns:
-                    if column_info not in IStorage._valid_types:
-                        index = self._columns.index(column_info)
-                        tp = self._persistent_props[index]['type']
-                        table_name = self._persistent_props['table_name']
-                        row[index] = self.build_istorage_obj(tp,"%s.%s_%s" % (self._ksp, self._table, table_name),row[index])
-                final_results.append(row)
+            # for row in cres:
+            final_row = []
+            for column_info in self._columns:
+                index = self._columns.index(column_info)
+                if column_info not in IStorage._valid_types:
+                    tp = self._columns[index][1]
+                    table_name = self._ksp + '_' + self._table + str(key)
+                    element = (
+                    self.build_istorage_obj(tp, table_name, uuid.UUID(cres[index])))  # TODO this should be done in CPP
+                else:
+                    element = cres[index]
+                final_row.append(element)
+                #    final_results.append(final_row)
 
-            cres = final_results
+            cres = final_row
             if issubclass(cres.__class__, NoneType):
                 return None
             elif self._column_builder is not None:
@@ -482,15 +490,15 @@ class StorageDict(dict, IStorage):
                val: the value that we want to save in that position
            Returns:
         """
-        if isinstance(val,np.ndarray):
+        if isinstance(val, np.ndarray):
             val = StorageNumpy(val)
         log.debug('SET ITEM %s->%s', key, val)
         if not config.hecuba_type_checking:
             if not self._is_persistent:
                 dict.__setitem__(self, key, val)
             else:
-                if isinstance(val,StorageNumpy):
-                    val.make_persistent(self._ksp+'.'+self._table)
+                if isinstance(val, StorageNumpy):
+                    val.make_persistent(self._ksp + '.' + self._table)
                 self._hcache.put_row(self._make_key(key), self._make_value(val))
         else:
             if isinstance(val, Iterable) and not isinstance(val, str):
@@ -516,7 +524,7 @@ class StorageDict(dict, IStorage):
                 if spec_key_types == 'double':
                     spec_key_types = 'float'
             if (col_types == spec_col_types):
-                if(key_types == spec_key_types):
+                if (key_types == spec_key_types):
                     if not self._is_persistent:
                         dict.__setitem__(self, key, val)
                     else:

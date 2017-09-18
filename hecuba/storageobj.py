@@ -466,16 +466,15 @@ class StorageObj(object, IStorage):
             return
         if isinstance(value, np.ndarray):
             value = StorageNumpy(value)
+        if config.hecuba_type_checking and key in self._persistent_attrs and not isinstance(value, dict) and \
+                        IStorage._conversions[value.__class__.__name__] != self._persistent_props[key]['type']:
+            raise TypeError
         if hasattr(self, '_is_persistent') and self._is_persistent and key in self._persistent_attrs:
-            if config.hecuba_type_checking and \
-                             key in self._persistent_attrs and \
-                             IStorage._conversions[value.__class__.__name__] != self._persistent_props[key]['type']:
-                raise TypeError
-
             if isinstance(value, StorageNumpy):
                 value.make_persistent(self._ksp + '.' + self._table)
-                object.__setattr__(self, key, value)#setattr(self, key, value)
-            if isinstance(value, dict) and not isinstance(value, StorageDict) and self._persistent_props[key]['type'] == 'dict':
+                object.__setattr__(self, key, value)  # setattr(self, key, value)
+            if isinstance(value, dict) and not isinstance(value, StorageDict) and self._persistent_props[key][
+                'type'] == 'dict':
                 if value == {}:
                     return
                 else:
@@ -495,7 +494,8 @@ class StorageObj(object, IStorage):
                             grouped = m.groups()
                             if grouped[0] == curr_table:
                                 copies = int(grouped[1]) + 1
-                    setattr(self, key, StorageDict(curr_table + '_' + str(copies), prev_storagedict._primary_keys, prev_storagedict._columns))
+                    setattr(self, key, StorageDict(curr_table + '_' + str(copies), prev_storagedict._primary_keys,
+                                                   prev_storagedict._columns))
                     for k, v in value.iteritems():
                         getattr(self, key)[k] = v
                     return
