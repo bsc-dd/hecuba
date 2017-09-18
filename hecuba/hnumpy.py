@@ -43,8 +43,6 @@ class StorageNumpy(np.ndarray, IStorage):
         obj._class_name = '%s.%s' % (cls.__module__, cls.__name__)
         return obj
 
-    def __init__(self, input_array=None, storage_id=None, name=None):
-        pass
 
     # used as copy constructor
     def __array_finalize__(self, obj):
@@ -89,7 +87,6 @@ class StorageNumpy(np.ndarray, IStorage):
                           {'cache_size': config.max_cache_size,
                            'writer_par': config.write_callbacks_number,
                            'write_buffer': config.write_buffer_size})
-
         _hcache = Hcache(*_hcache_params)
         result = _hcache.get_row([storage_id, -1, -1])
         if len(result) == 1:

@@ -368,7 +368,7 @@ class StorageDict(dict, IStorage):
 
         for key, value in dict.iteritems(self):
             if issubclass(value.__class__, IStorage):
-                value.make_persistent(self._ksp + '_' + self._table + str(key))
+                value.make_persistent(self._ksp + '.' + self._table)
 
         columns = map(lambda a: a, self._primary_keys + self._columns)
         for ind, entry in enumerate(columns):
@@ -426,9 +426,8 @@ class StorageDict(dict, IStorage):
         log.debug('DELETE PERSISTENT: %s', query)
         config.session.execute(query)
 
-    def build_istorage_obj(self, tp, so_name, storage_id):
-        table_name = so_name.split('_', 1)[1]
-        cname, module = IStorage.process_path(tp)
+    def _build_istorage_obj(self, obj_type, so_name, storage_id):
+        cname, module = IStorage.process_path(obj_type)
         mod = __import__(module, globals(), locals(), [cname], 0)
         so = getattr(mod, cname)(name=so_name, storage_id=storage_id)
         # sso._storage_id = storage_id
@@ -463,9 +462,8 @@ class StorageDict(dict, IStorage):
                 index = self._columns.index(column_info)
                 if column_info not in IStorage._valid_types:
                     tp = self._columns[index][1]
-                    table_name = self._ksp + '_' + self._table + str(key)
-                    element = (
-                    self.build_istorage_obj(tp, table_name, uuid.UUID(cres[index])))  # TODO this should be done in CPP
+                    table_name = self._ksp + '.' + self._table
+                    element = (self._build_istorage_obj(tp, table_name, uuid.UUID(cres[index])))  # TODO this should be done in CPP
                 else:
                     element = cres[index]
                 final_row.append(element)
