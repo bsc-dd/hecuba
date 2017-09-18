@@ -13,8 +13,6 @@ class IStorage:
 
     _valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map', 'bigint', 'blob',
                     'tuple', 'dict', 'float']
-    _database_types = ['counter', 'text', 'boolean', 'double', 'list', 'set', 'map', 'bigint', 'blob',
-                       'tuple', 'float']
 
     _hecuba_valid_types = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer' \
                           '|numpy.ndarray|counter|double)'
