@@ -637,3 +637,10 @@ class StorageDict(dict, IStorage):
             return NamedIterator(ik, self._column_builder, self)
         else:
             return dict.itervalues(self)
+
+    def get(self, key, default):
+        try:
+            value = self.__getitem__(key)
+        except:
+            value = default
+        return value
