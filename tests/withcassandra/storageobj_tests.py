@@ -640,10 +640,10 @@ class StorageObjTest(unittest.TestCase):
     def test_nestedso_dictofsos(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_test2")
-
+        config.session.execute("DROP KEYSPACE IF EXISTS my_app")
         my_nested_so = Test5StorageObj()
         my_nested_so.test2[0] = Test2StorageObj()
-        my_nested_so.make_persistent('mynewso')
+        my_nested_so.make_persistent('topstorageobj')
         self.assertEquals(True, my_nested_so._is_persistent)
         self.assertEquals(True, my_nested_so.test2._is_persistent)
         self.assertEquals(True, my_nested_so.test2[0]._is_persistent)

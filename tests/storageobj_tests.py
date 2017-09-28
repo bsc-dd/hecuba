@@ -104,6 +104,8 @@ class StorageObjTest(unittest.TestCase):
     def test_init_pdict(self):
         t = TestStorageObj()
         t.test = {1: 'ciao'}
-        self.assertTrue(issubclass(t.test.__class__, IStorage))
+        #its not persistent, so in memory it is still a dict
+        #hecuba converts the dicts to StorageDicts when the StorageObj is made persistent
+        self.assertTrue(issubclass(t.test.__class__, dict))
 
 

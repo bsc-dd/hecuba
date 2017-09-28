@@ -358,17 +358,17 @@ class StorageDict(dict, IStorage):
         if config.id_create_schema == -1:
             query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy'," \
                              "'replication_factor': %d }" % (self._ksp, config.repl_factor)
-            if query_keyspace not in config.create_cache:
-                try:
-                    config.create_cache.add(query_keyspace)
-                    log.debug('MAKE PERSISTENCE: %s', query_keyspace)
-                    config.session.execute(query_keyspace)
-                except Exception as ex:
-                    print "Error creating the StorageDict keyspace:", query_keyspace, ex
+            try:
+                log.debug('MAKE PERSISTENCE: %s', query_keyspace)
+                config.session.execute(query_keyspace)
+            except Exception as ex:
+                print "Error creating the StorageDict keyspace:", query_keyspace, ex
 
         for key, value in dict.iteritems(self):
             if issubclass(value.__class__, IStorage):
-                value.make_persistent(self._ksp + '.' + self._table)
+                # new name as ksp+table+obj_class_name
+                val_name = self._ksp + '.' + self._table + type(value).__name__.lower()
+                value.make_persistent(val_name)
 
         columns = map(lambda a: a, self._primary_keys + self._columns)
         for ind, entry in enumerate(columns):
@@ -429,7 +429,8 @@ class StorageDict(dict, IStorage):
     def _build_istorage_obj(self, obj_type, so_name, storage_id):
         cname, module = IStorage.process_path(obj_type)
         mod = __import__(module, globals(), locals(), [cname], 0)
-        so = getattr(mod, cname)(name=so_name, storage_id=storage_id)
+        # new name as ksp+table+obj_class_name
+        so = getattr(mod, cname)(name=so_name+cname.lower(), storage_id=storage_id)
         # sso._storage_id = storage_id
         return so
 
@@ -460,7 +461,7 @@ class StorageDict(dict, IStorage):
             final_row = []
             for column_info in self._columns:
                 index = self._columns.index(column_info)
-                if column_info not in IStorage._valid_types:
+                if column_info[1] not in IStorage._valid_types:
                     tp = self._columns[index][1]
                     table_name = self._ksp + '.' + self._table
                     element = (self._build_istorage_obj(tp, table_name, uuid.UUID(cres[index])))  # TODO this should be done in CPP
@@ -496,7 +497,8 @@ class StorageDict(dict, IStorage):
                 dict.__setitem__(self, key, val)
             else:
                 if isinstance(val, StorageNumpy):
-                    val.make_persistent(self._ksp + '.' + self._table)
+                    #new name as ksp+table+obj_class_name
+                    val.make_persistent(self._ksp + '.' + self._table+StorageNumpy.__name__.lower())
                 self._hcache.put_row(self._make_key(key), self._make_value(val))
         else:
             if isinstance(val, Iterable) and not isinstance(val, str):

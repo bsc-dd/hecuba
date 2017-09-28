@@ -285,8 +285,6 @@ class Config:
             except Exception as e:
                 print "Cannot create keyspace", e
 
-        singleton.create_cache = set()
-
         try:
             singleton.qbeast_master_port = int(os.environ['QBEAST_MASTER_PORT'])
             log.info('QBEAST_MASTER_PORT: %d', singleton.qbeast_master_port)

@@ -74,13 +74,10 @@ class StorageObj(object, IStorage):
                 istorage_props dict(string,string) a map with the storage id of each contained istorage object.
         """
         log.debug("CREATED StorageObj(%s)", name)
-        self._storageobj_caches = []
-        self._attribute_caches_params = {}
-        self._attribute_caches = {}
         self._is_persistent = False
         self._persistent_dicts = []
         self._storage_objs = []
-        self._attr_to_column = {}
+
         if name is None:
             self._ksp = config.execution_name
         else:
@@ -342,10 +339,7 @@ class StorageObj(object, IStorage):
                     query_simple += entry['type'] + ', '
             else:
                 query_simple += 'uuid, '
-        config.session.execute(query_simple[0:len(query_simple) - 2] + ' )')
-
-        for key, val in self._attribute_caches_params.iteritems():
-            self._attribute_caches[key] = Hcache(*val)
+        config.session.execute(query_simple[:-2] + ' )')
 
         dictionaries = filter(lambda (k, t): t['type'] == 'dict', self._persistent_props.iteritems())
         is_props = self._build_args.istorage_props
@@ -500,15 +494,15 @@ class StorageObj(object, IStorage):
                         getattr(self, key)[k] = v
                     return
             else:
-                query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, key)
-                query += " VALUES (%s,%s)"
                 if issubclass(value.__class__, IStorage):
                     values = [self._storage_id, value._storage_id]
                     object.__setattr__(self, key, value)
                 else:
+                    query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, key)
+                    query += " VALUES (%s,%s)"
                     values = [self._storage_id, value]
-                log.debug("SETATTR: ", query)
-                config.session.execute(query, values)
+                    log.debug("SETATTR: ", query)
+                    config.session.execute(query, values)
         else:
             object.__setattr__(self, key, value)
 
