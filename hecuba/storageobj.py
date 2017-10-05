@@ -61,7 +61,7 @@ class StorageObj(object, IStorage):
                                     storage_args.tokens,
                                     storage_args.istorage_props])
         except Exception as ex:
-            print "Error creating the StorageDict metadata:", storage_args, ex
+            log.warn("Error creating the StorageDict metadata: %s, %s", str(storage_args), ex)
             raise ex
 
     def __init__(self, name=None, tokens=None, storage_id=None, istorage_props=None, **kwargs):

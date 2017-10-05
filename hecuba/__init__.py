@@ -282,8 +282,9 @@ class Config:
                         "'replication_factor' : %d};" \
                         % (singleton.execution_name, singleton.repl_class, singleton.repl_factor)
                 singleton.session.execute(query)
-            except Exception as e:
-                print "Cannot create keyspace", e
+            except Exception as ex:
+                log.warn("Cannot create keyspace %s" % singleton.execution_name)
+                raise ex
 
         try:
             singleton.qbeast_master_port = int(os.environ['QBEAST_MASTER_PORT'])

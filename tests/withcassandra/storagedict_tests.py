@@ -507,6 +507,9 @@ class StorageDictTest(unittest.TestCase):
         self.assertEquals(True, error)
 
         my_dict.make_persistent('my_dict')
+
+        del my_dict
+
         count, = config.session.execute('SELECT count(*) FROM my_app.my_dict')[0]
         self.assertEquals(1, count)
 

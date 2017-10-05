@@ -14,6 +14,7 @@ class IStorage:
     _valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map', 'bigint', 'blob',
                     'tuple', 'dict', 'float', 'numpy.ndarray']
 
+    _basic_types = _valid_types[:-1]
     _hecuba_valid_types = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer' \
                           '|counter|double)'
     _data_type = re.compile('(\w+) *: *%s' % _hecuba_valid_types)
@@ -47,6 +48,8 @@ class IStorage:
 
     @staticmethod
     def process_path(module_path):
+        if module_path == 'numpy.ndarray':
+            return 'StorageNumpy','hecuba.hnumpy'
         last = 0
         for key, i in enumerate(module_path):
             if i == '.' and key > last:

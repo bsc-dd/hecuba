@@ -75,7 +75,7 @@ class StorageNumpy(np.ndarray, IStorage):
                                    [storage_args.storage_id, storage_args.class_name,
                                     storage_args.name])
         except Exception as ex:
-            print "Error creating the StorageNumpy metadata:", storage_args, ex
+            log.warn("Error creating the StorageNumpy metadata with args: %s" % str(storage_args))
             raise ex
 
     @staticmethod

@@ -140,16 +140,16 @@ class StorageDict(dict, IStorage):
             except:
                 self._indexed_args = indexed_args
         else:
-            self._primary_keys = [(key[0], 'hecuba.hnumpy.StorageNumpy') if key[1] == 'numpy.ndarray' else key for key
-                                  in primary_keys]
-            self._columns = [(col[0], 'hecuba.hnumpy.StorageNumpy') if col[1] == 'numpy.ndarray' else col for col in
-                             columns]
-            self._persistent_props = {'type': 'dict'}
+            self._primary_keys = primary_keys
+            #[(name, 'hecuba.hnumpy.StorageNumpy') if dt == 'numpy.ndarray' else (name,dt) for (name,dt) in primary_keys]
+            self._columns = columns
+            #[(name, 'hecuba.hnumpy.StorageNumpy') if dt == 'numpy.ndarray' else (name,dt) for (name,dt) in columns]
+            #self._persistent_props = {'type': 'dict'}
             self._indexed_args = indexed_args
 
-        key_names = map(lambda a: a[0], self._primary_keys)
-        column_names = map(lambda a: a[0], self._columns)
-        self._item_builder = namedtuple('row', map(lambda a: a[0], self._primary_keys + self._columns))
+        key_names = [pkname for (pkname,dt) in self._primary_keys]
+        column_names = [colname for (colname,dt) in self._columns]
+        self._item_builder = namedtuple('row', key_names+column_names)
 
         if len(key_names) > 1:
             self._key_builder = namedtuple('row', key_names)
@@ -299,9 +299,9 @@ class StorageDict(dict, IStorage):
             try:
                 self._hcache.get_row(self._make_key(key))
                 return True
-            except Exception as e:
-                print "Exception in persistentDict.__contains__:", e
-                return False
+            except Exception as ex:
+                log.warn("persistentDict.__contains__ ex %s", ex)
+                raise ex
 
     def _make_key(self, key):
         if isinstance(key, str) or isinstance(key, unicode) or not isinstance(key, Iterable):
@@ -362,7 +362,8 @@ class StorageDict(dict, IStorage):
                 log.debug('MAKE PERSISTENCE: %s', query_keyspace)
                 config.session.execute(query_keyspace)
             except Exception as ex:
-                print "Error creating the StorageDict keyspace:", query_keyspace, ex
+                log.warn("Error creating the StorageDict keyspace %s, %s", (query_keyspace),ex)
+                raise ex
 
         for key, value in dict.iteritems(self):
             if issubclass(value.__class__, IStorage):
@@ -370,14 +371,14 @@ class StorageDict(dict, IStorage):
                 val_name = self._ksp + '.' + self._table + type(value).__name__.lower()
                 value.make_persistent(val_name)
 
-        columns = map(lambda a: a, self._primary_keys + self._columns)
+        columns = self._primary_keys + self._columns
         for ind, entry in enumerate(columns):
             n = StorageDict._other_case.match(entry[1])
             if n is not None:
                 iter_type, intra_type = n.groups()
             else:
                 iter_type = entry[1]
-            if iter_type not in IStorage._valid_types:
+            if iter_type not in IStorage._basic_types:
                 columns[ind] = entry[0], 'uuid'
 
         pks = map(lambda a: a[0], self._primary_keys)
@@ -393,8 +394,8 @@ class StorageDict(dict, IStorage):
             log.warn("Error creating the StorageDict table: %s %s", query_table, ex)
             raise ex
         key_names = map(lambda a: a[0].encode('UTF8'), self._primary_keys)
-        column_names = [(col[0], 'numpy.ndarray') if col[1] == 'hecuba.hnumpy.StorageNumpy' else col for col in
-                        self._columns]
+        column_names = self._columns
+        #[(col[0], 'numpy.ndarray') if col[1] == 'hecuba.hnumpy.StorageNumpy' else col for col in self._columns]
 
         self._hcache_params = (self._ksp, self._table,
                                self._storage_id,
@@ -456,21 +457,17 @@ class StorageDict(dict, IStorage):
         else:
             cres = self._hcache.get_row(self._make_key(key))
             log.debug("GET ITEM %s[%s]", cres, cres.__class__)
+
             final_results = []
-            # for row in cres:
-            final_row = []
-            for column_info in self._columns:
-                index = self._columns.index(column_info)
-                if column_info[1] not in IStorage._valid_types:
-                    tp = self._columns[index][1]
+            for index, (name,col_type) in enumerate(self._columns):
+                if col_type not in IStorage._basic_types:
                     table_name = self._ksp + '.' + self._table
-                    element = (self._build_istorage_obj(tp, table_name, uuid.UUID(cres[index])))  # TODO this should be done in CPP
+                    element = (self._build_istorage_obj(col_type, table_name, uuid.UUID(cres[index])))
                 else:
                     element = cres[index]
-                final_row.append(element)
-                #    final_results.append(final_row)
+                final_results.append(element)
 
-            cres = final_row
+            cres = final_results
             if issubclass(cres.__class__, NoneType):
                 return None
             elif self._column_builder is not None:
