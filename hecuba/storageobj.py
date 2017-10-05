@@ -3,7 +3,10 @@ import uuid
 import re
 from IStorage import IStorage
 from hdict import StorageDict
+from hnumpy import StorageNumpy
 from hecuba import config, log
+import numpy as np
+from hfetch import Hcache
 
 
 class StorageObj(object, IStorage):
@@ -58,7 +61,7 @@ class StorageObj(object, IStorage):
                                     storage_args.tokens,
                                     storage_args.istorage_props])
         except Exception as ex:
-            print "Error creating the StorageDict metadata:", storage_args, ex
+            log.warn("Error creating the StorageDict metadata: %s, %s", str(storage_args), ex)
             raise ex
 
     def __init__(self, name=None, tokens=None, storage_id=None, istorage_props=None, **kwargs):
@@ -75,7 +78,7 @@ class StorageObj(object, IStorage):
         self._is_persistent = False
         self._persistent_dicts = []
         self._storage_objs = []
-        self._attr_to_column = {}
+
         if name is None:
             self._ksp = config.execution_name
         else:
@@ -283,6 +286,8 @@ class StorageObj(object, IStorage):
                             m = IStorage._so_val_case.match(line)
                             if m is not None:
                                 table_name, simple_type = m.groups()
+                                if simple_type == 'numpy.ndarray':
+                                    simple_type = 'hecuba.hnumpy.StorageNumpy'
                                 this[table_name] = {
                                     'type': simple_type
                                 }
@@ -335,7 +340,7 @@ class StorageObj(object, IStorage):
                     query_simple += entry['type'] + ', '
             else:
                 query_simple += 'uuid, '
-        config.session.execute(query_simple[0:len(query_simple) - 2] + ' )')
+        config.session.execute(query_simple[:-2] + ' )')
 
         dictionaries = filter(lambda (k, t): t['type'] == 'dict', self._persistent_props.iteritems())
         is_props = self._build_args.istorage_props
@@ -453,11 +458,18 @@ class StorageObj(object, IStorage):
         """
         if attribute[0] is '_':
             object.__setattr__(self, attribute, value)
-        else:
-            if isinstance(value, dict) and \
-               not isinstance(value, StorageDict) and \
-               hasattr(self, '_persistent_props') and \
-               self._persistent_props[key]['type'] == 'dict':
+            return
+        if isinstance(value, np.ndarray):
+            value = StorageNumpy(value)
+        if config.hecuba_type_checking and attribute in self._persistent_attrs and not isinstance(value, dict) and \
+                        IStorage._conversions[value.__class__.__name__] != self._persistent_props[attribute]['type']:
+            raise TypeError
+        if hasattr(self, '_is_persistent') and self._is_persistent and attribute in self._persistent_attrs:
+            if isinstance(value, StorageNumpy):
+                value.make_persistent(self._ksp + '.' + self._table)
+                object.__setattr__(self, attribute, value)  # setattr(self, attribute, value)
+            if isinstance(value, dict) and not isinstance(value, StorageDict) and self._persistent_props[attribute][
+                'type'] == 'dict':
                 if value == {}:
                     return
                 else:
@@ -478,27 +490,22 @@ class StorageObj(object, IStorage):
                             if grouped[0] == curr_table:
                                 copies = int(grouped[1]) + 1
                     setattr(self, attribute, StorageDict(curr_table + '_' + str(copies), prev_storagedict._primary_keys,
-                                                         prev_storagedict._columns))
+                                                   prev_storagedict._columns))
                     for k, v in value.iteritems():
                         getattr(self, attribute)[k] = v
                     return
-            if config.hecuba_type_checking and \
-                            attribute in self._persistent_attrs and \
-                            IStorage._conversions[value.__class__.__name__] != self._persistent_props[attribute][
-                        'type']:
-                raise TypeError
-            if hasattr(self, '_is_persistent') and self._is_persistent and attribute in self._persistent_attrs:
-                query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, attribute)
-                query += " VALUES (%s,%s)"
+            else:
                 if issubclass(value.__class__, IStorage):
                     values = [self._storage_id, value._storage_id]
                     object.__setattr__(self, attribute, value)
                 else:
+                    query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, attribute)
+                    query += " VALUES (%s,%s)"
                     values = [self._storage_id, value]
-                log.debug("SETATTR: ", query)
-                config.session.execute(query, values)
-            else:
-                object.__setattr__(self, attribute, value)
+                    log.debug("SETATTR: ", query)
+                    config.session.execute(query, values)
+        else:
+            object.__setattr__(self, attribute, value)
 
     def __delattr__(self, item):
         """

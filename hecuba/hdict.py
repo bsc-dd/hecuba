@@ -6,8 +6,10 @@ from types import NoneType
 from hfetch import Hcache
 from IStorage import IStorage
 from hecuba import config, log
+from hecuba.hnumpy import StorageNumpy
 import uuid
 import re
+import numpy as np
 
 
 class NamedIterator:
@@ -150,9 +152,9 @@ class StorageDict(dict, IStorage):
             self._columns = columns
             self._indexed_args = indexed_args
 
-        key_names = map(lambda a: a[0], self._primary_keys)
-        column_names = map(lambda a: a[0], self._columns)
-        self._item_builder = namedtuple('row', map(lambda a: a[0], self._primary_keys + self._columns))
+        key_names = [pkname for (pkname,dt) in self._primary_keys]
+        column_names = [colname for (colname,dt) in self._columns]
+        self._item_builder = namedtuple('row', key_names+column_names)
 
         if len(key_names) > 1:
             self._key_builder = namedtuple('row', key_names)
@@ -179,9 +181,8 @@ class StorageDict(dict, IStorage):
             boolean (true - equals, false - not equals).
         """
         return self._storage_id == other._storage_id and \
-               self._tokens == other.token_ranges and \
-               self._table == other.table_name and \
-               self._ksp == other.keyspace
+               self._tokens == other.token_ranges \
+               and self._table == other.table_name and self._ksp == other.keyspace
 
     _dict_case = re.compile('.*@TypeSpec + *< *< *([\w:, ]+)+ *> *, *([\w+:., <>]+) *>')
     _tuple_case = re.compile('.*@TypeSpec +(\w+) +tuple+ *< *([\w, +]+) *>')
@@ -319,8 +320,9 @@ class StorageDict(dict, IStorage):
             try:
                 self._hcache.get_row(self._make_key(key))
                 return True
-            except Exception as e:
-                return False
+            except Exception as ex:
+                log.warn("persistentDict.__contains__ ex %s", ex)
+                raise ex
 
     def _make_key(self, key):
         """
@@ -348,7 +350,9 @@ class StorageDict(dict, IStorage):
         Args:
             value: the data that needs to get the correct format
         """
-        if isinstance(value, str) or not isinstance(value, Iterable):
+        if issubclass(value.__class__, IStorage):
+            return [uuid.UUID(value.getID())]
+        elif isinstance(value, str) or not isinstance(value, Iterable) or isinstance(value, np.ndarray):
             return [value]
         elif isinstance(value, unicode):
             return [value.encode('ascii', 'ignore')]
@@ -396,26 +400,27 @@ class StorageDict(dict, IStorage):
         if config.id_create_schema == -1:
             query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy'," \
                              "'replication_factor': %d }" % (self._ksp, config.repl_factor)
-            if query_keyspace not in config.create_cache:
-                try:
-                    config.create_cache.add(query_keyspace)
-                    log.debug('MAKE PERSISTENCE: %s', query_keyspace)
-                    config.session.execute(query_keyspace)
-                except Exception as ex:
-                    print "Error creating the StorageDict keyspace:", query_keyspace, ex
+            try:
+                log.debug('MAKE PERSISTENCE: %s', query_keyspace)
+                config.session.execute(query_keyspace)
+            except Exception as ex:
+                log.warn("Error creating the StorageDict keyspace %s, %s", (query_keyspace),ex)
+                raise ex
 
-        columns = map(lambda a: a, self._primary_keys + self._columns)
+        for key, value in dict.iteritems(self):
+            if issubclass(value.__class__, IStorage):
+                # new name as ksp+table+obj_class_name
+                val_name = self._ksp + '.' + self._table + type(value).__name__.lower()
+                value.make_persistent(val_name)
+
+        columns = self._primary_keys + self._columns
         for ind, entry in enumerate(columns):
             n = StorageDict._other_case.match(entry[1])
             if n is not None:
                 iter_type, intra_type = n.groups()
             else:
                 iter_type = entry[1]
-            if iter_type not in IStorage._valid_types:
-                class_name, module = IStorage.process_path(entry[1])
-                mod = __import__(module, globals(), locals(), [class_name], 0)
-                so = getattr(mod, class_name)(entry[0])
-                setattr(self, entry[0], so)
+            if iter_type not in IStorage._basic_types:
                 columns[ind] = entry[0], 'uuid'
 
         pks = map(lambda a: a[0], self._primary_keys)
@@ -431,11 +436,11 @@ class StorageDict(dict, IStorage):
             log.warn("Error creating the StorageDict table: %s %s", query_table, ex)
             raise ex
         key_names = map(lambda a: a[0].encode('UTF8'), self._primary_keys)
-        column_names = map(lambda a: a[0].encode('UTF8'), self._columns)
-        tknp = "token(%s)" % key_names[0]
+        column_names = self._columns
+
         self._hcache_params = (self._ksp, self._table,
-                               "WHERE %s>=? AND %s<?;" % (tknp, tknp),
-                               self._tokens, key_names, column_names,
+                               self._storage_id,
+                               self._tokens, key_names, map(lambda x: {"name": x[0], "type": x[1]}, column_names),
                                {'cache_size': config.max_cache_size,
                                 'writer_par': config.write_callbacks_number,
                                 'write_buffer': config.write_buffer_size})
@@ -469,6 +474,14 @@ class StorageDict(dict, IStorage):
         log.debug('DELETE PERSISTENT: %s', query)
         config.session.execute(query)
 
+    def _build_istorage_obj(self, obj_type, so_name, storage_id):
+        cname, module = IStorage.process_path(obj_type)
+        mod = __import__(module, globals(), locals(), [cname], 0)
+        # new name as ksp+table+obj_class_name
+        so = getattr(mod, cname)(name=so_name+cname.lower(), storage_id=storage_id)
+        # sso._storage_id = storage_id
+        return so
+
     def __delitem__(self, key):
         """
         Method to delete a specific entry in the dict in the key position.
@@ -497,6 +510,16 @@ class StorageDict(dict, IStorage):
             cres = self._hcache.get_row(self._make_key(key))
             log.debug("GET ITEM %s[%s]", cres, cres.__class__)
 
+            final_results = []
+            for index, (name,col_type) in enumerate(self._columns):
+                if col_type not in IStorage._basic_types:
+                    table_name = self._ksp + '.' + self._table
+                    element = (self._build_istorage_obj(col_type, table_name, uuid.UUID(cres[index])))
+                else:
+                    element = cres[index]
+                final_results.append(element)
+
+            cres = final_results
             if issubclass(cres.__class__, NoneType):
                 return None
             elif self._column_builder is not None:
@@ -514,11 +537,16 @@ class StorageDict(dict, IStorage):
                key: the position of the value that we want to save
                val: the value that we want to save in that position
         """
+        if isinstance(val, np.ndarray):
+            val = StorageNumpy(val)
         log.debug('SET ITEM %s->%s', key, val)
         if not config.hecuba_type_checking:
             if not self._is_persistent:
                 dict.__setitem__(self, key, val)
             else:
+                if isinstance(val, StorageNumpy):
+                    #new name as ksp+table+obj_class_name
+                    val.make_persistent(self._ksp + '.' + self._table+StorageNumpy.__name__.lower())
                 self._hcache.put_row(self._make_key(key), self._make_value(val))
         else:
             if isinstance(val, Iterable) and not isinstance(val, str):

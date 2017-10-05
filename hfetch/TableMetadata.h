@@ -13,6 +13,7 @@
 
 
 #include "ModuleException.h"
+#include "SpaceFillingCurve.h"
 
 
 struct ColumnMeta {
@@ -88,7 +89,7 @@ public:
     }
 
 private:
-    uint16_t compute_size_of(const CassValueType VT) const;
+    uint16_t compute_size_of(const ColumnMeta &CM) const;
 
     //uint32_t total_bytes;
     std::shared_ptr<const std::vector<ColumnMeta> > cols;

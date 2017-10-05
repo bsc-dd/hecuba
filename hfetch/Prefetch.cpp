@@ -3,8 +3,8 @@
 #define MAX_TRIES 10
 #define default_prefetch_size 100
 
-Prefetch::Prefetch(const std::vector <std::pair<int64_t, int64_t>> &token_ranges, const TableMetadata *table_meta,
-                   CassSession *session, std::map <std::string, std::string> &config) {
+Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges, const TableMetadata *table_meta,
+                   CassSession *session, std::map<std::string, std::string> &config) {
     if (!session)
         throw ModuleException("Prefetch: Session is Null, not connected to Cassandra");
     this->session = session;
@@ -85,7 +85,7 @@ TupleRow *Prefetch::get_cnext() {
 
 
 void Prefetch::consume_tokens() {
-    for (std::pair <int64_t, int64_t> &range : tokens) {
+    for (std::pair<int64_t, int64_t> &range : tokens) {
         //If Consumer sets capacity 0, we stop fetching data
         if (data.capacity() == 0) {
             completed = true;

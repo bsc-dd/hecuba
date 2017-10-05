@@ -25,7 +25,7 @@ throw ModuleException(error);};\
 class TupleRowFactory {
 
 public:
-    TupleRowFactory(std::shared_ptr<const std::vector <ColumnMeta> > row_info);
+    TupleRowFactory(std::shared_ptr<const std::vector<ColumnMeta> > row_info);
 
     //Used to pass TupleRowFactory by reference
     TupleRowFactory() {};
@@ -39,17 +39,17 @@ public:
 
     void bind(CassStatement *statement, const TupleRow *row, u_int16_t offset) const;
 
-    inline std::shared_ptr<const std::vector <ColumnMeta>> get_metadata() const {
+    inline std::shared_ptr<const std::vector<ColumnMeta>> get_metadata() const {
         return metadata;
     }
 
     inline const uint16_t n_elements() const {
         return (uint16_t)
-        this->metadata->size();
+                this->metadata->size();
     }
 
 private:
-    std::shared_ptr<const std::vector <ColumnMeta> > metadata;
+    std::shared_ptr<const std::vector<ColumnMeta> > metadata;
 
     uint16_t total_bytes;
 

@@ -14,8 +14,8 @@ class Prefetch {
 
 public:
 
-    Prefetch(const std::vector <std::pair<int64_t, int64_t>> &token_ranges, const TableMetadata *table_meta,
-             CassSession *session, std::map <std::string, std::string> &config);
+    Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges, const TableMetadata *table_meta,
+             CassSession *session, std::map<std::string, std::string> &config);
 
     ~Prefetch();
 
@@ -44,7 +44,7 @@ private:
     const TableMetadata *table_metadata;
     std::thread *worker;
     tbb::concurrent_bounded_queue<TupleRow *> data;
-    std::vector <std::pair<int64_t, int64_t>> tokens;
+    std::vector<std::pair<int64_t, int64_t>> tokens;
     const CassPrepared *prepared_query;
     std::string type;
 

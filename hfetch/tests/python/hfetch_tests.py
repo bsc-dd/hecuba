@@ -201,7 +201,6 @@ class Hfetch_Tests(unittest.TestCase):
         - Get_row (setting TypeError properly)
         '''''''''
 
-        self.keyspace = 'test'
         table = 'particle'
         num_keys = 10000  # num keys must be multiple of expected_errors
         expected_errors = 10
@@ -261,7 +260,6 @@ class Hfetch_Tests(unittest.TestCase):
         - Get_row
         '''''''''
 
-        self.keyspace = 'test'
         table = 'particle'
         num_keys = 10001
 
@@ -539,7 +537,6 @@ class Hfetch_Tests(unittest.TestCase):
         Analyzes:
         '''''''''
 
-        self.keyspace = 'test'
         table = 'particle'
         nelems = 500
 
@@ -589,7 +586,6 @@ class Hfetch_Tests(unittest.TestCase):
         - Get_row (returning KeyError)
         '''''''''
 
-        self.keyspace = 'test'
         table = 'particle'
         num_keys = 10001
 
@@ -829,7 +825,7 @@ class Hfetch_Tests(unittest.TestCase):
         a = Hcache(self.keyspace, table, "WHERE token(partid)>=? AND token(partid)<?;", tkns, keys,
                    values, {self.keyspace: '100', 'writer_buffer': 20})
 
-        writer = HWriter("test", table_write, keys, values, {'writer_buffer': 20})
+        writer = HWriter(self.keyspace, table_write, keys, values, {'writer_buffer': 20})
 
         def readAll(iter, wr):
             count = 1
@@ -898,7 +894,6 @@ class Hfetch_Tests(unittest.TestCase):
         - Get_row (setting TypeError properly)
         '''''''''
 
-        self.keyspace = 'test'
         table = 'particle'
         num_keys = 100  # num keys must be multiple of expected_errors
         expected_errors = 10

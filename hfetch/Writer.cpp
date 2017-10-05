@@ -5,7 +5,7 @@
 
 
 Writer::Writer(const TableMetadata *table_meta, CassSession *session,
-               std::map <std::string, std::string> &config) {
+               std::map<std::string, std::string> &config) {
 
     int32_t buff_size = default_writer_buff;
     int32_t max_callbacks = default_writer_callbacks;
@@ -143,6 +143,13 @@ void Writer::write_to_cassandra(const TupleRow *keys, const TupleRow *values) {
     }
 }
 
+void Writer::write_to_cassandra(void *keys, void *values) {
+    const TupleRow *k = k_factory->make_tuple(keys);
+    const TupleRow *v = v_factory->make_tuple(values);
+    this->write_to_cassandra(k, v);
+    delete (k);
+    delete (v);
+}
 
 void Writer::call_async() {
 

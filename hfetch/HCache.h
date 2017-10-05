@@ -32,32 +32,28 @@
 #include "StorageInterface.h"
 
 
-std::shared_ptr <StorageInterface> storage; //StorageInterface* storage;
-PythonParser parser;
-
+std::shared_ptr<StorageInterface> storage; //StorageInterface* storage;
 
 typedef struct {
     PyObject_HEAD
-            CacheTable *T;
-    std::vector <std::pair<int64_t, int64_t>> token_ranges;
-    bool has_numpy;
+    CacheTable *T;
+    std::vector<std::pair<int64_t, int64_t>> token_ranges;
+    PythonParser *keysParser, *valuesParser;
 } HCache;
 
 
 typedef struct {
     PyObject_HEAD
-            Prefetch *P;
-    CacheTable *baseTable;
-    std::vector <std::pair<int64_t, int64_t>> token_ranges;
-    bool update_cache;
+    Prefetch *P;
+    std::vector<std::pair<int64_t, int64_t>> token_ranges;
+    PythonParser *rowParser;
 } HIterator;
 
 
 typedef struct {
     PyObject_HEAD
-            Writer *W;
-    CacheTable *baseTable;
-    bool has_numpy;
+    Writer *W;
+    PythonParser *keysParser, *valuesParser;
 } HWriter;
 
 static PyObject *create_iter_keys(HCache *self, PyObject *args);

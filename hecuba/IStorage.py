@@ -12,11 +12,12 @@ class IStorage:
     _build_args = args()
 
     _valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map', 'bigint', 'blob',
-                    'tuple', 'dict', 'float']
+                    'tuple', 'dict', 'float', 'numpy.ndarray']
 
-    _hecuba_valid_types = '(atomicint|str|bool|decimal|float|int|tuple|list|generator'
-    _hecuba_valid_types += '|frozenset|set|dict|long|buffer|numpy.ndarray|counter|double)'
-    _data_type = re.compile('(\\w+) *: *%s' % _hecuba_valid_types)
+    _basic_types = _valid_types[:-1]
+    _hecuba_valid_types = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer' \
+                          '|counter|double)'
+    _data_type = re.compile('(\w+) *: *%s' % _hecuba_valid_types)
     _so_data_type = re.compile('(\w+)*:(\w.+)')
     _list_case = re.compile('.*@ClassField +(\w+) +list+ *< *([\w:.+]+) *>')
     _sub_dict_case = re.compile(' *< *< *([\w:, ]+)+ *> *, *([\w+:, <>]+) *>')
@@ -25,7 +26,7 @@ class IStorage:
     _so_val_case = re.compile('.*@ClassField +(\w+) +([\w.]+)')
 
     _python_types = [int, str, bool, float, tuple, set, dict, long, bytearray]
-
+    _storage_id = None
     _conversions = {'atomicint': 'counter',
                     'str': 'text',
                     'bool': 'boolean',
@@ -54,6 +55,8 @@ class IStorage:
         Returns:
             tuple containing class_name and module
         """
+        if module_path == 'numpy.ndarray':
+            return 'StorageNumpy','hecuba.hnumpy'
         last = 0
         for key, i in enumerate(module_path):
             if i == '.' and key > last:
@@ -71,9 +74,7 @@ class IStorage:
         st = time()
         tokens = self._build_args.tokens
 
-        for token_split in IStorage._tokens_partitions(tokens,
-                                                       config.min_number_of_tokens,
-                                                       config.number_of_partitions):
+        for token_split in IStorage._tokens_partitions(tokens, config.min_number_of_tokens, config.number_of_blocks):
             storage_id = uuid.uuid4()
             log.debug('assigning to %s %d  tokens', str(storage_id), len(token_split))
             new_args = self._build_args._replace(tokens=token_split, storage_id=storage_id)

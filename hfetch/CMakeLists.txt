@@ -78,9 +78,12 @@ if (NOT $ENV{LD_LIBRARY_PATH} STREQUAL "")
     string(REGEX MATCHALL "[^ ]+" LIST_LIBS ${ENV_LIBS})
 endif (NOT $ENV{LD_LIBRARY_PATH} STREQUAL "")
 
-
-set(SOURCE_FILES StorageInterface.cpp Prefetch.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp TableMetadata.cpp HCache.cpp PythonParser.cpp)
-set(HEADER_FILES StorageInterface.h Prefetch.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h TableMetadata.h HCache.h PythonParser.h LRUPersistentStrategy.h TupleRowCache.h)
+set(CPP_SRC_FILES StorageInterface.cpp Prefetch.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp TableMetadata.cpp SpaceFillingCurve.cpp)
+set(CPP_H_FILES StorageInterface.h Prefetch.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h TableMetadata.h SpaceFillingCurve.h TupleRowCache.h LRUPersistentStrategy.h)
+set(PY_SRC_FILES HCache.cpp PythonParser.cpp UnitParser.cpp NumpyStorage.cpp)
+set(PY_H_FILES HCache.h PythonParser.h UnitParser.h NumpyStorage.h)
+set(SOURCE_FILES ${CPP_SRC_FILES} ${PY_SRC_FILES})
+set(HEADER_FILES ${CPP_H_FILES} ${PY_H_FILES})
 #set(CMAKE_SKIP_RPATH 1)
 #set(MY_PATHS "${ORIGIN}")
 #CMake main target
@@ -242,6 +245,15 @@ if (DEFINED ENV{GTEST_ROOT})
                     PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
             target_link_libraries(hfetch_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch)
             add_test(test hfetch_test)
+
+
+
+            add_executable(py_hfetch_test tests/pytests.cpp)
+            set_target_properties(py_hfetch_test
+                    PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
+            target_link_libraries(py_hfetch_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch)
+            add_test(test py_hfetch_test)
+
         else ()
             message(STATUS "If GTest is installed, point the environment var GTEST_ROOT to its root (/home/user/local)")
         endif (GTest_FOUND)

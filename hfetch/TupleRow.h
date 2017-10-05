@@ -18,7 +18,7 @@ class TupleRow {
 public:
 
     /* Constructor */
-    TupleRow(std::shared_ptr<const std::vector <ColumnMeta> > metas, uint32_t payload_size, void *buffer);
+    TupleRow(std::shared_ptr<const std::vector<ColumnMeta> > metas, uint32_t payload_size, void *buffer);
 
     /* Copy constructors */
     TupleRow(const TupleRow &t);
@@ -85,7 +85,7 @@ private:
         /* Attributes */
         void *data;
         uint32_t length;
-        std::vector <uint32_t> null_values;
+        std::vector<uint32_t> null_values;
 
 
         /* Constructors */
@@ -161,8 +161,8 @@ private:
     };
 
 
-    std::shared_ptr <TupleRowData> payload;
-    std::shared_ptr<const std::vector <ColumnMeta>> metadatas;
+    std::shared_ptr<TupleRowData> payload;
+    std::shared_ptr<const std::vector<ColumnMeta>> metadatas;
 };
 
 #endif //TUPLEROW_H
