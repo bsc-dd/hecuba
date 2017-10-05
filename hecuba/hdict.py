@@ -13,6 +13,7 @@ import numpy as np
 
 
 class NamedIterator:
+    # Class that allows to iterate over the keys or the values of a dict
     def __init__(self, hiterator, builder, father):
         self.hiterator = hiterator
         self.builder = builder
@@ -30,6 +31,7 @@ class NamedIterator:
 
 
 class NamedItemsIterator:
+    # Class that allows to iterate over the keys and the values of a dict
     builder = namedtuple('row', 'key, value')
 
     def __init__(self, key_builder, column_builder, k_size, hiterator, father):
@@ -72,9 +74,9 @@ class StorageDict(dict, IStorage):
     @staticmethod
     def build_remotely(result):
         """
-        Launches the Block.__init__ from the api.getByID
+        Launches the StorageDict.__init__ from the api.getByID
         Args:
-            result: a namedtuple with all  the information needed to create again the block
+            result: a namedtuple with all  the information needed to create again the StorageDict
         """
         log.debug("Building Storage dict with %s", result)
 
@@ -88,6 +90,11 @@ class StorageDict(dict, IStorage):
 
     @staticmethod
     def _store_meta(storage_args):
+        """
+        Method to update the info about the StorageDict in the DB metadata table
+        Args:
+            storage_args: structure with all data needed to update the metadata
+        """
         log.debug("StorageDict: storing metas %s", storage_args)
 
         try:
@@ -103,15 +110,16 @@ class StorageDict(dict, IStorage):
     def __init__(self, name=None, primary_keys=None, columns=None, tokens=None,
                  storage_id=None, indexed_args=None, **kwargs):
         """
-        Creates a new block.
+        Creates a new StorageDict.
 
         Args:
-            table_name (string): the name of the collection/table
-            keyspace_name (string): name of the Cassandra keyspace.
+            name (string): the name of the collection/table (keyspace is optional)
             primary_keys (list(tuple)): a list of (key,type) primary keys (primary + clustering).
             columns (list(tuple)): a list of (key,type) columns
             tokens (list): list of tokens
             storage_id (string): the storage id identifier
+            indexed_args (list): values that will be used as index
+            kwargs: other parameters
         """
 
         super(StorageDict, self).__init__(**kwargs)
@@ -165,6 +173,13 @@ class StorageDict(dict, IStorage):
             self._is_persistent = False
 
     def __eq__(self, other):
+        """
+        Method to compare a StorageDict with another one.
+        Args:
+            other: StorageDict to be compared with.
+        Returns:
+            boolean (true - equals, false - not equals).
+        """
         return self._storage_id == other._storage_id and \
                self._tokens == other.token_ranges \
                and self._table == other.table_name and self._ksp == other.keyspace
@@ -191,6 +206,7 @@ class StorageDict(dict, IStorage):
                 dict_keys, dict_values = m.groups()
                 primary_keys = []
                 for ind, key in enumerate(dict_keys.split(",")):
+                    key = key.replace(' ', '')
                     match = IStorage._data_type.match(key)
                     if match is not None:
                         # an IStorage with a name
@@ -202,6 +218,7 @@ class StorageDict(dict, IStorage):
                         value = key
 
                     name = name.replace(' ', '')
+                    value = value.replace(' ', '')
                     primary_keys.append((name, StorageDict._conversions[value]))
                 dict_values = dict_values.replace(' ', '')
                 if dict_values.startswith('dict'):
@@ -290,6 +307,13 @@ class StorageDict(dict, IStorage):
         return this
 
     def __contains__(self, key):
+        """
+        Method that checks if a given key exists in a StorageDict.
+        Args:
+            key: the position that we want to check if exists.
+        Returns:
+            boolean (true - exists, false - doesn't exist).
+        """
         if not self._is_persistent:
             return dict.__contains__(self, key)
         else:
@@ -301,6 +325,11 @@ class StorageDict(dict, IStorage):
                 raise ex
 
     def _make_key(self, key):
+        """
+        Method used to pass the key data to the StorageDict cache in a proper way.
+        Args:
+            key: the data that needs to get the correct format
+        """
         if isinstance(key, str) or isinstance(key, unicode) or not isinstance(key, Iterable):
             if len(self._primary_keys) == 1:
                 if isinstance(key, unicode):
@@ -316,6 +345,11 @@ class StorageDict(dict, IStorage):
 
     @staticmethod
     def _make_value(value):
+        """
+        Method used to pass the value data to the StorageDict cache in a proper way.
+        Args:
+            value: the data that needs to get the correct format
+        """
         if issubclass(value.__class__, IStorage):
             return [uuid.UUID(value.getID())]
         elif isinstance(value, str) or not isinstance(value, Iterable) or isinstance(value, np.ndarray):
@@ -327,7 +361,7 @@ class StorageDict(dict, IStorage):
 
     def keys(self):
         """
-        This method return a list of all the keys of the PersistentDict.
+        This method return a list of all the keys of the StorageDict.
         Returns:
           list: a list of keys
         """
@@ -335,16 +369,27 @@ class StorageDict(dict, IStorage):
 
     def values(self):
         """
-        This method return a list of all the values of the PersistentDict.
+        This method return a list of all the values of the StorageDict.
         Returns:
           list: a list of values
         """
         return [i for i in self.itervalues()]
 
     def __iter__(self):
+        """
+        Method that overloads the python dict basic iteration, which returns
+        an iterator over the dictionary keys.
+        """
         return self.iterkeys()
 
     def make_persistent(self, name):
+        """
+        Method to transform a StorageDict into a persistent object.
+        This will make it use a persistent DB as the main location
+        of its data.
+        Args:
+            name:
+        """
         self._is_persistent = True
         (self._ksp, self._table) = self._extract_ks_tab(name)
 
@@ -414,11 +459,17 @@ class StorageDict(dict, IStorage):
                 log.error("Error creating the Qbeast custom index: %s %s", index_query, ex)
 
     def stop_persistent(self):
+        """
+        Method to turn a StorageDict into non-persistent.
+        """
         log.debug('STOP PERSISTENCE: %s', self._table)
         self._is_persistent = False
         self._hcache = None
 
     def delete_persistent(self):
+        """
+        Method to empty all data assigned to a StorageDict.
+        """
         query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
         log.debug('DELETE PERSISTENT: %s', query)
         config.session.execute(query)
@@ -432,6 +483,11 @@ class StorageDict(dict, IStorage):
         return so
 
     def __delitem__(self, key):
+        """
+        Method to delete a specific entry in the dict in the key position.
+        Args:
+            key: position of the entry that we want to delete
+        """
         if not self._is_persistent:
             dict.__delitem__(self, key)
         else:
@@ -476,11 +532,10 @@ class StorageDict(dict, IStorage):
 
     def __setitem__(self, key, val):
         """
-           Launches the setitem of the dict found in the block storageobj
+           Method to insert values in the StorageDict
            Args:
                key: the position of the value that we want to save
                val: the value that we want to save in that position
-           Returns:
         """
         if isinstance(val, np.ndarray):
             val = StorageNumpy(val)
@@ -528,6 +583,11 @@ class StorageDict(dict, IStorage):
                 raise ValueError
 
     def __repr__(self):
+        """
+        Overloads the method used by print to show a StorageDict
+        Returns: The representation of the data stored in the StorageDict
+
+        """
         to_return = {}
         for item in self.iteritems():
             to_return[item[0]] = item[1]
@@ -538,6 +598,15 @@ class StorageDict(dict, IStorage):
         return ""
 
     def update(self, other=None, **kwargs):
+        """
+        Updates the current dict with a new dictionary or set of attr,value pairs
+        (those must follow the current dict data model).
+        Args:
+            other: python dictionary or StorageDict. All key,val values in it will
+            be inserted in the current dict.
+            **kwargs: set of attr:val pairs, to be treated as key,val and inserted
+            in the current dict.
+        """
         if other is not None:
             if isinstance(other, StorageDict):
                 for k, v in other.iteritems():
@@ -550,9 +619,12 @@ class StorageDict(dict, IStorage):
 
     def iterkeys(self):
         """
-        Obtains the iterator for the keys of the block
+        Obtains the iterator for the keys of the StorageDict
         Returns:
-            iterkeys(self): list of keys
+            if persistent:
+                iterkeys(self): list of keys
+            if not persistent:
+                dict.iterkeys(self)
         """
         if self._is_persistent:
             ik = self._hcache.iterkeys(config.prefetch_size)
@@ -562,9 +634,12 @@ class StorageDict(dict, IStorage):
 
     def iteritems(self):
         """
-        Obtains the iterator for the key,val pairs of the block
+        Obtains the iterator for the key,val pairs of the StorageDict
         Returns:
-            BlockItemsIter(self): list of key,val pairs
+            if persistent:
+                NamedItemsIterator(self): list of key,val pairs
+            if not persistent:
+                dict.iteritems(self)
         """
         if self._is_persistent:
             ik = self._hcache.iteritems(config.prefetch_size)
@@ -578,12 +653,22 @@ class StorageDict(dict, IStorage):
 
     def itervalues(self):
         """
-        Obtains the iterator for the values of the block
+        Obtains the iterator for the values of the StorageDict
         Returns:
-            BlockValuesIter(self): list of values
+            if persistent:
+                NamedIterator(self): list of valuesStorageDict
+            if not persistent:
+                dict.itervalues(self)
         """
         if self._is_persistent:
             ik = self._hcache.itervalues(config.prefetch_size)
             return NamedIterator(ik, self._column_builder, self)
         else:
             return dict.itervalues(self)
+
+    def get(self, key, default):
+        try:
+            value = self.__getitem__(key)
+        except:
+            value = default
+        return value

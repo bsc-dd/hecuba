@@ -71,7 +71,8 @@ class StorageObj(object, IStorage):
                 name (string): the name of the Cassandra Keyspace + table where information can be found
                 tokens (list of tuples): token ranges assigned to the new StorageObj
                 storage_id (string):  an unique storageobj identifier
-                istorage_props dict(string,string) a map with the storage id of each contained istorage object.
+                istorage_props dict(string,string): a map with the storage id of each contained istorage object.
+                kwargs: more optional parameters
         """
         log.debug("CREATED StorageObj(%s)", name)
         self._is_persistent = False
@@ -408,20 +409,20 @@ class StorageObj(object, IStorage):
         log.debug("DELETE PERSISTENT: %s", query)
         config.session.execute(query)
 
-    def __getattr__(self, key):
+    def __getattr__(self, attribute):
         """
-            Given a key, this function reads the configuration table in order to know if the attribute can be found:
-            a) In memory
-            b) In the Database
+            Given an attribute, this function returns the value, obtaining it from either:
+            a) memory
+            b) the Database
             Args:
-                key: name of the value that we want to obtain
+                attribute: name of the value that we want to obtain
             Returns:
                 value: obtained value
         """
-        if key[0] != '_' and self._is_persistent and key in self._persistent_attrs:
+        if attribute[0] != '_' and self._is_persistent and attribute in self._persistent_attrs:
             try:
                 query = "SELECT %s FROM %s.%s WHERE storage_id = %s;" \
-                        % (key, self._ksp,
+                        % (attribute, self._ksp,
                            self._table,
                            self._storage_id)
                 log.debug("GETATTR: %s", query)
@@ -442,39 +443,39 @@ class StorageObj(object, IStorage):
                 log.warn("GETATTR ex %s", ex)
                 raise AttributeError('value not found')
         else:
-            return object.__getattribute__(self, key)
+            return object.__getattribute__(self, attribute)
 
     _tablename_finder = re.compile('([A-z0-9_]+)_([0-9]+)$')
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, attribute, value):
         """
             Given a key and its value, this function saves it (depending on if it's persistent or not):
                 a) In memory
                 b) In the DDBB
             Args:
-                key: name of the value that we want to obtain
+                attribute: name of the value that we want to set
                 value: value that we want to save
         """
-        if key[0] is '_':
-            object.__setattr__(self, key, value)
+        if attribute[0] is '_':
+            object.__setattr__(self, attribute, value)
             return
         if isinstance(value, np.ndarray):
             value = StorageNumpy(value)
-        if config.hecuba_type_checking and key in self._persistent_attrs and not isinstance(value, dict) and \
-                        IStorage._conversions[value.__class__.__name__] != self._persistent_props[key]['type']:
+        if config.hecuba_type_checking and attribute in self._persistent_attrs and not isinstance(value, dict) and \
+                        IStorage._conversions[value.__class__.__name__] != self._persistent_props[attribute]['type']:
             raise TypeError
-        if hasattr(self, '_is_persistent') and self._is_persistent and key in self._persistent_attrs:
+        if hasattr(self, '_is_persistent') and self._is_persistent and attribute in self._persistent_attrs:
             if isinstance(value, StorageNumpy):
                 value.make_persistent(self._ksp + '.' + self._table)
-                object.__setattr__(self, key, value)  # setattr(self, key, value)
-            if isinstance(value, dict) and not isinstance(value, StorageDict) and self._persistent_props[key][
+                object.__setattr__(self, attribute, value)  # setattr(self, attribute, value)
+            if isinstance(value, dict) and not isinstance(value, StorageDict) and self._persistent_props[attribute][
                 'type'] == 'dict':
                 if value == {}:
                     return
                 else:
                     query = "SELECT table_name FROM system_schema.tables WHERE keyspace_name = '" + self._ksp + "'"
                     result = config.session.execute(query)
-                    prev_storagedict = getattr(self, key)
+                    prev_storagedict = getattr(self, attribute)
                     copies = 1
                     m = StorageObj._tablename_finder.match(prev_storagedict._table)
                     if m is not None:
@@ -488,25 +489,30 @@ class StorageObj(object, IStorage):
                             grouped = m.groups()
                             if grouped[0] == curr_table:
                                 copies = int(grouped[1]) + 1
-                    setattr(self, key, StorageDict(curr_table + '_' + str(copies), prev_storagedict._primary_keys,
+                    setattr(self, attribute, StorageDict(curr_table + '_' + str(copies), prev_storagedict._primary_keys,
                                                    prev_storagedict._columns))
                     for k, v in value.iteritems():
-                        getattr(self, key)[k] = v
+                        getattr(self, attribute)[k] = v
                     return
             else:
                 if issubclass(value.__class__, IStorage):
                     values = [self._storage_id, value._storage_id]
-                    object.__setattr__(self, key, value)
+                    object.__setattr__(self, attribute, value)
                 else:
-                    query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, key)
+                    query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, attribute)
                     query += " VALUES (%s,%s)"
                     values = [self._storage_id, value]
                     log.debug("SETATTR: ", query)
                     config.session.execute(query, values)
         else:
-            object.__setattr__(self, key, value)
+            object.__setattr__(self, attribute, value)
 
     def __delattr__(self, item):
+        """
+        Method that deletes a given attribute from a StorageObj
+        Args:
+            item: the name of the attribute to be deleted
+        """
         if item[0] is '_':
             object.__delattr__(self, item)
         elif hasattr(self, '_is_persistent') and self._is_persistent and item in self._persistent_attrs:
