@@ -129,7 +129,7 @@ class StorageObj(object, IStorage):
             so_name = "%s.%s" % (self._ksp, table_name)
             cname, module = IStorage.process_path(per_dict['type'])
             mod = __import__(module, globals(), locals(), [cname], 0)
-            so = getattr(mod, cname)(None)
+            so = getattr(mod, cname)()
             setattr(self, table_name, so)
 
         if name is not None:

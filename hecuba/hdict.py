@@ -141,10 +141,7 @@ class StorageDict(dict, IStorage):
                 self._indexed_args = indexed_args
         else:
             self._primary_keys = primary_keys
-            #[(name, 'hecuba.hnumpy.StorageNumpy') if dt == 'numpy.ndarray' else (name,dt) for (name,dt) in primary_keys]
             self._columns = columns
-            #[(name, 'hecuba.hnumpy.StorageNumpy') if dt == 'numpy.ndarray' else (name,dt) for (name,dt) in columns]
-            #self._persistent_props = {'type': 'dict'}
             self._indexed_args = indexed_args
 
         key_names = [pkname for (pkname,dt) in self._primary_keys]
@@ -395,7 +392,6 @@ class StorageDict(dict, IStorage):
             raise ex
         key_names = map(lambda a: a[0].encode('UTF8'), self._primary_keys)
         column_names = self._columns
-        #[(col[0], 'numpy.ndarray') if col[1] == 'hecuba.hnumpy.StorageNumpy' else col for col in self._columns]
 
         self._hcache_params = (self._ksp, self._table,
                                self._storage_id,
