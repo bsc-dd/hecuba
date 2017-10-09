@@ -44,7 +44,7 @@ class IStorage:
                     'bytearray': 'blob',
                     'counter': 'counter',
                     'double': 'double',
-                    'StorageDict': 'dict',}
+                    'StorageDict': 'dict'}
 
     @staticmethod
     def process_path(module_path):
@@ -56,7 +56,7 @@ class IStorage:
             tuple containing class_name and module
         """
         if module_path == 'numpy.ndarray':
-            return 'StorageNumpy','hecuba.hnumpy'
+            return 'StorageNumpy', 'hecuba.hnumpy'
         last = 0
         for key, i in enumerate(module_path):
             if i == '.' and key > last:
@@ -74,7 +74,8 @@ class IStorage:
         st = time()
         tokens = self._build_args.tokens
 
-        for token_split in IStorage._tokens_partitions(tokens, config.min_number_of_tokens, config.number_of_partitions):
+        for token_split in IStorage._tokens_partitions(tokens, config.min_number_of_tokens,
+                                                       config.number_of_partitions):
             storage_id = uuid.uuid4()
             log.debug('assigning to %s %d  tokens', str(storage_id), len(token_split))
             new_args = self._build_args._replace(tokens=token_split, storage_id=storage_id)

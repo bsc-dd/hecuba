@@ -180,7 +180,7 @@ TextParser::TextParser(const ColumnMeta &CM) : UnitParser(CM) {
 
 int16_t TextParser::py_to_c(PyObject *text, void *payload) const {
     if (text == Py_None) return -1;
-    if (PyString_Check(text)) {
+    if (PyString_Check(text) || PyUnicode_Check(text)) {
         char *l_temp;
         Py_ssize_t l_size;
         // PyString_AsStringAndSize returns internal string buffer of obj, not a copy.

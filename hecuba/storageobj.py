@@ -78,6 +78,7 @@ class StorageObj(object, IStorage):
         self._is_persistent = False
         self._persistent_dicts = []
         self._storage_objs = []
+        self._attribute_caches = {}
 
         if name is None:
             self._ksp = config.execution_name
@@ -343,19 +344,24 @@ class StorageObj(object, IStorage):
                 query_simple += 'uuid, '
         config.session.execute(query_simple[:-2] + ' )')
 
-
         for obj_name, obj_info in self._persistent_props.iteritems():
-            if hasattr(self,obj_name):
+            col_type = obj_info['type']
+            if col_type not in IStorage._basic_types:
+                col_type = 'uuid'
+            attr_cache_params = (self._ksp, self._table, self._storage_id, self._tokens,
+                                 ['storage_id'], [{'name': obj_name, 'type': col_type}],
+                                 {'cache_size': config.max_cache_size,
+                                  'writer_par': config.write_callbacks_number,
+                                  'write_buffer': config.write_buffer_size})
+            self._attribute_caches[obj_name] = Hcache(*attr_cache_params)
+            if hasattr(self, obj_name):
                 pd = getattr(self, obj_name)
                 if obj_info['type'] not in IStorage._basic_types:
                     sd_name = self._ksp + "." + self._table + "_" + obj_name
                     pd.make_persistent(sd_name)
-                setattr(self, obj_name, pd)#super(StorageObj, self).__setattr__(obj_name, pd) why?
-
+                setattr(self, obj_name, pd)  # super(StorageObj, self).__setattr__(obj_name, pd) why?
 
         self._store_meta(self._build_args)
-
-
 
     def stop_persistent(self):
         """
@@ -394,28 +400,12 @@ class StorageObj(object, IStorage):
                 value: obtained value
         """
         if attribute[0] != '_' and self._is_persistent and attribute in self._persistent_attrs:
+            # TODO attribute[0] == '-' is included in 'attribue in persistent attrs clause'
             try:
-                query = "SELECT %s FROM %s.%s WHERE storage_id = %s;" \
-                        % (attribute, self._ksp,
-                           self._table,
-                           self._storage_id)
-                log.debug("GETATTR: %s", query)
-                result = config.session.execute(query)
-                for row in result:
-                    for row_key, row_var in vars(row).iteritems():
-                        if row_var is not None:
-                            if isinstance(row_var, list) and isinstance(row_var[0], unicode):
-                                new_toreturn = []
-                                for entry in row_var:
-                                    new_toreturn.append(str(entry))
-                                return new_toreturn
-                            else:
-                                return row_var
-                        else:
-                            raise AttributeError
-            except Exception as ex:
-                log.warn("GETATTR ex %s", ex)
+                value = self._attribute_caches[attribute].get_row([self._storage_id])[0]
+            except KeyError:
                 raise AttributeError('value not found')
+            return value
         else:
             return object.__getattribute__(self, attribute)
 
@@ -436,36 +426,31 @@ class StorageObj(object, IStorage):
 
         if attribute in self._persistent_attrs:
             if config.hecuba_type_checking and value != None and not isinstance(value, dict) and \
-                            IStorage._conversions[value.__class__.__name__] != self._persistent_props[attribute]['type']:
+                            IStorage._conversions[value.__class__.__name__] != self._persistent_props[attribute][
+                        'type']:
                 raise TypeError
 
             if not isinstance(value, IStorage):
                 if isinstance(value, np.ndarray):
                     value = StorageNumpy(value)
-                elif isinstance(value,dict):
+                elif isinstance(value, dict):
                     per_dict = self._persistent_props[attribute]
-                    indexed_args = per_dict.get('indexed_values',None)
+                    indexed_args = per_dict.get('indexed_values', None)
                     new_value = StorageDict(None, per_dict['primary_keys'], per_dict['columns'],
-                                     tokens=self._tokens, indexed_args=indexed_args)
+                                            tokens=self._tokens, indexed_args=indexed_args)
                     new_value.update(value)
                     value = new_value
 
             if self._is_persistent:
                 if issubclass(value.__class__, IStorage):
-                    value.make_persistent(self._ksp + '.' + self._table+'_'+attribute)
-                    values = [self._storage_id, value._storage_id]
+                    value.make_persistent(self._ksp + '.' + self._table + '_' + attribute)
+                    values = value._storage_id
                 else:
-                    values = [self._storage_id, value]
+                    values = value
 
-                query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, attribute)
-                query += " VALUES (%s,%s)"
-
-                log.debug("SETATTR: ", query)
-                config.session.execute(query, values)
+                self._attribute_caches[attribute].put_row([self._storage_id], [values])
 
         object.__setattr__(self, attribute, value)
-
-
 
     def __delattr__(self, item):
         """
@@ -474,8 +459,9 @@ class StorageObj(object, IStorage):
             item: the name of the attribute to be deleted
         """
         if self._is_persistent and item in self._persistent_attrs:
-            query = "UPDATE %s.%s SET %s = null WHERE storage_id = %s" \
-                    % (self._ksp, self._table, item, self._storage_id)
-            config.session.execute(query)
+            try:
+                self._attribute_caches[item].delete_row([self._storage_id])
+            except KeyError:
+                raise AttributeError('value not found')
 
         object.__delattr__(self, item)

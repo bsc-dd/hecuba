@@ -44,7 +44,6 @@ class StorageNumpy(np.ndarray, IStorage):
         obj._class_name = '%s.%s' % (cls.__module__, cls.__name__)
         return obj
 
-
     # used as copy constructor
     def __array_finalize__(self, obj):
         if obj is None:
