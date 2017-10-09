@@ -390,8 +390,6 @@ class StorageDict(dict, IStorage):
         Args:
             name:
         """
-        if self._is_persistent:
-            return
         self._is_persistent = True
         (self._ksp, self._table) = self._extract_ks_tab(name)
 
@@ -406,7 +404,7 @@ class StorageDict(dict, IStorage):
                 log.debug('MAKE PERSISTENCE: %s', query_keyspace)
                 config.session.execute(query_keyspace)
             except Exception as ex:
-                log.warn("Error creating the StorageDict keyspace %s, %s", (query_keyspace), ex)
+                log.warn("Error creating the StorageDict keyspace %s, %s", (query_keyspace),ex)
                 raise ex
 
         for key, value in dict.iteritems(self):

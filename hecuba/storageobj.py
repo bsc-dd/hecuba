@@ -78,7 +78,6 @@ class StorageObj(object, IStorage):
         self._is_persistent = False
         self._persistent_dicts = []
         self._storage_objs = []
-        self._attribute_caches = {}
 
         if name is None:
             self._ksp = config.execution_name
@@ -345,16 +344,7 @@ class StorageObj(object, IStorage):
         config.session.execute(query_simple[:-2] + ' )')
 
         for obj_name, obj_info in self._persistent_props.iteritems():
-            col_type = obj_info['type']
-            if col_type not in IStorage._basic_types:
-                col_type = 'uuid'
-            attr_cache_params = (self._ksp, self._table, self._storage_id, self._tokens,
-                                 ['storage_id'], [{'name': obj_name, 'type': col_type}],
-                                 {'cache_size': config.max_cache_size,
-                                  'writer_par': config.write_callbacks_number,
-                                  'write_buffer': config.write_buffer_size})
-            self._attribute_caches[obj_name] = Hcache(*attr_cache_params)
-            if hasattr(self, obj_name):
+            if hasattr(self,obj_name):
                 pd = getattr(self, obj_name)
                 if obj_info['type'] not in IStorage._basic_types:
                     sd_name = self._ksp + "." + self._table + "_" + obj_name
@@ -400,12 +390,28 @@ class StorageObj(object, IStorage):
                 value: obtained value
         """
         if attribute[0] != '_' and self._is_persistent and attribute in self._persistent_attrs:
-            # TODO attribute[0] == '-' is included in 'attribue in persistent attrs clause'
             try:
-                value = self._attribute_caches[attribute].get_row([self._storage_id])[0]
-            except KeyError:
+                query = "SELECT %s FROM %s.%s WHERE storage_id = %s;" \
+                        % (attribute, self._ksp,
+                           self._table,
+                           self._storage_id)
+                log.debug("GETATTR: %s", query)
+                result = config.session.execute(query)
+                for row in result:
+                    for row_key, row_var in vars(row).iteritems():
+                        if row_var is not None:
+                            if isinstance(row_var, list) and isinstance(row_var[0], unicode):
+                                new_toreturn = []
+                                for entry in row_var:
+                                    new_toreturn.append(str(entry))
+                                return new_toreturn
+                            else:
+                                return row_var
+                        else:
+                            raise AttributeError
+            except Exception as ex:
+                log.warn("GETATTR ex %s", ex)
                 raise AttributeError('value not found')
-            return value
         else:
             return object.__getattribute__(self, attribute)
 
@@ -443,14 +449,20 @@ class StorageObj(object, IStorage):
 
             if self._is_persistent:
                 if issubclass(value.__class__, IStorage):
-                    value.make_persistent(self._ksp + '.' + self._table + '_' + attribute)
-                    values = value._storage_id
+                    value.make_persistent(self._ksp + '.' + self._table+'_'+attribute)
+                    values = [self._storage_id, value._storage_id]
                 else:
-                    values = value
+                    values = [self._storage_id, value]
 
-                self._attribute_caches[attribute].put_row([self._storage_id], [values])
+                query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, attribute)
+                query += " VALUES (%s,%s)"
+
+                log.debug("SETATTR: ", query)
+                config.session.execute(query, values)
 
         object.__setattr__(self, attribute, value)
+
+
 
     def __delattr__(self, item):
         """
@@ -459,9 +471,8 @@ class StorageObj(object, IStorage):
             item: the name of the attribute to be deleted
         """
         if self._is_persistent and item in self._persistent_attrs:
-            try:
-                self._attribute_caches[item].delete_row([self._storage_id])
-            except KeyError:
-                raise AttributeError('value not found')
+            query = "UPDATE %s.%s SET %s = null WHERE storage_id = %s" \
+                    % (self._ksp, self._table, item, self._storage_id)
+            config.session.execute(query)
 
         object.__delattr__(self, item)
