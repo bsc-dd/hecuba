@@ -24,7 +24,7 @@ class StorageObjTest(unittest.TestCase):
                                              'counter')],
                                 'primary_keys': [('word',
                                                   'text')],
-                                'type': 'dict'}}
+                                'type': 'StorageDict'}}
         result_comment = " @ClassField instances dict<<word:str>,instances:atomicint> "
 
         p = StorageObj._parse_comments(result_comment)
@@ -33,7 +33,7 @@ class StorageObjTest(unittest.TestCase):
         words = {'wordinfo': {'columns': [('wordinfo', 'text')],
                               'primary_keys': [('position',
                                                 'int')],
-                              'type': 'dict'}}
+                              'type': 'StorageDict'}}
         words_comment = '  @ClassField wordinfo dict<<position:int>,wordinfo:str> '
         p = StorageObj._parse_comments(words_comment)
         self.assertEqual(words, p)
@@ -41,12 +41,12 @@ class StorageObjTest(unittest.TestCase):
         both = {'wordinfo': {'columns': [('wordinfo', 'text')],
                              'primary_keys': [('position',
                                                'int')],
-                             'type': 'dict'},
+                             'type': 'StorageDict'},
                 'instances': {'columns': [('instances',
                                            'counter')],
                               'primary_keys': [('word',
                                                 'text')],
-                              'type': 'dict'}
+                              'type': 'StorageDict'}
                 }
         both_comment = '  @ClassField wordinfo dict<<position:int>,wordinfo:str>\n ' + \
                        '@ClassField instances dict<<word:str>,instances:atomicint> '
@@ -58,14 +58,14 @@ class StorageObjTest(unittest.TestCase):
                               'columns': [('wordinfo', 'text')],
                               'primary_keys': [('position',
                                                 'int')],
-                              'type': 'dict'},
+                              'type': 'StorageDict'},
                  'instances': {'indexed_values': ['instances',
                                                   'word'],
                                'columns': [('instances',
                                             'counter')],
                                'primary_keys': [('word',
                                                  'text')],
-                               'type': 'dict'
+                               'type': 'StorageDict'
                                }
                  }
         both_comment = '  @ClassField wordinfo dict<<position:int>,wordinfo:str>\n ' + \
@@ -81,7 +81,7 @@ class StorageObjTest(unittest.TestCase):
         should_be = {'particles': {
             'columns': [('x', 'int'), ('y', 'int'), ('z', 'int')],
             'primary_keys': [('partid', 'int')],
-            'type': 'dict'
+            'type': 'StorageDict'
         }}
         self.assertEquals(p, should_be)
 
@@ -91,7 +91,7 @@ class StorageObjTest(unittest.TestCase):
         should_be = {'particles': {
             'columns': [('x', 'int'), ('y', 'int'), ('z', 'int')],
             'primary_keys': [('partid', 'int'), ('part2', 'text')],
-            'type': 'dict'
+            'type': 'StorageDict'
         }}
         self.assertEquals(p, should_be)
 

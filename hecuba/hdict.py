@@ -390,6 +390,8 @@ class StorageDict(dict, IStorage):
         Args:
             name:
         """
+        if self._is_persistent:
+            return True
         self._is_persistent = True
         (self._ksp, self._table) = self._extract_ks_tab(name)
 
