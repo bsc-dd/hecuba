@@ -135,9 +135,6 @@ class StorageDict(dict, IStorage):
 
         self._storage_id = storage_id
 
-        class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
-        self._build_args = self.args(name, primary_keys, columns, self._tokens,
-                                     self._storage_id, indexed_args, class_name)
 
         if self.__doc__ is not None:
             self._persistent_props = self._parse_comments(self.__doc__)
@@ -167,10 +164,16 @@ class StorageDict(dict, IStorage):
 
         self._k_size = len(key_names)
 
+
+        class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
+        self._build_args = self.args(name, self._primary_keys, self._columns, self._tokens,
+                                         self._storage_id, self._indexed_args, class_name)
+
         if name is not None:
             self.make_persistent(name)
         else:
             self._is_persistent = False
+
 
     def __eq__(self, other):
         """
