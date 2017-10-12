@@ -12,15 +12,18 @@ class SObj_Basic(StorageObj):
     @ClassField attr3 str
     '''
 
+
 class SDict_SimpleTypeSpec(StorageDict):
     '''
     @TypeSpec <<id:int>,info:str>
     '''
 
+
 class SDict_ComplexTypeSpec(StorageDict):
     '''
     @TypeSpec <<id:int>,state:tests.withcassandra.storagedict_split_tests.SObj_Basic>
     '''
+
 
 class SObj_SimpleClassField(StorageObj):
     '''
@@ -144,27 +147,26 @@ class StorageDictSplitTest(unittest.TestCase):
         counter = 0
         for item in SDict.iterkeys():
             counter = counter + 1
-        #self.assertEqual(counter, expected)
+        # self.assertEqual(counter, expected)
         return counter
 
-
     def testSplitTypeSpecBasic(self):
+        config.session.execute("DROP KEYSPACE IF EXISTS my_app")
         nitems = 1000
         mybook = SDict_SimpleTypeSpec("test_records")
-        for id in xrange(0,nitems):
-            mybook[id] = 'someRandomText'+str(id)
+        for id in xrange(0, nitems):
+            mybook[id] = 'someRandomText' + str(id)
 
         del mybook
 
-        #verify all data has been written
+        # verify all data has been written
         myotherbook = SDict_SimpleTypeSpec("test_records")
         self.assertEqual(nitems, self.computeItems(myotherbook))
-        #we don't want anything in memory
+        # we don't want anything in memory
         del myotherbook
 
-
         myfinalbook = SDict_SimpleTypeSpec("test_records")
-        #split the dict and assert all the dicts generated contain the expected data
+        # split the dict and assert all the dicts generated contain the expected data
         acc = 0
         nsplits = 0
         for b in myfinalbook.split():  # this split fails
@@ -173,8 +175,6 @@ class StorageDictSplitTest(unittest.TestCase):
 
         self.assertEqual(acc, nitems)
 
-
-
     def testSplitTypeSpecComplex(self):
         nitems = 250
         mybook = SDict_ComplexTypeSpec("experimentx")
@@ -182,7 +182,7 @@ class StorageDictSplitTest(unittest.TestCase):
             mybook[id] = SObj_Basic()
             mybook[id].attr1 = id
             mybook[id].attr2 = id / nitems
-            mybook[id].attr3 = "basicobj"+str(id)
+            mybook[id].attr3 = "basicobj" + str(id)
 
         del mybook
 
@@ -208,7 +208,7 @@ class StorageDictSplitTest(unittest.TestCase):
         mybook.attr1 = nitems
         mybook.attr3 = nitems / 100
         for id in xrange(0, nitems):
-            key_text = 'so_split_dict_simple'+str(id)
+            key_text = 'so_split_dict_simple' + str(id)
             mybook.mydict[key_text] = id / nitems
 
         del mybook
@@ -238,15 +238,15 @@ class StorageDictSplitTest(unittest.TestCase):
             key_text = 'so_split_dict_simple' + str(id)
             so = SObj_Basic()
             so.attr1 = id
-            so.attr2 = id/nitems
-            so.attr3 = 'someInnerRandomText'+str(id)
+            so.attr2 = id / nitems
+            so.attr3 = 'someInnerRandomText' + str(id)
             mybook.mydict[key_text] = so
 
         del mybook
 
         # verify all data has been written
         myotherbook = SObj_ComplexClassField("so_split_dict_complex")
-        self.assertEqual(nitems, self.computeItems(myotherbook))
+        self.assertEqual(nitems, self.computeItems(myotherbook.mydict))
         # we don't want anything in memory
         del myotherbook
 
@@ -301,6 +301,7 @@ class StorageDictSplitTest(unittest.TestCase):
             self.assertAlmostEquals(a[2], b.y, delta=delta)
             self.assertAlmostEquals(a[3], b.z, delta=delta)
     '''
+
 
 if __name__ == '__main__':
     unittest.main()
