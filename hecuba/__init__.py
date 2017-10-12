@@ -100,11 +100,11 @@ class Config:
             except _:
                 log.warn('error shutting down')
         try:
-            singleton.repl_factor = int(os.environ['REPLICA_FACTOR'])
-            log.info('REPLICA_FACTOR: %d', singleton.repl_factor)
+            singleton.replication_factor = int(os.environ['REPLICA_FACTOR'])
+            log.info('REPLICA_FACTOR: %d', singleton.replication_factor)
         except KeyError:
-            singleton.repl_factor = 1
-            log.warn('using default REPLICA_FACTOR: %d', singleton.repl_factor)
+            singleton.replication_factor = 1
+            log.warn('using default REPLICA_FACTOR: %d', singleton.replication_factor)
 
         try:
             user_defined_execution_name = os.environ['EXECUTION_NAME']
@@ -149,10 +149,19 @@ class Config:
                 # connecting c++ bindings
                 connectCassandra(singleton.contact_names, singleton.nodePort)
                 if singleton.id_create_schema == -1:
+
+                    if singleton.replication_strategy is "SimpleStrategy":
+                        replication = "{'class' : 'SimpleStrategy', replication_factor': %d}" % singleton.replication_factor
+                    else:
+                        replication = "{'class' : '%s', %s}" % (singleton.replication_strategy,
+                                                                singleton.repl_strategy_options)
+
+                    singleton.session.execute(
+                        "CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = %s" % (singleton.execution_name,
+                                                                                    replication))
                     singleton.session.execute(
                         ('CREATE KEYSPACE IF NOT EXISTS hecuba' +
-                         " WITH replication = {'class': 'SimpleStrategy', "
-                         "'replication_factor': %d }" % singleton.repl_factor))
+                         " WITH replication = %s" % replication))
 
                     singleton.session.execute('CREATE TYPE IF NOT EXISTS hecuba.q_meta('
                                               'mem_filter text, '
@@ -178,13 +187,6 @@ class Config:
                 log.error('Exception creating cluster session. Are you in a testing env? %s', e)
 
         try:
-            singleton.workers_per_node = int(os.environ['WORKERS_PER_NODE'])
-            log.info('WORKERS_PER_NODE: %d', singleton.workers_per_node)
-        except KeyError:
-            singleton.workers_per_node = 8
-            log.warn('using default WORKERS_PER_NODE: %d', singleton.workers_per_node)
-
-        try:
             singleton.number_of_partitions = int(os.environ['NUMBER_OF_BLOCKS'])
             log.info('NUMBER_OF_BLOCKS: %d', singleton.number_of_partitions)
         except KeyError:
@@ -199,20 +201,6 @@ class Config:
             log.warn('using default MIN_NUMBER_OF_TOKENS: %d', singleton.min_number_of_tokens)
 
         try:
-            singleton.batch_size = int(os.environ['BATCH_SIZE'])
-            log.info('BATCH_SIZE: %d', singleton.batch_size)
-        except KeyError:
-            singleton.batch_size = 1
-            log.warn('using default BATCH_SIZE: %d', singleton.batch_size)
-
-        try:
-            singleton.ranges_per_block = int(os.environ['RANGES_PER_BLOCK:'])
-            log.info('RANGES_PER_BLOCK:: %d', singleton.ranges_per_block)
-        except KeyError:
-            singleton.ranges_per_block = 1
-            log.warn('using default RANGES_PER_BLOCK: %d', singleton.ranges_per_block)
-
-        try:
             singleton.max_cache_size = int(os.environ['MAX_CACHE_SIZE'])
             log.info('MAX_CACHE_SIZE: %d', singleton.max_cache_size)
         except KeyError:
@@ -220,11 +208,18 @@ class Config:
             log.warn('using default MAX_CACHE_SIZE: %d', singleton.max_cache_size)
 
         try:
-            singleton.repl_class = os.environ['REPLICATION_STRATEGY']
-            log.info('REPLICATION_STRATEGY: %s', singleton.repl_class)
+            singleton.replication_strategy = os.environ['REPLICATION_STRATEGY']
+            log.info('REPLICATION_STRATEGY: %s', singleton.replication_strategy)
         except KeyError:
-            singleton.repl_class = "SimpleStrategy"
-            log.warn('using default REPLICATION_STRATEGY: %s', singleton.repl_class)
+            singleton.replication_strategy = "SimpleStrategy"
+            log.warn('using default REPLICATION_STRATEGY: %s', singleton.replication_strategy)
+
+        try:
+            singleton.repl_strategy_options = os.environ['REPLICATION_STRATEGY_OPTIONS']
+            log.info('REPLICATION_STRATEGY_OPTIONS: %s', singleton.replication_strategy)
+        except KeyError:
+            singleton.repl_strategy_options = ""
+            log.warn('using default REPLICATION_STRATEGY_OPTIONS: %s', singleton.repl_strategy_options)
 
         try:
             singleton.hecuba_print_limit = int(os.environ['HECUBA_PRINT_LIMIT'])
@@ -239,13 +234,6 @@ class Config:
         except KeyError:
             singleton.hecuba_type_checking = False
             log.warn('using default HECUBA_TYPE_CHECKING: %s', singleton.hecuba_type_checking)
-
-        try:
-            singleton.statistics_activated = os.environ['STATISTICS_ACTIVATED'].lower() == 'true'
-            log.info('STATISTICS_ACTIVATED: %s', singleton.statistics_activated)
-        except KeyError:
-            singleton.statistics_activated = True
-            log.warn('using default STATISTICS_ACTIVATED: %s', singleton.statistics_activated)
 
         try:
             singleton.hecuba_type_checking = os.environ['HECUBA_TYPE_CHECKING'].lower() == 'true'
@@ -274,16 +262,6 @@ class Config:
         except KeyError:
             singleton.write_callbacks_number = 16
             log.warn('using default WRITE_CALLBACKS_NUMBER: %s', singleton.write_callbacks_number)
-
-        if singleton.id_create_schema == -1:
-            try:
-                query = "CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = { 'class' : \'%s\'," \
-                        "'replication_factor' : %d};" \
-                        % (singleton.execution_name, singleton.repl_class, singleton.repl_factor)
-                singleton.session.execute(query)
-            except Exception as ex:
-                log.warn("Cannot create keyspace %s" % singleton.execution_name)
-                raise ex
 
         try:
             singleton.qbeast_master_port = int(os.environ['QBEAST_MASTER_PORT'])
