@@ -117,75 +117,6 @@ class Config:
             singleton.execution_name = 'my_app'
             log.warn('using default EXECUTION_NAME: %s', singleton.execution_name)
 
-        if mock_cassandra:
-            class clusterMock:
-                def __init__(self):
-                    from cassandra.metadata import Metadata
-                    self.metadata = Metadata()
-                    self.metadata.rebuild_token_map("Murmur3Partitioner", {})
-
-            class sessionMock:
-
-                def execute(self, *args, **kwargs):
-                    log.info('called mock.session')
-                    return []
-
-                def prepare(self, *args, **kwargs):
-                    return self
-
-                def bind(self, *args, **kwargs):
-                    return self
-
-            singleton.cluster = clusterMock()
-            singleton.session = sessionMock()
-        else:
-            log.info('Initializing global session')
-            try:
-                singleton.cluster = Cluster(contact_points=singleton.contact_names, port=singleton.nodePort,
-                                            default_retry_policy=_NRetry(5))
-                singleton.session = singleton.cluster.connect()
-                singleton.session.encoder.mapping[tuple] = singleton.session.encoder.cql_encode_tuple
-                from hfetch import connectCassandra
-                # connecting c++ bindings
-                connectCassandra(singleton.contact_names, singleton.nodePort)
-                if singleton.id_create_schema == -1:
-
-                    if singleton.replication_strategy is "SimpleStrategy":
-                        replication = "{'class' : 'SimpleStrategy', replication_factor': %d}" % singleton.replication_factor
-                    else:
-                        replication = "{'class' : '%s', %s}" % (singleton.replication_strategy,
-                                                                singleton.repl_strategy_options)
-
-                    singleton.session.execute(
-                        "CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = %s" % (singleton.execution_name,
-                                                                                    replication))
-                    singleton.session.execute(
-                        ('CREATE KEYSPACE IF NOT EXISTS hecuba' +
-                         " WITH replication = %s" % replication))
-
-                    singleton.session.execute('CREATE TYPE IF NOT EXISTS hecuba.q_meta('
-                                              'mem_filter text, '
-                                              'from_point frozen < list < float >>,'
-                                              'to_point frozen < list < float >>,'
-                                              'precision float)')
-
-                    singleton.session.execute(
-                        'CREATE TABLE IF NOT EXISTS hecuba' +
-                        '.istorage (storage_id uuid, '
-                        'class_name text,name text, '
-                        'istorage_props map<text,text>, '
-                        'tokens list<frozen<tuple<bigint,bigint>>>,'
-                        'indexed_on list<text>,'
-                        'entry_point text,'
-                        'qbeast_id uuid,'
-                        'qbeast_meta q_meta,'
-                        'primary_keys list<frozen<tuple<text,text>>>,'
-                        'columns list<frozen<tuple<text,text>>>,'
-                        'PRIMARY KEY(storage_id))')
-
-            except Exception as e:
-                log.error('Exception creating cluster session. Are you in a testing env? %s', e)
-
         try:
             singleton.number_of_partitions = int(os.environ['NUMBER_OF_BLOCKS'])
             log.info('NUMBER_OF_BLOCKS: %d', singleton.number_of_partitions)
@@ -215,12 +146,18 @@ class Config:
             log.warn('using default REPLICATION_STRATEGY: %s', singleton.replication_strategy)
 
         try:
-            singleton.repl_strategy_options = os.environ['REPLICATION_STRATEGY_OPTIONS']
-            log.info('REPLICATION_STRATEGY_OPTIONS: %s', singleton.replication_strategy)
+            singleton.replication_strategy_options = os.environ['REPLICATION_STRATEGY_OPTIONS']
+            log.info('REPLICATION_STRATEGY_OPTIONS: %s', singleton.replication_strategy_options)
         except KeyError:
-            singleton.repl_strategy_options = ""
-            log.warn('using default REPLICATION_STRATEGY_OPTIONS: %s', singleton.repl_strategy_options)
+            singleton.replication_strategy_options = ""
+            log.warn('using default REPLICATION_STRATEGY_OPTIONS: %s', singleton.replication_strategy_options)
 
+        if singleton.replication_strategy is "SimpleStrategy":
+            singleton.replication = "{'class' : 'SimpleStrategy', 'replication_factor': %d}" % \
+                                    singleton.replication_factor
+        else:
+            singleton.replication = "{'class' : '%s', %s}" % (
+            singleton.replication_strategy, singleton.replication_strategy_options)
         try:
             singleton.hecuba_print_limit = int(os.environ['HECUBA_PRINT_LIMIT'])
             log.info('HECUBA_PRINT_LIMIT: %s', singleton.hecuba_print_limit)
@@ -305,6 +242,68 @@ class Config:
         except KeyError:
             log.warn('using default qbeast read max 10000')
             singleton.qbeast_read_max = 10000
+
+        if mock_cassandra:
+            class clusterMock:
+                def __init__(self):
+                    from cassandra.metadata import Metadata
+                    self.metadata = Metadata()
+                    self.metadata.rebuild_token_map("Murmur3Partitioner", {})
+
+            class sessionMock:
+
+                def execute(self, *args, **kwargs):
+                    log.info('called mock.session')
+                    return []
+
+                def prepare(self, *args, **kwargs):
+                    return self
+
+                def bind(self, *args, **kwargs):
+                    return self
+
+            singleton.cluster = clusterMock()
+            singleton.session = sessionMock()
+        else:
+            log.info('Initializing global session')
+            try:
+                singleton.cluster = Cluster(contact_points=singleton.contact_names, port=singleton.nodePort,
+                                            default_retry_policy=_NRetry(5))
+                singleton.session = singleton.cluster.connect()
+                singleton.session.encoder.mapping[tuple] = singleton.session.encoder.cql_encode_tuple
+                from hfetch import connectCassandra
+                # connecting c++ bindings
+                connectCassandra(singleton.contact_names, singleton.nodePort)
+                if singleton.id_create_schema == -1:
+                    singleton.session.execute(
+                        "CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = %s" % (singleton.execution_name,
+                                                                                    singleton.replication))
+                    singleton.session.execute(
+                        ('CREATE KEYSPACE IF NOT EXISTS hecuba' +
+                         " WITH replication = %s" % singleton.replication))
+
+                    singleton.session.execute('CREATE TYPE IF NOT EXISTS hecuba.q_meta('
+                                              'mem_filter text, '
+                                              'from_point frozen < list < float >>,'
+                                              'to_point frozen < list < float >>,'
+                                              'precision float)')
+
+                    singleton.session.execute(
+                        'CREATE TABLE IF NOT EXISTS hecuba' +
+                        '.istorage (storage_id uuid, '
+                        'class_name text,name text, '
+                        'istorage_props map<text,text>, '
+                        'tokens list<frozen<tuple<bigint,bigint>>>,'
+                        'indexed_on list<text>,'
+                        'entry_point text,'
+                        'qbeast_id uuid,'
+                        'qbeast_meta q_meta,'
+                        'primary_keys list<frozen<tuple<text,text>>>,'
+                        'columns list<frozen<tuple<text,text>>>,'
+                        'PRIMARY KEY(storage_id))')
+
+            except Exception as e:
+                log.error('Exception creating cluster session. Are you in a testing env? %s', e)
 
 
 filter_reg = re.compile(' *lambda *\( *\( *([\w, ]+) *\) *, *\( *([\w, ]+) *\) *\) *: *([\w<>().&*+/ ]+) *,')

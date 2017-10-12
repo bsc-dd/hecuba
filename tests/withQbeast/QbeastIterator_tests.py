@@ -44,7 +44,7 @@ class IterThriftTests(unittest.TestCase):
             for _ in partition:
                 read += 1
         self.assertGreater(read, 100)
-        self.assertGreater(nparts, config.number_of_blocks)
+
 
     def test_read_with_split_remote(self):
         it = QbeastIterator([('partid', 'int'), ('time', 'float')],
@@ -59,4 +59,3 @@ class IterThriftTests(unittest.TestCase):
             for _ in rebuild:
                 read += 1
         self.assertEqual(read, 100 * nparts)
-        self.assertGreater(nparts, config.number_of_blocks)

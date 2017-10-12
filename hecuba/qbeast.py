@@ -78,7 +78,7 @@ class QbeastIterator(IStorage):
                                     storage_args.class_name])
         except Exception as ex:
             log.error("Error creating the StorageDictIx metadata: %s %s", storage_args, ex)
-            # raise ex
+            raise ex
 
     def __init__(self, primary_keys, columns, name, qbeast_meta,
                  qbeast_id=None,
@@ -117,8 +117,10 @@ class QbeastIterator(IStorage):
         # mem_filter port storage_id class_name
         if storage_id is None:
             self._storage_id = uuid.uuid4()
+            save = True
         else:
             self._storage_id = storage_id
+            save = False
         self._build_args = self._building_args(
             primary_keys,
             columns,
@@ -129,7 +131,7 @@ class QbeastIterator(IStorage):
             self._storage_id,
             self._tokens,
             class_name)
-        if storage_id is None:
+        if save:
             self._store_meta(self._build_args)
 
     def split(self):

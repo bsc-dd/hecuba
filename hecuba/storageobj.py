@@ -4,7 +4,7 @@ from collections import namedtuple
 
 import numpy as np
 
-from IStorage import IStorage
+from IStorage import IStorage, AlreadyPersistentError
 from hdict import StorageDict
 from hecuba import config, log
 from hnumpy import StorageNumpy
@@ -314,6 +314,9 @@ class StorageObj(object, IStorage):
             Args:
                 name (string): name with which the table in the DB will be created
         """
+        if self._is_persistent:
+            raise AlreadyPersistentError("This StorageObj is already persistent [Before:{}.{}][After:{}]",
+                                         self._ksp, self._table, name)
         self._is_persistent = True
         (self._ksp, self._table) = self._extract_ks_tab(name)
         if self._storage_id is None:
@@ -327,13 +330,12 @@ class StorageObj(object, IStorage):
 
         log.info("PERSISTING DATA INTO %s %s", self._ksp, self._table)
 
-        query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy'," \
-                         "'replication_factor': %d }" % (self._ksp, config.repl_factor)
+        query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
         config.session.execute(query_keyspace)
 
         query_simple = 'CREATE TABLE IF NOT EXISTS ' + str(self._ksp) + '.' + str(self._table) + \
                        '( storage_id uuid PRIMARY KEY, '
-        for key, entry in self._persistent_props.iteritems():
+        for key, entry in self._persistent_props.items():
             query_simple += str(key) + ' '
             if entry['type'] != 'dict' and entry['type'] in IStorage._valid_types:
                 if entry['type'] == 'list' or entry['type'] == 'tuple':
@@ -344,7 +346,7 @@ class StorageObj(object, IStorage):
                 query_simple += 'uuid, '
         config.session.execute(query_simple[:-2] + ' )')
 
-        for obj_name, obj_info in self._persistent_props.iteritems():
+        for obj_name, obj_info in self._persistent_props.items():
             if hasattr(self, obj_name):
                 pd = getattr(self, obj_name)
                 if obj_info['type'] not in IStorage._basic_types:
@@ -450,7 +452,8 @@ class StorageObj(object, IStorage):
 
             if self._is_persistent:
                 if issubclass(value.__class__, IStorage):
-                    value.make_persistent(self._ksp + '.' + self._table + '_' + attribute)
+                    if not value._is_persistent:
+                        value.make_persistent(self._ksp + '.' + self._table + '_' + attribute)
                     values = [self._storage_id, value._storage_id]
                 else:
                     values = [self._storage_id, value]

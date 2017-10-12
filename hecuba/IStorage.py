@@ -5,6 +5,10 @@ from hecuba import config, log
 import re
 
 
+class AlreadyPersistentError(RuntimeError):
+    pass
+
+
 class IStorage:
     _select_istorage_meta = config.session.prepare("SELECT * FROM hecuba.istorage WHERE storage_id = ?")
     args_names = []
