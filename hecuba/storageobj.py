@@ -105,7 +105,7 @@ class StorageObj(object, IStorage):
                                          self._istorage_props,
                                          self._class_name)
 
-        dictionaries = filter(lambda (k, t): t['type'] == 'dict', self._persistent_props.iteritems())
+        dictionaries = filter(lambda (k, t): t['type'] == 'StorageDict', self._persistent_props.iteritems())
         for table_name, per_dict in dictionaries:
             dict_name = "%s.%s" % (self._ksp, table_name)
 
@@ -125,7 +125,8 @@ class StorageObj(object, IStorage):
             setattr(self, table_name, pd)
             self._persistent_dicts.append(pd)
 
-        storageobjs = filter(lambda (k, t): t['type'] not in IStorage._valid_types, self._persistent_props.iteritems())
+        storageobjs = filter(lambda (k, t): t['type'] not in IStorage._basic_types and t['type'] != 'StorageDict',
+                             self._persistent_props.iteritems())
         for table_name, per_dict in storageobjs:
             so_name = "%s.%s" % (self._ksp, table_name)
             cname, module = IStorage.process_path(per_dict['type'])
@@ -240,10 +241,10 @@ class StorageObj(object, IStorage):
                         except KeyError:
                             columns.append((name, value))
                 if table_name in this:
-                    this[table_name].update({'type': 'dict', 'primary_keys': primary_keys, 'columns': columns})
+                    this[table_name].update({'type': 'StorageDict', 'primary_keys': primary_keys, 'columns': columns})
                 else:
                     this[table_name] = {
-                        'type': 'dict',
+                        'type': 'StorageDict',
                         'primary_keys': primary_keys,
                         'columns': columns}
             else:
@@ -342,46 +343,15 @@ class StorageObj(object, IStorage):
                 query_simple += 'uuid, '
         config.session.execute(query_simple[:-2] + ' )')
 
-        dictionaries = filter(lambda (k, t): t['type'] == 'dict', self._persistent_props.iteritems())
-        is_props = self._build_args.istorage_props
-        if is_props is None:
-            is_props = {}
-        changed = False
-        for table_name, _ in dictionaries:
-            changed = True
-            pd = getattr(self, table_name)
-            sd_name = self._ksp + "." + self._table + "_" + table_name
-            pd.make_persistent(sd_name)
-            super(StorageObj, self).__setattr__(table_name, pd)
-            setattr(self, table_name, pd)
-            is_props[sd_name] = str(pd._storage_id)
+        for obj_name, obj_info in self._persistent_props.iteritems():
+            if hasattr(self,obj_name):
+                pd = getattr(self, obj_name)
+                if obj_info['type'] not in IStorage._basic_types:
+                    sd_name = self._ksp + "." + self._table + "_" + obj_name
+                    pd.make_persistent(sd_name)
+                setattr(self, obj_name, pd)  # super(StorageObj, self).__setattr__(obj_name, pd) why?
 
-        storageobjs = filter(lambda (k, t): t['type'] not in IStorage._valid_types, self._persistent_props.iteritems())
-        for table_name, per_dict in storageobjs:
-            so_name = "%s.%s_%s" % (self._ksp, self._table, table_name)
-            cname, module = IStorage.process_path(per_dict['type'])
-            mod = __import__(module, globals(), locals(), [cname], 0)
-            so = getattr(mod, cname)(so_name)
-            for key, var in getattr(self, table_name).__dict__.iteritems():
-                if key[0] != '_' and type(var) in IStorage._python_types:
-                    setattr(so, key, var)
-            super(StorageObj, self).__setattr__(table_name, so)
-            setattr(self, table_name, so)
-            self._storage_objs.append(so)
-
-        if changed or self._storage_id is None:
-            if self._storage_id is None:
-                self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, name)
-                self._build_args = self._build_args._replace(storage_id=self._storage_id, istorage_props=is_props)
         self._store_meta(self._build_args)
-
-        # Persisting attributes stored in memory
-        to_remove = filter(lambda k: k[0] is not '_', self.__dict__.keys())
-        for key in to_remove:
-            val = self.__dict__[key]
-            if not issubclass(val.__class__, IStorage):
-                setattr(self, key, val)
-                del self.__dict__[key]
 
     def stop_persistent(self):
         """
@@ -459,53 +429,40 @@ class StorageObj(object, IStorage):
         if attribute[0] is '_':
             object.__setattr__(self, attribute, value)
             return
-        if isinstance(value, np.ndarray):
-            value = StorageNumpy(value)
-        if config.hecuba_type_checking and attribute in self._persistent_attrs and not isinstance(value, dict) and \
-                        IStorage._conversions[value.__class__.__name__] != self._persistent_props[attribute]['type']:
-            raise TypeError
-        if hasattr(self, '_is_persistent') and self._is_persistent and attribute in self._persistent_attrs:
-            if isinstance(value, StorageNumpy):
-                value.make_persistent(self._ksp + '.' + self._table)
-                object.__setattr__(self, attribute, value)  # setattr(self, attribute, value)
-            if isinstance(value, dict) and not isinstance(value, StorageDict) and self._persistent_props[attribute][
-                'type'] == 'dict':
-                if value == {}:
-                    return
-                else:
-                    query = "SELECT table_name FROM system_schema.tables WHERE keyspace_name = '" + self._ksp + "'"
-                    result = config.session.execute(query)
-                    prev_storagedict = getattr(self, attribute)
-                    copies = 1
-                    m = StorageObj._tablename_finder.match(prev_storagedict._table)
-                    if m is not None:
-                        grouped = m.groups()
-                        curr_table = grouped[0]
-                    else:
-                        curr_table = prev_storagedict._table
-                    for row in result:
-                        m = StorageObj._tablename_finder.match(row.table_name)
-                        if m is not None:
-                            grouped = m.groups()
-                            if grouped[0] == curr_table:
-                                copies = int(grouped[1]) + 1
-                    setattr(self, attribute, StorageDict(curr_table + '_' + str(copies), prev_storagedict._primary_keys,
-                                                   prev_storagedict._columns))
-                    for k, v in value.iteritems():
-                        getattr(self, attribute)[k] = v
-                    return
-            else:
+
+        if attribute in self._persistent_attrs:
+            if config.hecuba_type_checking and value != None and not isinstance(value, dict) and \
+                            IStorage._conversions[value.__class__.__name__] != self._persistent_props[attribute][
+                        'type']:
+                raise TypeError
+
+            if not isinstance(value, IStorage):
+                if isinstance(value, np.ndarray):
+                    value = StorageNumpy(value)
+                elif isinstance(value, dict):
+                    per_dict = self._persistent_props[attribute]
+                    indexed_args = per_dict.get('indexed_values', None)
+                    new_value = StorageDict(None, per_dict['primary_keys'], per_dict['columns'],
+                                            tokens=self._tokens, indexed_args=indexed_args)
+                    new_value.update(value)
+                    value = new_value
+
+            if self._is_persistent:
                 if issubclass(value.__class__, IStorage):
+                    value.make_persistent(self._ksp + '.' + self._table+'_'+attribute)
                     values = [self._storage_id, value._storage_id]
-                    object.__setattr__(self, attribute, value)
                 else:
-                    query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, attribute)
-                    query += " VALUES (%s,%s)"
                     values = [self._storage_id, value]
-                    log.debug("SETATTR: ", query)
-                    config.session.execute(query, values)
-        else:
-            object.__setattr__(self, attribute, value)
+
+                query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, attribute)
+                query += " VALUES (%s,%s)"
+
+                log.debug("SETATTR: ", query)
+                config.session.execute(query, values)
+
+        object.__setattr__(self, attribute, value)
+
+
 
     def __delattr__(self, item):
         """
@@ -513,11 +470,9 @@ class StorageObj(object, IStorage):
         Args:
             item: the name of the attribute to be deleted
         """
-        if item[0] is '_':
-            object.__delattr__(self, item)
-        elif hasattr(self, '_is_persistent') and self._is_persistent and item in self._persistent_attrs:
+        if self._is_persistent and item in self._persistent_attrs:
             query = "UPDATE %s.%s SET %s = null WHERE storage_id = %s" \
                     % (self._ksp, self._table, item, self._storage_id)
             config.session.execute(query)
-        else:
-            object.__delattr__(self, item)
+
+        object.__delattr__(self, item)

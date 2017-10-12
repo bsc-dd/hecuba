@@ -135,9 +135,6 @@ class StorageDict(dict, IStorage):
 
         self._storage_id = storage_id
 
-        class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
-        self._build_args = self.args(name, primary_keys, columns, self._tokens,
-                                     self._storage_id, indexed_args, class_name)
 
         if self.__doc__ is not None:
             self._persistent_props = self._parse_comments(self.__doc__)
@@ -152,9 +149,9 @@ class StorageDict(dict, IStorage):
             self._columns = columns
             self._indexed_args = indexed_args
 
-        key_names = [pkname for (pkname,dt) in self._primary_keys]
-        column_names = [colname for (colname,dt) in self._columns]
-        self._item_builder = namedtuple('row', key_names+column_names)
+        key_names = [pkname for (pkname, dt) in self._primary_keys]
+        column_names = [colname for (colname, dt) in self._columns]
+        self._item_builder = namedtuple('row', key_names + column_names)
 
         if len(key_names) > 1:
             self._key_builder = namedtuple('row', key_names)
@@ -167,10 +164,16 @@ class StorageDict(dict, IStorage):
 
         self._k_size = len(key_names)
 
+
+        class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
+        self._build_args = self.args(name, self._primary_keys, self._columns, self._tokens,
+                                         self._storage_id, self._indexed_args, class_name)
+
         if name is not None:
             self.make_persistent(name)
         else:
             self._is_persistent = False
+
 
     def __eq__(self, other):
         """
@@ -478,7 +481,7 @@ class StorageDict(dict, IStorage):
         cname, module = IStorage.process_path(obj_type)
         mod = __import__(module, globals(), locals(), [cname], 0)
         # new name as ksp+table+obj_class_name
-        so = getattr(mod, cname)(name=so_name+cname.lower(), storage_id=storage_id)
+        so = getattr(mod, cname)(name=so_name + cname.lower(), storage_id=storage_id)
         # sso._storage_id = storage_id
         return so
 
@@ -511,7 +514,7 @@ class StorageDict(dict, IStorage):
             log.debug("GET ITEM %s[%s]", cres, cres.__class__)
 
             final_results = []
-            for index, (name,col_type) in enumerate(self._columns):
+            for index, (name, col_type) in enumerate(self._columns):
                 if col_type not in IStorage._basic_types:
                     table_name = self._ksp + '.' + self._table
                     element = (self._build_istorage_obj(col_type, table_name, uuid.UUID(cres[index])))
@@ -545,8 +548,8 @@ class StorageDict(dict, IStorage):
                 dict.__setitem__(self, key, val)
             else:
                 if isinstance(val, StorageNumpy):
-                    #new name as ksp+table+obj_class_name
-                    val.make_persistent(self._ksp + '.' + self._table+StorageNumpy.__name__.lower())
+                    # new name as ksp+table+obj_class_name
+                    val.make_persistent(self._ksp + '.' + self._table + StorageNumpy.__name__.lower())
                 self._hcache.put_row(self._make_key(key), self._make_value(val))
         else:
             if isinstance(val, Iterable) and not isinstance(val, str):

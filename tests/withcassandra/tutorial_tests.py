@@ -14,16 +14,18 @@ class ExampleStoragedictClassInit(StorageDict):
     '''
         @TypeSpec <<int>, str>
     '''
-    def __init__(self):
-        self.my_dict = {0: 'first position'}
+    def __init__(self,**kwargs):
+        super(ExampleStoragedictClassInit, self).__init__(**kwargs)
+        self.update({0: 'first position'})
 
 
 class ExampleStoragedictClassInitMultiVal(StorageDict):
     '''
         @TypeSpec <<int, int>, str, str, int>
     '''
-    def __init__(self):
-        self.my_dict = {(0, 1):('first position', 'second_position', 1000)}
+    def __init__(self,**kwargs):
+        super(ExampleStoragedictClassInitMultiVal, self).__init__(**kwargs)
+        self.update({(0, 1):('first position', 'second_position', 1000)})
 
 
 class ExampleStoragedictClassNames(StorageDict):
@@ -36,16 +38,18 @@ class ExampleStoragedictClassInitNames(StorageDict):
     '''
         @TypeSpec <<position:int>, value:str>
     '''
-    def __init__(self):
-        self.my_dict = {0: 'first position'}
+    def __init__(self,**kwargs):
+        super(ExampleStoragedictClassInitNames, self).__init__(**kwargs)
+        self.update({0: 'first position'})
 
 
 class ExampleStoragedictClassInitMultiValNames(StorageDict):
     '''
         @TypeSpec <<position1:int, position2:int>, value1:str, value2:str, value3:int>
     '''
-    def __init__(self):
-        self.my_dict = {(0, 1): ('first position', 'second_position', 1000)}
+    def __init__(self,**kwargs):
+        super(ExampleStoragedictClassInitMultiValNames, self).__init__(**kwargs)
+        self.update({(0, 1): ('first position', 'second_position', 1000)})
 
 
 class ExampleStorageObjClass(StorageObj):
@@ -62,7 +66,8 @@ class ExampleStorageObjClassInit(StorageObj):
         @ClassField my_release int
         @ClassField my_version string
     '''
-    def __init__(self):
+    def __init__(self,**kwargs):
+        super(ExampleStorageObjClassInit, self).__init__(**kwargs)
         self.my_dict = {0: 'first position'}
         self.my_release = 2017
         self.my_version = '0.1'

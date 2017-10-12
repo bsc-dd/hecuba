@@ -35,6 +35,7 @@ class StorageNumpy(np.ndarray, IStorage):
             obj.make_persistent(name)
         else:
             obj = np.asarray(input_array).view(cls)
+            obj._is_persistent = False
         # Input array is an already formed ndarray instance
         # We first cast to be our class type
         # add the new attribute to the created instance
@@ -42,7 +43,6 @@ class StorageNumpy(np.ndarray, IStorage):
         # Finally, we must return the newly created object:
         obj._class_name = '%s.%s' % (cls.__module__, cls.__name__)
         return obj
-
 
     # used as copy constructor
     def __array_finalize__(self, obj):
@@ -95,6 +95,8 @@ class StorageNumpy(np.ndarray, IStorage):
             raise KeyError
 
     def make_persistent(self, name):
+        if self._is_persistent:
+            return
         self._is_persistent = True
 
         (self._ksp, self._table) = self._extract_ks_tab(name)
