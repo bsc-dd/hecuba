@@ -125,7 +125,7 @@ class IStorage:
         """
         Makes proper tokens ranges ensuring that in a tuple (a,b) a <= b
         Args:
-            tokens:  a list of tksn [1, 0, 10]
+            tokens:  a list of tokens [1, 0, 10]
         Returns:
              a rationalized list [(-1, 0),(0,10),(10, max)]
         """

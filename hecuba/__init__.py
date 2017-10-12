@@ -97,7 +97,7 @@ class Config:
             try:
                 singleton.session.shutdown()
                 singleton.cluster.shutdown()
-            except:
+            except _:
                 log.warn('error shutting down')
         try:
             singleton.repl_factor = int(os.environ['REPLICA_FACTOR'])
@@ -332,6 +332,7 @@ class Config:
 filter_reg = re.compile(' *lambda *\( *\( *([\w, ]+) *\) *, *\( *([\w, ]+) *\) *\) *: *([\w<>().&*+/ ]+) *,')
 random_reg = re.compile('(.*)((random.random\(\)|random\(\)) *< *([0.1]))(.*)')
 
+
 def hecuba_filter(lambda_filter, iterable):
     if hasattr(iterable, '_storage_father') and hasattr(iterable._storage_father, '_indexed_args') \
             and iterable._storage_father._indexed_args is not None:
@@ -355,9 +356,9 @@ def hecuba_filter(lambda_filter, iterable):
         precision_ind = -1
         if m is not None:
             params = m.groups()
-            for ind,param in enumerate(params):
+            for ind, param in enumerate(params):
                 if param == 'random()' or param == 'random.random()':
-                    precision = float(params[ind+1])
+                    precision = float(params[ind + 1])
                     precision_ind = ind + 1
                 else:
                     if param != '' and 'random()' not in param and ind != precision_ind:

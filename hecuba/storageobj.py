@@ -18,7 +18,7 @@ class StorageObj(object, IStorage):
     """
     This class is where information will be stored in Hecuba.
     The information can be in memory, stored in a python dictionary or local variables, or saved in a
-    DDBB(Cassandra), depending on if it's persistent or not.
+    DB(Cassandra), depending on if it's persistent or not.
     """
 
     @staticmethod
@@ -311,7 +311,7 @@ class StorageObj(object, IStorage):
             It also inserts into the new table all information that was in memory assigned to the StorageObj prior to
             this call.
             Args:
-                name (string): name with which the table in the DDBB will be created
+                name (string): name with which the table in the DB will be created
         """
         self._is_persistent = True
         (self._ksp, self._table) = self._extract_ks_tab(name)
@@ -344,7 +344,7 @@ class StorageObj(object, IStorage):
         config.session.execute(query_simple[:-2] + ' )')
 
         for obj_name, obj_info in self._persistent_props.iteritems():
-            if hasattr(self,obj_name):
+            if hasattr(self, obj_name):
                 pd = getattr(self, obj_name)
                 if obj_info['type'] not in IStorage._basic_types:
                     sd_name = self._ksp + "." + self._table + "_" + obj_name
@@ -421,7 +421,7 @@ class StorageObj(object, IStorage):
         """
             Given a key and its value, this function saves it (depending on if it's persistent or not):
                 a) In memory
-                b) In the DDBB
+                b) In the DB
             Args:
                 attribute: name of the value that we want to set
                 value: value that we want to save
@@ -431,7 +431,7 @@ class StorageObj(object, IStorage):
             return
 
         if attribute in self._persistent_attrs:
-            if config.hecuba_type_checking and value != None and not isinstance(value, dict) and \
+            if config.hecuba_type_checking and value is not None and not isinstance(value, dict) and \
                             IStorage._conversions[value.__class__.__name__] != self._persistent_props[attribute][
                         'type']:
                 raise TypeError
@@ -449,7 +449,7 @@ class StorageObj(object, IStorage):
 
             if self._is_persistent:
                 if issubclass(value.__class__, IStorage):
-                    value.make_persistent(self._ksp + '.' + self._table+'_'+attribute)
+                    value.make_persistent(self._ksp + '.' + self._table + '_' + attribute)
                     values = [self._storage_id, value._storage_id]
                 else:
                     values = [self._storage_id, value]
@@ -461,8 +461,6 @@ class StorageObj(object, IStorage):
                 config.session.execute(query, values)
 
         object.__setattr__(self, attribute, value)
-
-
 
     def __delattr__(self, item):
         """
