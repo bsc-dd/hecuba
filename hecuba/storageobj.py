@@ -1,12 +1,13 @@
-from collections import namedtuple
-import uuid
 import re
+import uuid
+from collections import namedtuple
+
+import numpy as np
+
 from IStorage import IStorage
 from hdict import StorageDict
-from hnumpy import StorageNumpy
 from hecuba import config, log
-import numpy as np
-from hfetch import Hcache
+from hnumpy import StorageNumpy
 
 
 class StorageObj(object, IStorage):
@@ -36,8 +37,8 @@ class StorageObj(object, IStorage):
             so = StorageObj(new_args.name.encode('utf8'), new_args.tokens, new_args.storage_id, new_args.istorage_props)
 
         else:
-            class_name, module = IStorage.process_path(class_name)
-            mod = __import__(module, globals(), locals(), [class_name], 0)
+            class_name, mod_name = IStorage.process_path(class_name)
+            mod = __import__(mod_name, globals(), locals(), [class_name], 0)
 
             so = getattr(mod, class_name)(new_args.name.encode('utf8'), new_args.tokens,
                                           new_args.storage_id, new_args.istorage_props)
