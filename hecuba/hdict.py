@@ -1,4 +1,3 @@
-# author: G. Alomar
 from collections import Iterable
 from collections import namedtuple
 from collections import Mapping

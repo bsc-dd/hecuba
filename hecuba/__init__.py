@@ -1,4 +1,3 @@
-# author: G. Alomar
 import os
 import logging
 from cassandra.cluster import Cluster
