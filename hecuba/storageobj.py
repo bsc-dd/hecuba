@@ -333,7 +333,7 @@ class StorageObj(object, IStorage):
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
         config.session.execute(query_keyspace)
 
-        query_simple = 'CREATE TABLE IF NOT EXISTS ' + str(self._ksp) + '.' + str(self._table) + \
+        query_simple = 'CREATE TABLE IF NOT EXISTS ' + self._ksp + '.' + self._table + \
                        '( storage_id uuid PRIMARY KEY, '
         for key, entry in self._persistent_props.items():
             query_simple += str(key) + ' '
@@ -344,7 +344,11 @@ class StorageObj(object, IStorage):
                     query_simple += entry['type'] + ', '
             else:
                 query_simple += 'uuid, '
-        config.session.execute(query_simple[:-2] + ' )')
+        try:
+            config.session.execute(query_simple[:-2] + ' )')
+        except Exception as ir:
+            log.error("Unable to execute %s", query_simple)
+            raise ir
 
         for obj_name, obj_info in self._persistent_props.items():
             if hasattr(self, obj_name):
@@ -453,7 +457,8 @@ class StorageObj(object, IStorage):
             if self._is_persistent:
                 if issubclass(value.__class__, IStorage):
                     if not value._is_persistent:
-                        value.make_persistent(self._ksp + '.' + self._table + '_' + attribute)
+                        count = self._count_name_collision(attribute)
+                        value.make_persistent(self._ksp + '.' + self._table + '_' + attribute + '_' + str(count))
                     values = [self._storage_id, value._storage_id]
                 else:
                     values = [self._storage_id, value]

@@ -164,6 +164,12 @@ class IStorage:
             table = name
         return ksp.lower().encode('UTF8'), table.lower().encode('UTF8')
 
+    def _count_name_collision(self, attribute):
+        m = re.compile("^%s_%s_[0-9]+$" % (self._table, attribute))
+        q = config.session.execute("SELECT table_name FROM  system_schema.tables WHERE keyspace_name = %s",
+                                   [self._ksp])
+        return len(filter(lambda (t_name, ): m.match(t_name), q))
+
     @staticmethod
     def build_remotely(new_args):
         raise Exception("to be implemented")

@@ -316,7 +316,7 @@ class StorageDict(dict, IStorage):
             return dict.__contains__(self, key)
         else:
             try:
-                #TODO we should save this value in a cache
+                # TODO we should save this value in a cache
                 self._hcache.get_row(self._make_key(key))
                 return True
             except Exception as ex:
@@ -546,9 +546,11 @@ class StorageDict(dict, IStorage):
             if not self._is_persistent:
                 dict.__setitem__(self, key, val)
             else:
-                if isinstance(val, StorageNumpy):
+                if isinstance(val, IStorage) and not val._is_persistent:
+                    attribute = val.__class__.__name__.lower()
+                    count = self._count_name_collision(attribute)
                     # new name as ksp+table+obj_class_name
-                    val.make_persistent(self._ksp + '.' + self._table + StorageNumpy.__name__.lower())
+                    val.make_persistent(self._ksp + '.' + self._table + "_" + attribute + "_" + str(count))
                 self._hcache.put_row(self._make_key(key), self._make_value(val))
         else:
             if isinstance(val, Iterable) and not isinstance(val, str):
