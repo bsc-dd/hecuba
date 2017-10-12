@@ -441,3 +441,9 @@ if not filter == hecuba_filter:
 
 global config
 config = Config()
+
+from hecuba.storageobj import StorageObj
+from hecuba.hdict import StorageDict
+from hecuba.hnumpy import StorageNumpy
+
+__all__ = ['StorageObj', 'StorageDict', 'StorageNumpy']
