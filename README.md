@@ -20,6 +20,8 @@ sudo zypper install cmake python-devel gcc-c++ libtool python-numpy-devel
 ### 3rd party software:
 They are automatically downloaded if they can not be located in the system by cmake.
 
+* Cassandra database. [Github](https://github.com/apache/cassandra). Version 3.10 or later.
+
 * LIBUV, requisite for Cassandra C++ driver. [Github](https://github.com/libuv/libuv). Version 1.11.0
 
 * Datastax C++ Driver for apache cassandra. [Github](https://github.com/datastax/cpp-driver), [Official](https://datastax.github.io/cpp-driver/). Version 2.5.0
