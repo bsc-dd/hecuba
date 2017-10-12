@@ -145,8 +145,22 @@ class StorageDict(dict, IStorage):
             except:
                 self._indexed_args = indexed_args
         else:
-            self._primary_keys = primary_keys
-            self._columns = columns
+            new_primary_keys = []
+            for entry in primary_keys:
+                if entry[1] not in IStorage._valid_types and \
+                   entry[1] in IStorage._conversions.keys():
+                    new_primary_keys.append((entry[0], IStorage._conversions[entry[1]]))
+                else:
+                    new_primary_keys.append(entry)
+            new_columns = []
+            for entry in columns:
+                if entry[1] not in IStorage._valid_types and \
+                   entry[1] in IStorage._conversions.keys():
+                    new_columns.append((entry[0], IStorage._conversions[entry[1]]))
+                else:
+                    new_columns.append(entry)
+            self._primary_keys = new_primary_keys
+            self._columns = new_columns
             self._indexed_args = indexed_args
 
         key_names = [pkname for (pkname, dt) in self._primary_keys]
