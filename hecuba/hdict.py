@@ -134,14 +134,13 @@ class StorageDict(dict, IStorage):
 
         self._storage_id = storage_id
 
-
         if self.__doc__ is not None:
             self._persistent_props = self._parse_comments(self.__doc__)
             self._primary_keys = self._persistent_props[self.__class__.__name__]['primary_keys']
             self._columns = self._persistent_props[self.__class__.__name__]['columns']
             try:
                 self._indexed_args = self._persistent_props[self.__class__.__name__]['indexed_values']
-            except:
+            except KeyError:
                 self._indexed_args = indexed_args
         else:
             self._primary_keys = primary_keys
@@ -163,16 +162,14 @@ class StorageDict(dict, IStorage):
 
         self._k_size = len(key_names)
 
-
         class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
         self._build_args = self.args(name, self._primary_keys, self._columns, self._tokens,
-                                         self._storage_id, self._indexed_args, class_name)
+                                     self._storage_id, self._indexed_args, class_name)
 
         if name is not None:
             self.make_persistent(name)
         else:
             self._is_persistent = False
-
 
     def __eq__(self, other):
         """
@@ -182,9 +179,8 @@ class StorageDict(dict, IStorage):
         Returns:
             boolean (true - equals, false - not equals).
         """
-        return self._storage_id == other._storage_id and \
-               self._tokens == other.token_ranges \
-               and self._table == other.table_name and self._ksp == other.keyspace
+        return self._storage_id == other._storage_id and self._tokens == other.token_ranges and \
+               self._table == other.table_name and self._ksp == other.keyspace
 
     _dict_case = re.compile('.*@TypeSpec + *< *< *([\w:, ]+)+ *> *, *([\w+:., <>]+) *>')
     _tuple_case = re.compile('.*@TypeSpec +(\w+) +tuple+ *< *([\w, +]+) *>')
@@ -406,7 +402,7 @@ class StorageDict(dict, IStorage):
                 log.debug('MAKE PERSISTENCE: %s', query_keyspace)
                 config.session.execute(query_keyspace)
             except Exception as ex:
-                log.warn("Error creating the StorageDict keyspace %s, %s", (query_keyspace),ex)
+                log.warn("Error creating the StorageDict keyspace %s, %s", (query_keyspace), ex)
                 raise ex
 
         for key, value in dict.iteritems(self):
@@ -497,7 +493,7 @@ class StorageDict(dict, IStorage):
 
     def __getitem__(self, key):
         """
-        If the object is persistent, each request goes to the prefetcher.
+        If the object is persistent, each request goes to the hfetch.
         Args:
              key: the dictionary key
         Returns
@@ -668,9 +664,18 @@ class StorageDict(dict, IStorage):
         else:
             return dict.itervalues(self)
 
+    def keys(self):
+        return [i for i in self.iterkeys()]
+
+    def values(self):
+        return [i for i in self.itervalues()]
+
+    def items(self):
+        return [i for i in self.iteritems()]
+
     def get(self, key, default):
         try:
             value = self.__getitem__(key)
-        except:
+        except KeyError:
             value = default
         return value
