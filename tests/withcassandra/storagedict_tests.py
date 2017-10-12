@@ -1,7 +1,6 @@
 import unittest
 
-from hecuba import config
-from hecuba.hdict import StorageDict
+from hecuba import config, StorageObj, StorageDict
 from app.words import Words
 import uuid
 import time
@@ -24,6 +23,18 @@ class MyStorageDict2(StorageDict):
 class MyStorageDict3(StorageDict):
     '''
     @TypeSpec <<str>,int>
+    '''
+
+
+class MyStorageObjC(StorageObj):
+    '''
+    @ClassField mona dict<<a:str>,b:int>
+    '''
+
+
+class MyStorageDictA(StorageDict):
+    '''
+    @TypeSpec <<a:str>,b:int>
     '''
 
 
@@ -765,6 +776,49 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(len(total_items), nitems)
         del my_dict
         config.session.execute("DROP TABLE IF EXISTS my_app.test_iterator_sync")
+
+
+    def test_assign_and_replace(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.first_name")
+        config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona")
+        config.session.execute("DROP TABLE IF EXISTS my_app.second_name")
+
+        first_storagedict = MyStorageDictA()
+        my_storageobj = MyStorageObjC("first_name")
+        self.assertTrue(my_storageobj.mona._is_persistent)
+
+        my_storageobj.mona['uno'] = 123
+        # empty dict no persistent assigned to persistent object
+        my_storageobj.mona = first_storagedict
+
+        self.assertTrue(my_storageobj.mona._is_persistent)
+        nitems = my_storageobj.mona.items()
+        self.assertEqual(len(nitems),1)
+        # it was assigned to a persistent storage obj, it should be persistent
+        self.assertTrue(first_storagedict._is_persistent)
+        #create another non persistent dict
+        my_storagedict = MyStorageDictA()
+        my_storagedict['due'] = 12341321
+        #store the second non persistent dict into the StorageObj attribute
+        my_storageobj.mona = my_storagedict
+        #contents should not be merged, the contents should be the same as in the last storage_dict
+        elements = my_storageobj.mona.items()
+        self.assertEqual(len(elements),1)
+        my_storagedict = MyStorageDictA('second_name')
+        last_key = 'some_key'
+        last_value = 123
+        my_storagedict[last_key] = last_value
+        #my_storageobj.mona
+        my_storageobj.mona = my_storagedict
+        self.assertTrue(my_storageobj.mona.has_key(last_key))
+        last_items = my_storageobj.mona.items()
+        self.assertEqual(len(last_items),1)
+        self.assertEqual(my_storagedict[last_key], last_value)
+
+        config.session.execute("DROP TABLE IF EXISTS my_app.first_name")
+        config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona")
+        config.session.execute("DROP TABLE IF EXISTS my_app.second_name")
+
 
 if __name__ == '__main__':
     unittest.main()
