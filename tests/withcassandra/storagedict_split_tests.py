@@ -42,6 +42,7 @@ class SObj_ComplexClassField(StorageObj):
 
 
 class StorageDictSplitTest(unittest.TestCase):
+
     def test_simple_iterkeys_split_test(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab30")
         config.session.execute(
@@ -151,7 +152,7 @@ class StorageDictSplitTest(unittest.TestCase):
         return counter
 
     def testSplitTypeSpecBasic(self):
-        config.session.execute("DROP KEYSPACE IF EXISTS my_app")
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_records")
         nitems = 1000
         mybook = SDict_SimpleTypeSpec("test_records")
         for id in xrange(0, nitems):
@@ -176,7 +177,8 @@ class StorageDictSplitTest(unittest.TestCase):
         self.assertEqual(acc, nitems)
 
     def testSplitTypeSpecComplex(self):
-        nitems = 250
+        config.session.execute("DROP TABLE IF EXISTS my_app.experimentx")
+        nitems = 10
         mybook = SDict_ComplexTypeSpec("experimentx")
         for id in xrange(0, nitems):
             mybook[id] = SObj_Basic()
@@ -203,7 +205,8 @@ class StorageDictSplitTest(unittest.TestCase):
         self.assertEqual(acc, nitems)
 
     def testSplitClassFieldSimple(self):
-        nitems = 800
+        config.session.execute("DROP TABLE IF EXISTS my_app.so_split_dict_simple")
+        nitems = 80
         mybook = SObj_SimpleClassField("so_split_dict_simple")
         mybook.attr1 = nitems
         mybook.attr3 = nitems / 100
@@ -230,6 +233,7 @@ class StorageDictSplitTest(unittest.TestCase):
         self.assertEqual(acc, nitems)
 
     def testSplitClassFieldComplex(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.so_split_dict_complex")
         nitems = 250
         mybook = SObj_ComplexClassField("so_split_dict_complex")
         mybook.attr1 = nitems
