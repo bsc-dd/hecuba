@@ -18,7 +18,7 @@ addons:
   apt:
     packages:
       - oracle-java8-installer
-      - cmake
+      - cmake3
       - python-dev
       - libpython-dev
       - gcc-4.8
@@ -28,5 +28,7 @@ env:
   global:
     - JAVA_HOME=/usr/lib/jvm/java-8-oracle
 before_install:
+  - sudo update-java-alternatives -s java-8-oracle
+  - export JAVA_HOME=/usr/lib/jvm/java-8-oracle
   - java -version
-  -  wget http://ftp.cixug.es/apache/cassandra/3.11.1/apache-cassandra-3.11.1-bin.tar.gz && tar -xzf apache-cassandra-3.11.1-bin.tar.gz && apache-cassandra-3.11.1/bin/cassandra & disown
+  - wget http://ftp.cixug.es/apache/cassandra/3.11.1/apache-cassandra-3.11.1-bin.tar.gz && tar -xzf apache-cassandra-3.11.1-bin.tar.gz && apache-cassandra-3.11.1/bin/cassandra & disown
