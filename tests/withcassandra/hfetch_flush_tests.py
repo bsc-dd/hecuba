@@ -9,10 +9,11 @@ class StorageDictTest(unittest.TestCase):
     @staticmethod
     def setUpClass():
         config.reset(mock_cassandra=False)
+        config.session.execute(
+            "CREATE KEYSPACE IF NOT EXISTS ksp WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};")
 
     def test_flush_items_100(self):
-        config.session.execute("DROP KEYSPACE IF EXISTS ksp")
-        config.session.execute("CREATE KEYSPACE ksp WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};")
+        config.session.execute("DROP TABLE IF EXISTS ksp.tb1")
         config.session.execute("CREATE TABLE ksp.tb1(pk1 int, val1 text,PRIMARY KEY(pk1))")
         pd = StorageDict('ksp.tb1', [('pk1', 'int')], [('val1', 'text')])
         num_inserts = 100
@@ -24,8 +25,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(count, num_inserts)
 
     def test_flush_items_10K(self):
-        config.session.execute("DROP KEYSPACE IF EXISTS ksp")
-        config.session.execute("CREATE KEYSPACE ksp WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};")
+        config.session.execute("DROP TABLE IF EXISTS ksp.tb1")
         config.session.execute("CREATE TABLE ksp.tb1(pk1 int, val1 text,PRIMARY KEY(pk1))")
         pd = StorageDict('ksp.tb1', [('pk1', 'int')], [('val1', 'text')])
         num_inserts = 10000
@@ -51,8 +51,7 @@ class StorageDictTest(unittest.TestCase):
     '''
 
     def test_write_and_then_read(self):
-        config.session.execute("DROP KEYSPACE IF EXISTS ksp")
-        config.session.execute("CREATE KEYSPACE ksp WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};")
+        config.session.execute("DROP TABLE IF EXISTS ksp.tb1")
         config.session.execute("CREATE TABLE ksp.tb1(pk1 int, val1 text,PRIMARY KEY(pk1))")
         pd = StorageDict('ksp.tb1', [('pk1', 'int')], [('val1', 'text')])
         for i in range(100):
@@ -66,9 +65,7 @@ class StorageDictTest(unittest.TestCase):
             self.assertEqual(pd[i], u'ciao' + str(i))
 
     def test_write_and_then_read_named_tuple(self):
-        config.session.execute('DROP KEYSPACE IF EXISTS ksp')
-        config.session.execute(
-            "CREATE KEYSPACE ksp WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};")
+        config.session.execute("DROP TABLE IF EXISTS ksp.tb1")
         config.session.execute("CREATE TABLE ksp.tb1(pk1 int, name text,age int,PRIMARY KEY(pk1))")
         pd = StorageDict('ksp.tb1', [('pk1', 'int')], [('name', 'text'), ('age', 'int')])
         for i in range(100):

@@ -1,8 +1,12 @@
+sudo: false
+dist: trusty
 language: python
 python:
   - "2.7"
 # command to install dependencies
-install: "pip install -r requirements.txt"
+install:
+  - pip install -r requirements.txt
+  - python setup.py install --user
 # command to run tests
 script:
   - nosetests tests/*.py
@@ -14,9 +18,20 @@ addons:
   apt:
     packages:
       - oracle-java8-installer
+      - cmake3
+      - python-dev
+      - libpython-dev
+      - gcc-4.8
+      - libtool
+      - python-numpy
 env:
   global:
     - JAVA_HOME=/usr/lib/jvm/java-8-oracle
+    - PYTHONPATH=/home/travis/.local/lib/python2.7/site-packages/
 before_install:
+  - sudo update-java-alternatives -s java-8-oracle
+  - export JAVA_HOME=/usr/lib/jvm/java-8-oracle
+  - export PYTHONPATH=/home/travis/.local/lib/python2.7/site-packages/
+  - export PYTHONPATH=/home/travis/.local/lib/python2.7/site-packages/
   - java -version
-  -  wget http://ftp.cixug.es/apache/cassandra/3.11.1/apache-cassandra-3.11.1-bin.tar.gz && tar -xzf apache-cassandra-3.11.1-bin.tar.gz && apache-cassandra-3.11.1/bin/cassandra & disown
+  - wget http://ftp.cixug.es/apache/cassandra/3.11.1/apache-cassandra-3.11.1-bin.tar.gz && tar -xzf apache-cassandra-3.11.1-bin.tar.gz && apache-cassandra-3.11.1/bin/cassandra & disown
