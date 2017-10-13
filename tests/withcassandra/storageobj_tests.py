@@ -431,14 +431,6 @@ class StorageObjTest(unittest.TestCase):
         so.age = 2.0
         config.hecuba_type_checking = False
 
-    def test_parse_index_on(self):
-        a = TestStorageIndexedArgsObj()
-        self.assertEqual(a.test._indexed_args, ['x', 'y', 'z'])
-        a.make_persistent('tparse.t1')
-        from storage.api import getByID
-        b = getByID(a.getID())
-        self.assertEqual(b.test._indexed_args, ['x', 'y', 'z'])
-
     def test_nestedso_notpersistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
         config.session.execute("DROP TABLE IF EXISTS my_app.myso")
@@ -597,23 +589,23 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(True, error)
 
     def test_nestedso_sets_gets_complex(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_myso2")
-        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_myso2_test")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tnsgc_myso2")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tnsgc_myso2_test")
 
         my_nested_so = Test3StorageObj()
 
         error = False
         try:
-            _ = config.session.execute('SELECT * FROM my_app.mynewso_myso2')
+            _ = config.session.execute('SELECT * FROM my_app.tnsgc_myso2')
         except cassandra.InvalidRequest:
             error = True
         self.assertEquals(True, error)
 
-        my_nested_so.make_persistent('mynewso')
+        my_nested_so.make_persistent('tnsgc')
 
         error = False
         try:
-            _ = config.session.execute('SELECT * FROM my_app.mynewso_myso2')
+            _ = config.session.execute('SELECT * FROM my_app.tnsgc_myso2')
         except cassandra.InvalidRequest:
             error = True
         self.assertEquals(False, error)
@@ -621,14 +613,15 @@ class StorageObjTest(unittest.TestCase):
         for i in range(0, 100):
             my_nested_so.myso2.test[i] = 'position' + str(i)
         time.sleep(5)
-        count, = config.session.execute("SELECT COUNT(*) FROM my_app.mynewso_myso2_test")[0]
+        count, = config.session.execute("SELECT COUNT(*) FROM my_app.tnsgc_myso2_test")[0]
         self.assertEquals(100, count)
 
     def test_nestedso_deletepersistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
-        config.session.execute("DROP TABLE IF EXISTS my_app.myso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tndp")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tndp_myso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tndp_myso2")
 
-        my_nested_so = Test3StorageObj('mynewso')
+        my_nested_so = Test3StorageObj('tndp')
 
         self.assertEquals(True, my_nested_so._is_persistent)
         my_nested_so.myso.name = 'Link'
@@ -641,15 +634,14 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(False, my_nested_so._is_persistent)
         entries = 0
         try:
-            _ = config.session.execute('SELECT * FROM my_app.mynewso_myso')
+            _ = config.session.execute('SELECT * FROM my_app.tndp_myso')
         except cassandra.InvalidRequest:
             entries += 1
         self.assertEquals(0, entries)
 
     def test_nestedso_dictofsos(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
-        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_test2")
-        config.session.execute("DROP KEYSPACE IF EXISTS my_app")
+        config.session.execute("DROP TABLE IF EXISTS my_app.topstorageobj")
+        config.session.execute("DROP TABLE IF EXISTS my_app.topstorageobj_test2")
         my_nested_so = Test5StorageObj()
         my_nested_so.test2[0] = Test2StorageObj()
         my_nested_so.make_persistent('topstorageobj')
@@ -663,10 +655,10 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(10, my_nested_so.test2[0].age)
 
     def test_nestedso_retrievedata(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
-        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_test2")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tnr")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tnr_test2")
 
-        my_nested_so = Test5StorageObj('mynewso')
+        my_nested_so = Test5StorageObj('tnr')
         my_nested_so.test2[0] = Test2StorageObj('something')
         self.assertEquals(True, my_nested_so._is_persistent)
         self.assertEquals(True, my_nested_so.test2._is_persistent)
@@ -679,16 +671,16 @@ class StorageObjTest(unittest.TestCase):
 
         del my_nested_so
 
-        my_nested_so2 = Test5StorageObj('mynewso')
+        my_nested_so2 = Test5StorageObj('tnr')
 
         self.assertEquals('Link', my_nested_so2.test2[0].name)
         self.assertEquals(10, my_nested_so2.test2[0].age)
 
     def test_numpy_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
-        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy")
-        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy_numpies")
-        my_so = TestStorageObjNumpy('mynewso')
+        config.session.execute("DROP TABLE IF EXISTS my_app.tnp")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tnp_mynumpy")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tnp_mynumpy_numpies")
+        my_so = TestStorageObjNumpy('tnp')
 
     def test_numpy_set(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
