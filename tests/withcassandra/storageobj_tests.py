@@ -101,16 +101,17 @@ class TestStorageObjNumpyDict(StorageObj):
 
 
 class mixObj(StorageObj):
-   '''
-   @ClassField floatfield float
-   @ClassField intField int
-   @ClassField strField str
-   @ClassField intlistField list <int>
-   @ClassField floatlistField list <float>
-   @ClassField strlistField list <str>
-   @ClassField dictField dict <<int>,str>
-   @ClassField inttupleField tuple <int, int>
-   '''
+    '''
+    @ClassField floatfield float
+    @ClassField intField int
+    @ClassField strField str
+    @ClassField intlistField list <int>
+    @ClassField floatlistField list <float>
+    @ClassField strlistField list <str>
+    @ClassField dictField dict <<int>,str>
+    @ClassField inttupleField tuple <int, int>
+    '''
+
 
 class StorageObjTest(unittest.TestCase):
     def test_build_remotely(self):
@@ -131,7 +132,9 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual('tt1', nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
         self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), nopars._storage_id)
-        name, tkns = config.session.execute("SELECT name, tokens FROM hecuba.istorage WHERE storage_id = %s", [nopars._storage_id])[0]
+        name, tkns = \
+        config.session.execute("SELECT name, tokens FROM hecuba.istorage WHERE storage_id = %s", [nopars._storage_id])[
+            0]
 
         self.assertEqual(name, config.execution_name + '.tt1')
         self.assertEqual(tkns, r.tokens)
@@ -143,7 +146,7 @@ class StorageObjTest(unittest.TestCase):
         class res:
             pass
 
-        config.session.execute("DROP TABLE IF EXISTS "+config.execution_name + '.tt1')
+        config.session.execute("DROP TABLE IF EXISTS " + config.execution_name + '.tt1')
         r = res()
         r.ksp = config.execution_name
         r.name = 'tt1'
@@ -176,7 +179,6 @@ class StorageObjTest(unittest.TestCase):
         self.assertTrue(hasattr(nopars, 'instances'))
         name, read_tkns = config.session.execute("SELECT name,tokens FROM hecuba.istorage WHERE storage_id = %s",
                                                  [nopars._storage_id])[0]
-
 
         self.assertEqual(name, config.execution_name + '.tt2')
         self.assertEqual(tkns, read_tkns)
@@ -342,6 +344,7 @@ class StorageObjTest(unittest.TestCase):
 
         def del_attr():
             my_val = so.name
+
         self.assertRaises(AttributeError, del_attr)
 
     def test_delattr_persistent(self):
@@ -352,10 +355,12 @@ class StorageObjTest(unittest.TestCase):
 
         def del_attr1():
             my_val = so.name
+
         self.assertRaises(AttributeError, del_attr1)
 
         def del_attr2():
             my_val = so.random_val
+
         self.assertRaises(AttributeError, del_attr1)
 
     def test_modify_simple_before_mkp_attributes(self):
@@ -382,12 +387,14 @@ class StorageObjTest(unittest.TestCase):
 
         def set_name_test():
             so.name = 1
+
         self.assertRaises(TypeError, set_name_test)
         so.age = 1
         self.assertEquals(so.age, 1)
 
         def set_age_test():
             so.age = 'my_name'
+
         self.assertRaises(TypeError, set_age_test)
         config.hecuba_type_checking = False
 
@@ -400,16 +407,20 @@ class StorageObjTest(unittest.TestCase):
         for row in result:
             cass_name = row.name
         self.assertEquals(cass_name, 'my_name')
+
         def setNameTest():
             so.name = 1
+
         self.assertRaises(TypeError, setNameTest)
         so.age = 1
         result = config.session.execute("SELECT age FROM my_app.t2")
         for row in result:
             cass_age = row.age
         self.assertEquals(cass_age, 1)
+
         def setAgeTest():
             so.age = 'my_name'
+
         self.assertRaises(TypeError, setAgeTest)
         config.hecuba_type_checking = False
 
@@ -504,8 +515,6 @@ class StorageObjTest(unittest.TestCase):
 
         my_nested_so.myso2.name = 'position0'
         self.assertEquals('position0', my_nested_so.myso2.name)
-
-
 
     def test_nestedso_topersistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
@@ -741,22 +750,23 @@ class StorageObjTest(unittest.TestCase):
         time.sleep(2)
         self.assertTrue(np.array_equal(mynumpydict, my_so.mynumpydict[0]))
 
-
     def test_storagedict_assign(self):
         config.hecuba_type_checking = True
         config.session.execute("DROP TABLE IF EXISTS my_app.t2")
         config.session.execute("DROP TABLE IF EXISTS my_app.t2_test")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2_test_0")
         config.session.execute("DROP TABLE IF EXISTS my_app.t2_test_1")
         config.session.execute("DROP TABLE IF EXISTS my_app.t2_test_2")
         so = TestStorageObj("t2")
         self.assertEquals('t2_test', so.test._table)
         so.test = {}
-        self.assertEquals('t2_test', so.test._table)
+        self.assertEquals('t2_test_0', so.test._table)
         so.test = {1: 'a', 2: 'b'}
         self.assertEquals('t2_test_1', so.test._table)
         so.test = {3: 'c', 4: 'd'}
         self.assertEquals('t2_test_2', so.test._table)
         config.hecuba_type_checking = False
+
 
 if __name__ == '__main__':
     unittest.main()
