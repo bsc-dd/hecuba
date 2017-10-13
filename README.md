@@ -1,4 +1,5 @@
-# Hecuba
+# Hecuba ![](https://travis-ci.org/bsc-dd/hecuba.svg?branch=master)
+Non-relational databases are nowadays a common solution when dealing with huge data set and massive query work load. These systems have been redesigned from scratch in order to achieve scalability and availability at the cost of providing only a reduce set of low-level functionality, thus forcing the client application to take care of complex logics. As a solution, our research group developed **Hecuba**, a set of tools and interfaces, which aims to facilitate programmers with an efficient and easy interaction with non-relational technologies.
 
 ## Installation procedure
 
