@@ -161,7 +161,8 @@ class StorageDictTest(unittest.TestCase):
             nopars.words[i] = 'ciao' + str(i)
 
         count, = config.session.execute(
-            "SELECT count(*) FROM system_schema.tables WHERE keyspace_name = 'my_app' and table_name = 't_make_words'")[0]
+            "SELECT count(*) FROM system_schema.tables WHERE keyspace_name = 'my_app' and table_name = 't_make_words'")[
+            0]
         self.assertEqual(0, count)
 
         nopars.make_persistent("t_make")
@@ -180,10 +181,12 @@ class StorageDictTest(unittest.TestCase):
 
         def set_wrong_val_1():
             pd[0] = 1
+
         self.assertRaises(ValueError, set_wrong_val_1)
 
         def set_wrong_val_2():
             pd['bla'] = 'bla'
+
         self.assertRaises(KeyError, set_wrong_val_2)
         config.hecuba_type_checking = False
 
@@ -197,10 +200,12 @@ class StorageDictTest(unittest.TestCase):
 
         def set_wrong_val_1():
             pd[0, 'pos1'] = 1, 'bla'
+
         self.assertRaises(ValueError, set_wrong_val_1)
 
         def set_wrong_val_2():
             pd['pos1', 0] = 'bla', 1
+
         self.assertRaises(KeyError, set_wrong_val_2)
         config.hecuba_type_checking = False
 
@@ -217,6 +222,7 @@ class StorageDictTest(unittest.TestCase):
 
         def set_wrong_val_test():
             pd[0] = 1
+
         self.assertRaises(ValueError, set_wrong_val_test)
         config.hecuba_type_checking = False
 
@@ -233,10 +239,12 @@ class StorageDictTest(unittest.TestCase):
 
         def set_wrong_val():
             pd[0, 'pos1'] = 'bla', 'bla1'
+
         self.assertRaises(ValueError, set_wrong_val)
 
         def set_wrong_key():
             pd['bla', 'pos1'] = 'bla', 1
+
         self.assertRaises(KeyError, set_wrong_key)
         config.hecuba_type_checking = False
 
@@ -253,6 +261,7 @@ class StorageDictTest(unittest.TestCase):
 
         def set_wrong_val_test():
             pd[0] = 1
+
         self.assertRaises(ValueError, set_wrong_val_test)
         config.hecuba_type_checking = False
 
@@ -396,6 +405,7 @@ class StorageDictTest(unittest.TestCase):
 
         def del_val():
             val = pd[0]
+
         self.assertRaises(KeyError, del_val)
 
         pd = StorageDict(None,
@@ -406,6 +416,7 @@ class StorageDictTest(unittest.TestCase):
 
         def del_val():
             val = pd['pos0']
+
         self.assertRaises(KeyError, del_val)
 
     def test_deleteitem_persistent(self):
@@ -419,6 +430,7 @@ class StorageDictTest(unittest.TestCase):
 
         def del_val():
             val = pd[0]
+
         self.assertRaises(KeyError, del_val)
 
         tablename = "tab_a6"
@@ -431,6 +443,7 @@ class StorageDictTest(unittest.TestCase):
 
         def del_val():
             val = pd['pos1']
+
         self.assertRaises(KeyError, del_val)
 
     def test_composed_iteritems_test(self):
@@ -496,7 +509,8 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(count, 100)
         # casting to avoid 1.0000001 float python problem
         data = set([(key, int(val.time), val.value, int(val.x), int(val.y), int(val.z)) for key, val in pd.iteritems()])
-        data2 = set([(key[0], int(key[1]), val[0], int(val[1]), int(val[2]), int(val[3])) for key, val in what_should_be.iteritems()])
+        data2 = set([(key[0], int(key[1]), val[0], int(val[1]), int(val[2]), int(val[3])) for key, val in
+                     what_should_be.iteritems()])
         self.assertEqual(data, data2)
 
     def test_storagedict_newinterface_localmemory(self):
@@ -572,8 +586,8 @@ class StorageDictTest(unittest.TestCase):
         self.assertEquals(pd[3], 'd')
         tablename = "tab_a5"
         pd2 = StorageDict(tablename,
-                         [('position', 'int')],
-                         [('value', 'text')])
+                          [('position', 'int')],
+                          [('value', 'text')])
         pd2[0] = 'final_a'
         pd2[4] = 'final_4'
         pd.update(pd2)
@@ -754,7 +768,6 @@ class StorageDictTest(unittest.TestCase):
         del my_third_dict
         config.session.execute("DROP TABLE IF EXISTS my_app.test_items")
 
-
     def test_iterator_sync(self):
         '''
         check that the prefetch returns the exact same number of elements as inserted 
@@ -777,7 +790,6 @@ class StorageDictTest(unittest.TestCase):
         del my_dict
         config.session.execute("DROP TABLE IF EXISTS my_app.test_iterator_sync")
 
-
     def test_assign_and_replace(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.first_name")
         config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona")
@@ -793,26 +805,26 @@ class StorageDictTest(unittest.TestCase):
 
         self.assertTrue(my_storageobj.mona._is_persistent)
         nitems = my_storageobj.mona.items()
-        self.assertEqual(len(nitems),1)
+        self.assertEqual(len(nitems), 0)
         # it was assigned to a persistent storage obj, it should be persistent
         self.assertTrue(first_storagedict._is_persistent)
-        #create another non persistent dict
+        # create another non persistent dict
         my_storagedict = MyStorageDictA()
         my_storagedict['due'] = 12341321
-        #store the second non persistent dict into the StorageObj attribute
+        # store the second non persistent dict into the StorageObj attribute
         my_storageobj.mona = my_storagedict
-        #contents should not be merged, the contents should be the same as in the last storage_dict
+        # contents should not be merged, the contents should be the same as in the last storage_dict
         elements = my_storageobj.mona.items()
-        self.assertEqual(len(elements),1)
+        self.assertEqual(len(elements), 1)
         my_storagedict = MyStorageDictA('second_name')
         last_key = 'some_key'
         last_value = 123
         my_storagedict[last_key] = last_value
-        #my_storageobj.mona
+        # my_storageobj.mona
         my_storageobj.mona = my_storagedict
-        self.assertTrue(my_storageobj.mona.has_key(last_key))
+        self.assertFalse(my_storageobj.mona.has_key(last_key))
         last_items = my_storageobj.mona.items()
-        self.assertEqual(len(last_items),1)
+        self.assertEqual(len(last_items), 1)
         self.assertEqual(my_storagedict[last_key], last_value)
 
         config.session.execute("DROP TABLE IF EXISTS my_app.first_name")
