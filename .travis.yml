@@ -20,7 +20,7 @@ addons:
       - oracle-java8-installer
       - cmake
       - python-dev
-      - lipython-dev
+      - libpython-dev
       - gcc-4.8
       - libtool
       - python-numpy
