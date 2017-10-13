@@ -5,6 +5,10 @@ from hecuba import config, log
 import re
 
 
+class AlreadyPersistentError(RuntimeError):
+    pass
+
+
 class IStorage:
     _select_istorage_meta = config.session.prepare("SELECT * FROM hecuba.istorage WHERE storage_id = ?")
     args_names = []
@@ -125,7 +129,7 @@ class IStorage:
         """
         Makes proper tokens ranges ensuring that in a tuple (a,b) a <= b
         Args:
-            tokens:  a list of tksn [1, 0, 10]
+            tokens:  a list of tokens [1, 0, 10]
         Returns:
              a rationalized list [(-1, 0),(0,10),(10, max)]
         """
@@ -159,6 +163,12 @@ class IStorage:
             ksp = config.execution_name
             table = name
         return ksp.lower().encode('UTF8'), table.lower().encode('UTF8')
+
+    def _count_name_collision(self, attribute):
+        m = re.compile("^%s_%s_[0-9]+$" % (self._table, attribute))
+        q = config.session.execute("SELECT table_name FROM  system_schema.tables WHERE keyspace_name = %s",
+                                   [self._ksp])
+        return len(filter(lambda (t_name, ): m.match(t_name), q))
 
     @staticmethod
     def build_remotely(new_args):

@@ -11,7 +11,6 @@ class StorageTests(unittest.TestCase):
         Config.reset(mock_cassandra=False)
 
     def test_getByID_block(self):
-        config.number_of_blocks = 32
         # ki = KeyIter('testspace', 'tt', 'app.words.Words', 'fake-id', ['position'])
         SO = Words('so')
         b = SO.split().next()

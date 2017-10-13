@@ -1,12 +1,13 @@
-from collections import namedtuple
-import uuid
 import re
-from IStorage import IStorage
-from hdict import StorageDict
-from hnumpy import StorageNumpy
-from hecuba import config, log
+import uuid
+from collections import namedtuple
+
 import numpy as np
-from hfetch import Hcache
+
+from IStorage import IStorage, AlreadyPersistentError
+from hdict import StorageDict
+from hecuba import config, log
+from hnumpy import StorageNumpy
 
 
 class StorageObj(object, IStorage):
@@ -18,7 +19,7 @@ class StorageObj(object, IStorage):
     """
     This class is where information will be stored in Hecuba.
     The information can be in memory, stored in a python dictionary or local variables, or saved in a
-    DDBB(Cassandra), depending on if it's persistent or not.
+    DB(Cassandra), depending on if it's persistent or not.
     """
 
     @staticmethod
@@ -36,8 +37,8 @@ class StorageObj(object, IStorage):
             so = StorageObj(new_args.name.encode('utf8'), new_args.tokens, new_args.storage_id, new_args.istorage_props)
 
         else:
-            class_name, module = IStorage.process_path(class_name)
-            mod = __import__(module, globals(), locals(), [class_name], 0)
+            class_name, mod_name = IStorage.process_path(class_name)
+            mod = __import__(mod_name, globals(), locals(), [class_name], 0)
 
             so = getattr(mod, class_name)(new_args.name.encode('utf8'), new_args.tokens,
                                           new_args.storage_id, new_args.istorage_props)
@@ -311,8 +312,11 @@ class StorageObj(object, IStorage):
             It also inserts into the new table all information that was in memory assigned to the StorageObj prior to
             this call.
             Args:
-                name (string): name with which the table in the DDBB will be created
+                name (string): name with which the table in the DB will be created
         """
+        if self._is_persistent:
+            raise AlreadyPersistentError("This StorageObj is already persistent [Before:{}.{}][After:{}]",
+                                         self._ksp, self._table, name)
         self._is_persistent = True
         (self._ksp, self._table) = self._extract_ks_tab(name)
         if self._storage_id is None:
@@ -326,13 +330,12 @@ class StorageObj(object, IStorage):
 
         log.info("PERSISTING DATA INTO %s %s", self._ksp, self._table)
 
-        query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy'," \
-                         "'replication_factor': %d }" % (self._ksp, config.repl_factor)
+        query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
         config.session.execute(query_keyspace)
 
-        query_simple = 'CREATE TABLE IF NOT EXISTS ' + str(self._ksp) + '.' + str(self._table) + \
+        query_simple = 'CREATE TABLE IF NOT EXISTS ' + self._ksp + '.' + self._table + \
                        '( storage_id uuid PRIMARY KEY, '
-        for key, entry in self._persistent_props.iteritems():
+        for key, entry in self._persistent_props.items():
             query_simple += str(key) + ' '
             if entry['type'] != 'dict' and entry['type'] in IStorage._valid_types:
                 if entry['type'] == 'list' or entry['type'] == 'tuple':
@@ -341,10 +344,14 @@ class StorageObj(object, IStorage):
                     query_simple += entry['type'] + ', '
             else:
                 query_simple += 'uuid, '
-        config.session.execute(query_simple[:-2] + ' )')
+        try:
+            config.session.execute(query_simple[:-2] + ' )')
+        except Exception as ir:
+            log.error("Unable to execute %s", query_simple)
+            raise ir
 
-        for obj_name, obj_info in self._persistent_props.iteritems():
-            if hasattr(self,obj_name):
+        for obj_name, obj_info in self._persistent_props.items():
+            if hasattr(self, obj_name):
                 pd = getattr(self, obj_name)
                 if obj_info['type'] not in IStorage._basic_types:
                     sd_name = self._ksp + "." + self._table + "_" + obj_name
@@ -421,7 +428,7 @@ class StorageObj(object, IStorage):
         """
             Given a key and its value, this function saves it (depending on if it's persistent or not):
                 a) In memory
-                b) In the DDBB
+                b) In the DB
             Args:
                 attribute: name of the value that we want to set
                 value: value that we want to save
@@ -431,7 +438,7 @@ class StorageObj(object, IStorage):
             return
 
         if attribute in self._persistent_attrs:
-            if config.hecuba_type_checking and value != None and not isinstance(value, dict) and \
+            if config.hecuba_type_checking and value is not None and not isinstance(value, dict) and \
                             IStorage._conversions[value.__class__.__name__] != self._persistent_props[attribute][
                         'type']:
                 raise TypeError
@@ -449,7 +456,9 @@ class StorageObj(object, IStorage):
 
             if self._is_persistent:
                 if issubclass(value.__class__, IStorage):
-                    value.make_persistent(self._ksp + '.' + self._table+'_'+attribute)
+                    if not value._is_persistent:
+                        count = self._count_name_collision(attribute)
+                        value.make_persistent(self._ksp + '.' + self._table + '_' + attribute + '_' + str(count))
                     values = [self._storage_id, value._storage_id]
                 else:
                     values = [self._storage_id, value]
@@ -461,8 +470,6 @@ class StorageObj(object, IStorage):
                 config.session.execute(query, values)
 
         object.__setattr__(self, attribute, value)
-
-
 
     def __delattr__(self, item):
         """

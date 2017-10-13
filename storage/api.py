@@ -1,4 +1,3 @@
-# author: G. Alomar
 import uuid
 
 

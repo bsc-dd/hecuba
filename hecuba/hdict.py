@@ -1,10 +1,9 @@
-# author: G. Alomar
 from collections import Iterable
 from collections import namedtuple
 from collections import Mapping
 from types import NoneType
 from hfetch import Hcache
-from IStorage import IStorage
+from IStorage import IStorage, AlreadyPersistentError
 from hecuba import config, log
 from hecuba.hnumpy import StorageNumpy
 import uuid
@@ -135,14 +134,13 @@ class StorageDict(dict, IStorage):
 
         self._storage_id = storage_id
 
-
         if self.__doc__ is not None:
             self._persistent_props = self._parse_comments(self.__doc__)
             self._primary_keys = self._persistent_props[self.__class__.__name__]['primary_keys']
             self._columns = self._persistent_props[self.__class__.__name__]['columns']
             try:
                 self._indexed_args = self._persistent_props[self.__class__.__name__]['indexed_values']
-            except:
+            except KeyError:
                 self._indexed_args = indexed_args
         else:
             self._primary_keys = primary_keys
@@ -164,16 +162,14 @@ class StorageDict(dict, IStorage):
 
         self._k_size = len(key_names)
 
-
         class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
         self._build_args = self.args(name, self._primary_keys, self._columns, self._tokens,
-                                         self._storage_id, self._indexed_args, class_name)
+                                     self._storage_id, self._indexed_args, class_name)
 
         if name is not None:
             self.make_persistent(name)
         else:
             self._is_persistent = False
-
 
     def __eq__(self, other):
         """
@@ -183,9 +179,8 @@ class StorageDict(dict, IStorage):
         Returns:
             boolean (true - equals, false - not equals).
         """
-        return self._storage_id == other._storage_id and \
-               self._tokens == other.token_ranges \
-               and self._table == other.table_name and self._ksp == other.keyspace
+        return self._storage_id == other._storage_id and self._tokens == other.token_ranges and \
+               self._table == other.table_name and self._ksp == other.keyspace
 
     _dict_case = re.compile('.*@TypeSpec + *< *< *([\w:, ]+)+ *> *, *([\w+:., <>]+) *>')
     _tuple_case = re.compile('.*@TypeSpec +(\w+) +tuple+ *< *([\w, +]+) *>')
@@ -321,6 +316,7 @@ class StorageDict(dict, IStorage):
             return dict.__contains__(self, key)
         else:
             try:
+                # TODO we should save this value in a cache
                 self._hcache.get_row(self._make_key(key))
                 return True
             except Exception as ex:
@@ -393,6 +389,9 @@ class StorageDict(dict, IStorage):
         Args:
             name:
         """
+        if self._is_persistent:
+            raise AlreadyPersistentError("This StorageDict is already persistent [Before:{}.{}][After:{}]",
+                                         self._ksp, self._table, name)
         self._is_persistent = True
         (self._ksp, self._table) = self._extract_ks_tab(name)
 
@@ -401,13 +400,12 @@ class StorageDict(dict, IStorage):
         self._build_args = self._build_args._replace(storage_id=self._storage_id, name=self._ksp + "." + self._table)
         self._store_meta(self._build_args)
         if config.id_create_schema == -1:
-            query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy'," \
-                             "'replication_factor': %d }" % (self._ksp, config.repl_factor)
+            query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
             try:
                 log.debug('MAKE PERSISTENCE: %s', query_keyspace)
                 config.session.execute(query_keyspace)
             except Exception as ex:
-                log.warn("Error creating the StorageDict keyspace %s, %s", (query_keyspace),ex)
+                log.warn("Error creating the StorageDict keyspace %s, %s", (query_keyspace), ex)
                 raise ex
 
         for key, value in dict.iteritems(self):
@@ -453,13 +451,14 @@ class StorageDict(dict, IStorage):
         for key, value in dict.iteritems(self):
             self._hcache.put_row(self._make_key(key), self._make_value(value))
         if hasattr(self, '_indexed_args') and self._indexed_args is not None:
-            index_query = 'CREATE CUSTOM INDEX IF NOT EXISTS ' + str(self._table) + '_idx ON '
-            index_query += str(self._ksp) + '.' + str(self._table) + ' (' + str.join(',', self._indexed_args) + ') '
-            index_query += 'using \'es.bsc.qbeast.index.QbeastIndex\';'
+            index_query = 'CREATE CUSTOM INDEX IF NOT EXISTS ' + self._table + '_idx ON '
+            index_query += self._ksp + '.' + self._table + ' (' + str.join(',', self._indexed_args) + ') '
+            index_query += "using 'es.bsc.qbeast.index.QbeastIndex';"
             try:
                 config.session.execute(index_query)
             except Exception as ex:
                 log.error("Error creating the Qbeast custom index: %s %s", index_query, ex)
+                raise ex
 
     def stop_persistent(self):
         """
@@ -498,7 +497,7 @@ class StorageDict(dict, IStorage):
 
     def __getitem__(self, key):
         """
-        If the object is persistent, each request goes to the prefetcher.
+        If the object is persistent, each request goes to the hfetch.
         Args:
              key: the dictionary key
         Returns
@@ -547,9 +546,11 @@ class StorageDict(dict, IStorage):
             if not self._is_persistent:
                 dict.__setitem__(self, key, val)
             else:
-                if isinstance(val, StorageNumpy):
+                if isinstance(val, IStorage) and not val._is_persistent:
+                    attribute = val.__class__.__name__.lower()
+                    count = self._count_name_collision(attribute)
                     # new name as ksp+table+obj_class_name
-                    val.make_persistent(self._ksp + '.' + self._table + StorageNumpy.__name__.lower())
+                    val.make_persistent(self._ksp + '.' + self._table + "_" + attribute + "_" + str(count))
                 self._hcache.put_row(self._make_key(key), self._make_value(val))
         else:
             if isinstance(val, Iterable) and not isinstance(val, str):
@@ -669,9 +670,18 @@ class StorageDict(dict, IStorage):
         else:
             return dict.itervalues(self)
 
+    def keys(self):
+        return [i for i in self.iterkeys()]
+
+    def values(self):
+        return [i for i in self.itervalues()]
+
+    def items(self):
+        return [i for i in self.iteritems()]
+
     def get(self, key, default):
         try:
             value = self.__getitem__(key)
-        except:
+        except KeyError:
             value = default
         return value

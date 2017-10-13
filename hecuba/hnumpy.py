@@ -1,4 +1,4 @@
-from IStorage import IStorage
+from IStorage import IStorage, AlreadyPersistentError
 from hecuba import config, log
 
 from hfetch import Hcache
@@ -96,7 +96,8 @@ class StorageNumpy(np.ndarray, IStorage):
 
     def make_persistent(self, name):
         if self._is_persistent:
-            return
+            raise AlreadyPersistentError("This StorageNumpy is already persistent [Before:{}.{}][After:{}]",
+                                         self._ksp, self._table, name)
         self._is_persistent = True
 
         (self._ksp, self._table) = self._extract_ks_tab(name)
@@ -105,8 +106,7 @@ class StorageNumpy(np.ndarray, IStorage):
         self._build_args = self.args(self._storage_id, self._class_name, name)
         log.info("PERSISTING DATA INTO %s %s", self._ksp, self._table)
 
-        query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = {'class': 'SimpleStrategy'," \
-                         "'replication_factor': %d }" % (self._ksp, config.repl_factor)
+        query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
         config.session.execute(query_keyspace)
 
         config.session.execute('CREATE TABLE IF NOT EXISTS ' + self._ksp + '.' + self._table + '_numpies'

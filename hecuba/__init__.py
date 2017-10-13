@@ -1,4 +1,3 @@
-# author: G. Alomar
 import os
 import logging
 from cassandra.cluster import Cluster
@@ -98,14 +97,14 @@ class Config:
             try:
                 singleton.session.shutdown()
                 singleton.cluster.shutdown()
-            except:
+            except _:
                 log.warn('error shutting down')
         try:
-            singleton.repl_factor = int(os.environ['REPLICA_FACTOR'])
-            log.info('REPLICA_FACTOR: %d', singleton.repl_factor)
+            singleton.replication_factor = int(os.environ['REPLICA_FACTOR'])
+            log.info('REPLICA_FACTOR: %d', singleton.replication_factor)
         except KeyError:
-            singleton.repl_factor = 1
-            log.warn('using default REPLICA_FACTOR: %d', singleton.repl_factor)
+            singleton.replication_factor = 1
+            log.warn('using default REPLICA_FACTOR: %d', singleton.replication_factor)
 
         try:
             user_defined_execution_name = os.environ['EXECUTION_NAME']
@@ -117,73 +116,6 @@ class Config:
         except KeyError:
             singleton.execution_name = 'my_app'
             log.warn('using default EXECUTION_NAME: %s', singleton.execution_name)
-
-        if mock_cassandra:
-            class clusterMock:
-                def __init__(self):
-                    from cassandra.metadata import Metadata
-                    self.metadata = Metadata()
-                    self.metadata.rebuild_token_map("Murmur3Partitioner", {})
-
-            class sessionMock:
-
-                def execute(self, *args, **kwargs):
-                    log.info('called mock.session')
-                    return []
-
-                def prepare(self, *args, **kwargs):
-                    return self
-
-                def bind(self, *args, **kwargs):
-                    return self
-
-            singleton.cluster = clusterMock()
-            singleton.session = sessionMock()
-        else:
-            log.info('Initializing global session')
-            try:
-                singleton.cluster = Cluster(contact_points=singleton.contact_names, port=singleton.nodePort,
-                                            default_retry_policy=_NRetry(5))
-                singleton.session = singleton.cluster.connect()
-                singleton.session.encoder.mapping[tuple] = singleton.session.encoder.cql_encode_tuple
-                from hfetch import connectCassandra
-                # connecting c++ bindings
-                connectCassandra(singleton.contact_names, singleton.nodePort)
-                if singleton.id_create_schema == -1:
-                    singleton.session.execute(
-                        ('CREATE KEYSPACE IF NOT EXISTS hecuba' +
-                         " WITH replication = {'class': 'SimpleStrategy', "
-                         "'replication_factor': %d }" % singleton.repl_factor))
-
-                    singleton.session.execute('CREATE TYPE IF NOT EXISTS hecuba.q_meta('
-                                              'mem_filter text, '
-                                              'from_point frozen < list < float >>,'
-                                              'to_point frozen < list < float >>,'
-                                              'precision float)')
-
-                    singleton.session.execute(
-                        'CREATE TABLE IF NOT EXISTS hecuba' +
-                        '.istorage (storage_id uuid, '
-                        'class_name text,name text, '
-                        'istorage_props map<text,text>, '
-                        'tokens list<frozen<tuple<bigint,bigint>>>,'
-                        'indexed_on list<text>,'
-                        'entry_point text,'
-                        'qbeast_id uuid,'
-                        'qbeast_meta q_meta,'
-                        'primary_keys list<frozen<tuple<text,text>>>,'
-                        'columns list<frozen<tuple<text,text>>>,'
-                        'PRIMARY KEY(storage_id))')
-
-            except Exception as e:
-                log.error('Exception creating cluster session. Are you in a testing env? %s', e)
-
-        try:
-            singleton.workers_per_node = int(os.environ['WORKERS_PER_NODE'])
-            log.info('WORKERS_PER_NODE: %d', singleton.workers_per_node)
-        except KeyError:
-            singleton.workers_per_node = 8
-            log.warn('using default WORKERS_PER_NODE: %d', singleton.workers_per_node)
 
         try:
             singleton.number_of_partitions = int(os.environ['NUMBER_OF_BLOCKS'])
@@ -200,20 +132,6 @@ class Config:
             log.warn('using default MIN_NUMBER_OF_TOKENS: %d', singleton.min_number_of_tokens)
 
         try:
-            singleton.batch_size = int(os.environ['BATCH_SIZE'])
-            log.info('BATCH_SIZE: %d', singleton.batch_size)
-        except KeyError:
-            singleton.batch_size = 1
-            log.warn('using default BATCH_SIZE: %d', singleton.batch_size)
-
-        try:
-            singleton.ranges_per_block = int(os.environ['RANGES_PER_BLOCK:'])
-            log.info('RANGES_PER_BLOCK:: %d', singleton.ranges_per_block)
-        except KeyError:
-            singleton.ranges_per_block = 1
-            log.warn('using default RANGES_PER_BLOCK: %d', singleton.ranges_per_block)
-
-        try:
             singleton.max_cache_size = int(os.environ['MAX_CACHE_SIZE'])
             log.info('MAX_CACHE_SIZE: %d', singleton.max_cache_size)
         except KeyError:
@@ -221,12 +139,25 @@ class Config:
             log.warn('using default MAX_CACHE_SIZE: %d', singleton.max_cache_size)
 
         try:
-            singleton.repl_class = os.environ['REPLICATION_STRATEGY']
-            log.info('REPLICATION_STRATEGY: %s', singleton.repl_class)
+            singleton.replication_strategy = os.environ['REPLICATION_STRATEGY']
+            log.info('REPLICATION_STRATEGY: %s', singleton.replication_strategy)
         except KeyError:
-            singleton.repl_class = "SimpleStrategy"
-            log.warn('using default REPLICATION_STRATEGY: %s', singleton.repl_class)
+            singleton.replication_strategy = "SimpleStrategy"
+            log.warn('using default REPLICATION_STRATEGY: %s', singleton.replication_strategy)
 
+        try:
+            singleton.replication_strategy_options = os.environ['REPLICATION_STRATEGY_OPTIONS']
+            log.info('REPLICATION_STRATEGY_OPTIONS: %s', singleton.replication_strategy_options)
+        except KeyError:
+            singleton.replication_strategy_options = ""
+            log.warn('using default REPLICATION_STRATEGY_OPTIONS: %s', singleton.replication_strategy_options)
+
+        if singleton.replication_strategy is "SimpleStrategy":
+            singleton.replication = "{'class' : 'SimpleStrategy', 'replication_factor': %d}" % \
+                                    singleton.replication_factor
+        else:
+            singleton.replication = "{'class' : '%s', %s}" % (
+            singleton.replication_strategy, singleton.replication_strategy_options)
         try:
             singleton.hecuba_print_limit = int(os.environ['HECUBA_PRINT_LIMIT'])
             log.info('HECUBA_PRINT_LIMIT: %s', singleton.hecuba_print_limit)
@@ -240,13 +171,6 @@ class Config:
         except KeyError:
             singleton.hecuba_type_checking = False
             log.warn('using default HECUBA_TYPE_CHECKING: %s', singleton.hecuba_type_checking)
-
-        try:
-            singleton.statistics_activated = os.environ['STATISTICS_ACTIVATED'].lower() == 'true'
-            log.info('STATISTICS_ACTIVATED: %s', singleton.statistics_activated)
-        except KeyError:
-            singleton.statistics_activated = True
-            log.warn('using default STATISTICS_ACTIVATED: %s', singleton.statistics_activated)
 
         try:
             singleton.hecuba_type_checking = os.environ['HECUBA_TYPE_CHECKING'].lower() == 'true'
@@ -275,16 +199,6 @@ class Config:
         except KeyError:
             singleton.write_callbacks_number = 16
             log.warn('using default WRITE_CALLBACKS_NUMBER: %s', singleton.write_callbacks_number)
-
-        if singleton.id_create_schema == -1:
-            try:
-                query = "CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = { 'class' : \'%s\'," \
-                        "'replication_factor' : %d};" \
-                        % (singleton.execution_name, singleton.repl_class, singleton.repl_factor)
-                singleton.session.execute(query)
-            except Exception as ex:
-                log.warn("Cannot create keyspace %s" % singleton.execution_name)
-                raise ex
 
         try:
             singleton.qbeast_master_port = int(os.environ['QBEAST_MASTER_PORT'])
@@ -329,9 +243,72 @@ class Config:
             log.warn('using default qbeast read max 10000')
             singleton.qbeast_read_max = 10000
 
+        if mock_cassandra:
+            class clusterMock:
+                def __init__(self):
+                    from cassandra.metadata import Metadata
+                    self.metadata = Metadata()
+                    self.metadata.rebuild_token_map("Murmur3Partitioner", {})
+
+            class sessionMock:
+
+                def execute(self, *args, **kwargs):
+                    log.info('called mock.session')
+                    return []
+
+                def prepare(self, *args, **kwargs):
+                    return self
+
+                def bind(self, *args, **kwargs):
+                    return self
+
+            singleton.cluster = clusterMock()
+            singleton.session = sessionMock()
+        else:
+            log.info('Initializing global session')
+            try:
+                singleton.cluster = Cluster(contact_points=singleton.contact_names, port=singleton.nodePort,
+                                            default_retry_policy=_NRetry(5))
+                singleton.session = singleton.cluster.connect()
+                singleton.session.encoder.mapping[tuple] = singleton.session.encoder.cql_encode_tuple
+                from hfetch import connectCassandra
+                # connecting c++ bindings
+                connectCassandra(singleton.contact_names, singleton.nodePort)
+                if singleton.id_create_schema == -1:
+                    singleton.session.execute(
+                        "CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = %s" % (singleton.execution_name,
+                                                                                    singleton.replication))
+                    singleton.session.execute(
+                        ('CREATE KEYSPACE IF NOT EXISTS hecuba' +
+                         " WITH replication = %s" % singleton.replication))
+
+                    singleton.session.execute('CREATE TYPE IF NOT EXISTS hecuba.q_meta('
+                                              'mem_filter text, '
+                                              'from_point frozen < list < float >>,'
+                                              'to_point frozen < list < float >>,'
+                                              'precision float)')
+
+                    singleton.session.execute(
+                        'CREATE TABLE IF NOT EXISTS hecuba' +
+                        '.istorage (storage_id uuid, '
+                        'class_name text,name text, '
+                        'istorage_props map<text,text>, '
+                        'tokens list<frozen<tuple<bigint,bigint>>>,'
+                        'indexed_on list<text>,'
+                        'entry_point text,'
+                        'qbeast_id uuid,'
+                        'qbeast_meta q_meta,'
+                        'primary_keys list<frozen<tuple<text,text>>>,'
+                        'columns list<frozen<tuple<text,text>>>,'
+                        'PRIMARY KEY(storage_id))')
+
+            except Exception as e:
+                log.error('Exception creating cluster session. Are you in a testing env? %s', e)
+
 
 filter_reg = re.compile(' *lambda *\( *\( *([\w, ]+) *\) *, *\( *([\w, ]+) *\) *\) *: *([\w<>().&*+/ ]+) *,')
 random_reg = re.compile('(.*)((random.random\(\)|random\(\)) *< *([0.1]))(.*)')
+
 
 def hecuba_filter(lambda_filter, iterable):
     if hasattr(iterable, '_storage_father') and hasattr(iterable._storage_father, '_indexed_args') \
@@ -356,9 +333,9 @@ def hecuba_filter(lambda_filter, iterable):
         precision_ind = -1
         if m is not None:
             params = m.groups()
-            for ind,param in enumerate(params):
+            for ind, param in enumerate(params):
                 if param == 'random()' or param == 'random.random()':
-                    precision = float(params[ind+1])
+                    precision = float(params[ind + 1])
                     precision_ind = ind + 1
                 else:
                     if param != '' and 'random()' not in param and ind != precision_ind:
@@ -463,3 +440,9 @@ if not filter == hecuba_filter:
 
 global config
 config = Config()
+
+from hecuba.storageobj import StorageObj
+from hecuba.hdict import StorageDict
+from hecuba.hnumpy import StorageNumpy
+
+__all__ = ['StorageObj', 'StorageDict', 'StorageNumpy']
