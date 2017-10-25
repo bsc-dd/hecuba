@@ -411,7 +411,7 @@ class StorageDict(dict, IStorage):
         for key, value in dict.iteritems(self):
             if issubclass(value.__class__, IStorage):
                 # new name as ksp+table+obj_class_name
-                val_name = self._ksp + '.' + self._table + type(value).__name__.lower()
+                val_name = self._ksp + '.' + self._table + '_' + self._columns[0][0]# + type(value).__name__.lower()
                 value.make_persistent(val_name)
 
         columns = self._primary_keys + self._columns
@@ -476,13 +476,6 @@ class StorageDict(dict, IStorage):
         log.debug('DELETE PERSISTENT: %s', query)
         config.session.execute(query)
 
-    def _build_istorage_obj(self, obj_type, so_name, storage_id):
-        cname, module = IStorage.process_path(obj_type)
-        mod = __import__(module, globals(), locals(), [cname], 0)
-        # new name as ksp+table+obj_class_name
-        so = getattr(mod, cname)(name=so_name + cname.lower(), storage_id=storage_id)
-        # sso._storage_id = storage_id
-        return so
 
     def __delitem__(self, key):
         """
@@ -515,8 +508,8 @@ class StorageDict(dict, IStorage):
             final_results = []
             for index, (name, col_type) in enumerate(self._columns):
                 if col_type not in IStorage._basic_types:
-                    table_name = self._ksp + '.' + self._table
-                    element = (self._build_istorage_obj(col_type, table_name, uuid.UUID(cres[index])))
+                    table_name = self._ksp + '.' + self._table + '_' + self._columns[0][0]
+                    element = (self._build_istorage_obj({'type':col_type}, table_name, uuid.UUID(cres[index])))
                 else:
                     element = cres[index]
                 final_results.append(element)
@@ -547,7 +540,7 @@ class StorageDict(dict, IStorage):
                 dict.__setitem__(self, key, val)
             else:
                 if isinstance(val, IStorage) and not val._is_persistent:
-                    attribute = val.__class__.__name__.lower()
+                    attribute = self._columns[0][0]
                     count = self._count_name_collision(attribute)
                     # new name as ksp+table+obj_class_name
                     val.make_persistent(self._ksp + '.' + self._table + "_" + attribute + "_" + str(count))
