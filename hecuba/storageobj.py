@@ -348,16 +348,18 @@ class StorageObj(object, IStorage):
             log.error("Unable to execute %s", query_simple)
             raise ir
 
+        #Iterate over the objects the user has requested to be persistent
+        # retrieve them from memory and make them persistent
         for obj_name, obj_info in self._persistent_props.items():
             try:
-                pd = object.__getattribute__(self,obj_name)
+                pd = object.__getattribute__(self, obj_name)
                 if obj_info['type'] not in IStorage._basic_types:
                     sd_name = self._ksp + "." + self._table + "_" + obj_name
                     pd.make_persistent(sd_name)
+                #self is persistent so setting the attribute will store the data and create the appropiate binding
                 setattr(self, obj_name, pd)
-                #super(StorageObj, self).__setattr__(obj_name, pd) #why?
-                #object.__setattr__(self,obj_name,pd)
             except AttributeError:
+                #Attribute unset, no action needed
                 pass
         self._store_meta(self._build_args)
 
@@ -400,42 +402,48 @@ class StorageObj(object, IStorage):
             return object.__getattribute__(self, attribute)
 
 
+        '''
+        If the attribute is not a built-in object, we might have it in memory. 
+        Since python works using references any modification from another reference will affect this attribute,
+        which is the expected behaviour. Therefore, is safe to store in-memory the Hecuba objects.
+        '''
         value_info = self._persistent_props[attribute]
         if value_info['type'] not in IStorage._basic_types:
             try:
-                local_so = object.__getattribute__(self, attribute)
-                return local_so
+                return object.__getattribute__(self, attribute)
             except AttributeError as ex:
+                # Not present in memory, we will need to rebuild it
                 pass
 
         query = "SELECT %s FROM %s.%s WHERE storage_id = %s;" % (attribute, self._ksp, self._table, self._storage_id)
         log.debug("GETATTR: %s", query)
-        #result = []
         try:
             result = config.session.execute(query)
         except Exception as ex:
             log.warn("GETATTR ex %s", ex)
             raise ex
 
+        # will raise out of index if the attribute doesn't exist
         try:
-            value = result[0][0] #will raise out of index
+            value = result[0][0]
         except IndexError as ex:
             raise AttributeError('value not found')
 
+        # if exists but is set to None, the current behaviour is raising AttributeError
         if value is None:
             raise AttributeError('value not found')
 
+        # if the value is not a built-in type we need to check if it has changed and maybe rebuild
         if value_info['type'] not in IStorage._basic_types:
-            #local_so_id == None
-            #build IStorage
+            # The object wasn't in memory
             count = self._count_name_collision(attribute)
-            table_name = self._ksp + '.' + self._table + '_' + attribute + '_' + str(count - 1)
+            if count == 0:
+                table_name = self._ksp + '.' + self._table + '_' + attribute
+            else:
+                table_name = self._ksp + '.' + self._table + '_' + attribute + '_' + str(count - 1)
             value = self._build_istorage_obj(value_info, table_name, value)
 
         return value
-
-
-    _tablename_finder = re.compile('([A-z0-9_]+)_([0-9]+)$')
 
     def __setattr__(self, attribute, value):
         """
@@ -446,45 +454,47 @@ class StorageObj(object, IStorage):
                 attribute: name of the value that we want to set
                 value: value that we want to save
         """
-        if attribute[0] is '_':
+        if attribute[0] is '_' or attribute not in self._persistent_attrs:
             object.__setattr__(self, attribute, value)
             return
 
-        if attribute in self._persistent_attrs:
-            if config.hecuba_type_checking and value is not None and not isinstance(value, dict) and \
-                            IStorage._conversions[value.__class__.__name__] != self._persistent_props[attribute][
-                        'type']:
-                raise TypeError
+        if config.hecuba_type_checking and value is not None and not isinstance(value, dict) and \
+                        IStorage._conversions[value.__class__.__name__] != self._persistent_props[attribute]['type']:
+            raise TypeError
 
-            if not isinstance(value, IStorage):
-                if isinstance(value, np.ndarray):
-                    value = StorageNumpy(value)
-                elif isinstance(value, dict):
-                    per_dict = self._persistent_props[attribute]
-                    indexed_args = per_dict.get('indexed_values', None)
-                    new_value = StorageDict(None, per_dict['primary_keys'], per_dict['columns'],
-                                            tokens=self._tokens, indexed_args=indexed_args)
-                    new_value.update(value)
-                    value = new_value
+        #Transform numpy.ndarrays and python dicts to StorageNumpy and StorageDicts
+        if not isinstance(value, IStorage):
+            if isinstance(value, np.ndarray):
+                value = StorageNumpy(value)
+            elif isinstance(value, dict):
+                per_dict = self._persistent_props[attribute]
+                indexed_args = per_dict.get('indexed_values', None)
+                new_value = StorageDict(None, per_dict['primary_keys'], per_dict['columns'],
+                                        tokens=self._tokens, indexed_args=indexed_args)
+                new_value.update(value)
+                value = new_value
 
-            if self._is_persistent:
-                if issubclass(value.__class__, IStorage):
-                    if not value._is_persistent:
-                        name_collisions = attribute.lower()#value.__class__.__name__.lower()
-                        count = self._count_name_collision(name_collisions)
-                        value.make_persistent(self._ksp + '.' + self._table + '_' + name_collisions + '_' + str(count))
-                    #value = value._storage_id
-                    values = [self._storage_id, value._storage_id]
-                else:
-                    values = [self._storage_id, value]
+        if self._is_persistent:
+            #Write attribute to the storage
+            if isinstance(value, IStorage):
+                if not value._is_persistent:
+                    name_collisions = attribute.lower()
+                    count = self._count_name_collision(name_collisions)
+                    value.make_persistent(self._ksp + '.' + self._table + '_' + name_collisions + '_' + str(count))
+                # We store the storage_id when the object belongs to an Hecuba class
+                values = [self._storage_id, value._storage_id]
+                # We store the IStorage object in memory, to avoid rebuilding when it is not necessary
+                object.__setattr__(self, attribute, value)
+            else:
+                values = [self._storage_id, value]
 
-                query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, attribute)
-                query += " VALUES (%s,%s)"
+            query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, attribute)
+            query += " VALUES (%s,%s)"
 
-                log.debug("SETATTR: ", query)
-                config.session.execute(query, values)
-
-        object.__setattr__(self, attribute, value)
+            log.debug("SETATTR: ", query)
+            config.session.execute(query, values)
+        else:
+            object.__setattr__(self, attribute, value)
 
     def __delattr__(self, item):
         """
@@ -497,4 +507,5 @@ class StorageObj(object, IStorage):
                     % (self._ksp, self._table, item, self._storage_id)
             config.session.execute(query)
 
-        object.__delattr__(self, item)
+        else:
+            object.__delattr__(self, item)

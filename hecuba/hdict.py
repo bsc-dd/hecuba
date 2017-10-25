@@ -408,27 +408,21 @@ class StorageDict(dict, IStorage):
                 log.warn("Error creating the StorageDict keyspace %s, %s", (query_keyspace), ex)
                 raise ex
 
-        for key, value in dict.iteritems(self):
-            if issubclass(value.__class__, IStorage):
-                # new name as ksp+table+obj_class_name
-                val_name = self._ksp + '.' + self._table + '_' + self._columns[0][0]# + type(value).__name__.lower()
-                value.make_persistent(val_name)
-
-        columns = self._primary_keys + self._columns
-        for ind, entry in enumerate(columns):
+        all_columns = self._primary_keys + self._columns
+        for ind, entry in enumerate(all_columns):
             n = StorageDict._other_case.match(entry[1])
             if n is not None:
                 iter_type, intra_type = n.groups()
             else:
                 iter_type = entry[1]
             if iter_type not in IStorage._basic_types:
-                columns[ind] = entry[0], 'uuid'
+                all_columns[ind] = entry[0], 'uuid'
 
         pks = map(lambda a: a[0], self._primary_keys)
         query_table = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" \
                       % (self._ksp,
                          self._table,
-                         ",".join("%s %s" % tup for tup in columns),
+                         ",".join("%s %s" % tup for tup in all_columns),
                          str.join(',', pks))
         try:
             log.debug('MAKE PERSISTENCE: %s', query_table)
@@ -437,11 +431,11 @@ class StorageDict(dict, IStorage):
             log.warn("Error creating the StorageDict table: %s %s", query_table, ex)
             raise ex
         key_names = map(lambda a: a[0].encode('UTF8'), self._primary_keys)
-        column_names = self._columns
+        values_names = self._columns
 
         self._hcache_params = (self._ksp, self._table,
                                self._storage_id,
-                               self._tokens, key_names, map(lambda x: {"name": x[0], "type": x[1]}, column_names),
+                               self._tokens, key_names, map(lambda x: {"name": x[0], "type": x[1]}, values_names),
                                {'cache_size': config.max_cache_size,
                                 'writer_par': config.write_callbacks_number,
                                 'write_buffer': config.write_buffer_size})
@@ -449,6 +443,11 @@ class StorageDict(dict, IStorage):
         self._hcache = Hcache(*self._hcache_params)
         # Storing all in-memory values to cassandra
         for key, value in dict.iteritems(self):
+            if issubclass(value.__class__, IStorage):
+                # new name as ksp.table_valuename, where valuename is either defined by the user or set by hecuba
+                val_name = self._ksp + '.' + self._table + '_' + self._columns[0][0]
+                value.make_persistent(val_name)
+                value = value._storage_id
             self._hcache.put_row(self._make_key(key), self._make_value(value))
         if hasattr(self, '_indexed_args') and self._indexed_args is not None:
             index_query = 'CREATE CUSTOM INDEX IF NOT EXISTS ' + self._table + '_idx ON '
@@ -499,31 +498,27 @@ class StorageDict(dict, IStorage):
         log.debug('GET ITEM %s', key)
 
         if not self._is_persistent:
-            to_return = dict.__getitem__(self, key)
-            return to_return
+            return dict.__getitem__(self, key)
         else:
-            cres = self._hcache.get_row(self._make_key(key))
-            log.debug("GET ITEM %s[%s]", cres, cres.__class__)
+            #Returns always a list with a single entry for the key
+            persistent_result = self._hcache.get_row(self._make_key(key))
+            log.debug("GET ITEM %s[%s]", persistent_result, persistent_result.__class__)
 
+            #we need to transform UUIDs belonging to IStorage objects and rebuild them
             final_results = []
             for index, (name, col_type) in enumerate(self._columns):
+                element = persistent_result[index]
                 if col_type not in IStorage._basic_types:
-                    table_name = self._ksp + '.' + self._table + '_' + self._columns[0][0]
-                    element = (self._build_istorage_obj({'type':col_type}, table_name, uuid.UUID(cres[index])))
-                else:
-                    element = cres[index]
+                    #element is not a built-in type
+                    table_name = self._ksp + '.' + self._table + '_' + name
+                    object_info = {'type': col_type}
+                    element = self._build_istorage_obj(object_info, table_name, uuid.UUID(element))
                 final_results.append(element)
 
-            cres = final_results
-            if issubclass(cres.__class__, NoneType):
-                return None
-            elif self._column_builder is not None:
-                if len(cres) > 0 and isinstance(cres[0], list):
-                    return [self._column_builder(*row) for row in cres]
-                else:
-                    return self._column_builder(*cres)
+            if self._column_builder is not None:
+                return self._column_builder(*final_results)
             else:
-                return cres[0]
+                return final_results[0]
 
     def __setitem__(self, key, val):
         """

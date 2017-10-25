@@ -3,7 +3,7 @@ from collections import namedtuple
 from time import time
 from hecuba import config, log
 import re
-
+import copy
 
 class AlreadyPersistentError(RuntimeError):
     pass
@@ -179,9 +179,11 @@ class IStorage:
         cname, module = IStorage.process_path(obj_info['type'])
         mod = __import__(module, globals(), locals(), [cname], 0)
         # new name as ksp+table+obj_class_name
-        obj_info['name'] = so_name
-        obj_info['storage_id'] = storage_id
-        so = getattr(mod, cname)(**obj_info)
+        args = copy.deepcopy(obj_info)
+        args['name'] = so_name
+        args['storage_id'] = storage_id
+        args.pop('type')
+        so = getattr(mod, cname)(**args)
         # sso._storage_id = storage_id
         return so
 
