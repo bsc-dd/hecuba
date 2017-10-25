@@ -78,7 +78,6 @@ class StorageObj(object, IStorage):
         log.debug("CREATED StorageObj(%s)", name)
         self._is_persistent = False
         self._persistent_dicts = []
-        self._storage_objs = []
 
         if name is None:
             self._ksp = config.execution_name
@@ -129,7 +128,6 @@ class StorageObj(object, IStorage):
         storageobjs = filter(lambda (k, t): t['type'] not in IStorage._basic_types and t['type'] != 'StorageDict',
                              self._persistent_props.iteritems())
         for table_name, per_dict in storageobjs:
-            so_name = "%s.%s" % (self._ksp, table_name)
             cname, module = IStorage.process_path(per_dict['type'])
             mod = __import__(module, globals(), locals(), [cname], 0)
             so = getattr(mod, cname)()
@@ -351,13 +349,16 @@ class StorageObj(object, IStorage):
             raise ir
 
         for obj_name, obj_info in self._persistent_props.items():
-            if hasattr(self, obj_name):
-                pd = getattr(self, obj_name)
+            try:
+                pd = object.__getattribute__(self,obj_name)
                 if obj_info['type'] not in IStorage._basic_types:
                     sd_name = self._ksp + "." + self._table + "_" + obj_name
                     pd.make_persistent(sd_name)
-                setattr(self, obj_name, pd)  # super(StorageObj, self).__setattr__(obj_name, pd) why?
-
+                setattr(self, obj_name, pd)
+                #super(StorageObj, self).__setattr__(obj_name, pd) #why?
+                #object.__setattr__(self,obj_name,pd)
+            except AttributeError:
+                pass
         self._store_meta(self._build_args)
 
     def stop_persistent(self):
@@ -365,28 +366,27 @@ class StorageObj(object, IStorage):
             The StorageObj stops being persistent, but keeps the information already stored in Cassandra
         """
         log.debug("STOP PERSISTENT")
-        for persistent_dict in self._persistent_dicts:
-            persistent_dict.stop_persistent()
 
     def delete_persistent(self):
         """
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
-        self._is_persistent = False
 
-        if hasattr(self, '_persistent_dicts'):
-            for pers_dict in self._persistent_dicts:
-                pers_dict.delete_persistent()
-
-        if hasattr(self, '_storage_objs'):
-            for so in self._storage_objs:
-                so.delete_persistent()
+        for (attr_name,attr_info) in self._persistent_props.iteritems():
+            if attr_info['type'] not in IStorage._basic_types:
+                try:
+                    pers_obj = getattr(self,attr_name)
+                    pers_obj.delete_persistent()
+                except AttributeError as ex:
+                    pass
 
         query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
         log.debug("DELETE PERSISTENT: %s", query)
         config.session.execute(query)
 
-    def __getattr__(self, attribute):
+        self._is_persistent = False
+
+    def __getattribute__(self, attribute):
         """
             Given an attribute, this function returns the value, obtaining it from either:
             a) memory
@@ -396,31 +396,44 @@ class StorageObj(object, IStorage):
             Returns:
                 value: obtained value
         """
-        if attribute[0] != '_' and self._is_persistent and attribute in self._persistent_attrs:
-            try:
-                query = "SELECT %s FROM %s.%s WHERE storage_id = %s;" \
-                        % (attribute, self._ksp,
-                           self._table,
-                           self._storage_id)
-                log.debug("GETATTR: %s", query)
-                result = config.session.execute(query)
-                for row in result:
-                    for row_key, row_var in vars(row).iteritems():
-                        if row_var is not None:
-                            if isinstance(row_var, list) and isinstance(row_var[0], unicode):
-                                new_toreturn = []
-                                for entry in row_var:
-                                    new_toreturn.append(str(entry))
-                                return new_toreturn
-                            else:
-                                return row_var
-                        else:
-                            raise AttributeError
-            except Exception as ex:
-                log.warn("GETATTR ex %s", ex)
-                raise AttributeError('value not found')
-        else:
+        if attribute.startswith('_') or not self._is_persistent or attribute not in self._persistent_attrs:
             return object.__getattribute__(self, attribute)
+
+
+        value_info = self._persistent_props[attribute]
+        if value_info['type'] not in IStorage._basic_types:
+            try:
+                local_so = object.__getattribute__(self, attribute)
+                return local_so
+            except AttributeError as ex:
+                pass
+
+        query = "SELECT %s FROM %s.%s WHERE storage_id = %s;" % (attribute, self._ksp, self._table, self._storage_id)
+        log.debug("GETATTR: %s", query)
+        #result = []
+        try:
+            result = config.session.execute(query)
+        except Exception as ex:
+            log.warn("GETATTR ex %s", ex)
+            raise ex
+
+        try:
+            value = result[0][0] #will raise out of index
+        except IndexError as ex:
+            raise AttributeError('value not found')
+
+        if value is None:
+            raise AttributeError('value not found')
+
+        if value_info['type'] not in IStorage._basic_types:
+            #local_so_id == None
+            #build IStorage
+            count = self._count_name_collision(attribute)
+            table_name = self._ksp + '.' + self._table + '_' + attribute + '_' + str(count - 1)
+            value = self._build_istorage_obj(value_info, table_name, value)
+
+        return value
+
 
     _tablename_finder = re.compile('([A-z0-9_]+)_([0-9]+)$')
 
@@ -457,8 +470,10 @@ class StorageObj(object, IStorage):
             if self._is_persistent:
                 if issubclass(value.__class__, IStorage):
                     if not value._is_persistent:
-                        count = self._count_name_collision(attribute)
-                        value.make_persistent(self._ksp + '.' + self._table + '_' + attribute + '_' + str(count))
+                        name_collisions = attribute.lower()#value.__class__.__name__.lower()
+                        count = self._count_name_collision(name_collisions)
+                        value.make_persistent(self._ksp + '.' + self._table + '_' + name_collisions + '_' + str(count))
+                    #value = value._storage_id
                     values = [self._storage_id, value._storage_id]
                 else:
                     values = [self._storage_id, value]
