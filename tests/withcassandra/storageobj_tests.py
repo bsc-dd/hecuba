@@ -272,7 +272,7 @@ class StorageObjTest(unittest.TestCase):
         nopars2 = Test6StorageObj("hecuba_test.nonames")
         nopars2.test3[0] = '1', '2'
         time.sleep(2)
-        result = config.session.execute("SELECT val0, val1 FROM hecuba_test.nonames_test3_0 WHERE key0 = 0")
+        result = config.session.execute("SELECT val0, val1 FROM hecuba_test.nonames_test3 WHERE key0 = 0")
 
         rval0 = None
         rval1 = None
