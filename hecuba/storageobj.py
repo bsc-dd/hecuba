@@ -503,9 +503,9 @@ class StorageObj(object, IStorage):
             item: the name of the attribute to be deleted
         """
         if self._is_persistent and item in self._persistent_attrs:
-            query = "UPDATE %s.%s SET %s = null WHERE storage_id = %s" \
-                    % (self._ksp, self._table, item, self._storage_id)
+            query = "UPDATE %s.%s SET %s = null WHERE storage_id = %s" % (self._ksp, self._table, item, self._storage_id)
             config.session.execute(query)
-
+            if self._persistent_props[item]['type'] not in IStorage._basic_types:
+                object.__delattr__(self, item)
         else:
             object.__delattr__(self, item)

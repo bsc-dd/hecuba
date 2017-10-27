@@ -370,6 +370,40 @@ class StorageObjTest(unittest.TestCase):
 
         self.assertRaises(AttributeError, del_attr1)
 
+    def test_delattr_persistent_nested(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.t4")
+        so = Test3StorageObj("t4")
+        nestedSo = Test2StorageObj()
+        nestedSo.name = 'caio'
+        so.myso = nestedSo
+        # Make sure the inner object has been made persistent
+        self.assertTrue(nestedSo._is_persistent)
+        # Delete the attribute
+        del so.myso
+
+        def del_attr1():
+            my_val = so.myso
+
+        # Accessing deleted attr of type StorageOb should raise AttrErr
+        self.assertRaises(AttributeError, del_attr1)
+
+        # We assign again, nestedSo still existed (no one called delete on it)
+        so.myso = nestedSo
+
+        # Delete a nested attribute of the shared StorageObj
+        del so.myso.name
+
+        # Make sure that the nested attribute deleted has been successfully deleted from both objects
+        def del_attr2():
+            my_val = nestedSo.name
+
+        def del_attr3():
+            my_val = so.myso.name
+
+        self.assertRaises(AttributeError, del_attr2)
+        self.assertRaises(AttributeError, del_attr3)
+
+
     def test_modify_simple_before_mkp_attributes(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.t2")
         so = Test2StorageObj()
