@@ -367,7 +367,16 @@ class StorageObj(object, IStorage):
         """
             The StorageObj stops being persistent, but keeps the information already stored in Cassandra
         """
+        for obj_name, obj_info in self._persistent_props.items():
+            if obj_info['type'] not in IStorage._basic_types:
+                try:
+                    pd = object.__getattribute__(self, obj_name)
+                    pd.stop_persistent()
+                except AttributeError:
+                    # Attribute unset, no action needed
+                    pass
         log.debug("STOP PERSISTENT")
+        self._is_persistent = False
 
     def delete_persistent(self):
         """
@@ -437,10 +446,9 @@ class StorageObj(object, IStorage):
         if value_info['type'] not in IStorage._basic_types:
             # The object wasn't in memory
             count = self._count_name_collision(attribute)
+            table_name = self._ksp + '.' + self._table + '_' + attribute
             if count == 0:
-                table_name = self._ksp + '.' + self._table + '_' + attribute
-            else:
-                table_name = self._ksp + '.' + self._table + '_' + attribute + '_' + str(count - 1)
+                table_name += '_' + str(count - 1)
             value = self._build_istorage_obj(value_info, table_name, value)
 
         return value
