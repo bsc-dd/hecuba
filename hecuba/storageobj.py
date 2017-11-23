@@ -447,7 +447,7 @@ class StorageObj(object, IStorage):
             # The object wasn't in memory
             count = self._count_name_collision(attribute)
             table_name = self._ksp + '.' + self._table + '_' + attribute
-            if count == 0:
+            if count != 0:
                 table_name += '_' + str(count - 1)
             value = self._build_istorage_obj(value_info, table_name, value)
 
