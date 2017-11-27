@@ -24,14 +24,18 @@ class StorageNumpy(np.ndarray, IStorage):
     def __new__(cls, input_array=None, storage_id=None, name=None, **kwargs):
 
         if input_array is None and name is not None and storage_id is not None:
-            input_array = cls.load_array(storage_id, name)
+            result = cls.load_array(storage_id, name)
+            input_array = result[0]
             obj = np.asarray(input_array).view(cls)
             obj._is_persistent = True
+            obj._hcache = result[1]
+            obj._hcache_params = result[2]
         elif name is None and storage_id is not None:
             raise RuntimeError("hnumpy received storage id but not a name")
         elif (input_array is not None and name is not None and storage_id is not None) \
                 or (storage_id is None and name is not None):
             obj = np.asarray(input_array).view(cls)
+            obj._is_persistent = False
             obj.make_persistent(name)
         else:
             obj = np.asarray(input_array).view(cls)
@@ -81,16 +85,16 @@ class StorageNumpy(np.ndarray, IStorage):
     @staticmethod
     def load_array(storage_id, name):
         (ksp, table) = IStorage._extract_ks_tab(name)
-        _hcache_params = (ksp, table + '_numpies',
+        hcache_params = (ksp, table + '_numpies',
                           storage_id, [], ['storage_id', 'cluster_id', 'block_id'],
                           [{'name': "payload", 'type': 'numpy'}],
                           {'cache_size': config.max_cache_size,
                            'writer_par': config.write_callbacks_number,
                            'write_buffer': config.write_buffer_size})
-        _hcache = Hcache(*_hcache_params)
-        result = _hcache.get_row([storage_id, -1, -1])
+        hcache = Hcache(*hcache_params)
+        result = hcache.get_row([storage_id, -1, -1])
         if len(result) == 1:
-            return result[0]
+            return [result[0],hcache,hcache_params]
         else:
             raise KeyError
 
@@ -127,6 +131,7 @@ class StorageNumpy(np.ndarray, IStorage):
         if len(self.shape) != 0:
             self._hcache.put_row([self._storage_id, -1, -1], [self])
         self._store_meta(self._build_args)
+
 
     def delete_persistent(self):
         """
@@ -170,7 +175,11 @@ class StorageNumpy(np.ndarray, IStorage):
             return NotImplemented
 
         if method == 'at':
+            # TODO decide implementation according to Scipy docs
             return
+
+        if self._is_persistent and len(self.shape):
+                self._hcache.put_row([self._storage_id, -1, -1], [self])
 
         if ufunc.nout == 1:
             results = (results,)
