@@ -65,86 +65,13 @@ class StorageObj(object, IStorage):
             log.warn("Error creating the StorageDict metadata: %s, %s", str(storage_args), ex)
             raise ex
 
-    def __init__(self, name=None, tokens=None, storage_id=None, istorage_props=None, **kwargs):
-        """
-            Creates a new storageobj.
-            Args:
-                name (string): the name of the Cassandra Keyspace + table where information can be found
-                tokens (list of tuples): token ranges assigned to the new StorageObj
-                storage_id (string):  an unique storageobj identifier
-                istorage_props dict(string,string): a map with the storage id of each contained istorage object.
-                kwargs: more optional parameters
-        """
-        log.debug("CREATED StorageObj(%s)", name)
-        self._is_persistent = False
-        self._persistent_dicts = []
-
-        if name is None:
-            self._ksp = config.execution_name
-        else:
-            (self._ksp, self._table) = self._extract_ks_tab(name)
-
-        self._persistent_props = StorageObj._parse_comments(self.__doc__)
-        self._persistent_attrs = self._persistent_props.keys()
-
-        if tokens is None:
-            # log.info('using all tokens')
-            tokens = map(lambda a: a.value, config.cluster.metadata.token_map.ring)
-            self._tokens = IStorage._discrete_token_ranges(tokens)
-        else:
-            self._tokens = tokens
-
-        self._storage_id = storage_id
-        self._istorage_props = istorage_props
-
-        self._class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
-        if name is not None:
-            self._build_args = self.args(self._ksp + '.' + self._table,
-                                         self._tokens,
-                                         self._storage_id,
-                                         self._istorage_props,
-                                         self._class_name)
-
-        dictionaries = filter(lambda (k, t): t['type'] == 'StorageDict', self._persistent_props.iteritems())
-        for table_name, per_dict in dictionaries:
-            dict_name = "%s.%s" % (self._ksp, table_name)
-
-            if istorage_props is not None and dict_name in istorage_props:
-                args = config.session.execute(IStorage._select_istorage_meta, (istorage_props[dict_name],))[0]
-                # The internal objects must have the same father's tokens
-                args = args._replace(tokens=self._tokens)
-                log.debug("CREATING INTERNAL StorageDict with %s", args)
-                pd = StorageDict.build_remotely(args)
-            else:
-                if 'indexed_values' in per_dict:
-                    indexed_args = per_dict['indexed_values']
-                else:
-                    indexed_args = None
-                pd = StorageDict(None, per_dict['primary_keys'], per_dict['columns'],
-                                 tokens=self._tokens, indexed_args=indexed_args)
-            setattr(self, table_name, pd)
-            self._persistent_dicts.append(pd)
-
-        storageobjs = filter(lambda (k, t): t['type'] not in IStorage._basic_types and t['type'] != 'StorageDict',
-                             self._persistent_props.iteritems())
-        for table_name, per_dict in storageobjs:
-            cname, module = IStorage.process_path(per_dict['type'])
-            mod = __import__(module, globals(), locals(), [cname], 0)
-            so = getattr(mod, cname)()
-            setattr(self, table_name, so)
-
-        if name is not None:
-            self.make_persistent(name)
-
-    def __eq__(self, other):
-        return self.__class__ == other.__class__ and self.getID() == other.getID()
 
     _dict_case = re.compile('.*@ClassField +(\w+) +dict+ *< *< *([\w:, ]+)+ *> *, *([\w+:., <>]+) *>')
     _tuple_case = re.compile('.*@ClassField +(\w+) +tuple+ *< *([\w, +]+) *>')
     _index_vars = re.compile('.*@Index_on *([A-z0-9]+) +([A-z0-9, ]+)')
 
     @classmethod
-    def _parse_comments(self, comments):
+    def _parse_comments(cls, comments):
         """
             Parses de comments in a class file to save them in the class information
             Args:
@@ -302,21 +229,75 @@ class StorageObj(object, IStorage):
 
         return this
 
-    def make_persistent(self, name):
+
+
+
+    def __init__(self, name=None, tokens=None, storage_id=None, istorage_props=None, **kwargs):
         """
-            Once a StorageObj has been created, it can be made persistent. This function retrieves the information about
-            the Object class schema, and creates a Cassandra table with those parameters, where information will be
-            saved from now on, until execution finishes or StorageObj is no longer persistent.
-            It also inserts into the new table all information that was in memory assigned to the StorageObj prior to
-            this call.
+            Creates a new storageobj.
             Args:
-                name (string): name with which the table in the DB will be created
+                name (string): the name of the Cassandra Keyspace + table where information can be found
+                tokens (list of tuples): token ranges assigned to the new StorageObj
+                storage_id (string):  an unique storageobj identifier
+                istorage_props dict(string,string): a map with the storage id of each contained istorage object.
+                kwargs: more optional parameters
         """
-        if self._is_persistent:
-            raise AlreadyPersistentError("This StorageObj is already persistent [Before:{}.{}][After:{}]",
-                                         self._ksp, self._table, name)
+        log.debug("CREATED StorageObj(%s)", name)
+        self._is_persistent = False
+        self._storage_id = storage_id
+        self._istorage_props = istorage_props
+        self._tokens = tokens
+        self._persistent_props = StorageObj._parse_comments(self.__doc__)
+        self._persistent_attrs = self._persistent_props.keys()
+        self._ksp = config.execution_name
+        self._class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
+
+        if tokens is None:
+            # log.info('using all tokens')
+            tokens = [token.value for token in config.cluster.metadata.token_map.ring]
+            self._tokens = IStorage._discrete_token_ranges(tokens)
+
+        if name:
+            (self._ksp, self._table) = self._extract_ks_tab(name)
+            self._setup_persistent_structs()
+            self._store_meta(self._build_args)
+        self._load_attributes()
+
+
+
+
+
+    def _load_attributes(self):
+
+        for attribute in self._persistent_attrs:
+            try:
+                value = self.__getattribute__(attribute)
+            except AttributeError as ex:
+                value_info = self._persistent_props[attribute]
+                if value_info['type'] not in IStorage._basic_types:
+                    attr_name = None
+                    #value_info['istorage_props'] = self._build_args.istorage_props
+                    if self._is_persistent:
+                        value_info['tokens'] = self._build_args.tokens
+                        # if we are persistent, the object should be persistent too
+                        count = self._count_name_collision(attribute)
+                        attr_name = self._ksp + '.' + self._table + '_' + attribute
+                        if count != 0:
+                            attr_name += '_' + str(count - 1)
+                    value = self._build_istorage_obj(value_info, attr_name, None)
+                else:
+                    value = None
+            self.__setattr__(attribute, value)
+
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self.getID() == other.getID()
+
+
+
+    def _setup_persistent_structs(self):
         self._is_persistent = True
-        (self._ksp, self._table) = self._extract_ks_tab(name)
+
         if self._storage_id is None:
             self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table)
 
@@ -348,12 +329,32 @@ class StorageObj(object, IStorage):
             log.error("Unable to execute %s", query_simple)
             raise ir
 
+
+
+    def make_persistent(self, name):
+        """
+            Once a StorageObj has been created, it can be made persistent. This function retrieves the information about
+            the Object class schema, and creates a Cassandra table with those parameters, where information will be
+            saved from now on, until execution finishes or StorageObj is no longer persistent.
+            It also inserts into the new table all information that was in memory assigned to the StorageObj prior to
+            this call.
+            Args:
+                name (string): name with which the table in the DB will be created
+        """
+        if self._is_persistent:
+            raise AlreadyPersistentError("This StorageObj is already persistent [Before:{}.{}][After:{}]",
+                                         self._ksp, self._table, name)
+
+        (self._ksp, self._table) = self._extract_ks_tab(name)
+
+        self._setup_persistent_structs()
+
         #Iterate over the objects the user has requested to be persistent
         # retrieve them from memory and make them persistent
         for obj_name, obj_info in self._persistent_props.items():
             try:
                 pd = object.__getattribute__(self, obj_name)
-                if obj_info['type'] not in IStorage._basic_types:
+                if isinstance(pd,IStorage) and not pd._is_persistent:
                     sd_name = self._ksp + "." + self._table + "_" + obj_name
                     pd.make_persistent(sd_name)
                 #self is persistent so setting the attribute will store the data and create the appropiate binding
@@ -362,6 +363,8 @@ class StorageObj(object, IStorage):
                 #Attribute unset, no action needed
                 pass
         self._store_meta(self._build_args)
+
+
 
     def stop_persistent(self):
         """
@@ -449,6 +452,8 @@ class StorageObj(object, IStorage):
             table_name = self._ksp + '.' + self._table + '_' + attribute
             if count != 0:
                 table_name += '_' + str(count - 1)
+
+            value_info['tokens'] = self._build_args.tokens
             value = self._build_istorage_obj(value_info, table_name, value)
 
         return value

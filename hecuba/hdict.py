@@ -511,7 +511,7 @@ class StorageDict(dict, IStorage):
                 if col_type not in IStorage._basic_types:
                     #element is not a built-in type
                     table_name = self._ksp + '.' + self._table + '_' + name
-                    object_info = {'type': col_type}
+                    object_info = {'type': col_type, 'tokens' : self._build_args.tokens}
                     element = self._build_istorage_obj(object_info, table_name, uuid.UUID(element))
                 final_results.append(element)
 
