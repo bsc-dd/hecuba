@@ -1059,6 +1059,12 @@ class IStorageTest(unittest.TestCase):
 
     def tokens512_partition_16_nodes_test(self):
         partitions = [i for i in IStorage._tokens_partitions(self.t16, 512, 16)]
+        a = []
+        for l1 in partitions:
+            for element in l1:
+                a.append(element)
+        unique_count = len(a)
+        self.assertEqual(sum(map(lambda a: len(a), partitions)), unique_count)
         flat = reduce(list.__add__, partitions)
         self.check_full_range(flat)
         self.assertGreaterEqual(len(partitions), 16)
@@ -1066,6 +1072,7 @@ class IStorageTest(unittest.TestCase):
 
     def tokens16_partition_16_nodes_test(self):
         partitions = [i for i in IStorage._tokens_partitions(self.t16, 16, 16)]
+        self.assertEqual(sum(map(lambda a: len(a), partitions)), len(self.t16))
         flat = reduce(list.__add__, partitions)
         self.check_full_range(flat)
         self.assertGreaterEqual(16, len(partitions))
@@ -1075,6 +1082,7 @@ class IStorageTest(unittest.TestCase):
 
     def tokens1024_16_blocks_with_16_vtokens_test(self):
         partitions = [i for i in IStorage._tokens_partitions(self.t1024_tuples, 16, 16)]
+        self.assertEqual(sum(map(lambda a: len(a), partitions)), len(self.t1024_tuples))
         flat = reduce(list.__add__, partitions)
         self.check_full_range(flat)
         self.assertGreaterEqual(len(partitions), 16)
@@ -1085,6 +1093,12 @@ class IStorageTest(unittest.TestCase):
 
     def tokens1024_16_blocks_with_2K_vtokens_test(self):
         partitions = [i for i in IStorage._tokens_partitions(self.t1024_tuples, 2048, 16)]
+        a = []
+        for l1 in partitions:
+            for element in l1:
+                a.append(element)
+        unique_count = len(a)
+        self.assertEqual(sum(map(lambda a: len(a), partitions)), unique_count)
         flat = reduce(list.__add__, partitions)
         self.check_full_range(flat)
 
@@ -1093,6 +1107,10 @@ class IStorageTest(unittest.TestCase):
         self.assertEqual(-(2**63), reduce(min, map(lambda a: a[0], flat)))
         #self.assertEqual({128, 129, 7}, reduce(set.union, map(lambda a: {len(a)}, partitions)))
         self.assertGreaterEqual(len(set(flat)), 2048)
+
+    def tokens100_test(self):
+           partitions = [i for i in IStorage._tokens_partitions(range(0, 99), 2, 15)]
+           self.assertEqual(sum(map(lambda a: len(a), partitions)), 99)
 
     def check_full_range(self, list_of_ranges):
         list_of_ranges.sort()
