@@ -106,7 +106,7 @@ class StorageDict(dict, IStorage):
             log.error("Error creating the StorageDict metadata: %s %s", storage_args, ex)
             raise ex
 
-    def __init__(self, name=None, primary_keys=None, columns=None, tokens=None,
+    def __init__(self, name="", primary_keys=None, columns=None, tokens=None,
                  storage_id=None, indexed_args=None, **kwargs):
         """
         Creates a new StorageDict.
@@ -166,7 +166,7 @@ class StorageDict(dict, IStorage):
         self._build_args = self.args(name, self._primary_keys, self._columns, self._tokens,
                                      self._storage_id, self._indexed_args, class_name)
 
-        if name is not None:
+        if name:
             self.make_persistent(name)
         else:
             self._is_persistent = False
@@ -475,7 +475,6 @@ class StorageDict(dict, IStorage):
         log.debug('DELETE PERSISTENT: %s', query)
         config.session.execute(query)
 
-
     def __delitem__(self, key):
         """
         Method to delete a specific entry in the dict in the key position.
@@ -500,19 +499,19 @@ class StorageDict(dict, IStorage):
         if not self._is_persistent:
             return dict.__getitem__(self, key)
         else:
-            #Returns always a list with a single entry for the key
+            # Returns always a list with a single entry for the key
             persistent_result = self._hcache.get_row(self._make_key(key))
             log.debug("GET ITEM %s[%s]", persistent_result, persistent_result.__class__)
 
-            #we need to transform UUIDs belonging to IStorage objects and rebuild them
+            # we need to transform UUIDs belonging to IStorage objects and rebuild them
             final_results = []
             for index, (name, col_type) in enumerate(self._columns):
                 element = persistent_result[index]
                 if col_type not in IStorage._basic_types:
-                    #element is not a built-in type
+                    # element is not a built-in type
                     table_name = self._ksp + '.' + self._table + '_' + name
-                    object_info = {'type': col_type, 'tokens' : self._build_args.tokens}
-                    element = self._build_istorage_obj(object_info, table_name, uuid.UUID(element))
+                    element = self._build_istorage_obj(name=table_name, type=col_type, tokens=self._build_args.tokens,
+                                                       storage_id=uuid.UUID(element))
                 final_results.append(element)
 
             if self._column_builder is not None:
