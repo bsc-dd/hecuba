@@ -512,7 +512,7 @@ class StorageDict(dict, IStorage):
                     #element is not a built-in type
                     table_name = self._ksp + '.' + self._table + '_' + name
                     object_info = {'type': col_type}
-                    element = self._build_istorage_obj(object_info, table_name, uuid.UUID(element))
+                    element = self._build_istorage(object_info, table_name, uuid.UUID(element))
                 final_results.append(element)
 
             if self._column_builder is not None:

@@ -449,7 +449,7 @@ class StorageObj(object, IStorage):
             table_name = self._ksp + '.' + self._table + '_' + attribute
             if count != 0:
                 table_name += '_' + str(count - 1)
-            value = self._build_istorage_obj(value_info, table_name, value)
+            value = self._build_istorage(value_info, table_name, value)
 
         return value
 

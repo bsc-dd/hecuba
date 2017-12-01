@@ -174,8 +174,8 @@ class IStorage:
         return len(filter(lambda (t_name, ): m.match(t_name), q))
 
 
-
-    def _build_istorage_obj(self, obj_info, so_name, storage_id):
+    @staticmethod
+    def _build_istorage(self, obj_info, so_name, storage_id):
         cname, module = IStorage.process_path(obj_info['type'])
         mod = __import__(module, globals(), locals(), [cname], 0)
         # new name as ksp+table+obj_class_name
