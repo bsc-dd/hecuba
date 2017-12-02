@@ -459,6 +459,8 @@ class StorageDict(dict, IStorage):
                 log.error("Error creating the Qbeast custom index: %s %s", index_query, ex)
                 raise ex
 
+        super(StorageDict, self).clear()
+
     def stop_persistent(self):
         """
         Method to turn a StorageDict into non-persistent.
