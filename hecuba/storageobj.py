@@ -367,14 +367,14 @@ class StorageObj(object, IStorage):
         """
             The StorageObj stops being persistent, but keeps the information already stored in Cassandra
         """
-        for obj_name, obj_info in self._persistent_props.items():
-            if obj_info['type'] not in IStorage._basic_types:
-                try:
-                    pd = object.__getattribute__(self, obj_name)
-                    pd.stop_persistent()
-                except AttributeError:
-                    # Attribute unset, no action needed
-                    pass
+        for obj_name in self._persistent_attrs:
+            try:
+                attr = object.__getattribute__(self, obj_name)
+                if isinstance(attr, IStorage):
+                    attr.stop_persistent()
+            except AttributeError:
+                # Attribute unset, no action needed
+                pass
         log.debug("STOP PERSISTENT")
         self._is_persistent = False
 
@@ -382,14 +382,14 @@ class StorageObj(object, IStorage):
         """
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
-
-        for (attr_name,attr_info) in self._persistent_props.iteritems():
-            if attr_info['type'] not in IStorage._basic_types:
-                try:
-                    pers_obj = getattr(self,attr_name)
-                    pers_obj.delete_persistent()
-                except AttributeError as ex:
-                    pass
+        for obj_name in self._persistent_attrs:
+            try:
+                attr = object.__getattribute__(self, obj_name)
+                if isinstance(attr, IStorage):
+                    attr.delete_persistent()
+            except AttributeError:
+                # Attribute unset, no action needed
+                pass
 
         query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
         log.debug("DELETE PERSISTENT: %s", query)
