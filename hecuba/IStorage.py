@@ -175,7 +175,7 @@ class IStorage:
 
 
     @staticmethod
-    def _build_istorage(self, obj_info, so_name, storage_id):
+    def _build_istorage(obj_info, so_name, storage_id):
         cname, module = IStorage.process_path(obj_info['type'])
         mod = __import__(module, globals(), locals(), [cname], 0)
         # new name as ksp+table+obj_class_name
