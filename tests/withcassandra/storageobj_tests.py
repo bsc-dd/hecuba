@@ -853,6 +853,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(so.name, so2.name)
         self.assertEqual(so.age, so2.age)
         so.name = 'Benji'
+        so2 = Test2StorageObj('test')
         self.assertEqual(so.name, so2.name)
         self.assertEqual(so.age, so2.age)
         config.session.execute("DROP TABLE IF EXISTS my_app.test")
