@@ -368,13 +368,10 @@ class StorageObj(object, IStorage):
             The StorageObj stops being persistent, but keeps the information already stored in Cassandra
         """
         for obj_name in self._persistent_attrs:
-            try:
-                attr = object.__getattribute__(self, obj_name)
-                if isinstance(attr, IStorage):
-                    attr.stop_persistent()
-            except AttributeError:
-                # Attribute unset, no action needed
-                pass
+            attr = getattr(self, obj_name, None)
+            if isinstance(attr, IStorage):
+                attr.stop_persistent()
+
         log.debug("STOP PERSISTENT")
         self._is_persistent = False
 
@@ -383,13 +380,9 @@ class StorageObj(object, IStorage):
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
         for obj_name in self._persistent_attrs:
-            try:
-                attr = object.__getattribute__(self, obj_name)
-                if isinstance(attr, IStorage):
-                    attr.delete_persistent()
-            except AttributeError:
-                # Attribute unset, no action needed
-                pass
+            attr = getattr(self, obj_name, None)
+            if isinstance(attr, IStorage):
+                attr.delete_persistent()
 
         query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
         log.debug("DELETE PERSISTENT: %s", query)
