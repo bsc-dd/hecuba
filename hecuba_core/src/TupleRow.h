@@ -66,6 +66,10 @@ public:
         return this->payload.use_count();
     }
 
+    inline uint32_t size() const {
+        return this->payload->length;
+    }
+
     /* Comparision operators */
     friend bool operator<(const TupleRow &lhs, const TupleRow &rhs);
 

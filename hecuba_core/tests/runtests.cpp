@@ -3,6 +3,7 @@
 #include "gtest/gtest.h"
 #include "../src/CacheTable.h"
 #include "../src/StorageInterface.h"
+#include "../src/StorageDict.h"
 
 
 using namespace std;
@@ -84,8 +85,8 @@ void setupcassandra() {
     }
     cass_prepared_free(prepared);
 
-    fireandforget("CREATE TABLE test.only_keys(first int, second int, third text, PRIMARY KEY((first, second), third));", test_session);
-    /*
+    fireandforget("CREATE TABLE test.words( position int PRIMARY KEY, wordinfo text);", test_session);
+
     prepare_future = cass_session_prepare(test_session,
                                           "INSERT INTO test.words(position,wordinfo ) VALUES (?, ?)");
     rc = cass_future_error_code(prepare_future);
@@ -94,7 +95,7 @@ void setupcassandra() {
     prepared = cass_future_get_prepared(prepare_future);
     cass_future_free(prepare_future);
 
-    for (int i = 0; i <= 10000; i++) {
+    for (int i = 0; i <= 100; i++) {
         CassStatement *stm = cass_prepared_bind(prepared);
         cass_statement_bind_int32(stm, 0, (cass_int16_t) i);
         std::string val = "IwroteSOMErandomTEXTtoFILLupSPACE" + std::to_string(i * 60);
@@ -111,7 +112,6 @@ void setupcassandra() {
 
 
     cass_prepared_free(prepared);
-    */
     fireandforget(
             "CREATE TABLE test.particle_write( partid int,time float,x float,y float,z float, PRIMARY KEY(partid,time));",
             test_session);
@@ -1317,6 +1317,7 @@ TEST(TestingEmptyValues, WriteSimple) {
     cass_cluster_free(test_cluster);
     cass_session_free(test_session);
 }
+
 
 TEST(TestingCacheTable, StoreNull) {
 
@@ -2524,4 +2525,38 @@ TEST(TestingCacheTable, DeleteRow) {
 
     cass_cluster_free(test_cluster);
     cass_session_free(test_session);
+}
+
+
+
+TEST(TestingCPPIface, StorageDict) {
+    std::string nodeX = "127.0.0.1";
+
+
+    //Configure Cassandra
+    ClusterConfig *config = new ClusterConfig(9042, nodeX);
+
+
+
+    //Use a non persistent dict
+    int a = 123;
+    std::string sentence = "Hello, World!";
+
+    StorageDict<int, std::string> SD = StorageDict<int, std::string>(config);
+
+    SD[a] = sentence; //Insert data
+    EXPECT_EQ(SD[a], sentence);
+
+    std::map<int, std::string> initialized_map = {{a,    "first sentence"},
+                                                  {4546, "last_sentence"}};
+    SD = initialized_map; //Assign a standard map from STL to our StorageDict
+
+    EXPECT_EQ(SD[a], "first sentence");
+    EXPECT_EQ(SD[4546], "last_sentence");
+
+    std::string name_to_persist = "iface";
+    SD.make_persistent(name_to_persist);
+
+    SD[a] = sentence;
+    EXPECT_EQ(SD[a], sentence);
 }

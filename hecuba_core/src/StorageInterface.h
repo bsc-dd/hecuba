@@ -13,6 +13,7 @@
 #include "Prefetch.h"
 #include "Writer.h"
 #include "TableMetadata.h"
+#include "ClusterConfig.h"
 
 class StorageInterface {
 
@@ -47,17 +48,12 @@ public:
                            std::map<std::string, std::string> &config);
 
     inline const CassSession *get_session() {
-        return this->session;
+        return this->cluster->get_session();
     }
-
-    int disconnectCassandra();
 
 private:
 
-
-    CassSession *session;
-
-    CassCluster *cluster;
+    ClusterConfig *cluster;
 };
 
 
