@@ -9,7 +9,7 @@ ClusterConfig::ClusterConfig(int32_t port, std::string &points) {
     this->node_port = port;
     this->contact_names = points;
 
-    CassFuture *connect_future = NULL;
+    CassFuture *connect_future = nullptr;
     cluster = cass_cluster_new();
     session = cass_session_new();
 
@@ -57,12 +57,12 @@ ClusterConfig::ClusterConfig(int32_t port, std::string &points) {
 }
 
 ClusterConfig::~ClusterConfig() {
-    if (session != NULL) {
+    if (session != nullptr) {
         CassFuture *close_future = cass_session_close(session);
         cass_future_free(close_future);
         cass_session_free(session);
         cass_cluster_free(cluster);
-        session = NULL;
+        session = nullptr;
     }
 }
 
@@ -75,6 +75,10 @@ void ClusterConfig::set_contact_names(std::string &points) {
     this->contact_names = points;
 }
 
-std::string ClusterConfig::get_contact_names() {
+std::string ClusterConfig::get_contact_names() const {
     return this->contact_names;
+}
+
+int32_t ClusterConfig::get_contact_port() const {
+    return this->node_port;
 }

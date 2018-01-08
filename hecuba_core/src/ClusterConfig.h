@@ -1,19 +1,12 @@
 #ifndef CPP_INTERFACE_CLUSTERCONFIG_H
 #define CPP_INTERFACE_CLUSTERCONFIG_H
 
-#include <string>
-#include <vector>
-#include <tuple>
 #include <iostream>
-#include <vector>
-#include <unordered_map>
 
 
-#include "CacheTable.h"
 #include <cassandra.h>
-#include "Prefetch.h"
-#include "Writer.h"
-#include "TableMetadata.h"
+#include "ModuleException.h"
+
 
 
 #define default_io_threads 2
@@ -31,14 +24,18 @@ public:
 
     ~ClusterConfig();
 
-    void set_contact_port(int32_t port);
-    void set_contact_names(std::string &points);
-
-    CassSession* get_session() {
+    inline CassSession* get_session() const {
         return session;
     };
 
-    std::string get_contact_names();
+    void set_contact_port(int32_t port);
+
+    void set_contact_names(std::string &points);
+
+
+    int32_t get_contact_port() const;
+
+    std::string get_contact_names() const;
 
 private:
     std::string contact_names;
