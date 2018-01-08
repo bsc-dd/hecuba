@@ -14,6 +14,7 @@
 #include "Prefetch.h"
 #include "Writer.h"
 #include "TableMetadata.h"
+#include "ClusterConfig.h"
 
 class StorageInterface {
 
@@ -44,14 +45,9 @@ public:
                            const std::vector<std::pair<int64_t, int64_t>> &tokens,
                            std::map<std::string, std::string> &config);
 
-    int disconnectCassandra();
-
 private:
 
-
-    CassSession *session;
-
-    CassCluster *cluster;
+    ClusterConfig *cluster;
 };
 
 

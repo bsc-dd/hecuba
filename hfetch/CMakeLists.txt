@@ -78,8 +78,8 @@ if (NOT $ENV{LD_LIBRARY_PATH} STREQUAL "")
     string(REGEX MATCHALL "[^ ]+" LIST_LIBS ${ENV_LIBS})
 endif (NOT $ENV{LD_LIBRARY_PATH} STREQUAL "")
 
-set(CPP_SRC_FILES StorageInterface.cpp Prefetch.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp TableMetadata.cpp SpaceFillingCurve.cpp)
-set(CPP_H_FILES StorageInterface.h Prefetch.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h TableMetadata.h SpaceFillingCurve.h TupleRowCache.h LRUPersistentStrategy.h)
+set(CPP_SRC_FILES StorageInterface.cpp Prefetch.cpp CacheTable.cpp TupleRow.cpp TupleRowFactory.cpp ModuleException.cpp Writer.cpp TableMetadata.cpp SpaceFillingCurve.cpp ClusterConfig.cpp)
+set(CPP_H_FILES StorageInterface.h Prefetch.h CacheTable.h TupleRow.h TupleRowFactory.h ModuleException.h Writer.h TableMetadata.h SpaceFillingCurve.h TupleRowCache.h LRUPersistentStrategy.h ClusterConfig.h StorageDict.h Bucket.h)
 set(PY_SRC_FILES HCache.cpp PythonParser.cpp UnitParser.cpp NumpyStorage.cpp)
 set(PY_H_FILES HCache.h PythonParser.h UnitParser.h NumpyStorage.h)
 set(SOURCE_FILES ${CPP_SRC_FILES} ${PY_SRC_FILES})
@@ -159,8 +159,8 @@ if (NOT CASS)
             CASS
             DEPENDS ${LIBUV_EXTERNAL}
             DOWNLOAD_DIR ${CMAKE_CURRENT_LIST_DIR}/_packedsrc
-            URL https://github.com/datastax/cpp-driver/archive/2.5.0.tar.gz
-            URL_HASH SHA1=70036c9d9685daf37ccec95851e1b1823357b4ec
+            URL https://github.com/datastax/cpp-driver/archive/2.7.1.tar.gz
+            URL_HASH SHA1=7a44eff7eecbb3ed95490d09cd00489c5b5ce683
             INSTALL_DIR ${CMAKE_CURRENT_LIST_DIR}/_install
             CMAKE_ARGS ${CMAKE_SUBPROJECT_FLAGS}
             -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_LIST_DIR}/_install -DCASS_USE_LIBSSH2=OFF -DCASS_USE_OPENSSL=OFF

@@ -3,6 +3,7 @@
 #include "gtest/gtest.h"
 #include "../CacheTable.h"
 #include "../StorageInterface.h"
+#include "../StorageDict.h"
 
 
 using namespace std;
@@ -2440,4 +2441,38 @@ TEST(TestingCacheTable, DeleteRow) {
 
     cass_cluster_free(test_cluster);
     cass_session_free(test_session);
+}
+
+
+
+TEST(TestingCPPIface, StorageDict) {
+    std::string nodeX = "127.0.0.1";
+
+
+    //Configure Cassandra
+    ClusterConfig *config = new ClusterConfig(9042, nodeX);
+
+
+
+    //Use a non persistent dict
+    int a = 123;
+    std::string sentence = "Hello, World!";
+
+    StorageDict<int, std::string> SD = StorageDict<int, std::string>(config);
+
+    SD[a] = sentence; //Insert data
+    EXPECT_EQ(SD[a], sentence);
+
+    std::map<int, std::string> initialized_map = {{a,    "first sentence"},
+                                                  {4546, "last_sentence"}};
+    SD = initialized_map; //Assign a standard map from STL to our StorageDict
+
+    EXPECT_EQ(SD[a], "first sentence");
+    EXPECT_EQ(SD[4546], "last_sentence");
+
+    std::string name_to_persist = "iface";
+    SD.make_persistent(name_to_persist);
+
+    SD[a] = sentence;
+    EXPECT_EQ(SD[a], sentence);
 }
