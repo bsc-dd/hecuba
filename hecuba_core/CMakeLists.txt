@@ -253,6 +253,15 @@ if (DEFINED ENV{GTEST_ROOT})
             include_directories(${GTEST_INCLUDE_DIRS})
 
             enable_testing()
+
+
+            add_executable(cpp_iface_test tests/cpp_iface.cpp)
+            set_target_properties(cpp_iface_test
+                    PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
+            target_link_libraries(cpp_iface_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch)
+            add_test(test cpp_iface_test)
+
+
             add_executable(hfetch_test tests/runtests.cpp)
             set_target_properties(hfetch_test
                     PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
