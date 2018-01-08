@@ -88,6 +88,10 @@ public:
 
     }
 
+    operator V() const {
+        return this->value;
+    }
+
     bool operator==(const V &value) const{
         return this->getValue()==value;
     }
