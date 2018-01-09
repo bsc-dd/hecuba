@@ -19,7 +19,7 @@ public:
 
     StorageDict(std::initializer_list<std::pair<K,V>> l) {
        for (const map_par* element= l.begin(); element!=l.end(); ++element) {
-           this->mymap[element->first] = new Bucket<K,V>(this,element->first);
+           this->mymap[element->first] = Bucket<K,V>(this,element->first);
            this->mymap[element->first] = element->second;
        };
     }
@@ -49,7 +49,7 @@ public:
     std::pair<iterator,bool> insert (const value_type& val) {
         iterator it = mymap.find(val.first);
         if (it==mymap.end()) {
-            mymap[val.first]=new Bucket<K,V>(this,val.first);
+            mymap[val.first]= Bucket<K,V>(this,val.first);
             mymap[val.first]=val.second;
             return {mymap.find(val.first), false};
         }
@@ -64,13 +64,13 @@ public:
     /* Operators */
 
     Bucket<K,V>& operator[]( const K& key ) {
-        if (mymap.find(key)==mymap.end()) mymap[key] = new Bucket<K,V>(this,key);
+        if (mymap.find(key)==mymap.end()) mymap[key] =  Bucket<K,V>(this,key);
         return mymap[key];
     };
 
 
     Bucket<K,V>& operator[]( K&& key ) {
-        if (mymap.find(key)==mymap.end()) mymap[key] = new Bucket<K,V>(this,key);
+        if (mymap.find(key)==mymap.end()) mymap[key] =  Bucket<K,V>(this,key);
         return mymap[key];
     };
 
@@ -81,7 +81,7 @@ public:
         for (typename std::map<K,V>::const_iterator it = somemap.begin(); it!=somemap.end(); ++it) {
             K k = it->first;
             V v = it->second;
-            mymap[k] = new Bucket<K,V>(this,k);
+            mymap[k] =  Bucket<K,V>(this,k);
             mymap[k] = v;
         }
         if (H) this->store_data();
@@ -115,6 +115,7 @@ public:
             TupleRow *key = KeyFactory->make_tuple(k);
             TupleRow *value = ValueFactory->make_tuple(v);
             H->put_crow(key, value);
+            delete(key);
         }
     }
 
@@ -127,6 +128,7 @@ private:
             TupleRow *key = KeyFactory->make_tuple(k);
             TupleRow *value = ValueFactory->make_tuple(v);
             H->put_crow(key,value);
+            delete(key); 
         }
     }
 

@@ -100,6 +100,29 @@ int main(int argc, char **argv) {
 
 }
 
+
+/*** Bucket local tests ***/
+
+TEST(TestingCPPIface, Bucket_compare_1) {
+    Bucket<std::string,int> B1 = Bucket<std::string,int>(nullptr,"Hello");
+    B1 = 123;
+
+    Bucket<std::string,int> B2 = Bucket<std::string,int>(nullptr,"Hello");
+    B2 = 124;
+
+    EXPECT_GT(B2,B1);
+    EXPECT_LT(B1,B2);
+    EXPECT_NE(B1,B2);
+    EXPECT_NE(B2,B1);
+
+
+    B1 = 124;
+    EXPECT_GE(B2,B1);
+    EXPECT_LE(B1,B2);
+    EXPECT_EQ(B1,B2);
+    EXPECT_EQ(B2,B1);
+}
+
 /*** StorageDict local tests ***/
 
 TEST(TestingCPPIface, StorageDict_local_construct_1) {
@@ -164,6 +187,10 @@ TEST(TestingCPPIface, StorageDict_local_access_3) {
     std::vector<int32_t > values  = {};
     EXPECT_EQ(results,values);
 }
+
+
+
+
 
 /*** Tests with cassandra ***/
 
