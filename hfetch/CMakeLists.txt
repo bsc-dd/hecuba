@@ -246,7 +246,7 @@ if (DEFINED ENV{GTEST_ROOT})
             target_link_libraries(hfetch_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch)
             add_test(test hfetch_test)
 
-            add_executable(cpp_iface_test tests/cpp_iface.cpp)
+            add_executable(cpp_iface_test tests/cpp_iface_tests.cpp)
             set_target_properties(cpp_iface_test
                     PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
             target_link_libraries(cpp_iface_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch)

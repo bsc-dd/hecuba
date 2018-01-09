@@ -173,30 +173,15 @@ TEST(TestingCPPIface, ConnectionClose) {
 
     //Configure Cassandra
     ClusterConfig *config = new ClusterConfig(9042, nodeX);
-    CassSession *session = config->get_session();
+    EXPECT_TRUE(config->get_session()!= nullptr);
     delete(config);
-    //TODO this can be a source of problems, we should manage and abstract session, or make it private
-    EXPECT_TRUE(session!=config->get_session());
-    EXPECT_TRUE(config->get_session()== nullptr);
 }
 
 
 
 
-TEST(TestingCPPIface, StorageDict_create_remote) {
-    std::string nodeX = "127.0.0.1";
 
-    //Configure Cassandra
-    ClusterConfig *config = new ClusterConfig(9042, nodeX);
-    CassSession *session = config->get_session();
-    delete(config);
-    //TODO this can be a source of problems, we should manage and abstract session, or make it private
-    EXPECT_TRUE(session!=config->get_session());
-    EXPECT_TRUE(config->get_session()== nullptr);
-}
-
-
-TEST(TestingCPPIface, StorageDict) {
+TEST(TestingCPPIface, StorageDict_use_case_1) {
     std::string nodeX = "127.0.0.1";
 
     //Configure Cassandra
