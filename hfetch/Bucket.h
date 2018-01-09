@@ -7,17 +7,19 @@ template <class K, class V> class Bucket {
 private:
     V value;
     K key;
-    StorageDict<K,V> *sd;
-public:
-    Bucket() {
-    }
+    StorageDict<K,V> *sd = nullptr;
 
-    Bucket(void *storage, const K &key) {
-        sd =(StorageDict<K,V>*)storage;
+public:
+
+    /* CONSTRUCTORS */
+
+    Bucket() = default;
+
+    Bucket(StorageDict<K,V>* storage, const K &key) {
+        sd = storage;
         this->key = key;
 
     }
-
 
     K getKey() const{
         return key;
@@ -35,11 +37,6 @@ public:
         this->sd = b.sd;
     }
 
-    Bucket(const Bucket* b) {
-        this->key=b->getKey();
-        this->value=b->getValue();
-        this->sd = b->sd;
-    }
 
     Bucket(Bucket& b) {
         this->key=b.getKey();
@@ -47,54 +44,76 @@ public:
         this->sd = b.sd;
     }
 
-    Bucket(Bucket* b) {
-        this->key=b->getKey();
-        this->value=b->getValue();
-        this->sd = b->sd;
-    }
-
     /* OPERATORS */
 
-    Bucket& operator=(const V& other) // copy assignment
+    // copy assignment
+    Bucket& operator=(const V& other)
     {
         this->value = other;
-        sd->raiseupd(this);
+        if (sd) sd->raiseupd(this);
+        return *this;
     }
 
-
-    Bucket& operator=(V& other) // copy assignment
+    // copy assignment
+    Bucket& operator=(V& other)
     {
         this->value = other;
-        sd->raiseupd(this);
+        if (sd) sd->raiseupd(this);
+        return *this;
     }
 
-    Bucket& operator=(const V* other) // copy assignment
+    // copy assignment
+    Bucket& operator=(const V* other)
     {
         this->value = *other;
-        sd->raiseupd(this);
+        if (sd) sd->raiseupd(this);
+        return *this;
     }
 
-
-    Bucket& operator=(V* other) // copy assignment
+    // copy assignment
+    Bucket& operator=(V* other)
     {
         this->value = *other;
-        sd->raiseupd(this);
+        if (sd) sd->raiseupd(this);
+        return *this;
     }
 
-
-    V operator->() // TODO copy assignment ?
+    // data access pointer like
+    V operator->()
     {
         return this->value;
-
     }
 
+    // data access
     operator V() const {
         return this->value;
     }
 
-    bool operator==(const V &value) const{
+    // comparator
+    bool operator==(const V &value) const {
         return this->getValue()==value;
     }
+
+    // comparator
+    bool operator<(const V &value) const {
+        return this->getValue()<value;
+    }
+
+    // comparator
+    bool operator>(const V &value) const {
+        return value<*this;
+    }
+
+    // comparator
+    bool operator<=(const V &value) const {
+        return !(value<*this);
+    }
+    // comparator
+    bool operator>=(const V &value) const {
+        return !(*this<value);
+    }
+
+
 };
 
 
