@@ -37,7 +37,6 @@ public:
         if (H) delete(H);
         if (KeyFactory) delete(KeyFactory);
         if (ValueFactory) delete(ValueFactory);
-        if (cluster) delete(cluster);
     }
 
 
@@ -115,8 +114,6 @@ public:
             TupleRow *key = KeyFactory->make_tuple(k);
             TupleRow *value = ValueFactory->make_tuple(v);
             H->put_crow(key, value);
-            delete(key);
-            delete(value);
         }
     }
 
@@ -129,8 +126,6 @@ private:
             TupleRow *key = KeyFactory->make_tuple(k);
             TupleRow *value = ValueFactory->make_tuple(v);
             H->put_crow(key,value);
-            delete(key);
-            delete(value);
         }
     }
 
