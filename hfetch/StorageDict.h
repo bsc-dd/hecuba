@@ -4,7 +4,6 @@
 
 #include <map>
 #include <iostream>
-//template <class E> class Bucket;
 #include "ClusterConfig.h"
 #include "TableMetadata.h"
 #include "TupleRow.h"
@@ -103,6 +102,8 @@ public:
 
 
         this->store_data();
+
+        mymap.clear();
     }
 
 
