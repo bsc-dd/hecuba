@@ -152,7 +152,16 @@ TEST(TestingCPPIface, StorageDict_local_access_2) {
         values = {key*10,key*20,key*30};
         SD[key/10] = values;
     }
-    std::vector<int32_t > results = SD[key/10];
+    std::vector<int32_t > results = SD[--key/10];
+    EXPECT_EQ(results,values);
+}
+
+
+TEST(TestingCPPIface, StorageDict_local_access_3) {
+    StorageDict<double, std::vector<int32_t > > SD;
+    double key = 12.3;
+    std::vector<int32_t > results = SD[key];
+    std::vector<int32_t > values  = {};
     EXPECT_EQ(results,values);
 }
 
