@@ -86,6 +86,13 @@ class Test6StorageObj(StorageObj):
     pass
 
 
+class Test7StorageObj(StorageObj):
+    '''
+       @ClassField test2 dict<<int>,tests.withcassandra.storageobj_tests.Test2StorageObj>
+    '''
+    pass
+
+
 class TestStorageObjNumpy(StorageObj):
     '''
        @ClassField mynumpy numpy.ndarray
@@ -99,6 +106,23 @@ class TestStorageObjNumpyDict(StorageObj):
     '''
     pass
 
+
+
+class TestAttributes(StorageObj):
+    '''
+       @ClassField key int
+    '''
+
+    value = None
+
+    def do_nothing_at_all(self):
+        pass
+
+    def setvalue(self, v):
+        self.value = v
+
+    def getvalue(self):
+        return self.value
 
 class mixObj(StorageObj):
     '''
@@ -362,6 +386,40 @@ class StorageObjTest(unittest.TestCase):
             my_val = so.random_val
 
         self.assertRaises(AttributeError, del_attr1)
+
+    def test_delattr_persistent_nested(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.t4")
+        so = Test3StorageObj("t4")
+        nestedSo = Test2StorageObj()
+        nestedSo.name = 'caio'
+        so.myso = nestedSo
+        # Make sure the inner object has been made persistent
+        self.assertTrue(nestedSo._is_persistent)
+        # Delete the attribute
+        del so.myso
+
+        def del_attr1():
+            my_val = so.myso
+
+        # Accessing deleted attr of type StorageOb should raise AttrErr
+        self.assertRaises(AttributeError, del_attr1)
+
+        # We assign again, nestedSo still existed (no one called delete on it)
+        so.myso = nestedSo
+
+        # Delete a nested attribute of the shared StorageObj
+        del so.myso.name
+
+        # Make sure that the nested attribute deleted has been successfully deleted from both objects
+        def del_attr2():
+            my_val = nestedSo.name
+
+        def del_attr3():
+            my_val = so.myso.name
+
+        self.assertRaises(AttributeError, del_attr2)
+        self.assertRaises(AttributeError, del_attr3)
+
 
     def test_modify_simple_before_mkp_attributes(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.t2")
@@ -654,6 +712,29 @@ class StorageObjTest(unittest.TestCase):
         my_nested_so.test2[0].age = 10
         self.assertEquals(10, my_nested_so.test2[0].age)
 
+    def test_nestedso_dictofsos_noname(self):
+        '''
+        this test similar to test_nestedso_dictofsos with the difference that the StorageDict
+        used as an attribute in Test7StorageObj has the form <int,StorageObj> where no name has been given for the
+        StorageObj nor the Integer. In this case, a default name is used (key0,val0).
+        '''
+        config.session.execute("DROP TABLE IF EXISTS my_app.topstorageobj2")
+        config.session.execute("DROP TABLE IF EXISTS my_app.topstorageobj2_test2")
+        config.session.execute("DROP TABLE IF EXISTS my_app.topstorageobj2_test2_val0")
+
+        my_nested_so = Test7StorageObj()
+        my_nested_so.test2[0] = Test2StorageObj()
+        my_nested_so.make_persistent('topstorageobj2')
+        self.assertEquals(True, my_nested_so._is_persistent)
+        self.assertEquals(True, my_nested_so.test2._is_persistent)
+        self.assertEquals(True, my_nested_so.test2[0]._is_persistent)
+
+        my_nested_so.test2[0].name = 'Link'
+        self.assertEquals('Link', my_nested_so.test2[0].name)
+        my_nested_so.test2[0].age = 10
+        self.assertEquals(10, my_nested_so.test2[0].age)
+
+
     def test_nestedso_retrievedata(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tnr")
         config.session.execute("DROP TABLE IF EXISTS my_app.tnr_test2")
@@ -759,6 +840,147 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals('t2_test_2', so.test._table)
         config.hecuba_type_checking = False
 
+    def test_storageobj_coherence_basic(self):
+        '''
+        test that two StorageObjs pointing to the same table work correctly.
+        Changing data on one StorageObj is reflected on the other StorageObj.
+        '''
+        config.session.execute("DROP TABLE IF EXISTS my_app.test")
+        so = Test2StorageObj('test')
+        so.name = 'Oliver'
+        so.age = 21
+        so2 = Test2StorageObj('test')
+        self.assertEqual(so.name, so2.name)
+        self.assertEqual(so.age, so2.age)
+        so.name = 'Benji'
+        so2 = Test2StorageObj('test')
+        self.assertEqual(so.name, so2.name)
+        self.assertEqual(so.age, so2.age)
+        config.session.execute("DROP TABLE IF EXISTS my_app.test")
+
+    def test_storageobj_coherence_complex1(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.test")
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_myso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_myso_0")
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_myso2")
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_myso2_test")
+        so = Test3StorageObj('test')
+        myso_attr = Test2StorageObj()
+        myso_attr.name = 'Oliver'
+        myso_attr.age = 21
+        so.myso = myso_attr #creates my_app.test_myso_0, the original attribute pointed to test_myso
+        self.assertEqual(myso_attr.name, so.myso.name)
+        del myso_attr
+        self.assertEqual(so.myso.age, 21)
+        config.session.execute("DROP TABLE IF EXISTS my_app.test")
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_myso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_myso_0")
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_myso2")
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_myso2_test")
+
+
+    def test_storageobj_coherence_complex2(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.test")
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_myso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_myso_0")
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_myso2")
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_myso2_test")
+        so = Test3StorageObj('test')
+        myso_attr = Test2StorageObj()
+        myso_attr.name = 'Oliver'
+        myso_attr.age = 21
+        so.myso = myso_attr #creates my_app.test_myso_0, the original attribute pointed to test_myso
+        #now my_attr is persistent too, because it has been asigned to a persistent object
+        # Python behaviour, now the attribute points to the object, no copy made
+        self.assertTrue(so.myso is myso_attr)
+        #any change on the nested attribute should change the original and backwards
+        attr_value = 123
+        myso_attr.some_attribute = attr_value
+        myso_attr.name = 'Benji'
+        self.assertTrue(hasattr(so.myso,'some_attribute'))
+        self.assertEqual(so.myso.some_attribute, attr_value)
+        self.assertEqual(so.myso.name, 'Benji')
+
+        #now we unreference the top persistent object called so which was made persistent as 'test'
+        del so
+
+        #The object pointed by 'so.myso' should still exist because we still have one reference called 'myso_attr'
+
+        self.assertTrue(myso_attr is not None)
+        self.assertTrue(isinstance(myso_attr, Test2StorageObj))
+        self.assertEqual(myso_attr.name,'Benji')
+        config.session.execute("DROP TABLE IF EXISTS my_app.test")
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_myso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_myso_0")
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_myso2")
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_myso2_test")
+
+    def test_get_attr_1(self):
+        storage_obj = TestAttributes()
+        storage_obj.do_nothing_at_all()
+        value = 123
+        storage_obj.setvalue(value)
+        returned = storage_obj.getvalue()
+        self.assertEqual(value, returned)
+
+    def test_get_attr_2(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_attr")
+        storage_obj = TestAttributes()
+        storage_obj.do_nothing_at_all()
+        value = 123
+        storage_obj.setvalue(value)
+        storage_obj.make_persistent("test_attr")
+        # check that the in memory attribute is kept
+        returned = storage_obj.getvalue()
+        self.assertEqual(value, returned)
+        # check that the method added by inheritance is correctly called
+        storage_obj.do_nothing_at_all()
+
+        def method_nonexistent():
+            storage_obj.i_dont_exist()
+        # check that an attribute method which doesn't exist is detected
+        self.assertRaises(AttributeError, method_nonexistent)
+
+        # check for private methods too (starting with underscore)
+        def method_nonexistent_pvt():
+            storage_obj._pvt_dont_exist()
+
+        self.assertRaises(AttributeError, method_nonexistent_pvt)
+
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_attr")
+
+
+    def test_get_attr_3(self):
+        # the same as test_get_attr_2 but the object is persistent since the beginning
+
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_attr")
+        storage_obj = TestAttributes("test_attr")
+        storage_obj.do_nothing_at_all()
+        value = 123
+        storage_obj.setvalue(value)
+        # check that the in memory attribute is kept
+        returned = storage_obj.getvalue()
+        self.assertEqual(value, returned)
+        # check that the method added by inheritance is correctly called
+        storage_obj.do_nothing_at_all()
+
+        def method_nonexistent():
+            storage_obj.i_dont_exist()
+
+        # check that an attribute method which doesn't exist is detected
+        self.assertRaises(AttributeError, method_nonexistent)
+
+        # check for private methods too (starting with underscore)
+        def method_nonexistent_pvt():
+            storage_obj._pvt_dont_exist()
+
+        self.assertRaises(AttributeError, method_nonexistent_pvt)
+
+        storage_obj.key = 123
+        returned = storage_obj.key
+        self.assertEqual(storage_obj.key, returned)
+
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_attr")
 
 if __name__ == '__main__':
     unittest.main()

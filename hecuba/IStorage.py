@@ -3,7 +3,7 @@ from collections import namedtuple
 from time import time
 from hecuba import config, log
 import re
-
+import copy
 
 class AlreadyPersistentError(RuntimeError):
     pass
@@ -59,8 +59,11 @@ class IStorage:
         Returns:
             tuple containing class_name and module
         """
+
         if module_path == 'numpy.ndarray':
             return 'StorageNumpy', 'hecuba.hnumpy'
+        if module_path == 'StorageDict':
+            return 'StorageDict', 'hecuba.hdict'
         last = 0
         for key, i in enumerate(module_path):
             if i == '.' and key > last:
@@ -167,6 +170,20 @@ class IStorage:
         q = config.session.execute("SELECT table_name FROM  system_schema.tables WHERE keyspace_name = %s",
                                    [self._ksp])
         return len(filter(lambda (t_name, ): m.match(t_name), q))
+
+
+    @staticmethod
+    def _build_istorage(obj_info, so_name, storage_id):
+        cname, module = IStorage.process_path(obj_info['type'])
+        mod = __import__(module, globals(), locals(), [cname], 0)
+        # new name as ksp+table+obj_class_name
+        args = copy.deepcopy(obj_info)
+        args['name'] = so_name
+        args['storage_id'] = storage_id
+        args.pop('type')
+        so = getattr(mod, cname)(**args)
+        # sso._storage_id = storage_id
+        return so
 
     @staticmethod
     def build_remotely(new_args):

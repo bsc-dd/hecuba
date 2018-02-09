@@ -132,12 +132,51 @@ class StorageNumpy(np.ndarray, IStorage):
         """
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
-        self._is_persistent = False
-
         query = "DELETE FROM %s.%s WHERE storage_id = %s;" % (self._ksp, self._table + '_numpies', self._storage_id)
         log.debug("DELETE PERSISTENT: %s", query)
         config.session.execute(query)
+        self._is_persistent = False
 
-        # TODO should I also drop the table when empty?
-        # TODO DELETE THE METAS
-        ##to overload [] override __set_item__ and __get_item__
+        # TODO delete the data
+        # to overload [] override __set_item__ and __get_item__
+
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        args = []
+        in_no = []
+        for i, input_ in enumerate(inputs):
+            if isinstance(input_, StorageNumpy):
+                in_no.append(i)
+                args.append(input_.view(np.ndarray))
+            else:
+                args.append(input_)
+
+        outputs = kwargs.pop('out', None)
+        out_no = []
+        if outputs:
+            out_args = []
+            for j, output in enumerate(outputs):
+                if isinstance(output, StorageNumpy):
+                    out_no.append(j)
+                    out_args.append(output.view(np.ndarray))
+                else:
+                    out_args.append(output)
+            kwargs['out'] = tuple(out_args)
+        else:
+            outputs = (None,) * ufunc.nout
+
+        results = super(StorageNumpy, self).__array_ufunc__(ufunc, method,
+                                                            *args, **kwargs)
+        if results is NotImplemented:
+            return NotImplemented
+
+        if method == 'at':
+            return
+
+        if ufunc.nout == 1:
+            results = (results,)
+
+        results = tuple((result
+                         if output is None else output)
+                        for result, output in zip(results, outputs))
+
+        return results[0] if len(results) == 1 else results
