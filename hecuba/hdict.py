@@ -438,7 +438,7 @@ class StorageDict(dict, IStorage):
                                self._tokens, key_names, map(lambda x: {"name": x[0], "type": x[1]}, values_names),
                                {'cache_size': config.max_cache_size,
                                 'writer_par': config.write_callbacks_number,
-                                'write_buffer': config.write_buffer_size})
+                                'writer_buffer': config.write_buffer_size})
         log.debug("HCACHE params %s", self._hcache_params)
         self._hcache = Hcache(*self._hcache_params)
         # Storing all in-memory values to cassandra
