@@ -159,8 +159,8 @@ if (NOT CASS)
             CASS
             DEPENDS ${LIBUV_EXTERNAL}
             DOWNLOAD_DIR ${CMAKE_CURRENT_LIST_DIR}/_packedsrc
-            URL https://github.com/datastax/cpp-driver/archive/2.5.0.tar.gz
-            URL_HASH SHA1=70036c9d9685daf37ccec95851e1b1823357b4ec
+            URL https://github.com/datastax/cpp-driver/archive/2.7.1.tar.gz
+            URL_HASH SHA1=7a44eff7eecbb3ed95490d09cd00489c5b5ce683
             INSTALL_DIR ${CMAKE_CURRENT_LIST_DIR}/_install
             CMAKE_ARGS ${CMAKE_SUBPROJECT_FLAGS}
             -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_LIST_DIR}/_install -DCASS_USE_LIBSSH2=OFF -DCASS_USE_OPENSSL=OFF
