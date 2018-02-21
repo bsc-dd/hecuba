@@ -1,6 +1,6 @@
 #include "CacheTable.h"
 
-#define default_cache_size 10
+#define default_cache_size 0
 
 
 /***
