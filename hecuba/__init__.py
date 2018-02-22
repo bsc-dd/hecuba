@@ -135,7 +135,7 @@ class Config:
             singleton.max_cache_size = int(os.environ['MAX_CACHE_SIZE'])
             log.info('MAX_CACHE_SIZE: %d', singleton.max_cache_size)
         except KeyError:
-            singleton.max_cache_size = 100
+            singleton.max_cache_size = 0
             log.warn('using default MAX_CACHE_SIZE: %d', singleton.max_cache_size)
 
         try:
