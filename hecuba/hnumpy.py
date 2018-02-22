@@ -24,7 +24,7 @@ class StorageNumpy(np.ndarray, IStorage):
     args_names = ["storage_id", "class_name", "name"]
     args = namedtuple('StorageNumpyArgs', args_names)
 
-    def __new__(cls, input_array=None, storage_id=None, name="", **kwargs):
+    def __new__(cls, input_array=None, storage_id=None, name=None, **kwargs):
 
         if input_array is None and name and storage_id is not None:
             result = cls.load_array(storage_id, name)
