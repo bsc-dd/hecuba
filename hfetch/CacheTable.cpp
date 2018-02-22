@@ -206,6 +206,9 @@ void CacheTable::put_crow(const TupleRow *row) {
  */
 std::vector<const TupleRow *> CacheTable::retrieve_from_cassandra(const TupleRow *keys) {
 
+    // To avoid consistency problems we flush the elements pending to be written
+    this->writer->flush_elements();
+
     /* Not present on cache, a query is performed */
     CassStatement *statement = cass_prepared_bind(prepared_query);
 
