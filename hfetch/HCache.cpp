@@ -873,6 +873,9 @@ static PyObject *create_iter_items(HCache *self, PyObject *args) {
         return NULL;
     }
 
+    // Flush elements to avoid coherency problems
+    self->T->flush_elements();
+
     try {
         iter->P = storage->get_iterator(self->T->get_metadata(), self->token_ranges, config);
         iter->rowParser = new PythonParser(storage, iter->P->get_metadata()->get_items());

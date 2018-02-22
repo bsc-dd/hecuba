@@ -27,6 +27,8 @@ public:
         return table_metadata;
     }
 
+    const void flush_elements() const;
+
     /*** TupleRow ops ***/
 
     std::vector<const TupleRow *> get_crow(const TupleRow *py_keys);
