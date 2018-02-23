@@ -107,6 +107,23 @@ class TestStorageObjNumpyDict(StorageObj):
     pass
 
 
+
+class TestAttributes(StorageObj):
+    '''
+       @ClassField key int
+    '''
+
+    value = None
+
+    def do_nothing_at_all(self):
+        pass
+
+    def setvalue(self, v):
+        self.value = v
+
+    def getvalue(self):
+        return self.value
+
 class mixObj(StorageObj):
     '''
     @ClassField floatfield float
@@ -877,6 +894,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(so.name, so2.name)
         self.assertEqual(so.age, so2.age)
         so.name = 'Benji'
+        so2 = Test2StorageObj('test')
         self.assertEqual(so.name, so2.name)
         self.assertEqual(so.age, so2.age)
         config.session.execute("DROP TABLE IF EXISTS my_app.test")
@@ -937,6 +955,73 @@ class StorageObjTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.test_myso_0")
         config.session.execute("DROP TABLE IF EXISTS my_app.test_myso2")
         config.session.execute("DROP TABLE IF EXISTS my_app.test_myso2_test")
+
+    def test_get_attr_1(self):
+        storage_obj = TestAttributes()
+        storage_obj.do_nothing_at_all()
+        value = 123
+        storage_obj.setvalue(value)
+        returned = storage_obj.getvalue()
+        self.assertEqual(value, returned)
+
+    def test_get_attr_2(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_attr")
+        storage_obj = TestAttributes()
+        storage_obj.do_nothing_at_all()
+        value = 123
+        storage_obj.setvalue(value)
+        storage_obj.make_persistent("test_attr")
+        # check that the in memory attribute is kept
+        returned = storage_obj.getvalue()
+        self.assertEqual(value, returned)
+        # check that the method added by inheritance is correctly called
+        storage_obj.do_nothing_at_all()
+
+        def method_nonexistent():
+            storage_obj.i_dont_exist()
+        # check that an attribute method which doesn't exist is detected
+        self.assertRaises(AttributeError, method_nonexistent)
+
+        # check for private methods too (starting with underscore)
+        def method_nonexistent_pvt():
+            storage_obj._pvt_dont_exist()
+
+        self.assertRaises(AttributeError, method_nonexistent_pvt)
+
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_attr")
+
+
+    def test_get_attr_3(self):
+        # the same as test_get_attr_2 but the object is persistent since the beginning
+
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_attr")
+        storage_obj = TestAttributes("test_attr")
+        storage_obj.do_nothing_at_all()
+        value = 123
+        storage_obj.setvalue(value)
+        # check that the in memory attribute is kept
+        returned = storage_obj.getvalue()
+        self.assertEqual(value, returned)
+        # check that the method added by inheritance is correctly called
+        storage_obj.do_nothing_at_all()
+
+        def method_nonexistent():
+            storage_obj.i_dont_exist()
+
+        # check that an attribute method which doesn't exist is detected
+        self.assertRaises(AttributeError, method_nonexistent)
+
+        # check for private methods too (starting with underscore)
+        def method_nonexistent_pvt():
+            storage_obj._pvt_dont_exist()
+
+        self.assertRaises(AttributeError, method_nonexistent_pvt)
+
+        storage_obj.key = 123
+        returned = storage_obj.key
+        self.assertEqual(storage_obj.key, returned)
+
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_attr")
 
 if __name__ == '__main__':
     unittest.main()

@@ -275,7 +275,7 @@ class StorageObj(object, IStorage):
             # The attribute is an IStorage object
                 try:
                 # If we are persistent it will go to the storage and return an IStorage obj
-                    value = self.__getattribute__(attribute)
+                    value = self.__getattr__(attribute)
                 except AttributeError as ex:
                     # We are not persistent or the attribute hasn't been assigned an IStorage obj
                     # Then we build one
@@ -367,14 +367,11 @@ class StorageObj(object, IStorage):
         """
             The StorageObj stops being persistent, but keeps the information already stored in Cassandra
         """
-        for obj_name, obj_info in self._persistent_props.items():
-            if obj_info['type'] not in IStorage._basic_types:
-                try:
-                    pd = object.__getattribute__(self, obj_name)
-                    pd.stop_persistent()
-                except AttributeError:
-                    # Attribute unset, no action needed
-                    pass
+        for obj_name in self._persistent_attrs:
+            attr = getattr(self, obj_name, None)
+            if isinstance(attr, IStorage):
+                attr.stop_persistent()
+
         log.debug("STOP PERSISTENT")
         self._is_persistent = False
 
@@ -382,14 +379,10 @@ class StorageObj(object, IStorage):
         """
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
-
-        for (attr_name, attr_info) in self._persistent_props.iteritems():
-            if attr_info['type'] not in IStorage._basic_types:
-                try:
-                    pers_obj = getattr(self, attr_name)
-                    pers_obj.delete_persistent()
-                except AttributeError as ex:
-                    pass
+        for obj_name in self._persistent_attrs:
+            attr = getattr(self, obj_name, None)
+            if isinstance(attr, IStorage):
+                attr.delete_persistent()
 
         query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
         log.debug("DELETE PERSISTENT: %s", query)
@@ -397,7 +390,7 @@ class StorageObj(object, IStorage):
 
         self._is_persistent = False
 
-    def __getattribute__(self, attribute):
+    def __getattr__(self, attribute):
         """
             Given an attribute, this function returns the value, obtaining it from either:
             a) memory
@@ -415,13 +408,11 @@ class StorageObj(object, IStorage):
         Since python works using references any modification from another reference will affect this attribute,
         which is the expected behaviour. Therefore, is safe to store in-memory the Hecuba objects.
         '''
-        value_info = self._persistent_props[attribute]
-        if value_info['type'] not in IStorage._basic_types:
-            try:
-                return object.__getattribute__(self, attribute)
-            except AttributeError as ex:
-                # Not present in memory, we will need to rebuild it
-                pass
+        try:
+            return object.__getattribute__(self, attribute)
+        except AttributeError as ex:
+            # Not present in memory, we will need to rebuild it
+            pass
 
         query = "SELECT %s FROM %s.%s WHERE storage_id = %s;" % (attribute, self._ksp, self._table, self._storage_id)
         log.debug("GETATTR: %s", query)
@@ -442,6 +433,7 @@ class StorageObj(object, IStorage):
             raise AttributeError('value not found')
 
         # if the value is not a built-in type we need to check if it has changed and maybe rebuild
+        value_info = self._persistent_props[attribute]
         if value_info['type'] not in IStorage._basic_types:
             # The object wasn't in memory
             count = self._count_name_collision(attribute)
@@ -452,6 +444,7 @@ class StorageObj(object, IStorage):
             value = self._build_istorage_obj(name=table_name, tokens=self._build_args.tokens, storage_id=value,
                                              **value_info)
 
+        object.__setattr__(self, attribute, value)
         return value
 
     def __setattr__(self, attribute, value):
@@ -493,7 +486,6 @@ class StorageObj(object, IStorage):
                 # We store the storage_id when the object belongs to an Hecuba class
                 values = [self._storage_id, value._storage_id]
                 # We store the IStorage object in memory, to avoid rebuilding when it is not necessary
-                object.__setattr__(self, attribute, value)
             else:
                 values = [self._storage_id, value]
 
@@ -502,8 +494,9 @@ class StorageObj(object, IStorage):
 
             log.debug("SETATTR: ", query)
             config.session.execute(query, values)
-        else:
-            object.__setattr__(self, attribute, value)
+
+        # We store all the attributes in memory
+        object.__setattr__(self, attribute, value)
 
     def __delattr__(self, item):
         """
@@ -515,7 +508,4 @@ class StorageObj(object, IStorage):
             query = "UPDATE %s.%s SET %s = null WHERE storage_id = %s" % (
             self._ksp, self._table, item, self._storage_id)
             config.session.execute(query)
-            if self._persistent_props[item]['type'] not in IStorage._basic_types:
-                object.__delattr__(self, item)
-        else:
-            object.__delattr__(self, item)
+        object.__delattr__(self, item)

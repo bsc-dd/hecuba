@@ -122,8 +122,6 @@ class IStorage:
 
             for i in xrange(0, len(tokens), splits):
                 yield tokens[i:i + splits]
-            if len(tokens) % splits > 0:
-                yield tokens[len(tokens) / splits * splits + 1:]
 
     @staticmethod
     def _discrete_token_ranges(tokens):

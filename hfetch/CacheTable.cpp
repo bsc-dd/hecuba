@@ -1,6 +1,6 @@
 #include "CacheTable.h"
 
-#define default_cache_size 10
+#define default_cache_size 0
 
 
 /***
@@ -73,6 +73,10 @@ CacheTable::~CacheTable() {
     delete (table_metadata);
 }
 
+
+const void CacheTable::flush_elements() const {
+    this->writer->flush_elements();
+}
 
 void CacheTable::put_crow(const TupleRow *keys, const TupleRow *values) {
     this->writer->write_to_cassandra(keys, values);
@@ -205,6 +209,9 @@ void CacheTable::put_crow(const TupleRow *row) {
  * POST: never returns NULL
  */
 std::vector<const TupleRow *> CacheTable::retrieve_from_cassandra(const TupleRow *keys) {
+
+    // To avoid consistency problems we flush the elements pending to be written
+    this->writer->flush_elements();
 
     /* Not present on cache, a query is performed */
     CassStatement *statement = cass_prepared_bind(prepared_query);
