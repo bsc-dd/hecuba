@@ -482,7 +482,10 @@ class StorageObj(object, IStorage):
                 if not value._is_persistent:
                     name_collisions = attribute.lower()
                     count = self._count_name_collision(name_collisions)
-                    value.make_persistent(self._ksp + '.' + self._table + '_' + name_collisions + '_' + str(count))
+                    attr_name = self._ksp + '.' + self._table + '_' + name_collisions
+                    if count != 0:
+                        attr_name += '_' + str(count - 1)
+                    value.make_persistent(attr_name)
                 # We store the storage_id when the object belongs to an Hecuba class
                 values = [self._storage_id, value._storage_id]
                 # We store the IStorage object in memory, to avoid rebuilding when it is not necessary
