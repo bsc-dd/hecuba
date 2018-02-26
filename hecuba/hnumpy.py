@@ -31,20 +31,20 @@ class StorageNumpy(np.ndarray, IStorage):
             input_array = result[0]
             obj = np.asarray(input_array).view(cls)
             obj._is_persistent = True
+            (obj._ksp, obj._table) = IStorage._extract_ks_tab(name)
             obj._hcache = result[1]
             obj._hcache_params = result[2]
+            obj._storage_id = storage_id
         elif not name and storage_id is not None:
             raise RuntimeError("hnumpy received storage id but not a name")
         elif (input_array is not None and name and storage_id is not None) \
                 or (storage_id is None and name):
             obj = np.asarray(input_array).view(cls)
+            obj._storage_id = storage_id
             obj.make_persistent(name)
         else:
             obj = np.asarray(input_array).view(cls)
-        # Input array is an already formed ndarray instance
-        # We first cast to be our class type
-        # add the new attribute to the created instance
-        obj._storage_id = storage_id
+            obj._storage_id = storage_id
         # Finally, we must return the newly created object:
         obj._class_name = '%s.%s' % (cls.__module__, cls.__name__)
         return obj
