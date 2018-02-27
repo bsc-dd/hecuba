@@ -284,12 +284,12 @@ class StorageObj(object, IStorage):
                         # if we are persistent, the object should be persistent too
                         count = self._count_name_collision(attribute)
                         attr_name = self._ksp + '.' + self._table + '_' + attribute
-                        if count != 0:
-                            attr_name += '_' + str(count - 1)
+                        if count > 1:
+                            attr_name += '_' + str(count - 2)
                     # Build the IStorage obj
                     value = self._build_istorage_obj(name=attr_name, tokens=self._build_args.tokens, **value_info)
                 # Assign the IStorage obj to the attribute
-                self.__setattr__(attribute, value)
+                object.__setattr__(self, attribute, value)
 
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.getID() == other.getID()
@@ -438,8 +438,8 @@ class StorageObj(object, IStorage):
             # The object wasn't in memory
             count = self._count_name_collision(attribute)
             table_name = self._ksp + '.' + self._table + '_' + attribute
-            if count != 0:
-                table_name += '_' + str(count - 1)
+            if count > 1:
+                table_name += '_' + str(count - 2)
 
             value = self._build_istorage_obj(name=table_name, tokens=self._build_args.tokens, storage_id=value,
                                              **value_info)
