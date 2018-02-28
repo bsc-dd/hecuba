@@ -14,6 +14,9 @@ class StorageNumpy(np.ndarray, IStorage):
     _class_name = None
     _hcache_params = None
     _hcache = None
+    _is_persistent = False
+    _ksp = ""
+    _table = ""
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
                                                   '(storage_id, class_name, name)'
                                                   'VALUES (?,?,?)')
@@ -23,23 +26,25 @@ class StorageNumpy(np.ndarray, IStorage):
 
     def __new__(cls, input_array=None, storage_id=None, name=None, **kwargs):
 
-        if input_array is None and name is not None and storage_id is not None:
-            input_array = cls.load_array(storage_id, name)
+        if input_array is None and name and storage_id is not None:
+            result = cls.load_array(storage_id, name)
+            input_array = result[0]
             obj = np.asarray(input_array).view(cls)
             obj._is_persistent = True
-        elif name is None and storage_id is not None:
+            (obj._ksp, obj._table) = IStorage._extract_ks_tab(name)
+            obj._hcache = result[1]
+            obj._hcache_params = result[2]
+            obj._storage_id = storage_id
+        elif not name and storage_id is not None:
             raise RuntimeError("hnumpy received storage id but not a name")
-        elif (input_array is not None and name is not None and storage_id is not None) \
-                or (storage_id is None and name is not None):
+        elif (input_array is not None and name and storage_id is not None) \
+                or (storage_id is None and name):
             obj = np.asarray(input_array).view(cls)
+            obj._storage_id = storage_id
             obj.make_persistent(name)
         else:
             obj = np.asarray(input_array).view(cls)
-            obj._is_persistent = False
-        # Input array is an already formed ndarray instance
-        # We first cast to be our class type
-        # add the new attribute to the created instance
-        obj._storage_id = storage_id
+            obj._storage_id = storage_id
         # Finally, we must return the newly created object:
         obj._class_name = '%s.%s' % (cls.__module__, cls.__name__)
         return obj
@@ -60,7 +65,7 @@ class StorageNumpy(np.ndarray, IStorage):
                 so: the created StorageNumpy
         """
         log.debug("Building StorageNumpy object with %s", new_args)
-        return StorageNumpy(new_args.storage_id)
+        return StorageNumpy(name=new_args.name, storage_id=new_args.storage_id)
 
     @staticmethod
     def _store_meta(storage_args):
@@ -81,16 +86,16 @@ class StorageNumpy(np.ndarray, IStorage):
     @staticmethod
     def load_array(storage_id, name):
         (ksp, table) = IStorage._extract_ks_tab(name)
-        _hcache_params = (ksp, table + '_numpies',
-                          storage_id, [], ['storage_id', 'cluster_id', 'block_id'],
-                          [{'name': "payload", 'type': 'numpy'}],
-                          {'cache_size': config.max_cache_size,
-                           'writer_par': config.write_callbacks_number,
-                           'write_buffer': config.write_buffer_size})
-        _hcache = Hcache(*_hcache_params)
-        result = _hcache.get_row([storage_id, -1, -1])
+        hcache_params = (ksp, table + '_numpies',
+                         storage_id, [], ['storage_id', 'cluster_id', 'block_id'],
+                         [{'name': "payload", 'type': 'numpy'}],
+                         {'cache_size': config.max_cache_size,
+                          'writer_par': config.write_callbacks_number,
+                          'write_buffer': config.write_buffer_size})
+        hcache = Hcache(*hcache_params)
+        result = hcache.get_row([storage_id, -1, -1])
         if len(result) == 1:
-            return result[0]
+            return [result[0], hcache, hcache_params]
         else:
             raise KeyError
 
@@ -133,30 +138,25 @@ class StorageNumpy(np.ndarray, IStorage):
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
         query = "DELETE FROM %s.%s WHERE storage_id = %s;" % (self._ksp, self._table + '_numpies', self._storage_id)
+        query2 = "DELETE FROM hecuba.istorage WHERE storage_id = %s;" % self._storage_id
         log.debug("DELETE PERSISTENT: %s", query)
         config.session.execute(query)
+        config.session.execute(query2)
         self._is_persistent = False
-
-        # TODO delete the data
-        # to overload [] override __set_item__ and __get_item__
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         args = []
-        in_no = []
-        for i, input_ in enumerate(inputs):
+        for input_ in inputs:
             if isinstance(input_, StorageNumpy):
-                in_no.append(i)
                 args.append(input_.view(np.ndarray))
             else:
                 args.append(input_)
 
         outputs = kwargs.pop('out', None)
-        out_no = []
         if outputs:
             out_args = []
-            for j, output in enumerate(outputs):
+            for output in outputs:
                 if isinstance(output, StorageNumpy):
-                    out_no.append(j)
                     out_args.append(output.view(np.ndarray))
                 else:
                     out_args.append(output)
@@ -171,6 +171,9 @@ class StorageNumpy(np.ndarray, IStorage):
 
         if method == 'at':
             return
+
+        if self._is_persistent and len(self.shape):
+            self._hcache.put_row([self._storage_id, -1, -1], [self])
 
         if ufunc.nout == 1:
             results = (results,)

@@ -3,7 +3,7 @@ from collections import namedtuple
 from time import time
 from hecuba import config, log
 import re
-import copy
+
 
 class AlreadyPersistentError(RuntimeError):
     pass
@@ -86,8 +86,6 @@ class IStorage:
             storage_id = uuid.uuid4()
             log.debug('assigning to %s %d  tokens', str(storage_id), len(token_split))
             new_args = self._build_args._replace(tokens=token_split, storage_id=storage_id)
-            self.__class__._store_meta(new_args)
-
             yield self.__class__.build_remotely(new_args)
         log.debug('completed split of %s in %f', self.__class__.__name__, time() - st)
 
@@ -166,24 +164,37 @@ class IStorage:
         return ksp.lower().encode('UTF8'), table.lower().encode('UTF8')
 
     def _count_name_collision(self, attribute):
-        m = re.compile("^%s_%s_[0-9]+$" % (self._table, attribute))
+        m = re.compile("^%s_%s(_[0-9]+)?$" % (self._table, attribute))
         q = config.session.execute("SELECT table_name FROM  system_schema.tables WHERE keyspace_name = %s",
                                    [self._ksp])
         return len(filter(lambda (t_name, ): m.match(t_name), q))
 
+    def _build_istorage_obj(self, **obj_info):
+        """
+        Takes the information which consists of at least the type,
+        :raises TypeError if the object class doesn't subclass IStorage
+        :param obj_info: Contains the information to be used to create the IStorage obj
+        :return: An IStorage object
+        """
+        try:
+            obj_type = obj_info['type']
+        except KeyError:
+            raise TypeError("Trying to build an IStorage obj without giving the type")
 
-    @staticmethod
-    def _build_istorage(obj_info, so_name, storage_id):
-        cname, module = IStorage.process_path(obj_info['type'])
+        obj_info['class_name'] = obj_type
+
+        # Import the class defined by obj_type
+        cname, module = IStorage.process_path(obj_type)
         mod = __import__(module, globals(), locals(), [cname], 0)
-        # new name as ksp+table+obj_class_name
-        args = copy.deepcopy(obj_info)
-        args['name'] = so_name
-        args['storage_id'] = storage_id
-        args.pop('type')
-        so = getattr(mod, cname)(**args)
-        # sso._storage_id = storage_id
-        return so
+        is_class = getattr(mod, cname)
+        if not issubclass(is_class, IStorage):
+            raise TypeError("Trying to build remotely an object '%s' != IStorage subclass" % cname)
+
+        # Build the object's namedtuple from the given arguments
+        namedtuple_args = [obj_info.get(arg, None) for arg in is_class.args_names]
+        obj_namedtuple = is_class.args(*namedtuple_args)
+        # Build the IStorage object through build_remotely method
+        return is_class.build_remotely(obj_namedtuple)
 
     @staticmethod
     def build_remotely(new_args):

@@ -823,6 +823,75 @@ class StorageObjTest(unittest.TestCase):
         time.sleep(2)
         self.assertTrue(np.array_equal(mynumpydict, my_so.mynumpydict[0]))
 
+
+
+    def test_numpy_operations(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy_numpies")
+        my_so = TestStorageObjNumpy()
+        base_numpy = np.arange(2048)
+        my_so.mynumpy = np.arange(2048)
+        my_so.make_persistent('mynewso')
+        import time
+        time.sleep(2)
+        self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
+        base_numpy+=1
+        my_so.mynumpy+=1
+        self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
+        self.assertEqual(np.average(base_numpy),np.average(my_so.mynumpy))
+        self.assertEqual(np.mean(base_numpy),np.mean(my_so.mynumpy))
+
+
+    def test_numpy_ops_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy_numpies")
+        my_so = TestStorageObjNumpy()
+        base_numpy = np.arange(2048)
+        my_so.mynumpy = np.arange(2048)
+        my_so.make_persistent('mynewso')
+        import time
+        time.sleep(2)
+        self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
+        base_numpy += 1
+        my_so.mynumpy += 1
+        self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
+
+
+        reloaded_so = TestStorageObjNumpy('mynewso')
+        self.assertTrue(np.array_equal(base_numpy, reloaded_so.mynumpy))
+        self.assertEqual(np.average(base_numpy), np.average(reloaded_so.mynumpy))
+        self.assertEqual(np.mean(base_numpy), np.mean(reloaded_so.mynumpy))
+
+    def test_numpy_reloading(self):
+        sizea, sizeb = (1000,1000)
+        no = TestStorageObjNumpy("my_app.numpy_test_%d_%d" % (sizea, sizeb))
+        a = np.ones((sizea, sizeb))
+        no.mynumpy = a
+        del no
+        no = TestStorageObjNumpy("my_app.numpy_test_%d_%d" % (sizea, sizeb))
+        a = no.mynumpy
+        self.assertEqual(np.shape(a),(sizea,sizeb))
+        self.assertEqual(np.sum(a),sizea*sizeb)
+
+
+    def test_numpy_reloading_internals(self):
+        sizea, sizeb = (1000,1000)
+        no = TestStorageObjNumpy("my_app.numpy_test_%d_%d" % (sizea, sizeb))
+        a = np.ones((sizea, sizeb))
+        no.mynumpy = a
+        initial_name_so = no._ksp+'.'+no._table
+        initial_name_np = no.mynumpy._ksp+'.'+no.mynumpy._table
+        del no
+        no = TestStorageObjNumpy("my_app.numpy_test_%d_%d" % (sizea, sizeb))
+        a = no.mynumpy
+
+        final_name_so = no._ksp+'.'+no._table
+        final_name_np = no.mynumpy._ksp+'.'+no.mynumpy._table
+        self.assertEqual(initial_name_so,final_name_so)
+        self.assertEqual(initial_name_np, final_name_np)
+
     def test_storagedict_assign(self):
         config.hecuba_type_checking = True
         config.session.execute("DROP TABLE IF EXISTS my_app.t2")
