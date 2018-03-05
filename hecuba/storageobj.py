@@ -344,7 +344,7 @@ class StorageObj(object, IStorage):
                                          self._ksp, self._table, name)
 
         (self._ksp, self._table) = self._extract_ks_tab(name)
-        self._build_args = self._build_args._replace(name=name)
+        self._build_args = self._build_args._replace(name=self._ksp + '.' + self._table)
         # Create the interface with the backend to store the object
         self._setup_persistent_structs()
 
