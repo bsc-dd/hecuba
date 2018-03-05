@@ -2,6 +2,7 @@ import unittest
 from hecuba import config
 from hecuba.hdict import StorageDict
 from hecuba.storageobj import StorageObj
+from hecuba.IStorage import IStorage, AlreadyPersistentError
 
 class ExampleStoragedictClass(StorageDict):
     '''
@@ -155,6 +156,25 @@ class TutorialTest(unittest.TestCase):
 		var= var & (name in my_example_class.__dict__.keys())
 	self.assertEqual(var,False)
 
+    def test7(self):
+	tablename = 'examplestorageobjclass1'
+        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + '_my_dict')
+        my_example_class = ExampleStorageObjClass2()
+        my_example_class.make_persistent(tablename)
+	attr_istorage=[]
+	for obj_name in my_example_class._persistent_attrs:
+		attr= getattr(my_example_class,obj_name,None)
+		if isinstance(attr,IStorage):
+			attr_istorage.append(obj_name)
+			
+	my_example_class.delete_persistent()
+	count, = config.session.execute('SELECT count(*) FROM my_app.'+tablename)[0]
+	self.assertEqual(count,0)
+	for obj_name in attr_istorage:
+        	print 'my_app.'+tablename+'_'+obj_name	
+              	count, = config.session.execute('SELECT count(*) FROM my_app.'+tablename+'_'+obj_name)[0]
+                self.assertEqual(count,0)
 
 if __name__ == '__main__':
     untest.main()

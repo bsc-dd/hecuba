@@ -312,6 +312,7 @@ class StorageObj(object, IStorage):
             Args:
                 name (string): name with which the table in the DB will be created
         """
+
         if self._is_persistent:
             raise AlreadyPersistentError("This StorageObj is already persistent [Before:{}.{}][After:{}]",
                                          self._ksp, self._table, name)
@@ -380,20 +381,19 @@ class StorageObj(object, IStorage):
 #        self._is_persistent = False
 
     def delete_persistent(self):
+
         """
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
+	
+	for obj_name in self._persistent_attrs:
+		attr= getattr(self,obj_name,None)
+		if isinstance(attr,IStorage):
+			attr.delete_persistent()
 
-   	for name in self._persistent_attrs:
+  	for name in self._persistent_attrs:
 		if name in self.__dict__.keys():
                 	delattr(self,name)
-
-        #self._persistent_attrs= []
-
-        for obj_name in self._persistent_attrs:
-            attr = getattr(self, obj_name, None)
-            if isinstance(attr, IStorage):
-                attr.delete_persistent()
 
 
         query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
