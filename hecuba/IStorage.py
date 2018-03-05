@@ -207,8 +207,11 @@ class IStorage:
     def make_persistent(self, name):
         raise Exception("to be implemented")
 
-    def stop_persistent(self):
-        raise Exception("to be implemented")
+###############################################
+## This def will be removed                   #
+##############################################
+#    def stop_persistent(self):
+#        raise Exception("to be implemented")
 
     def delete_persistent(self):
         raise Exception("to be implemented")
