@@ -364,22 +364,6 @@ class StorageObj(object, IStorage):
                 pass
         self._store_meta(self._build_args)
 
-#######################################################################
-########### THIS DEF WILL BE REMOVED ##################################
-#######################################################################
-
-#    def stop_persistent(self):
-#        """
-#            The StorageObj stops being persistent, but keeps the information already stored in Cassandra
-#        """
-#        for obj_name in self._persistent_attrs:
-#            attr = getattr(self, obj_name, None)
-#            if isinstance(attr, IStorage):
-#                attr.stop_persistent()
-
-#        log.debug("STOP PERSISTENT")
-#        self._is_persistent = False
-
     def delete_persistent(self):
 
         """

@@ -460,25 +460,13 @@ class StorageDict(dict, IStorage):
                 raise ex
 
         super(StorageDict, self).clear()
-############################################################################
-# This def will be removed 						   #
-############################################################################
-#    def stop_persistent(self):
-#        """
-#        Method to turn a StorageDict into non-persistent.
-#        """
-#        log.debug('STOP PERSISTENCE: %s', self._table)
-#        self._is_persistent = False
-#        self._hcache = None
-###########################################################################
+
     def delete_persistent(self):
 
-        ###################################################################
-        # This is just to check if this can be the solution of the problem
         self._is_persistent = False
         self._hcache = None
         self.clear()
-        ###################################################################
+
         """
         Method to empty all data assigned to a StorageDict.
         """
