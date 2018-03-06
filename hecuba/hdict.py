@@ -163,7 +163,7 @@ class StorageDict(dict, IStorage):
         self._k_size = len(key_names)
 
         class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
-        self._build_args = self.args(name, self._primary_keys, self._columns, self._tokens,
+        self._build_args = self.args(None, self._primary_keys, self._columns, self._tokens,
                                      self._storage_id, self._indexed_args, class_name)
 
         if name:

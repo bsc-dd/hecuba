@@ -108,7 +108,7 @@ class StorageNumpy(np.ndarray, IStorage):
         (self._ksp, self._table) = self._extract_ks_tab(name)
         if self._storage_id is None:
             self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table + '_numpies')
-        self._build_args = self.args(self._storage_id, self._class_name, name)
+        self._build_args = self.args(self._storage_id, self._class_name, self._ksp + '.' + self._table)
         log.info("PERSISTING DATA INTO %s %s", self._ksp, self._table)
 
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)

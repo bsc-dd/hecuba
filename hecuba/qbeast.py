@@ -124,7 +124,7 @@ class QbeastIterator(IStorage):
         self._build_args = self._building_args(
             primary_keys,
             columns,
-            name,
+            self._ksp + "." + self._table,
             qbeast_meta,
             qbeast_id,
             entry_point,
