@@ -288,6 +288,10 @@ class Config:
                                               'to_point frozen < list < float >>,'
                                               'precision float)')
 
+
+                    singleton.session.execute('CREATE TYPE IF NOT EXISTS hecuba.np_meta('
+                                              'dims frozen<list<int>>,type int);')
+
                     singleton.session.execute(
                         'CREATE TABLE IF NOT EXISTS hecuba' +
                         '.istorage (storage_id uuid, '
@@ -298,6 +302,7 @@ class Config:
                         'entry_point text,'
                         'qbeast_id uuid,'
                         'qbeast_meta q_meta,'
+                        'numpy_meta np_meta,'
                         'primary_keys list<frozen<tuple<text,text>>>,'
                         'columns list<frozen<tuple<text,text>>>,'
                         'PRIMARY KEY(storage_id))')

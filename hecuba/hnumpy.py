@@ -9,6 +9,11 @@ import numpy as np
 
 
 class StorageNumpy(np.ndarray, IStorage):
+    class np_meta(object):
+        def __init__(self, shape, dtype):
+            self.dims = shape
+            self.type = dtype
+
     _storage_id = None
     _build_args = None
     _class_name = None
@@ -18,10 +23,10 @@ class StorageNumpy(np.ndarray, IStorage):
     _ksp = ""
     _table = ""
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
-                                                  '(storage_id, class_name, name)'
-                                                  'VALUES (?,?,?)')
+                                                  '(storage_id, class_name, name, numpy_meta)'
+                                                  'VALUES (?,?,?,?)')
 
-    args_names = ["storage_id", "class_name", "name"]
+    args_names = ["storage_id", "class_name", "name", "shape", "dtype"]
     args = namedtuple('StorageNumpyArgs', args_names)
 
     def __new__(cls, input_array=None, storage_id=None, name=None, **kwargs):
@@ -78,7 +83,8 @@ class StorageNumpy(np.ndarray, IStorage):
         try:
             config.session.execute(StorageNumpy._prepared_store_meta,
                                    [storage_args.storage_id, storage_args.class_name,
-                                    storage_args.name])
+                                    storage_args.name, StorageNumpy.np_meta(storage_args.shape, storage_args.dtype)])
+
         except Exception as ex:
             log.warn("Error creating the StorageNumpy metadata with args: %s" % str(storage_args))
             raise ex
@@ -108,7 +114,10 @@ class StorageNumpy(np.ndarray, IStorage):
         (self._ksp, self._table) = self._extract_ks_tab(name)
         if self._storage_id is None:
             self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table + '_numpies')
-        self._build_args = self.args(self._storage_id, self._class_name, self._ksp + '.' + self._table)
+
+        self._build_args = self.args(self._storage_id, self._class_name, self._ksp + '.' + self._table,
+                                     self.shape, self.dtype.num)
+
         log.info("PERSISTING DATA INTO %s %s", self._ksp, self._table)
 
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
