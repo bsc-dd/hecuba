@@ -9,8 +9,8 @@ install:
   - python setup.py install --user
 # command to run tests
 script:
-  - nosetests tests/*.py
-  - nosetests tests/withcassandra
+  - nosetests -v tests/*.py
+  - nosetests -v tests/withcassandra
 
 #caches dependencies
 cache: bundler
