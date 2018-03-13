@@ -10,9 +10,10 @@ import numpy as np
 
 class StorageNumpy(np.ndarray, IStorage):
     class np_meta(object):
-        def __init__(self, shape, dtype):
+        def __init__(self, shape, dtype, block_id):
             self.dims = shape
             self.type = dtype
+            self.block_id = block_id
 
     _storage_id = None
     _build_args = None
@@ -22,11 +23,12 @@ class StorageNumpy(np.ndarray, IStorage):
     _is_persistent = False
     _ksp = ""
     _table = ""
+    _block_id = None
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
                                                   '(storage_id, class_name, name, numpy_meta)'
                                                   'VALUES (?,?,?,?)')
 
-    args_names = ["storage_id", "class_name", "name", "shape", "dtype"]
+    args_names = ["storage_id", "class_name", "name", "shape", "dtype", "block_id"]
     args = namedtuple('StorageNumpyArgs', args_names)
 
     def __new__(cls, input_array=None, storage_id=None, name=None, **kwargs):
@@ -83,7 +85,7 @@ class StorageNumpy(np.ndarray, IStorage):
         try:
             config.session.execute(StorageNumpy._prepared_store_meta,
                                    [storage_args.storage_id, storage_args.class_name,
-                                    storage_args.name, StorageNumpy.np_meta(storage_args.shape, storage_args.dtype)])
+                                    storage_args.name, StorageNumpy.np_meta(storage_args.shape, storage_args.dtype, storage_args.block_id)])
 
         except Exception as ex:
             log.warn("Error creating the StorageNumpy metadata with args: %s" % str(storage_args))
@@ -116,7 +118,7 @@ class StorageNumpy(np.ndarray, IStorage):
             self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table + '_numpies')
 
         self._build_args = self.args(self._storage_id, self._class_name, self._ksp + '.' + self._table,
-                                     self.shape, self.dtype.num)
+                                     self.shape, self.dtype.num, self._block_id)
 
         log.info("PERSISTING DATA INTO %s %s", self._ksp, self._table)
 

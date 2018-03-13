@@ -290,7 +290,7 @@ class Config:
 
 
                     singleton.session.execute('CREATE TYPE IF NOT EXISTS hecuba.np_meta('
-                                              'dims frozen<list<int>>,type int);')
+                                              'dims frozen<list<int>>,type int,block_id int);')
 
                     singleton.session.execute(
                         'CREATE TABLE IF NOT EXISTS hecuba' +
