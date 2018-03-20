@@ -4,6 +4,15 @@ from hecuba.hdict import StorageDict
 from hecuba.storageobj import StorageObj
 
 # coding: utf-8
+
+
+class event_value(StorageObj):
+	'''
+	@ClassField event dict<<int>,long>
+	@ClassField value dict<<int>,long>
+
+	'''
+
 class ExampleStorageObjClass(StorageObj):
     '''
         @ClassField my_example int

@@ -380,8 +380,10 @@ class StorageObj(object, IStorage):
                 	delattr(self,name)
 
 
-        query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
+        query = "DROP TABLE %s.%s;" % (self._ksp, self._table)
         log.debug("DELETE PERSISTENT: %s", query)
+        config.session.execute(query)
+	query = "DELETE FROM hecuba.istorage where storage_id=%s IF EXISTS;" % (self._storage_id)
         config.session.execute(query)
 
         self._is_persistent = False
