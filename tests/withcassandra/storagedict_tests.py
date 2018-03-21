@@ -171,6 +171,26 @@ class StorageDictTest(unittest.TestCase):
         count, = config.session.execute('SELECT count(*) FROM my_app.t_make_words')[0]
         self.assertEqual(10, count)
 
+
+    def test_none_value(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.somename")
+        mydict = MyStorageDict('somename')
+        mydict[0]=None
+        self.assertEqual(mydict[0],None)
+        config.session.execute("DROP TABLE IF EXISTS my_app.somename")
+
+
+    def test_none_keys(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.somename")
+        mydict = MyStorageDict('somename')
+        def set_none_key():
+            mydict[None] = 1
+
+        self.assertRaises(TypeError, set_none_key)
+        config.session.execute("DROP TABLE IF EXISTS my_app.somename")
+
+
+
     def test_paranoid_setitem_nonpersistent(self):
         config.hecuba_type_checking = True
         pd = StorageDict(None,
