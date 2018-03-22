@@ -369,21 +369,20 @@ class StorageObj(object, IStorage):
         """
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
-	
-	for obj_name in self._persistent_attrs:
-		attr= getattr(self,obj_name,None)
-		if isinstance(attr,IStorage):
-			attr.delete_persistent()
+        for obj_name in self._persistent_attrs:
+            attr= getattr(self,obj_name,None)
+            if isinstance(attr,IStorage):
+                attr.delete_persistent()
 
-  	for name in self._persistent_attrs:
-		if name in self.__dict__.keys():
-                	delattr(self,name)
+        for name in self._persistent_attrs:
+            if name in self.__dict__.keys():
+                delattr(self,name)
 
 
         query = "DROP TABLE %s.%s;" % (self._ksp, self._table)
         log.debug("DELETE PERSISTENT: %s", query)
         config.session.execute(query)
-	query = "DELETE FROM hecuba.istorage where storage_id=%s IF EXISTS;" % (self._storage_id)
+        query = "DELETE FROM hecuba.istorage where storage_id=%s IF EXISTS;" % (self._storage_id)
         config.session.execute(query)
 
         self._is_persistent = False

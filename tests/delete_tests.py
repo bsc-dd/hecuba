@@ -34,7 +34,7 @@ class ExampleStoragedictClassInitMultiVal(StorageDict):
 class ExampleStorageObjClass(StorageObj):
     '''
         @ClassField my_example int
-	@ClassField my_example2 int
+	    @ClassField my_example2 int
     '''
 
 
@@ -64,16 +64,16 @@ class ExampleStorageObjClassNames(StorageObj):
 class ExampleStorageObjClass2(StorageObj):
     '''
         @ClassField my_example int
-	@ClassField my_example2 int
-	@ClassField nombre1 ExampleStorageObjClass
+	    @ClassField my_example2 int
+	    @ClassField nombre1 ExampleStorageObjClass
     '''
 
 
 class ExampleStorageObjClass2(StorageObj):
     '''
-            @ClassField my_example int
-            @ClassField my_example2 int
-            @ClassField nombre1 tests.withcassandra.prueba.ExampleStorageObjClass
+        @ClassField my_example int
+        @ClassField my_example2 int
+        @ClassField nombre1 tests.withcassandra.prueba.ExampleStorageObjClass
     '''
 
 
@@ -116,9 +116,9 @@ class TutorialTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         my_example_class = ExampleStorageObjClass()
         my_example_class.make_persistent(tablename)
-	count, = config.session.execute('select count(*) from system_schema.tables')[0]
+        count, = config.session.execute('select count(*) from system_schema.tables')[0]
         my_example_class.delete_persistent()
-	count2, = config.session.execute('select count(*) from system_schema.tables')[0]
+        count2, = config.session.execute('select count(*) from system_schema.tables')[0]
         self.assertEqual(count > count2, True)
         var = True
         for name in my_example_class._persistent_attrs:
@@ -132,7 +132,7 @@ class TutorialTest(unittest.TestCase):
         my_example_class = ExampleStorageObjClassInit()
         StorageObj.__init__(my_example_class)
         my_example_class.make_persistent(tablename)
-	count, = config.session.execute('select count(*) from system_schema.tables')[0]
+        count, = config.session.execute('select count(*) from system_schema.tables')[0]
         my_example_class.delete_persistent()
         count2, = config.session.execute('select count(*) from system_schema.tables')[0]
         self.assertEqual(count > count2, True)
@@ -147,9 +147,9 @@ class TutorialTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + '_my_dict')
         my_example_class = ExampleStorageObjClassNames()
         my_example_class.make_persistent(tablename)
-	count, = config.session.execute('select count(*) from system_schema.tables')[0]
+        count, = config.session.execute('select count(*) from system_schema.tables')[0]
         my_example_class.delete_persistent()
-	count2 = config.session.execute('select count(*) from system_schema.tables')[0]
+        count2 = config.session.execute('select count(*) from system_schema.tables')[0]
         self.assertEqual(count > count2, 0)
         var = True
         for name in my_example_class._persistent_attrs:
@@ -162,7 +162,7 @@ class TutorialTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + '_my_dict')
         my_example_class = ExampleStorageObjClass2()
         my_example_class.make_persistent(tablename)
-	count, = config.session.execute('select count(*) from system_schema.tables')[0]
+        count, = config.session.execute('select count(*) from system_schema.tables')[0]
         attr_istorage = []
         for obj_name in my_example_class._persistent_attrs:
             attr = getattr(my_example_class, obj_name, None)
