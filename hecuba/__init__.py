@@ -157,7 +157,7 @@ class Config:
                                     singleton.replication_factor
         else:
             singleton.replication = "{'class' : '%s', %s}" % (
-            singleton.replication_strategy, singleton.replication_strategy_options)
+                singleton.replication_strategy, singleton.replication_strategy_options)
         try:
             singleton.hecuba_print_limit = int(os.environ['HECUBA_PRINT_LIMIT'])
             log.info('HECUBA_PRINT_LIMIT: %s', singleton.hecuba_print_limit)
@@ -275,37 +275,37 @@ class Config:
                 # connecting c++ bindings
                 connectCassandra(singleton.contact_names, singleton.nodePort)
                 if singleton.id_create_schema == -1:
-                    singleton.session.execute(
+                    queries = [
                         "CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = %s" % (singleton.execution_name,
-                                                                                    singleton.replication))
-                    singleton.session.execute(
-                        ('CREATE KEYSPACE IF NOT EXISTS hecuba' +
-                         " WITH replication = %s" % singleton.replication))
-
-                    singleton.session.execute('CREATE TYPE IF NOT EXISTS hecuba.q_meta('
-                                              'mem_filter text, '
-                                              'from_point frozen < list < float >>,'
-                                              'to_point frozen < list < float >>,'
-                                              'precision float)')
-
-
-                    singleton.session.execute('CREATE TYPE IF NOT EXISTS hecuba.np_meta('
-                                              'dims frozen<list<int>>,type int,block_id int);')
-
-                    singleton.session.execute(
-                        'CREATE TABLE IF NOT EXISTS hecuba' +
-                        '.istorage (storage_id uuid, '
-                        'class_name text,name text, '
-                        'istorage_props map<text,text>, '
-                        'tokens list<frozen<tuple<bigint,bigint>>>,'
-                        'indexed_on list<text>,'
-                        'entry_point text,'
-                        'qbeast_id uuid,'
-                        'qbeast_meta q_meta,'
-                        'numpy_meta np_meta,'
-                        'primary_keys list<frozen<tuple<text,text>>>,'
-                        'columns list<frozen<tuple<text,text>>>,'
-                        'PRIMARY KEY(storage_id))')
+                                                                                    singleton.replication),
+                        "CREATE KEYSPACE IF NOT EXISTS hecuba  WITH replication = %s" % singleton.replication,
+                        """CREATE TYPE IF NOT EXISTS hecuba.q_meta(
+                        mem_filter text, 
+                        from_point frozen<list<float>>,
+                        to_point frozen<list<float>>,
+                        precision float);
+                        """,
+                        'CREATE TYPE IF NOT EXISTS hecuba.np_meta(dims frozen<list<int>>,type int,block_id int);',
+                        """CREATE TABLE IF NOT EXISTS hecuba
+                        .istorage (storage_id uuid, 
+                        class_name text,name text, 
+                        istorage_props map<text,text>, 
+                        tokens list<frozen<tuple<bigint,bigint>>>,
+                        indexed_on list<text>,
+                        entry_point text,
+                        qbeast_id uuid,
+                        qbeast_meta frozen<q_meta>,
+                        numpy_meta frozen<np_meta>,
+                        primary_keys list<frozen<tuple<text,text>>>,
+                        columns list<frozen<tuple<text,text>>>,
+                        PRIMARY KEY(storage_id));
+                        """]
+                    for query in queries:
+                        try:
+                            singleton.session.execute(query)
+                        except Exception as e:
+                            log.error("Error executing query %s" % query)
+                            raise e
 
             except Exception as e:
                 log.error('Exception creating cluster session. Are you in a testing env? %s', e)
