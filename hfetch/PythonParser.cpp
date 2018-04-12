@@ -86,7 +86,8 @@ PyObject *PythonParser::make_pylist(std::vector<const TupleRow *> &values) const
 
     PyObject *list = PyList_New(tuple->n_elem());
     for (uint16_t i = 0; i < tuple->n_elem(); i++) {
-        PyList_SetItem(list, i, this->parsers[i]->c_to_py(tuple->get_element(i)));
+if (!tuple->isNull(i)) PyList_SetItem(list, i, this->parsers[i]->c_to_py(tuple->get_element(i)));
+        else PyList_SetItem(list,i,Py_None);
     }
     return list;
 }
