@@ -185,7 +185,12 @@ class IStorage:
 
         # Import the class defined by obj_type
         cname, module = IStorage.process_path(obj_type)
-        mod = __import__(module, globals(), locals(), [cname], 0)
+
+        try:
+            mod = __import__(module, globals(), locals(), [cname], 0)
+        except ValueError:
+            raise ValueError("Can't import class {} from module {}".format(cname, module))
+
         is_class = getattr(mod, cname)
         if not issubclass(is_class, IStorage):
             raise TypeError("Trying to build remotely an object '%s' != IStorage subclass" % cname)
