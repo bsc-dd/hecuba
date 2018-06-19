@@ -18,10 +18,11 @@ class BlockTest(unittest.TestCase):
     def test_static_creation(self):
         class res: pass
 
-        from app.words import Words
+        from class_definitions import Words
+        
         results = res()
         results.storage_id = uuid.uuid4()
-        results.class_name = 'app.words.Words'
+        results.class_name = 'tests.class_definitions.Words'
         results.name = 'ksp1.tab1'
         results.columns = [('val1', 'str')]
         results.entry_point = 'localhost'

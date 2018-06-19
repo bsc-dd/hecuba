@@ -1,144 +1,13 @@
 import unittest
-import uuid
-import time
-from hecuba.IStorage import IStorage
-from app.words import Words
-from hecuba import config
-from hecuba.storageobj import StorageObj
-import cassandra
-from storage.api import getByID
-import numpy as np
-
-
-class Result(StorageObj):
-    '''
-    @ClassField instances dict<<word:str>,numinstances:int>
-    '''
-    pass
-
-
-class TestStorageObj(StorageObj):
-    '''
-       @ClassField test dict<<position:int>,text:str>
-    '''
-    pass
-
-
-class TestStorageIndexedArgsObj(StorageObj):
-    '''
-       @ClassField test dict<<position:int>,x:float,y:float,z:float>
-       @Index_on test x,y,z
-    '''
-    pass
-
-
-class Test2StorageObj(StorageObj):
-    '''
-       @ClassField name str
-       @ClassField age int
-    '''
-    pass
-
-
-class Test2StorageObjFloat(StorageObj):
-    '''
-       @ClassField name str
-       @ClassField age float
-    '''
-    pass
-
-
-class Test3StorageObj(StorageObj):
-    '''
-       @ClassField myso tests.withcassandra.storageobj_tests.Test2StorageObj
-       @ClassField myso2 tests.withcassandra.storageobj_tests.TestStorageObj
-       @ClassField myint int
-       @ClassField mystr str
-    '''
-    pass
-
-
-class Test4StorageObj(StorageObj):
-    '''
-       @ClassField myotherso tests.withcassandra.storageobj_tests.Test2StorageObj
-    '''
-    pass
-
-
-class Test4bStorageObj(StorageObj):
-    '''
-       @ClassField myotherso tests.withcassandra.test2storageobj.Test2StorageObj
-    '''
-    pass
-
-
-class Test5StorageObj(StorageObj):
-    '''
-       @ClassField test2 dict<<position:int>,myso:tests.withcassandra.storageobj_tests.Test2StorageObj>
-    '''
-    pass
-
-
-class Test6StorageObj(StorageObj):
-    '''
-       @ClassField test3 dict<<int>,str,str>
-    '''
-    pass
-
-
-class Test7StorageObj(StorageObj):
-    '''
-       @ClassField test2 dict<<int>,tests.withcassandra.storageobj_tests.Test2StorageObj>
-    '''
-    pass
-
-
-class TestStorageObjNumpy(StorageObj):
-    '''
-       @ClassField mynumpy numpy.ndarray
-    '''
-    pass
-
-
-class TestStorageObjNumpyDict(StorageObj):
-    '''
-       @ClassField mynumpydict dict<<int>,numpy.ndarray>
-    '''
-    pass
-
-
-
-class TestAttributes(StorageObj):
-    '''
-       @ClassField key int
-    '''
-
-    value = None
-
-    def do_nothing_at_all(self):
-        pass
-
-    def setvalue(self, v):
-        self.value = v
-
-    def getvalue(self):
-        return self.value
-
-class mixObj(StorageObj):
-    '''
-    @ClassField floatfield float
-    @ClassField intField int
-    @ClassField strField str
-    @ClassField intlistField list <int>
-    @ClassField floatlistField list <float>
-    @ClassField strlistField list <str>
-    @ClassField dictField dict <<int>,str>
-    @ClassField inttupleField tuple <int, int>
-    '''
 
 
 class StorageObjTest(unittest.TestCase):
     def test_build_remotely(self):
+        import uuid
+        from hecuba.IStorage import IStorage
+        from hecuba import config
+        from hecuba.storageobj import StorageObj
+        from class_definitions import TestStorageObj
 
         class res:
             pass
@@ -164,6 +33,13 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(tkns, r.tokens)
 
     def test_init_create_pdict(self):
+        import uuid
+        from hecuba.IStorage import IStorage
+        from hecuba import config
+        from hecuba.storageobj import StorageObj
+
+        from class_definitions import TestStorageObj, Result
+
         config.session.execute("DROP TABLE IF EXISTS my_app.tt1")
         config.session.execute("DROP TABLE IF EXISTS my_app.tt1_instances")
 
@@ -208,6 +84,9 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(tkns, read_tkns)
 
     def test_mixed_class(self):
+        from hecuba import config
+        from class_definitions import mixObj
+
         config.session.execute("DROP TABLE IF EXISTS hecuba_test.bla")
         myObj = mixObj()
 
@@ -240,6 +119,10 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(inttupleField, myObj.inttupleField)
 
     def test_init_empty(self):
+        from hecuba import config
+        from hecuba.storageobj import StorageObj
+        from class_definitions import TestStorageObj
+
         config.session.execute("DROP TABLE IF EXISTS ksp1.ttta")
         nopars = TestStorageObj('ksp1.ttta')
         self.assertEqual('ttta', nopars._table)
@@ -263,6 +146,12 @@ class StorageObjTest(unittest.TestCase):
         # self.assertEqual(vars(nopars), vars(rebuild))
 
     def test_make_persistent(self):
+        import time
+        from class_definitions import Words
+        from hecuba import config
+
+        from class_definitions import Test6StorageObj
+
         config.session.execute("DROP TABLE IF EXISTS hecuba_test.wordsso")
         config.session.execute("DROP TABLE IF EXISTS hecuba_test.nonames")
         config.session.execute("DROP TABLE IF EXISTS hecuba_test.words")
@@ -301,9 +190,12 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual('2', rval1)
 
     def test_empty_persistent(self):
+        from hecuba import config
+        from class_definitions import Words
+
         config.session.execute("DROP TABLE IF EXISTS my_app.wordsso_words")
         config.session.execute("DROP TABLE IF EXISTS my_app.wordsso")
-        from app.words import Words
+
         so = Words()
         so.make_persistent("wordsso")
         so.ciao = "an attribute"
@@ -325,6 +217,9 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(0, count)
 
     def test_simple_stores_after_make_persistent(self):
+        from hecuba import config
+        from class_definitions import Test2StorageObj
+
         config.session.execute("DROP TABLE IF EXISTS my_app.t2")
         so = Test2StorageObj()
         so.name = 'caio'
@@ -336,6 +231,9 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(so.age, 1000)
 
     def test_simple_attributes(self):
+        from hecuba import config
+        from class_definitions import Test2StorageObj
+
         config.session.execute("DROP TABLE IF EXISTS my_app.t2")
         so = Test2StorageObj()
         so.make_persistent("t2")
@@ -347,6 +245,9 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(so.age, 1000)
 
     def test_modify_simple_attributes(self):
+        from hecuba import config
+        from class_definitions import Test2StorageObj
+
         config.session.execute("DROP TABLE IF EXISTS my_app.t2")
         so = Test2StorageObj()
         so.make_persistent("t2")
@@ -362,6 +263,8 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(so.age, 2000)
 
     def test_delattr_nonpersistent(self):
+        from class_definitions import Test2StorageObj
+
         so = Test2StorageObj()
         so.name = 'caio'
         del so.name
@@ -372,6 +275,9 @@ class StorageObjTest(unittest.TestCase):
         self.assertRaises(AttributeError, del_attr)
 
     def test_delattr_persistent(self):
+        from hecuba import config
+        from class_definitions import Test2StorageObj
+
         config.session.execute("DROP TABLE IF EXISTS my_app.t3")
         so = Test2StorageObj("t3")
         so.name = 'caio'
@@ -388,6 +294,9 @@ class StorageObjTest(unittest.TestCase):
         self.assertRaises(AttributeError, del_attr1)
 
     def test_delattr_persistent_nested(self):
+        from hecuba import config
+        from class_definitions import Test3StorageObj, Test2StorageObj
+
         config.session.execute("DROP TABLE IF EXISTS my_app.t4")
         so = Test3StorageObj("t4")
         nestedSo = Test2StorageObj()
@@ -422,6 +331,9 @@ class StorageObjTest(unittest.TestCase):
 
 
     def test_modify_simple_before_mkp_attributes(self):
+        from hecuba import config
+        from class_definitions import Test2StorageObj
+
         config.session.execute("DROP TABLE IF EXISTS my_app.t2")
         so = Test2StorageObj()
         so.name = 'caio'
@@ -437,6 +349,9 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(so.age, 2000)
 
     def test_paranoid_setattr_nonpersistent(self):
+        from hecuba import config
+        from class_definitions import Test2StorageObj
+
         config.hecuba_type_checking = True
         config.session.execute("DROP TABLE IF EXISTS my_app.t2")
         so = Test2StorageObj()
@@ -457,6 +372,9 @@ class StorageObjTest(unittest.TestCase):
         config.hecuba_type_checking = False
 
     def test_paranoid_setattr_persistent(self):
+        from hecuba import config
+        from class_definitions import Test2StorageObj
+
         config.session.execute("DROP TABLE IF EXISTS my_app.t2")
         config.hecuba_type_checking = True
         so = Test2StorageObj("t2")
@@ -483,6 +401,9 @@ class StorageObjTest(unittest.TestCase):
         config.hecuba_type_checking = False
 
     def test_paranoid_setattr_float(self):
+        from hecuba import config
+        from class_definitions import Test2StorageObjFloat
+
         config.hecuba_type_checking = True
         config.session.execute("DROP TABLE IF EXISTS my_app.t2")
         so = Test2StorageObjFloat("t2")
@@ -490,6 +411,11 @@ class StorageObjTest(unittest.TestCase):
         config.hecuba_type_checking = False
 
     def test_nestedso_notpersistent(self):
+        import cassandra
+        from storage.api import getByID
+        from hecuba import config
+        from class_definitions import Test3StorageObj, Test4StorageObj, Test4bStorageObj
+
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
         config.session.execute("DROP TABLE IF EXISTS my_app.myso")
 
@@ -542,6 +468,10 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals('bla', query_res.name)
 
     def test_nestedso_persistent(self):
+        from hecuba import config
+        import cassandra
+        from class_definitions import Test3StorageObj
+
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
         config.session.execute("DROP TABLE IF EXISTS my_app.myso")
 
@@ -567,6 +497,10 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals('position0', my_nested_so.myso2.name)
 
     def test_nestedso_topersistent(self):
+        from hecuba import config
+        import cassandra
+        from class_definitions import Test3StorageObj
+
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
         config.session.execute("DROP TABLE IF EXISTS my_app.myso")
 
@@ -597,6 +531,10 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals('Link', query_res.name)
 
     def test_nestedso_sets_gets(self):
+        from hecuba import config
+        import cassandra
+        from class_definitions import Test3StorageObj
+
         config.session.execute("DROP TABLE IF EXISTS my_app.myso")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_myso")
@@ -647,6 +585,11 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(True, error)
 
     def test_nestedso_sets_gets_complex(self):
+        from hecuba import config
+        import cassandra
+        import time
+        from class_definitions import Test3StorageObj
+
         config.session.execute("DROP TABLE IF EXISTS my_app.tnsgc_myso2")
         config.session.execute("DROP TABLE IF EXISTS my_app.tnsgc_myso2_test")
 
@@ -675,6 +618,10 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(100, count)
 
     def test_nestedso_deletepersistent(self):
+        from hecuba import config
+        import cassandra
+        from class_definitions import Test3StorageObj
+
         config.session.execute("DROP TABLE IF EXISTS my_app.tndp")
         config.session.execute("DROP TABLE IF EXISTS my_app.tndp_myso")
         config.session.execute("DROP TABLE IF EXISTS my_app.tndp_myso2")
@@ -698,6 +645,9 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(0, entries)
 
     def test_nestedso_dictofsos(self):
+        from hecuba import config
+        from class_definitions import Test5StorageObj, Test2StorageObj
+
         config.session.execute("DROP TABLE IF EXISTS my_app.topstorageobj")
         config.session.execute("DROP TABLE IF EXISTS my_app.topstorageobj_test2")
         my_nested_so = Test5StorageObj()
@@ -718,6 +668,9 @@ class StorageObjTest(unittest.TestCase):
         used as an attribute in Test7StorageObj has the form <int,StorageObj> where no name has been given for the
         StorageObj nor the Integer. In this case, a default name is used (key0,val0).
         '''
+        from hecuba import config
+        from class_definitions import Test7StorageObj, Test2StorageObj
+
         config.session.execute("DROP TABLE IF EXISTS my_app.topstorageobj2")
         config.session.execute("DROP TABLE IF EXISTS my_app.topstorageobj2_test2")
         config.session.execute("DROP TABLE IF EXISTS my_app.topstorageobj2_test2_val0")
@@ -736,6 +689,9 @@ class StorageObjTest(unittest.TestCase):
 
 
     def test_nestedso_retrievedata(self):
+        from hecuba import config
+        from class_definitions import Test5StorageObj, Test2StorageObj
+
         config.session.execute("DROP TABLE IF EXISTS my_app.tnr")
         config.session.execute("DROP TABLE IF EXISTS my_app.tnr_test2")
 
@@ -758,12 +714,19 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(10, my_nested_so2.test2[0].age)
 
     def test_numpy_persistent(self):
+        from hecuba import config
+        from class_definitions import TestStorageObjNumpy
+
         config.session.execute("DROP TABLE IF EXISTS my_app.tnp")
         config.session.execute("DROP TABLE IF EXISTS my_app.tnp_mynumpy")
         config.session.execute("DROP TABLE IF EXISTS my_app.tnp_mynumpy_numpies")
         my_so = TestStorageObjNumpy('tnp')
 
     def test_numpy_set(self):
+        import numpy as np
+        from hecuba import config
+        from class_definitions import TestStorageObjNumpy
+
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy_numpies")
@@ -772,6 +735,10 @@ class StorageObjTest(unittest.TestCase):
         my_so.make_persistent('mynewso')
 
     def test_numpy_get(self):
+        import numpy as np
+        from hecuba import config
+        from class_definitions import TestStorageObjNumpy
+
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy_numpies")
@@ -783,6 +750,10 @@ class StorageObjTest(unittest.TestCase):
         self.assertTrue(np.array_equal(mynumpy, my_so.mynumpy))
 
     def test_numpy_topersistent(self):
+        import numpy as np
+        from hecuba import config
+        from class_definitions import TestStorageObjNumpy
+
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy_numpies")
@@ -791,12 +762,19 @@ class StorageObjTest(unittest.TestCase):
         my_so.make_persistent('mynewso')
 
     def test_numpydict_persistent(self):
+        from hecuba import config
+        from class_definitions import TestStorageObjNumpyDict
+
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpydict")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpydict_numpies")
         my_so = TestStorageObjNumpyDict('mynewso')
 
     def test_numpydict_set(self):
+        import numpy as np
+        from hecuba import config
+        from class_definitions import TestStorageObjNumpyDict
+
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpydict")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpydict_numpies")
@@ -804,6 +782,10 @@ class StorageObjTest(unittest.TestCase):
         my_so.mynumpydict[0] = np.random.rand(3, 2)
 
     def test_numpydict_to_persistent(self):
+        import numpy as np
+        from hecuba import config
+        from class_definitions import TestStorageObjNumpyDict
+
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpydict")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpydict_numpies")
@@ -812,6 +794,10 @@ class StorageObjTest(unittest.TestCase):
         my_so.make_persistent('mynewso')
 
     def test_numpydict_get(self):
+        import numpy as np
+        from hecuba import config
+        from class_definitions import TestStorageObjNumpyDict
+
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpydict")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpydict_numpies")
@@ -826,6 +812,11 @@ class StorageObjTest(unittest.TestCase):
 
 
     def test_numpy_operations(self):
+        from hecuba import config
+        from class_definitions import TestStorageObjNumpy
+        import numpy as np
+        import time
+
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy_numpies")
@@ -833,7 +824,7 @@ class StorageObjTest(unittest.TestCase):
         base_numpy = np.arange(2048)
         my_so.mynumpy = np.arange(2048)
         my_so.make_persistent('mynewso')
-        import time
+
         time.sleep(2)
         self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
         base_numpy+=1
@@ -844,6 +835,11 @@ class StorageObjTest(unittest.TestCase):
 
 
     def test_numpy_ops_persistent(self):
+        from hecuba import config
+        from class_definitions import TestStorageObjNumpy
+        import numpy as np
+        import time
+
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy_numpies")
@@ -851,7 +847,6 @@ class StorageObjTest(unittest.TestCase):
         base_numpy = np.arange(2048)
         my_so.mynumpy = np.arange(2048)
         my_so.make_persistent('mynewso')
-        import time
         time.sleep(2)
         self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
         base_numpy += 1
@@ -865,6 +860,9 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(np.mean(base_numpy), np.mean(reloaded_so.mynumpy))
 
     def test_numpy_reloading(self):
+        from class_definitions import TestStorageObjNumpy
+        import numpy as np
+
         sizea, sizeb = (1000,1000)
         no = TestStorageObjNumpy("my_app.numpy_test_%d_%d" % (sizea, sizeb))
         a = np.ones((sizea, sizeb))
@@ -877,6 +875,9 @@ class StorageObjTest(unittest.TestCase):
 
 
     def test_numpy_reloading_internals(self):
+        from class_definitions import TestStorageObjNumpy
+        import numpy as np
+
         sizea, sizeb = (1000,1000)
         no = TestStorageObjNumpy("my_app.numpy_test_%d_%d" % (sizea, sizeb))
         a = np.ones((sizea, sizeb))
@@ -893,6 +894,9 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(initial_name_np, final_name_np)
 
     def test_storagedict_assign(self):
+        from hecuba import config
+        from class_definitions import TestStorageObj
+
         config.hecuba_type_checking = True
         config.session.execute("DROP TABLE IF EXISTS my_app.t2")
         config.session.execute("DROP TABLE IF EXISTS my_app.t2_test")
@@ -914,6 +918,9 @@ class StorageObjTest(unittest.TestCase):
         test that two StorageObjs pointing to the same table work correctly.
         Changing data on one StorageObj is reflected on the other StorageObj.
         '''
+        from hecuba import config
+        from class_definitions import Test2StorageObj
+
         config.session.execute("DROP TABLE IF EXISTS my_app.test")
         so = Test2StorageObj('test')
         so.name = 'Oliver'
@@ -928,6 +935,9 @@ class StorageObjTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.test")
 
     def test_storageobj_coherence_complex1(self):
+        from hecuba import config
+        from class_definitions import Test3StorageObj,Test2StorageObj
+
         config.session.execute("DROP TABLE IF EXISTS my_app.test")
         config.session.execute("DROP TABLE IF EXISTS my_app.test_myso")
         config.session.execute("DROP TABLE IF EXISTS my_app.test_myso_0")
@@ -949,6 +959,9 @@ class StorageObjTest(unittest.TestCase):
 
 
     def test_storageobj_coherence_complex2(self):
+        from hecuba import config
+        from class_definitions import Test3StorageObj,Test2StorageObj
+
         config.session.execute("DROP TABLE IF EXISTS my_app.test")
         config.session.execute("DROP TABLE IF EXISTS my_app.test_myso")
         config.session.execute("DROP TABLE IF EXISTS my_app.test_myso_0")
@@ -985,6 +998,8 @@ class StorageObjTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.test_myso2_test")
 
     def test_get_attr_1(self):
+        from class_definitions import TestAttributes
+
         storage_obj = TestAttributes()
         storage_obj.do_nothing_at_all()
         value = 123
@@ -993,6 +1008,9 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(value, returned)
 
     def test_get_attr_2(self):
+        from hecuba import config
+        from class_definitions import TestAttributes
+
         config.session.execute("DROP TABLE IF EXISTS my_app.test_attr")
         storage_obj = TestAttributes()
         storage_obj.do_nothing_at_all()
@@ -1020,6 +1038,8 @@ class StorageObjTest(unittest.TestCase):
 
 
     def test_get_attr_3(self):
+        from hecuba import config
+        from class_definitions import TestAttributes
         # the same as test_get_attr_2 but the object is persistent since the beginning
 
         config.session.execute("DROP TABLE IF EXISTS my_app.test_attr")

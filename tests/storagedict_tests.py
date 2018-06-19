@@ -1,17 +1,18 @@
 import unittest
 
-from hecuba import Config
-from hecuba.hdict import StorageDict
-
-
 class StorageDict_Tests(unittest.TestCase):
+    import hecuba
+    Config = hecuba.Config
+
     def setUp(self):
-        Config.reset(mock_cassandra=True)
+        self.Config.reset(mock_cassandra=True)
 
     def test_init(self):
         pass
 
     def inmemory_contains_test(self):
+        from hecuba.hdict import StorageDict
+
         pd = StorageDict(None,
                          [('pk1', 'int')],
                          [('val1', 'text')])
@@ -20,6 +21,8 @@ class StorageDict_Tests(unittest.TestCase):
         self.assertEqual('4', pd[3])
 
     def inmemory_keys_test(self):
+        from hecuba.hdict import StorageDict
+
         pd = StorageDict(None,
                          [('pk1', 'int'), ('pk2', 'int')],
                          [('val1', 'text')])
@@ -31,6 +34,8 @@ class StorageDict_Tests(unittest.TestCase):
         self.assertEqual({0, 1, 2, 3}, set(pd.keys()))
 
     def inmemory_composed_keys_test(self):
+        from hecuba.hdict import StorageDict
+
         pd = StorageDict(None,
                          [('pk1', 'int'), ('pk2', 'int')],
                          [('val1', 'text')])
@@ -42,6 +47,8 @@ class StorageDict_Tests(unittest.TestCase):
         self.assertEqual({(0, 1), (1, 1), (2, 0), (3, 1)}, set(pd.keys()))
 
     def inmemory_getitem_setitem_test(self):
+        from hecuba.hdict import StorageDict
+
         pd = StorageDict(None,
                          [('pk1', 'int'), ('pk2', 'int')],
                          [('val1', 'text')])
