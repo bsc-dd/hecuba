@@ -1,18 +1,11 @@
 import unittest
 
-from hecuba import config
-from hecuba.storageobj import StorageObj
-
-
-class TestSimple(StorageObj):
-    '''
-    @ClassField words dict<<position:int>,value:str>
-    '''
-    pass
-
 
 class StorageObjSplitTest(unittest.TestCase):
     def test_simple_iterkeys_split_test(self):
+        from hecuba import config
+        from class_definitions import TestSimple
+
         tablename = "tab30"
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + "_words")
@@ -44,6 +37,9 @@ class StorageObjSplitTest(unittest.TestCase):
         self.assertEqual(what_should_be, res)
 
     def test_build_remotely_iterkeys_split_test(self):
+        from hecuba import config
+        from class_definitions import TestSimple
+
         tablename = 'tab30'
         config.session.execute('DROP TABLE IF EXISTS my_app.' + tablename)
         config.session.execute('DROP TABLE IF EXISTS my_app.' + tablename + '_words')
@@ -79,6 +75,9 @@ class StorageObjSplitTest(unittest.TestCase):
         self.assertEqual(what_should_be, res)
 
     def test_simple_iterkeys_split_fromSO_test(self):
+        from hecuba import config
+        from class_definitions import TestSimple
+
         tablename = "tab31"
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + "_words")
@@ -108,6 +107,9 @@ class StorageObjSplitTest(unittest.TestCase):
         self.assertEqual(what_should_be, res)
 
     def test_build_remotely_iterkeys_split_fromSO_test(self):
+        from hecuba import config
+        from class_definitions import TestSimple
+
         tablename = "tab32"
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + "_words")
@@ -140,6 +142,9 @@ class StorageObjSplitTest(unittest.TestCase):
         self.assertEqual(what_should_be, res)
 
     def test_split_with_different_storage_ids(self):
+        from hecuba import config
+        from class_definitions import TestSimple
+
         tablename = "tab32"
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + "_words")

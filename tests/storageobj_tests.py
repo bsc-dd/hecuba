@@ -2,24 +2,16 @@ import unittest
 
 from mock import Mock
 
-from hecuba.IStorage import IStorage
-from app.words import Words
-from hecuba import config, Config
-from hecuba.storageobj import StorageObj
-
-
-class TestStorageObj(StorageObj):
-    '''
-       @ClassField test dict<<position:int>,text:str>
-    '''
-    pass
-
 
 class StorageObjTest(unittest.TestCase):
+    import hecuba
+    Config = hecuba.Config
+
     def setUp(self):
-        Config.reset(mock_cassandra=True)
+        self.Config.reset(mock_cassandra=True)
 
     def test_parse_comments(self):
+        from hecuba.storageobj import StorageObj
         result = {'instances': {'columns': [('instances',
                                              'counter')],
                                 'primary_keys': [('word',
@@ -76,6 +68,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(both2, p)
 
     def test_parse_2(self):
+        from hecuba.storageobj import StorageObj
         comment = "     @ClassField particles dict<<partid:int>,x:int,y:int,z:int>"
         p = StorageObj._parse_comments(comment)
         should_be = {'particles': {
@@ -86,6 +79,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(p, should_be)
 
     def test_parse_3(self):
+        from hecuba.storageobj import StorageObj
         comment = "     @ClassField particles dict<<partid:int,part2:str>,x:int,y:int,z:int>"
         p = StorageObj._parse_comments(comment)
         should_be = {'particles': {
@@ -96,12 +90,15 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(p, should_be)
 
     def test_init(self):
+        from hecuba import config
+        from class_definitions import Words
         # still in development
         config.session.execute = Mock(return_value=None)
         nopars = Words()
         config.session.execute.assert_not_called()
 
     def test_init_pdict(self):
+        from class_definitions import TestStorageObj
         t = TestStorageObj()
         t.test = {1: 'ciao'}
         #its not persistent, so in memory it is still a dict

@@ -1,49 +1,12 @@
 import unittest
 
-from hecuba import config
-from hecuba.hdict import StorageDict
-from hecuba.storageobj import StorageObj
-
-
-class SObj_Basic(StorageObj):
-    '''
-    @ClassField attr1 int
-    @ClassField attr2 double
-    @ClassField attr3 str
-    '''
-
-
-class SDict_SimpleTypeSpec(StorageDict):
-    '''
-    @TypeSpec <<id:int>,info:str>
-    '''
-
-
-class SDict_ComplexTypeSpec(StorageDict):
-    '''
-    @TypeSpec <<id:int>,state:tests.withcassandra.storagedict_split_tests.SObj_Basic>
-    '''
-
-
-class SObj_SimpleClassField(StorageObj):
-    '''
-    @ClassField attr1 int
-    @ClassField mydict dict <<key:str>,value:double>
-    @ClassField attr3 double
-    '''
-
-
-class SObj_ComplexClassField(StorageObj):
-    '''
-    @ClassField attr1 int
-    @ClassField mydict dict <<key:str>,state:tests.withcassandra.storagedict_split_tests.SObj_Basic>
-    @ClassField attr3 double
-    '''
-
 
 class StorageDictSplitTest(unittest.TestCase):
 
     def test_simple_iterkeys_split_test(self):
+        from hecuba import config
+        from hecuba.hdict import StorageDict
+
         config.session.execute("DROP TABLE IF EXISTS my_app.tab30")
         config.session.execute(
             "CREATE TABLE IF NOT EXISTS my_app.tab30(position int, value text, PRIMARY KEY(position))")
@@ -74,6 +37,9 @@ class StorageDictSplitTest(unittest.TestCase):
         self.assertEqual(what_should_be, res)
 
     def test_remote_build_iterkeys_split_test(self):
+        from hecuba import config
+        from hecuba.hdict import StorageDict
+
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_b0")
         config.session.execute(
             "CREATE TABLE IF NOT EXISTS my_app.tab_b0(position int, value text, PRIMARY KEY(position))")
@@ -107,6 +73,9 @@ class StorageDictSplitTest(unittest.TestCase):
         self.assertEqual(what_should_be, res)
 
     def test_composed_iteritems_test(self):
+        from hecuba import config
+        from hecuba.hdict import StorageDict
+
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_b1")
         config.session.execute(
             "CREATE TABLE IF NOT EXISTS my_app.tab_b1(pid int,time int, value text,x float,y float,z float, PRIMARY KEY(pid,time))")
@@ -144,6 +113,7 @@ class StorageDictSplitTest(unittest.TestCase):
             self.assertAlmostEquals(a[3], b.z, delta=delta)
 
     def computeItems(self, SDict):
+
         expected = len(SDict)
         counter = 0
         for item in SDict.iterkeys():
@@ -152,6 +122,9 @@ class StorageDictSplitTest(unittest.TestCase):
         return counter
 
     def testSplitTypeSpecBasic(self):
+        from hecuba import config
+        from class_definitions import SDict_SimpleTypeSpec
+
         config.session.execute("DROP TABLE IF EXISTS my_app.test_records")
         nitems = 1000
         mybook = SDict_SimpleTypeSpec("test_records")
@@ -177,6 +150,8 @@ class StorageDictSplitTest(unittest.TestCase):
         self.assertEqual(acc, nitems)
 
     def testSplitTypeSpecComplex(self):
+        from hecuba import config
+        from class_definitions import SObj_Basic, SDict_ComplexTypeSpec
         config.session.execute("DROP TABLE IF EXISTS my_app.experimentx")
         nitems = 10
         mybook = SDict_ComplexTypeSpec("experimentx")
@@ -205,6 +180,9 @@ class StorageDictSplitTest(unittest.TestCase):
         self.assertEqual(acc, nitems)
 
     def testSplitClassFieldSimple(self):
+        from hecuba import config
+        from class_definitions import SObj_SimpleClassField
+
         config.session.execute("DROP TABLE IF EXISTS my_app.so_split_dict_simple")
         nitems = 80
         mybook = SObj_SimpleClassField("so_split_dict_simple")
@@ -233,8 +211,11 @@ class StorageDictSplitTest(unittest.TestCase):
         self.assertEqual(acc, nitems)
 
     def testSplitClassFieldComplex(self):
+        from hecuba import config
+        from class_definitions import SObj_ComplexClassField, SObj_Basic
+
         config.session.execute("DROP TABLE IF EXISTS my_app.so_split_dict_complex")
-        nitems = 250
+        nitems = 100
         mybook = SObj_ComplexClassField("so_split_dict_complex")
         mybook.attr1 = nitems
         mybook.attr3 = nitems / 100
