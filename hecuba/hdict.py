@@ -536,6 +536,8 @@ class StorageDict(dict, IStorage):
                 dict.__setitem__(self, key, val)
             else:
                 if isinstance(val, IStorage) and not val._is_persistent:
+                    if isinstance(val, StorageNumpy):
+                        val._storage_id = uuid.uuid4()
                     attribute = self._columns[0][0]
                     count = self._count_name_collision(attribute)
                     # new name as ksp+table+obj_class_name
