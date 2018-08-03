@@ -34,4 +34,4 @@ before_install:
   - export PYTHONPATH=/home/travis/.local/lib/python2.7/site-packages/
   - export PYTHONPATH=/home/travis/.local/lib/python2.7/site-packages/
   - java -version
-  - wget http://ftp.cixug.es/apache/cassandra/3.11.2/apache-cassandra-3.11.2-bin.tar.gz && tar -xzf apache-cassandra-3.11.2-bin.tar.gz && apache-cassandra-3.11.2/bin/cassandra & disown
+  - wget http://archive.apache.org/dist/cassandra/3.11.3/apache-cassandra-3.11.3-bin.tar.gz && tar -xzf apache-cassandra-3.11.3-bin.tar.gz && apache-cassandra-3.11.3/bin/cassandra & disown
