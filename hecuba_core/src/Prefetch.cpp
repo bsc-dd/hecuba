@@ -25,6 +25,27 @@ Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges,
         this->type = "items";
     }
 
+    if (config.find("custom_select")!=config.end()) {
+        char connect[6] = " AND ";
+        std::string restriction = config["custom_select"];
+
+        char *new_query = (char*) malloc(std::strlen(query)+restriction.length()+5);
+        char* first_elem = new_query;
+
+        // Copy original query
+
+        memcpy(new_query,query,std::strlen(query)-1);
+        new_query+=std::strlen(query)-1;
+
+        // Add AND connector
+        memcpy(new_query,&connect,sizeof(char)*5);
+        new_query+=5;
+
+        // Copy user restriction
+        memcpy(new_query, restriction.c_str(),restriction.length()+1);
+        query = first_elem;
+    }
+
     this->tokens = token_ranges;
     this->completed = false;
     CassFuture *future = cass_session_prepare(session, query);
