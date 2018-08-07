@@ -194,7 +194,10 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
         if (key.empty()) throw ModuleException("Empty key name given on position: " + std::to_string(i));
         keys += "," + key;
         select_where += "AND " + key + "=? ";
-        if (metadatas[key].col_type == CASS_COLUMN_TYPE_PARTITION_KEY) tokens_keys += "," + key;
+        if (metadatas[key].col_type == CASS_COLUMN_TYPE_PARTITION_KEY) {
+            if (!tokens_keys.empty()) tokens_keys += ",";
+            tokens_keys += key;
+        }
     }
     if (tokens_keys.empty()) throw ModuleException("No partition key detected among the keys: " + keys);
 
