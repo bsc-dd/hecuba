@@ -2,7 +2,7 @@ import unittest
 import uuid
 import time
 from hecuba.IStorage import IStorage
-from app.words import Words
+from ..app.words import Words
 from hecuba import config
 from hecuba.storageobj import StorageObj
 import cassandra
@@ -303,7 +303,6 @@ class StorageObjTest(unittest.TestCase):
     def test_empty_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.wordsso_words")
         config.session.execute("DROP TABLE IF EXISTS my_app.wordsso")
-        from app.words import Words
         so = Words()
         so.make_persistent("wordsso")
         so.ciao = "an attribute"

@@ -1,6 +1,6 @@
 import unittest
 
-from app.words import Words
+from ..app.words import Words
 from hecuba import Config, config
 from storage.api import getByID
 
