@@ -4,9 +4,10 @@ from __future__ import print_function
 import os
 import subprocess
 import sys
+import glob
 
 import setuptools.command.build_py
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Extension
 
 
 def package_files(directory):
@@ -19,44 +20,61 @@ def package_files(directory):
 
 
 def cmake_build():
-    if subprocess.call(["cmake", "-H./hfetch", "-B./hfetch/build"]) != 0:
+    if subprocess.call(["cmake", "-H./hecuba_core", "-B./build"]) != 0:
         raise EnvironmentError("error calling cmake")
 
-    if subprocess.call(["make", "-j4", "-C", "./hfetch/build"]) != 0:
-        raise EnvironmentError("error calling make")
+    if subprocess.call(["make", "-j4", "-C", "./build"]) != 0:
+        raise EnvironmentError("error calling make build")
 
+#    if subprocess.call(["make", "-j4", "-C", "./build", "install"]) != 0:
+#        raise EnvironmentError("error calling make install")
+
+
+extensions = [
+    Extension(
+        "hecuba.hfetch",
+        sources = glob.glob("hecuba_core/src/py_interface/*.cpp"),
+        include_dirs=['hecuba_core/src/','build/include'],
+        libraries=['hfetch','cassandra'],
+        library_dirs=['build/lib','build/lib64'],
+        extra_link_args = ['-Wl,-rpath=$ORIGIN/..']
+        ),
+]
 
 def setup_packages():
     # We first build C++ libraries
     if 'build' in sys.argv:
         cmake_build()
 
-    extra_files = package_files('./hfetch/_install/lib') + package_files('./hfetch/_install/lib64')
+    extra_files = package_files('build/lib') + package_files('build/lib64')
 
     # TODO use some flag to detect that build has already been done instead of this
     if 'install' in sys.argv:
         cmake_build()
-        extra_files = package_files('./hfetch/_install/lib') + package_files('./hfetch/_install/lib64')
+        extra_files = package_files('build/lib') + package_files('build/lib64')
 
     # compute which libraries were built
-
     metadata = dict(name="Hecuba",
                     version="0.1",
-                    packages=['hecuba', 'hecuba.qthrift', 'storage'],  # find_packages(),
+                    package_dir = {'hecuba': 'hecuba_py/src','storage':'storageAPI/storage'},
+                    packages=['hecuba', 'storage'],  # find_packages(),
 
                     # install_requires=['nose', 'cassandra-driver', 'mock'],
                     zip_safe=False,
-                    data_files=[('.', extra_files)],
-                    include_package_data=True,
+                    data_files=[('', extra_files)],
 
                     # metadata for upload to PyPI
                     license="Apache License Version 2.0",
                     keywords="key-value, scientific computing",
                     description='Hecuba',
-                    author='Guillem Alomar,Cesare Cugnasco, Pol Santamaria, Yolanda Becerra ',
-                    author_email='{guillem.alomar,cesare.cugnasco,pol.santamaria,yolanda.becerra}@bsc.es',
+                    author='Guillem Alomar, Yolanda Becerra, Cesare Cugnasco, Pol Santamaria',
+                    author_email='{guillem.alomar,yolanda.becerra,cesare.cugnasco,pol.santamaria}@bsc.es',
                     url='https://www.bsc.es',
-                    long_description='''Hecuba.'''
+                    long_description='''Hecuba.''',
+                    #   test_suite='nose.collector',
+                    #    tests_require=['nose'],
+                    ext_modules = extensions
+                    
                     )
 
     setup(**metadata)
