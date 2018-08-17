@@ -1,5 +1,10 @@
 #include "StorageInterface.h"
 
+#define default_io_threads 2
+#define default_low_watermark 20000
+#define default_high_watermark 17000000
+#define bytes_high_watermark 17000000 //>128elements^3D * 8B_Double
+
 
 StorageInterface::StorageInterface(int nodePort, std::string contact_points) {
     CassFuture *connect_future = NULL;
@@ -13,15 +18,26 @@ StorageInterface::StorageInterface(int nodePort, std::string contact_points) {
     cass_cluster_set_token_aware_routing(cluster, cass_true);
 
 
+    char *env_path = std::getenv("WRITE_IO_THREADS");
+    if (env_path != nullptr) cass_cluster_set_num_threads_io(cluster, (int32_t) std::atoi(env_path));
+    else cass_cluster_set_num_threads_io(cluster, default_io_threads);
 
-//  unsigned int uiRequestTimeoutInMS = 30000;
-    //cass_cluster_set_num_threads_io (cluster, 2);
+    env_path = std::getenv("WRITE_LOW_WATERMARK");
+    if (env_path != nullptr) cass_cluster_set_pending_requests_low_water_mark(cluster, (int32_t) std::atoi(env_path));
+    else cass_cluster_set_pending_requests_low_water_mark(cluster, (int32_t) default_low_watermark);
+
+    env_path = std::getenv("WRITE_HIGH_WATERMARK");
+    if (env_path != nullptr) cass_cluster_set_pending_requests_high_water_mark(cluster, (int32_t) std::atoi(env_path));
+    else cass_cluster_set_pending_requests_high_water_mark(cluster, (int32_t) default_high_watermark);
+
+
+    cass_cluster_set_write_bytes_high_water_mark(cluster, bytes_high_watermark); //>128elements^3D * 8B_Double
+
+
+    //unsigned int uiRequestTimeoutInMS = 30000;
     //cass_cluster_set_core_connections_per_host (cluster, 4);
     //cass_cluster_set_request_timeout (cluster, uiRequestTimeoutInMS);
-    cass_cluster_set_pending_requests_low_water_mark(cluster, 20000);
-    cass_cluster_set_pending_requests_high_water_mark(cluster, 17000000);
 
-    cass_cluster_set_write_bytes_high_water_mark(cluster, 17000000); //>128elements^3D * 8B_Double
 
     // Provide the cluster object as configuration to connect the session
     connect_future = cass_session_connect(session, cluster);
