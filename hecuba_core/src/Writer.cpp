@@ -1,7 +1,7 @@
 #include "Writer.h"
 
-#define default_writer_buff 100
-#define default_writer_callbacks 4
+#define default_writer_buff 1000
+#define default_writer_callbacks 16
 
 
 Writer::Writer(const TableMetadata *table_meta, CassSession *session,
