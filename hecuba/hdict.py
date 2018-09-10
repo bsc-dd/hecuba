@@ -612,7 +612,7 @@ class StorageDict(dict, IStorage):
         for k, v in kwargs.items():
             self[k] = v
 
-    def iterkeys(self):
+    def iterkeys(self, **kwargs):
         """
         Obtains the iterator for the keys of the StorageDict
         Returns:
@@ -622,12 +622,14 @@ class StorageDict(dict, IStorage):
                 dict.iterkeys(self)
         """
         if self._is_persistent:
-            ik = self._hcache.iterkeys(config.prefetch_size)
+            if 'prefetch_size' not in kwargs:
+                kwargs['prefetch_size'] = config.prefetch_size
+            ik = self._hcache.iterkeys(kwargs)
             return NamedIterator(ik, self._key_builder, self)
         else:
             return dict.iterkeys(self)
 
-    def iteritems(self):
+    def iteritems(self, **kwargs):
         """
         Obtains the iterator for the key,val pairs of the StorageDict
         Returns:
@@ -637,7 +639,9 @@ class StorageDict(dict, IStorage):
                 dict.iteritems(self)
         """
         if self._is_persistent:
-            ik = self._hcache.iteritems(config.prefetch_size)
+            if 'prefetch_size' not in kwargs:
+                kwargs['prefetch_size'] = config.prefetch_size
+            ik = self._hcache.iteritems(kwargs)
             return NamedItemsIterator(self._key_builder,
                                       self._column_builder,
                                       self._k_size,
@@ -646,7 +650,7 @@ class StorageDict(dict, IStorage):
         else:
             return dict.iteritems(self)
 
-    def itervalues(self):
+    def itervalues(self, **kwargs):
         """
         Obtains the iterator for the values of the StorageDict
         Returns:
@@ -656,7 +660,9 @@ class StorageDict(dict, IStorage):
                 dict.itervalues(self)
         """
         if self._is_persistent:
-            ik = self._hcache.itervalues(config.prefetch_size)
+            if 'prefetch_size' not in kwargs:
+                kwargs['prefetch_size'] = config.prefetch_size
+            ik = self._hcache.itervalues(kwargs)
             return NamedIterator(ik, self._column_builder, self)
         else:
             return dict.itervalues(self)

@@ -26,6 +26,13 @@ class MyStorageDict3(StorageDict):
     '''
 
 
+class MyStorageDict4(StorageDict):
+    '''
+    @TypeSpec <<position:int, position2:int>,val:int>
+    '''
+    pass
+
+
 class MyStorageObjC(StorageObj):
     '''
     @ClassField mona dict<<a:str>,b:int>
@@ -49,7 +56,6 @@ class StorageDictTest(unittest.TestCase):
                              tokens)
         self.assertEqual("tab1", nopars._table)
         self.assertEqual("ksp", nopars._ksp)
-
         res = config.session.execute(
             'SELECT storage_id, primary_keys, columns, class_name, name, tokens, istorage_props,indexed_on ' +
             'FROM hecuba.istorage WHERE storage_id = %s', [nopars._storage_id])[0]
@@ -850,6 +856,119 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.first_name")
         config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona")
         config.session.execute("DROP TABLE IF EXISTS my_app.second_name")
+
+    def test_custom_iteritems(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_items_restrict")
+        my_dict = MyStorageDict4('test_items_restrict')
+        # int,text - int
+        nitems = 100
+        # write nitems to the dict
+        for id in xrange(0, nitems):
+            # force some clash on second keys
+            my_dict[(id / 10), id] = id
+
+        del my_dict  # force sync
+        my_dict = MyStorageDict4('test_items_restrict')
+
+        count = 0
+        nelem = 10
+        pos = 5  # in between 0,..nitems/10
+        for i in my_dict.iteritems(custom_select='position=%i' % pos):
+            if i:
+                count = count + 1
+
+        self.assertEqual(count, nelem)
+
+    def test_custom_itervalues(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_items_restrict")
+        my_dict = MyStorageDict4('test_items_restrict')
+        # int,text - int
+        nitems = 100
+        # write nitems to the dict
+        for id in xrange(0, nitems):
+            # force some clash on second keys
+            my_dict[(id / 10), id] = id
+
+        del my_dict  # force sync
+        my_dict = MyStorageDict4('test_items_restrict')
+
+        count = 0
+        nelem = 10
+        pos = 5  # in between 0,..nitems/10
+        for i in my_dict.itervalues(custom_select='position=%i' % pos):
+            if i:
+                count = count + 1
+
+        self.assertEqual(count, nelem)
+
+    def test_custom_iterkeys(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_items_restrict")
+        my_dict = MyStorageDict4('test_items_restrict')
+        # int,text - int
+        nitems = 100
+        # write nitems to the dict
+        for id in xrange(0, nitems):
+            # force some clash on second keys
+            my_dict[(id / 10), id] = id
+
+        del my_dict  # force sync
+        my_dict = MyStorageDict4('test_items_restrict')
+
+        count = 0
+        nelem = 10
+        pos = 5  # in between 0,..nitems/10
+        for i in my_dict.iterkeys(custom_select='position=%i' % pos):
+            if i:
+                count = count + 1
+
+        self.assertEqual(count, nelem)
+
+    def test_custom_iteritems_filtering(self):
+        import random
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_items_restrict")
+        my_dict = MyStorageDict4('test_items_restrict')
+        # int,text - int
+        nitems = 100
+        # write nitems to the dict
+        for id in xrange(0, nitems):
+            # force some clash on second keys
+            my_dict[id, id] = id / 10
+
+        del my_dict  # force sync
+        my_dict = MyStorageDict4('test_items_restrict')
+
+        count = 0
+        nelem = 10
+        val = random.randint(0, nitems/10 -1)# in between 0,..nitems/10
+        for i in my_dict.iteritems(custom_select='val=%i ALLOW FILTERING' % val):
+            if i:
+                count = count + 1
+
+        self.assertEqual(count, nelem)
+
+
+
+    def test_custom_itervalues_filtering(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_items_restrict")
+        my_dict = MyStorageDict4('test_items_restrict')
+        # int,text - int
+        nitems = 100
+        # write nitems to the dict
+        for id in xrange(0, nitems):
+            # force some clash on second keys
+            my_dict[(id / 10), id] = id
+
+        del my_dict  # force sync
+        my_dict = MyStorageDict4('test_items_restrict')
+
+        count = 0
+        nelem = nitems/2
+        pos2 = nitems/2  # in between 0,..nitems/10
+        for i in my_dict.itervalues(custom_select='position2<=%i ALLOW FILTERING' % pos2):
+            if i:
+                count = count + 1
+
+        self.assertEqual(count, nelem)
 
 
 if __name__ == '__main__':
