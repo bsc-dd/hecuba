@@ -271,6 +271,8 @@ std::vector<const TupleRow *> CacheTable::get_crow(void *keys) {
 
 
 void CacheTable::delete_crow(const TupleRow *keys) {
+    // To avoid consistency problems we flush the elements pending to be written
+    this->writer->flush_elements();
 
     //Remove row from Cassandra
     CassStatement *statement = cass_prepared_bind(delete_query);
