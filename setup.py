@@ -68,7 +68,7 @@ def setup_packages():
                     keywords="key-value, scientific computing",
                     description='Hecuba',
                     author='Guillem Alomar, Yolanda Becerra, Cesare Cugnasco, Pol Santamaria',
-                    author_email='{guillem.alomar,yolanda.becerra,cesare.cugnasco,pol.santamaria}@bsc.es',
+                    author_email='{yolanda.becerra,cesare.cugnasco,pol.santamaria}@bsc.es',
                     url='https://www.bsc.es',
                     long_description='''Hecuba.''',
                     #   test_suite='nose.collector',
