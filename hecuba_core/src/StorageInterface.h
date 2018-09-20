@@ -9,7 +9,6 @@
 
 
 #include "CacheTable.h"
-#include "Poco/LRUCache.h"
 #include <cassandra.h>
 #include "Prefetch.h"
 #include "Writer.h"

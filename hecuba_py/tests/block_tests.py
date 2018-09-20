@@ -15,13 +15,14 @@ class BlockTest(unittest.TestCase):
     def setUpClass():
         Config.reset(mock_cassandra=True)
 
-    def test_static_creation(self):
+    def test_astatic_creation(self):
+        # TODO This test passes StorageDict arguments (results) to a StorageObj. Fix this test.
         class res: pass
 
         from app.words import Words
         results = res()
         results.storage_id = uuid.uuid4()
-        results.class_name = 'app.words.Words'
+        results.class_name = 'tests.app.words.Words'
         results.name = 'ksp1.tab1'
         results.columns = [('val1', 'str')]
         results.entry_point = 'localhost'
@@ -29,11 +30,16 @@ class BlockTest(unittest.TestCase):
         results.istorage_props = {}
         results.tokens = [(1l, 2l), (2l, 3l), (3l, 4l), (3l, 5l)]
 
-
+        words_mock_methods = Words._setup_persistent_structs,Words._load_attributes,Words._store_meta
 
         Words._setup_persistent_structs = Mock(return_value=None)
         Words._load_attributes = Mock(return_value=None)
         Words._store_meta = Mock(return_value=None)
+
+        from hecuba import StorageDict
+        sdict_mock_methods = StorageDict.make_persistent
+        StorageDict.make_persistent = Mock(return_value=None)
+
         b = Words.build_remotely(results)
         self.assertIsInstance(b, Words)
         Words._setup_persistent_structs.assert_called_once()
@@ -42,6 +48,8 @@ class BlockTest(unittest.TestCase):
         assert(b._ksp == "ksp1")
         assert (b._table == "tab1")
 
+        Words._setup_persistent_structs,Words._load_attributes,Words._store_meta = words_mock_methods
+        StorageDict.make_persistent = sdict_mock_methods
 
     def test_iter_and_get_sets(self):
         """

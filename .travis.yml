@@ -9,8 +9,8 @@ install:
   - python setup.py install --user
 # command to run tests
 script:
-  - nosetests -v -s tests/*.py
-  - nosetests -v -s tests/withcassandra
+  - nosetests -v -s hecuba_py/tests/*.py
+  - nosetests -v -s hecuba_py/tests/withcassandra
 
 #caches dependencies
 cache: bundler
@@ -32,6 +32,6 @@ before_install:
   - sudo update-java-alternatives -s java-8-oracle
   - export JAVA_HOME=/usr/lib/jvm/java-8-oracle
   - export PYTHONPATH=/home/travis/.local/lib/python2.7/site-packages/
-  - export PYTHONPATH=/home/travis/.local/lib/python2.7/site-packages/
+  - export CFLAGS='-std=c++11'
   - java -version
   - wget http://archive.apache.org/dist/cassandra/3.11.3/apache-cassandra-3.11.3-bin.tar.gz && tar -xzf apache-cassandra-3.11.3-bin.tar.gz && apache-cassandra-3.11.3/bin/cassandra & disown

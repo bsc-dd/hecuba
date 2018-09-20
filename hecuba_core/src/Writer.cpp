@@ -56,7 +56,6 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
 
 Writer::~Writer() {
     flush_elements();
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     if (this->prepared_query != NULL) {
         cass_prepared_free(this->prepared_query);
         prepared_query = NULL;

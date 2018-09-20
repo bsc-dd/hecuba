@@ -1,7 +1,7 @@
 import unittest
 
 from hecuba import config, StorageObj, StorageDict
-from app.words import Words
+from ..app.words import Words
 import uuid
 import time
 
@@ -299,7 +299,6 @@ class StorageDictTest(unittest.TestCase):
     def test_empty_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.wordsso_words")
         config.session.execute("DROP TABLE IF EXISTS my_app.wordsso")
-        from app.words import Words
         so = Words()
         so.make_persistent("wordsso")
         so.ciao = "an attribute"
