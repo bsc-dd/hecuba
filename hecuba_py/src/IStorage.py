@@ -163,6 +163,9 @@ class IStorage:
             table = name
         return ksp.lower().encode('UTF8'), table.lower().encode('UTF8')
 
+    def _get_istorage_attrs(self, storage_id):
+        return list(config.session.execute(self._select_istorage_meta, [storage_id]))
+
     def _count_name_collision(self, attribute):
         m = re.compile("^%s_%s(_[0-9]+)?$" % (self._table, attribute))
         q = config.session.execute("SELECT table_name FROM  system_schema.tables WHERE keyspace_name = %s",
