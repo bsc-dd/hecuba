@@ -30,9 +30,9 @@ class BlockTest(unittest.TestCase):
         results.istorage_props = {}
         results.tokens = [(1l, 2l), (2l, 3l), (3l, 4l), (3l, 5l)]
 
-        words_mock_methods = Words._setup_persistent_structs,Words._load_attributes,Words._store_meta
+        words_mock_methods = Words._create_tables, Words._load_attributes, Words._store_meta
 
-        Words._setup_persistent_structs = Mock(return_value=None)
+        Words._create_tables = Mock(return_value=None)
         Words._load_attributes = Mock(return_value=None)
         Words._store_meta = Mock(return_value=None)
 
@@ -42,13 +42,13 @@ class BlockTest(unittest.TestCase):
 
         b = Words.build_remotely(results)
         self.assertIsInstance(b, Words)
-        Words._setup_persistent_structs.assert_called_once()
+        Words._create_tables.assert_called_once()
         Words._load_attributes.assert_called_once()
         Words._store_meta.assert_called_once()
         assert(b._ksp == "ksp1")
         assert (b._table == "tab1")
 
-        Words._setup_persistent_structs,Words._load_attributes,Words._store_meta = words_mock_methods
+        Words._create_tables, Words._load_attributes, Words._store_meta = words_mock_methods
         StorageDict.make_persistent = sdict_mock_methods
 
     def test_iter_and_get_sets(self):
