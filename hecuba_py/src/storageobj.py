@@ -240,14 +240,16 @@ class StorageObj(object, IStorage):
         """
         log.debug("CREATED StorageObj(%s)", name)
         # Assign private attributes
-        self._is_persistent = name != '' or storage_id is not None
+        self._is_persistent = True if name or storage_id else False
         self._persistent_props = StorageObj._parse_comments(self.__doc__)
         self._persistent_attrs = self._persistent_props.keys()
-        self._ksp, self._table = self._extract_ks_tab(name)
-        name = self._ksp + '.' + self._table
         self._class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
 
         if self._is_persistent:
+            if name:
+                self._ksp, self._table = self._extract_ks_tab(name)
+                name = self._ksp + '.' + self._table
+
             if not storage_id:
                 # Rebuild storage id
                 storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, name)
@@ -257,9 +259,10 @@ class StorageObj(object, IStorage):
 
             # If found data, replace the constructor data
             if len(metas) != 0:
-                name = metas[0].name
                 tokens = metas[0].tokens
                 istorage_props = metas[0].istorage_props
+                name = metas[0].name
+                self._ksp, self._table = self._extract_ks_tab(name)
 
         if tokens is None:
             # log.info('using all tokens')
@@ -271,7 +274,7 @@ class StorageObj(object, IStorage):
         self._istorage_props = istorage_props
 
         # Arguments used to build objects remotely
-        self._build_args = self.args(self._ksp + '.' + self._table,
+        self._build_args = self.args(name,
                                      self._tokens,
                                      self._storage_id,
                                      self._istorage_props,
@@ -464,22 +467,6 @@ class StorageObj(object, IStorage):
         # if exists but is set to None, the current behaviour is raising AttributeError
         if value is None:
             raise AttributeError('value not found')
-        '''
-        else:
-            try:
-                value = result[0][0]
-            except IndexError as ex:
-                value = None
-            #if value is None:
-            #    raise AttributeError('value not found')
-            count = self._count_name_collision(attribute)
-            table_name = self._ksp + '.' + self._table + '_' + attribute
-            if count > 1:
-                table_name += '_' + str(count - 2)
-
-            value = self._build_istorage_obj(name=table_name, tokens=self._build_args.tokens, storage_id=value,
-                                             **value_info)
-        '''
         object.__setattr__(self, attribute, value)
         return value
 
@@ -507,7 +494,7 @@ class StorageObj(object, IStorage):
             elif isinstance(value, dict):
                 per_dict = self._persistent_props[attribute]
                 indexed_args = per_dict.get('indexed_values', None)
-                new_value = StorageDict(None, per_dict['primary_keys'], per_dict['columns'],
+                new_value = StorageDict('', per_dict['primary_keys'], per_dict['columns'],
                                         tokens=self._tokens, indexed_args=indexed_args)
                 new_value.update(value)
                 value = new_value
