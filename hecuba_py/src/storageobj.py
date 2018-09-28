@@ -294,25 +294,7 @@ class StorageObj(object, IStorage):
         for attribute, value_info in self._persistent_props.iteritems():
             if value_info['type'] not in IStorage._basic_types:
                 # The attribute is an IStorage object
-                try:
-                    # If we are persistent it will go to the storage and return an IStorage obj
-                    value = self.__getattr__(attribute)
-                except AttributeError as ex:
-                    # We are not persistent or the attribute hasn't been assigned an IStorage obj
-                    # Then we build one
-                    value = None
-                attr_name = ""
-                if self._is_persistent:
-                    # if we are persistent, the object should be persistent too
-                    count = self._count_name_collision(attribute)
-                    attr_name = self._ksp + '.' + self._table + '_' + attribute
-                    if count > 1:
-                        attr_name += '_' + str(count - 2)
-                # Build the IStorage obj
-                value = self._build_istorage_obj(name=attr_name, tokens=self._build_args.tokens, storage_id=value,
-                                                 **value_info)
-                # Assign the IStorage obj to the attribute
-                object.__setattr__(self, attribute, value)
+                getattr(self, attribute, None)
 
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.getID() == other.getID()
@@ -436,10 +418,22 @@ class StorageObj(object, IStorage):
             Returns:
                 value: obtained value
         """
-        if attribute.startswith('_') or not self._is_persistent or attribute not in self._persistent_attrs:
+        if attribute.startswith('_') or attribute not in self._persistent_attrs:
             return object.__getattribute__(self, attribute)
 
+        value_info = self._persistent_props[attribute]
+        is_istorage_attr = value_info['type'] not in IStorage._basic_types
+        if not self._is_persistent:
+            if not is_istorage_attr:
+                return object.__getattribute__(self, attribute)
+            else:
+                # We are not persistent or the attribute hasn't been assigned an IStorage obj, we build one
+                value = self._build_istorage_obj(name='', tokens=self._build_args.tokens, storage_id=None, **value_info)
+                object.__setattr__(self, attribute, value)
+                return value
+
         '''
+        StorageObj is persistent.
         If the attribute is not a built-in object, we might have it in memory. 
         Since python works using references any modification from another reference will affect this attribute,
         which is the expected behaviour. Therefore, is safe to store in-memory the Hecuba objects.
@@ -458,15 +452,26 @@ class StorageObj(object, IStorage):
             log.warn("GETATTR ex %s", ex)
             raise ex
 
-        # value_info = self._persistent_props[attribute]
-
         try:
             value = result[0][0]
+            # if exists but is set to None, the current behaviour is raising AttributeError
+            if value is None:
+                raise AttributeError('value not found')
         except IndexError as ex:
-            raise AttributeError('value not found')
-        # if exists but is set to None, the current behaviour is raising AttributeError
-        if value is None:
-            raise AttributeError('value not found')
+            if not is_istorage_attr:
+                raise AttributeError('value not found')
+            value = None
+
+        if is_istorage_attr:
+            # If IStorage type, then we rebuild
+            count = self._count_name_collision(attribute)
+            attr_name = self._ksp + '.' + self._table + '_' + attribute
+            if count > 1:
+                attr_name += '_' + str(count - 2)
+            # Build the IStorage obj
+            value = self._build_istorage_obj(name=attr_name, tokens=self._build_args.tokens, storage_id=value,
+                                             **value_info)
+
         object.__setattr__(self, attribute, value)
         return value
 
