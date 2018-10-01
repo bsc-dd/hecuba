@@ -291,10 +291,13 @@ class StorageObj(object, IStorage):
         """
             Loads the IStorage objects into memory by creating them or retrieving from the backend.
         """
+        attrs = []
         for attribute, value_info in self._persistent_props.iteritems():
             if value_info['type'] not in IStorage._basic_types:
                 # The attribute is an IStorage object
-                getattr(self, attribute, None)
+                attrs.append((attribute, getattr(self, attribute)))
+        for (attr_name, attr) in attrs:
+            setattr(self, attr_name, attr)
 
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.getID() == other.getID()
@@ -469,13 +472,8 @@ class StorageObj(object, IStorage):
             if count > 1:
                 attr_name += '_' + str(count - 2)
             # Build the IStorage obj
-            sobj_is_new = value is None
             value = self._build_istorage_obj(name=attr_name, tokens=self._build_args.tokens, storage_id=value,
                                              **value_info)
-            if sobj_is_new:
-                # If we built the IStorage for the first time, save the IStorage Obj to the SObj column
-                setattr(self, attribute, value)
-                return value
 
         object.__setattr__(self, attribute, value)
         return value
