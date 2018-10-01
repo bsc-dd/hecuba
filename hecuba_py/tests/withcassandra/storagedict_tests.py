@@ -812,14 +812,19 @@ class StorageDictTest(unittest.TestCase):
     def test_assign_and_replace(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.first_name")
         config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona")
+        config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona_0")
+        config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona_1")
         config.session.execute("DROP TABLE IF EXISTS my_app.second_name")
 
         first_storagedict = MyStorageDictA()
         my_storageobj = MyStorageObjC("first_name")
         self.assertTrue(my_storageobj.mona._is_persistent)
 
+        # Creates the 'my_app.first_name_mona' table
         my_storageobj.mona['uno'] = 123
+
         # empty dict no persistent assigned to persistent object
+        # creates the 'my_app.first_name_mona_0' table
         my_storageobj.mona = first_storagedict
 
         self.assertTrue(my_storageobj.mona._is_persistent)
@@ -848,6 +853,8 @@ class StorageDictTest(unittest.TestCase):
 
         config.session.execute("DROP TABLE IF EXISTS my_app.first_name")
         config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona")
+        config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona_0")
+        config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona_1")
         config.session.execute("DROP TABLE IF EXISTS my_app.second_name")
 
 
