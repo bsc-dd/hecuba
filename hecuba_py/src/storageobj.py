@@ -469,8 +469,13 @@ class StorageObj(object, IStorage):
             if count > 1:
                 attr_name += '_' + str(count - 2)
             # Build the IStorage obj
+            sobj_is_new = value is None
             value = self._build_istorage_obj(name=attr_name, tokens=self._build_args.tokens, storage_id=value,
                                              **value_info)
+            if sobj_is_new:
+                # If we built the IStorage for the first time, save the IStorage Obj to the SObj column
+                setattr(self, attribute, value)
+                return value
 
         object.__setattr__(self, attribute, value)
         return value
