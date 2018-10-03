@@ -1050,26 +1050,150 @@ class StorageObjTest(unittest.TestCase):
 
         config.session.execute("DROP TABLE IF EXISTS my_app.test_attr")
 
-    def test_recreation(self):
+
+    def test_recreation_init(self):
+        """
+        New StorageObj
+        Persistent attributes
+        Made persistent on the constructor.
+        """
         sobj_name = "my_app.test_attr"
         config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name))
+        attr1 = 'Test1'
+        attr2 = 23
         storage_obj = Test2StorageObj(sobj_name)
-        storage_obj.name = 'Test1'
-        storage_obj.age = 23
+        storage_obj.name = attr1
+        storage_obj.age = attr2
         uuid_sobj = storage_obj.getID()
 
         storage_obj = None
         result_set = iter(config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(uuid_sobj)))
 
-
         try:
             result = result_set.next()
-        except StopIteration as exc:
+        except StopIteration as ex:
             self.fail("StorageObj istorage data was not saved")
 
         self.assertEqual(result.name, sobj_name)
 
-        #TODO FINISH
+        storage_obj = Test2StorageObj(sobj_name)
+
+        self.assertEqual(storage_obj.name, attr1)
+        self.assertEqual(storage_obj.age, attr2)
+
+
+    def test_recreation_init2(self):
+        """
+        New StorageObj
+        Has persistent and volatile attributes
+        Made persistent on the constructor.
+        """
+        sobj_name = "my_app.test_attr"
+        config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name))
+        attr1 = 'Test1'
+        attr2 = 23
+        storage_obj = Test2StorageObj(sobj_name)
+        storage_obj.name = attr1
+        storage_obj.nonpersistent = attr2
+        uuid_sobj = storage_obj.getID()
+
+        storage_obj = None
+        result_set = iter(config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(uuid_sobj)))
+
+        try:
+            result = result_set.next()
+        except StopIteration as ex:
+            self.fail("StorageObj istorage data was not saved")
+
+        self.assertEqual(result.name, sobj_name)
+
+        storage_obj = Test2StorageObj(sobj_name)
+
+        self.assertEqual(storage_obj.name, attr1)
+
+        with self.assertRaises(AttributeError):
+            attr = storage_obj.age
+
+        with self.assertRaises(AttributeError):
+            attr = storage_obj.nonpersistent
+
+
+
+    def test_recreation_make_pers(self):
+        """
+        New StorageObj
+        Persistent attributes
+        Made persistent with make_persistent.
+        """
+        sobj_name = "my_app.test_attr"
+        config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name))
+        attr1 = 'Test1'
+        attr2 = 23
+        storage_obj = Test2StorageObj()
+        storage_obj.make_persistent(sobj_name)
+        uuid_sobj = storage_obj.getID()
+
+        storage_obj = None
+        result_set = iter(config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(uuid_sobj)))
+
+        try:
+            result = result_set.next()
+        except StopIteration as ex:
+            self.fail("StorageObj istorage data was not saved")
+
+        self.assertEqual(result.name, sobj_name)
+
+        storage_obj = Test2StorageObj()
+
+        storage_obj.name = attr1
+        storage_obj.volatile = attr2
+
+        storage_obj.make_persistent(sobj_name)
+
+        self.assertEqual(storage_obj.name, attr1)
+        self.assertEqual(storage_obj.volatile, attr2)
+
+        with self.assertRaises(AttributeError):
+            attr = storage_obj.age
+
+
+
+    def test_recreation_make_pers(self):
+        """
+        New StorageObj
+        Persistent attributes
+        Made persistent with make_persistent.
+        """
+        sobj_name = "my_app.test_attr"
+        config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name))
+        attr1 = 'Test1'
+        attr2 = 23
+        storage_obj = Test2StorageObj()
+        storage_obj.name = attr1
+        storage_obj.volatile = 'Ofcourse'
+        storage_obj.make_persistent(sobj_name)
+        uuid_sobj = storage_obj.getID()
+
+        storage_obj = None
+        result_set = iter(config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(uuid_sobj)))
+
+        try:
+            result = result_set.next()
+        except StopIteration as ex:
+            self.fail("StorageObj istorage data was not saved")
+
+        self.assertEqual(result.name, sobj_name)
+
+        storage_obj = Test2StorageObj()
+        storage_obj.age = attr2
+        storage_obj.make_persistent(sobj_name)
+
+        self.assertEqual(storage_obj.name, attr1)
+        self.assertEqual(storage_obj.age, attr2)
+
+        with self.assertRaises(AttributeError):
+            attr = storage_obj.volatile
+
 
     def test_nested_recreation(self):
         sobj_name = "my_app.test_attr"
