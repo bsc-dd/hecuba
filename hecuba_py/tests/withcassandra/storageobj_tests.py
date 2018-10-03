@@ -1158,7 +1158,7 @@ class StorageObjTest(unittest.TestCase):
 
 
 
-    def test_recreation_make_pers(self):
+    def test_recreation_make_pers2(self):
         """
         New StorageObj
         Persistent attributes
