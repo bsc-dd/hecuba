@@ -68,13 +68,12 @@ class StorageSet(set, IStorage):
                                     storage_args.tokens,
                                     storage_args.istorage_props])
         except Exception as ex:
-            log.warn("Error creating the StorageDict metadata: %s, %s", str(storage_args), ex)
+            log.warn("Error creating the StorageSet metadata: %s, %s", str(storage_args), ex)
             raise ex
 
     _set_case = re.compile('.*@TypeSpec +(\w+)')
-    _dict_case = re.compile('.*@TypeSpec +(\w+) +dict+ *< *< *([\w:, ]+)+ *> *, *([\w+:., <>]+) *>')
-    _tuple_case = re.compile('.*@TypeSpec +(\w+) +tuple+ *< *([\w, +]+) *>')
-    _index_vars = re.compile('.*@Index_on *([A-z0-9]+) +([A-z0-9, ]+)')
+    _tuple_case = re.compile('.*@TypeSpec *< *([\w, +]+) *>')
+    # _dict_case = re.compile('.*@TypeSpec +(\w+) +dict+ *< *< *([\w:, ]+)+ *> *, *([\w+:., <>]+) *>')
 
     def __init__(self, name="", column=None, tokens=None, storage_id=None, indexed_args=None, istorage_props=None, **kwargs):
         """
@@ -141,13 +140,12 @@ class StorageSet(set, IStorage):
         for line in comments.split('\n'):
             m = StorageSet._set_case.match(line)
             if m is not None:
-                # Matching TypeSpec of a Set
+            # Matching TypeSpec of a Set
                 set_types = m.groups()
                 set_type = set_types[0]
 
                 set_type_cassandra = StorageSet._conversions[set_type]
 
-                # TODO implement sets with tuples
                 # name = str(cls)
                 if cls.__class__.__name__ in this:
                     this.update({'type': 'set', 'column': set_type_cassandra})
@@ -155,16 +153,24 @@ class StorageSet(set, IStorage):
                     this = {
                         'type': 'set',
                         'column': set_type_cassandra}
-            '''
-            m = StorageSet._index_vars.match(line)
-            if m is not None:
-                table_name, indexed_values = m.groups()
-                indexed_values = indexed_values.replace(' ', '').split(',')
-                if table_name in this:
-                    this[table_name].update({'indexed_values': indexed_values})
-                else:
-                    this[table_name] = {'indexed_values': indexed_values}
-            '''
+            else:
+                # Matching TypeSpec of a Set of Tuples
+                m = StorageSet._tuple_case.match(line)
+                if m is not None:
+                    types = m.groups()[0]
+                    simple_type = types.replace(' ', '')
+                    simple_type_split = simple_type.split(',')
+                    conversion = list()
+                    for ind, val in enumerate(simple_type_split):
+                        if ind == 0:
+                            conversion.append(IStorage._conversions[val])
+                        else:
+                            conversion.append(IStorage._conversions[val])
+                    this = {
+                        'type': 'tuple',
+                        'column': conversion
+                    }
+
         return this
 
     def make_persistent(self, name):
@@ -177,11 +183,19 @@ class StorageSet(set, IStorage):
         """
 
         if self._is_persistent:
-            raise AlreadyPersistentError("This StorageObj is already persistent [Before:{}.{}][After:{}]",
+            raise AlreadyPersistentError("This StorageSet is already persistent [Before:{}.{}][After:{}]",
                                          self._ksp, self._table, name)
 
         (self._ksp, self._table) = self._extract_ks_tab(name)
+        self._build_args = self._build_args._replace(name=self._ksp + '.' + self._table)
         self._setup_persistent_structs()
+
+        ps = config.session.prepare(
+            "INSERT INTO %s.%s (column, empty_column) VALUES (?, ' ')" % (self._ksp, self._table))
+        for value in set(self):
+            config.session.execute(ps, [value])
+
+        self._store_meta(self._build_args)
 
     def add(self, value):
         """
@@ -194,6 +208,17 @@ class StorageSet(set, IStorage):
             query = "INSERT INTO %s.%s (column, empty_column)" % (self._ksp, self._table)
             if isinstance(value, str) or isinstance(value, unicode):
                 query += " VALUES ('%s', ' ')" % value
+            elif isinstance(value, tuple):
+                query += " VALUES (("
+                for val in value:
+                    if isinstance(val, unicode):
+                        val = str(val)
+                    if isinstance(val, str):
+                        query += "'" + val + "', "
+                    else:
+                        query += str(val) + ", "
+
+                query = query[:-2] + "), ' ')"
             else:
                 query += " VALUES (%s, ' ')" % value
             config.session.execute(query)
@@ -210,6 +235,17 @@ class StorageSet(set, IStorage):
             query = "DELETE FROM %s.%s WHERE column = " % (self._ksp, self._table)
             if isinstance(value, str) or isinstance(value, unicode):
                 query += "'%s'" % value
+            elif isinstance(value, tuple):
+                query += "("
+                for val in value:
+                    if isinstance(val, unicode):
+                        val = str(val)
+                    if isinstance(val, str):
+                        query += "'" + val + "', "
+                    else:
+                        query += str(val) + ", "
+
+                query = query[:-2] + ")"
             else:
                 query += str(value)
             config.session.execute(query)
@@ -227,6 +263,17 @@ class StorageSet(set, IStorage):
             query = "SELECT count(*) FROM %s.%s WHERE column = " % (self._ksp, self._table)
             if isinstance(value, str) or isinstance(value, unicode):
                 query += "'%s'" % value
+            elif isinstance(value, tuple):
+                query += "("
+                for val in value:
+                    if isinstance(val, unicode):
+                        val = str(val)
+                    if isinstance(val, str):
+                        query += "'" + val + "', "
+                    else:
+                        query += str(val) + ", "
+
+                query = query[:-2] + ")"
             else:
                 query += str(value)
             result = config.session.execute(query)
@@ -239,39 +286,38 @@ class StorageSet(set, IStorage):
         if not isinstance(storageSet, StorageSet):
             raise Exception("Expected StorageSet argument")
 
-        if not self._is_persistent:
-            set.union(self, set(storageSet))
+        if not storageSet._is_persistent and not self._is_persistent:
+            set(self).union(self, set(storageSet))
         else:
-            if not storageSet._is_persistent:
-                for value in storageSet:
-                    self.add(value)
-            else:
-                # regular case, two persistent sets
-                ps = config.session.prepare(
-                    "INSERT INTO %s.%s (column, empty_column) VALUES (?, ' ')" % (self._ksp, self._table))
-                for value in storageSet:
-                    config.session.execute(ps, [value])
+            for value in storageSet:
+                self.add(value)
 
     def intersection(self, storageSet):
         if not isinstance(storageSet, StorageSet):
             raise Exception("Expected StorageSet argument")
 
-        if not self._is_persistent:
-            if not storageSet._is_persistent:
-                set.intersection(self, set(storageSet))
+        if not storageSet._is_persistent and not self._is_persistent:
+            set(self).intersection(self, set(storageSet))
         else:
-            if not storageSet._is_persistent:
+            for value in self:
+                if value not in storageSet:
+                    self.remove(value)
+
+    def difference(self, storageSet):
+        if not isinstance(storageSet, StorageSet):
+            raise Exception("Expected StorageSet argument")
+
+        if not storageSet._is_persistent and not self._is_persistent:
+            set(self).difference(self, set(storageSet))
+        else:
+            if len(self) <= len(storageSet):
                 for value in self:
-                    if value not in storageSet:
+                    if value in storageSet:
                         self.remove(value)
             else:
-                # regular case, two persistent sets
-                # ps = "INSERT INTO %s.%s (column, empty_column) VALUES (?, ' ')" % (self._ksp, self._table)
-                # print(ps)
-                ps = config.session.prepare("DELETE FROM %s.%s WHERE column = ?" % (self._ksp, self._table))
-                for value in self:
-                    if value not in storageSet:
-                        config.session.execute(ps, [value])
+                for value in storageSet:
+                    if value in self:
+                        self.remove(value)
 
     def clear(self):
         if self._is_persistent:
@@ -318,14 +364,21 @@ class StorageSet(set, IStorage):
             log.warn("Error creating the StorageSet keyspace %s, %s", (query_keyspace), ex)
             raise ex
 
-        # drop = 'DROP TABLE IF EXISTS %s.%s' % (self._ksp, self._table)
-        # config.session.execute(drop)
         query_simple = 'CREATE TABLE IF NOT EXISTS ' + self._ksp + '.' + self._table + \
                        '( '
 
         query_simple += "column "
-        query_simple += self._persistent_props['column'] + " PRIMARY KEY, empty_column text, "
-
+        if self._persistent_props['type'] == 'tuple':
+            # To complete
+            query_simple += "tuple<"
+            for num, type in enumerate(self._persistent_props['column']):
+                if num != 0:
+                    query_simple += ", "
+                query_simple += type
+            query_simple += ">"
+        else:
+            query_simple += self._persistent_props['column']
+        query_simple += " PRIMARY KEY, empty_column text, "
         try:
             config.session.execute(query_simple[:-2] + ' )')
 
@@ -344,7 +397,7 @@ class StorageSet(set, IStorage):
         """
             Deletes the Cassandra table where the persistent StorageSet stores data
         """
-        query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
+        query = "DROP TABLE IF EXISTS %s.%s;" % (self._ksp, self._table)
         log.debug("DELETE PERSISTENT: %s", query)
         config.session.execute(query)
 
