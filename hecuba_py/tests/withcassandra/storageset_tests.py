@@ -12,6 +12,11 @@ class SetInt(StorageSet):
     @TypeSpec int
     '''
 
+class SetTuple(StorageSet):
+    '''
+    @TypeSpec <int, str, str>
+    '''
+
 class SetTest(unittest.TestCase):
     # TESTS WITH STRINGS
 
@@ -77,6 +82,23 @@ class SetTest(unittest.TestCase):
         set1.intersection(set2)
 
         for i in range(5, 10):
+            self.assertTrue(str(i) in set1)
+
+        self.assertEqual(5, len(set1))
+
+    def testDifferenceStr(self):
+        set1 = SetStr("pruebas2.set1")
+        set2 = SetStr("pruebas2.set2")
+        set1.clear()
+        set2.clear()
+        for i in range(0, 10):
+            set1.add(str(i))
+        for i in range(5, 15):
+            set2.add(str(i))
+
+        set1.difference(set2)
+
+        for i in range(0, 5):
             self.assertTrue(str(i) in set1)
 
         self.assertEqual(5, len(set1))
@@ -161,6 +183,23 @@ class SetTest(unittest.TestCase):
 
         self.assertEqual(5, len(set1))
 
+    def testDifferenceInt(self):
+        set1 = SetStr("pruebas2.set3")
+        set2 = SetStr("pruebas2.set4")
+        set1.clear()
+        set2.clear()
+        for i in range(0, 10):
+            set1.add(i)
+        for i in range(5, 15):
+            set2.add(i)
+
+        set1.difference(set2)
+
+        for i in range(0, 5):
+            self.assertTrue(i in set1)
+
+        self.assertEqual(5, len(set1))
+
     def testClearInt(self):
         set1 = SetInt("pruebas2.set3")
         for i in range(0, 10):
@@ -172,6 +211,164 @@ class SetTest(unittest.TestCase):
             self.assertFalse(i in set1)
 
         self.assertEqual(0, len(set1))
+
+    def testMakePersistent(self):
+        set3 = SetInt("pruebas2.set3")
+        set3.delete_persistent()
+
+        set3 = SetInt()
+        for i in range(0, 10):
+            set3.add(i)
+
+        set3.remove(0)
+        set3.remove(1)
+
+        set3.make_persistent("pruebas2.set3")
+        for i in range(2, 10):
+            self.assertTrue(i in set3)
+
+        self.assertFalse(0 in set3)
+        self.assertFalse(1 in set3)
+
+    def testTupleAdd(self):
+        setTuple = SetTuple("pruebas2.setTuple1")
+        setTuple.clear()
+        for i in range(0, 10):
+            if i%2 == 0:
+                setTuple.add((i, "Mesa", "Marron"))
+            else:
+                setTuple.add((i, "Silla", "Negra"))
+
+        self.assertTrue((0, "Mesa", "Marron") in setTuple)
+
+        nmesas = nsillas = 0
+        for value in setTuple:
+            if "Mesa" in value:
+                nmesas += 1
+            else:
+                if "Silla" in value:
+                    nsillas += 1
+        self.assertEqual(5, nmesas)
+        self.assertEqual(5, nsillas)
+
+    def testTupleRemove(self):
+        setTuple = SetTuple("pruebas2.setTuple1")
+        setTuple.clear()
+        for i in range(0, 10):
+            if i % 2 == 0:
+                setTuple.add((i, "Mesa", "Marron"))
+            else:
+                setTuple.add((i, "Silla", "Negra"))
+
+        for i in range(5, 10):
+            if i % 2 == 0:
+                setTuple.remove((i, "Mesa", "Marron"))
+            else:
+                setTuple.remove((i, "Silla", "Negra"))
+        nmesas = nsillas = 0
+        for value in setTuple:
+            if "Mesa" in value:
+                nmesas += 1
+            else:
+                if "Silla" in value:
+                    nsillas += 1
+        self.assertEqual(3, nmesas)
+        self.assertEqual(2, nsillas)
+
+    def testTupleUnion(self):
+        setTuple1 = SetTuple("pruebas2.setTuple1")
+        setTuple1.clear()
+        for i in range(0, 10):
+            if i % 2 == 0:
+                setTuple1.add((i, "Mesa", "Marron"))
+            else:
+                setTuple1.add((i, "Silla", "Negra"))
+        setTuple2 = SetTuple("pruebas2.setTuple2")
+        setTuple2.clear()
+        setTuple2.add((0, "Paraguas", "Rojo"))
+        setTuple2.add((1, "Paraguas", "Verde"))
+
+        setTuple1.union(setTuple2)
+
+        for i in range(0, 10):
+            if i % 2 == 0:
+                self.assertTrue((i, "Mesa", "Marron") in setTuple1)
+            else:
+                self.assertTrue((i, "Silla", "Negra") in setTuple1)
+
+        self.assertTrue((0, "Paraguas", "Rojo") in setTuple1)
+        self.assertTrue((1, "Paraguas", "Verde") in setTuple1)
+
+    def testTupleIntersection(self):
+        setTuple1 = SetTuple("pruebas2.setTuple1")
+        setTuple1.clear()
+        for i in range(0, 10):
+            if i % 2 == 0:
+                setTuple1.add((i, "Mesa", "Marron"))
+            else:
+                setTuple1.add((i, "Silla", "Negra"))
+        setTuple2 = SetTuple("pruebas2.setTuple2")
+        setTuple2.clear()
+        setTuple2.add((0, "Mesa", "Marron"))
+        setTuple2.add((1, "Silla", "Negra"))
+
+        setTuple1.intersection(setTuple2)
+
+        self.assertTrue((0, "Mesa", "Marron") in setTuple1)
+        self.assertTrue((1, "Silla", "Negra") in setTuple1)
+        for i in range(2, 10):
+            if i % 2 == 0:
+                self.assertFalse((i, "Mesa", "Marron") in setTuple1)
+            else:
+                self.assertFalse((i, "Silla", "Negra") in setTuple1)
+
+    def testTupleDifference(self):
+        setTuple1 = SetTuple("pruebas2.setTuple1")
+        setTuple1.clear()
+        for i in range(0, 10):
+            if i % 2 == 0:
+                setTuple1.add((i, "Mesa", "Marron"))
+            else:
+                setTuple1.add((i, "Silla", "Negra"))
+        setTuple2 = SetTuple("pruebas2.setTuple2")
+        setTuple2.clear()
+        setTuple2.add((0, "Mesa", "Marron"))
+        setTuple2.add((1, "Silla", "Negra"))
+
+        setTuple1.difference(setTuple2)
+
+        self.assertFalse((0, "Mesa", "Marron") in setTuple1)
+        self.assertFalse((1, "Silla", "Negra") in setTuple1)
+        for i in range(2, 10):
+            if i % 2 == 0:
+                self.assertTrue((i, "Mesa", "Marron") in setTuple1)
+            else:
+                self.assertTrue((i, "Silla", "Negra") in setTuple1)
+
+    def testTupleMakePersistent(self):
+        setTuple = SetTuple("pruebas2.setTuple1")
+        setTuple.delete_persistent()
+
+        setTuple = SetTuple()
+        for i in range(0, 10):
+            if i % 2 == 0:
+                setTuple.add((i, "Mesa", "Marron"))
+            else:
+                setTuple.add((i, "Silla", "Negra"))
+
+        setTuple.remove((0, "Mesa", "Marron"))
+        setTuple.remove((1, "Silla", "Negra"))
+
+        setTuple.make_persistent("pruebas2.setTuple1")
+        for i in range(2, 10):
+            if i % 2 == 0:
+                self.assertTrue((i, "Mesa", "Marron") in setTuple)
+            else:
+                self.assertTrue((i, "Silla", "Negra") in setTuple)
+
+        self.assertFalse((0, "Mesa", "Marron") in setTuple)
+        self.assertFalse((1, "Silla", "Negra") in setTuple)
+
 
 if __name__ == '__main__':
     unittest.main()
