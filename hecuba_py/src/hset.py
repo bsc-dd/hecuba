@@ -4,20 +4,9 @@ from collections import namedtuple
 import re
 import uuid
 
-class Iterator:
-
-    def __init__(self, iterator):
-        self.iterator = iterator
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        return (next(self.iterator))[0]
-
 
 class StorageSet(set, IStorage):
-    args_names = ["name", "column", "tokens", "storage_id", "indexed_on", "istorage_props", "class_name"]
+    args_names = ["name", "column", "tokens", "storage_id", "istorage_props", "class_name"]
     args = namedtuple('StorageSetArgs', args_names)
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba' +
                                                   '.istorage (storage_id, class_name, name, tokens, istorage_props) '
@@ -73,9 +62,8 @@ class StorageSet(set, IStorage):
 
     _set_case = re.compile('.*@TypeSpec +(\w+)')
     _tuple_case = re.compile('.*@TypeSpec *< *([\w, +]+) *>')
-    # _dict_case = re.compile('.*@TypeSpec +(\w+) +dict+ *< *< *([\w:, ]+)+ *> *, *([\w+:., <>]+) *>')
 
-    def __init__(self, name="", column=None, tokens=None, storage_id=None, indexed_args=None, istorage_props=None, **kwargs):
+    def __init__(self, name="", column=None, tokens=None, storage_id=None, istorage_props=None, **kwargs):
         """
             Creates a new storageset.
             Args:
@@ -104,22 +92,13 @@ class StorageSet(set, IStorage):
         if self.__doc__ is not None:
             self._persistent_props = self._parse_comments(self.__doc__)
             self._persistent_attrs = self._persistent_props.keys()
-            # self._column = self._persistent_props[self.__class__.__name__]['column']
-            # temporal para debug
             self._column = self._persistent_props['column']
-
-            try:
-                self._indexed_args = self._persistent_props[self.__class__.__name__]['indexed_values']
-            except KeyError:
-                self._indexed_args = indexed_args
-
         else:
             self._column = column
-            self._indexed_args = indexed_args
 
         class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
         self._build_args = self.args(None, self._column, self._tokens,
-                                     self._storage_id, self._indexed_args, self._istorage_props, class_name)
+                                     self._storage_id, self._istorage_props, class_name)
 
         if name:
             self._setup_persistent_structs()
@@ -140,7 +119,7 @@ class StorageSet(set, IStorage):
         for line in comments.split('\n'):
             m = StorageSet._set_case.match(line)
             if m is not None:
-            # Matching TypeSpec of a Set
+                # Matching TypeSpec of a Set
                 set_types = m.groups()
                 set_type = set_types[0]
 
@@ -201,7 +180,7 @@ class StorageSet(set, IStorage):
         """
            Method to insert values in the StorageSet
            Args:
-               val: the value that we want to save
+               value: the value that we want to save
         """
 
         if self._is_persistent:
@@ -229,7 +208,7 @@ class StorageSet(set, IStorage):
         """
            Method to delete values in the StorageSet
            Args:
-               val: the value that we want to delete
+               value: the value that we want to delete
         """
         if self._is_persistent:
             query = "DELETE FROM %s.%s WHERE column = " % (self._ksp, self._table)
@@ -256,7 +235,7 @@ class StorageSet(set, IStorage):
         """
            Method to check if a given value is in the StorageSet
            Args:
-               val: the value that we want to check
+               value: the value that we want to check
         """
 
         if self._is_persistent:
@@ -282,40 +261,31 @@ class StorageSet(set, IStorage):
         else:
             return set.__contains__(self, value)
 
-    def union(self, storageSet):
-        if not isinstance(storageSet, StorageSet):
-            raise Exception("Expected StorageSet argument")
-
-        if not storageSet._is_persistent and not self._is_persistent:
-            set(self).union(self, set(storageSet))
+    def union(self, set2):
+        if not self._is_persistent and (isinstance(set2, set) or not set2._is_persistent):
+            set.union(self, set2)
         else:
-            for value in storageSet:
+            for value in set2:
                 self.add(value)
 
-    def intersection(self, storageSet):
-        if not isinstance(storageSet, StorageSet):
-            raise Exception("Expected StorageSet argument")
-
-        if not storageSet._is_persistent and not self._is_persistent:
-            set(self).intersection(self, set(storageSet))
+    def intersection(self, set2):
+        if not self._is_persistent and (isinstance(set2, set) or not set2._is_persistent):
+            set.intersection(self, set2)
         else:
             for value in self:
-                if value not in storageSet:
+                if value not in set2:
                     self.remove(value)
 
-    def difference(self, storageSet):
-        if not isinstance(storageSet, StorageSet):
-            raise Exception("Expected StorageSet argument")
-
-        if not storageSet._is_persistent and not self._is_persistent:
-            set(self).difference(self, set(storageSet))
+    def difference(self, set2):
+        if not self._is_persistent and (isinstance(set2, set) or not set2._is_persistent):
+            set.difference(self, set2)
         else:
-            if len(self) <= len(storageSet):
+            if len(self) <= len(set2):
                 for value in self:
-                    if value in storageSet:
+                    if value in set2:
                         self.remove(value)
             else:
-                for value in storageSet:
+                for value in set2:
                     if value in self:
                         self.remove(value)
 
@@ -330,7 +300,8 @@ class StorageSet(set, IStorage):
         if self._is_persistent:
             query = "SELECT column FROM %s.%s " % (self._ksp, self._table)
             result = config.session.execute(query)
-            return Iterator(iter(result))
+            result = map(lambda x: x[0], result)
+            return iter(result)
         else:
             return set.__iter__(self)
 
@@ -341,7 +312,6 @@ class StorageSet(set, IStorage):
             return result[0][0]
         else:
             return len(set(self))
-
 
     def _setup_persistent_structs(self):
         """
@@ -369,7 +339,6 @@ class StorageSet(set, IStorage):
 
         query_simple += "column "
         if self._persistent_props['type'] == 'tuple':
-            # To complete
             query_simple += "tuple<"
             for num, type in enumerate(self._persistent_props['column']):
                 if num != 0:
@@ -381,7 +350,6 @@ class StorageSet(set, IStorage):
         query_simple += " PRIMARY KEY, empty_column text, "
         try:
             config.session.execute(query_simple[:-2] + ' )')
-
         except Exception as ir:
             log.error("Unable to execute %s", query_simple)
             raise ir

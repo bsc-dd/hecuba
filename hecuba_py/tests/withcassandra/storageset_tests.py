@@ -1,4 +1,5 @@
-from hecuba_py.src.hset import StorageSet
+from hecuba.hset import StorageSet
+from hecuba import config
 import unittest
 
 
@@ -368,6 +369,48 @@ class SetTest(unittest.TestCase):
 
         self.assertFalse((0, "Mesa", "Marron") in setTuple)
         self.assertFalse((1, "Silla", "Negra") in setTuple)
+
+    def testUnionWithSet(self):
+        set1 = SetInt("pruebas2.set3")
+        set1.clear()
+        for i in range(0, 10):
+            set1.add(i)
+        set2 = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19}
+
+        set1.union(set2)
+
+        for i in range(0, 20):
+            self.assertTrue(i in set1)
+
+        self.assertEqual(20, len(set1))
+
+    def testIntersectionWithSet(self):
+        set1 = SetInt("pruebas2.set3")
+        set1.clear()
+        for i in range(0, 10):
+            set1.add(i)
+        set2 = {5, 6, 7, 8, 9, 10, 11, 12, 13, 14}
+
+        set1.intersection(set2)
+
+        for i in range(5, 10):
+            self.assertTrue(i in set1)
+
+        self.assertEqual(5, len(set1))
+
+    def testDifferenceWithSet(self):
+        set1 = SetStr("pruebas2.set3")
+        set1.clear()
+        for i in range(0, 10):
+            set1.add(i)
+        set2 = {5, 6, 7, 8, 9, 10, 11, 12, 13, 14}
+
+        set1.difference(set2)
+
+        for i in range(0, 5):
+            self.assertTrue(i in set1)
+
+        self.assertEqual(5, len(set1))
 
 
 if __name__ == '__main__':
