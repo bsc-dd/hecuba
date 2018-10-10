@@ -125,7 +125,6 @@ class StorageSet(set, IStorage):
 
                 set_type_cassandra = StorageSet._conversions[set_type]
 
-                # name = str(cls)
                 if cls.__class__.__name__ in this:
                     this.update({'type': 'set', 'column': set_type_cassandra})
                 else:
@@ -262,14 +261,16 @@ class StorageSet(set, IStorage):
             return set.__contains__(self, value)
 
     def union(self, set2):
-        if not self._is_persistent and (isinstance(set2, set) or not set2._is_persistent):
+        # If self and set2 are two normal sets perform normal union
+        if not self._is_persistent and not set2._is_persistent:
             set.union(self, set2)
         else:
             for value in set2:
                 self.add(value)
 
     def intersection(self, set2):
-        if not self._is_persistent and (isinstance(set2, set) or not set2._is_persistent):
+        # If self and set2 are two normal sets perform normal intersection
+        if not self._is_persistent and not set2._is_persistent:
             set.intersection(self, set2)
         else:
             for value in self:
@@ -277,9 +278,11 @@ class StorageSet(set, IStorage):
                     self.remove(value)
 
     def difference(self, set2):
-        if not self._is_persistent and (isinstance(set2, set) or not set2._is_persistent):
+        # If self and set2 are two normal sets perform normal difference
+        if not self._is_persistent and not set2._is_persistent:
             set.difference(self, set2)
         else:
+            # Check which set has more elements, it will iterate through the shortest
             if len(self) <= len(set2):
                 for value in self:
                     if value in set2:
