@@ -374,6 +374,14 @@ class StorageDict(dict, IStorage):
         """
         return [i for i in self.itervalues()]
 
+    def items(self):
+        """
+        This method return a list of all the key-value pairs of the StorageDict.
+        Returns:
+          list: a list of key-value pairs
+        """
+        return [i for i in self.iteritems()]
+
     def __iter__(self):
         """
         Method that overloads the python dict basic iteration, which returns
@@ -660,15 +668,6 @@ class StorageDict(dict, IStorage):
             return NamedIterator(ik, self._column_builder, self)
         else:
             return dict.itervalues(self)
-
-    def keys(self):
-        return [i for i in self.iterkeys()]
-
-    def values(self):
-        return [i for i in self.itervalues()]
-
-    def items(self):
-        return [i for i in self.iteritems()]
 
     def get(self, key, default):
         try:
