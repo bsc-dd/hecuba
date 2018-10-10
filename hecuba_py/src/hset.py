@@ -265,17 +265,15 @@ class StorageSet(set, IStorage):
         if not self._is_persistent and not set2._is_persistent:
             set.union(self, set2)
         else:
-            for value in set2:
-                self.add(value)
+            map(lambda value: self.add(value), set2)
 
     def intersection(self, set2):
         # If self and set2 are two normal sets perform normal intersection
         if not self._is_persistent and not set2._is_persistent:
             set.intersection(self, set2)
         else:
-            for value in self:
-                if value not in set2:
-                    self.remove(value)
+            map(lambda value: self.remove(value),
+                filter(lambda value: value not in set2, self))
 
     def difference(self, set2):
         # If self and set2 are two normal sets perform normal difference
@@ -284,13 +282,11 @@ class StorageSet(set, IStorage):
         else:
             # Check which set has more elements, it will iterate through the shortest
             if len(self) <= len(set2):
-                for value in self:
-                    if value in set2:
-                        self.remove(value)
+                map(lambda value: self.remove(value),
+                    filter(lambda value: value in set2, self))
             else:
-                for value in set2:
-                    if value in self:
-                        self.remove(value)
+                map(lambda value: self.remove(value),
+                    filter(lambda value: value in self, set2))
 
     def clear(self):
         if self._is_persistent:
