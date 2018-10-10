@@ -97,7 +97,7 @@ class Config:
             try:
                 singleton.session.shutdown()
                 singleton.cluster.shutdown()
-            except _:
+            except Exception:
                 log.warn('error shutting down')
         try:
             singleton.replication_factor = int(os.environ['REPLICA_FACTOR'])
