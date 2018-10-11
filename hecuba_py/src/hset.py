@@ -238,29 +238,29 @@ class StorageSet(set, IStorage):
             return set.__contains__(self, value)
 
     def union(self, set2):
-        result = type(self)()
-        for value in self:
-            result.add(value)
         for value in set2:
-            result.add(value)
+            self.add(value)
 
-        return result
+        return self
 
     def intersection(self, set2):
-        result = type(self)()
-        for value in self:
-            if value in set2:
-                result.add(value)
-
-        return result
-
-    def difference(self, set2):
-        result = type(self)()
         for value in self:
             if value not in set2:
-                result.add(value)
+                self.remove(value)
 
-        return result
+        return self
+
+    def difference(self, set2):
+        if len(self) <= len(set2):
+            for value in self:
+                if value in set2:
+                    self.remove(value)
+        else:
+            for value in set2:
+                if value in self:
+                    self.remove(value)
+
+        return self
 
     def clear(self):
         if self._is_persistent:
@@ -339,6 +339,7 @@ class StorageSet(set, IStorage):
         query = "SELECT column FROM %s.%s " % (self._ksp, self._table)
         result = config.session.execute(query)
         result = map(lambda x: x[0], result)
+        set.clear(self)
         for value in result:
             self.add(value)
 
@@ -348,8 +349,17 @@ class StorageSet(set, IStorage):
         """
         if not self._is_persistent:
             raise Exception("This StorageSet is not persistent.")
+
+        self._is_persistent = False
+        # We have to update the set in memory
+        query = "SELECT column FROM %s.%s " % (self._ksp, self._table)
+        result = config.session.execute(query)
+        result = map(lambda x: x[0], result)
+        set.clear(self)
+        for value in result:
+            self.add(value)
+
         query = "DROP TABLE IF EXISTS %s.%s;" % (self._ksp, self._table)
         log.debug("DELETE PERSISTENT: %s", query)
         config.session.execute(query)
 
-        self._is_persistent = False

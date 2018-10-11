@@ -8,18 +8,20 @@ class SetStr(StorageSet):
     @TypeSpec str
     '''
 
+
 class SetInt(StorageSet):
     '''
     @TypeSpec int
     '''
+
 
 class SetTuple(StorageSet):
     '''
     @TypeSpec <int, str, str>
     '''
 
+
 class SetTest(unittest.TestCase):
-    # TESTS WITH STRINGS
 
     def testAddRemoveStr(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas2.settests")
@@ -118,8 +120,6 @@ class SetTest(unittest.TestCase):
             self.assertFalse(str(i) in set1)
 
         self.assertEqual(0, len(set1))
-
-    # TESTS WITH INTS
 
     def testAddRemoveInt(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas2.settests2")
@@ -419,29 +419,9 @@ class SetTest(unittest.TestCase):
 
         self.assertEqual(5, len(set3))
 
-    def testPostUnionPersistence(self):
+    def testUnionWithNoPersistent(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas2.set3")
-        config.session.execute("DROP TABLE IF EXISTS pruebas2.set4")
-        config.session.execute("DROP TABLE IF EXISTS pruebas2.set5")
         set1 = SetInt("pruebas2.set3")
-        set2 = SetInt("pruebas2.set4")
-
-        for i in range(0, 10):
-            set1.add(i)
-        for i in range(10, 20):
-            set2.add(i)
-
-        set3 = set1.union(set2)
-        set3.make_persistent("pruebas2.set5")
-        set4 = SetInt("pruebas2.set5")
-
-        for i in range(0, 20):
-            self.assertTrue(i in set4)
-
-        self.assertEqual(20, len(set4))
-
-    def testUnionTwoNoPersistent(self):
-        set1 = SetInt()
         set2 = SetInt()
         for i in range(0, 10):
             set1.add(i)
@@ -449,14 +429,14 @@ class SetTest(unittest.TestCase):
             set2.add(i)
 
         set3 = set1.union(set2)
-
         for i in range(0, 20):
             self.assertTrue(i in set3)
 
         self.assertEqual(20, len(set3))
 
-    def testIntersectionTwoNoPersistent(self):
-        set1 = SetInt()
+    def testIntersectionWithNoPersistent(self):
+        config.session.execute("DROP TABLE IF EXISTS pruebas2.set3")
+        set1 = SetInt("pruebas2.set3")
         set2 = SetInt()
         for i in range(0, 10):
             set1.add(i)
@@ -470,8 +450,9 @@ class SetTest(unittest.TestCase):
 
         self.assertEqual(5, len(set3))
 
-    def testDifferenceTwoNoPersistent(self):
-        set1 = SetInt()
+    def testDifferenceWithNoPersistent(self):
+        config.session.execute("DROP TABLE IF EXISTS pruebas2.set3")
+        set1 = SetInt("pruebas2.set3")
         set2 = SetInt()
         for i in range(0, 10):
             set1.add(i)
