@@ -63,12 +63,12 @@ class SetTest(unittest.TestCase):
         for i in range(10, 20):
             set2.add(str(i))
 
-        set1.union(set2)
+        set3 = set1.union(set2)
 
         for i in range(0, 20):
-            self.assertTrue(str(i) in set1)
+            self.assertTrue(str(i) in set3)
 
-        self.assertEqual(20, len(set1))
+        self.assertEqual(20, len(set3))
 
     def testIntersectionStr(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas2.set1")
@@ -81,12 +81,12 @@ class SetTest(unittest.TestCase):
         for i in range(5, 15):
             set2.add(str(i))
 
-        set1.intersection(set2)
+        set3 = set1.intersection(set2)
 
         for i in range(5, 10):
-            self.assertTrue(str(i) in set1)
+            self.assertTrue(str(i) in set3)
 
-        self.assertEqual(5, len(set1))
+        self.assertEqual(5, len(set3))
 
     def testDifferenceStr(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas2.set1")
@@ -99,12 +99,12 @@ class SetTest(unittest.TestCase):
         for i in range(5, 15):
             set2.add(str(i))
 
-        set1.difference(set2)
+        set3 = set1.difference(set2)
 
         for i in range(0, 5):
-            self.assertTrue(str(i) in set1)
+            self.assertTrue(str(i) in set3)
 
-        self.assertEqual(5, len(set1))
+        self.assertEqual(5, len(set3))
 
     def testClearStr(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas2.set1")
@@ -163,12 +163,12 @@ class SetTest(unittest.TestCase):
         for i in range(10, 20):
             set2.add(i)
 
-        set1.union(set2)
+        set3 = set1.union(set2)
 
         for i in range(0, 20):
-            self.assertTrue(i in set1)
+            self.assertTrue(i in set3)
 
-        self.assertEqual(20, len(set1))
+        self.assertEqual(20, len(set3))
 
     def testIntersectionInt(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas2.set3")
@@ -181,12 +181,12 @@ class SetTest(unittest.TestCase):
         for i in range(5, 15):
             set2.add(i)
 
-        set1.intersection(set2)
+        set3 = set1.intersection(set2)
 
         for i in range(5, 10):
-            self.assertTrue(i in set1)
+            self.assertTrue(i in set3)
 
-        self.assertEqual(5, len(set1))
+        self.assertEqual(5, len(set3))
 
     def testDifferenceInt(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas2.set3")
@@ -199,12 +199,12 @@ class SetTest(unittest.TestCase):
         for i in range(5, 15):
             set2.add(i)
 
-        set1.difference(set2)
+        set3 = set1.difference(set2)
 
         for i in range(0, 5):
-            self.assertTrue(i in set1)
+            self.assertTrue(i in set3)
 
-        self.assertEqual(5, len(set1))
+        self.assertEqual(5, len(set3))
 
     def testClearInt(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas2.set3")
@@ -295,16 +295,16 @@ class SetTest(unittest.TestCase):
         setTuple2.add((0, "Paraguas", "Rojo"))
         setTuple2.add((1, "Paraguas", "Verde"))
 
-        setTuple1.union(setTuple2)
+        set3 = setTuple1.union(setTuple2)
 
         for i in range(0, 10):
             if i % 2 == 0:
-                self.assertTrue((i, "Mesa", "Marron") in setTuple1)
+                self.assertTrue((i, "Mesa", "Marron") in set3)
             else:
-                self.assertTrue((i, "Silla", "Negra") in setTuple1)
+                self.assertTrue((i, "Silla", "Negra") in set3)
 
-        self.assertTrue((0, "Paraguas", "Rojo") in setTuple1)
-        self.assertTrue((1, "Paraguas", "Verde") in setTuple1)
+        self.assertTrue((0, "Paraguas", "Rojo") in set3)
+        self.assertTrue((1, "Paraguas", "Verde") in set3)
 
     def testTupleIntersection(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas2.setTuple1")
@@ -319,15 +319,15 @@ class SetTest(unittest.TestCase):
         setTuple2.add((0, "Mesa", "Marron"))
         setTuple2.add((1, "Silla", "Negra"))
 
-        setTuple1.intersection(setTuple2)
+        set3 = setTuple1.intersection(setTuple2)
 
-        self.assertTrue((0, "Mesa", "Marron") in setTuple1)
-        self.assertTrue((1, "Silla", "Negra") in setTuple1)
+        self.assertTrue((0, "Mesa", "Marron") in set3)
+        self.assertTrue((1, "Silla", "Negra") in set3)
         for i in range(2, 10):
             if i % 2 == 0:
-                self.assertFalse((i, "Mesa", "Marron") in setTuple1)
+                self.assertFalse((i, "Mesa", "Marron") in set3)
             else:
-                self.assertFalse((i, "Silla", "Negra") in setTuple1)
+                self.assertFalse((i, "Silla", "Negra") in set3)
 
     def testTupleDifference(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas2.setTuple1")
@@ -342,15 +342,15 @@ class SetTest(unittest.TestCase):
         setTuple2.add((0, "Mesa", "Marron"))
         setTuple2.add((1, "Silla", "Negra"))
 
-        setTuple1.difference(setTuple2)
+        set3 = setTuple1.difference(setTuple2)
 
-        self.assertFalse((0, "Mesa", "Marron") in setTuple1)
-        self.assertFalse((1, "Silla", "Negra") in setTuple1)
+        self.assertFalse((0, "Mesa", "Marron") in set3)
+        self.assertFalse((1, "Silla", "Negra") in set3)
         for i in range(2, 10):
             if i % 2 == 0:
-                self.assertTrue((i, "Mesa", "Marron") in setTuple1)
+                self.assertTrue((i, "Mesa", "Marron") in set3)
             else:
-                self.assertTrue((i, "Silla", "Negra") in setTuple1)
+                self.assertTrue((i, "Silla", "Negra") in set3)
 
     def testTupleMakePersistent(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas2.setTuple1")
@@ -384,12 +384,12 @@ class SetTest(unittest.TestCase):
             set1.add(i)
         set2 = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19}
 
-        set1.union(set2)
+        set3 = set1.union(set2)
 
         for i in range(0, 20):
-            self.assertTrue(i in set1)
+            self.assertTrue(i in set3)
 
-        self.assertEqual(20, len(set1))
+        self.assertEqual(20, len(set3))
 
     def testIntersectionWithSet(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas2.set3")
@@ -398,12 +398,12 @@ class SetTest(unittest.TestCase):
             set1.add(i)
         set2 = {5, 6, 7, 8, 9, 10, 11, 12, 13, 14}
 
-        set1.intersection(set2)
+        set3 = set1.intersection(set2)
 
         for i in range(5, 10):
-            self.assertTrue(i in set1)
+            self.assertTrue(i in set3)
 
-        self.assertEqual(5, len(set1))
+        self.assertEqual(5, len(set3))
 
     def testDifferenceWithSet(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas2.set3")
@@ -412,12 +412,87 @@ class SetTest(unittest.TestCase):
             set1.add(i)
         set2 = {5, 6, 7, 8, 9, 10, 11, 12, 13, 14}
 
-        set1.difference(set2)
+        set3 = set1.difference(set2)
 
         for i in range(0, 5):
-            self.assertTrue(i in set1)
+            self.assertTrue(i in set3)
 
-        self.assertEqual(5, len(set1))
+        self.assertEqual(5, len(set3))
+
+    def testPostUnionPersistence(self):
+        config.session.execute("DROP TABLE IF EXISTS pruebas2.set3")
+        config.session.execute("DROP TABLE IF EXISTS pruebas2.set4")
+        config.session.execute("DROP TABLE IF EXISTS pruebas2.set5")
+        set1 = SetInt("pruebas2.set3")
+        set2 = SetInt("pruebas2.set4")
+
+        for i in range(0, 10):
+            set1.add(i)
+        for i in range(10, 20):
+            set2.add(i)
+
+        set3 = set1.union(set2)
+        set3.make_persistent("pruebas2.set5")
+        set4 = SetInt("pruebas2.set5")
+
+        for i in range(0, 20):
+            self.assertTrue(i in set4)
+
+        self.assertEqual(20, len(set4))
+
+    def testUnionTwoNoPersistent(self):
+        set1 = SetInt()
+        set2 = SetInt()
+        for i in range(0, 10):
+            set1.add(i)
+        for i in range(10, 20):
+            set2.add(i)
+
+        set3 = set1.union(set2)
+
+        for i in range(0, 20):
+            self.assertTrue(i in set3)
+
+        self.assertEqual(20, len(set3))
+
+    def testIntersectionTwoNoPersistent(self):
+        set1 = SetInt()
+        set2 = SetInt()
+        for i in range(0, 10):
+            set1.add(i)
+        for i in range(5, 15):
+            set2.add(i)
+
+        set3 = set1.intersection(set2)
+
+        for i in range(5, 10):
+            self.assertTrue(i in set3)
+
+        self.assertEqual(5, len(set3))
+
+    def testDifferenceTwoNoPersistent(self):
+        set1 = SetInt()
+        set2 = SetInt()
+        for i in range(0, 10):
+            set1.add(i)
+        for i in range(5, 15):
+            set2.add(i)
+
+        set3 = set1.difference(set2)
+
+        for i in range(0, 5):
+            self.assertTrue(i in set3)
+
+        self.assertEqual(5, len(set3))
+
+    def testStopPersistentButInMemory(self):
+        config.session.execute("DROP TABLE IF EXISTS pruebas2.set1")
+        set1 = SetInt("pruebas2.set1")
+        set1.add(2)
+        set1.add(3)
+        set1.stop_persistent()
+        self.assertTrue(2 in set1)
+        self.assertTrue(3 in set1)
 
 
 if __name__ == '__main__':

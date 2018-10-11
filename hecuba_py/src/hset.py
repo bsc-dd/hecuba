@@ -18,29 +18,6 @@ class StorageSet(set, IStorage):
     """
 
     @staticmethod
-    def build_remotely(new_args):
-        """
-            Launches the StorageSet.__init__ from the uuid api.getByID
-            Args:
-                new_args: a list of all information needed to create again the storageset
-            Returns:
-                so: the created storageset
-        """
-        log.debug("Building Storage object with %s", new_args)
-        class_name = new_args.class_name
-        if class_name is 'StorageSet':
-            so = StorageSet(new_args.name.encode('utf8'), new_args.tokens, new_args.storage_id, new_args.istorage_props)
-
-        else:
-            class_name, mod_name = IStorage.process_path(class_name)
-            mod = __import__(mod_name, globals(), locals(), [class_name], 0)
-
-            so = getattr(mod, class_name)(new_args.name.encode('utf8'), new_args.tokens,
-                                          new_args.storage_id, new_args.istorage_props)
-
-        return so
-
-    @staticmethod
     def _store_meta(storage_args):
         """
             Saves the information of the object in the istorage table.
@@ -200,8 +177,8 @@ class StorageSet(set, IStorage):
             else:
                 query += " VALUES (%s, ' ')" % value
             config.session.execute(query)
-
-        set.add(self, value)
+        else:
+            set.add(self, value)
 
     def remove(self, value):
         """
@@ -227,8 +204,8 @@ class StorageSet(set, IStorage):
             else:
                 query += str(value)
             config.session.execute(query)
-
-        set.remove(self, value)
+        else:
+            set.remove(self, value)
 
     def __contains__(self, value):
         """
@@ -261,39 +238,36 @@ class StorageSet(set, IStorage):
             return set.__contains__(self, value)
 
     def union(self, set2):
-        # If self and set2 are two normal sets perform normal union
-        if not self._is_persistent and not set2._is_persistent:
-            set.union(self, set2)
-        else:
-            map(lambda value: self.add(value), set2)
+        result = type(self)()
+        for value in self:
+            result.add(value)
+        for value in set2:
+            result.add(value)
+
+        return result
 
     def intersection(self, set2):
-        # If self and set2 are two normal sets perform normal intersection
-        if not self._is_persistent and not set2._is_persistent:
-            set.intersection(self, set2)
-        else:
-            map(lambda value: self.remove(value),
-                filter(lambda value: value not in set2, self))
+        result = type(self)()
+        for value in self:
+            if value in set2:
+                result.add(value)
+
+        return result
 
     def difference(self, set2):
-        # If self and set2 are two normal sets perform normal difference
-        if not self._is_persistent and not set2._is_persistent:
-            set.difference(self, set2)
-        else:
-            # Check which set has more elements, it will iterate through the shortest
-            if len(self) <= len(set2):
-                map(lambda value: self.remove(value),
-                    filter(lambda value: value in set2, self))
-            else:
-                map(lambda value: self.remove(value),
-                    filter(lambda value: value in self, set2))
+        result = type(self)()
+        for value in self:
+            if value not in set2:
+                result.add(value)
+
+        return result
 
     def clear(self):
         if self._is_persistent:
             query = "TRUNCATE %s.%s" % (self._ksp, self._table)
             config.session.execute(query)
-
-        set.clear(self)
+        else:
+            set.clear(self)
 
     def __iter__(self):
         if self._is_persistent:
@@ -357,32 +331,25 @@ class StorageSet(set, IStorage):
         """
             The StorageSet stops being persistent, but keeps the information already stored in Cassandra
         """
+        if not self._is_persistent:
+            raise Exception("This StorageSet is not persistent.")
         log.debug("STOP PERSISTENT")
         self._is_persistent = False
+        # We have to update the set in memory
+        query = "SELECT column FROM %s.%s " % (self._ksp, self._table)
+        result = config.session.execute(query)
+        result = map(lambda x: x[0], result)
+        for value in result:
+            self.add(value)
 
     def delete_persistent(self):
         """
             Deletes the Cassandra table where the persistent StorageSet stores data
         """
+        if not self._is_persistent:
+            raise Exception("This StorageSet is not persistent.")
         query = "DROP TABLE IF EXISTS %s.%s;" % (self._ksp, self._table)
         log.debug("DELETE PERSISTENT: %s", query)
         config.session.execute(query)
 
         self._is_persistent = False
-
-    def __setattr__(self, attribute, value):
-        """
-            Given a key and its value, this function saves it (depending on if it's persistent or not):
-                a) In memory
-                b) In the DB
-            Args:
-                attribute: name of the value that we want to set
-                value: value that we want to save
-        """
-        if attribute[0] is '_' or attribute not in self._persistent_attrs:
-            object.__setattr__(self, attribute, value)
-            return
-
-        if config.hecuba_type_checking and value is not None and not isinstance(value, dict) and \
-                IStorage._conversions[value.__class__.__name__] != self._persistent_props[attribute]['type']:
-            raise TypeError
