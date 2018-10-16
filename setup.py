@@ -20,8 +20,16 @@ def package_files(directory):
 
 
 def cmake_build():
-    if subprocess.call(["cmake", "-H./hecuba_core", "-B./build"]) != 0:
-        raise EnvironmentError("error calling cmake")
+    try:
+        if subprocess.call(["cmake", "-H./hecuba_core", "-B./build"]) != 0:
+            raise EnvironmentError("error calling cmake")
+    except OSError as e:
+        if e.errno == os.errno.ENOENT:
+        # CMake not found error.
+            raise OSError(os.errno.ENOENT, os.strerror(os.errno.ENOENT), 'cmake')
+        else:
+            # Different error
+            raise e
 
     if subprocess.call(["make", "-j4", "-C", "./build"]) != 0:
         raise EnvironmentError("error calling make build")
