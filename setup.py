@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import glob
+import numpy
 
 import setuptools.command.build_py
 from setuptools import setup, find_packages, Extension
@@ -34,7 +35,7 @@ extensions = [
     Extension(
         "hecuba.hfetch",
         sources = glob.glob("hecuba_core/src/py_interface/*.cpp"),
-        include_dirs=['hecuba_core/src/','build/include'],
+        include_dirs=['hecuba_core/src/','build/include',numpy.get_include()],
         libraries=['hfetch','cassandra'],
         library_dirs=['build/lib','build/lib64'],
         extra_link_args = ['-Wl,-rpath=$ORIGIN/..']
