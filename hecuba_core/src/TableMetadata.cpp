@@ -103,8 +103,7 @@ uint16_t TableMetadata::compute_size_of(const ColumnMeta &CM) const {
         }
         case CASS_VALUE_TYPE_CUSTOM:
         case CASS_VALUE_TYPE_UNKNOWN:
-        default:
-        {
+        default: {
             throw ModuleException("Can't parse data: Unknown data type or user defined type");
             //TODO
         }
@@ -213,9 +212,11 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
     }
     std::string keys_and_cols = keys;
     if (!cols.empty()) keys_and_cols += ", " + cols;
+    else cols = keys;
 
     std::string select_tokens_where = " token(" + tokens_keys + ")>=? AND token(" + tokens_keys + ")<? ";
     select = "SELECT " + cols + " FROM " + this->keyspace + "." + this->table + " WHERE " + select_where + ";";
+
     select_keys_tokens =
             "SELECT " + keys + " FROM " + this->keyspace + "." + this->table + " WHERE " + select_tokens_where + ";";
     select_tokens_values =
