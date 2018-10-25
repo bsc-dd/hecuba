@@ -35,8 +35,6 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
 
 
     /** Parse names **/
-
-
     CassFuture *future = cass_session_prepare(session, table_meta->get_select_query());
     CassError rc = cass_future_error_code(future);
     CHECK_CASS("CacheTable: Select row query preparation failed");
@@ -52,7 +50,10 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
     this->table_metadata = table_meta;
     this->writer = new Writer(table_meta, session, config);
     this->keys_factory = new TupleRowFactory(table_meta->get_keys());
-    this->values_factory = new TupleRowFactory(table_meta->get_values());
+
+    if (table_meta->get_values()->empty()) this->values_factory = new TupleRowFactory(table_meta->get_keys());
+    else this->values_factory = new TupleRowFactory(table_meta->get_values());
+
     if (cache_size) this->myCache = new TupleRowCache<TupleRow, TupleRow>(cache_size);
 };
 
