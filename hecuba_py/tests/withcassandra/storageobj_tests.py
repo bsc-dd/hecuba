@@ -1050,5 +1050,217 @@ class StorageObjTest(unittest.TestCase):
 
         config.session.execute("DROP TABLE IF EXISTS my_app.test_attr")
 
+
+    def test_recreation_init(self):
+        """
+        New StorageObj
+        Persistent attributes
+        Made persistent on the constructor.
+        """
+        sobj_name = "my_app.test_attr"
+        config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name))
+        attr1 = 'Test1'
+        attr2 = 23
+        storage_obj = Test2StorageObj(sobj_name)
+        storage_obj.name = attr1
+        storage_obj.age = attr2
+        uuid_sobj = storage_obj.getID()
+
+        storage_obj = None
+        result_set = iter(config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(uuid_sobj)))
+
+        try:
+            result = result_set.next()
+        except StopIteration as ex:
+            self.fail("StorageObj istorage data was not saved")
+
+        self.assertEqual(result.name, sobj_name)
+
+        storage_obj = Test2StorageObj(sobj_name)
+
+        self.assertEqual(storage_obj.name, attr1)
+        self.assertEqual(storage_obj.age, attr2)
+
+
+    def test_recreation_init2(self):
+        """
+        New StorageObj
+        Has persistent and volatile attributes
+        Made persistent on the constructor.
+        """
+        sobj_name = "my_app.test_attr"
+        config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name))
+        attr1 = 'Test1'
+        attr2 = 23
+        storage_obj = Test2StorageObj(sobj_name)
+        storage_obj.name = attr1
+        storage_obj.nonpersistent = attr2
+        uuid_sobj = storage_obj.getID()
+
+        storage_obj = None
+        result_set = iter(config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(uuid_sobj)))
+
+        try:
+            result = result_set.next()
+        except StopIteration as ex:
+            self.fail("StorageObj istorage data was not saved")
+
+        self.assertEqual(result.name, sobj_name)
+
+        storage_obj = Test2StorageObj(sobj_name)
+
+        self.assertEqual(storage_obj.name, attr1)
+
+        with self.assertRaises(AttributeError):
+            attr = storage_obj.age
+
+        with self.assertRaises(AttributeError):
+            attr = storage_obj.nonpersistent
+
+
+
+    def test_recreation_make_pers(self):
+        """
+        New StorageObj
+        Persistent attributes
+        Made persistent with make_persistent.
+        """
+        sobj_name = "my_app.test_attr"
+        config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name))
+        attr1 = 'Test1'
+        attr2 = 23
+        storage_obj = Test2StorageObj()
+        storage_obj.make_persistent(sobj_name)
+        uuid_sobj = storage_obj.getID()
+
+        storage_obj = None
+        result_set = iter(config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(uuid_sobj)))
+
+        try:
+            result = result_set.next()
+        except StopIteration as ex:
+            self.fail("StorageObj istorage data was not saved")
+
+        self.assertEqual(result.name, sobj_name)
+
+        storage_obj = Test2StorageObj()
+
+        storage_obj.name = attr1
+        storage_obj.volatile = attr2
+
+        storage_obj.make_persistent(sobj_name)
+
+        self.assertEqual(storage_obj.name, attr1)
+        self.assertEqual(storage_obj.volatile, attr2)
+
+        with self.assertRaises(AttributeError):
+            attr = storage_obj.age
+
+
+
+    def test_recreation_make_pers2(self):
+        """
+        New StorageObj
+        Persistent attributes
+        Made persistent with make_persistent.
+        """
+        sobj_name = "my_app.test_attr"
+        config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name))
+        attr1 = 'Test1'
+        attr2 = 23
+        storage_obj = Test2StorageObj()
+        storage_obj.name = attr1
+        storage_obj.volatile = 'Ofcourse'
+        storage_obj.make_persistent(sobj_name)
+        uuid_sobj = storage_obj.getID()
+
+        storage_obj = None
+        result_set = iter(config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(uuid_sobj)))
+
+        try:
+            result = result_set.next()
+        except StopIteration as ex:
+            self.fail("StorageObj istorage data was not saved")
+
+        self.assertEqual(result.name, sobj_name)
+
+        storage_obj = Test2StorageObj()
+        storage_obj.age = attr2
+        storage_obj.make_persistent(sobj_name)
+
+        self.assertEqual(storage_obj.name, attr1)
+        self.assertEqual(storage_obj.age, attr2)
+
+        with self.assertRaises(AttributeError):
+            attr = storage_obj.volatile
+
+
+    def test_nested_recreation(self):
+        sobj_name = "my_app.test_attr"
+        config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name))
+        config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name+'_myotherso'))
+        config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name+'_myotherso_0'))
+
+        storage_obj = Test2StorageObj()
+        name_attr = 'Test1'
+        age_attr = 23
+        storage_obj.name = name_attr
+        storage_obj.age = age_attr
+
+        external_sobj = Test4StorageObj(sobj_name)
+        external_sobj.myotherso = storage_obj
+
+        uuid_sobj_internal = storage_obj.getID()
+        uuid_sobj_external = external_sobj.getID()
+
+        internal_name = external_sobj.myotherso._ksp+'.'+external_sobj.myotherso._table
+        storage_obj = None
+        external_sobj = None
+
+        # Check that they have been correctly stored into hecuba.istorage
+
+        result_set = iter(config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(uuid_sobj_external)))
+
+        try:
+            result = result_set.next()
+        except StopIteration as exc:
+            self.fail("StorageObj istorage data was not saved")
+
+        self.assertEqual(result.name, sobj_name)
+
+        result_set = iter(
+            config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(uuid_sobj_internal)))
+
+        try:
+            result = result_set.next()
+        except StopIteration as exc:
+            self.fail("StorageObj istorage data was not saved")
+
+        self.assertEqual(result.name, internal_name)
+
+        # They are both present in hecuba.istorage
+
+        result_set = iter(config.session.execute("SELECT * FROM {} WHERE storage_id={}".format(sobj_name, uuid_sobj_external)))
+
+        try:
+            result = result_set.next()
+        except StopIteration as exc:
+            self.fail("StorageObj istorage data was not saved")
+
+        self.assertEqual(str(result.myotherso), uuid_sobj_internal)
+        # They have been saved with the expected istorage ids
+
+
+        external_sobj = Test4StorageObj(sobj_name)
+        # Check internal configuration is correct
+        self.assertEqual(external_sobj.getID(), uuid_sobj_external)
+        self.assertEqual(external_sobj.myotherso.getID(),uuid_sobj_internal)
+        self.assertEqual(external_sobj._ksp+'.'+external_sobj._table, sobj_name)
+        self.assertEqual(external_sobj.myotherso._ksp + '.' + external_sobj.myotherso._table, internal_name)
+
+        #Check data is correct
+        self.assertEqual(external_sobj.myotherso.name, name_attr)
+        self.assertEqual(external_sobj.myotherso.age, age_attr)
+
 if __name__ == '__main__':
     unittest.main()
