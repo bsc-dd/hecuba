@@ -133,7 +133,8 @@ static PyObject *get_row(HCache *self, PyObject *args) {
     }
 
     try {
-        py_row = self->valuesParser->make_pylist(v);
+        if (self->T->get_metadata()->get_values()->empty()) py_row = self->keysParser->make_pylist(v);
+        else py_row = self->valuesParser->make_pylist(v);
         for (uint32_t i = 0; i < v.size(); ++i) {
             delete (v[i]);
         }
