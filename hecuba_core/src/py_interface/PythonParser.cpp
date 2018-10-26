@@ -59,7 +59,8 @@ TupleRow *PythonParser::make_tuple(PyObject *obj) const {
     if (size_t(PyList_Size(obj)) != parsers.size())
         throw ModuleException("PythonParser: Got less python elements than columns configured");
 
-    uint32_t total_bytes = metas->at(metas->size() - 1).position + metas->at(metas->size() - 1).size;
+    uint32_t total_bytes = 0;
+    if (!metas->empty()) total_bytes = metas->at(metas->size() - 1).position + metas->at(metas->size() - 1).size;
     char *buffer = (char *) malloc(total_bytes);
     TupleRow *new_tuple = new TupleRow(metas, total_bytes, buffer);
 
