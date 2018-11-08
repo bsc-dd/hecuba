@@ -1,8 +1,8 @@
 #include <iostream>
 #include <cassandra.h>
 #include "gtest/gtest.h"
-#include "../CacheTable.h"
-#include "../StorageInterface.h"
+#include "../src/CacheTable.h"
+#include "../src/StorageInterface.h"
 
 
 using namespace std;
@@ -13,7 +13,7 @@ const char *keyspace = "test";
 const char *particles_table = "particle";
 const char *particles_wr_table = "particle_write";
 const char *words_wr_table = "words_write";
-const char *words_table = "words";
+const char *only_keys_table = "only_keys";
 const char *contact_p = "127.0.0.1";
 
 uint32_t nodePort = 9042;
@@ -84,8 +84,8 @@ void setupcassandra() {
     }
     cass_prepared_free(prepared);
 
-    fireandforget("CREATE TABLE test.words( position int PRIMARY KEY, wordinfo text);", test_session);
-
+    fireandforget("CREATE TABLE test.only_keys(first int, second int, third text, PRIMARY KEY((first, second), third));", test_session);
+    /*
     prepare_future = cass_session_prepare(test_session,
                                           "INSERT INTO test.words(position,wordinfo ) VALUES (?, ?)");
     rc = cass_future_error_code(prepare_future);
@@ -111,6 +111,7 @@ void setupcassandra() {
 
 
     cass_prepared_free(prepared);
+    */
     fireandforget(
             "CREATE TABLE test.particle_write( partid int,time float,x float,y float,z float, PRIMARY KEY(partid,time));",
             test_session);
@@ -140,7 +141,7 @@ void setupcassandra() {
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     std::cout << "SETTING UP CASSANDRA" << std::endl;
-    setupcassandra();
+    // setupcassandra();
     std::cout << "DONE, CASSANDRA IS UP" << std::endl;
     return RUN_ALL_TESTS();
 
@@ -876,7 +877,7 @@ TEST(TestMakePartitions, 4DZorderAndReverse) {
 
 
 
-/** Test to asses Poco Cache is performing as expected with pointer **/
+/** Test to asses Poco Cache is performing as expected with pointer
 TEST(TestingPocoCache, InsertGetDeleteOps) {
     const uint16_t i = 123;
     const uint16_t j = 456;
@@ -916,12 +917,12 @@ TEST(TestingPocoCache, InsertGetDeleteOps) {
     delete (t1);
 
     EXPECT_EQ(myCache.getAllKeys().size(), 1);
-    /*TupleRow t = *(myCache.getAllKeys().begin());
-    EXPECT_TRUE(t == *key1);
-    EXPECT_FALSE(&t == key1);*/
-    /**
-     * Reason: Cache builds its own copy of key1 through the copy constructor. They are equal but not the same object
-     **/
+    //TupleRow t = *(myCache.getAllKeys().begin());
+    //EXPECT_TRUE(t == *key1);
+    //EXPECT_FALSE(&t == key1);
+
+    // Reason: Cache builds its own copy of key1 through the copy constructor. They are equal but not the same object
+
     myCache.clear();
     //Removes all references, and deletes all objects. Key1 is still active thanks to our ref
     delete (key1);
@@ -994,15 +995,16 @@ TEST(TestingPocoCache, ReplaceOp) {
     EXPECT_TRUE(t == *t3);
     EXPECT_FALSE(&t == t3);
 
-    /**
-     * Reason: Cache builds its own copy of key1 through the copy constructor. They are equal but not the same object
-     **/
+    //Reason: Cache builds its own copy of key1 through the copy constructor. They are equal but not the same object
+
     myCache.clear();
     //Removes all references, and deletes all objects. Key1 is still active thanks to our ref
     delete (key1);
     delete (t3);
 }
 
+
+**/
 
 
 /** Testing custom comparators for TupleRow **/
@@ -1233,6 +1235,89 @@ TEST(TestingCacheTable, GetRowC) {
 
 }
 
+
+TEST(TestingEmptyValues, WriteSimple) {
+    /** CONNECT **/
+    CassSession *test_session = NULL;
+    CassCluster *test_cluster = NULL;
+
+    CassFuture *connect_future = NULL;
+    test_cluster = cass_cluster_new();
+    test_session = cass_session_new();
+
+    cass_cluster_set_contact_points(test_cluster, contact_p);
+    cass_cluster_set_port(test_cluster, nodePort);
+
+    connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
+
+
+    CassError rc = cass_future_error_code(connect_future);
+    EXPECT_TRUE(rc == CASS_OK);
+
+    cass_future_free(connect_future);
+
+
+    //partid int,time float,x float,y float,z float, PRIMARY KEY(partid,time)
+
+    std::vector<std::map<std::string, std::string> > keysnames = {{{"name", "first"}}, {{"name", "second"}},
+                                                              {{"name", "third"}}};
+    std::vector<std::map<std::string, std::string> > colsnames = {};
+
+    std::vector<std::pair<int64_t, int64_t> > tokens = {};
+
+    std::map<std::string, std::string> config;
+    config["writer_par"] = "4";
+    config["writer_buffer"] = "20";
+    config["cache_size"] = "10";
+
+
+    TableMetadata *table_meta = new TableMetadata(only_keys_table, keyspace, keysnames, colsnames, test_session);
+
+    CacheTable *cache = new CacheTable(table_meta, test_session, config);
+
+
+    char *buffer = (char *) malloc(sizeof(int) + sizeof(int) + sizeof(char*)); //keys
+
+    int32_t k1 = 3682;
+    int32_t k2 = 3682;
+    const char* k3_base = "SomeKey";
+    char *k3 = (char*) malloc(std::strlen(k3_base));
+    std::memcpy(k3,k3_base,std::strlen(k3_base));
+
+    memcpy(buffer, &k1, sizeof(int32_t));
+    memcpy(buffer + sizeof(int), &k2, sizeof(int32_t));
+    memcpy(buffer + sizeof(int) + sizeof(int), &k3, sizeof(char*));
+
+
+
+    char *buffer2 = nullptr;
+
+
+    TupleRow *keys = new TupleRow(table_meta->get_keys(), sizeof(int) + sizeof(int) + sizeof(char*), buffer);
+    TupleRow *values = new TupleRow(table_meta->get_values(),0, buffer2);
+
+
+    cache->put_crow(keys, values);
+
+
+
+
+
+    std::vector<const TupleRow *> results = cache->get_crow(keys);
+
+    delete (keys);
+    delete (values);
+    delete (cache);
+
+
+
+    CassFuture *close_future = cass_session_close(test_session);
+    cass_future_wait(close_future);
+    cass_future_free(close_future);
+
+    cass_cluster_free(test_cluster);
+    cass_session_free(test_session);
+}
 
 TEST(TestingCacheTable, StoreNull) {
 
