@@ -38,7 +38,10 @@ TupleRow *TupleRowFactory::make_tuple(void *data) {
  */
 TupleRow *TupleRowFactory::make_tuple(const CassRow *row) {
     if (!row) return NULL;
-    char *buffer = (char *) malloc(total_bytes);
+    char *buffer = nullptr;
+
+    if (total_bytes>0) buffer = (char *) malloc(total_bytes);
+
     TupleRow *new_tuple = new TupleRow(metadata, total_bytes, buffer);
     uint16_t i = 0;
     CassIterator *it = cass_iterator_from_row(row);
