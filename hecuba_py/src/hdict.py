@@ -9,6 +9,7 @@ from hecuba.hnumpy import StorageNumpy
 import uuid
 import re
 import numpy as np
+from parser import Parser
 
 
 class NamedIterator:
@@ -182,127 +183,10 @@ class StorageDict(dict, IStorage):
         return self._storage_id == other._storage_id and self._tokens == other.token_ranges and \
                self._table == other.table_name and self._ksp == other.keyspace
 
-    _dict_case = re.compile('.*@TypeSpec + *< *< *([\w:, ]+)+ *> *, *([\w+:., <>]+) *>')
-    _tuple_case = re.compile('.*@TypeSpec +(\w+) +tuple+ *< *([\w, +]+) *>')
-    _index_vars = re.compile('.*@Index_on *([A-z0-9, ]+)')
-    _other_case = re.compile(' *(\w+) *< *([\w, +]+) *>')
-
     @classmethod
-    def _parse_comments(self, comments):
-        """
-            Parses de comments in a class file to save them in the class information
-            Args:
-                comments: the comment in the class file
-            Returns:
-                this: a structure with all the information of the comment
-        """
-        this = {}
-        for line in comments.split('\n'):
-            m = StorageDict._dict_case.match(line)
-            if m is not None:
-                # Matching @TypeSpec of a dict
-                dict_keys, dict_values = m.groups()
-                primary_keys = []
-                for ind, key in enumerate(dict_keys.split(",")):
-                    key = key.replace(' ', '')
-                    match = IStorage._data_type.match(key)
-                    if match is not None:
-                        # an IStorage with a name
-                        name, value = match.groups()
-                    elif ':' in key:
-                        raise SyntaxError
-                    else:
-                        name = "key" + str(ind)
-                        value = key
-
-                    name = name.replace(' ', '')
-                    value = value.replace(' ', '')
-                    primary_keys.append((name, StorageDict._conversions[value]))
-                dict_values = dict_values.replace(' ', '')
-                if dict_values.startswith('dict'):
-                    n = IStorage._sub_dict_case.match(dict_values[4:])
-                    # Matching @TypeSpec of a sub dict
-                    dict_keys2, dict_values2 = n.groups()
-                    primary_keys2 = []
-                    for ind, key in enumerate(dict_keys2.split(",")):
-                        try:
-                            name, value = IStorage._data_type.match(key).groups()
-                        except ValueError:
-                            if ':' in key:
-                                raise SyntaxError
-                            else:
-                                name = "key" + str(ind)
-                                value = key
-                        name = name.replace(' ', '')
-                        primary_keys2.append((name, StorageDict._conversions[value]))
-                    columns2 = []
-                    dict_values2 = dict_values2.replace(' ', '')
-                    if dict_values2.startswith('tuple'):
-                        dict_values2 = dict_values2[6:]
-                    for ind, val in enumerate(dict_values2.split(",")):
-                        try:
-                            name, value = IStorage._data_type.match(val).groups()
-                        except ValueError:
-                            if ':' in key:
-                                raise SyntaxError
-                            else:
-                                name = "val" + str(ind)
-                                value = val
-                        columns2.append((name, StorageDict._conversions[value]))
-                    columns = {
-                        'type': 'dict',
-                        'primary_keys': primary_keys2,
-                        'columns': columns2}
-                elif dict_values.startswith('tuple'):
-                    n = IStorage._sub_tuple_case.match(dict_values[5:])
-                    tuple_values = list(n.groups())[0]
-                    columns = []
-                    for ind, val in enumerate(tuple_values.split(",")):
-                        try:
-                            name, value = val.split(':')
-                        except ValueError:
-                            if ':' in key:
-                                raise SyntaxError
-                            else:
-                                name = "val" + str(ind)
-                                value = val
-                        name = name.replace(' ', '')
-                        columns.append((name, StorageDict._conversions[value]))
-                else:
-                    columns = []
-                    for ind, val in enumerate(dict_values.split(",")):
-                        match = IStorage._data_type.match(val)
-                        if match is not None:
-                            # an IStorage with a name
-                            name, value = match.groups()
-                        elif ':' in val:
-                            name, value = IStorage._so_data_type.match(val).groups()
-                        else:
-                            name = "val" + str(ind)
-                            value = val
-                        name = name.replace(' ', '')
-                        try:
-                            columns.append((name, StorageDict._conversions[value]))
-                        except KeyError:
-                            columns.append((name, value))
-                name = str(self).replace('\'>', '').split('.')[-1]
-                if self.__class__.__name__ in this:
-                    this[name].update({'type': 'dict', 'primary_keys': primary_keys, 'columns': columns})
-                else:
-                    this[name] = {
-                        'type': 'dict',
-                        'primary_keys': primary_keys,
-                        'columns': columns}
-            m = StorageDict._index_vars.match(line)
-            if m is not None:
-                name = str(self).replace('\'>', '').split('.')[-1]
-                indexed_values = m.groups()
-                indexed_values = indexed_values.replace(' ', '').split(',')
-                if name in this:
-                    this[name].update({'indexed_values': indexed_values})
-                else:
-                    this[name] = {'indexed_values': indexed_values}
-        return this
+    def _parse_comments(cls, comments):
+        parser = Parser("TypeSpec")
+        return parser._parse_comments(comments)
 
     def __contains__(self, key):
         """

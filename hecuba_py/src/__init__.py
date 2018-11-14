@@ -449,5 +449,7 @@ config = Config()
 from hecuba.storageobj import StorageObj
 from hecuba.hdict import StorageDict
 from hecuba.hnumpy import StorageNumpy
+from hecuba.parser import Parser
 
-__all__ = ['StorageObj', 'StorageDict', 'StorageNumpy']
+__all__ = ['StorageObj', 'StorageDict', 'StorageNumpy', 'Parser']
+
