@@ -210,6 +210,30 @@ static PyObject *hcache_new(PyTypeObject *type, PyObject *args, PyObject *kwds) 
 }
 
 
+static std::string get_dict_item_as_text(PyObject* dict, std::string key) {
+    PyObject* type = PyDict_GetItemString(dict, key.c_str());
+    if (type) {
+        std::string conf_val="";
+        if (PyString_Check(type)) {
+            char *buffer;
+            size_t len;
+            Py_ssize_t py_len;
+            if (PyString_AsStringAndSize(type, &buffer, &py_len)) {
+                PyObject* py_long = PyLong_FromSsize_t(py_len);
+                len = PyLong_AsLong(py_long);
+                return std::string(buffer, len);
+            }
+            return std::string();
+        }
+        else if (PyInt_Check(type)) {
+            int32_t result = PyInt_AsLong(type);
+            if (result==-1 && PyErr_Occurred()) return NULL;
+            return std::to_string(result);
+        }
+    }
+    return std::string();
+}
+
 static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     const char *table, *keyspace;
     PyObject *py_tokens, *py_keys_names, *py_cols_names, *py_config, *py_storage_id;
@@ -295,13 +319,10 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
                     columns_names[i]["numpy"] = "true";
                     columns_names[i]["type"] = "numpy";
 
-                    if ((type = PyDict_GetItemString(dict, "write_buffer_size"))) {
-                        columns_names[i]["write_buffer_size"] = PyString_AsString(type);
-                    } else if ((type = PyDict_GetItemString(dict, "write_buffer_size"))) {
-                        columns_names[i]["write_callbacks_number"] = PyString_AsString(type);
-                    } else if ((type = PyDict_GetItemString(dict, "prefetch_size"))) {
-                        columns_names[i]["prefetch_size"] = PyString_AsString(type);
-                    }
+                    std::string conf_val = get_dict_item_as_text(dict, "write_buffer_size");
+                    if (!conf_val.empty()) columns_names[i]["write_buffer_size"] = conf_val;
+                    conf_val = get_dict_item_as_text(dict, "write_callbacks_number");
+                    if (!conf_val.empty()) columns_names[i]["write_callbacks_number"] = conf_val;
 
                     if (!PyByteArray_Check(py_storage_id)) {
                         //Object is UUID python class
