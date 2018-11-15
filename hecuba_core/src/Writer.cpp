@@ -133,7 +133,7 @@ void Writer::set_error_occurred(std::string error, const void *keys_p, const voi
 }
 
 
-void Writer::set_queue_capacity(int32_t q_capacity) {
+void Writer::set_queue_capacity(uint32_t q_capacity) {
     if (q_capacity > 0) {
         this->data.set_capacity(q_capacity);
     } else {

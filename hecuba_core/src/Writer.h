@@ -28,7 +28,7 @@ public:
 
     void set_error_occurred(std::string error, const void *keys, const void *values);
 
-    void set_queue_capacity(int32_t q_capacity);
+    void set_queue_capacity(uint32_t q_capacity);
 
     void set_max_callbacks(uint32_t max_callbacks);
 
