@@ -314,16 +314,19 @@ NumpyParser::NumpyParser(const ColumnMeta &CM) : UnitParser(CM) {
     uint64_t *uuid = (uint64_t *) CM.info.at("storage_id").c_str();
     storage_id = {*uuid, *(uuid + 1)};
 
+    this->buff_size = 0;
+    this->max_callbacks = 0;
+
     std::map<std::string, std::string>::const_iterator it = CM.info.find("write_buffer_size");
     if (it != CM.info.end()) {
         std::string buff_size_str = it->second;
-        this->buff_size = std::stoi(buff_size_str);
+        this->buff_size = (uint32_t) std::stoul(buff_size_str);
     }
 
     it = CM.info.find("write_callbacks_number");
     if (it != CM.info.end()) {
         std::string max_calls_str = it->second;
-        this->max_callbacks = std::stoi(max_calls_str);
+        this->max_callbacks = (uint32_t) std::stoul(max_calls_str);
     }
 }
 

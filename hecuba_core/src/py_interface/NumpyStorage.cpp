@@ -13,8 +13,6 @@ NumpyStorage::NumpyStorage(std::string table, std::string keyspace, std::shared_
     };
 
     std::map<std::string, std::string> config;
-    config["writer_par"] = "4";
-    config["writer_buffer"] = "20";
 
     this->storage = storage;
     this->writer = this->storage->make_writer(table.c_str(), keyspace.c_str(), keysnames, colsnames, config);
