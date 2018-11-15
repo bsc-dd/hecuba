@@ -98,6 +98,8 @@ class Parser(object):
         return new
 
     def _parsing_index(self, line, new):
+        '''Def: parses index declaration, checking for the introduced vars.
+                                Returns: a dict structure with the parsed dict.'''
         # _index_vars = re.compile('.*@Index_on *([\w]+) + *([\w]+)+(, \w+)*')
         _index_vars = re.compile('.*@Index_on *([A-z0-9]+) +([A-z0-9, ]+)')
         match = _index_vars.match(line)
@@ -105,13 +107,15 @@ class Parser(object):
         indexed_values = self._replace_types(indexed_values)
         indexed_values = indexed_values.replace(' ', '').split(',')
         if table_name in new:
-            self._check_input_index(indexed_values, new)
+        #    self._check_input_index(indexed_values, new)
             new[table_name].update({'indexed_values': indexed_values})
         else:
             new[table_name] = {'indexed_values': indexed_values}
         return new
 
     def _parsing_keys_and_columns_to_list(self, line):
+        '''Def: parses keys and values to a list with the dict structure.
+                                Returns: a list with the dict structure.'''
         erase_symbols_keys = re.sub(r'[^\w]', ' ', line)
         erase_symbols_keys = self._replace_types(erase_symbols_keys)
         created_list = erase_symbols_keys.split()
@@ -120,15 +124,20 @@ class Parser(object):
         return final_list
 
     def _check_vars(self, dict_keys, dict_values):
+        '''Def: checks if the keys and values have variables specified.
+                                Returns: keys and values with the variables generated.'''
         if dict_keys.find(':') == -1:
             dict_keys = self._add_fields(dict_keys, "key")
             dict_values = self._add_fields(dict_values, "value")
         return dict_keys, dict_values
 
     def _check_set_in_values(self, dict_values):
+        '''Def: Checks if there's a set in the dict values.
+                        Returns: if true, returns the set prepared for the parsing and the splitted set.
+                                 otherwise, returns false.'''
         if dict_values.find('set') != -1:
-            splited_values = dict_values.split(',')
-            matching = [s for s in splited_values if 'set' in s]
+            splitted_values = dict_values.split(',')
+            matching = [s for s in splitted_values if 'set' in s]
             matching_aux = [re.sub(r'[^\w]', ' ', f) for f in matching]
             param_set = [f.replace('set', '') for f in matching_aux]
             param_set = [f.split() for f in param_set]
@@ -138,6 +147,8 @@ class Parser(object):
         return False, False
 
     def _parsing_dict(self, line, new):
+        '''Def: parses dictionary declaration, checking for the introduced vars.
+                        Returns: a dict structure with the parsed dict.'''
         output = {}
         _dict_case = getattr(IStorage, self.type_parser + "_dict_case")
         match_dict = _dict_case.match(line)
@@ -158,59 +169,95 @@ class Parser(object):
             new[table_name] = output
         return new
 
+    def _parsing_file(self, line, new):
+        '''Def: Checks if the file declaration is correct.
+                Returns: the file declaration with a dict structure'''
+        output = {}
+        _file_case = getattr(IStorage, self.type_parser + "_file_case")
+        file = _file_case.match(line)
+        table_name, route = file.groups()
+        cname, module = IStorage.process_path(route)
+        try:
+            mod = __import__(module, globals(), locals(), [cname], 0)
+        except ValueError:
+            raise ValueError("Can't import class {} from module {}".format(cname, module))
+        output["type"] = str(route)
+        if table_name in new:
+            new[table_name].update(output)
+        else:
+            new[table_name] = output
+        return new
+
     def _fitting_line_type(self, line, this):
+        '''Def: Gets the splitted line and parses it.
+                Returns: a dict structure with the parsed line.'''
         ret = {}
         _dict_case = getattr(IStorage, self.type_parser + "_dict_case")
         _tuple_case = getattr(IStorage, self.type_parser + "_tuple_case")
         _simple_case = getattr(IStorage, self.type_parser + "_simple_case")
         _set_case = getattr(IStorage, self.type_parser + "_set_case")
-        _index_check = IStorage._index_case.match(line)
-        if _index_check is not None:
-            table, table2, values = _index_check.groups()
+        #_index_check = IStorage._index_case.match(line)
+        _index_vars = re.compile('.*@Index_on *([A-z0-9]+) +([A-z0-9, ]+)')
+        index = _index_vars.match(line)
+        _file_case = getattr(IStorage, self.type_parser + "_file_case")
+        if _index_vars.match(line) is not None:
+            table, table2 = index.groups()
         else:
-            table = table2 = values = None
+            table = table2 = None
 
         if _dict_case.match(line) is not None:
-            # Matching @ClassField of a dict
+            # Matching dict
             ret = self._parsing_dict(line, this)
-        elif table and table2 and values is not None and table == table2:
-            # Matching @Index_on
+        elif table and table2 is not None:
+            # Matching Index_on
             ret = self._parsing_index(line, this)
         elif _tuple_case.match(line) is not None:
-            # Matching @ClassField of a tuple
+            # Matching tuple
             ret = self._parsing_tuple(line, this)
         elif _set_case.match(line) is not None:
-            # Matching @ClassField of a set
+            # Matching set
             ret = self._parsing_set(line, this)
         elif _simple_case.match(line) is not None:
             # Matching simple type
             ret = self._parsing_simple_value(line, this)
+        elif _file_case.match(line) is not None:
+            # Matching file
+            ret = self._parsing_file(line, this)
         if this == {}:
             raise Exception("Incorrect input types introduced")
         this = ret
         return this
 
     def _comprovation_input_elements(self, comments):
+        '''Def: Checks if the comments introduced of the type TypeSpec are in the correct format.
+                and checks if the comments introduced are not duplicated.
+                Returns: false if there's some wrong comment specification, true otherwise.'''
         list_coms = comments.split('\n')
         # list_coms = [e.replace(' ', '') for e in list_coms]
-        if ((not len(list_coms)) == 1) or (((len(list_coms)) > 1) and comments.find("@Index_on") == -1):
+        if ((len(list_coms)) != 1) and (comments.find("@Index_on") == -1):
             raise Exception('No valid format')
         if len(list_coms) != len(set(list_coms)):
             raise Exception('Duplicated comments')
         # POSSIBLE INDEX_ON COMPROBATIONS
         return True
 
+
     def _parse_comments(self, comments):
-        # self._repeated_comments(comments)
+        '''Def: Parses the comments param to a ClassField or TypeSpec type and checks if the comments are in the correct
+                format.
+                Returns: an structure with all the parsed comments.'''
         this = {}
         if self.type_parser == "TypeSpec":
             self._comprovation_input_elements(comments)
             for line in comments.split('\n'):
+                line.replace('\n', '')
                 this = self._fitting_line_type(line, this)
         elif self.type_parser == "ClassField":
             for line in comments.split('\n'):
                 this = self._fitting_line_type(line, this)
         return this
 
+
     def __init__(self, type_parser):
+        '''Initializes the Parser class with the type_parser that can be @ClassField or @TypeSpec.'''
         self.type_parser = type_parser

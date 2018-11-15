@@ -62,7 +62,8 @@ class IStorage:
     _other_case = re.compile(' *(\w+) *< *([\w, +]+) *>')
 
     _index_case = re.compile('.*@Index_on +([\w]+) +([\w]+)+, (\w+)*')
-
+    ClassField_file_case = re.compile('.*@ClassField (\w*) ([.\w]*)')
+    TypeSpec_file_case = re.compile('.*@TypeSpec (\w*) ([.\w]*)')
     ########
 
     _python_types = [int, str, bool, float, tuple, set, dict, long, bytearray]
