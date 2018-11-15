@@ -11,6 +11,7 @@ install:
 script:
   - nosetests -v -s hecuba_py/tests/*.py
   - nosetests -v -s hecuba_py/tests/withcassandra
+  - nosetests -v -s hecuba_core/tests/py_interface
 
 #caches dependencies
 cache: bundler
