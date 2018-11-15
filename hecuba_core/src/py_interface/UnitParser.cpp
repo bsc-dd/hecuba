@@ -305,7 +305,7 @@ PyObject *UuidParser::c_to_py(const void *payload) const {
 /*** Numpy parser ***/
 
 NumpyParser::NumpyParser(const ColumnMeta &CM) : UnitParser(CM) {
-    if (CM.size != sizeof(ArrayMetadata *))
+    if (CM.size != sizeof(ArrayMetadata * ))
         throw ModuleException("Bad size allocated for a Numpy");
     table = CM.info.at("table");
     attribute_name = CM.info.at("name");
@@ -313,6 +313,18 @@ NumpyParser::NumpyParser(const ColumnMeta &CM) : UnitParser(CM) {
     //parse storage id
     uint64_t *uuid = (uint64_t *) CM.info.at("storage_id").c_str();
     storage_id = {*uuid, *(uuid + 1)};
+
+    std::map<std::string, std::string>::const_iterator it = CM.info.find("write_buffer_size");
+    if (it != CM.info.end()) {
+        std::string buff_size_str = it->second;
+        this->buff_size = std::stoi(buff_size_str);
+    }
+
+    it = CM.info.find("write_callbacks_number");
+    if (it != CM.info.end()) {
+        std::string max_calls_str = it->second;
+        this->max_callbacks = std::stoi(max_calls_str);
+    }
 }
 
 NumpyParser::~NumpyParser() {
@@ -325,7 +337,7 @@ int16_t NumpyParser::py_to_c(PyObject *numpy, void *payload) const {
     if (!PyArray_OutputConverter(numpy, &arr))
         error_parsing("Numpy", numpy); //failed to convert array from PyObject to PyArray
     const ArrayMetadata *metas = np_storage->store(storage_id, arr);
-    memcpy(payload, &metas, sizeof(ArrayMetadata *));
+    memcpy(payload, &metas, sizeof(ArrayMetadata * ));
     return 0;
 }
 

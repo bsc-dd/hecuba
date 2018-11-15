@@ -7,6 +7,7 @@
 
 #include <python2.7/Python.h>
 #include <climits>
+
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define NO_IMPORT_ARRAY
 #define PY_ARRAY_UNIQUE_SYMBOL cool_ARRAY_API
@@ -23,6 +24,14 @@ class NumpyStorage {
 public:
 
     NumpyStorage(std::string table, std::string keyspace, std::shared_ptr<StorageInterface> storage);
+
+    inline void set_wr_callbacks(uint32_t max_calls) {
+        this->writer->set_max_callbacks(max_calls);
+    }
+
+    inline void set_wr_buffer(int32_t buffer_size) {
+        this->writer->set_queue_capacity(buffer_size);
+    }
 
     ~NumpyStorage();
 

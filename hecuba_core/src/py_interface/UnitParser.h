@@ -176,12 +176,15 @@ public:
 
     inline void setStorage(std::shared_ptr<StorageInterface> storage) {
         np_storage = new NumpyStorage(table, keyspace, storage);
+        np_storage->set_wr_callbacks(max_callbacks);
+        np_storage->set_wr_buffer(buff_size);
     }
 
 private:
     NumpyStorage *np_storage;
     std::string table, keyspace, attribute_name;
     CassUuid storage_id;
+    int32_t buff_size, max_callbacks, prefetch_size;
 };
 
 #endif //HFETCH_UNITPARSER_H
