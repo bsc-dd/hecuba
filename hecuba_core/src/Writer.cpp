@@ -133,6 +133,25 @@ void Writer::set_error_occurred(std::string error, const void *keys_p, const voi
 }
 
 
+void Writer::set_queue_capacity(int32_t q_capacity) {
+    if (q_capacity > 0) {
+        this->data.set_capacity(q_capacity);
+    } else {
+        std::string msg = std::string("Writer queue capacity must be > 0");
+        throw ModuleException(msg);
+    }
+}
+
+
+void Writer::set_max_callbacks(uint32_t max_callbacks) {
+    if (max_callbacks != 0) {
+        this->max_calls = max_callbacks;
+    } else {
+        std::string msg = std::string("Writer maximum callbacks must be > 0");
+        throw ModuleException(msg);
+    }
+}
+
 void Writer::write_to_cassandra(const TupleRow *keys, const TupleRow *values) {
     std::pair<const TupleRow *, const TupleRow *> item = std::make_pair(new TupleRow(keys), new TupleRow(values));
     data.push(item);
