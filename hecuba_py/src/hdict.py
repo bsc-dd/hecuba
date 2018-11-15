@@ -1,4 +1,4 @@
-from collections import Iterable
+from collections import Iterable, defaultdict
 from collections import namedtuple
 from collections import Mapping
 from types import NoneType
@@ -10,6 +10,175 @@ import uuid
 import re
 import numpy as np
 from parser import Parser
+
+
+class EmbeddedSet(set):
+    '''
+    father is the dictionary containing the set
+    keys are the keys names of the set in the dictionary
+    values is the initializing set
+    '''
+
+    def __init__(self, father, keys, values):
+        super(EmbeddedSet, self).__init__()
+        self._father = father
+        self._keys=keys
+        if isinstance(values, set):
+            for value in values:
+                self.add(value)
+        else:
+            raise Exception("Set expected.")
+
+    def add(self, value):
+        keys = self._keys[:]
+        if not isinstance(value, Iterable) or isinstance(value, str) or isinstance(value, unicode):
+            keys.append(value)
+        else:
+            keys += list(value)
+        return self._father.__setitem__(keys, [])
+
+    def remove(self, value):
+        try:
+            if value in self:
+                keys = self._keys[:]
+                if not isinstance(value, Iterable) or isinstance(value, str) or isinstance(value, unicode):
+                    keys.append(value)
+                else:
+                    keys += list(value)
+                return self._father.__delitem__(keys)
+        except KeyError as ex:
+            raise ex
+
+    def discard(self, value):
+        try:
+            if value in self:
+                keys = self._keys[:]
+                if not isinstance(value, Iterable) or isinstance(value, str) or isinstance(value, unicode):
+                    keys.append(value)
+                else:
+                    keys += list(value)
+                return self._father.__delitem__(keys)
+        except KeyError as ex:
+            pass
+
+    def __len__(self):
+        query = "SELECT COUNT(*) FROM %s.%s WHERE " % (self._father._ksp, self._father._table)
+        query = ''.join([query, self._join_keys_query()])
+
+        try:
+            result = config.session.execute(query)
+            return result[0][0]
+        except Exception as ir:
+            log.error("Unable to execute %s", query)
+            raise ir
+
+    def __contains__(self, value):
+        keys = self._keys[:]
+        if not isinstance(value, Iterable) or isinstance(value, str) or isinstance(value, unicode):
+            keys.append(value)
+        else:
+            keys += list(value)
+        return self._father.__contains__(keys)
+
+    def __iter__(self):
+        keys_set = ""
+        for key in self._father._set_types:
+            keys_set += key[0] + ", "
+        query = "SELECT %s FROM %s.%s WHERE " % (keys_set[:-2], self._father._ksp, self._father._table)
+        query = ''.join([query, self._join_keys_query()])
+
+        try:
+            result = config.session.execute(query)
+            if len(self._father._set_types) == 1:
+                result = map(lambda x: x[0], result)
+            else:
+                result = map(lambda x: tuple(x), result)
+            return iter(result)
+        except Exception as ir:
+            log.error("Unable to execute %s", query)
+            raise ir
+
+    def _join_keys_query(self):
+        keys = []
+        for pkey, key in zip(self._father._primary_keys, self._keys):
+            if pkey[1] == "text":
+                actual_key = "'%s'" % key
+            else:
+                actual_key = "%s" % key
+            keys.append(" = ".join([pkey[0], actual_key]))
+        all_keys = " and ".join(keys)
+
+        return all_keys
+
+    def union(self, *others):
+        for other in others:
+            for value in other:
+                self.add(value)
+        return self
+
+    def intersection(self, *others):
+        for value in self:
+            for other in others:
+                try:
+                    if value not in other:
+                        self.remove(value)
+                except KeyError:
+                    self.remove(value)
+        return self
+
+    def difference(self, *others):
+        for value in self:
+            for other in others:
+                try:
+                    if value in other:
+                        self.remove(value)
+                except KeyError:
+                    pass
+        return self
+
+    def update(self, *others):
+        for other in others:
+            for value in other:
+                self.add(value)
+        return self
+
+    def issubset(self, other):
+        if len(self) > len(other):
+            return False
+        for value in self:
+            if value not in other:
+                return False
+        return True
+
+    def issuperset(self, other):
+        if len(self) < len(other):
+            return False
+        for value in other:
+            if value not in self:
+                return False
+        return True
+
+    def __eq__(self, other):
+        return self._father.__eq__(other._father) and self._keys == other._keys
+
+    def __ne__(self, other):
+        return not(self.__eq__(other))
+
+    def __lt__(self, other):
+        return self.__ne__(other) and self.issubset(other)
+
+    def __le__(self, other):
+        return self.issubset(other)
+
+    def __gt__(self, other):
+        return self.__ne__(other) and self.issuperset(other)
+
+    def __ge__(self, other):
+        return self.issuperset(other)
+
+    def clear(self):
+        for value in self._father[tuple(self._keys)]:
+            self.remove(value)
 
 
 class NamedIterator:
@@ -25,6 +194,9 @@ class NamedIterator:
     def next(self):
         n = self.hiterator.get_next()
         if self.builder is not None:
+            if self._storage_father._columns[0][1] == 'set':
+                nkeys = len(n) - len(self._storage_father._set_types)
+                n = n[:nkeys]
             return self.builder(*n)
         else:
             return n[0]
@@ -139,6 +311,8 @@ class StorageDict(dict, IStorage):
             self._persistent_props = self._parse_comments(self.__doc__)
             self._primary_keys = self._persistent_props[self.__class__.__name__]['primary_keys']
             self._columns = self._persistent_props[self.__class__.__name__]['columns']
+            if len(self._persistent_props[self.__class__.__name__]) > 3:
+                self._set_types = self._persistent_props[self.__class__.__name__]['set_types']
             try:
                 self._indexed_args = self._persistent_props[self.__class__.__name__]['indexed_values']
             except KeyError:
@@ -156,7 +330,10 @@ class StorageDict(dict, IStorage):
             self._key_builder = namedtuple('row', key_names)
         else:
             self._key_builder = None
-        if len(column_names) > 1:
+        if self._columns[0][1] == 'set':
+            set_names = [colname for (colname, dt) in self._set_types]
+            self._column_builder = namedtuple('row', set_names)
+        elif len(column_names) > 1:
             self._column_builder = namedtuple('row', column_names)
         else:
             self._column_builder = None
@@ -184,6 +361,141 @@ class StorageDict(dict, IStorage):
                self._table == other.table_name and self._ksp == other.keyspace
 
     @classmethod
+    def _parse_comments(self, comments):
+        """
+            Parses de comments in a class file to save them in the class information
+            Args:
+                comments: the comment in the class file
+            Returns:
+                this: a structure with all the information of the comment
+        """
+        this = {}
+        for line in comments.split('\n'):
+            m = StorageDict._dict_case.match(line)
+            if m is not None:
+                # Matching @TypeSpec of a dict
+                dict_keys, dict_values = m.groups()
+                primary_keys = []
+                for ind, key in enumerate(dict_keys.split(",")):
+                    key = key.replace(' ', '')
+                    match = IStorage._data_type.match(key)
+                    if match is not None:
+                        # an IStorage with a name
+                        name, value = match.groups()
+                    elif ':' in key:
+                        raise SyntaxError
+                    else:
+                        name = "key" + str(ind)
+                        value = key
+
+                    name = name.replace(' ', '')
+                    value = value.replace(' ', '')
+                    primary_keys.append((name, StorageDict._conversions[value]))
+                dict_values = dict_values.replace(' ', '')
+                if dict_values.startswith('set'):
+                    set_type = dict_values[4:-1]
+                    types = []
+                    ind += 1
+                    for typ in set_type.split(","):
+                        name = "val" + str(ind)
+                        value = typ
+                        types.append((name, StorageDict._conversions[value]))
+                        ind += 1
+                    columns = []
+                    columns.append(("val0", StorageDict._conversions['set']))
+
+                    name = str(self).replace('\'>', '').split('.')[-1]
+                    this[name] = {
+                        'type': 'dict',
+                        'primary_keys': primary_keys,
+                        'columns': columns,
+                        'set_types': types}
+                    return this
+
+                elif dict_values.startswith('dict'):
+                    n = IStorage._sub_dict_case.match(dict_values[4:])
+                    # Matching @TypeSpec of a sub dict
+                    dict_keys2, dict_values2 = n.groups()
+                    primary_keys2 = []
+                    for ind, key in enumerate(dict_keys2.split(",")):
+                        try:
+                            name, value = IStorage._data_type.match(key).groups()
+                        except ValueError:
+                            if ':' in key:
+                                raise SyntaxError
+                            else:
+                                name = "key" + str(ind)
+                                value = key
+                        name = name.replace(' ', '')
+                        primary_keys2.append((name, StorageDict._conversions[value]))
+                    columns2 = []
+                    dict_values2 = dict_values2.replace(' ', '')
+                    if dict_values2.startswith('tuple'):
+                        dict_values2 = dict_values2[6:]
+                    for ind, val in enumerate(dict_values2.split(",")):
+                        try:
+                            name, value = IStorage._data_type.match(val).groups()
+                        except ValueError:
+                            if ':' in key:
+                                raise SyntaxError
+                            else:
+                                name = "val" + str(ind)
+                                value = val
+                        columns2.append((name, StorageDict._conversions[value]))
+                    columns = {
+                        'type': 'dict',
+                        'primary_keys': primary_keys2,
+                        'columns': columns2}
+                elif dict_values.startswith('tuple'):
+                    n = IStorage._sub_tuple_case.match(dict_values[5:])
+                    tuple_values = list(n.groups())[0]
+                    columns = []
+                    for ind, val in enumerate(tuple_values.split(",")):
+                        try:
+                            name, value = val.split(':')
+                        except ValueError:
+                            if ':' in key:
+                                raise SyntaxError
+                            else:
+                                name = "val" + str(ind)
+                                value = val
+                        name = name.replace(' ', '')
+                        columns.append((name, StorageDict._conversions[value]))
+                else:
+                    columns = []
+                    for ind, val in enumerate(dict_values.split(",")):
+                        match = IStorage._data_type.match(val)
+                        if match is not None:
+                            # an IStorage with a name
+                            name, value = match.groups()
+                        elif ':' in val:
+                            name, value = IStorage._so_data_type.match(val).groups()
+                        else:
+                            name = "val" + str(ind)
+                            value = val
+                        name = name.replace(' ', '')
+                        try:
+                            columns.append((name, StorageDict._conversions[value]))
+                        except KeyError:
+                            columns.append((name, value))
+                name = str(self).replace('\'>', '').split('.')[-1]
+                if self.__class__.__name__ in this:
+                    this[name].update({'type': 'dict', 'primary_keys': primary_keys, 'columns': columns})
+                else:
+                    this[name] = {
+                        'type': 'dict',
+                        'primary_keys': primary_keys,
+                        'columns': columns}
+            m = StorageDict._index_vars.match(line)
+            if m is not None:
+                name = str(self).replace('\'>', '').split('.')[-1]
+                indexed_values = m.groups()
+                indexed_values = indexed_values.replace(' ', '').split(',')
+                if name in this:
+                    this[name].update({'indexed_values': indexed_values})
+                else:
+                    this[name] = {'indexed_values': indexed_values}
+        return this
     def _parse_comments(cls, comments):
         parser = Parser("TypeSpec")
         return parser._parse_comments(comments)
@@ -223,6 +535,8 @@ class StorageDict(dict, IStorage):
 
         if isinstance(key, Iterable) and len(key) == len(self._primary_keys):
             return list(key)
+        elif self._columns[0][1] == 'set' and isinstance(key, Iterable) and len(key) == (len(self._primary_keys) + len(self._set_types)):
+            return list(key)
         else:
             raise Exception('wrong primary key')
 
@@ -248,7 +562,10 @@ class StorageDict(dict, IStorage):
         Returns:
           list: a list of keys
         """
-        return [i for i in self.iterkeys()]
+        if self._columns[0][1] == 'set':
+            return [i for i in set(self.iterkeys())]
+        else:
+            return [i for i in self.iterkeys()]
 
     def values(self):
         """
@@ -264,7 +581,20 @@ class StorageDict(dict, IStorage):
         Returns:
           list: a list of key-value pairs
         """
-        return [i for i in self.iteritems()]
+
+        if self._columns[0][1] == 'set':
+            iteritems = self.iteritems()
+            d = defaultdict(set)
+            # iteritems has the set values in different rows, this puts all the set values in the same row
+            if len(self._set_types) == 1:
+                map(lambda row: d[row[0]].add(row[1][0]), iteritems)
+            else:
+                map(lambda row: d[row[0]].add(tuple(row[1])), iteritems)
+
+            return [i for i in d.items()]
+
+        else:
+            return [i for i in self.iteritems()]
 
     def __iter__(self):
         """
@@ -300,7 +630,10 @@ class StorageDict(dict, IStorage):
                 log.warn("Error creating the StorageDict keyspace %s, %s", (query_keyspace), ex)
                 raise ex
 
-        all_columns = self._primary_keys + self._columns
+        if self._columns[0][1] == 'set':
+            all_columns = self._primary_keys + self._set_types
+        else:
+            all_columns = self._primary_keys + self._columns
         for ind, entry in enumerate(all_columns):
             n = StorageDict._other_case.match(entry[1])
             if n is not None:
@@ -310,7 +643,10 @@ class StorageDict(dict, IStorage):
             if iter_type not in IStorage._basic_types:
                 all_columns[ind] = entry[0], 'uuid'
 
-        pks = map(lambda a: a[0], self._primary_keys)
+        if self._columns[0][1] == 'set':
+            pks = map(lambda a: a[0], self._primary_keys + self._set_types)
+        else:
+            pks = map(lambda a: a[0], self._primary_keys)
         query_table = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" \
                       % (self._ksp,
                          self._table,
@@ -322,8 +658,13 @@ class StorageDict(dict, IStorage):
         except Exception as ex:
             log.warn("Error creating the StorageDict table: %s %s", query_table, ex)
             raise ex
-        key_names = map(lambda a: a[0].encode('UTF8'), self._primary_keys)
-        values_names = self._columns
+
+        if self._columns[0][1] == 'set':
+            values_names = []
+            key_names = map(lambda a: a[0].encode('UTF8'), self._primary_keys + self._set_types)
+        else:
+            values_names = self._columns
+            key_names = map(lambda a: a[0].encode('UTF8'), self._primary_keys)
 
         self._hcache_params = (self._ksp, self._table,
                                self._storage_id,
@@ -377,6 +718,8 @@ class StorageDict(dict, IStorage):
         """
         if not self._is_persistent:
             dict.__delitem__(self, key)
+        elif self._columns[0][1] == 'set':
+            self._hcache.delete_row(key)
         else:
             self._hcache.delete_row([key])
 
@@ -390,7 +733,7 @@ class StorageDict(dict, IStorage):
         """
         log.debug('GET ITEM %s', key)
 
-        if not self._is_persistent:
+        if not self._is_persistent or self._columns[0][1] == 'set':
             return dict.__getitem__(self, key)
         else:
             # Returns always a list with a single entry for the key
@@ -423,7 +766,15 @@ class StorageDict(dict, IStorage):
         if isinstance(val, np.ndarray):
             val = StorageNumpy(val)
         log.debug('SET ITEM %s->%s', key, val)
-        if not config.hecuba_type_checking:
+
+        if self._columns[0][1] == 'set' and isinstance(val, set):
+            if not isinstance(key, Iterable) or isinstance(key, str) or isinstance(key, unicode):
+                s = EmbeddedSet(self, [key], val)
+            else:
+                s = EmbeddedSet(self, list(key), val)
+            dict.__setitem__(self, key, s)
+
+        elif not config.hecuba_type_checking:
             if not self._is_persistent:
                 dict.__setitem__(self, key, val)
             else:
