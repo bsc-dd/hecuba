@@ -285,15 +285,23 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
                 return -1;
             };
 
-            PyObject *py_name = PyDict_GetItem(dict, PyString_FromString("name"));
+            PyObject *py_name = PyDict_GetItemString(dict, "name");
             columns_names[i]["name"] = PyString_AsString(py_name);
-            PyObject *type = PyDict_GetItem(dict, PyString_FromString("type"));
-            if (type) {
+
+            if (PyObject *type = PyDict_GetItemString(dict, "type")) {
                 if (std::strcmp(PyString_AsString(type), "numpy") == 0) {
                     columns_names[i]["table"] = std::string(table);
                     columns_names[i]["keyspace"] = std::string(keyspace);
                     columns_names[i]["numpy"] = "true";
                     columns_names[i]["type"] = "numpy";
+
+                    if ((type = PyDict_GetItemString(dict, "write_buffer_size"))) {
+                        columns_names[i]["write_buffer_size"] = PyString_AsString(type);
+                    } else if ((type = PyDict_GetItemString(dict, "write_buffer_size"))) {
+                        columns_names[i]["write_callbacks_number"] = PyString_AsString(type);
+                    } else if ((type = PyDict_GetItemString(dict, "prefetch_size"))) {
+                        columns_names[i]["prefetch_size"] = PyString_AsString(type);
+                    }
 
                     if (!PyByteArray_Check(py_storage_id)) {
                         //Object is UUID python class
