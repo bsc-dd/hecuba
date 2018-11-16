@@ -103,8 +103,7 @@ uint16_t TableMetadata::compute_size_of(const ColumnMeta &CM) const {
         }
         case CASS_VALUE_TYPE_CUSTOM:
         case CASS_VALUE_TYPE_UNKNOWN:
-        default:
-        {
+        default: {
             throw ModuleException("Can't parse data: Unknown data type or user defined type");
             //TODO
         }
@@ -116,7 +115,7 @@ uint16_t TableMetadata::compute_size_of(const ColumnMeta &CM) const {
 TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
                              std::vector<std::map<std::string, std::string>> &keys_names,
                              std::vector<std::map<std::string, std::string>> &columns_names,
-                             CassSession *session) {
+                             const CassSession *session) {
 
 
     if (keys_names.empty()) throw ModuleException("TableMetadata: No keys received");
@@ -147,14 +146,14 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
     const CassKeyspaceMeta *keyspace_meta = cass_schema_meta_keyspace_by_name(schema_meta, this->keyspace.c_str());
     if (!keyspace_meta) {
         throw ModuleException("The keyspace " + std::string(keyspace_name) + " has no metadatas,"
-                "check the keyspace name and make sure it exists");
+                                                                             "check the keyspace name and make sure it exists");
     }
 
 
     const CassTableMeta *table_meta = cass_keyspace_meta_table_by_name(keyspace_meta, this->table.c_str());
     if (!table_meta || (cass_table_meta_column_count(table_meta) == 0)) {
         throw ModuleException("The table " + std::string(table_name) + " has no metadatas,"
-                " check the table name and make sure it exists");
+                                                                       " check the table name and make sure it exists");
     }
 
 //TODO Switch to unordered maps for efficiency

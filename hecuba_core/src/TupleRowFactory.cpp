@@ -106,40 +106,19 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             CHECK_CASS("TupleRowFactory: Cassandra to C parse bytes unsuccessful, column:" + std::to_string(col));
             if (rc == CASS_ERROR_LIB_NULL_VALUE) return -1;
 
+            //Allocate space for the bytes
+            char *permanent = (char *) malloc(l_size + sizeof(uint64_t));
+            //TODO make sure l_size < uint32 max
+            uint64_t int_size = (uint64_t) l_size;
 
-            if (metadata->at(col).info.find("numpy") == metadata->at(col).info.end()) {
-                //Allocate space for the bytes
-                char *permanent = (char *) malloc(l_size + sizeof(uint64_t));
-                //TODO make sure l_size < uint32 max
-                uint64_t int_size = (uint64_t) l_size;
+            //copy num bytes
+            memcpy(permanent, &int_size, sizeof(uint64_t));
 
-                //copy num bytes
-                memcpy(permanent, &int_size, sizeof(uint64_t));
+            //copy bytes
+            memcpy(permanent + sizeof(uint64_t), l_temp, l_size);
 
-                //copy bytes
-                memcpy(permanent + sizeof(uint64_t), l_temp, l_size);
-
-                //copy pointer to payload
-                memcpy(data, &permanent, sizeof(char *));
-            }
-            else {
-                uint32_t bytes_offset = 0;
-                ArrayMetadata *arr_metas = new ArrayMetadata();
-                memcpy(&arr_metas->elem_size,l_temp,sizeof(arr_metas->elem_size));
-                bytes_offset+=sizeof(arr_metas->elem_size);
-                memcpy(&arr_metas->inner_type,l_temp+bytes_offset,sizeof(arr_metas->inner_type));
-                bytes_offset+=sizeof(arr_metas->inner_type);
-                memcpy(&arr_metas->partition_type,l_temp+bytes_offset,sizeof(arr_metas->partition_type));
-                bytes_offset+=sizeof(arr_metas->partition_type);
-
-                uint64_t nbytes = l_size-bytes_offset;
-                uint32_t nelem=(uint32_t) nbytes/sizeof(uint32_t);
-                if (nbytes%sizeof(uint32_t)!=0) throw ModuleException("something went wrong reading the dims of a numpy");
-                arr_metas->dims=std::vector<uint32_t >(nelem);
-                memcpy(arr_metas->dims.data(),l_temp+bytes_offset,nbytes);
-                memcpy(data,&arr_metas,sizeof(arr_metas));
-
-            }
+            //copy pointer to payload
+            memcpy(data, &permanent, sizeof(char *));
             return 0;
         }
         case CASS_VALUE_TYPE_BOOLEAN: {
@@ -299,37 +278,10 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                 }
                 case CASS_VALUE_TYPE_BLOB: {
                     unsigned char *byte_array;
-
-                    if (localMeta->at(i).info.find("numpy") == localMeta->at(i).info.end()) {
-                        byte_array = *(unsigned char **) element_i;
-                        uint64_t *num_bytes = (uint64_t *) byte_array;
-                        const unsigned char *bytes = byte_array + sizeof(uint64_t);
-                        cass_statement_bind_bytes(statement, bind_pos, bytes, *num_bytes);
-                    }
-                    else {
-                        const char **true_ptr = (const char **) (element_i);
-                        const ArrayMetadata *array_metas = (ArrayMetadata *) (*true_ptr);
-
-                        //size of the vector of dims
-                        uint64_t size =sizeof(uint32_t)*array_metas->dims.size();
-                        //plus the other metas
-                        size+=sizeof(array_metas->elem_size)+sizeof(array_metas->inner_type)+sizeof(array_metas->partition_type);
-                        //allocate
-                        byte_array = (unsigned  char*)malloc(size);
-                        //copy everything
-                        uint32_t np_offset = 0;
-                        memcpy(byte_array+np_offset,&array_metas->elem_size,sizeof(array_metas->elem_size));
-                        np_offset+=sizeof(array_metas->elem_size);
-                        memcpy(byte_array+np_offset,&array_metas->inner_type,sizeof(array_metas->inner_type));
-                        np_offset+=sizeof(array_metas->inner_type);
-                        memcpy(byte_array+np_offset,&array_metas->partition_type,sizeof(array_metas->partition_type));
-                        np_offset+=sizeof(array_metas->partition_type);
-                        memcpy(byte_array+np_offset,array_metas->dims.data(),sizeof(uint32_t)*array_metas->dims.size());
-
-                        cass_statement_bind_bytes(statement, bind_pos, byte_array, size);
-
-                        free(byte_array);
-                    }
+                    byte_array = *(unsigned char **) element_i;
+                    uint64_t *num_bytes = (uint64_t *) byte_array;
+                    const unsigned char *bytes = byte_array + sizeof(uint64_t);
+                    cass_statement_bind_bytes(statement, bind_pos, bytes, *num_bytes);
                     break;
                 }
                 case CASS_VALUE_TYPE_BOOLEAN: {
@@ -447,8 +399,7 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                     //TODO
                     break;
             }
-        }
-        else {
+        } else {
             //Element is a nullptr
             CassError rc = cass_statement_bind_null(statement, bind_pos);
             CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [Null value], column:" +
