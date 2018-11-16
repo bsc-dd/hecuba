@@ -219,17 +219,17 @@ class StorageObjTest(unittest.TestCase):
             StorageObj._parse_comments(input_comment)
         self.assertTrue("Incorrect input types introduced", context.exception)
 
-    def test_wrong_type_parser_introduced_dictionary_type_classfield_2(self):
-        with self.assertRaises(Exception) as context:
-            input_comment = "@ClassField table dict<<key:stra>,value:atomicinta>"
-            StorageObj._parse_comments(input_comment)
-        self.assertTrue("Incorrect input types introduced", context.exception)
-
-    def test_wrong_type_parser_introduced_dictionary_type_classfield_3(self):
-        with self.assertRaises(Exception) as context:
-            input_comment = "@ClassField table dict<<key:dict>,value:atomicinta>"
-            StorageObj._parse_comments(input_comment)
-        self.assertTrue("Incorrect input types introduced", context.exception)
+    # def test_wrong_type_parser_introduced_dictionary_type_classfield_2(self):
+    #     with self.assertRaises(Exception) as context:
+    #         input_comment = "@ClassField table dict<<key:stra>,value:atomicinta>"
+    #         StorageObj._parse_comments(input_comment)
+    #     self.assertTrue("Incorrect input types introduced", context.exception)
+    #
+    # def test_wrong_type_parser_introduced_dictionary_type_classfield_3(self):
+    #     with self.assertRaises(Exception) as context:
+    #         input_comment = "@ClassField table dict<<key:dict>,value:atomicinta>"
+    #         StorageObj._parse_comments(input_comment)
+    #     self.assertTrue("Incorrect input types introduced", context.exception)
 
     def test_wrong_type_parser_introduced_tuple_type_classfield_1(self):
         with self.assertRaises(Exception) as context:
@@ -263,7 +263,9 @@ class StorageObjTest(unittest.TestCase):
                                 'primary_keys': [('word',
                                                   'text')],
                                 'type': 'StorageDict'}}
-        result_comment = " @ClassField instances dict<<word:str>,instances:atomicint> "
+        result_comment = '''
+                         @ClassField instances dict<<word:str>, instances:atomicint> 
+                         '''
 
         p = StorageObj._parse_comments(result_comment)
         self.assertEqual(result, p)
@@ -272,7 +274,9 @@ class StorageObjTest(unittest.TestCase):
                               'primary_keys': [('position',
                                                 'int')],
                               'type': 'StorageDict'}}
-        words_comment = '  @ClassField wordinfo dict<<position:int>,wordinfo:str> '
+        words_comment = '''
+                        @ClassField wordinfo dict<<position:int>, wordinfo:str> 
+                        '''
         p = StorageObj._parse_comments(words_comment)
         self.assertEqual(words, p)
 
@@ -286,8 +290,10 @@ class StorageObjTest(unittest.TestCase):
                                                 'text')],
                               'type': 'StorageDict'}
                 }
-        both_comment = '  @ClassField wordinfo dict<<position:int>,wordinfo:str>\n ' + \
-                       '@ClassField instances dict<<word:str>,instances:atomicint> '
+        both_comment = ''' 
+                            @ClassField wordinfo dict<<position:int>, wordinfo:str>
+                            @ClassField instances dict<<word:str>, instances:atomicint> 
+                       '''
         p = StorageObj._parse_comments(both_comment)
         self.assertEqual(both, p)
 
@@ -306,10 +312,12 @@ class StorageObjTest(unittest.TestCase):
                                'type': 'StorageDict'
                                }
                  }
-        both_comment = '  @ClassField wordinfo dict<<position:int>,wordinfo:str>\n ' + \
-                       '  @Index_on instances instances, word\n ' + \
-                       '  @ClassField instances dict<<word:str>,instances:atomicint>\n ' + \
-                       '  @Index_on wordinfo wordinfo, position '
+        both_comment = '''  
+                        @ClassField wordinfo dict<<position:int>, wordinfo:str>
+                        @Index_on instances instances, word
+                        @ClassField instances dict<<word:str>, instances:atomicint>
+                        @Index_on wordinfo wordinfo, position 
+                       '''
         p = StorageObj._parse_comments(both_comment)
         self.assertEqual(both2, p)
 
@@ -388,8 +396,10 @@ class StorageObjTest(unittest.TestCase):
 
     # TEST COMPILATION
     def test_index(self):
-        comment = '@ClassField test dict<<pos:int>,word:str>\n ' + \
-                  '@Index_on test word'
+        comment = '''
+                  @ClassField test dict<<pos:int>,word:str>
+                  @Index_on test word
+                  '''
         p = StorageObj._parse_comments(comment)
         should_be = {'test': {'indexed_values': ['word'],
                               'columns': [('word', 'text')],
@@ -400,13 +410,15 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(p, should_be)
 
     def test_parse_all(self):
-        comment = '  @ClassField wordinfo dict<<position:int>,wordinfo:str>\n ' + \
-                  '  @Index_on instances instances, word\n ' + \
-                  '  @ClassField instances dict<<word:str>,instances:atomicint>\n ' + \
-                  '  @Index_on wordinfo wordinfo, position\n ' + \
-                  '  @ClassField table int\n' + \
-                  '  @ClassField particles tuple<int, str, bool>\n ' + \
-                  '  @ClassField particles2 set<int>'
+        comment = '''  
+                  @ClassField wordinfo dict<<position:int>,wordinfo:str>
+                  @Index_on instances instances, word
+                  @ClassField instances dict<<word:str>,instances:atomicint>
+                  @Index_on wordinfo wordinfo, position
+                  @ClassField table int
+                  @ClassField particles tuple<int, str, bool>
+                  @ClassField particles2 set<int>
+                  '''
         p = StorageObj._parse_comments(comment)
         should_be = {'wordinfo': {'indexed_values': ['wordinfo',
                                                      'position'],
@@ -487,6 +499,39 @@ class StorageObjTest(unittest.TestCase):
         p = StorageObj._parse_comments(comment)
         should_be = {'myfile': {'type': 'tests.app.words.Words'}}
         self.assertEquals(p, should_be)
+
+    def test_dict_multi_set_no_name(self):
+        comment = '''
+        @ClassField wordinfo dict<<int>, int, numpy.ndarray, set<numpy.ndarray>, set<numpy.ndarray>>
+        '''
+        p = StorageObj._parse_comments(comment)
+        should_be = {'wordinfo': {'primary_keys': [('key0', 'int')],
+                                  'columns': [('value0', 'int'), ('value1', 'numpy.ndarray'),
+                                              {'type': 'set', 'primary_keys': [('value2', 'numpy.ndarray')]},
+                                              {'type': 'set', 'primary_keys': [('value3', 'numpy.ndarray')]}],
+                                  'type': 'StorageDict'}}
+        self.assertEquals(p, should_be)
+
+    def test_dict_(self):
+        comment = '''
+        @ClassField words dict<<position:int>, wordinfo:str>
+        '''
+        p = StorageObj._parse_comments(comment)
+        should_be = {'words': {'primary_keys': [('position', 'int')],
+                               'columns': [('wordinfo', 'text')],
+                               'type': 'StorageDict'}}
+        self.assertEquals(p, should_be)
+
+    def test_numpy_(self):
+        comment = '''
+        @ClassField words numpy.ndarray
+        '''
+        p = StorageObj._parse_comments(comment)
+        should_be = {'words': {
+            'type': 'numpy.ndarray'
+        }}
+        self.assertEquals(p, should_be)
+
 
     ##########################################################################################
 

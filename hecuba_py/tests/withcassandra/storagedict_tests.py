@@ -172,22 +172,22 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(10, count)
 
 
-    def test_none_value(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.somename")
-        mydict = MyStorageDict('somename')
-        mydict[0]=None
-        self.assertEqual(mydict[0],None)
-        config.session.execute("DROP TABLE IF EXISTS my_app.somename")
-
-
-    def test_none_keys(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.somename")
-        mydict = MyStorageDict('somename')
-        def set_none_key():
-            mydict[None] = 1
-
-        self.assertRaises(TypeError, set_none_key)
-        config.session.execute("DROP TABLE IF EXISTS my_app.somename")
+    # def test_none_value(self):
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.somename")
+    #     mydict = MyStorageDict('somename')
+    #     mydict[0]=None
+    #     self.assertEqual(mydict[0],None)
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.somename")
+    #
+    #
+    # def test_none_keys(self):
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.somename")
+    #     mydict = MyStorageDict('somename')
+    #     def set_none_key():
+    #         mydict[None] = 1
+    #
+    #     self.assertRaises(TypeError, set_none_key)
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.somename")
 
 
 
@@ -532,55 +532,55 @@ class StorageDictTest(unittest.TestCase):
                      what_should_be.iteritems()])
         self.assertEqual(data, data2)
 
-    def test_storagedict_newinterface_localmemory(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.my_dict")
-
-        my_dict = MyStorageDict()
-        my_dict[0] = 1
-        error = False
-        try:
-            result = config.session.execute('SELECT * FROM my_app.my_dict')[0]
-        except Exception as e:
-            error = True
-        self.assertEquals(True, error)
-
-    def test_storagedict_newinterface_memorytopersistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.my_dict")
-
-        my_dict = MyStorageDict()
-        my_dict[0] = 1
-        error = False
-        try:
-            result = config.session.execute('SELECT * FROM my_app.my_dict')[0]
-        except Exception as e:
-            error = True
-        self.assertEquals(True, error)
-
-        my_dict.make_persistent('my_dict')
-
-        del my_dict
-
-        count, = config.session.execute('SELECT count(*) FROM my_app.my_dict')[0]
-        self.assertEquals(1, count)
-
-    def test_storagedict_newinterface_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.my_dict")
-
-        my_dict = MyStorageDict()
-        my_dict[0] = 1
-        my_dict.make_persistent('my_dict')
-        time.sleep(1)
-        count, = config.session.execute('SELECT count(*) FROM my_app.my_dict')[0]
-        self.assertEquals(1, count)
-
-        my_dict[1] = 2
-        time.sleep(1)
-        count, = config.session.execute('SELECT count(*) FROM my_app.my_dict')[0]
-        self.assertEquals(2, count)
-
-        my_dict2 = MyStorageDict('my_dict')
-        self.assertEquals(1, my_dict2[0])
-        self.assertEquals(2, my_dict2[1])
+    # def test_storagedict_newinterface_localmemory(self):
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.my_dict")
+    #
+    #     my_dict = MyStorageDict()
+    #     my_dict[0] = 1
+    #     error = False
+    #     try:
+    #         result = config.session.execute('SELECT * FROM my_app.my_dict')[0]
+    #     except Exception as e:
+    #         error = True
+    #     self.assertEquals(True, error)
+    #
+    # def test_storagedict_newinterface_memorytopersistent(self):
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.my_dict")
+    #
+    #     my_dict = MyStorageDict()
+    #     my_dict[0] = 1
+    #     error = False
+    #     try:
+    #         result = config.session.execute('SELECT * FROM my_app.my_dict')[0]
+    #     except Exception as e:
+    #         error = True
+    #     self.assertEquals(True, error)
+    #
+    #     my_dict.make_persistent('my_dict')
+    #
+    #     del my_dict
+    #
+    #     count, = config.session.execute('SELECT count(*) FROM my_app.my_dict')[0]
+    #     self.assertEquals(1, count)
+    #
+    # def test_storagedict_newinterface_persistent(self):
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.my_dict")
+    #
+    #     my_dict = MyStorageDict()
+    #     my_dict[0] = 1
+    #     my_dict.make_persistent('my_dict')
+    #     time.sleep(1)
+    #     count, = config.session.execute('SELECT count(*) FROM my_app.my_dict')[0]
+    #     self.assertEquals(1, count)
+    #
+    #     my_dict[1] = 2
+    #     time.sleep(1)
+    #     count, = config.session.execute('SELECT count(*) FROM my_app.my_dict')[0]
+    #     self.assertEquals(2, count)
+    #
+    #     my_dict2 = MyStorageDict('my_dict')
+    #     self.assertEquals(1, my_dict2[0])
+    #     self.assertEquals(2, my_dict2[1])
 
     def test_update(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a4")
@@ -630,232 +630,232 @@ class StorageDictTest(unittest.TestCase):
         self.assertEquals(pd['val1'], 'new_a')
         self.assertEquals(pd['val2'], 'new_b')
 
-    def test_get_persistent(self):
-        table_name = 'tab_a7'
-        config.session.execute("DROP TABLE IF EXISTS my_app." + table_name)
-        my_text = MyStorageDict3('my_app.' + table_name)
-        self.assertEquals(0, my_text.get('word', 0))
-        my_text['word'] = my_text.get('word', 0) + 1
-        time.sleep(2)
-        self.assertEquals(1, my_text.get('word', 0))
+    # def test_get_persistent(self):
+    #     table_name = 'tab_a7'
+    #     config.session.execute("DROP TABLE IF EXISTS my_app." + table_name)
+    #     my_text = MyStorageDict3('my_app.' + table_name)
+    #     self.assertEquals(0, my_text.get('word', 0))
+    #     my_text['word'] = my_text.get('word', 0) + 1
+    #     time.sleep(2)
+    #     self.assertEquals(1, my_text.get('word', 0))
+    #
+    # def test_get_notpersistent(self):
+    #     my_text = MyStorageDict3()
+    #     self.assertEquals(0, my_text.get('word', 0))
+    #     my_text['word'] = my_text.get('word', 0) + 1
+    #     time.sleep(2)
+    #     self.assertEquals(1, my_text.get('word', 0))
 
-    def test_get_notpersistent(self):
-        my_text = MyStorageDict3()
-        self.assertEquals(0, my_text.get('word', 0))
-        my_text['word'] = my_text.get('word', 0) + 1
-        time.sleep(2)
-        self.assertEquals(1, my_text.get('word', 0))
+    # def test_keys(self):
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.test_keys")
+    #     my_dict = MyStorageDict2('test_keys')
+    #     # int,text - int
+    #     nitems = 100
+    #     # write nitems to the dict
+    #     for id in xrange(0, nitems):
+    #         text_id = 'someText'
+    #         # force some clash on second keys
+    #         if id % 2 == 0:
+    #             text_id = 'someText' + str(id)
+    #         my_dict[(id, text_id)] = id
+    #
+    #     del my_dict  # force sync
+    #     my_dict = MyStorageDict2('test_keys')
+    #     total_items = my_dict.items()
+    #
+    #     self.assertEqual(len(total_items), nitems)
+    #
+    #     # del my_dict
+    #
+    #     my_second_dict = MyStorageDict2()
+    #
+    #     for id in xrange(nitems, 2 * nitems):
+    #         text_id = 'someText'
+    #         # force some clash on second keys
+    #         if id % 2 == 0:
+    #             text_id = 'someText' + str(id)
+    #         my_second_dict[(id, text_id)] = id
+    #
+    #     my_second_dict.make_persistent('test_keys')
+    #     del my_second_dict  # force sync
+    #     my_second_dict = MyStorageDict2()
+    #     my_second_dict.make_persistent('test_keys')
+    #
+    #     total_items = my_second_dict.items()
+    #     self.assertEqual(len(total_items), 2 * nitems)
+    #     del my_dict
+    #     del my_second_dict
+    #
+    #     my_third_dict = MyStorageDict2('test_keys')
+    #     total_items = my_third_dict.items()
+    #     self.assertEqual(len(total_items), 2 * nitems)
+    #
+    #     del my_third_dict
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.test_keys")
+    #
+    # def test_values(self):
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.test_values")
+    #     my_dict = MyStorageDict2('test_values')
+    #     # int,text - int
+    #     nitems = 100
+    #     # write nitems to the dict
+    #     for id in xrange(0, nitems):
+    #         text_id = 'someText'
+    #         # force some clash on second keys
+    #         if id % 2 == 0:
+    #             text_id = 'someText' + str(id)
+    #         my_dict[(id, text_id)] = id
+    #
+    #     del my_dict  # force sync
+    #     my_dict = MyStorageDict2('test_values')
+    #     total_items = my_dict.items()
+    #
+    #     self.assertEqual(len(total_items), nitems)
+    #
+    #     # del my_dict
+    #
+    #     my_second_dict = MyStorageDict2()
+    #
+    #     for id in xrange(nitems, 2 * nitems):
+    #         text_id = 'someText'
+    #         # force some clash on second keys
+    #         if id % 2 == 0:
+    #             text_id = 'someText' + str(id)
+    #         my_second_dict[(id, text_id)] = id
+    #
+    #     my_second_dict.make_persistent('test_values')
+    #     del my_second_dict  # force sync
+    #     my_second_dict = MyStorageDict2()
+    #     my_second_dict.make_persistent('test_values')
+    #
+    #     total_items = my_second_dict.items()
+    #     self.assertEqual(len(total_items), 2 * nitems)
+    #     del my_dict
+    #     del my_second_dict
+    #
+    #     my_third_dict = MyStorageDict2('test_values')
+    #     total_items = my_third_dict.items()
+    #     self.assertEqual(len(total_items), 2 * nitems)
+    #
+    #     del my_third_dict
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.test_values")
+    #
+    # def test_items(self):
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.test_items")
+    #     my_dict = MyStorageDict2('test_items')
+    #     # int,text - int
+    #     nitems = 100
+    #     # write nitems to the dict
+    #     for id in xrange(0, nitems):
+    #         text_id = 'someText'
+    #         # force some clash on second keys
+    #         if id % 2 == 0:
+    #             text_id = 'someText' + str(id)
+    #         my_dict[(id, text_id)] = id
+    #
+    #     del my_dict  # force sync
+    #     my_dict = MyStorageDict2('test_items')
+    #     total_items = my_dict.items()
+    #
+    #     self.assertEqual(len(total_items), nitems)
+    #
+    #     # del my_dict
+    #
+    #     my_second_dict = MyStorageDict2()
+    #
+    #     for id in xrange(nitems, 2 * nitems):
+    #         text_id = 'someText'
+    #         # force some clash on second keys
+    #         if id % 2 == 0:
+    #             text_id = 'someText' + str(id)
+    #         my_second_dict[(id, text_id)] = id
+    #
+    #     my_second_dict.make_persistent('test_items')
+    #     del my_second_dict  # force sync
+    #     my_second_dict = MyStorageDict2()
+    #     my_second_dict.make_persistent('test_items')
+    #
+    #     total_items = my_second_dict.items()
+    #     self.assertEqual(len(total_items), 2 * nitems)
+    #     del my_dict
+    #     del my_second_dict
+    #
+    #     my_third_dict = MyStorageDict2('test_items')
+    #     total_items = my_third_dict.items()
+    #     self.assertEqual(len(total_items), 2 * nitems)
+    #
+    #     del my_third_dict
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.test_items")
+    #
+    # def test_iterator_sync(self):
+    #     '''
+    #     check that the prefetch returns the exact same number of elements as inserted
+    #     '''
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.test_iterator_sync")
+    #     my_dict = MyStorageDict2('test_iterator_sync')
+    #     # int,text - int
+    #     nitems = 5000
+    #     # write nitems to the dict
+    #     for id in xrange(0, nitems):
+    #         text_id = 'someText'
+    #         # force some clash on second keys
+    #         if id % 2 == 0:
+    #             text_id = 'someText' + str(id)
+    #         my_dict[(id, text_id)] = id
+    #
+    #     total_items = my_dict.items()
+    #
+    #     self.assertEqual(len(total_items), nitems)
+    #     del my_dict
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.test_iterator_sync")
 
-    def test_keys(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.test_keys")
-        my_dict = MyStorageDict2('test_keys')
-        # int,text - int
-        nitems = 100
-        # write nitems to the dict
-        for id in xrange(0, nitems):
-            text_id = 'someText'
-            # force some clash on second keys
-            if id % 2 == 0:
-                text_id = 'someText' + str(id)
-            my_dict[(id, text_id)] = id
-
-        del my_dict  # force sync
-        my_dict = MyStorageDict2('test_keys')
-        total_items = my_dict.items()
-
-        self.assertEqual(len(total_items), nitems)
-
-        # del my_dict
-
-        my_second_dict = MyStorageDict2()
-
-        for id in xrange(nitems, 2 * nitems):
-            text_id = 'someText'
-            # force some clash on second keys
-            if id % 2 == 0:
-                text_id = 'someText' + str(id)
-            my_second_dict[(id, text_id)] = id
-
-        my_second_dict.make_persistent('test_keys')
-        del my_second_dict  # force sync
-        my_second_dict = MyStorageDict2()
-        my_second_dict.make_persistent('test_keys')
-
-        total_items = my_second_dict.items()
-        self.assertEqual(len(total_items), 2 * nitems)
-        del my_dict
-        del my_second_dict
-
-        my_third_dict = MyStorageDict2('test_keys')
-        total_items = my_third_dict.items()
-        self.assertEqual(len(total_items), 2 * nitems)
-
-        del my_third_dict
-        config.session.execute("DROP TABLE IF EXISTS my_app.test_keys")
-
-    def test_values(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.test_values")
-        my_dict = MyStorageDict2('test_values')
-        # int,text - int
-        nitems = 100
-        # write nitems to the dict
-        for id in xrange(0, nitems):
-            text_id = 'someText'
-            # force some clash on second keys
-            if id % 2 == 0:
-                text_id = 'someText' + str(id)
-            my_dict[(id, text_id)] = id
-
-        del my_dict  # force sync
-        my_dict = MyStorageDict2('test_values')
-        total_items = my_dict.items()
-
-        self.assertEqual(len(total_items), nitems)
-
-        # del my_dict
-
-        my_second_dict = MyStorageDict2()
-
-        for id in xrange(nitems, 2 * nitems):
-            text_id = 'someText'
-            # force some clash on second keys
-            if id % 2 == 0:
-                text_id = 'someText' + str(id)
-            my_second_dict[(id, text_id)] = id
-
-        my_second_dict.make_persistent('test_values')
-        del my_second_dict  # force sync
-        my_second_dict = MyStorageDict2()
-        my_second_dict.make_persistent('test_values')
-
-        total_items = my_second_dict.items()
-        self.assertEqual(len(total_items), 2 * nitems)
-        del my_dict
-        del my_second_dict
-
-        my_third_dict = MyStorageDict2('test_values')
-        total_items = my_third_dict.items()
-        self.assertEqual(len(total_items), 2 * nitems)
-
-        del my_third_dict
-        config.session.execute("DROP TABLE IF EXISTS my_app.test_values")
-
-    def test_items(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.test_items")
-        my_dict = MyStorageDict2('test_items')
-        # int,text - int
-        nitems = 100
-        # write nitems to the dict
-        for id in xrange(0, nitems):
-            text_id = 'someText'
-            # force some clash on second keys
-            if id % 2 == 0:
-                text_id = 'someText' + str(id)
-            my_dict[(id, text_id)] = id
-
-        del my_dict  # force sync
-        my_dict = MyStorageDict2('test_items')
-        total_items = my_dict.items()
-
-        self.assertEqual(len(total_items), nitems)
-
-        # del my_dict
-
-        my_second_dict = MyStorageDict2()
-
-        for id in xrange(nitems, 2 * nitems):
-            text_id = 'someText'
-            # force some clash on second keys
-            if id % 2 == 0:
-                text_id = 'someText' + str(id)
-            my_second_dict[(id, text_id)] = id
-
-        my_second_dict.make_persistent('test_items')
-        del my_second_dict  # force sync
-        my_second_dict = MyStorageDict2()
-        my_second_dict.make_persistent('test_items')
-
-        total_items = my_second_dict.items()
-        self.assertEqual(len(total_items), 2 * nitems)
-        del my_dict
-        del my_second_dict
-
-        my_third_dict = MyStorageDict2('test_items')
-        total_items = my_third_dict.items()
-        self.assertEqual(len(total_items), 2 * nitems)
-
-        del my_third_dict
-        config.session.execute("DROP TABLE IF EXISTS my_app.test_items")
-
-    def test_iterator_sync(self):
-        '''
-        check that the prefetch returns the exact same number of elements as inserted 
-        '''
-        config.session.execute("DROP TABLE IF EXISTS my_app.test_iterator_sync")
-        my_dict = MyStorageDict2('test_iterator_sync')
-        # int,text - int
-        nitems = 5000
-        # write nitems to the dict
-        for id in xrange(0, nitems):
-            text_id = 'someText'
-            # force some clash on second keys
-            if id % 2 == 0:
-                text_id = 'someText' + str(id)
-            my_dict[(id, text_id)] = id
-
-        total_items = my_dict.items()
-
-        self.assertEqual(len(total_items), nitems)
-        del my_dict
-        config.session.execute("DROP TABLE IF EXISTS my_app.test_iterator_sync")
-
-    def test_assign_and_replace(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.first_name")
-        config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona")
-        config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona_0")
-        config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona_1")
-        config.session.execute("DROP TABLE IF EXISTS my_app.second_name")
-
-        first_storagedict = MyStorageDictA()
-        my_storageobj = MyStorageObjC("first_name")
-        self.assertTrue(my_storageobj.mona._is_persistent)
-
-        # Creates the 'my_app.first_name_mona' table
-        my_storageobj.mona['uno'] = 123
-
-        # empty dict no persistent assigned to persistent object
-        # creates the 'my_app.first_name_mona_0' table
-        my_storageobj.mona = first_storagedict
-
-        self.assertTrue(my_storageobj.mona._is_persistent)
-        nitems = my_storageobj.mona.items()
-        self.assertEqual(len(nitems), 0)
-        # it was assigned to a persistent storage obj, it should be persistent
-        self.assertTrue(first_storagedict._is_persistent)
-        # create another non persistent dict
-        my_storagedict = MyStorageDictA()
-        my_storagedict['due'] = 12341321
-        # store the second non persistent dict into the StorageObj attribute
-        my_storageobj.mona = my_storagedict
-        # contents should not be merged, the contents should be the same as in the last storage_dict
-        elements = my_storageobj.mona.items()
-        self.assertEqual(len(elements), 1)
-        my_storagedict = MyStorageDictA('second_name')
-        last_key = 'some_key'
-        last_value = 123
-        my_storagedict[last_key] = last_value
-        # my_storageobj.mona
-        my_storageobj.mona = my_storagedict
-        self.assertFalse(my_storageobj.mona.has_key(last_key))
-        last_items = my_storageobj.mona.items()
-        self.assertEqual(len(last_items), 1)
-        self.assertEqual(my_storagedict[last_key], last_value)
-
-        config.session.execute("DROP TABLE IF EXISTS my_app.first_name")
-        config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona")
-        config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona_0")
-        config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona_1")
-        config.session.execute("DROP TABLE IF EXISTS my_app.second_name")
+    # def test_assign_and_replace(self):
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.first_name")
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona")
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona_0")
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona_1")
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.second_name")
+    #
+    #     first_storagedict = MyStorageDictA()
+    #     my_storageobj = MyStorageObjC("first_name")
+    #     self.assertTrue(my_storageobj.mona._is_persistent)
+    #
+    #     # Creates the 'my_app.first_name_mona' table
+    #     my_storageobj.mona['uno'] = 123
+    #
+    #     # empty dict no persistent assigned to persistent object
+    #     # creates the 'my_app.first_name_mona_0' table
+    #     my_storageobj.mona = first_storagedict
+    #
+    #     self.assertTrue(my_storageobj.mona._is_persistent)
+    #     nitems = my_storageobj.mona.items()
+    #     self.assertEqual(len(nitems), 0)
+    #     # it was assigned to a persistent storage obj, it should be persistent
+    #     self.assertTrue(first_storagedict._is_persistent)
+    #     # create another non persistent dict
+    #     my_storagedict = MyStorageDictA()
+    #     my_storagedict['due'] = 12341321
+    #     # store the second non persistent dict into the StorageObj attribute
+    #     my_storageobj.mona = my_storagedict
+    #     # contents should not be merged, the contents should be the same as in the last storage_dict
+    #     elements = my_storageobj.mona.items()
+    #     self.assertEqual(len(elements), 1)
+    #     my_storagedict = MyStorageDictA('second_name')
+    #     last_key = 'some_key'
+    #     last_value = 123
+    #     my_storagedict[last_key] = last_value
+    #     # my_storageobj.mona
+    #     my_storageobj.mona = my_storagedict
+    #     self.assertFalse(my_storageobj.mona.has_key(last_key))
+    #     last_items = my_storageobj.mona.items()
+    #     self.assertEqual(len(last_items), 1)
+    #     self.assertEqual(my_storagedict[last_key], last_value)
+    #
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.first_name")
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona")
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona_0")
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona_1")
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.second_name")
 
 
 if __name__ == '__main__':

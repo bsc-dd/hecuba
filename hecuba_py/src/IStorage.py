@@ -41,17 +41,17 @@ class IStorage:
     _simple_case = re.compile(r".*@ClassField (\w+) \b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b")
 
     ########
-    ClassField_dict_case = re.compile('.*@ClassField +(\w+) +dict+ *< *< *([\w:, ]+)+ *> *, *([\w+:, <>]+) *>')
+    ClassField_dict_case = re.compile('.*@ClassField +(\w+) +dict+ *< *< *([\w:, ]+)+ *> *, *([\w.+:, <>]+) *>')
     ClassField_simple_case = regex.compile(
-        r".*@ClassField (\w+) \b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b")
+        r".*@ClassField (\w+) \b(int|atomicint|str|bool|decimal|float|long|double|buffer|numpy.ndarray)\b")
     ClassField_tuple_case = re.compile(
         '.*@ClassField +(\w+) +tuple+ *< *([\b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b, +]+) *>')
     ClassField_set_case = re.compile(
         '.*@ClassField +(\w+) +set+ *< *([\b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b]+) *>')
 
-    TypeSpec_dict_case = re.compile('.*@TypeSpec +(\w+) +dict+ *< *< *([\w:, ]+)+ *> *, *([\w+:, <>]+) *>')
+    TypeSpec_dict_case = re.compile('.*@TypeSpec +(\w+) +dict+ *< *< *([\w:, ]+)+ *> *, *([\w.+:, <>]+) *>')
     TypeSpec_simple_case = regex.compile(
-        r".*@TypeSpec (\w+) \b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b")
+        r".*@TypeSpec (\w+) \b(int|atomicint|str|bool|decimal|float|long|double|buffer|numpy.ndarray)\b")
     TypeSpec_tuple_case = re.compile(
         '.*@TypeSpec +(\w+) +tuple+ *< *([\b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b, +]+) *>')
     TypeSpec_set_case = re.compile(
@@ -85,7 +85,8 @@ class IStorage:
                     'bytearray': 'blob',
                     'counter': 'counter',
                     'double': 'double',
-                    'StorageDict': 'dict'}
+                    'StorageDict': 'dict',
+                    'ndarray': 'ndarray'}
 
     @staticmethod
     def process_path(module_path):
