@@ -10,7 +10,7 @@
  */
 SpaceFillingCurve::PartitionGenerator *
 SpaceFillingCurve::make_partitions_generator(const ArrayMetadata *metas, void *data) {
-    if (!metas) throw ModuleException("Numpy array metadatas not present");
+    if (!metas) throw ModuleException("Array metadata not present");
     if (metas->partition_type == ZORDER_ALGORITHM) return new ZorderCurveGenerator(metas, data);
     return new SpaceFillingGenerator(metas, data);
 }
