@@ -10,6 +10,7 @@
  */
 SpaceFillingCurve::PartitionGenerator *
 SpaceFillingCurve::make_partitions_generator(const ArrayMetadata *metas, void *data) {
+    if (!metas) throw ModuleException("Numpy array metadatas not present");
     if (metas->partition_type == ZORDER_ALGORITHM) return new ZorderCurveGenerator(metas, data);
     return new SpaceFillingGenerator(metas, data);
 }
@@ -382,10 +383,10 @@ void *ZorderCurveGenerator::merge_partitions(const ArrayMetadata *metas, std::ve
 
             if (*retrieved_block_size != block_size)
                 throw ModuleException("Sth went wrong deciding "
-                                              "the size of blocks while merging them into an array");
+                                      "the size of blocks while merging them into an array");
 
 
-                copy_block_to_array(metas->dims, block_shape, metas->elem_size, output_start, input, input_ends);
+            copy_block_to_array(metas->dims, block_shape, metas->elem_size, output_start, input, input_ends);
 
 
         } else {

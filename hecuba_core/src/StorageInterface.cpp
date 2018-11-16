@@ -92,6 +92,13 @@ Writer *StorageInterface::make_writer(const char *table, const char *keyspace,
 }
 
 
+Writer *StorageInterface::make_writer(const TableMetadata *table_meta,
+                                      std::map<std::string, std::string> &config) {
+    if (!session) throw ModuleException("StorageInterface not connected to any node");
+    return new Writer(table_meta, session, config);
+
+}
+
 /*** ITERATOR METHODS AND SETUP ***/
 
 /***

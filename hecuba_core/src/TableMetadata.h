@@ -42,7 +42,7 @@ public:
     TableMetadata(const char *table_name, const char *keyspace_name,
                   std::vector<std::map<std::string, std::string>> &keys_names,
                   std::vector<std::map<std::string, std::string>> &columns_names,
-                  CassSession *session);
+                  const CassSession *session);
 
     std::shared_ptr<const std::vector<ColumnMeta> > get_keys() const {
         return keys;

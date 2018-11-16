@@ -17,14 +17,7 @@ PythonParser::PythonParser(std::shared_ptr<StorageInterface> storage,
                    CM.type == CASS_VALUE_TYPE_ASCII) {
             parsers[meta_i] = new TextParser(CM);
         } else if (CM.type == CASS_VALUE_TYPE_BLOB) {
-            std::map<std::string, std::string>::const_iterator it = CM.info.find("type");
-            if (it != CM.info.end() && it->second == "numpy") {
-                NumpyParser *NP = new NumpyParser(CM);
-                NP->setStorage(storage);
-                parsers[meta_i] = NP;
-            } else {
-                parsers[meta_i] = new BytesParser(CM);
-            }
+            parsers[meta_i] = new BytesParser(CM);
         } else if (CM.type == CASS_VALUE_TYPE_DOUBLE || CM.type == CASS_VALUE_TYPE_FLOAT) {
             parsers[meta_i] = new DoubleParser(CM);
         } else if (CM.type == CASS_VALUE_TYPE_UUID) {
@@ -57,7 +50,7 @@ PythonParser::~PythonParser() {
 TupleRow *PythonParser::make_tuple(PyObject *obj) const {
     if (!PyList_Check(obj)) throw ModuleException("PythonParser: Make tuple: Expected python list");
     if (size_t(PyList_Size(obj)) != parsers.size())
-        throw ModuleException("PythonParser: Got less python elements than columns configured");
+    throw ModuleException("PythonParser: Got less python elements than columns configured");
 
     uint32_t total_bytes = metas->at(metas->size() - 1).position + metas->at(metas->size() - 1).size;
     char *buffer = (char *) malloc(total_bytes);
@@ -87,7 +80,7 @@ PyObject *PythonParser::make_pylist(std::vector<const TupleRow *> &values) const
     PyObject *list = PyList_New(tuple->n_elem());
     for (uint16_t i = 0; i < tuple->n_elem(); i++) {
         if (!tuple->isNull(i)) PyList_SetItem(list, i, this->parsers[i]->c_to_py(tuple->get_element(i)));
-        else PyList_SetItem(list,i,Py_None);
+        else PyList_SetItem(list, i, Py_None);
     }
     return list;
 }
