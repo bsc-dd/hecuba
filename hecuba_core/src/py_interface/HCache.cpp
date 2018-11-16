@@ -361,7 +361,11 @@ static PyTypeObject hfetch_HCacheType = {
 
 /*** NUMPY DATA STORE METHODS AND SETUP ***/
 
-
+/***
+ * Receives an UUID as a ByteArray or string and returns the representation in a c-like buffer
+ * @param py_storage_id ByteArray or Python String representation of an UUID
+ * @return C-like UUID
+ */
 static uint64_t *parse_uuid(PyObject *py_storage_id) {
     uint64_t *uuid;
     if (!PyByteArray_Check(py_storage_id)) {
@@ -408,6 +412,12 @@ static uint64_t *parse_uuid(PyObject *py_storage_id) {
 }
 
 
+/***
+ * Receives a numpy ndarray and a uuid, saves both to the table and keyspace passed during initialization
+ * @param self Python HNumpyStore object upon method invocation
+ * @param args Arg tuple containing two lists, the keys, and values. Keys are made of a list with a UUID,
+ * values of a list with a single numpy ndarray.
+ */
 static PyObject *save_numpy(HNumpyStore *self, PyObject *args) {
     PyObject *py_keys, *py_values;
     if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_values)) {
@@ -442,19 +452,27 @@ static PyObject *save_numpy(HNumpyStore *self, PyObject *args) {
 
     PyObject *numpy = PyList_GetItem(py_values, 0);
     if (numpy == Py_None) {
-        //TODO RAISE ERROR
+        std::string error_msg = "The numpy can't be None";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
         return NULL;
     }
 
-    // Transform
+    // Transform the object to the numpy ndarray
     PyArrayObject *numpy_arr;
     if (!PyArray_OutputConverter(numpy, &numpy_arr)) {
-        // TODO error_parsing("Numpy", numpy); //failed to convert array from PyObject to PyArray
+        std::string error_msg = "Can't convert the given numpy to a numpy ndarray";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
         return NULL;
     }
 
-    // 1 Extract metadatas && 2 Write data
-    self->NumpyDataStore->store(storage_id, numpy_arr);
+    // 1 Extract metadatas && write data
+    try {
+        self->NumpyDataStore->store(storage_id, numpy_arr);
+    }
+    catch (std::exception &e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
 
     Py_RETURN_NONE;
 }
@@ -484,12 +502,18 @@ static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
 
     const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
 
+    PyObject *numpy;
+    try{
+        numpy = self->NumpyDataStore->read(storage_id);
+    }
+    catch (std::exception &e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
 
-    PyObject *numpy = self->NumpyDataStore->read(storage_id);
-
+    // Wrap the numpy into a list to follow the standard format of Hecuba
     PyObject *result_list = PyList_New(1);
     PyList_SetItem(result_list, 0, numpy ? numpy : Py_None);
-
     return result_list;
 }
 
