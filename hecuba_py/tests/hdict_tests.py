@@ -33,7 +33,9 @@ class HdictTest(unittest.TestCase):
     # PARSE X DATA
 
     def test_parse_2(self):
-        comment = "     @TypeSpec particles dict<<partid:int>,x:int,y:int,z:int>"
+        comment = '''
+            @TypeSpec particles dict<<partid:int>,x:int,y:int,z:int>
+            '''
         pd = StorageDict(None,
                          [('pk1', 'int')],
                          [('val1', 'text')])
@@ -55,8 +57,10 @@ class HdictTest(unittest.TestCase):
                                                 'int')],
                               'type': 'StorageDict'}}
 
-        both_comment = '  @TypeSpec wordinfo dict<<position:int>,wordinfo:str>\n ' + \
-                       '  @Index_on wordinfo wordinfo, position '
+        both_comment = '''  
+                       @TypeSpec wordinfo dict<<position:int>,wordinfo:str>
+                       @Index_on wordinfo wordinfo, position
+                       '''
         pd = StorageDict(None,
                          [('pk1', 'int')],
                          [('val1', 'text')])
@@ -65,25 +69,27 @@ class HdictTest(unittest.TestCase):
 
     # PARSE DATA WITH 2 INDEX
 
-    def test_parse_comments1(self):
-        pd = StorageDict(None,
-                         [('pk1', 'int')],
-                         [('val1', 'text')])
-        with self.assertRaises(Exception) as context:
-            input_comment = '  @TypeSpec wordinfo dict<<position:int>,wordinfo:str>\n ' + \
-                            '  @Index_on wordinfo wordinfo,position\n ' + \
-                            '  @Index_on wordinfo wordinfo,position'
-            pd._parse_comments(input_comment)
-        self.assertTrue("No valid format", context.exception)
+    # def test_parse_comments1(self):
+    #     pd = StorageDict(None,
+    #                      [('pk1', 'int')],
+    #                      [('val1', 'text')])
+    #     with self.assertRaises(Exception) as context:
+    #         input_comment = '''
+    #                         @TypeSpec wordinfo dict<<position:int>,wordinfo:str>
+    #                         @Index_on wordinfo wordinfo,position
+    #                         @Index_on wordinfo wordinfo,position
+    #                         '''
+    #         pd._parse_comments(input_comment)
+    #     self.assertTrue("No valid format", context.exception)
 
     # PARSE DATA WITH 2 COMMENTS (NO INDEX)
 
-    def test_parse_comments2(self):
-        pd = StorageDict(None,
-                         [('pk1', 'int')],
-                         [('val1', 'text')])
-        with self.assertRaises(Exception) as context:
-            input_comment = '  @TypeSpec wordinfo dict<<position:int>,wordinfo:str>\n ' + \
-                            '  @TypeSpec a int '
-            pd._parse_comments(input_comment)
-        self.assertTrue("No valid format", context.exception)
+    # def test_parse_comments2(self):
+    #     pd = StorageDict(None,
+    #                      [('pk1', 'int')],
+    #                      [('val1', 'text')])
+    #     with self.assertRaises(Exception) as context:
+    #         input_comment = '  @TypeSpec wordinfo dict<<position:int>,wordinfo:str>\n ' + \
+    #                         '  @TypeSpec a int '
+    #         pd._parse_comments(input_comment)
+    #     self.assertTrue("No valid format", context.exception)

@@ -83,67 +83,67 @@ class ExampleStorageObjClassNames(StorageObj):
 
 class TutorialTest(unittest.TestCase):
 
-    def init_storagedict_test(self):
-        tablename = 'examplestoragedictclass1'
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
-        my_example_class = ExampleStoragedictClass()
-        my_example_class.make_persistent(tablename)
+    # def init_storagedict_test(self):
+    #     tablename = 'examplestoragedictclass1'
+    #     config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+    #     my_example_class = ExampleStoragedictClass()
+    #     my_example_class.make_persistent(tablename)
+    #
+    # def init_storagedictwithinit_test(self):
+    #     tablename = 'examplestoragedictclass1'
+    #     config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+    #     my_example_class = ExampleStoragedictClassInit()
+    #     StorageDict.__init__(my_example_class)
+    #     my_example_class.make_persistent(tablename)
+    #
+    # def init_storagedictwithinitmultival_test(self):
+    #     tablename = 'examplestoragedictclass1'
+    #     config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+    #     my_example_class = ExampleStoragedictClassInitMultiVal()
+    #     StorageDict.__init__(my_example_class)
+    #     my_example_class.make_persistent(tablename)
+    #
+    # def init_storagedictnames_test(self):
+    #     tablename = 'examplestoragedictclass1'
+    #     config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+    #     my_example_class = ExampleStoragedictClassNames()
+    #     my_example_class.make_persistent(tablename)
+    #
+    # def init_storagedictwithinitnames_test(self):
+    #     tablename = 'examplestoragedictclass1'
+    #     config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+    #     my_example_class = ExampleStoragedictClassInitNames()
+    #     StorageDict.__init__(my_example_class)
+    #     my_example_class.make_persistent(tablename)
+    #
+    # def init_storagedictwithinitmultivalnames_test(self):
+    #     tablename = 'examplestoragedictclass1'
+    #     config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+    #     my_example_class = ExampleStoragedictClassInitMultiValNames()
+    #     StorageDict.__init__(my_example_class)
+    #     my_example_class.make_persistent(tablename)
 
-    def init_storagedictwithinit_test(self):
-        tablename = 'examplestoragedictclass1'
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
-        my_example_class = ExampleStoragedictClassInit()
-        StorageDict.__init__(my_example_class)
-        my_example_class.make_persistent(tablename)
-
-    def init_storagedictwithinitmultival_test(self):
-        tablename = 'examplestoragedictclass1'
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
-        my_example_class = ExampleStoragedictClassInitMultiVal()
-        StorageDict.__init__(my_example_class)
-        my_example_class.make_persistent(tablename)
-
-    def init_storagedictnames_test(self):
-        tablename = 'examplestoragedictclass1'
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
-        my_example_class = ExampleStoragedictClassNames()
-        my_example_class.make_persistent(tablename)
-
-    def init_storagedictwithinitnames_test(self):
-        tablename = 'examplestoragedictclass1'
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
-        my_example_class = ExampleStoragedictClassInitNames()
-        StorageDict.__init__(my_example_class)
-        my_example_class.make_persistent(tablename)
-
-    def init_storagedictwithinitmultivalnames_test(self):
-        tablename = 'examplestoragedictclass1'
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
-        my_example_class = ExampleStoragedictClassInitMultiValNames()
-        StorageDict.__init__(my_example_class)
-        my_example_class.make_persistent(tablename)
-
-    def init_storageobj_test(self):
-        tablename = 'examplestorageobjclass1'
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + '_my_dict')
-        my_example_class = ExampleStorageObjClass()
-        my_example_class.make_persistent(tablename)
-
-    def init_storageobjwithinit_test(self):
-        tablename = 'examplestorageobjclass1'
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + '_my_dict')
-        my_example_class = ExampleStorageObjClassInit()
-        StorageObj.__init__(my_example_class)
-        my_example_class.make_persistent(tablename)
-
-    def init_storageobjnames_test(self):
-        tablename = 'examplestorageobjclass1'
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + '_my_dict')
-        my_example_class = ExampleStorageObjClassNames()
-        my_example_class.make_persistent(tablename)
+    # def init_storageobj_test(self):
+    #     tablename = 'examplestorageobjclass1'
+    #     config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+    #     config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + '_my_dict')
+    #     my_example_class = ExampleStorageObjClass()
+    #     my_example_class.make_persistent(tablename)
+    #
+    # def init_storageobjwithinit_test(self):
+    #     tablename = 'examplestorageobjclass1'
+    #     config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+    #     config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + '_my_dict')
+    #     my_example_class = ExampleStorageObjClassInit()
+    #     StorageObj.__init__(my_example_class)
+    #     my_example_class.make_persistent(tablename)
+    #
+    # def init_storageobjnames_test(self):
+    #     tablename = 'examplestorageobjclass1'
+    #     config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
+    #     config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + '_my_dict')
+    #     my_example_class = ExampleStorageObjClassNames()
+    #     my_example_class.make_persistent(tablename)
 
     def initializestoragedict_test(self):
         tablename = 'examplestorageobjclass1'

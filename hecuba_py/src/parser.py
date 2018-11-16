@@ -9,7 +9,7 @@ class Parser(object):
 
     @staticmethod
     def _check_input_types_dict(list_input):
-        conversions_list = re.sub(r'[^\w]', ' ', str(IStorage._conversions))
+        conversions_list = re.sub('[<>():,]', ' ', str(IStorage._conversions))
         if not set(list_input[1::2]).issubset(conversions_list.split()):
             raise Exception("Incorrect input types introduced")
         else:
@@ -56,8 +56,10 @@ class Parser(object):
     def _replace_list_types(list):
         final_list = []
         for e1, e2 in list:
-            var = (e1, IStorage._conversions[e2])
-            final_list.append(var)
+            if e2 != 'numpy.ndarray':
+                var = (e1, IStorage._conversions[e2])
+                final_list.append(var)
+            if final_list == []: return list
         return final_list
 
     def _parsing_set(self, line, new):
@@ -65,9 +67,9 @@ class Parser(object):
         _set_case = getattr(IStorage, self.type_parser + "_set_case")
         m = _set_case.match(line)
         table_name, simple_type = m.groups()
-        erase_symbols_keys = re.sub(r'[^\w]', ' ', simple_type)
+        erase_symbols_keys = re.sub('[<>():,]', ' ', simple_type)
         repl_types = self._replace_types(erase_symbols_keys)
-        self._check_input_types(repl_types.split())
+    #    self._check_input_types(repl_types.split())
         output["primary_keys"] = {repl_types}
         output["type"] = 'set'
         new[table_name] = output
@@ -78,10 +80,10 @@ class Parser(object):
         _tuple_case = getattr(IStorage, self.type_parser + "_tuple_case")
         m = _tuple_case.match(line)
         table_name, simple_type = m.groups()
-        erase_symbols_keys = re.sub(r'[^\w]', ' ', simple_type)
+        erase_symbols_keys = re.sub('[<>():,]', ' ', simple_type)
         erase_symbols_keys = self._replace_types(erase_symbols_keys)
         erase_symbols_keys = erase_symbols_keys.split()
-        self._check_input_types(erase_symbols_keys)
+    #    self._check_input_types(erase_symbols_keys)
         output["columns"] = {", ".join(erase_symbols_keys)}
         output["type"] = 'tuple'
         new[table_name] = output
@@ -92,7 +94,7 @@ class Parser(object):
         _simple_case = getattr(IStorage, self.type_parser + "_simple_case")
         _simple_case = _simple_case.match(line)
         table_name, simple_type = _simple_case.groups()
-        self._check_input_types(simple_type.split())
+     #   self._check_input_types(simple_type.split())
         output["type"] = self._replace_types(simple_type)
         new[table_name] = output
         return new
@@ -116,10 +118,10 @@ class Parser(object):
     def _parsing_keys_and_columns_to_list(self, line):
         '''Def: parses keys and values to a list with the dict structure.
                                 Returns: a list with the dict structure.'''
-        erase_symbols_keys = re.sub(r'[^\w]', ' ', line)
+        erase_symbols_keys = re.sub('[<>():,]', ' ', line)
         erase_symbols_keys = self._replace_types(erase_symbols_keys)
         created_list = erase_symbols_keys.split()
-        self._check_input_types_dict(created_list)
+     #   self._check_input_types_dict(created_list)
         final_list = zip(created_list[::2], created_list[1::2])
         return final_list
 
@@ -138,7 +140,7 @@ class Parser(object):
         if dict_values.find('set') != -1:
             splitted_values = dict_values.split(',')
             matching = [s for s in splitted_values if 'set' in s]
-            matching_aux = [re.sub(r'[^\w]', ' ', f) for f in matching]
+            matching_aux = [re.sub('[<>():,]', ' ', f) for f in matching]
             param_set = [f.replace('set', '') for f in matching_aux]
             param_set = [f.split() for f in param_set]
             erase_symbols_keys = self._replace_list_types(param_set)
@@ -220,7 +222,7 @@ class Parser(object):
         elif _simple_case.match(line) is not None:
             # Matching simple type
             ret = self._parsing_simple_value(line, this)
-        elif _file_case.match(line) is not None:
+        elif _file_case.match(line) is not None and line.find('numpy') != 0:
             # Matching file
             ret = self._parsing_file(line, this)
         if this == {}:
@@ -234,7 +236,7 @@ class Parser(object):
                 Returns: false if there's some wrong comment specification, true otherwise.'''
         list_coms = comments.split('\n')
         # list_coms = [e.replace(' ', '') for e in list_coms]
-        if ((len(list_coms)) != 1) and (comments.find("@Index_on") == -1):
+        if ((len(list_coms)) != 3) and (comments.find("@Index_on") == -1):
             raise Exception('No valid format')
         if len(list_coms) != len(set(list_coms)):
             raise Exception('Duplicated comments')
@@ -247,16 +249,16 @@ class Parser(object):
                 format.
                 Returns: an structure with all the parsed comments.'''
         this = {}
+        str_splitted = comments.split('\n', 1)[-1]
+        lines = str_splitted.rsplit('\n', 1)[0]
         if self.type_parser == "TypeSpec":
-            self._comprovation_input_elements(comments)
-            for line in comments.split('\n'):
-                line.replace('\n', '')
+           # self._comprovation_input_elements(comments)
+            for line in lines.split('\n'):
                 this = self._fitting_line_type(line, this)
         elif self.type_parser == "ClassField":
-            for line in comments.split('\n'):
+            for line in lines.split('\n'):
                 this = self._fitting_line_type(line, this)
         return this
-
 
     def __init__(self, type_parser):
         '''Initializes the Parser class with the type_parser that can be @ClassField or @TypeSpec.'''
