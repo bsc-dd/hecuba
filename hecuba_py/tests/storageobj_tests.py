@@ -47,20 +47,6 @@ class StorageObjTest(unittest.TestCase):
             StorageObj._parse_comments(input_comment)
         self.assertTrue("Incorrect input types introduced", context.exception)
 
-    # def test_incorrect_data_on_index_1(self):
-    #     with self.assertRaises(Exception) as context:
-    #         input_comment = " @Index_on wordinfo wordinfo, ' "
-    #         StorageObj._parse_comments(input_comment)
-    #     self.assertTrue("Incorrect input types introduced", context.exception)
-    #
-    # def test_incorrect_data_on_index_2(self):
-    #     with self.assertRaises(Exception) as context:
-    #         input_comment = " @Index_on wordinfo a, b  "
-    #         StorageObj._parse_comments(input_comment)
-    #     self.assertTrue("Incorrect input types introduced", context.exception)
-
-    # NO TABLE (@CLASSFIELD)
-
     def test_no_table_parser_introduced_simple_type_classfield(self):
         with self.assertRaises(Exception) as context:
             input_comment = "@ClassField int"
@@ -219,18 +205,6 @@ class StorageObjTest(unittest.TestCase):
             StorageObj._parse_comments(input_comment)
         self.assertTrue("Incorrect input types introduced", context.exception)
 
-    # def test_wrong_type_parser_introduced_dictionary_type_classfield_2(self):
-    #     with self.assertRaises(Exception) as context:
-    #         input_comment = "@ClassField table dict<<key:stra>,value:atomicinta>"
-    #         StorageObj._parse_comments(input_comment)
-    #     self.assertTrue("Incorrect input types introduced", context.exception)
-    #
-    # def test_wrong_type_parser_introduced_dictionary_type_classfield_3(self):
-    #     with self.assertRaises(Exception) as context:
-    #         input_comment = "@ClassField table dict<<key:dict>,value:atomicinta>"
-    #         StorageObj._parse_comments(input_comment)
-    #     self.assertTrue("Incorrect input types introduced", context.exception)
-
     def test_wrong_type_parser_introduced_tuple_type_classfield_1(self):
         with self.assertRaises(Exception) as context:
             input_comment = "@ClassField table tupla <int, str, bool> "
@@ -334,7 +308,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(p, should_be)
 
     def test_parse_3(self):
-        comment = "     @ClassField particles dict<<partid:int,part2:str>,x:int,y:int,z:int>"
+        comment = "     @ClassField particles dict<<partid:int, part2:str>,x:int,y:int, z:int>"
         p = StorageObj._parse_comments(comment)
         should_be = {'particles': {
             'columns': [('x', 'int'), ('y', 'int'), ('z', 'int')],
@@ -344,7 +318,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals(p, should_be)
 
     def test_parse_4(self):
-        comment = "     @ClassField particles dict<<int,str>,int,int,int>"
+        comment = "     @ClassField particles dict<<int,str>, int,int,int>"
         p = StorageObj._parse_comments(comment)
         should_be = {'particles': {
             'columns': [('value0', 'int'), ('value1', 'int'), ('value2', 'int')],
@@ -484,7 +458,7 @@ class StorageObjTest(unittest.TestCase):
         p = StorageObj._parse_comments(comment)
         should_be = {'wordinfo': {'primary_keys': [('key0', 'int')],
                                   'columns': [('value0', 'int'), ('value1', 'int'),
-                                              {'type': 'set', 'primary_keys': [('value2', 'int'), ('value2', 'int')]}],
+                                              {'type': 'set', 'primary_keys': [('value2_0', 'int'), ('value2_1', 'int')]}],
                                   'type': 'StorageDict'}}
         self.assertEquals(p, should_be)
 

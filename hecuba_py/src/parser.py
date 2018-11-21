@@ -5,7 +5,7 @@ from IStorage import IStorage
 
 
 class Parser(object):
-    args_names = ["type_parser", "comments"]
+    args_names = ["type_parser"]
 
     @staticmethod
     def _check_input_types_dict(list_input):
@@ -33,11 +33,15 @@ class Parser(object):
 
     @staticmethod
     def _replace_types(types):
+        '''Def: replaces the declarated variables with valid Cassandra types.
+                                Returns: a string with the changed variables.'''
         converted = " ".join([IStorage._conversions.get(w, w) for w in types.split()])
         return converted
 
     @staticmethod
     def _add_fields(dict_keys, type_field):
+        '''Def: adds variables to keys and values of the declaration if they doesn't exist.
+                                Returns: the same declaration with the generated variables in it.'''
         split = dict_keys.split(',')
         counter = count(0)
         result = ', '.join(
@@ -46,31 +50,40 @@ class Parser(object):
 
     @staticmethod
     def _set_case(param_set):
+        '''Def: constructs a dictionary with the values of the set.
+                                Returns: a dict structure with inserted values.'''
         var = param_set[0]
         param_set.pop(0)
-        aux = {}
-        aux["columns"] = []
+        aux = {'columns': []}
         aux_list = []
-        for type in param_set:
-            aux_list.append((var, type))
+        if len(param_set) > 1:
+            counter = count(0)
+            for type_val in param_set:
+                aux_list.append((var + '_' + str(counter.next()), type_val))
+        else:
+            for type_val in param_set:
+                aux_list.append((var, type_val))
         aux["columns"].append({"primary_keys": aux_list, "type": 'set'})
         return aux
 
     @staticmethod
-    def _replace_list_types(list):
+    def _replace_list_types(list_values):
+        '''Def: replaces the types of list_values to the ones of IStorage (accepted in Cassandra).
+                                Returns: a list of the converted types'''
         final_list = []
-        for e1, e2 in list:
+        for e1, e2 in list_values:
             if e2 != 'numpy.ndarray':
                 var = (e1, IStorage._conversions[e2])
                 final_list.append(var)
-            if final_list == []: return list
+        if not final_list:
+            return list_values
         return final_list
 
     def _parsing_set(self, line, new):
+        '''Def: parses set value declaration, checking for the introduced vars.
+                                Returns: a dict structure with the parsed dict.'''
         output = {}
-        _set_case = getattr(IStorage, self.type_parser + "_set_case")
-        m = _set_case.match(line)
-        table_name, simple_type = m.groups()
+        table_name, simple_type = line.groups()
         erase_symbols_keys = re.sub('[<>():,]', ' ', simple_type)
         erase_symbols_keys = self._replace_types(erase_symbols_keys)
         erase_symbols_keys = erase_symbols_keys.split()
@@ -81,10 +94,10 @@ class Parser(object):
         return new
 
     def _parsing_tuple(self, line, new):
+        '''Def: parses tuple declaration, checking for the introduced vars.
+                                Returns: a dict structure with the parsed dict.'''
         output = {}
-        _tuple_case = getattr(IStorage, self.type_parser + "_tuple_case")
-        m = _tuple_case.match(line)
-        table_name, simple_type = m.groups()
+        table_name, simple_type = line.groups()
         erase_symbols_keys = re.sub('[<>():,]', ' ', simple_type)
         erase_symbols_keys = self._replace_types(erase_symbols_keys)
         erase_symbols_keys = erase_symbols_keys.split()
@@ -95,10 +108,10 @@ class Parser(object):
         return new
 
     def _parsing_simple_value(self, line, new):
+        '''Def: parses simple value declaration, checking for the introduced vars.
+                                Returns: a dict structure with the parsed dict.'''
         output = {}
-        _simple_case = getattr(IStorage, self.type_parser + "_simple_case")
-        _simple_case = _simple_case.match(line)
-        table_name, simple_type = _simple_case.groups()
+        table_name, simple_type = line.groups()
      #   self._check_input_types(simple_type.split())
         output["type"] = self._replace_types(simple_type)
         new[table_name] = output
@@ -107,10 +120,7 @@ class Parser(object):
     def _parsing_index(self, line, new):
         '''Def: parses index declaration, checking for the introduced vars.
                                 Returns: a dict structure with the parsed dict.'''
-        # _index_vars = re.compile('.*@Index_on *([\w]+) + *([\w]+)+(, \w+)*')
-        _index_vars = re.compile('.*@Index_on *([A-z0-9]+) +([A-z0-9, ]+)')
-        match = _index_vars.match(line)
-        table_name, indexed_values = match.groups()
+        table_name, indexed_values = line.groups()
         indexed_values = self._replace_types(indexed_values)
         indexed_values = indexed_values.replace(' ', '').split(',')
         if table_name in new:
@@ -167,18 +177,16 @@ class Parser(object):
         '''Def: parses dictionary declaration, checking for the introduced vars.
                         Returns: a dict structure with the parsed dict.'''
         output = {}
-        _dict_case = getattr(IStorage, self.type_parser + "_dict_case")
-        match_dict = _dict_case.match(line)
-        table_name, dict_keys, dict_values = match_dict.groups()
+        table_name, dict_keys, dict_values = line.groups()
         dict_keys, dict_values = self._check_vars(dict_keys, dict_values)
-        dic, set = self._check_set_in_values(dict_values)
-        if set is not False:
-                dict_values = dict_values.replace(set, '')
+        set_val, set_match = self._check_set_in_values(dict_values)
+        if set_match is not False:
+                dict_values = dict_values.replace(set_match, '')
         output["columns"] = self._parsing_keys_and_columns_to_list(dict_values)
         output["primary_keys"] = self._parsing_keys_and_columns_to_list(dict_keys)
         output["type"] = 'StorageDict'
-        if dic is not False:
-            output["columns"].extend(dic["columns"])
+        if set_match is not False:
+            output["columns"].extend(set_val["columns"])
         if table_name in new:
             new[table_name].update(output)
         else:
@@ -189,9 +197,7 @@ class Parser(object):
         '''Def: Checks if the file declaration is correct.
                 Returns: the file declaration with a dict structure'''
         output = {}
-        _file_case = getattr(IStorage, self.type_parser + "_file_case")
-        file = _file_case.match(line)
-        table_name, route = file.groups()
+        table_name, route = line.groups()
         cname, module = IStorage.process_path(route)
         try:
             mod = __import__(module, globals(), locals(), [cname], 0)
@@ -212,33 +218,27 @@ class Parser(object):
         _tuple_case = getattr(IStorage, self.type_parser + "_tuple_case")
         _simple_case = getattr(IStorage, self.type_parser + "_simple_case")
         _set_case = getattr(IStorage, self.type_parser + "_set_case")
-        #_index_check = IStorage._index_case.match(line)
-        _index_vars = re.compile('.*@Index_on *([A-z0-9]+) +([A-z0-9, ]+)')
-        index = _index_vars.match(line)
         _file_case = getattr(IStorage, self.type_parser + "_file_case")
-        if _index_vars.match(line) is not None:
-            table, table2 = index.groups()
-        else:
-            table = table2 = None
-
+        _index_case = getattr(IStorage, "_index_vars")
         if _dict_case.match(line) is not None:
             # Matching dict
-            ret = self._parsing_dict(line, this)
-        elif table and table2 is not None:
+            ret = self._parsing_dict(_dict_case.match(line), this)
+        elif _index_case.match(line) is not None:
             # Matching Index_on
-            ret = self._parsing_index(line, this)
+            ret = self._parsing_index(_index_case.match(line), this)
         elif _tuple_case.match(line) is not None:
             # Matching tuple
-            ret = self._parsing_tuple(line, this)
+            ret = self._parsing_tuple(_tuple_case.match(line), this)
         elif _set_case.match(line) is not None:
             # Matching set
-            ret = self._parsing_set(line, this)
+            ret = self._parsing_set(_set_case.match(line), this)
         elif _simple_case.match(line) is not None:
             # Matching simple type
-            ret = self._parsing_simple_value(line, this)
+            ret = self._parsing_simple_value(_simple_case.match(line), this)
         elif _file_case.match(line) is not None and line.find('numpy') != 0:
             # Matching file
-            ret = self._parsing_file(line, this)
+            ret = self._parsing_file(_file_case.match(line), this)
+            # Not matching
         if this == {}:
             raise Exception("Incorrect input types introduced")
         this = ret
@@ -249,29 +249,31 @@ class Parser(object):
                 and checks if the comments introduced are not duplicated.
                 Returns: false if there's some wrong comment specification, true otherwise.'''
         list_coms = comments.split('\n')
-        # list_coms = [e.replace(' ', '') for e in list_coms]
-        if ((len(list_coms)) != 3) and (comments.find("@Index_on") == -1):
-            raise Exception('No valid format')
-        if len(list_coms) != len(set(list_coms)):
-            raise Exception('Duplicated comments')
-        # POSSIBLE INDEX_ON COMPROBATIONS
+        #CHECKS NOT IMPLEMENTED
         return True
 
+    def _remove_spaces_from_line(self, line):
+        '''Def: Remove all the spaces of the line splitted from comments
+                Returns: same line with no spaces.'''
+        nospace = re.sub(' +', '*', line)
+        return nospace.replace('*', ' ')
 
     def _parse_comments(self, comments):
         '''Def: Parses the comments param to a ClassField or TypeSpec type and checks if the comments are in the correct
                 format.
                 Returns: an structure with all the parsed comments.'''
         this = {}
+        '''Erasing first and last line'''
         str_splitted = comments.split('\n', 1)[-1]
         lines = str_splitted.rsplit('\n', 1)[0]
+        ''''''
         if self.type_parser == "TypeSpec":
            # self._comprovation_input_elements(comments)
             for line in lines.split('\n'):
-                this = self._fitting_line_type(line, this)
+                this = self._fitting_line_type(self._remove_spaces_from_line(line), this)
         elif self.type_parser == "ClassField":
             for line in lines.split('\n'):
-                this = self._fitting_line_type(line, this)
+                this = self._fitting_line_type(self._remove_spaces_from_line(line), this)
         return this
 
     def __init__(self, type_parser):
