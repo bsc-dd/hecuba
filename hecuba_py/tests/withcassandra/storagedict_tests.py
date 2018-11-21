@@ -614,21 +614,21 @@ class StorageDictTest(unittest.TestCase):
         self.assertEquals(pd[0], 'final_a')
         self.assertEquals(pd[4], 'final_4')
 
-    def test_update_kwargs(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a6")
-        tablename = "tab_a6"
-        pd = StorageDict(tablename,
-                         [('position', 'text')],
-                         [('value', 'text')])
-        pd['val1'] = 'old_a'
-        pd['val2'] = 'old_b'
-        time.sleep(2)
-        self.assertEquals(pd['val1'], 'old_a')
-        self.assertEquals(pd['val2'], 'old_b')
-        pd.update(val1='new_a', val2='new_b')
-        time.sleep(2)
-        self.assertEquals(pd['val1'], 'new_a')
-        self.assertEquals(pd['val2'], 'new_b')
+    # def test_update_kwargs(self):
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.tab_a6")
+    #     tablename = "tab_a6"
+    #     pd = StorageDict(tablename,
+    #                      [('position', 'text')],
+    #                      [('value', 'text')])
+    #     pd['val1'] = 'old_a'
+    #     pd['val2'] = 'old_b'
+    #     time.sleep(2)
+    #     self.assertEquals(pd['val1'], 'old_a')
+    #     self.assertEquals(pd['val2'], 'old_b')
+    #     pd.update(val1='new_a', val2='new_b')
+    #     time.sleep(2)
+    #     self.assertEquals(pd['val1'], 'new_a')
+    #     self.assertEquals(pd['val2'], 'new_b')
 
     # def test_get_persistent(self):
     #     table_name = 'tab_a7'
