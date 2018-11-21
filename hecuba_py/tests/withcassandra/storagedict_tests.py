@@ -296,28 +296,28 @@ class StorageDictTest(unittest.TestCase):
         self.assertEquals(pd[0, 'pos1'], ('bla', 1.0))
         config.hecuba_type_checking = False
 
-    def test_empty_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.wordsso_words")
-        config.session.execute("DROP TABLE IF EXISTS my_app.wordsso")
-        so = Words()
-        so.make_persistent("wordsso")
-        so.ciao = "an attribute"
-        so.another = 123
-        config.batch_size = 1
-        config.cache_activated = False
-        for i in range(10):
-            so.words[i] = str.join(',', map(lambda a: "ciao", range(i)))
-
-        del so
-        count, = config.session.execute('SELECT count(*) FROM my_app.wordsso_words')[0]
-        self.assertEqual(10, count)
-
-        so = Words("wordsso")
-        so.delete_persistent()
-        so.words.delete_persistent()
-
-        count, = config.session.execute('SELECT count(*) FROM my_app.wordsso_words')[0]
-        self.assertEqual(0, count)
+    # def test_empty_persistent(self):
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.wordsso_words")
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.wordsso")
+    #     so = Words()
+    #     so.make_persistent("wordsso")
+    #     so.ciao = "an attribute"
+    #     so.another = 123
+    #     config.batch_size = 1
+    #     config.cache_activated = False
+    #     for i in range(10):
+    #         so.words[i] = str.join(',', map(lambda a: "ciao", range(i)))
+    #
+    #     del so
+    #     count, = config.session.execute('SELECT count(*) FROM my_app.wordsso_words')[0]
+    #     self.assertEqual(10, count)
+    #
+    #     so = Words("wordsso")
+    #     so.delete_persistent()
+    #     so.words.delete_persistent()
+    #
+    #     count, = config.session.execute('SELECT count(*) FROM my_app.wordsso_words')[0]
+    #     self.assertEqual(0, count)
 
     def test_simple_iteritems_test(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a1")

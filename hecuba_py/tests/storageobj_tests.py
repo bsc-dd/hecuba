@@ -394,6 +394,15 @@ class StorageObjTest(unittest.TestCase):
         }}
         self.assertEquals(p, should_be)
 
+    def test_parse_7(self):
+        comment = "     @ClassField particles2 set<int,bool,int>"
+        p = StorageObj._parse_comments(comment)
+        should_be = {'particles2': {
+            'primary_keys': {'int, boolean, int'},
+            'type': 'set'
+        }}
+        self.assertEquals(p, should_be)
+
     # TEST COMPILATION
     def test_index(self):
         comment = '''
@@ -451,7 +460,7 @@ class StorageObjTest(unittest.TestCase):
     # SET DICT
 
     def test_dict_set(self):
-        comment = '  @ClassField wordinfo dict<<position:int>,atr2:int, atr:int,dif:set<int>>'
+        comment = '  @ClassField wordinfo dict<<position:int>, atr2:int, atr:int, dif:set<int>>'
         p = StorageObj._parse_comments(comment)
         should_be = {'wordinfo': {'primary_keys': [('position', 'int')],
                                   'columns': [('atr2', 'int'), ('atr', 'int'),
@@ -470,29 +479,38 @@ class StorageObjTest(unittest.TestCase):
                                   'type': 'StorageDict'}}
         self.assertEquals(p, should_be)
 
-    # MULTI SET DICT
-
-    def test_dict_multi_set(self):
-        comment = '  @ClassField wordinfo dict<<position:int>,atr2:int, atr:int,dif:set<int>, dif2:set<bool>>'
-        p = StorageObj._parse_comments(comment)
-        should_be = {'wordinfo': {'primary_keys': [('position', 'int')],
-                                  'columns': [('atr2', 'int'), ('atr', 'int'),
-                                              {'type': 'set', 'primary_keys': [('dif', 'int')]},
-                                              {'type': 'set', 'primary_keys': [('dif2', 'boolean')]}],
-                                  'type': 'StorageDict'}}
-        self.assertEquals(p, should_be)
-
-    # MULTI SET DICT (NO VARS)
-
-    def test_dict_multi_set_no_name(self):
-        comment = '  @ClassField wordinfo dict<<int>, int, int, set<int>, set<bool>>'
+    def test_dict_set_name(self):
+        comment = '  @ClassField wordinfo dict<<key0:int>, value0:int, value1:int, value2:set<int, int>>'
         p = StorageObj._parse_comments(comment)
         should_be = {'wordinfo': {'primary_keys': [('key0', 'int')],
                                   'columns': [('value0', 'int'), ('value1', 'int'),
-                                              {'type': 'set', 'primary_keys': [('value2', 'int')]},
-                                              {'type': 'set', 'primary_keys': [('value3', 'boolean')]}],
+                                              {'type': 'set', 'primary_keys': [('value2', 'int'), ('value2', 'int')]}],
                                   'type': 'StorageDict'}}
         self.assertEquals(p, should_be)
+
+    # MULTI SET DICT
+
+    # def test_dict_multi_set(self):
+    #     comment = '  @ClassField wordinfo dict<<position:int>,atr2:int, atr:int,dif:set<int>, dif2:set<bool>>'
+    #     p = StorageObj._parse_comments(comment)
+    #     should_be = {'wordinfo': {'primary_keys': [('position', 'int')],
+    #                               'columns': [('atr2', 'int'), ('atr', 'int'),
+    #                                           {'type': 'set', 'primary_keys': [('dif', 'int')]},
+    #                                           {'type': 'set', 'primary_keys': [('dif2', 'boolean')]}],
+    #                               'type': 'StorageDict'}}
+    #     self.assertEquals(p, should_be)
+    #
+    # # MULTI SET DICT (NO VARS)
+    #
+    # def test_dict_multi_set_no_name(self):
+    #     comment = '  @ClassField wordinfo dict<<int>, int, int, set<int>, set<bool>>'
+    #     p = StorageObj._parse_comments(comment)
+    #     should_be = {'wordinfo': {'primary_keys': [('key0', 'int')],
+    #                               'columns': [('value0', 'int'), ('value1', 'int'),
+    #                                           {'type': 'set', 'primary_keys': [('value2', 'int')]},
+    #                                           {'type': 'set', 'primary_keys': [('value3', 'boolean')]}],
+    #                               'type': 'StorageDict'}}
+    #     self.assertEquals(p, should_be)
 
     def test_file_parsing(self):
         comment = "@ClassField myfile tests.app.words.Words"
@@ -500,17 +518,17 @@ class StorageObjTest(unittest.TestCase):
         should_be = {'myfile': {'type': 'tests.app.words.Words'}}
         self.assertEquals(p, should_be)
 
-    def test_dict_multi_set_no_name(self):
-        comment = '''
-        @ClassField wordinfo dict<<int>, int, numpy.ndarray, set<numpy.ndarray>, set<numpy.ndarray>>
-        '''
-        p = StorageObj._parse_comments(comment)
-        should_be = {'wordinfo': {'primary_keys': [('key0', 'int')],
-                                  'columns': [('value0', 'int'), ('value1', 'numpy.ndarray'),
-                                              {'type': 'set', 'primary_keys': [('value2', 'numpy.ndarray')]},
-                                              {'type': 'set', 'primary_keys': [('value3', 'numpy.ndarray')]}],
-                                  'type': 'StorageDict'}}
-        self.assertEquals(p, should_be)
+    # def test_dict_multi_set_no_name(self):
+    #     comment = '''
+    #     @ClassField wordinfo dict<<int>, int, numpy.ndarray, set<numpy.ndarray>, set<numpy.ndarray>>
+    #     '''
+    #     p = StorageObj._parse_comments(comment)
+    #     should_be = {'wordinfo': {'primary_keys': [('key0', 'int')],
+    #                               'columns': [('value0', 'int'), ('value1', 'numpy.ndarray'),
+    #                                           {'type': 'set', 'primary_keys': [('value2', 'numpy.ndarray')]},
+    #                                           {'type': 'set', 'primary_keys': [('value3', 'numpy.ndarray')]}],
+    #                               'type': 'StorageDict'}}
+    #     self.assertEquals(p, should_be)
 
     def test_dict_(self):
         comment = '''
