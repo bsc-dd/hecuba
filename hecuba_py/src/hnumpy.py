@@ -85,7 +85,8 @@ class StorageNumpy(np.ndarray, IStorage):
         try:
             config.session.execute(StorageNumpy._prepared_store_meta,
                                    [storage_args.storage_id, storage_args.class_name,
-                                    storage_args.name, StorageNumpy.np_meta(storage_args.shape, storage_args.dtype, storage_args.block_id)])
+                                    storage_args.name, StorageNumpy.np_meta(storage_args.shape, storage_args.dtype,
+                                                                            storage_args.block_id)])
 
         except Exception as ex:
             log.warn("Error creating the StorageNumpy metadata with args: %s" % str(storage_args))
@@ -154,6 +155,12 @@ class StorageNumpy(np.ndarray, IStorage):
         config.session.execute(query)
         config.session.execute(query2)
         self._is_persistent = False
+
+    def __iter__(self):
+        return iter(self.view(np.ndarray))
+
+    def __contains__(self, item):
+        return item in self.view(np.ndarray)
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         args = []
