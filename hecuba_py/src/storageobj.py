@@ -6,7 +6,7 @@ import numpy as np
 import sys
 from IStorage import IStorage, AlreadyPersistentError
 from hdict import StorageDict
-from hecuba import config, log
+from hecuba import config, log, Parser
 from hnumpy import StorageNumpy
 from collections import OrderedDict
 from parser import Parser

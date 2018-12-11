@@ -46,10 +46,19 @@ class Parser(object):
 
     @staticmethod
     def _set_case(param_set):
+        var = param_set[0]
+        param_set.pop(0)
         aux = {}
         aux["columns"] = []
-        for var, type in param_set:
-            aux["columns"].append({"primary_keys": [(var, type)], "type": 'set'})
+        aux_list = []
+        if len(param_set) > 1:
+            counter = count(0)
+            for type in param_set:
+                aux_list.append((var+'_'+str(counter.next()), type))
+        else:
+            for type in param_set:
+                aux_list.append((var, type))
+        aux["columns"].append({"primary_keys": aux_list, "type": 'set'})
         return aux
 
     @staticmethod
@@ -68,9 +77,10 @@ class Parser(object):
         m = _set_case.match(line)
         table_name, simple_type = m.groups()
         erase_symbols_keys = re.sub('[<>():,]', ' ', simple_type)
-        repl_types = self._replace_types(erase_symbols_keys)
-    #    self._check_input_types(repl_types.split())
-        output["primary_keys"] = {repl_types}
+        erase_symbols_keys = self._replace_types(erase_symbols_keys)
+        erase_symbols_keys = erase_symbols_keys.split()
+    #    self._check_input_types(erase_symbols_keys)
+        output["primary_keys"] = {", ".join(erase_symbols_keys)}
         output["type"] = 'set'
         new[table_name] = output
         return new
@@ -137,13 +147,23 @@ class Parser(object):
         '''Def: Checks if there's a set in the dict values.
                         Returns: if true, returns the set prepared for the parsing and the splitted set.
                                  otherwise, returns false.'''
+        # if dict_values.find('set') != -1:
+        #     splitted_values = dict_values.split(',')
+        #     matching = [s for s in splitted_values if 'set' in s]
+        #     matching_aux = [re.sub('[<>():,]', ' ', f) for f in matching]
+        #     param_set = [f.replace('set', '') for f in matching_aux]
+        #     param_set = [f.split() for f in param_set]
+        #     erase_symbols_keys = self._replace_list_types(param_set)
+        #     final_set = self._set_case(erase_symbols_keys)
         if dict_values.find('set') != -1:
-            splitted_values = dict_values.split(',')
-            matching = [s for s in splitted_values if 'set' in s]
-            matching_aux = [re.sub('[<>():,]', ' ', f) for f in matching]
-            param_set = [f.replace('set', '') for f in matching_aux]
-            param_set = [f.split() for f in param_set]
-            erase_symbols_keys = self._replace_list_types(param_set)
+            _set_case = getattr(IStorage, self.type_parser + "_set_case_values")
+            m = _set_case.search(dict_values)
+            var, parsed_set = m.groups()
+            matching = str(var)+':set'+'<'+parsed_set+'>'
+            erase_symbols_keys = re.sub('[<>():,]', ' ', matching)
+            erase_symbols_keys = erase_symbols_keys.replace('set', '')
+            erase_symbols_keys = self._replace_types(erase_symbols_keys)
+            erase_symbols_keys = erase_symbols_keys.split()
             final_set = self._set_case(erase_symbols_keys)
             return final_set, matching
         return False, False
@@ -158,8 +178,7 @@ class Parser(object):
         dict_keys, dict_values = self._check_vars(dict_keys, dict_values)
         dic, set = self._check_set_in_values(dict_values)
         if set is not False:
-            for s in set:
-                dict_values = dict_values.replace(s, '')
+                dict_values = dict_values.replace(set, '')
         output["columns"] = self._parsing_keys_and_columns_to_list(dict_values)
         output["primary_keys"] = self._parsing_keys_and_columns_to_list(dict_keys)
         output["type"] = 'StorageDict'
