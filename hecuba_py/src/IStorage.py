@@ -3,6 +3,7 @@ from collections import namedtuple
 from time import time
 from hecuba import config, log
 import re
+import regex
 
 
 class AlreadyPersistentError(RuntimeError):
@@ -29,6 +30,46 @@ class IStorage:
     _val_case = re.compile('.*@ClassField +(\w+) +%s' % _hecuba_valid_types)
     _so_val_case = re.compile('.*@ClassField +(\w+) +([\w.]+)')
 
+    AT = 'int | atomicint | str | bool | decimal | float | long | double | buffer'
+
+    ATD = 'int | atomicint | str | bool | decimal | float | long | double | buffer | set'
+
+    _reg_dict = re.compile('.*@ClassField +(\w+) +dict+ *< *< *([\w:, ]+)+ *> *, *([\w+:, <>]+) *>')
+    _reg_tuple = re.compile('.*@ClassField +(\w+) +tuple+ *< *([\w, +]+) *>')
+    _reg_set = re.compile('.*@ClassField +(\w+) +set+ *< *([\w, +]+) *>')
+    _index_vars = re.compile('.*@Index_on *([A-z0-9]+) +([A-z0-9, ]+)')
+    _simple_case = re.compile(r".*@ClassField (\w+) \b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b")
+
+    ########
+    ClassField_dict_case = re.compile('.*@ClassField +(\w+) +dict+ *< *< *([\w:, ]+)+ *> *, *([\w.+:, <>]+) *>')
+    ClassField_simple_case = regex.compile(
+        r".*@ClassField (\w+) \b(int|atomicint|str|bool|decimal|float|long|double|buffer|numpy.ndarray)\b")
+    ClassField_tuple_case = re.compile(
+        '.*@ClassField +(\w+) +tuple+ *< *([\b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b, +]+) *>')
+    ClassField_set_case = re.compile(
+        '.*@ClassField +(\w+) +set+ *< *([\b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b]+) *>')
+    ClassField_set_case_values = regex.compile(
+        r"([\w,]+)*:set<([\b(int|atomicint|str|bool|decimal|float|long|double|buffer|numpy.ndarray)\b, +]+)*>")
+
+    TypeSpec_dict_case = re.compile('.*@TypeSpec +(\w+) +dict+ *< *< *([\w:, ]+)+ *> *, *([\w.+:, <>]+) *>')
+    TypeSpec_simple_case = regex.compile(
+        r".*@TypeSpec (\w+) \b(int|atomicint|str|bool|decimal|float|long|double|buffer|numpy.ndarray)\b")
+    TypeSpec_tuple_case = re.compile(
+        '.*@TypeSpec +(\w+) +tuple+ *< *([\b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b, +]+) *>')
+    TypeSpec_set_case = re.compile(
+        '.*@TypeSpec +(\w+) +set+ *< *([\b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b]+) *>')
+    TypeSpec_set_case_values = regex.compile(
+        r"([\w,]+)*:set<([\b(int|atomicint|str|bool|decimal|float|long|double|buffer|numpy.ndarray)\b, +]+)*>")
+
+    _dict_case = re.compile('.*@TypeSpec + *< *< *([\w:, ]+)+ *> *, *([\w+:., <>]+) *>')
+    _tuple_case = re.compile('.*@TypeSpec +(\w+) +tuple+ *< *([\w, +]+) *>')
+    _other_case = re.compile(' *(\w+) *< *([\w, +]+) *>')
+
+    _index_case = re.compile('.*@Index_on +([\w]+) +([\w]+)+, (\w+)*')
+    ClassField_file_case = re.compile('.*@ClassField (\w*) ([.\w]*)')
+    TypeSpec_file_case = re.compile('.*@TypeSpec (\w*) ([.\w]*)')
+    ########
+
     _python_types = [int, str, bool, float, tuple, set, dict, long, bytearray]
     _storage_id = None
     _conversions = {'atomicint': 'counter',
@@ -48,7 +89,8 @@ class IStorage:
                     'bytearray': 'blob',
                     'counter': 'counter',
                     'double': 'double',
-                    'StorageDict': 'dict'}
+                    'StorageDict': 'dict',
+                    'ndarray': 'ndarray'}
 
     @staticmethod
     def process_path(module_path):
