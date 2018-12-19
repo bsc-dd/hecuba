@@ -3,32 +3,27 @@ import os
 import unittest
 
 from hecuba import config
-from hecuba import StorageDict, StorageSet
+from hecuba import StorageDict
 
 
 class DictSet(StorageDict):
     '''
-    @TypeSpec <<str, int>, set<int, int>>
+    @TypeSpec DictSet dict<<k1:str, k2:int>, s1:set<int, int>>
     '''
 
 class DictSet2(StorageDict):
     '''
-    @TypeSpec <<str, int>, set<str>>
+    @TypeSpec DictSet dict<<k1:str, k2:int>, s1:set<str>>
     '''
 
 class DictSet3(StorageDict):
     '''
-    @TypeSpec <<str, int>, set<int>>
+    @TypeSpec DictSet dict<<k1:str, k2:int>, s1:set<int>>
     '''
 
 class DictSet4(StorageDict):
     '''
-    @TypeSpec <<str>, set<int>>
-    '''
-
-class Set1(StorageSet):
-    '''
-    @TypeSpec <int>
+    @TypeSpec DictSet dict<<k1:str>, s1:set<int>>
     '''
 
 
@@ -355,6 +350,25 @@ class EmbeddedSetTest(unittest.TestCase):
         self.assertEqual({1, 2, 3, 4}, d["1", 0])
         self.assertEqual({1, 2, 3, 4}, d["1", 1])
 
+    def testIterValues(self):
+        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
+        d1 = DictSet3("pruebas0.dictset1")
+
+        d1["0", 0] = {1, 2, 3, 4}
+        d1["0", 1] = {5, 6, 7, 8}
+        d1["1", 0] = {8, 7, 6, 5}
+        d1["1", 1] = {4, 3, 2, 1}
+        time.sleep(1)
+        l = list()
+        for value in d1.values():
+            l.append(value)
+
+        self.assertEqual(4, len(l))
+        self.assertTrue({1, 2, 3, 4} in l)
+        self.assertTrue({5, 6, 7, 8} in l)
+        self.assertTrue({8, 7, 6, 5} in l)
+        self.assertTrue({4, 3, 2, 1} in l)
+
     def testIterItemsWithTuples(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
         d1 = DictSet("pruebas0.dictset1")
@@ -498,6 +512,23 @@ class EmbeddedSetTest(unittest.TestCase):
         d1["0", 0].clear()
         self.assertEqual(0, len(d1["0", 0]))
 
+    def testSplit(self):
+        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
+        d = DictSet3("pruebas0.dictset1")
+        for i in range(0, 10):
+            for j in range(0, 3):
+                d[str(i), j] = {0, 1, 2, 3, 4, 5}
+
+        d2 = dict()
+        for partition in d.split():
+            for ((key0, key1), val) in partition.items():
+                d2[key0, key1] = val
+
+        for i in range(0, 10):
+            for j in range(0, 3):
+                self.assertTrue(d2[str(i), j] == {0, 1, 2, 3, 4, 5})
+
+    '''
     def testCopyFromStorageSet(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset4")
         d = DictSet4("pruebas0.dictset4")
@@ -508,6 +539,8 @@ class EmbeddedSetTest(unittest.TestCase):
         d["key0"] = s
         self.assertTrue(1 in d["key0"])
         self.assertTrue(2 in d["key0"])
+    '''
+
 
 
 def pruebas():
