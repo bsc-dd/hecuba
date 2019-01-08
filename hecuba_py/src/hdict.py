@@ -21,7 +21,7 @@ class EmbeddedSet(set):
     def __init__(self, father, keys, values):
         super(EmbeddedSet, self).__init__()
         self._father = father
-        self._keys=keys
+        self._keys = keys
         if isinstance(values, set):
             for value in values:
                 self.add(value)
@@ -175,7 +175,7 @@ class EmbeddedSet(set):
         return self._father.__eq__(other._father) and self._keys == other._keys
 
     def __ne__(self, other):
-        return not(self.__eq__(other))
+        return not (self.__eq__(other))
 
     def __lt__(self, other):
         return self.__ne__(other) and self.issubset(other)
@@ -377,10 +377,10 @@ class StorageDict(dict, IStorage):
 
         if self._build_column is not None:
             self._build_args = self.args(None, self._primary_keys, self._build_column, self._tokens,
-                                        self._storage_id, self._indexed_args, class_name)
+                                         self._storage_id, self._indexed_args, class_name)
         else:
             self._build_args = self.args(None, self._primary_keys, self._columns, self._tokens,
-                                        self._storage_id, self._indexed_args, class_name)
+                                         self._storage_id, self._indexed_args, class_name)
 
         if name:
             self.make_persistent(name)
@@ -443,7 +443,8 @@ class StorageDict(dict, IStorage):
 
         if isinstance(key, Iterable) and len(key) == len(self._primary_keys):
             return list(key)
-        elif self._set_types is not None and isinstance(key, Iterable) and len(key) == (len(self._primary_keys) + len(self._set_types)):
+        elif self._set_types is not None and isinstance(key, Iterable) and len(key) == (
+                len(self._primary_keys) + len(self._set_types)):
             return list(key)
         else:
             raise Exception('wrong primary key')
@@ -615,6 +616,18 @@ class StorageDict(dict, IStorage):
         else:
             self._hcache.delete_row([key])
 
+    def __create_embeddedset(self, key, val=None):
+        if val is None:
+            val = set()
+
+        if not isinstance(key, Iterable) or isinstance(key, str) or isinstance(key, unicode):
+            s = EmbeddedSet(self, [key], val)
+        else:
+            s = EmbeddedSet(self, list(key), val)
+
+        dict.__setitem__(self, key, s)
+        return s
+
     def __getitem__(self, key):
         """
         If the object is persistent, each request goes to the hfetch.
@@ -626,7 +639,8 @@ class StorageDict(dict, IStorage):
         log.debug('GET ITEM %s', key)
 
         if not self._is_persistent or self._set_types is not None:
-            return dict.__getitem__(self, key)
+            return self.__create_embeddedset(key=key)
+            # return dict.__getitem__(self, key)
         else:
             # Returns always a list with a single entry for the key
             persistent_result = self._hcache.get_row(self._make_key(key))
@@ -660,12 +674,7 @@ class StorageDict(dict, IStorage):
         log.debug('SET ITEM %s->%s', key, val)
 
         if self._set_types is not None and isinstance(val, set):
-            if not isinstance(key, Iterable) or isinstance(key, str) or isinstance(key, unicode):
-                s = EmbeddedSet(self, [key], val)
-            else:
-                s = EmbeddedSet(self, list(key), val)
-            dict.__setitem__(self, key, s)
-
+            return self.__create_embeddedset(key=key, val=val)
         elif not config.hecuba_type_checking:
             if not self._is_persistent:
                 dict.__setitem__(self, key, val)
@@ -778,10 +787,10 @@ class StorageDict(dict, IStorage):
         if self._is_persistent:
             ik = self._hcache.iteritems(config.prefetch_size)
             iterator = NamedItemsIterator(self._key_builder,
-                                      self._column_builder,
-                                      self._k_size,
-                                      ik,
-                                      self)
+                                          self._column_builder,
+                                          self._k_size,
+                                          ik,
+                                          self)
             if self._set_types is not None:
                 d = defaultdict(set)
                 # iteritems has the set values in different rows, this puts all the set values in the same row
