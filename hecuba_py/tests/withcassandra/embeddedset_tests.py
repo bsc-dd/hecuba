@@ -47,6 +47,36 @@ class EmbeddedSetTest(unittest.TestCase):
         self.assertEqual(1, len(d["1", 1]))
         self.assertEqual(3, len(d["2", 2]))
 
+    def testDoNotCollide(self):
+        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset")
+        d = DictSet2("pruebas0.dictset")
+        d["1", 1] = {"1"}
+        d["2", 2] = {"1", "2", "3"}
+
+        self.assertTrue("1" in d["1", 1])
+        for i in range(1, 4):
+            self.assertTrue(str(i) in d["2", 2])
+
+        del d
+        d2 = DictSet2("pruebas0.dictset")
+        self.assertTrue("1" in d2["1", 1])
+        for i in range(1, 4):
+            self.assertTrue(str(i) in d2["2", 2])
+
+    def testDoNotCollideEmptySet(self):
+        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset")
+        d = DictSet2("pruebas0.dictset")
+        d["1", 1] = set()
+        d["2", 2] = set()
+
+        del d
+        d2 = DictSet2("pruebas0.dictset")
+        d2["1", 1] = {"1"}
+        d2["2", 2] = {"1", "2", "3"}
+        self.assertTrue("1" in d2["1", 1])
+        for i in range(1, 4):
+            self.assertTrue(str(i) in d2["2", 2])
+
     def testAddRemove2(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset")
         d = DictSet4("pruebas0.dictset")
