@@ -71,18 +71,18 @@ class EmbeddedSetTest(unittest.TestCase):
 
         del d
         d2 = DictSet2("pruebas0.dictset")
-<<<<<<< HEAD
+
         d2["1", 1].add("1")
         d2["2", 2].add("2")
         self.assertTrue("1" in d2["1", 1])
         self.assertTrue("2" in d2["2", 2])
-=======
+
         d2["1", 1] = {"1"}
         d2["2", 2] = {"1", "2", "3"}
         self.assertTrue("1" in d2["1", 1])
         for i in range(1, 4):
             self.assertTrue(str(i) in d2["2", 2])
->>>>>>> ca9acda41812c232648df6224ed1fbac8f5c2b57
+
 
     def testAddRemove2(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset")
