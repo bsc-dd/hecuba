@@ -244,7 +244,8 @@ class StorageObj(object, IStorage):
         self._persistent_props = StorageObj._parse_comments(self.__doc__)
         self._persistent_attrs = self._persistent_props.keys()
         self._class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
-
+        from_build_remotely=False
+        
         if self._is_persistent:
             if name:
                 self._ksp, self._table = self._extract_ks_tab(name)
@@ -253,6 +254,8 @@ class StorageObj(object, IStorage):
             if not storage_id:
                 # Rebuild storage id
                 storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, name)
+            else:
+                from_build_remotely=True
 
             # Retrieve from hecuba istorage the data
             metas = self._get_istorage_attrs(storage_id)
@@ -280,7 +283,7 @@ class StorageObj(object, IStorage):
                                      self._istorage_props,
                                      self._class_name)
 
-        if self._is_persistent:
+        if self._is_persistent and not from_build_remotely:
             # If never existed, must create the tables and register
             self._create_tables()
             self._store_meta(self._build_args)
@@ -293,7 +296,7 @@ class StorageObj(object, IStorage):
         """
         attrs = []
         for attribute, value_info in self._persistent_props.iteritems():
-            if value_info['type'] not in IStorage._basic_types:
+            if value_info['type'].lower() in ['storagedict', 'dict']:
                 # The attribute is an IStorage object
                 attrs.append((attribute, getattr(self, attribute)))
         for (attr_name, attr) in attrs:
