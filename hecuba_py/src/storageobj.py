@@ -491,10 +491,6 @@ class StorageObj(object, IStorage):
             object.__setattr__(self, attribute, value)
             return
 
-        if config.hecuba_type_checking and value is not None and not isinstance(value, dict) and \
-                        IStorage._conversions[value.__class__.__name__] != self._persistent_props[attribute]['type']:
-            raise TypeError
-
         # Transform numpy.ndarrays and python dicts to StorageNumpy and StorageDicts
         if not isinstance(value, IStorage):
             if isinstance(value, np.ndarray):

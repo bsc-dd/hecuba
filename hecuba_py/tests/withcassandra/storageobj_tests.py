@@ -435,59 +435,6 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(so.name, 'addio')
         self.assertEqual(so.age, 2000)
 
-    def test_paranoid_setattr_nonpersistent(self):
-        config.hecuba_type_checking = True
-        config.session.execute("DROP TABLE IF EXISTS my_app.t2")
-        so = Test2StorageObj()
-        so.name = 'my_name'
-        self.assertEquals(so.name, 'my_name')
-
-        def set_name_test():
-            so.name = 1
-
-        self.assertRaises(TypeError, set_name_test)
-        so.age = 1
-        self.assertEquals(so.age, 1)
-
-        def set_age_test():
-            so.age = 'my_name'
-
-        self.assertRaises(TypeError, set_age_test)
-        config.hecuba_type_checking = False
-
-    def test_paranoid_setattr_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.t2")
-        config.hecuba_type_checking = True
-        so = Test2StorageObj("t2")
-        so.name = 'my_name'
-        result = config.session.execute("SELECT name FROM my_app.t2")
-        for row in result:
-            cass_name = row.name
-        self.assertEquals(cass_name, 'my_name')
-
-        def setNameTest():
-            so.name = 1
-
-        self.assertRaises(TypeError, setNameTest)
-        so.age = 1
-        result = config.session.execute("SELECT age FROM my_app.t2")
-        for row in result:
-            cass_age = row.age
-        self.assertEquals(cass_age, 1)
-
-        def setAgeTest():
-            so.age = 'my_name'
-
-        self.assertRaises(TypeError, setAgeTest)
-        config.hecuba_type_checking = False
-
-    def test_paranoid_setattr_float(self):
-        config.hecuba_type_checking = True
-        config.session.execute("DROP TABLE IF EXISTS my_app.t2")
-        so = Test2StorageObjFloat("t2")
-        so.age = 2.0
-        config.hecuba_type_checking = False
-
     def test_nestedso_notpersistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
         config.session.execute("DROP TABLE IF EXISTS my_app.myso")
@@ -890,23 +837,6 @@ class StorageObjTest(unittest.TestCase):
         final_name_np = no.mynumpy._ksp+'.'+no.mynumpy._table
         self.assertEqual(initial_name_so,final_name_so)
         self.assertEqual(initial_name_np, final_name_np)
-
-    def test_storagedict_assign(self):
-        config.hecuba_type_checking = True
-        config.session.execute("DROP TABLE IF EXISTS my_app.t2")
-        config.session.execute("DROP TABLE IF EXISTS my_app.t2_test")
-        config.session.execute("DROP TABLE IF EXISTS my_app.t2_test_0")
-        config.session.execute("DROP TABLE IF EXISTS my_app.t2_test_1")
-        config.session.execute("DROP TABLE IF EXISTS my_app.t2_test_2")
-        so = TestStorageObj("t2")
-        self.assertEquals('t2_test', so.test._table)
-        so.test = {}
-        self.assertEquals('t2_test_0', so.test._table)
-        so.test = {1: 'a', 2: 'b'}
-        self.assertEquals('t2_test_1', so.test._table)
-        so.test = {3: 'c', 4: 'd'}
-        self.assertEquals('t2_test_2', so.test._table)
-        config.hecuba_type_checking = False
 
     def test_storageobj_coherence_basic(self):
         '''
