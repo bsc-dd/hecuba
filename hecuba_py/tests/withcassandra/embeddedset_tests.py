@@ -27,6 +27,12 @@ class DictSet4(StorageDict):
     '''
 
 
+class ComplexDict(StorageDict):
+    '''
+    @TypeSpec ComplexDict dict<<k1:int, k2:int>, v1:str, v2:set<int>>
+    '''
+
+
 class EmbeddedSetTest(unittest.TestCase):
 
     def testAddRemove(self):
@@ -565,19 +571,13 @@ class EmbeddedSetTest(unittest.TestCase):
             for j in range(0, 3):
                 self.assertTrue(d2[str(i), j] == {0, 1, 2, 3, 4, 5})
 
-    '''
-    def testCopyFromStorageSet(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset4")
-        d = DictSet4("pruebas0.dictset4")
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.set1")
-        s = Set1("pruebas0.set1")
-        s.add(1)
-        s.add(2)
-        d["key0"] = s
-        self.assertTrue(1 in d["key0"])
-        self.assertTrue(2 in d["key0"])
-    '''
-
+    def testComplexDict(self):
+        config.session.execute("DROP TABLE IF EXISTS pruebas0.complexdict")
+        cd = ComplexDict("pruebas0.complexdict")
+        cd[0, 1].v1 = "hola"
+        #cd[0, 1].v2.add(2)
+        self.assertTrue(cd[0, 1].v1 == "hola")
+        #self.assertTrue(2 in cd[0, 1].v2)
 
 
 def pruebas():
