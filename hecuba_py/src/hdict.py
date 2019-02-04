@@ -347,27 +347,25 @@ class StorageDict(dict, IStorage):
                 self._columns = columns
             self._indexed_args = indexed_args
 
-        self._build_column = []
-        column_names = []
         for attr in self._columns:
             if isinstance(attr, dict) and "type" in attr and attr["type"] == "set":
                 self._set_types = attr["primary_keys"]
+                self._build_column = []
                 for set_type in self._set_types:
                     self._build_column.append(("_set_" + set_type[0], set_type[1]))
-                    column_names.append(set_type[0])
-            else:
-                column_names.append(attr[0])
-                self._build_column.append(attr)
 
         key_names = [pkname for (pkname, dt) in self._primary_keys]
-        # column_names = [colname for (colname, dt) in self._columns]
+        column_names = [colname for (colname, dt) in self._columns]
         self._item_builder = namedtuple('row', key_names + column_names)
 
         if len(key_names) > 1:
             self._key_builder = namedtuple('row', key_names)
         else:
             self._key_builder = None
-        if len(column_names) > 1:
+        if self._set_types is not None:
+            set_names = [colname for (colname, dt) in self._set_types]
+            self._column_builder = namedtuple('row', set_names)
+        elif len(column_names) > 1:
             self._column_builder = namedtuple('row', column_names)
         else:
             self._column_builder = None
@@ -376,7 +374,11 @@ class StorageDict(dict, IStorage):
 
         class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
 
-        self._build_args = self.args(None, self._primary_keys, self._build_column, self._tokens,
+        if self._build_column is not None:
+            self._build_args = self.args(None, self._primary_keys, self._build_column, self._tokens,
+                                         self._storage_id, self._indexed_args, class_name)
+        else:
+            self._build_args = self.args(None, self._primary_keys, self._columns, self._tokens,
                                          self._storage_id, self._indexed_args, class_name)
 
         if name:
@@ -520,16 +522,10 @@ class StorageDict(dict, IStorage):
                 log.warn("Error creating the StorageDict keyspace %s, %s", (query_keyspace), ex)
                 raise ex
 
-        values_names = []
-        all_columns = self._primary_keys
-        for col in self._columns:
-            if isinstance(col, dict):
-                if col["type"] == "set":
-                    all_columns += col["primary_keys"]
-            else:
-                all_columns.append(col)
-                values_names.append(col)
-
+        if self._set_types is not None:
+            all_columns = self._primary_keys + self._set_types
+        else:
+            all_columns = self._primary_keys + self._columns
         for ind, entry in enumerate(all_columns):
             n = StorageDict._other_case.match(entry[1])
             if n is not None:
@@ -539,7 +535,10 @@ class StorageDict(dict, IStorage):
             if iter_type not in IStorage._basic_types:
                 all_columns[ind] = entry[0], 'uuid'
 
-        pks = map(lambda a: a[0], self._primary_keys)
+        if self._set_types is not None:
+            pks = map(lambda a: a[0], self._primary_keys + self._set_types)
+        else:
+            pks = map(lambda a: a[0], self._primary_keys)
         query_table = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" \
                       % (self._ksp,
                          self._table,
@@ -552,7 +551,12 @@ class StorageDict(dict, IStorage):
             log.warn("Error creating the StorageDict table: %s %s", query_table, ex)
             raise ex
 
-        key_names = map(lambda a: a[0].encode('UTF8'), self._primary_keys)
+        if self._set_types is not None:
+            values_names = []
+            key_names = map(lambda a: a[0].encode('UTF8'), self._primary_keys + self._set_types)
+        else:
+            values_names = self._columns
+            key_names = map(lambda a: a[0].encode('UTF8'), self._primary_keys)
 
         self._hcache_params = (self._ksp, self._table,
                                self._storage_id,
@@ -635,7 +639,7 @@ class StorageDict(dict, IStorage):
 
         if self._set_types is not None:
             return self.__create_embeddedset(key=key)
-        elif not self._is_persistent:
+        if not self._is_persistent:
             return dict.__getitem__(self, key)
         else:
             # Returns always a list with a single entry for the key

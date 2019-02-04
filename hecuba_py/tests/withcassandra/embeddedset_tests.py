@@ -27,12 +27,6 @@ class DictSet4(StorageDict):
     '''
 
 
-class ComplexDict(StorageDict):
-    '''
-    @TypeSpec ComplexDict dict<<k1:int, k2:int>, v1:str, v2:set<int>>
-    '''
-
-
 class EmbeddedSetTest(unittest.TestCase):
 
     def testAddRemove(self):
@@ -441,6 +435,7 @@ class EmbeddedSetTest(unittest.TestCase):
         for i in range(5, 20):
             d2["1", 1].add(str(i))
 
+        time.sleep(2)
         d1["0", 0].update(d2["1", 1])
         time.sleep(3)
         for i in range(0, 20):
@@ -481,6 +476,7 @@ class EmbeddedSetTest(unittest.TestCase):
         for i in range(10, 20):
             d2["1", 1].add(str(i))
 
+        time.sleep(2)
         b = d2["1", 1].issuperset(d1["0", 0])
         self.assertTrue(b)
 
@@ -570,15 +566,6 @@ class EmbeddedSetTest(unittest.TestCase):
         for i in range(0, 10):
             for j in range(0, 3):
                 self.assertTrue(d2[str(i), j] == {0, 1, 2, 3, 4, 5})
-
-    def testComplexDict(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.complexdict")
-        cd = ComplexDict("pruebas0.complexdict")
-        cd[0, 1].v1 = "hola"
-        #cd[0, 1].v2.add(2)
-        self.assertTrue(cd[0, 1].v1 == "hola")
-        #self.assertTrue(2 in cd[0, 1].v2)
-
 
 def pruebas():
     config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset2")
