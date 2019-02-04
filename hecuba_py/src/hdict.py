@@ -538,8 +538,7 @@ class StorageDict(dict, IStorage):
 
     def __make_val_persistent(self, val):
         if isinstance(val, IStorage) and not val._is_persistent:
-            if isinstance(val, StorageNumpy):
-                val._storage_id = uuid.uuid4()
+            val._storage_id = uuid.uuid4()
             attribute = self._columns[0][0]
             count = self._count_name_collision(attribute)
             # new name as ksp+table+obj_class_name
@@ -555,7 +554,10 @@ class StorageDict(dict, IStorage):
         """
         if isinstance(val, np.ndarray):
             val = StorageNumpy(val)
-        elif isinstance(val, Iterable) and not isinstance(val, (str, dict)):
+        elif isinstance(val, dict):
+            # need to create the StorageDict
+            val = self._build_istorage_obj(type="dict")
+        elif isinstance(val, Iterable) and not isinstance(val, str):
             vals_istorage = []
             for element in val:
                 if isinstance(element, np.ndarray):
@@ -571,12 +573,16 @@ class StorageDict(dict, IStorage):
         if not self._is_persistent:
             dict.__setitem__(self, key, val)
         else:
-            if isinstance(val, Iterable) and not isinstance(val, (str, StorageDict, StorageNumpy)):
+            if isinstance(val, StorageNumpy):
                 vals_persistent = []
                 for element in val:
                     vals_persistent.append(self.__make_val_persistent(element))
-
                 self._hcache.put_row(self._make_key(key), self._make_value(vals_persistent))
+            elif isinstance(val, StorageDict):
+                for element in val.values():
+                    self.__make_val_persistent(element)
+
+                self._hcache.put_row(self._make_key(key), self._make_value(val))
             else:
                 val = self.__make_val_persistent(val)
                 self._hcache.put_row(self._make_key(key), self._make_value(val))
