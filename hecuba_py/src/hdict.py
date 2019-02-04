@@ -537,6 +537,12 @@ class StorageDict(dict, IStorage):
                 return final_results[0]
 
     def __make_val_persistent(self, val):
+        if isinstance(val, StorageDict):
+            for k, element in val.iteritems():
+                val[k] = self.__make_val_persistent(element)
+        elif isinstance(val, list):
+            for index, element in enumerate(val):
+                val[index] = self.__make_val_persistent(element)
         if isinstance(val, IStorage) and not val._is_persistent:
             val._storage_id = uuid.uuid4()
             attribute = self._columns[0][0]
@@ -555,9 +561,12 @@ class StorageDict(dict, IStorage):
         if isinstance(val, np.ndarray):
             val = StorageNumpy(val)
         elif isinstance(val, dict):
-            # need to create the StorageDict
-            val = self._build_istorage_obj(type="dict")
-        elif isinstance(val, Iterable) and not isinstance(val, str):
+            for k, element in val.iteritems():
+                if isinstance(element, np.ndarray):
+                    val[k] = StorageNumpy(element)
+                elif isinstance(element, dict):
+                    val[k] = self._build_istorage_obj(element)
+        elif isinstance(val, list):
             vals_istorage = []
             for element in val:
                 if isinstance(element, np.ndarray):
@@ -573,19 +582,8 @@ class StorageDict(dict, IStorage):
         if not self._is_persistent:
             dict.__setitem__(self, key, val)
         else:
-            if isinstance(val, StorageNumpy):
-                vals_persistent = []
-                for element in val:
-                    vals_persistent.append(self.__make_val_persistent(element))
-                self._hcache.put_row(self._make_key(key), self._make_value(vals_persistent))
-            elif isinstance(val, StorageDict):
-                for element in val.values():
-                    self.__make_val_persistent(element)
-
-                self._hcache.put_row(self._make_key(key), self._make_value(val))
-            else:
-                val = self.__make_val_persistent(val)
-                self._hcache.put_row(self._make_key(key), self._make_value(val))
+            val = self.__make_val_persistent(val)
+            self._hcache.put_row(self._make_key(key), self._make_value(val))
 
     def __repr__(self):
         """

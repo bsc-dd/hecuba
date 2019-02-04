@@ -365,6 +365,8 @@ class StorageObj(object, IStorage):
         self._create_tables()
 
         self._is_persistent = True
+        if self._build_args.storage_id is None:
+            self._build_args = self._build_args._replace(storage_id=self._storage_id)
         self._store_meta(self._build_args)
 
         # Iterate over the objects the user has requested to be persistent
