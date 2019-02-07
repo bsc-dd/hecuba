@@ -536,16 +536,16 @@ class StorageDict(dict, IStorage):
             else:
                 return final_results[0]
 
-    def __make_val_persistent(self, val):
+    def __make_val_persistent(self, val, col=0):
         if isinstance(val, StorageDict):
             for k, element in val.iteritems():
                 val[k] = self.__make_val_persistent(element)
         elif isinstance(val, list):
             for index, element in enumerate(val):
-                val[index] = self.__make_val_persistent(element)
+                val[index] = self.__make_val_persistent(element, index)
         if isinstance(val, IStorage) and not val._is_persistent:
             val._storage_id = uuid.uuid4()
-            attribute = self._columns[0][0]
+            attribute = self._columns[col][0]
             count = self._count_name_collision(attribute)
             # new name as ksp+table+obj_class_name
             val.make_persistent(self._ksp + '.' + self._table + "_" + attribute + "_" + str(count))
