@@ -289,13 +289,13 @@ class StorageObjTest(unittest.TestCase):
         nopars2 = Test6StorageObj("hecuba_test.nonames")
         nopars2.test3[0] = '1', '2'
         time.sleep(2)
-        result = config.session.execute("SELECT val0, val1 FROM hecuba_test.nonames_test3 WHERE key0 = 0")
+        result = config.session.execute("SELECT value0, value1 FROM hecuba_test.nonames_test3 WHERE key0 = 0")
 
         rval0 = None
         rval1 = None
         for row in result:
-            rval0 = row.val0
-            rval1 = row.val1
+            rval0 = row.value0
+            rval1 = row.value1
 
         self.assertEqual('1', rval0)
         self.assertEqual('2', rval1)
