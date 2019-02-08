@@ -375,11 +375,10 @@ class StorageDict(dict, IStorage):
 
         class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
 
-        if self._build_column is not None:
-            self._build_args = self.args(None, self._primary_keys, self._build_column, self._tokens,
-                                         self._storage_id, self._indexed_args, class_name)
-        else:
-            self._build_args = self.args(None, self._primary_keys, self._columns, self._tokens,
+        if self._build_column is None:
+            self._build_column = self._columns[:]
+
+        self._build_args = self.args(None, self._primary_keys, self._build_column, self._tokens,
                                          self._storage_id, self._indexed_args, class_name)
 
         if name:
