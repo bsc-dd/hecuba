@@ -209,6 +209,9 @@ class StorageObj(object, IStorage):
         self._create_tables()
 
         self._is_persistent = True
+        if self._build_args.storage_id is None:
+            self._build_args = self._build_args._replace(name=self._ksp + '.' + self._table,
+                                                         storage_id=self._storage_id)
         self._store_meta(self._build_args)
 
         # Iterate over the objects the user has requested to be persistent
@@ -334,10 +337,6 @@ class StorageObj(object, IStorage):
         if attribute[0] is '_' or attribute not in self._persistent_attrs:
             object.__setattr__(self, attribute, value)
             return
-
-        if config.hecuba_type_checking and value is not None and not isinstance(value, dict) and \
-                        IStorage._conversions[value.__class__.__name__] != self._persistent_props[attribute]['type']:
-            raise TypeError
 
         # Transform numpy.ndarrays and python dicts to StorageNumpy and StorageDicts
         if not isinstance(value, IStorage):

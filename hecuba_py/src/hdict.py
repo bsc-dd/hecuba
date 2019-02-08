@@ -461,6 +461,14 @@ class StorageDict(dict, IStorage):
             return [value]
         elif isinstance(value, unicode):
             return [value.encode('ascii', 'ignore')]
+        elif isinstance(value, Iterable):
+            val = []
+            for v in value:
+                if isinstance(v, IStorage):
+                    val.append(uuid.UUID(v.getID()))
+                else:
+                    val.append(v)
+            return val
         else:
             return list(value)
 
@@ -662,6 +670,21 @@ class StorageDict(dict, IStorage):
             else:
                 return final_results[0]
 
+    def __make_val_persistent(self, val, col=0):
+        if isinstance(val, StorageDict):
+            for k, element in val.iteritems():
+                val[k] = self.__make_val_persistent(element)
+        elif isinstance(val, list):
+            for index, element in enumerate(val):
+                val[index] = self.__make_val_persistent(element, index)
+        if isinstance(val, IStorage) and not val._is_persistent:
+            val._storage_id = uuid.uuid4()
+            attribute = self._columns[col][0]
+            count = self._count_name_collision(attribute)
+            # new name as ksp+table+obj_class_name
+            val.make_persistent(self._ksp + '.' + self._table + "_" + attribute + "_" + str(count))
+        return val
+
     def __setitem__(self, key, val):
         """
            Method to insert values in the StorageDict
@@ -671,55 +694,25 @@ class StorageDict(dict, IStorage):
         """
         if isinstance(val, np.ndarray):
             val = StorageNumpy(val)
+        elif isinstance(val, list):
+            vals_istorage = []
+            for element in val:
+                if isinstance(element, np.ndarray):
+                    val_istorage = StorageNumpy(element)
+                else:
+                    val_istorage = element
+                vals_istorage.append(val_istorage)
+
+            val = vals_istorage
         log.debug('SET ITEM %s->%s', key, val)
 
         if self._set_types is not None and isinstance(val, set):
             return self.__create_embeddedset(key=key, val=val)
-        elif not config.hecuba_type_checking:
-            if not self._is_persistent:
-                dict.__setitem__(self, key, val)
-            else:
-                if isinstance(val, IStorage) and not val._is_persistent:
-                    if isinstance(val, StorageNumpy):
-                        val._storage_id = uuid.uuid4()
-                    attribute = self._columns[0][0]
-                    count = self._count_name_collision(attribute)
-                    # new name as ksp+table+obj_class_name
-                    val.make_persistent(self._ksp + '.' + self._table + "_" + attribute + "_" + str(count))
-                self._hcache.put_row(self._make_key(key), self._make_value(val))
+        if not self._is_persistent:
+            dict.__setitem__(self, key, val)
         else:
-            if isinstance(val, Iterable) and not isinstance(val, str):
-                col_types = map(lambda x: IStorage._conversions[x.__class__.__name__], val)
-                spec_col_types = map(lambda x: x[1], self._columns)
-                for idx, value in enumerate(spec_col_types):
-                    if value == 'double':
-                        spec_col_types[idx] = 'float'
-            else:
-                col_types = IStorage._conversions[val.__class__.__name__]
-                spec_col_types = map(lambda x: x[1], self._columns)[0]
-                if spec_col_types == 'double':
-                    spec_col_types = 'float'
-            if isinstance(key, Iterable) and not isinstance(key, str):
-                key_types = map(lambda x: IStorage._conversions[x.__class__.__name__], key)
-                spec_key_types = map(lambda x: x[1], self._primary_keys)
-                for idx, value in enumerate(spec_key_types):
-                    if value == 'double':
-                        spec_key_types[idx] = 'float'
-            else:
-                key_types = IStorage._conversions[key.__class__.__name__]
-                spec_key_types = map(lambda x: x[1], self._primary_keys)[0]
-                if spec_key_types == 'double':
-                    spec_key_types = 'float'
-            if (col_types == spec_col_types):
-                if (key_types == spec_key_types):
-                    if not self._is_persistent:
-                        dict.__setitem__(self, key, val)
-                    else:
-                        self._hcache.put_row(self._make_key(key), self._make_value(val))
-                else:
-                    raise KeyError
-            else:
-                raise ValueError
+            val = self.__make_val_persistent(val)
+            self._hcache.put_row(self._make_key(key), self._make_value(val))
 
     def __repr__(self):
         """

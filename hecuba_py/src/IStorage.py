@@ -86,7 +86,8 @@ class IStorage:
                     'counter': 'counter',
                     'double': 'double',
                     'StorageDict': 'dict',
-                    'ndarray': 'ndarray'}
+                    'ndarray': 'hecuba.hnumpy.StorageNumpy',
+                    'numpy.ndarray': 'hecuba.hnumpy.StorageNumpy'}
 
     @staticmethod
     def process_path(module_path):
