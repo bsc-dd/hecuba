@@ -567,16 +567,6 @@ class EmbeddedSetTest(unittest.TestCase):
             for j in range(0, 3):
                 self.assertTrue(d2[str(i), j] == {0, 1, 2, 3, 4, 5})
 
-def pruebas():
-    config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset2")
-    d = DictSet2("pruebas0.dictset2")
-    d["key0", 0] = {"1"}
-
-    d["key1"] = d["key0"].union()
-
 
 if __name__ == '__main__':
-    #os.environ["WRITE_BUFFER_SIZE"] = "1"
-    #unittest.main()
-    config.session.execute("DROP KEYSPACE pruebas0")
-    pruebas()
+    unittest.main()
