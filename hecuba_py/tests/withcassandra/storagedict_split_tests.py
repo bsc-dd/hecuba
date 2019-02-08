@@ -15,20 +15,20 @@ class SObj_Basic(StorageObj):
 
 class SDict_SimpleTypeSpec(StorageDict):
     '''
-    @TypeSpec <<id:int>,info:str>
+    @TypeSpec simpledict dict<<id:int>, info:str>
     '''
 
 
 class SDict_ComplexTypeSpec(StorageDict):
     '''
-    @TypeSpec <<id:int>,state:tests.withcassandra.storagedict_split_tests.SObj_Basic>
+    @TypeSpec complexdict dict<<id:int>, state:tests.withcassandra.storagedict_split_tests.SObj_Basic>
     '''
 
 
 class SObj_SimpleClassField(StorageObj):
     '''
     @ClassField attr1 int
-    @ClassField mydict dict <<key:str>,value:double>
+    @ClassField mydict dict<<key:str>, value:double>
     @ClassField attr3 double
     '''
 
@@ -36,7 +36,7 @@ class SObj_SimpleClassField(StorageObj):
 class SObj_ComplexClassField(StorageObj):
     '''
     @ClassField attr1 int
-    @ClassField mydict dict <<key:str>,state:tests.withcassandra.storagedict_split_tests.SObj_Basic>
+    @ClassField mydict dict<<key:str>, val:tests.withcassandra.storagedict_split_tests.SObj_Basic>
     @ClassField attr3 double
     '''
 
