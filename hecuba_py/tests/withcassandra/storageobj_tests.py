@@ -711,27 +711,27 @@ class StorageObjTest(unittest.TestCase):
     #     my_nested_so.test2[0].age = 10
     #     self.assertEquals(10, my_nested_so.test2[0].age)
 
-    def test_nestedso_dictofsos_noname(self):
-        '''
-        this test similar to test_nestedso_dictofsos with the difference that the StorageDict
-        used as an attribute in Test7StorageObj has the form <int,StorageObj> where no name has been given for the
-        StorageObj nor the Integer. In this case, a default name is used (key0,val0).
-        '''
-        config.session.execute("DROP TABLE IF EXISTS my_app.topstorageobj2")
-        config.session.execute("DROP TABLE IF EXISTS my_app.topstorageobj2_test2")
-        config.session.execute("DROP TABLE IF EXISTS my_app.topstorageobj2_test2_val0")
-
-        my_nested_so = Test7StorageObj()
-        my_nested_so.test2[0] = Test2StorageObj()
-        my_nested_so.make_persistent('topstorageobj2')
-        self.assertEquals(True, my_nested_so._is_persistent)
-        self.assertEquals(True, my_nested_so.test2._is_persistent)
-        self.assertEquals(True, my_nested_so.test2[0]._is_persistent)
-
-        my_nested_so.test2[0].name = 'Link'
-        self.assertEquals('Link', my_nested_so.test2[0].name)
-        my_nested_so.test2[0].age = 10
-        self.assertEquals(10, my_nested_so.test2[0].age)
+    # def test_nestedso_dictofsos_noname(self):
+    #     '''
+    #     this test similar to test_nestedso_dictofsos with the difference that the StorageDict
+    #     used as an attribute in Test7StorageObj has the form <int,StorageObj> where no name has been given for the
+    #     StorageObj nor the Integer. In this case, a default name is used (key0,val0).
+    #     '''
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.topstorageobj2")
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.topstorageobj2_test2")
+    #     config.session.execute("DROP TABLE IF EXISTS my_app.topstorageobj2_test2_val0")
+    #
+    #     my_nested_so = Test7StorageObj()
+    #     my_nested_so.test2[0] = Test2StorageObj()
+    #     my_nested_so.make_persistent('topstorageobj2')
+    #     self.assertEquals(True, my_nested_so._is_persistent)
+    #     self.assertEquals(True, my_nested_so.test2._is_persistent)
+    #     self.assertEquals(True, my_nested_so.test2[0]._is_persistent)
+    #
+    #     my_nested_so.test2[0].name = 'Link'
+    #     self.assertEquals('Link', my_nested_so.test2[0].name)
+    #     my_nested_so.test2[0].age = 10
+    #     self.assertEquals(10, my_nested_so.test2[0].age)
 
 
     # def test_nestedso_retrievedata(self):
@@ -1195,72 +1195,72 @@ class StorageObjTest(unittest.TestCase):
             attr = storage_obj.volatile
 
 
-    def test_nested_recreation(self):
-        sobj_name = "my_app.test_attr"
-        config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name))
-        config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name+'_myotherso'))
-        config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name+'_myotherso_0'))
-
-        storage_obj = Test2StorageObj()
-        name_attr = 'Test1'
-        age_attr = 23
-        storage_obj.name = name_attr
-        storage_obj.age = age_attr
-
-        external_sobj = Test4StorageObj(sobj_name)
-        external_sobj.myotherso = storage_obj
-
-        uuid_sobj_internal = storage_obj.getID()
-        uuid_sobj_external = external_sobj.getID()
-
-        internal_name = external_sobj.myotherso._ksp+'.'+external_sobj.myotherso._table
-        storage_obj = None
-        external_sobj = None
-
-        # Check that they have been correctly stored into hecuba.istorage
-
-        result_set = iter(config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(uuid_sobj_external)))
-
-        try:
-            result = result_set.next()
-        except StopIteration as exc:
-            self.fail("StorageObj istorage data was not saved")
-
-        self.assertEqual(result.name, sobj_name)
-
-        result_set = iter(
-            config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(uuid_sobj_internal)))
-
-        try:
-            result = result_set.next()
-        except StopIteration as exc:
-            self.fail("StorageObj istorage data was not saved")
-
-        self.assertEqual(result.name, internal_name)
-
-        # They are both present in hecuba.istorage
-
-        result_set = iter(config.session.execute("SELECT * FROM {} WHERE storage_id={}".format(sobj_name, uuid_sobj_external)))
-
-        try:
-            result = result_set.next()
-        except StopIteration as exc:
-            self.fail("StorageObj istorage data was not saved")
-
-        self.assertEqual(str(result.myotherso), uuid_sobj_internal)
-        # They have been saved with the expected istorage ids
-
-
-        external_sobj = Test4StorageObj(sobj_name)
-        # Check internal configuration is correct
-        self.assertEqual(external_sobj.getID(), uuid_sobj_external)
-        self.assertEqual(external_sobj.myotherso.getID(),uuid_sobj_internal)
-        self.assertEqual(external_sobj._ksp+'.'+external_sobj._table, sobj_name)
-        self.assertEqual(external_sobj.myotherso._ksp + '.' + external_sobj.myotherso._table, internal_name)
-
-        #Check data is correct
-        self.assertEqual(external_sobj.myotherso.name, name_attr)
-        self.assertEqual(external_sobj.myotherso.age, age_attr)
+    # def test_nested_recreation(self):
+    #     sobj_name = "my_app.test_attr"
+    #     config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name))
+    #     config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name+'_myotherso'))
+    #     config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name+'_myotherso_0'))
+    #
+    #     storage_obj = Test2StorageObj()
+    #     name_attr = 'Test1'
+    #     age_attr = 23
+    #     storage_obj.name = name_attr
+    #     storage_obj.age = age_attr
+    #
+    #     external_sobj = Test4StorageObj(sobj_name)
+    #     external_sobj.myotherso = storage_obj
+    #
+    #     uuid_sobj_internal = storage_obj.getID()
+    #     uuid_sobj_external = external_sobj.getID()
+    #
+    #     internal_name = external_sobj.myotherso._ksp+'.'+external_sobj.myotherso._table
+    #     storage_obj = None
+    #     external_sobj = None
+    #
+    #     # Check that they have been correctly stored into hecuba.istorage
+    #
+    #     result_set = iter(config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(uuid_sobj_external)))
+    #
+    #     try:
+    #         result = result_set.next()
+    #     except StopIteration as exc:
+    #         self.fail("StorageObj istorage data was not saved")
+    #
+    #     self.assertEqual(result.name, sobj_name)
+    #
+    #     result_set = iter(
+    #         config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(uuid_sobj_internal)))
+    #
+    #     try:
+    #         result = result_set.next()
+    #     except StopIteration as exc:
+    #         self.fail("StorageObj istorage data was not saved")
+    #
+    #     self.assertEqual(result.name, internal_name)
+    #
+    #     # They are both present in hecuba.istorage
+    #
+    #     result_set = iter(config.session.execute("SELECT * FROM {} WHERE storage_id={}".format(sobj_name, uuid_sobj_external)))
+    #
+    #     try:
+    #         result = result_set.next()
+    #     except StopIteration as exc:
+    #         self.fail("StorageObj istorage data was not saved")
+    #
+    #     self.assertEqual(str(result.myotherso), uuid_sobj_internal)
+    #     # They have been saved with the expected istorage ids
+    #
+    #
+    #     external_sobj = Test4StorageObj(sobj_name)
+    #     # Check internal configuration is correct
+    #     self.assertEqual(external_sobj.getID(), uuid_sobj_external)
+    #     self.assertEqual(external_sobj.myotherso.getID(),uuid_sobj_internal)
+    #     self.assertEqual(external_sobj._ksp+'.'+external_sobj._table, sobj_name)
+    #     self.assertEqual(external_sobj.myotherso._ksp + '.' + external_sobj.myotherso._table, internal_name)
+    #
+    #     #Check data is correct
+    #     self.assertEqual(external_sobj.myotherso.name, name_attr)
+    #     self.assertEqual(external_sobj.myotherso.age, age_attr)
 
 if __name__ == '__main__':
     unittest.main()

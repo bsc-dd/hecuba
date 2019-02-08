@@ -1,6 +1,6 @@
 import unittest
 
-from mock import Mock
+#from mock import Mock
 
 from hecuba.IStorage import IStorage
 from app.words import Words
