@@ -12,21 +12,21 @@ import numpy as np
 
 class Result(StorageObj):
     '''
-    @ClassField instances dict<<word:str>, numinstances:int>
+    @ClassField instances dict<<word:str>,numinstances:int>
     '''
     pass
 
 
 class TestStorageObj(StorageObj):
     '''
-       @ClassField test dict<<position:int>, text:str>
+       @ClassField test dict<<position:int>,text:str>
     '''
     pass
 
 
 class TestStorageIndexedArgsObj(StorageObj):
     '''
-       @ClassField test dict<<position:int>, x:float, y:float, z:float>
+       @ClassField test dict<<position:int>,x:float,y:float,z:float>
        @Index_on test x,y,z
     '''
     pass
@@ -74,21 +74,21 @@ class Test4bStorageObj(StorageObj):
 
 class Test5StorageObj(StorageObj):
     '''
-       @ClassField test2 dict<<position:int>, myso:tests.withcassandra.storageobj_tests.Test2StorageObj>
+       @ClassField test2 dict<<position:int>,myso:tests.withcassandra.storageobj_tests.Test2StorageObj>
     '''
     pass
 
 
 class Test6StorageObj(StorageObj):
     '''
-       @ClassField test3 dict<<key0:int>, value0:str, value1:str>
+       @ClassField test3 dict<<int>,str,str>
     '''
     pass
 
 
 class Test7StorageObj(StorageObj):
     '''
-       @ClassField test2 dict<<key0:int>, val0:tests.withcassandra.storageobj_tests.Test2StorageObj>
+       @ClassField test2 dict<<int>,tests.withcassandra.storageobj_tests.Test2StorageObj>
     '''
     pass
 
@@ -102,7 +102,7 @@ class TestStorageObjNumpy(StorageObj):
 
 class TestStorageObjNumpyDict(StorageObj):
     '''
-       @ClassField mynumpydict dict<<key:int>, val:numpy.ndarray>
+       @ClassField mynumpydict dict<<int>,numpy.ndarray>
     '''
     pass
 
@@ -289,13 +289,13 @@ class StorageObjTest(unittest.TestCase):
         nopars2 = Test6StorageObj("hecuba_test.nonames")
         nopars2.test3[0] = '1', '2'
         time.sleep(2)
-        result = config.session.execute("SELECT value0, value1 FROM hecuba_test.nonames_test3 WHERE key0 = 0")
+        result = config.session.execute("SELECT val0, val1 FROM hecuba_test.nonames_test3 WHERE key0 = 0")
 
         rval0 = None
         rval1 = None
         for row in result:
-            rval0 = row.value0
-            rval1 = row.value1
+            rval0 = row.val0
+            rval1 = row.val1
 
         self.assertEqual('1', rval0)
         self.assertEqual('2', rval1)
@@ -434,6 +434,53 @@ class StorageObjTest(unittest.TestCase):
         so.age = 2000
         self.assertEqual(so.name, 'addio')
         self.assertEqual(so.age, 2000)
+
+    def test_paranoid_setattr_nonpersistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2")
+        so = Test2StorageObj()
+        so.name = 'my_name'
+        self.assertEquals(so.name, 'my_name')
+
+        def set_name_test():
+            so.name = 1
+
+        self.assertRaises(TypeError, set_name_test)
+        so.age = 1
+        self.assertEquals(so.age, 1)
+
+        def set_age_test():
+            so.age = 'my_name'
+
+        self.assertRaises(TypeError, set_age_test)
+
+    def test_paranoid_setattr_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2")
+        so = Test2StorageObj("t2")
+        so.name = 'my_name'
+        result = config.session.execute("SELECT name FROM my_app.t2")
+        for row in result:
+            cass_name = row.name
+        self.assertEquals(cass_name, 'my_name')
+
+        def setNameTest():
+            so.name = 1
+
+        self.assertRaises(TypeError, setNameTest)
+        so.age = 1
+        result = config.session.execute("SELECT age FROM my_app.t2")
+        for row in result:
+            cass_age = row.age
+        self.assertEquals(cass_age, 1)
+
+        def setAgeTest():
+            so.age = 'my_name'
+
+        self.assertRaises(TypeError, setAgeTest)
+
+    def test_paranoid_setattr_float(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2")
+        so = Test2StorageObjFloat("t2")
+        so.age = 2.0
 
     def test_nestedso_notpersistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
@@ -837,6 +884,21 @@ class StorageObjTest(unittest.TestCase):
         final_name_np = no.mynumpy._ksp+'.'+no.mynumpy._table
         self.assertEqual(initial_name_so,final_name_so)
         self.assertEqual(initial_name_np, final_name_np)
+
+    def test_storagedict_assign(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2_test")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2_test_0")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2_test_1")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2_test_2")
+        so = TestStorageObj("t2")
+        self.assertEquals('t2_test', so.test._table)
+        so.test = {}
+        self.assertEquals('t2_test_0', so.test._table)
+        so.test = {1: 'a', 2: 'b'}
+        self.assertEquals('t2_test_1', so.test._table)
+        so.test = {3: 'c', 4: 'd'}
+        self.assertEquals('t2_test_2', so.test._table)
 
     def test_storageobj_coherence_basic(self):
         '''
