@@ -21,7 +21,7 @@ class IStorage:
 
     _basic_types = _valid_types[:-1]
     _hecuba_valid_types = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer' \
-                          '|counter|double|numpy.ndarray)'
+                          '|counter|double)'
     _data_type = re.compile('(\w+) *: *%s' % _hecuba_valid_types)
     _so_data_type = re.compile('(\w+)*:(\w.+)')
     _list_case = re.compile('.*@ClassField +(\w+) +list+ *< *([\w:.+]+) *>')
@@ -38,35 +38,28 @@ class IStorage:
     _reg_tuple = re.compile('.*@ClassField +(\w+) +tuple+ *< *([\w, +]+) *>')
     _reg_set = re.compile('.*@ClassField +(\w+) +set+ *< *([\w, +]+) *>')
     _index_vars = re.compile('.*@Index_on *([A-z0-9]+) +([A-z0-9, ]+)')
-    _simple_case = re.compile('.*@ClassField +(\w+) +%s' % _hecuba_valid_types)
+    _simple_case = re.compile(r".*@ClassField (\w+) \b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b")
 
     ########
-    ClassField_tuple_case_key = re.compile('.*@ClassField +(\w+) +dict+ *< *< *([\w.+:, <>]+)+ *>* *, *([\w.+:, <>]+) *>')
-
-
-    ########
-
     ClassField_dict_case = re.compile('.*@ClassField +(\w+) +dict+ *< *< *([\w:, ]+)+ *> *, *([\w.+:, <>]+) *>')
-    ClassField_simple_case = re.compile('.*@ClassField +(\w+) +%s' % _hecuba_valid_types)
+    ClassField_simple_case = regex.compile(
+        r".*@ClassField (\w+) \b(int|atomicint|str|bool|decimal|float|long|double|buffer|numpy.ndarray)\b")
     ClassField_tuple_case = re.compile(
         '.*@ClassField +(\w+) +tuple+ *< *([\b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b, +]+) *>')
     ClassField_set_case = re.compile(
-        '.*@ClassField +(\w+) +set+ *< *([\b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b, +]+) *>')
+        '.*@ClassField +(\w+) +set+ *< *([\b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b]+) *>')
     ClassField_set_case_values = regex.compile(
-        r"([\w,]+)*:set<([\b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b, +]+)*>")
+        r"([\w,]+)*:set<([\b(int|atomicint|str|bool|decimal|float|long|double|buffer|numpy.ndarray)\b, +]+)*>")
+
     TypeSpec_dict_case = re.compile('.*@TypeSpec +(\w+) +dict+ *< *< *([\w:, ]+)+ *> *, *([\w.+:, <>]+) *>')
-    TypeSpec_simple_case = re.compile('.*@ClassField +(\w+) +%s' % _hecuba_valid_types)
+    TypeSpec_simple_case = regex.compile(
+        r".*@TypeSpec (\w+) \b(int|atomicint|str|bool|decimal|float|long|double|buffer|numpy.ndarray)\b")
     TypeSpec_tuple_case = re.compile(
         '.*@TypeSpec +(\w+) +tuple+ *< *([\b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b, +]+) *>')
     TypeSpec_set_case = re.compile(
-        '.*@TypeSpec +(\w+) +set+ *< *([\b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b, +]+) *>')
+        '.*@TypeSpec +(\w+) +set+ *< *([\b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b]+) *>')
     TypeSpec_set_case_values = regex.compile(
-        r"([\w,]+)*:set<([\b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b, +]+)*>")
-    TypeSpec_tuple_case_values = regex.compile(
-        r"([\w,]+)*:tuple<([\b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b, +]+)*>")
-
-    ClassField_tuple_case_values = regex.compile(
-        r"([\w,]+)*:tuple<([\b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b, +]+)*>")
+        r"([\w,]+)*:set<([\b(int|atomicint|str|bool|decimal|float|long|double|buffer|numpy.ndarray)\b, +]+)*>")
 
     _dict_case = re.compile('.*@TypeSpec + *< *< *([\w:, ]+)+ *> *, *([\w+:., <>]+) *>')
     _tuple_case = re.compile('.*@TypeSpec +(\w+) +tuple+ *< *([\w, +]+) *>')
@@ -97,8 +90,8 @@ class IStorage:
                     'counter': 'counter',
                     'double': 'double',
                     'StorageDict': 'dict',
-                    'ndarray': 'ndarray',
-                    'numpy.ndarray': 'numpy.ndarray'}
+                    'ndarray': 'hecuba.hnumpy.StorageNumpy',
+                    'numpy.ndarray': 'hecuba.hnumpy.StorageNumpy'}
 
     @staticmethod
     def process_path(module_path):

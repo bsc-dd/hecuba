@@ -40,7 +40,9 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
     this->session = session;
     this->table_metadata = table_meta;
     this->k_factory = new TupleRowFactory(table_meta->get_keys());
-    this->v_factory = new TupleRowFactory(table_meta->get_values());
+
+    if (table_meta->get_values()->empty()) this->v_factory = new TupleRowFactory(table_meta->get_keys());
+    else this->v_factory = new TupleRowFactory(table_meta->get_values());
 
     CassFuture *future = cass_session_prepare(session, table_meta->get_insert_query());
     CassError rc = cass_future_error_code(future);

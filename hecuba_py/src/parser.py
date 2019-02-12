@@ -502,8 +502,17 @@ class Parser(object):
             elif t2 == 'tuple':
                 string_str = self._set_or_tuple('tuple', 'columns', t, t1)
             else:
-                type = IStorage._conversions[t]
-                string_str = ',("%s", "%s")' % (t1, type)
+                if(t not in IStorage._conversions):
+                    route = t
+                    cname, module = IStorage.process_path(route)
+                    try:
+                        mod = __import__(module, globals(), locals(), [cname], 0)
+                    except ValueError:
+                        raise ValueError("Can't import class {} from module {}".format(cname, module))
+                    string_str = ',("%s", "%s")' % (t1, t)
+                else:
+                    type = IStorage._conversions[t]
+                    string_str = ',("%s", "%s")' % (t1, type)
             concatenated_keys = concatenated_keys + string_str
         concatenated_keys = concatenated_keys[1:]
         return concatenated_keys
@@ -529,9 +538,14 @@ class Parser(object):
         line = re.sub('[<>, ]', ' ', split_line[2].replace(str(type), ""))
         primary_keys = line.split()
         converted_primary_keys = ", ".join([IStorage._conversions.get(w, w) for w in primary_keys])
-        string_str = '{"%s":{"%s": {"%s"},"type": "%s"}}' % (table, pk_or_col, converted_primary_keys, str(type))
-        final_string = eval(string_str)
-        aux = '{"%s": {"%s"},"type": "%s"}' % (pk_or_col, converted_primary_keys, str(type))
+        if(len(primary_keys) == 1):
+            string_str = '{"%s":{"%s": "%s","type": "%s"}}' % (table, pk_or_col, converted_primary_keys, str(type))
+            final_string = eval(string_str)
+            aux = '{"%s": "%s","type": "%s"}' % (pk_or_col, converted_primary_keys, str(type))
+        else:
+            string_str = '{"%s":{"%s": "%s","type": "%s"}}' % (table, pk_or_col, converted_primary_keys, str(type))
+            final_string = eval(string_str)
+            aux = '{"%s": {"%s"},"type": "%s"}' % (pk_or_col, converted_primary_keys, str(type))
         if (table in this):
             this[table].update(eval(aux))
             return this
@@ -573,11 +587,13 @@ class Parser(object):
             new[table_name] = output
         return new
 
-    def _parse_set_tuple(self, line, this):
+    def _parse_set_tuple_list(self, line, this):
         if(line.count('set')) > 0:
             return self._parse_set_or_tuple('set', line, 'primary_keys', this)
         elif(line.count('tuple')) > 0:
             return self._parse_set_or_tuple('tuple', line, 'columns', this)
+        elif (line.count('list')) > 0:
+            return self._parse_set_or_tuple('list', line, 'columns', this)
 
 
     def _parse_simple(self, line, this):
@@ -592,12 +608,12 @@ class Parser(object):
 
     def _input_type(self, line, this):
         if (line.count('<') == 1):  # is tuple, set, list
-            aux = (self._parse_set_tuple(line, this))
-        elif (line.count('<') == 0 and line.count('Index_on') == 0 and line.count('.') == 0 or line.count('numpy.ndarray')):  # is simple type
+            aux = (self._parse_set_tuple_list(line, this))
+        elif (line.count('<') == 0 and line.count('Index_on') == 0 and line.count('.') == 0 or (line.count('numpy.ndarray') and line.count('dict') == 0)):  # is simple type
             aux = (self._parse_simple(line, this))
         elif (line.count('Index_on') == 1):
             aux = self._parse_index(line, this)
-        elif (line.count('.') > 0):
+        elif (line.count('.') > 0 and line.count('dict') == 0):
             aux = self._parse_file(line, this)
         else:  # is dict
             aux = (self._parse_dict(line, this))
@@ -607,16 +623,25 @@ class Parser(object):
         '''Def: Remove all the spaces of the line splitted from comments
                 Returns: same line with no spaces.'''
         line = re.sub(' +', '*', line)
+        line = line[line.find(self.type_parser):]
         if (line.count('tuple') == 1 and line.count('dict') == 0):
-            pos = line.find('tuple')
+            pos = re.search(r'\b(tuple)\b', line)
+            pos = pos.start()
         elif (line.count('set') == 1 and line.count('dict') == 0):
-            pos = line.find('set')
+            pos = re.search(r'\b(set)\b', line)
+            pos = pos.start()
         elif(line.count('@Index_on') == 1):
             pos = line.find('@Index_on')
             line = line[pos:]
             return line.replace('*', ' ')
+        elif(line.count('dict') > 0):
+            pos = re.search(r'\b(dict)\b', line)
+            pos = pos.start()
+        elif(line.count('list') > 0):
+            pos = re.search(r'\b(list)\b', line)
+            pos = pos.start()
         else:
-            pos = line.find('dict')
+            return line.replace('*', ' ')
 
         line = line[0:pos].replace('*', ' ') + line[pos:].replace("*", '')
         return line
