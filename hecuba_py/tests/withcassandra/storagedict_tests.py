@@ -8,33 +8,33 @@ import time
 
 class MyStorageDict(StorageDict):
     '''
-    @TypeSpec mydict dict<<position:int>, val:int>
+    @TypeSpec <<position:int>,val:int>
     '''
     pass
 
 
 class MyStorageDict2(StorageDict):
     '''
-    @TypeSpec mydict dict<<position:int, position2:str>, val:int>
+    @TypeSpec <<position:int, position2:str>,val:int>
     '''
     pass
 
 
 class MyStorageDict3(StorageDict):
     '''
-    @TypeSpec mydict dict<<key:str>, val:int>
+    @TypeSpec <<str>,int>
     '''
 
 
 class MyStorageObjC(StorageObj):
     '''
-    @ClassField mona dict<<a:str>, b:int>
+    @ClassField mona dict<<a:str>,b:int>
     '''
 
 
 class MyStorageDictA(StorageDict):
     '''
-    @TypeSpec mydict dict<<a:str>, b:int>
+    @TypeSpec <<a:str>,b:int>
     '''
 
 
@@ -179,6 +179,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(mydict[0],None)
         config.session.execute("DROP TABLE IF EXISTS my_app.somename")
 
+
     def test_none_keys(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.somename")
         mydict = MyStorageDict('somename')
@@ -187,6 +188,101 @@ class StorageDictTest(unittest.TestCase):
 
         self.assertRaises(TypeError, set_none_key)
         config.session.execute("DROP TABLE IF EXISTS my_app.somename")
+
+
+
+    def test_paranoid_setitem_nonpersistent(self):
+        pd = StorageDict(None,
+                         [('position', 'int')],
+                         [('value', 'text')])
+        pd[0] = 'bla'
+        self.assertEquals(pd[0], 'bla')
+
+        def set_wrong_val_1():
+            pd[0] = 1
+
+        self.assertRaises(ValueError, set_wrong_val_1)
+
+        def set_wrong_val_2():
+            pd['bla'] = 'bla'
+
+        self.assertRaises(KeyError, set_wrong_val_2)
+
+    def test_paranoid_setitem_multiple_nonpersistent(self):
+        pd = StorageDict(None,
+                         [('position1', 'int'), ('position2', 'text')],
+                         [('value1', 'text'), ('value2', 'int')])
+        pd[0, 'pos1'] = 'bla', 1
+        self.assertEquals(pd[0, 'pos1'], ('bla', 1))
+
+        def set_wrong_val_1():
+            pd[0, 'pos1'] = 1, 'bla'
+
+        self.assertRaises(ValueError, set_wrong_val_1)
+
+        def set_wrong_val_2():
+            pd['pos1', 0] = 'bla', 1
+
+        self.assertRaises(KeyError, set_wrong_val_2)
+
+    def test_paranoid_setitem_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a1")
+        pd = StorageDict("tab_a1",
+                         [('position', 'int')],
+                         [('value', 'text')])
+        pd[0] = 'bla'
+        result = config.session.execute('SELECT value FROM my_app.tab_a1 WHERE position = 0')
+        for row in result:
+            self.assertEquals(row.value, 'bla')
+
+        def set_wrong_val_test():
+            pd[0] = 1
+
+        self.assertRaises(ValueError, set_wrong_val_test)
+
+    def test_paranoid_setitem_multiple_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a2")
+        pd = StorageDict("tab_a2",
+                         [('position1', 'int'), ('position2', 'text')],
+                         [('value1', 'text'), ('value2', 'int')])
+        pd[0, 'pos1'] = 'bla', 1
+        for result in pd.itervalues():
+            self.assertEquals(result.value1, 'bla')
+            self.assertEquals(result.value2, 1)
+
+        def set_wrong_val():
+            pd[0, 'pos1'] = 'bla', 'bla1'
+
+        self.assertRaises(ValueError, set_wrong_val)
+
+        def set_wrong_key():
+            pd['bla', 'pos1'] = 'bla', 1
+
+        self.assertRaises(KeyError, set_wrong_key)
+
+    def test_paranoid_setitemdouble_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a3")
+        pd = StorageDict("tab_a3",
+                         [('position', 'int')],
+                         [('value', 'double')])
+        pd[0] = 2.0
+        result = config.session.execute('SELECT value FROM my_app.tab_a3 WHERE position = 0')
+        for row in result:
+            self.assertEquals(row.value, 2.0)
+
+        def set_wrong_val_test():
+            pd[0] = 1
+
+        self.assertRaises(ValueError, set_wrong_val_test)
+
+    def test_paranoid_setitemdouble_multiple_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a4")
+        pd = StorageDict("tab_a4",
+                         [('position1', 'int'), ('position2', 'text')],
+                         [('value1', 'text'), ('value2', 'double')])
+        pd[0, 'pos1'] = ['bla', 1.0]
+        time.sleep(2)
+        self.assertEquals(pd[0, 'pos1'], ('bla', 1.0))
 
     def test_empty_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.wordsso_words")

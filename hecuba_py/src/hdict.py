@@ -680,8 +680,12 @@ class StorageDict(dict, IStorage):
             val._storage_id = uuid.uuid4()
             attribute = self._columns[col][0]
             count = self._count_name_collision(attribute)
+            if count == 0:
+                name = self._ksp + "." + self._table + "_" + attribute
+            else:
+                name = self._ksp + "." + self._table + "_" + attribute + "_" + str(count - 1)
             # new name as ksp+table+obj_class_name
-            val.make_persistent(self._ksp + '.' + self._table + "_" + attribute + "_" + str(count))
+            val.make_persistent(name)
         return val
 
     def __setitem__(self, key, val):
