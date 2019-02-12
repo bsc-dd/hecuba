@@ -24,12 +24,12 @@
 #include <iostream>
 #include <vector>
 #include <cassandra.h>
-#include "ModuleException.h"
-#include "TupleRow.h"
-#include "Prefetch.h"
+#include "../ModuleException.h"
+#include "../TupleRow.h"
+#include "../Prefetch.h"
 #include "PythonParser.h"
-#include "CacheTable.h"
-#include "StorageInterface.h"
+#include "../CacheTable.h"
+#include "../StorageInterface.h"
 
 
 std::shared_ptr<StorageInterface> storage; //StorageInterface* storage;
@@ -55,6 +55,14 @@ typedef struct {
     Writer *W;
     PythonParser *keysParser, *valuesParser;
 } HWriter;
+
+
+typedef struct {
+    PyObject_HEAD
+    NumpyStorage *NumpyDataStore;
+    std::vector<std::pair<int64_t, int64_t>> token_ranges;
+} HNumpyStore;
+
 
 static PyObject *create_iter_keys(HCache *self, PyObject *args);
 

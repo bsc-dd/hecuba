@@ -287,60 +287,6 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
 
             PyObject *py_name = PyDict_GetItem(dict, PyString_FromString("name"));
             columns_names[i]["name"] = PyString_AsString(py_name);
-            PyObject *type = PyDict_GetItem(dict, PyString_FromString("type"));
-            if (type) {
-                if (std::strcmp(PyString_AsString(type), "numpy") == 0) {
-                    columns_names[i]["table"] = std::string(table);
-                    columns_names[i]["keyspace"] = std::string(keyspace);
-                    columns_names[i]["numpy"] = "true";
-                    columns_names[i]["type"] = "numpy";
-
-                    if (!PyByteArray_Check(py_storage_id)) {
-                        //Object is UUID python class
-                        uint32_t len = sizeof(uint64_t) * 2;
-                        uint64_t *uuid = (uint64_t *) malloc(len);
-
-                        PyObject *bytes = PyObject_GetAttrString(py_storage_id, "time_low"); //32b
-                        if (!bytes) throw TypeErrorException("Error parsing python UUID");
-
-                        uint64_t time_low = (uint32_t) PyLong_AsLongLong(bytes);
-
-                        bytes = PyObject_GetAttrString(py_storage_id, "time_mid"); //16b
-                        uint64_t time_mid = (uint16_t) PyLong_AsLongLong(bytes);
-
-                        bytes = PyObject_GetAttrString(py_storage_id, "time_hi_version"); //16b
-                        uint64_t time_hi_version = (uint16_t) PyLong_AsLongLong(bytes);
-
-                        *uuid = (time_hi_version << 48) + (time_mid << 32) + (time_low);
-
-                        bytes = PyObject_GetAttrString(py_storage_id, "clock_seq_hi_variant"); //8b
-                        uint64_t clock_seq_hi_variant = (uint64_t) PyLong_AsLongLong(bytes);
-                        bytes = PyObject_GetAttrString(py_storage_id, "clock_seq_low"); //8b
-                        uint64_t clock_seq_low = (uint64_t) PyLong_AsLongLong(bytes);
-                        bytes = PyObject_GetAttrString(py_storage_id, "node"); //48b
-
-
-                        *(uuid + 1) = (uint64_t) PyLong_AsLongLong(bytes);
-                        *(uuid + 1) += clock_seq_hi_variant << 56;
-                        *(uuid + 1) += clock_seq_low << 48;
-
-                        columns_names[i]["storage_id"] = std::string((char *) uuid, len);
-                        free(uuid);
-                    } else {
-                        uint32_t len = sizeof(uint64_t) * 2;
-                        uint32_t len_found = (uint32_t) PyByteArray_Size(py_storage_id);
-                        if (len_found != len) {
-                            std::string error_msg = "UUID received has size " + std::to_string(len_found) +
-                                                    ", expected was: " + std::to_string(len);
-                            PyErr_SetString(PyExc_ValueError, error_msg.c_str());
-                        }
-
-                        char *cpp_bytes = PyByteArray_AsString(py_storage_id);
-
-                        columns_names[i]["storage_id"] = std::string(cpp_bytes, len);
-                    }
-                }
-            }
         } else {
             PyErr_SetString(PyExc_TypeError, "Can't parse column names, expected String, Dict or Unicode");
             return -1;
@@ -410,6 +356,323 @@ static PyTypeObject hfetch_HCacheType = {
         (initproc) hcache_init,      /* tp_init */
         0,                         /* tp_alloc */
         hcache_new,                 /* tp_new */
+};
+
+
+/*** NUMPY DATA STORE METHODS AND SETUP ***/
+
+/***
+ * Receives an UUID as a ByteArray or string and returns the representation in a c-like buffer
+ * @param py_storage_id ByteArray or Python String representation of an UUID
+ * @return C-like UUID
+ */
+static uint64_t *parse_uuid(PyObject *py_storage_id) {
+    uint64_t *uuid;
+    if (!PyByteArray_Check(py_storage_id)) {
+        //Object is UUID python class
+        uint32_t len = sizeof(uint64_t) * 2;
+        uuid = (uint64_t *) malloc(len);
+
+        PyObject *bytes = PyObject_GetAttrString(py_storage_id, "time_low"); //32b
+        if (!bytes) throw TypeErrorException("Error parsing python UUID");
+
+        uint64_t time_low = (uint32_t) PyLong_AsLongLong(bytes);
+
+        bytes = PyObject_GetAttrString(py_storage_id, "time_mid"); //16b
+        uint64_t time_mid = (uint16_t) PyLong_AsLongLong(bytes);
+
+        bytes = PyObject_GetAttrString(py_storage_id, "time_hi_version"); //16b
+        uint64_t time_hi_version = (uint16_t) PyLong_AsLongLong(bytes);
+
+        *uuid = (time_hi_version << 48) + (time_mid << 32) + (time_low);
+
+        bytes = PyObject_GetAttrString(py_storage_id, "clock_seq_hi_variant"); //8b
+        uint64_t clock_seq_hi_variant = (uint64_t) PyLong_AsLongLong(bytes);
+        bytes = PyObject_GetAttrString(py_storage_id, "clock_seq_low"); //8b
+        uint64_t clock_seq_low = (uint64_t) PyLong_AsLongLong(bytes);
+        bytes = PyObject_GetAttrString(py_storage_id, "node"); //48b
+
+
+        *(uuid + 1) = (uint64_t) PyLong_AsLongLong(bytes);
+        *(uuid + 1) += clock_seq_hi_variant << 56;
+        *(uuid + 1) += clock_seq_low << 48;
+
+    } else {
+        uint32_t len = sizeof(uint64_t) * 2;
+        uint32_t len_found = (uint32_t) PyByteArray_Size(py_storage_id);
+        if (len_found != len) {
+            std::string error_msg = "UUID received has size " + std::to_string(len_found) +
+                                    ", expected was: " + std::to_string(len);
+            PyErr_SetString(PyExc_ValueError, error_msg.c_str());
+        }
+
+        uuid = (uint64_t *) PyByteArray_AsString(py_storage_id);
+    }
+    return uuid;
+}
+
+
+/***
+ * Receives a numpy ndarray and a uuid, saves both to the table and keyspace passed during initialization
+ * @param self Python HNumpyStore object upon method invocation
+ * @param args Arg tuple containing two lists, the keys, and values. Keys are made of a list with a UUID,
+ * values of a list with a single numpy ndarray.
+ */
+static PyObject *save_numpy(HNumpyStore *self, PyObject *args) {
+    PyObject *py_keys, *py_values;
+    if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_values)) {
+        return NULL;
+    }
+
+    // Only one uuid as a key
+    if (PyList_Size(py_keys) != 1) {
+        std::string error_msg = "Only one uuid as a key can be passed";
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    };
+
+    // Only one numpy as a value
+    if (PyList_Size(py_values) != 1) {
+        std::string error_msg = "Only one numpy can be saved at once";
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    };
+
+
+    for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
+        if (PyList_GetItem(py_keys, key_i) == Py_None) {
+            std::string error_msg = "Keys can't be None, key_position: " + std::to_string(key_i);
+            PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+            return NULL;
+        }
+    }
+
+
+    const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
+
+    PyObject *numpy = PyList_GetItem(py_values, 0);
+    if (numpy == Py_None) {
+        std::string error_msg = "The numpy can't be None";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    // Transform the object to the numpy ndarray
+    PyArrayObject *numpy_arr;
+    if (!PyArray_OutputConverter(numpy, &numpy_arr)) {
+        std::string error_msg = "Can't convert the given numpy to a numpy ndarray";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    // 1 Extract metadatas && write data
+    try {
+        self->NumpyDataStore->store(storage_id, numpy_arr);
+    }
+    catch (std::exception &e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
+
+static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
+    PyObject *py_keys;
+    if (!PyArg_ParseTuple(args, "O", &py_keys)) {
+        return NULL;
+    }
+
+    for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
+        if (PyList_GetItem(py_keys, key_i) == Py_None) {
+            std::string error_msg = "Keys can't be None, key_position: " + std::to_string(key_i);
+            PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+            return NULL;
+        }
+    }
+
+    // Only one uuid as a key
+    if (PyList_Size(py_keys) != 1) {
+        std::string error_msg = "Only one uuid as a key can be passed";
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    };
+
+
+    const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
+
+    PyObject *numpy;
+    try{
+        numpy = self->NumpyDataStore->read(storage_id);
+    }
+    catch (std::exception &e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+
+    // Wrap the numpy into a list to follow the standard format of Hecuba
+    PyObject *result_list = PyList_New(1);
+    PyList_SetItem(result_list, 0, numpy ? numpy : Py_None);
+    return result_list;
+}
+
+
+static void hnumpy_store_dealloc(HNumpyStore *self) {
+    delete (self->NumpyDataStore);
+    self->ob_type->tp_free((PyObject *) self);
+}
+
+
+static PyObject *hnumpy_store_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+    HNumpyStore *self;
+    self = (HNumpyStore *) type->tp_alloc(type, 0);
+    return (PyObject *) self;
+}
+
+
+static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) {
+    const char *table, *keyspace;
+    PyObject *py_tokens, *py_keys_names, *py_cols_names, *py_config, *py_storage_id;
+
+    if (!PyArg_ParseTuple(args, "ssOOOOO", &keyspace, &table, &py_storage_id, &py_tokens,
+                          &py_keys_names, &py_cols_names, &py_config)) {
+        return -1;
+    };
+
+
+    /** PARSE CONFIG **/
+
+    std::map<std::string, std::string> config;
+
+    if (PyDict_Check(py_config)) {
+        PyObject *dict, *key, *value;;
+        if (!PyArg_Parse(py_config, "O", &dict)) return -1;
+
+        Py_ssize_t pos = 0;
+        while (PyDict_Next(dict, &pos, &key, &value)) {
+            std::string conf_key(PyString_AsString(key));
+            if (PyString_Check(value)) {
+                std::string conf_val(PyString_AsString(value));
+                config[conf_key] = conf_val;
+            }
+            if (PyInt_Check(value)) {
+                int32_t c_val = (int32_t) PyInt_AsLong(value);
+                config[conf_key] = std::to_string(c_val);
+            }
+
+        }
+    }
+
+    /*** PARSE TABLE METADATA ***/
+
+    uint16_t tokens_size = (uint16_t) PyList_Size(py_tokens);
+    uint16_t keys_size = (uint16_t) PyList_Size(py_keys_names);
+    uint16_t cols_size = (uint16_t) PyList_Size(py_cols_names);
+
+    int64_t t_a, t_b;
+    self->token_ranges = std::vector<std::pair<int64_t, int64_t >>(tokens_size);
+    for (uint16_t i = 0; i < tokens_size; ++i) {
+        PyObject *obj_to_convert = PyList_GetItem(py_tokens, i);
+        if (!PyArg_ParseTuple(obj_to_convert, "LL", &t_a, &t_b)) return -1;
+        self->token_ranges[i] = std::make_pair(t_a, t_b);
+    }
+
+
+    std::vector<std::map<std::string, std::string>> keys_names(keys_size);
+
+    for (uint16_t i = 0; i < keys_size; ++i) {
+        PyObject *obj_to_convert = PyList_GetItem(py_keys_names, i);
+        char *str_temp;
+        if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
+            return -1;
+        }
+        keys_names[i] = {{"name", std::string(str_temp)}};
+    }
+
+    std::vector<std::map<std::string, std::string>> columns_names(cols_size);
+    for (uint16_t i = 0; i < cols_size; ++i) {
+        PyObject *obj_to_convert = PyList_GetItem(py_cols_names, i);
+
+        if (PyString_Check(obj_to_convert) || PyUnicode_Check(obj_to_convert)) {
+            char *str_temp;
+            if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
+                return -1;
+            };
+            columns_names[i] = {{"name", std::string(str_temp)}};
+        } else if (PyDict_Check(obj_to_convert)) {
+            PyObject *dict;
+            if (!PyArg_Parse(obj_to_convert, "O", &dict)) {
+                return -1;
+            };
+
+            PyObject *py_name = PyDict_GetItem(dict, PyString_FromString("name"));
+            columns_names[i]["name"] = PyString_AsString(py_name);
+        } else {
+            PyErr_SetString(PyExc_TypeError, "Can't parse column names, expected String, Dict or Unicode");
+            return -1;
+        }
+    }
+
+
+    try {
+        TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names,
+                                                      storage->get_session());
+        self->NumpyDataStore = new NumpyStorage(table_meta, storage, config);
+    } catch (std::exception &e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return -1;
+    }
+    return 0;
+}
+
+
+static PyMethodDef hnumpy_store_type_methods[] = {
+        {"get_numpy",  (PyCFunction) get_numpy,  METH_VARARGS, NULL},
+        {"save_numpy", (PyCFunction) save_numpy, METH_VARARGS, NULL},
+        {NULL, NULL, 0,                                        NULL}
+};
+
+
+static PyTypeObject hfetch_HNumpyStoreType = {
+        PyVarObject_HEAD_INIT(NULL, 0)
+        "hfetch.HNumpyStore",             /* tp_name */
+        sizeof(HNumpyStore), /* tp_basicsize */
+        0,                         /*tp_itemsize*/
+        (destructor) hnumpy_store_dealloc, /*tp_dealloc*/
+        0,                         /*tp_print*/
+        0,                         /*tp_getattr*/
+        0,                         /*tp_setattr*/
+        0,                         /*tp_compare*/
+        0,                         /*tp_repr*/
+        0,                         /*tp_as_number*/
+        0,                         /*tp_as_sequence*/
+        0,                         /*tp_as_mapping*/
+        0,                         /*tp_hash */
+        0,                         /*tp_call*/
+        0,                         /*tp_str*/
+        0,                         /*tp_getattro*/
+        0,                         /*tp_setattro*/
+        0,                         /*tp_as_buffer*/
+        Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+        "Cassandra rows",           /* tp_doc */
+        0,                       /* tp_traverse */
+        0,                       /* tp_clear */
+        0,                       /* tp_richcompare */
+        0,                       /* tp_weaklistoffset */
+        0,                       /* tp_iter */
+        0,                       /* tp_iternext */
+        hnumpy_store_type_methods,             /* tp_methods */
+        0,             /* tp_members */
+        0,                         /* tp_getset */
+        0,                         /* tp_base */
+        0,                         /* tp_dict */
+        0,                         /* tp_descr_get */
+        0,                         /* tp_descr_set */
+        0,                         /* tp_dictoffset */
+        (initproc) hnumpy_store_init,      /* tp_init */
+        0,                         /* tp_alloc */
+        hnumpy_store_new,                 /* tp_new */
 };
 
 
@@ -1002,7 +1265,12 @@ static void module_dealloc(PyObject *self) {
 
 PyMODINIT_FUNC
 inithfetch(void) {
-    PyObject *m;
+    hfetch_HNumpyStoreType.tp_new = PyType_GenericNew;
+    if (PyType_Ready(&hfetch_HNumpyStoreType) < 0)
+        return;
+
+    Py_INCREF(&hfetch_HNumpyStoreType);
+
     hfetch_HIterType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&hfetch_HIterType) < 0)
         return;
@@ -1024,13 +1292,14 @@ inithfetch(void) {
     Py_INCREF(&hfetch_HCacheType);
 
 
-    m = Py_InitModule3("hfetch", module_methods, "c++ bindings for hecuba cache & prefetch");
+    PyObject *m = Py_InitModule3("hfetch", module_methods, "c++ bindings for hecuba cache & prefetch");
     f = m->ob_type->tp_dealloc;
     m->ob_type->tp_dealloc = module_dealloc;
 
     PyModule_AddObject(m, "Hcache", (PyObject *) &hfetch_HCacheType);
     PyModule_AddObject(m, "HIterator", (PyObject *) &hfetch_HIterType);
     PyModule_AddObject(m, "HWriter", (PyObject *) &hfetch_HWriterType);
+    PyModule_AddObject(m, "HNumpyStore", (PyObject *) &hfetch_HNumpyStoreType);
     if (_import_array() < 0) {
         PyErr_Print();
         PyErr_SetString(PyExc_ImportError, "numpy.core.multiarray failed to import");

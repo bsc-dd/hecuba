@@ -21,16 +21,6 @@ TupleRow::TupleRow(std::shared_ptr<const std::vector<ColumnMeta>> metas,
                                                                 free(d);
                                                                 break;
                                                             }
-                                                            case CASS_VALUE_TYPE_UDT: {
-                                                                if (metas->at(i).info.find("numpy") !=
-                                                                    metas->at(i).info.end()) {
-                                                                    int64_t *addr = (int64_t *) ((char *) holder->data +
-                                                                                                 metas->at(i).position);
-                                                                    ArrayMetadata *arr_meta = reinterpret_cast<ArrayMetadata *>(*addr);
-                                                                    delete (arr_meta);
-                                                                }
-                                                                break;
-                                                            }
                                                             default:
                                                                 break;
                                                         }

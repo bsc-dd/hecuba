@@ -1,7 +1,8 @@
 from IStorage import IStorage, AlreadyPersistentError
 from hecuba import config, log
 
-from hfetch import Hcache
+#from hfetch import Hcache
+from hfetch import HNumpyStore
 
 import uuid
 from collections import namedtuple
@@ -101,8 +102,8 @@ class StorageNumpy(np.ndarray, IStorage):
                          {'cache_size': config.max_cache_size,
                           'writer_par': config.write_callbacks_number,
                           'write_buffer': config.write_buffer_size})
-        hcache = Hcache(*hcache_params)
-        result = hcache.get_row([storage_id, -1, -1])
+        hcache = HNumpyStore(*hcache_params)
+        result = hcache.get_numpy([storage_id])
         if len(result) == 1:
             return [result[0], hcache, hcache_params]
         else:
@@ -140,9 +141,9 @@ class StorageNumpy(np.ndarray, IStorage):
                                 'writer_par': config.write_callbacks_number,
                                 'write_buffer': config.write_buffer_size})
 
-        self._hcache = Hcache(*self._hcache_params)
+        self._hcache = HNumpyStore(*self._hcache_params)
         if len(self.shape) != 0:
-            self._hcache.put_row([self._storage_id, -1, -1], [self])
+            self._hcache.save_numpy([self._storage_id], [self])
         self._store_meta(self._build_args)
 
     def delete_persistent(self):
@@ -191,7 +192,7 @@ class StorageNumpy(np.ndarray, IStorage):
             return
 
         if self._is_persistent and len(self.shape):
-            self._hcache.put_row([self._storage_id, -1, -1], [self])
+            self._hcache.save_numpy([self._storage_id], [self])
 
         if ufunc.nout == 1:
             results = (results,)
