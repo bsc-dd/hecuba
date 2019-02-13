@@ -3,12 +3,13 @@ import uuid
 from collections import namedtuple
 
 import numpy as np
-
+import sys
 from IStorage import IStorage, AlreadyPersistentError
 from hdict import StorageDict
 from hecuba import config, log, Parser
 from hnumpy import StorageNumpy
-
+from collections import OrderedDict
+from parser import Parser
 
 class StorageObj(object, IStorage):
     args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name"]
@@ -16,6 +17,7 @@ class StorageObj(object, IStorage):
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba' +
                                                   '.istorage (storage_id, class_name, name, tokens,istorage_props) '
                                                   ' VALUES (?,?,?,?,?)')
+
     """
     This class is where information will be stored in Hecuba.
     The information can be in memory, stored in a python dictionary or local variables, or saved in a
@@ -64,10 +66,6 @@ class StorageObj(object, IStorage):
         except Exception as ex:
             log.warn("Error creating the StorageDict metadata: %s, %s", str(storage_args), ex)
             raise ex
-
-    _dict_case = re.compile('.*@ClassField +(\w+) +dict+ *< *< *([\w:, ]+)+ *> *, *([\w+:., <>]+) *>')
-    _tuple_case = re.compile('.*@ClassField +(\w+) +tuple+ *< *([\w, +]+) *>')
-    _index_vars = re.compile('.*@Index_on *([A-z0-9]+) +([A-z0-9, ]+)')
 
     @classmethod
     def _parse_comments(cls, comments):
