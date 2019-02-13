@@ -78,14 +78,24 @@ class StorageDict(dict, IStorage):
             result: a namedtuple with all  the information needed to create again the StorageDict
         """
         log.debug("Building Storage dict with %s", result)
-
-        return StorageDict(result.name,
+        class_name = result.class_name
+        if class_name is 'StorageDict':
+            built_obj = StorageDict(result.name,
                            result.primary_keys,
                            result.columns,
                            result.tokens,
                            result.storage_id,
                            result.indexed_on
                            )
+        else:
+            class_name, mod_name = IStorage.process_path(class_name)
+            mod = __import__(mod_name, globals(), locals(), [class_name], 0)
+
+            built_obj = getattr(mod, class_name)(result.name, result.primary_keys, result.columns, result.tokens,
+                                                 result.storage_id, result.indexed_on)
+
+
+        return built_obj
 
     @staticmethod
     def _store_meta(storage_args):
