@@ -1,3 +1,4 @@
+import cassandra
 import unittest
 
 from hecuba import config, StorageObj, StorageDict
@@ -8,33 +9,33 @@ import time
 
 class MyStorageDict(StorageDict):
     '''
-    @TypeSpec <<position:int>,val:int>
+    @TypeSpec mydict dict<<position:int>, val:int>
     '''
     pass
 
 
 class MyStorageDict2(StorageDict):
     '''
-    @TypeSpec <<position:int, position2:str>,val:int>
+    @TypeSpec mydict dict<<position:int, position2:str>, val:int>
     '''
     pass
 
 
 class MyStorageDict3(StorageDict):
     '''
-    @TypeSpec <<str>,int>
+    @TypeSpec mydict dict<<key:str>, val:int>
     '''
 
 
 class MyStorageObjC(StorageObj):
     '''
-    @ClassField mona dict<<a:str>,b:int>
+    @ClassField mona dict<<a:str>, b:int>
     '''
 
 
 class MyStorageDictA(StorageDict):
     '''
-    @TypeSpec <<a:str>,b:int>
+    @TypeSpec mydict dict<<a:str>, b:int>
     '''
 
 
@@ -171,28 +172,26 @@ class StorageDictTest(unittest.TestCase):
         count, = config.session.execute('SELECT count(*) FROM my_app.t_make_words')[0]
         self.assertEqual(10, count)
 
-
     def test_none_value(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.somename")
         mydict = MyStorageDict('somename')
-        mydict[0]=None
-        self.assertEqual(mydict[0],None)
+        mydict[0] = None
+        self.assertEqual(mydict[0], None)
         config.session.execute("DROP TABLE IF EXISTS my_app.somename")
-
 
     def test_none_keys(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.somename")
         mydict = MyStorageDict('somename')
+
         def set_none_key():
             mydict[None] = 1
 
         self.assertRaises(TypeError, set_none_key)
         config.session.execute("DROP TABLE IF EXISTS my_app.somename")
 
-
-
     def test_paranoid_setitem_nonpersistent(self):
-        pd = StorageDict(None,
+        config.session.execute("DROP TABLE IF EXISTS my_app.mydict")
+        pd = StorageDict("mydict",
                          [('position', 'int')],
                          [('value', 'text')])
         pd[0] = 'bla'
@@ -201,15 +200,16 @@ class StorageDictTest(unittest.TestCase):
         def set_wrong_val_1():
             pd[0] = 1
 
-        self.assertRaises(ValueError, set_wrong_val_1)
+        self.assertRaises(TypeError, set_wrong_val_1)
 
         def set_wrong_val_2():
             pd['bla'] = 'bla'
 
-        self.assertRaises(KeyError, set_wrong_val_2)
+        self.assertRaises(TypeError, set_wrong_val_2)
 
     def test_paranoid_setitem_multiple_nonpersistent(self):
-        pd = StorageDict(None,
+        config.session.execute("DROP TABLE IF EXISTS my_app.mydict")
+        pd = StorageDict("mydict",
                          [('position1', 'int'), ('position2', 'text')],
                          [('value1', 'text'), ('value2', 'int')])
         pd[0, 'pos1'] = 'bla', 1
@@ -218,12 +218,12 @@ class StorageDictTest(unittest.TestCase):
         def set_wrong_val_1():
             pd[0, 'pos1'] = 1, 'bla'
 
-        self.assertRaises(ValueError, set_wrong_val_1)
+        self.assertRaises(TypeError, set_wrong_val_1)
 
         def set_wrong_val_2():
             pd['pos1', 0] = 'bla', 1
 
-        self.assertRaises(KeyError, set_wrong_val_2)
+        self.assertRaises(TypeError, set_wrong_val_2)
 
     def test_paranoid_setitem_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a1")
@@ -238,7 +238,7 @@ class StorageDictTest(unittest.TestCase):
         def set_wrong_val_test():
             pd[0] = 1
 
-        self.assertRaises(ValueError, set_wrong_val_test)
+        self.assertRaises(TypeError, set_wrong_val_test)
 
     def test_paranoid_setitem_multiple_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a2")
@@ -253,12 +253,12 @@ class StorageDictTest(unittest.TestCase):
         def set_wrong_val():
             pd[0, 'pos1'] = 'bla', 'bla1'
 
-        self.assertRaises(ValueError, set_wrong_val)
+        self.assertRaises(TypeError, set_wrong_val)
 
         def set_wrong_key():
             pd['bla', 'pos1'] = 'bla', 1
 
-        self.assertRaises(KeyError, set_wrong_key)
+        self.assertRaises(TypeError, set_wrong_key)
 
     def test_paranoid_setitemdouble_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a3")
@@ -273,7 +273,7 @@ class StorageDictTest(unittest.TestCase):
         def set_wrong_val_test():
             pd[0] = 1
 
-        self.assertRaises(ValueError, set_wrong_val_test)
+        set_wrong_val_test()
 
     def test_paranoid_setitemdouble_multiple_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a4")
