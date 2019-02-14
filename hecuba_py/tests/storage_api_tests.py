@@ -1,7 +1,7 @@
 import unittest
 
 from storage.api import getByID
-from hecuba.hdict import StorageDict
+from hecuba import config, StorageDict
 
 
 class ApiTestSDict(StorageDict):
@@ -11,7 +11,7 @@ class ApiTestSDict(StorageDict):
 
 class StorageApi_Tests(unittest.TestCase):
     def setUp(self):
-        pass
+        config.reset(mock_cassandra=False)
 
     def class_type_test(self):
         base_dict = ApiTestSDict('test.api_sdict')
