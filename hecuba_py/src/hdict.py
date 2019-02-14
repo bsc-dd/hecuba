@@ -562,12 +562,13 @@ class StorageDict(dict, IStorage):
             values_names = []
             key_names = map(lambda a: a[0].encode('UTF8'), self._primary_keys + self._set_types)
         else:
-            values_names = self._columns
+            values_names = [{"name": tup[0], "type": "uuid" if tup[1] not in self._basic_types else tup[1]} for tup in
+                            self._columns]
             key_names = map(lambda a: a[0].encode('UTF8'), self._primary_keys)
 
         self._hcache_params = (self._ksp, self._table,
                                self._storage_id,
-                               self._tokens, key_names, map(lambda x: {"name": x[0], "type": x[1]}, values_names),
+                               self._tokens, key_names, values_names,
                                {'cache_size': config.max_cache_size,
                                 'writer_par': config.write_callbacks_number,
                                 'writer_buffer': config.write_buffer_size})

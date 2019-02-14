@@ -48,6 +48,8 @@ class IStorage:
         '.*@ClassField +(\w+) +tuple+ *< *([\b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b, +]+) *>')
     ClassField_set_case = re.compile(
         '.*@ClassField +(\w+) +set+ *< *([\b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b]+) *>')
+    ClassField_set_case_values = regex.compile(
+        r"([\w,]+)*:set<([\b(int|atomicint|str|bool|decimal|float|long|double|buffer|numpy.ndarray)\b, +]+)*>")
 
     TypeSpec_dict_case = re.compile('.*@TypeSpec +(\w+) +dict+ *< *< *([\w:, ]+)+ *> *, *([\w.+:, <>]+) *>')
     TypeSpec_simple_case = regex.compile(
@@ -56,6 +58,8 @@ class IStorage:
         '.*@TypeSpec +(\w+) +tuple+ *< *([\b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b, +]+) *>')
     TypeSpec_set_case = re.compile(
         '.*@TypeSpec +(\w+) +set+ *< *([\b(int|atomicint|str|bool|decimal|float|long|double|buffer)\b]+) *>')
+    TypeSpec_set_case_values = regex.compile(
+        r"([\w,]+)*:set<([\b(int|atomicint|str|bool|decimal|float|long|double|buffer|numpy.ndarray)\b, +]+)*>")
 
     _dict_case = re.compile('.*@TypeSpec + *< *< *([\w:, ]+)+ *> *, *([\w+:., <>]+) *>')
     _tuple_case = re.compile('.*@TypeSpec +(\w+) +tuple+ *< *([\w, +]+) *>')
