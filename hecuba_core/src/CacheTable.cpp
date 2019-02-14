@@ -35,8 +35,6 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
 
 
     /** Parse names **/
-
-
     CassFuture *future = cass_session_prepare(session, table_meta->get_select_query());
     CassError rc = cass_future_error_code(future);
     CHECK_CASS("CacheTable: Select row query preparation failed");
@@ -53,6 +51,7 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
     this->writer = new Writer(table_meta, session, config);
     this->keys_factory = new TupleRowFactory(table_meta->get_keys());
     this->values_factory = new TupleRowFactory(table_meta->get_values());
+
     if (cache_size) this->myCache = new TupleRowCache<TupleRow, TupleRow>(cache_size);
 };
 
@@ -107,103 +106,6 @@ void CacheTable::add_to_cache(void *keys, void *values) {
     delete (v);
 }
 
-
-void CacheTable::put_crow(const TupleRow *row) {
-    //split into two and call put_crow(a,b);
-    std::shared_ptr<const std::vector<ColumnMeta> > keys_meta = keys_factory->get_metadata();
-    uint16_t nkeys = (uint16_t) keys_meta->size();
-    std::shared_ptr<const std::vector<ColumnMeta> > values_meta = values_factory->get_metadata();
-    uint16_t nvalues = (uint16_t) values_meta->size();
-
-    char *keys = (char *) malloc(
-            keys_meta->at(nkeys - (uint16_t) 1).position + keys_meta->at(nkeys - (uint16_t) 1).size);
-    char *values = (char *) malloc(
-            values_meta->at(nvalues - (uint16_t) 1).position + values_meta->at(nvalues - (uint16_t) 1).size);
-    TupleRow *k = keys_factory->make_tuple(keys);
-    TupleRow *v = values_factory->make_tuple(values);
-    //Copy keys
-    for (uint16_t i = 0; i < nkeys; ++i) {
-        CassValueType type = keys_meta->at(i).type;
-        const void *element_i = row->get_element(i);
-        if (element_i != nullptr) {
-            if (type == CASS_VALUE_TYPE_BLOB) {
-                char **from = (char **) element_i;
-                char *from_data = *from;
-
-                uint64_t *size = (uint64_t *) from_data;
-
-                void *new_data = malloc(*size);
-                memcpy(new_data, from_data, *size + sizeof(uint64_t));
-                //Copy ptr
-                memcpy(keys + keys_meta->at(i).position, &new_data, keys_meta->at(i).size);
-            } else if (type == CASS_VALUE_TYPE_TEXT || type == CASS_VALUE_TYPE_VARCHAR ||
-                       type == CASS_VALUE_TYPE_ASCII) {
-
-                char **from = (char **) element_i;
-                char *from_data = *from;
-
-                uint64_t size = strlen(from_data);
-
-                void *new_data = malloc(size);
-                memcpy(new_data, from_data, size);
-                //Copy ptr
-                memcpy(keys + keys_meta->at(i).position, &new_data, keys_meta->at(i).size);
-            } else if (type == CASS_VALUE_TYPE_UUID) {
-
-                uint64_t **from = (uint64_t **) element_i;
-
-                uint64_t size = sizeof(uint64_t) * 2;
-                void *new_data = malloc(size);
-                memcpy(new_data, *from, size);
-                //Copy ptr
-                memcpy(keys + keys_meta->at(i).position, &new_data, keys_meta->at(i).size);
-            } else memcpy(keys + keys_meta->at(i).position, element_i, keys_meta->at(i).size);
-        } else k->setNull(i);
-    }
-
-
-    //Copy values
-    for (uint16_t i = 0; i < nvalues; ++i) {
-
-        CassValueType type = values_meta->at(i).type;
-        const void *element_i = row->get_element(i + nkeys);
-        if (element_i != nullptr) {
-            if (type == CASS_VALUE_TYPE_BLOB) {
-                char **from = (char **) element_i;
-                char *from_data = *from;
-
-                uint64_t *size = (uint64_t *) from_data;
-
-                void *new_data = malloc(*size);
-                memcpy(new_data, from_data, *size + sizeof(uint64_t));
-                //Copy ptr
-                memcpy(values + values_meta->at(i).position, &new_data, values_meta->at(i).size);
-            } else if (type == CASS_VALUE_TYPE_TEXT || type == CASS_VALUE_TYPE_VARCHAR ||
-                       type == CASS_VALUE_TYPE_ASCII) {
-
-                char **from = (char **) element_i;
-                char *from_data = *from;
-
-                uint64_t size = strlen(from_data);
-
-                void *new_data = malloc(size);
-                memcpy(new_data, from_data, size);
-                //Copy ptr
-                memcpy(values + values_meta->at(i).position, &new_data, values_meta->at(i).size);
-            } else if (type == CASS_VALUE_TYPE_UUID) {
-
-                uint64_t **from = (uint64_t **) element_i;
-
-                uint64_t size = sizeof(uint64_t) * 2;
-                void *new_data = malloc(size);
-                memcpy(new_data, *from, size);
-                //Copy ptr
-                memcpy(values + values_meta->at(i).position, &new_data, values_meta->at(i).size);
-            } else memcpy(values + values_meta->at(i).position, element_i, values_meta->at(i).size);
-        } else v->setNull(i);
-    }
-    this->add_to_cache(keys, values);
-}
 
 /*
  * POST: never returns NULL
