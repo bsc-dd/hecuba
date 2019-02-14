@@ -327,9 +327,9 @@ class StorageDict(dict, IStorage):
         if self.__doc__ is not None:
             self._persistent_props = self._parse_comments(self.__doc__)
             # Only one item in the dictionary
-            for x in self._persistent_props.values():
-                self._primary_keys = x['primary_keys']
-                self._columns = x['columns']
+            for dict_spec in self._persistent_props.values():
+                self._primary_keys = dict_spec['primary_keys']
+                self._columns = dict_spec['columns']
 
             try:
                 self._indexed_args = self._persistent_props[self.__class__.__name__]['indexed_values']
