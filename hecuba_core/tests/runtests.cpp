@@ -882,7 +882,7 @@ TEST(TestingPocoCache, InsertGetDeleteOps) {
     const uint16_t i = 123;
     const uint16_t j = 456;
     size_t ss = sizeof(uint16_t) * 2;
-    Poco::LRUCache<TupleRow, TupleRow> myCache(2);
+    TupleRowCache<TupleRow, TupleRow> myCache(2);
 
     ColumnMeta cm1 = ColumnMeta();
     cm1.info = {{"name", "ciao"}};
@@ -933,7 +933,7 @@ TEST(TestingPocoCache, ReplaceOp) {
     uint16_t i = 123;
     uint16_t j = 456;
     size_t ss = sizeof(uint16_t) * 2;
-    Poco::LRUCache<TupleRow, TupleRow> myCache(2);
+    TupleRowCache<TupleRow, TupleRow> myCache(2);
 
     ColumnMeta cm1 = ColumnMeta();
     cm1.info = {{"name", "ciao"}};
@@ -1281,8 +1281,9 @@ TEST(TestingEmptyValues, WriteSimple) {
     int32_t k1 = 3682;
     int32_t k2 = 3682;
     const char* k3_base = "SomeKey";
-    char *k3 = (char*) malloc(std::strlen(k3_base));
-    std::memcpy(k3,k3_base,std::strlen(k3_base));
+    char *k3 = (char*) malloc(std::strlen(k3_base)+1);
+
+    std::memcpy(k3,k3_base,std::strlen(k3_base)+1);
 
     memcpy(buffer, &k1, sizeof(int32_t));
     memcpy(buffer + sizeof(int), &k2, sizeof(int32_t));

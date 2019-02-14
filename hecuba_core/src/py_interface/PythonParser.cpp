@@ -59,6 +59,13 @@ TupleRow *PythonParser::make_tuple(PyObject *obj) const {
         buffer = (char *) malloc(total_bytes);
     }
 
+    uint32_t total_bytes = 0;
+    char *buffer = nullptr;
+    if (!metas->empty()) {
+        total_bytes = metas->at(metas->size() - 1).position + metas->at(metas->size() - 1).size;
+        buffer = (char *) malloc(total_bytes);
+    }
+
     TupleRow *new_tuple = new TupleRow(metas, total_bytes, buffer);
 
     for (uint32_t i = 0; i < PyList_Size(obj); ++i) {

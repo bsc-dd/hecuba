@@ -6,14 +6,12 @@
  * @param table_meta Holds the table information
  */
 TupleRowFactory::TupleRowFactory(std::shared_ptr<const std::vector<ColumnMeta> > row_info) {
-
-    if (row_info->empty()) {
-        throw ModuleException("Tuple factory: Table metadata empty");
-    }
     this->metadata = row_info;
     this->total_bytes = 0;
-    ColumnMeta last_meta = row_info->at(row_info->size() - 1); //*(--this->metadata.get()->end()); TODO
-    total_bytes = last_meta.position + last_meta.size;
+    if (row_info->end() != row_info->begin()) {
+        std::vector<ColumnMeta>::const_iterator last_element  = --row_info->end();
+        total_bytes = last_element->position + last_element->size;
+    }
 }
 
 
@@ -43,19 +41,12 @@ TupleRow *TupleRowFactory::make_tuple(const CassRow *row) {
     if (total_bytes>0) buffer = (char *) malloc(total_bytes);
 
     TupleRow *new_tuple = new TupleRow(metadata, total_bytes, buffer);
-    uint16_t i = 0;
+
     CassIterator *it = cass_iterator_from_row(row);
-    while (cass_iterator_next(it)) {
-        if (i >= metadata->size())
-            throw ModuleException("TupleRowFactory: The data retrieved from cassandra has more columns (>"
-                                  + std::to_string(i) + ") whcih is more than configured "
-                                  + std::to_string(metadata->size()));
-        if (cass_to_c(cass_iterator_get_column(it), buffer + metadata->at(i).position, i) == -1) new_tuple->setNull(i);
-        if (metadata->at(i).position >= total_bytes)
-            throw ModuleException("TupleRowFactory: Make tuple from CassRow: Writing on byte " +
-                                  std::to_string(metadata->at(i).position) + " from a total of " +
-                                  std::to_string(total_bytes));
-        ++i;
+    for (uint16_t i = 0; cass_iterator_next(it) && i<metadata->size(); ++i) {
+        if (cass_to_c(cass_iterator_get_column(it), buffer + metadata->at(i).position, i) == -1) {
+            new_tuple->setNull(i);
+        }
     }
     cass_iterator_free(it);
     return new_tuple;
