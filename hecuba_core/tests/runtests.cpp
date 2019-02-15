@@ -141,7 +141,7 @@ void setupcassandra() {
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     std::cout << "SETTING UP CASSANDRA" << std::endl;
-    // setupcassandra();
+    setupcassandra();
     std::cout << "DONE, CASSANDRA IS UP" << std::endl;
     return RUN_ALL_TESTS();
 
@@ -877,7 +877,7 @@ TEST(TestMakePartitions, 4DZorderAndReverse) {
 
 
 
-/** Test to asses Poco Cache is performing as expected with pointer
+/** Test to asses Poco Cache is performing as expected with pointer **/
 TEST(TestingPocoCache, InsertGetDeleteOps) {
     const uint16_t i = 123;
     const uint16_t j = 456;
@@ -1004,7 +1004,6 @@ TEST(TestingPocoCache, ReplaceOp) {
 }
 
 
-**/
 
 
 /** Testing custom comparators for TupleRow **/
