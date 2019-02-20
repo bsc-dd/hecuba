@@ -66,16 +66,16 @@ class EmbeddedSetTest(unittest.TestCase):
     def testDoNotCollideEmptySet(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset")
         d = DictSet2("pruebas0.dictset")
-        d["1", 1] = set()
-        d["2", 2] = set()
+        d["1", 1] = {"1", "2", "3"}
+        d["2", 2] = {"4", "5", "6"}
 
         del d
         d2 = DictSet2("pruebas0.dictset")
 
-        d2["1", 1].add("1")
-        d2["2", 2].add("2")
-        self.assertTrue("1" in d2["1", 1])
-        self.assertTrue("2" in d2["2", 2])
+        d2["1", 1].add("4")
+        d2["2", 2].add("7")
+        self.assertTrue("4" in d2["1", 1])
+        self.assertTrue("7" in d2["2", 2])
 
         d2["1", 1] = {"1"}
         d2["2", 2] = {"1", "2", "3"}
@@ -83,6 +83,8 @@ class EmbeddedSetTest(unittest.TestCase):
         for i in range(1, 4):
             self.assertTrue(str(i) in d2["2", 2])
 
+        self.assertEqual(len(d2["1", 1]), 1)
+        self.assertEqual(len(d2["2", 2]), 3)
 
     def testAddRemove2(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset")
