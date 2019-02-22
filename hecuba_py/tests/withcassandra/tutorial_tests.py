@@ -6,13 +6,13 @@ from hecuba.storageobj import StorageObj
 
 class ExampleStoragedictClass(StorageDict):
     '''
-        @TypeSpec table1 dict<<k1:int>, val1:str>
+        @TypeSpec dict<<k1:int>, val1:str>
     '''
 
 
 class ExampleStoragedictClassInit(StorageDict):
     '''
-        @TypeSpec table1 dict<<k1:int>, val1:str>
+        @TypeSpec dict<<k1:int>, val1:str>
     '''
 
     def __init__(self, **kwargs):
@@ -22,7 +22,7 @@ class ExampleStoragedictClassInit(StorageDict):
 
 class ExampleStoragedictClassInitMultiVal(StorageDict):
     '''
-        @TypeSpec table1 dict<<k1:int, k2:int>, val1:str, val2:str, val3:int>
+        @TypeSpec dict<<k1:int, k2:int>, val1:str, val2:str, val3:int>
     '''
 
     def __init__(self, **kwargs):
@@ -32,13 +32,13 @@ class ExampleStoragedictClassInitMultiVal(StorageDict):
 
 class ExampleStoragedictClassNames(StorageDict):
     '''
-        @TypeSpec table1 dict<<position:int>, value:str>
+        @TypeSpec dict<<position:int>, value:str>
     '''
 
 
 class ExampleStoragedictClassInitNames(StorageDict):
     '''
-        @TypeSpec table1 dict<<position:int>, value:str>
+        @TypeSpec dict<<position:int>, value:str>
     '''
 
     def __init__(self, **kwargs):
@@ -48,7 +48,7 @@ class ExampleStoragedictClassInitNames(StorageDict):
 
 class ExampleStoragedictClassInitMultiValNames(StorageDict):
     '''
-        @TypeSpec table1 dict<<position1:int, position2:int>, value1:str, value2:str, value3:int>
+        @TypeSpec dict<<position1:int, position2:int>, value1:str, value2:str, value3:int>
     '''
 
     def __init__(self, **kwargs):

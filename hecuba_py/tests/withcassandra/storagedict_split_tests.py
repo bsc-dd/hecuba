@@ -15,13 +15,13 @@ class SObj_Basic(StorageObj):
 
 class SDict_SimpleTypeSpec(StorageDict):
     '''
-    @TypeSpec simpledict dict<<id:int>, info:str>
+    @TypeSpec dict<<id:int>, info:str>
     '''
 
 
 class SDict_ComplexTypeSpec(StorageDict):
     '''
-    @TypeSpec complexdict dict<<id:int>, state:tests.withcassandra.storagedict_split_tests.SObj_Basic>
+    @TypeSpec dict<<id:int>, state:tests.withcassandra.storagedict_split_tests.SObj_Basic>
     '''
 
 

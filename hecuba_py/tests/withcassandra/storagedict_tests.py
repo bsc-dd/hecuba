@@ -9,21 +9,21 @@ import time
 
 class MyStorageDict(StorageDict):
     '''
-    @TypeSpec mydict dict<<position:int>, val:int>
+    @TypeSpec dict<<position:int>, val:int>
     '''
     pass
 
 
 class MyStorageDict2(StorageDict):
     '''
-    @TypeSpec mydict dict<<position:int, position2:str>, val:int>
+    @TypeSpec dict<<position:int, position2:str>, val:int>
     '''
     pass
 
 
 class MyStorageDict3(StorageDict):
     '''
-    @TypeSpec mydict dict<<key:str>, val:int>
+    @TypeSpec dict<<key:str>, val:int>
     '''
 
 
@@ -35,7 +35,7 @@ class MyStorageObjC(StorageObj):
 
 class MyStorageDictA(StorageDict):
     '''
-    @TypeSpec mydict dict<<a:str>, b:int>
+    @TypeSpec dict<<a:str>, b:int>
     '''
 
 

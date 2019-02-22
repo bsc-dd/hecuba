@@ -11,7 +11,7 @@ from hecuba import StorageDict
 
 class TestHdict(StorageDict):
     '''
-        @TypeSpec test dict<<position:int>,text:str>
+        @TypeSpec dict<<position:int>,text:str>
     '''
     pass
 

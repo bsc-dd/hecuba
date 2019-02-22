@@ -8,22 +8,22 @@ from hecuba import StorageDict
 
 class DictSet(StorageDict):
     '''
-    @TypeSpec DictSet dict<<k1:str, k2:int>, s1:set<int, int>>
+    @TypeSpec dict<<k1:str, k2:int>, s1:set<int, int>>
     '''
 
 class DictSet2(StorageDict):
     '''
-    @TypeSpec DictSet dict<<k1:str, k2:int>, s1:set<str>>
+    @TypeSpec dict<<k1:str, k2:int>, s1:set<str>>
     '''
 
 class DictSet3(StorageDict):
     '''
-    @TypeSpec DictSet dict<<k1:str, k2:int>, s1:set<int>>
+    @TypeSpec dict<<k1:str, k2:int>, s1:set<int>>
     '''
 
 class DictSet4(StorageDict):
     '''
-    @TypeSpec DictSet dict<<k1:str>, s1:set<int>>
+    @TypeSpec dict<<k1:str>, s1:set<int>>
     '''
 
 
