@@ -1,102 +1,131 @@
 #ifndef HFETCH_BUCKET_H
 #define HFETCH_BUCKET_H
 
-template <class K,class V> class StorageDict;
+template<class K, class V>
+class StorageDict;
 
-template <class K, class V> class Bucket {
+template<class K, class V>
+class Bucket {
 private:
     V value;
     K key;
-    StorageDict<K,V> *sd;
-public:
-    Bucket() {
-    }
+    StorageDict<K, V> *sd = nullptr;
 
-    Bucket(void *storage, const K &key) {
-        sd =(StorageDict<K,V>*)storage;
+public:
+
+    /* CONSTRUCTORS */
+
+    Bucket() = default;
+
+    Bucket(StorageDict<K, V> *storage, const K &key) {
+        sd = storage;
         this->key = key;
 
     }
 
+    Bucket(StorageDict<K, V> *storage, const K &key, const V &value) {
+        sd = storage;
+        this->key = key;
+        this->value = value;
 
-    K getKey() const{
+    }
+
+    K getKey() const {
         return key;
     }
 
-    V getValue() const{
+    V getValue() const {
         return value;
     }
 
     /* COPY CONSTRUCTORS */
 
-    Bucket(const Bucket& b) {
-        this->key=b.getKey();
-        this->value=b.getValue();
+    Bucket(const Bucket &b) {
+        this->key = b.getKey();
+        this->value = b.getValue();
         this->sd = b.sd;
     }
 
-    Bucket(const Bucket* b) {
-        this->key=b->getKey();
-        this->value=b->getValue();
-        this->sd = b->sd;
-    }
 
-    Bucket(Bucket& b) {
-        this->key=b.getKey();
-        this->value=b.getValue();
+    Bucket(Bucket &b) {
+        this->key = b.getKey();
+        this->value = b.getValue();
         this->sd = b.sd;
-    }
-
-    Bucket(Bucket* b) {
-        this->key=b->getKey();
-        this->value=b->getValue();
-        this->sd = b->sd;
     }
 
     /* OPERATORS */
 
-    Bucket& operator=(const V& other) // copy assignment
-    {
+    // copy assignment
+    Bucket &operator=(const V &other) {
         this->value = other;
-        sd->raiseupd(this);
+        if (sd) sd->raiseupd(this);
+        return *this;
     }
 
-
-    Bucket& operator=(V& other) // copy assignment
-    {
+    // copy assignment
+    Bucket &operator=(V &other) {
         this->value = other;
-        sd->raiseupd(this);
+        if (sd) sd->raiseupd(this);
+        return *this;
     }
 
-    Bucket& operator=(const V* other) // copy assignment
-    {
+    // copy assignment
+    Bucket &operator=(const V *other) {
         this->value = *other;
-        sd->raiseupd(this);
+        if (sd) sd->raiseupd(this);
+        return *this;
     }
 
-
-    Bucket& operator=(V* other) // copy assignment
-    {
+    // copy assignment
+    Bucket &operator=(V *other) {
         this->value = *other;
-        sd->raiseupd(this);
+        if (sd) sd->raiseupd(this);
+        return *this;
     }
 
-
-    V operator->() // TODO copy assignment ?
-    {
+    // data access pointer like
+    V operator->() {
         return this->value;
-
     }
 
-    bool operator==(const V &value) const{
-        return this->getValue()==value;
+    // data access
+    operator V() const {
+        return this->value;
     }
+
+    // comparator
+    bool operator==(const V &value) const {
+        return this->getValue() == value;
+    }
+
+    // comparator
+    bool operator<(const V &value) const {
+        return this->getValue() < value;
+    }
+
+    // comparator
+    bool operator>(const V &value) const {
+        return value < *this;
+    }
+
+    // comparator
+    bool operator<=(const V &value) const {
+        return !(value < *this);
+    }
+
+    // comparator
+    bool operator>=(const V &value) const {
+        return !(*this < value);
+    }
+
+
 };
 
 
-template<class K, class V> std::ostream& operator<<(std::ostream& os, const Bucket<K,V>& p)
-{
+template<class K, class V>
+std::ostream &operator<<(std::ostream &os, const Bucket<K, V> &p) {
     os << p.getValue();
     return os;
 }
+
 #endif //HFETCH_BUCKET_H
