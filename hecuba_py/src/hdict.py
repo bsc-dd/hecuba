@@ -321,7 +321,7 @@ class StorageDict(dict, IStorage):
                 return True
             except Exception as ex:
                 log.warn("persistentDict.__contains__ ex %s", ex)
-                raise ex
+                return False
 
     def _make_key(self, key):
         """
