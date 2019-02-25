@@ -276,8 +276,6 @@ class Config:
                 connectCassandra(singleton.contact_names, singleton.nodePort)
                 if singleton.id_create_schema == -1:
                     queries = [
-                        "CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = %s" % (singleton.execution_name,
-                                                                                    singleton.replication),
                         "CREATE KEYSPACE IF NOT EXISTS hecuba  WITH replication = %s" % singleton.replication,
                         """CREATE TYPE IF NOT EXISTS hecuba.q_meta(
                         mem_filter text, 
