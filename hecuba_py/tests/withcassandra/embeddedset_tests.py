@@ -567,7 +567,35 @@ class EmbeddedSetTest(unittest.TestCase):
 
         for i in range(0, 10):
             for j in range(0, 3):
-                self.assertTrue(d2[str(i), j] == {0, 1, 2, 3, 4, 5})
+                self.assertEqual(d2[str(i), j], {0, 1, 2, 3, 4, 5})
+
+    def testBuildRemotely(self):
+        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
+        d = DictSet("pruebas0.dictset1")
+        for i in range(0, 10):
+            d[str(i), i] = {(0, 0), (1, 1), (2, 2)}
+
+        self.assertEqual('dictset1', d._table)
+        self.assertEqual('pruebas0', d._ksp)
+
+        res = config.session.execute(
+            'SELECT storage_id, primary_keys, columns, class_name, name, tokens, istorage_props,indexed_on ' +
+            'FROM hecuba.istorage WHERE storage_id = %s', [d._storage_id])[0]
+
+        self.assertEqual(res.storage_id, d._storage_id)
+        self.assertEqual(res.class_name, DictSet.__module__ + "." + DictSet.__name__)
+        self.assertEqual(res.name, 'pruebas0.dictset1')
+
+        rebuild = StorageDict.build_remotely(res)
+        self.assertEqual('dictset1', rebuild._table)
+        self.assertEqual('pruebas0', rebuild._ksp)
+        self.assertEqual(res.storage_id, rebuild._storage_id)
+
+        self.assertEqual(d._is_persistent, rebuild._is_persistent)
+
+        for i in range(0, 10):
+            # rebuild[str(i), i] does not return data, we must iterate over it
+            self.assertEqual({i for i in rebuild[str(i), i]}, {(0, 0), (1, 1), (2, 2)})
 
 
 if __name__ == '__main__':
