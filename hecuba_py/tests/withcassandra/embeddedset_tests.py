@@ -40,7 +40,7 @@ class EmbeddedSetTest(unittest.TestCase):
             self.assertTrue(str(i) in d["2", 2])
 
         d["2", 2].remove("2")
-        self.assertRaises(Exception, d["2", 2].__contains__, "2")
+        self.assertEqual(False, d["2", 2].__contains__("2"))
 
         d["2", 2].add("2")
         self.assertTrue("2" in d["2", 2])
@@ -97,7 +97,7 @@ class EmbeddedSetTest(unittest.TestCase):
             self.assertTrue(i in d["20"])
 
         d["20"].remove(2)
-        self.assertRaises(Exception, d["20"].__contains__, 2)
+        self.assertEqual(False, d["20"].__contains__("2"))
 
         d["20"].add(2)
         self.assertTrue(2 in d["20"])
@@ -115,7 +115,8 @@ class EmbeddedSetTest(unittest.TestCase):
             self.assertTrue(i in d["2", 2])
 
         d["2", 2].remove(2)
-        self.assertRaises(Exception, d["2", 2].__contains__, 2)
+
+        self.assertEqual(False, d["2", 2].__contains__(2))
 
         d["2", 2].add(2)
         self.assertTrue(2 in d["2", 2])
@@ -149,7 +150,7 @@ class EmbeddedSetTest(unittest.TestCase):
             self.assertTrue((i, i) in d["2", 2])
 
         d["2", 2].remove((2, 2))
-        self.assertRaises(Exception, d["2", 2].__contains__, (2, 2))
+        self.assertEqual(False, d["2", 2].__contains__((2, 2)))
 
         d["2", 2].add((2, 2))
         self.assertTrue((2, 2) in d["2", 2])
@@ -530,7 +531,7 @@ class EmbeddedSetTest(unittest.TestCase):
         self.assertRaises(Exception, d1["0", 0].remove, "3")
         self.assertTrue("1" in d1["0", 0])
         self.assertTrue("2" in d1["0", 0])
-        self.assertRaises(Exception, d1["0", 0].__contains__, "0")
+        self.assertEqual(False, d1["0", 0].__contains__("0"))
 
     def testDiscard(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
@@ -541,7 +542,7 @@ class EmbeddedSetTest(unittest.TestCase):
         d1["0", 0].discard("3")
         self.assertTrue("1" in d1["0", 0])
         self.assertTrue("2" in d1["0", 0])
-        self.assertRaises(Exception, d1["0", 0].__contains__, "0")
+        self.assertEqual(False, d1["0", 0].__contains__("0"))
 
     def testClear(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
