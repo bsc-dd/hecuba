@@ -1005,6 +1005,7 @@ TEST(TestingPocoCache, ReplaceOp) {
 
 
 
+
 /** Testing custom comparators for TupleRow **/
 TEST(TupleTest, TestNulls) {
     const uint16_t i = 123;

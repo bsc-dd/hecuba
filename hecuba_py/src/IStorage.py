@@ -3,6 +3,7 @@ from collections import namedtuple
 from time import time
 from hecuba import config, log
 import re
+import regex
 
 
 class AlreadyPersistentError(RuntimeError):
@@ -21,13 +22,10 @@ class IStorage:
     _basic_types = _valid_types[:-1]
     _hecuba_valid_types = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer' \
                           '|counter|double)'
-    _data_type = re.compile('(\w+) *: *%s' % _hecuba_valid_types)
-    _so_data_type = re.compile('(\w+)*:(\w.+)')
-    _list_case = re.compile('.*@ClassField +(\w+) +list+ *< *([\w:.+]+) *>')
-    _sub_dict_case = re.compile(' *< *< *([\w:, ]+)+ *> *, *([\w+:, <>]+) *>')
-    _sub_tuple_case = re.compile(' *< *([\w:, ]+)+ *>')
-    _val_case = re.compile('.*@ClassField +(\w+) +%s' % _hecuba_valid_types)
-    _so_val_case = re.compile('.*@ClassField +(\w+) +([\w.]+)')
+
+    AT = 'int | atomicint | str | bool | decimal | float | long | double | buffer'
+
+    ATD = 'int | atomicint | str | bool | decimal | float | long | double | buffer | set'
 
     _python_types = [int, str, bool, float, tuple, set, dict, long, bytearray]
     _storage_id = None
@@ -48,7 +46,9 @@ class IStorage:
                     'bytearray': 'blob',
                     'counter': 'counter',
                     'double': 'double',
-                    'StorageDict': 'dict'}
+                    'StorageDict': 'dict',
+                    'ndarray': 'hecuba.hnumpy.StorageNumpy',
+                    'numpy.ndarray': 'hecuba.hnumpy.StorageNumpy'}
 
     @staticmethod
     def process_path(module_path):

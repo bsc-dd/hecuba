@@ -166,20 +166,6 @@ class Config:
             log.warn('using default HECUBA_PRINT_LIMIT: %s', singleton.hecuba_print_limit)
 
         try:
-            singleton.hecuba_type_checking = os.environ['HECUBA_TYPE_CHECKING'].lower() == 'true'
-            log.info('HECUBA_TYPE_CHECKING: %s', singleton.hecuba_type_checking)
-        except KeyError:
-            singleton.hecuba_type_checking = False
-            log.warn('using default HECUBA_TYPE_CHECKING: %s', singleton.hecuba_type_checking)
-
-        try:
-            singleton.hecuba_type_checking = os.environ['HECUBA_TYPE_CHECKING'].lower() == 'true'
-            log.info('HECUBA_TYPE_CHECKING: %s', singleton.hecuba_type_checking)
-        except KeyError:
-            singleton.hecuba_type_checking = False
-            log.warn('using default HECUBA_TYPE_CHECKING: %s', singleton.hecuba_type_checking)
-
-        try:
             singleton.prefetch_size = int(os.environ['PREFETCH_SIZE'])
             log.info('PREFETCH_SIZE: %s', singleton.prefetch_size)
         except KeyError:
@@ -444,8 +430,9 @@ if not filter == hecuba_filter:
 global config
 config = Config()
 
+from hecuba.parser import Parser
 from hecuba.storageobj import StorageObj
 from hecuba.hdict import StorageDict
 from hecuba.hnumpy import StorageNumpy
 
-__all__ = ['StorageObj', 'StorageDict', 'StorageNumpy']
+__all__ = ['StorageObj', 'StorageDict', 'StorageNumpy', 'Parser']
