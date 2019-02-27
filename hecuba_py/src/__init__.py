@@ -434,5 +434,12 @@ from hecuba.parser import Parser
 from hecuba.storageobj import StorageObj
 from hecuba.hdict import StorageDict
 from hecuba.hnumpy import StorageNumpy
+from hecuba.hfilter import hfilter
+
+if not filter == hfilter:
+    # python_filter = filter
+    import __builtin__
+    __builtin__.python_filter = filter
+    __builtin__.filter = hfilter
 
 __all__ = ['StorageObj', 'StorageDict', 'StorageNumpy', 'Parser']
