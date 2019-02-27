@@ -2,6 +2,7 @@ import unittest
 import uuid
 
 from hecuba import Config
+
 Config.reset(True)  ## THIS MUST STAY ONE THE TOP
 from mock import Mock
 
@@ -17,18 +18,12 @@ class BlockTest(unittest.TestCase):
 
     def test_astatic_creation(self):
         # TODO This test passes StorageDict arguments (results) to a StorageObj. Fix this test.
-        class res: pass
+
 
         from app.words import Words
-        results = res()
-        results.storage_id = uuid.uuid4()
-        results.class_name = 'tests.app.words.Words'
-        results.name = 'ksp1.tab1'
-        results.columns = [('val1', 'str')]
-        results.entry_point = 'localhost'
-        results.primary_keys = [('pk1', 'int')]
-        results.istorage_props = {}
-        results.tokens = [(1l, 2l), (2l, 3l), (3l, 4l), (3l, 5l)]
+        results = {"storage_id": uuid.uuid4(), "class_name": 'tests.app.words.Words', "name": 'ksp1.tab1',
+                   "columns": [('val1', 'str')], "entry_point": 'localhost', "primary_keys": [('pk1', 'int')],
+                   "istorage_props": {}, "tokens": [(1l, 2l), (2l, 3l), (3l, 4l), (3l, 5l)]}
 
         words_mock_methods = Words._create_tables, Words._load_attributes, Words._store_meta
 
@@ -45,7 +40,7 @@ class BlockTest(unittest.TestCase):
         Words._create_tables.assert_called_once()
         Words._load_attributes.assert_called_once()
         Words._store_meta.assert_called_once()
-        assert(b._ksp == "ksp1")
+        assert (b._ksp == "ksp1")
         assert (b._table == "tab1")
 
         Words._create_tables, Words._load_attributes, Words._store_meta = words_mock_methods

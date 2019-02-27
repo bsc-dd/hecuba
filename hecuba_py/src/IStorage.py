@@ -86,7 +86,7 @@ class IStorage:
             storage_id = uuid.uuid4()
             log.debug('assigning to %s %d  tokens', str(storage_id), len(token_split))
             new_args = self._build_args._replace(tokens=token_split, storage_id=storage_id)
-            yield self.__class__.build_remotely(new_args)
+            yield self.__class__.build_remotely(new_args._asdict())
         log.debug('completed split of %s in %f', self.__class__.__name__, time() - st)
 
     @staticmethod
@@ -172,19 +172,17 @@ class IStorage:
                                    [self._ksp])
         return len(filter(lambda (t_name, ): m.match(t_name), q))
 
-    def _build_istorage_obj(self, **obj_info):
+    @staticmethod
+    def build_remotely(args):
         """
         Takes the information which consists of at least the type,
         :raises TypeError if the object class doesn't subclass IStorage
         :param obj_info: Contains the information to be used to create the IStorage obj
         :return: An IStorage object
         """
-        try:
-            obj_type = obj_info['type']
-        except KeyError:
+        obj_type = args.get('class_name', args.get('type', None))
+        if obj_type is None:
             raise TypeError("Trying to build an IStorage obj without giving the type")
-
-        obj_info['class_name'] = obj_type
 
         # Import the class defined by obj_type
         cname, module = IStorage.process_path(obj_type)
@@ -194,19 +192,29 @@ class IStorage:
         except ValueError:
             raise ValueError("Can't import class {} from module {}".format(cname, module))
 
-        is_class = getattr(mod, cname)
-        if not issubclass(is_class, IStorage):
+        imported_class = getattr(mod, cname)
+        if not issubclass(imported_class, IStorage):
             raise TypeError("Trying to build remotely an object '%s' != IStorage subclass" % cname)
 
         # Build the object's namedtuple from the given arguments
-        namedtuple_args = [obj_info.get(arg, None) for arg in is_class.args_names]
-        obj_namedtuple = is_class.args(*namedtuple_args)
+        #namedtuple_args = [obj_info.get(arg, None) for arg in is_class.args_names]
+        #obj_namedtuple = is_class.args(*namedtuple_args)
         # Build the IStorage object through build_remotely method
-        return is_class.build_remotely(obj_namedtuple)
 
+        args = {k: v for k, v in args.items() if k in imported_class.args_names}
+        args.pop('class_name', None)
+
+        return imported_class(**args)
+
+
+    '''
     @staticmethod
-    def build_remotely(new_args):
-        raise Exception("to be implemented")
+    def build_remotely(class_name, *args):
+        class_name, mod_name = IStorage.process_path(class_name)
+        mod = __import__(mod_name, globals(), locals(), [class_name], 0)
+
+        built_obj = getattr(mod, class_name)(*args)
+    '''
 
     @staticmethod
     def _store_meta(storage_args):

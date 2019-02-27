@@ -23,29 +23,6 @@ class StorageObj(object, IStorage):
     """
 
     @staticmethod
-    def build_remotely(new_args):
-        """
-            Launches the StorageObj.__init__ from the uuid api.getByID
-            Args:
-                new_args: a list of all information needed to create again the storageobj
-            Returns:
-                so: the created storageobj
-        """
-        log.debug("Building Storage object with %s", new_args)
-        class_name = new_args.class_name
-        if class_name is 'StorageObj':
-            so = StorageObj(new_args.name.encode('utf8'), new_args.tokens, new_args.storage_id, new_args.istorage_props)
-
-        else:
-            class_name, mod_name = IStorage.process_path(class_name)
-            mod = __import__(mod_name, globals(), locals(), [class_name], 0)
-
-            so = getattr(mod, class_name)(new_args.name.encode('utf8'), new_args.tokens,
-                                          new_args.storage_id, new_args.istorage_props)
-
-        return so
-
-    @staticmethod
     def _store_meta(storage_args):
         """
             Saves the information of the object in the istorage table.
@@ -431,7 +408,9 @@ class StorageObj(object, IStorage):
                 return object.__getattribute__(self, attribute)
             else:
                 # We are not persistent or the attribute hasn't been assigned an IStorage obj, we build one
-                value = self._build_istorage_obj(name='', tokens=self._build_args.tokens, storage_id=None, **value_info)
+                info = {"name":'', "tokens":self._build_args.tokens, "storage_id":None}
+                info.update(value_info)
+                value = IStorage.build_remotely(info)
                 object.__setattr__(self, attribute, value)
                 return value
 
@@ -472,8 +451,9 @@ class StorageObj(object, IStorage):
             if count > 1:
                 attr_name += '_' + str(count - 2)
             # Build the IStorage obj
-            value = self._build_istorage_obj(name=attr_name, tokens=self._build_args.tokens, storage_id=value,
-                                             **value_info)
+            info = {"name" :attr_name, "tokens":self._build_args.tokens, "storage_id":value}
+            info.update(value_info)
+            value = IStorage.build_remotely(info)
 
         object.__setattr__(self, attribute, value)
         return value
@@ -501,9 +481,9 @@ class StorageObj(object, IStorage):
                 value = StorageNumpy(value)
             elif isinstance(value, dict):
                 per_dict = self._persistent_props[attribute]
-                indexed_args = per_dict.get('indexed_values', None)
-                new_value = StorageDict('', per_dict['primary_keys'], per_dict['columns'],
-                                        tokens=self._tokens, indexed_args=indexed_args)
+                info = {"name": '', "tokens": self._build_args.tokens, "storage_id": None}
+                info.update(per_dict)
+                new_value = IStorage.build_remotely(info)
                 new_value.update(value)
                 value = new_value
 

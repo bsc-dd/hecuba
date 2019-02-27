@@ -70,32 +70,6 @@ class StorageDict(dict, IStorage):
                                                   'primary_keys, columns, indexed_on)'
                                                   'VALUES (?,?,?,?,?,?,?)')
 
-    @staticmethod
-    def build_remotely(result):
-        """
-        Launches the StorageDict.__init__ from the api.getByID
-        Args:
-            result: a namedtuple with all  the information needed to create again the StorageDict
-        """
-        log.debug("Building Storage dict with %s", result)
-        class_name = result.class_name
-        if class_name is 'StorageDict':
-            built_obj = StorageDict(result.name,
-                           result.primary_keys,
-                           result.columns,
-                           result.tokens,
-                           result.storage_id,
-                           result.indexed_on
-                           )
-        else:
-            class_name, mod_name = IStorage.process_path(class_name)
-            mod = __import__(mod_name, globals(), locals(), [class_name], 0)
-
-            built_obj = getattr(mod, class_name)(result.name, result.primary_keys, result.columns, result.tokens,
-                                                 result.storage_id, result.indexed_on)
-
-
-        return built_obj
 
     @staticmethod
     def _store_meta(storage_args):
@@ -117,7 +91,7 @@ class StorageDict(dict, IStorage):
             raise ex
 
     def __init__(self, name=None, primary_keys=None, columns=None, tokens=None,
-                 storage_id=None, indexed_args=None, **kwargs):
+                 storage_id=None, indexed_on=None, **kwargs):
         """
         Creates a new StorageDict.
 
@@ -151,11 +125,11 @@ class StorageDict(dict, IStorage):
             try:
                 self._indexed_args = self._persistent_props[self.__class__.__name__]['indexed_values']
             except KeyError:
-                self._indexed_args = indexed_args
+                self._indexed_args = indexed_on
         else:
             self._primary_keys = primary_keys
             self._columns = columns
-            self._indexed_args = indexed_args
+            self._indexed_args = indexed_on
 
         key_names = [pkname for (pkname, dt) in self._primary_keys]
         column_names = [colname for (colname, dt) in self._columns]
@@ -530,8 +504,9 @@ class StorageDict(dict, IStorage):
                 if col_type not in IStorage._basic_types:
                     # element is not a built-in type
                     table_name = self._ksp + '.' + self._table + '_' + name
-                    element = self._build_istorage_obj(name=table_name, type=col_type, tokens=self._build_args.tokens,
-                                                       storage_id=uuid.UUID(element))
+                    info = {"name": table_name, "tokens": self._build_args.tokens, "storage_id": uuid.UUID(element), "class_name": col_type}
+                    element = IStorage.build_remotely(info)
+
                 final_results.append(element)
 
             if self._column_builder is not None:
