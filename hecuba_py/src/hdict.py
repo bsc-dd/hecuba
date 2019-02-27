@@ -39,16 +39,15 @@ class EmbeddedSet(set):
         return self._father.__setitem__(keys, [])
 
     def remove(self, value):
-        try:
-            if value in self:
-                keys = self._keys[:]
-                if not isinstance(value, Iterable) or isinstance(value, str) or isinstance(value, unicode):
-                    keys.append(value)
-                else:
-                    keys += list(value)
-                return self._father.__delitem__(keys)
-        except KeyError as ex:
-            raise ex
+        if value in self:
+            keys = self._keys[:]
+            if not isinstance(value, Iterable) or isinstance(value, str) or isinstance(value, unicode):
+                keys.append(value)
+            else:
+                keys += list(value)
+            return self._father.__delitem__(keys)
+        else:
+            raise KeyError
 
     def discard(self, value):
         try:
