@@ -551,8 +551,9 @@ class StorageDict(dict, IStorage):
         for key, value in dict.iteritems(self):
             if issubclass(value.__class__, IStorage):
                 # new name as ksp.table_valuename, where valuename is either defined by the user or set by hecuba
-                val_name = self._ksp + '.' + self._table + '_' + self._columns[0][0]
-                value.make_persistent(val_name)
+                if not value._is_persistent:
+                    val_name = self._ksp + '.' + self._table + '_' + self._columns[0][0]
+                    value.make_persistent(val_name)
                 value = value._storage_id
             self._hcache.put_row(self._make_key(key), self._make_value(value))
 
