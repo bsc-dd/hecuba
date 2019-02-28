@@ -196,25 +196,10 @@ class IStorage:
         if not issubclass(imported_class, IStorage):
             raise TypeError("Trying to build remotely an object '%s' != IStorage subclass" % cname)
 
-        # Build the object's namedtuple from the given arguments
-        #namedtuple_args = [obj_info.get(arg, None) for arg in is_class.args_names]
-        #obj_namedtuple = is_class.args(*namedtuple_args)
-        # Build the IStorage object through build_remotely method
-
         args = {k: v for k, v in args.items() if k in imported_class.args_names}
         args.pop('class_name', None)
 
         return imported_class(**args)
-
-
-    '''
-    @staticmethod
-    def build_remotely(class_name, *args):
-        class_name, mod_name = IStorage.process_path(class_name)
-        mod = __import__(mod_name, globals(), locals(), [class_name], 0)
-
-        built_obj = getattr(mod, class_name)(*args)
-    '''
 
     @staticmethod
     def _store_meta(storage_args):
