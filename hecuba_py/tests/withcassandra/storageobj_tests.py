@@ -140,18 +140,13 @@ class mixObj(StorageObj):
 class StorageObjTest(unittest.TestCase):
     def test_build_remotely(self):
 
-        class res:
-            pass
+        r = {"storage_id": uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), "ksp" :  config.execution_name,
+             "class_name": str(TestStorageObj.__module__) + "." + TestStorageObj.__name__, "name": 'tt1',
+             "columns": [('val1', 'str')], "entry_point": 'localhost', "primary_keys": [('pk1', 'int')],
+             "istorage_props": {}, "tokens": IStorage._discrete_token_ranges(
+                [8508619251581300691, 8514581128764531689, 8577968535836399533, 8596162846302799189,
+                 8603491526474728284, 8628291680139169981, 8687301163739303017, 9111581078517061776])}
 
-        r = res()
-        r.ksp = config.execution_name
-        r.name = 'tt1'
-        r.class_name = str(TestStorageObj.__module__) + "." + TestStorageObj.__name__
-        r.tokens = IStorage._discrete_token_ranges(
-            [8508619251581300691, 8514581128764531689, 8577968535836399533, 8596162846302799189,
-             8603491526474728284, 8628291680139169981, 8687301163739303017, 9111581078517061776])
-        r.storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1')
-        r.istorage_props = {}
         nopars = StorageObj.build_remotely(r)
         self.assertEqual('tt1', nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
@@ -162,25 +157,20 @@ class StorageObjTest(unittest.TestCase):
                 0]
 
         self.assertEqual(name, config.execution_name + '.tt1')
-        self.assertEqual(tkns, r.tokens)
+        self.assertEqual(tkns, r['tokens'])
 
     def test_init_create_pdict(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tt1")
         config.session.execute("DROP TABLE IF EXISTS my_app.tt1_instances")
-
-        class res:
-            pass
-
         config.session.execute("DROP TABLE IF EXISTS " + config.execution_name + '.tt1')
-        r = res()
-        r.ksp = config.execution_name
-        r.name = 'tt1'
-        r.class_name = r.class_name = str(TestStorageObj.__module__) + "." + TestStorageObj.__name__
-        r.storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.' + r.name)
-        r.tokens = IStorage._discrete_token_ranges(
-            [8508619251581300691, 8514581128764531689, 8577968535836399533, 8596162846302799189,
-             8603491526474728284, 8628291680139169981, 8687301163739303017, 9111581078517061776])
-        r.istorage_props = {}
+
+        r = {"storage_id": uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), "ksp": config.execution_name,
+             "class_name": str(TestStorageObj.__module__) + "." + TestStorageObj.__name__, "name": 'tt1',
+             "columns": [('val1', 'str')], "entry_point": 'localhost', "primary_keys": [('pk1', 'int')],
+             "istorage_props": {}, "tokens": IStorage._discrete_token_ranges(
+                [8508619251581300691, 8514581128764531689, 8577968535836399533, 8596162846302799189,
+                 8603491526474728284, 8628291680139169981, 8687301163739303017, 9111581078517061776])}
+
         nopars = StorageObj.build_remotely(r)
         self.assertEqual('tt1', nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
@@ -188,8 +178,8 @@ class StorageObjTest(unittest.TestCase):
         name, tkns = \
             config.session.execute("SELECT name,tokens FROM hecuba.istorage WHERE storage_id = %s",
                                    [nopars._storage_id])[0]
-        self.assertEqual(name, config.execution_name + '.' + r.name)
-        self.assertEqual(tkns, r.tokens)
+        self.assertEqual(name, config.execution_name + '.' + r['name'])
+        self.assertEqual(tkns, r['tokens'])
 
         tkns = IStorage._discrete_token_ranges(
             [8508619251581300691, 8514581128764531689, 8577968535836399533, 8596162846302799189,
@@ -255,7 +245,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(storageobj_classname, TestStorageObj.__module__ + "." + TestStorageObj.__name__)
         self.assertEqual(name, 'ksp1.ttta')
 
-        rebuild = StorageObj.build_remotely(res)
+        rebuild = StorageObj.build_remotely(res._asdict())
         self.assertEqual('ttta', rebuild._table)
         self.assertEqual('ksp1', rebuild._ksp)
         self.assertEqual(storage_id, rebuild._storage_id)

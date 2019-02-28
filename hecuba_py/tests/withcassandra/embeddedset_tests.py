@@ -587,7 +587,7 @@ class EmbeddedSetTest(unittest.TestCase):
         self.assertEqual(res.class_name, DictSet.__module__ + "." + DictSet.__name__)
         self.assertEqual(res.name, 'pruebas0.dictset1')
 
-        rebuild = StorageDict.build_remotely(res)
+        rebuild = StorageDict.build_remotely(res._asdict())
         self.assertEqual('dictset1', rebuild._table)
         self.assertEqual('pruebas0', rebuild._ksp)
         self.assertEqual(res.storage_id, rebuild._storage_id)
