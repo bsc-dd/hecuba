@@ -243,7 +243,7 @@ endif ()
 target_link_libraries(hfetch ${ALL_LIBS})
 
 
-#[[ TODO
+
 if (DEFINED ENV{GTEST_ROOT})
     #Tests dependencies
     FIND_LIBRARY(PT NAMES pthread PATHS /lib)
@@ -263,4 +263,3 @@ if (DEFINED ENV{GTEST_ROOT})
         endif (GTest_FOUND)
     endif (PT)
 endif (DEFINED ENV{GTEST_ROOT})
-]]

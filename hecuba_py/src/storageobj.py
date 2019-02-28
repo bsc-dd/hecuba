@@ -3,12 +3,13 @@ import uuid
 from collections import namedtuple
 
 import numpy as np
-
+import sys
 from IStorage import IStorage, AlreadyPersistentError
 from hdict import StorageDict
-from hecuba import config, log
+from hecuba import config, log, Parser
 from hnumpy import StorageNumpy
-
+from collections import OrderedDict
+from parser import Parser
 
 class StorageObj(object, IStorage):
     args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name"]
@@ -16,6 +17,7 @@ class StorageObj(object, IStorage):
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba' +
                                                   '.istorage (storage_id, class_name, name, tokens,istorage_props) '
                                                   ' VALUES (?,?,?,?,?)')
+
     """
     This class is where information will be stored in Hecuba.
     The information can be in memory, stored in a python dictionary or local variables, or saved in a
@@ -42,168 +44,10 @@ class StorageObj(object, IStorage):
             log.warn("Error creating the StorageDict metadata: %s, %s", str(storage_args), ex)
             raise ex
 
-    _dict_case = re.compile('.*@ClassField +(\w+) +dict+ *< *< *([\w:, ]+)+ *> *, *([\w+:., <>]+) *>')
-    _tuple_case = re.compile('.*@ClassField +(\w+) +tuple+ *< *([\w, +]+) *>')
-    _index_vars = re.compile('.*@Index_on *([A-z0-9]+) +([A-z0-9, ]+)')
-
     @classmethod
     def _parse_comments(cls, comments):
-        """
-            Parses de comments in a class file to save them in the class information
-            Args:
-                comments: the comment in the class file
-            Returns:
-                this: a structure with all the information of the comment
-        """
-        this = {}
-        for line in comments.split('\n'):
-            m = StorageObj._dict_case.match(line)
-            if m is not None:
-                # Matching @ClassField of a dict
-                table_name, dict_keys, dict_values = m.groups()
-                primary_keys = []
-                for ind, key in enumerate(dict_keys.split(",")):
-                    match = IStorage._data_type.match(key)
-                    if match is not None and match.lastindex > 1:
-                        # an IStorage with a name
-                        name, value = match.groups()
-                    elif ':' in key:
-                        raise SyntaxError
-                    else:
-                        name = "key" + str(ind)
-                        value = key
-
-                    name = name.replace(' ', '')
-                    primary_keys.append((name, IStorage._conversions[value]))
-                dict_values = dict_values.replace(' ', '')
-                if dict_values.startswith('dict'):
-                    n = IStorage._sub_dict_case.match(dict_values[4:])
-                    # Matching @ClassField of a sub dict
-                    dict_keys2, dict_values2 = n.groups()
-                    primary_keys2 = []
-                    for ind, key in enumerate(dict_keys2.split(",")):
-                        try:
-                            name, value = IStorage._data_type.match(key).groups()
-                        except ValueError:
-                            if ':' in key:
-                                raise SyntaxError
-                            else:
-                                name = "key" + str(ind)
-                                value = key
-                        name = name.replace(' ', '')
-                        primary_keys2.append((name, IStorage._conversions[value]))
-                    columns2 = []
-                    dict_values2 = dict_values2.replace(' ', '')
-                    if dict_values2.startswith('tuple'):
-                        dict_values2 = dict_values2[6:]
-                    for ind, val in enumerate(dict_values2.split(",")):
-                        try:
-                            name, value = IStorage._data_type.match(val).groups()
-                        except ValueError:
-                            if ':' in key:
-                                raise SyntaxError
-                            else:
-                                name = "val" + str(ind)
-                                value = val
-                        columns2.append((name, IStorage._conversions[value]))
-                    columns = {
-                        'type': 'dict',
-                        'primary_keys': primary_keys2,
-                        'columns': columns2}
-                elif dict_values.startswith('tuple'):
-                    n = IStorage._sub_tuple_case.match(dict_values[5:])
-                    tuple_values = list(n.groups())[0]
-                    columns = []
-                    for ind, val in enumerate(tuple_values.split(",")):
-                        try:
-                            name, value = val.split(':')
-                        except ValueError:
-                            if ':' in key:
-                                raise SyntaxError
-                            else:
-                                name = "val" + str(ind)
-                                value = val
-                        name = name.replace(' ', '')
-                        columns.append((name, IStorage._conversions[value]))
-                else:
-                    columns = []
-                    for ind, val in enumerate(dict_values.split(",")):
-                        match = IStorage._data_type.match(val)
-                        if match is not None:
-                            # an IStorage with a name
-                            name, value = match.groups()
-                        elif ':' in val:
-                            name, value = IStorage._so_data_type.match(val).groups()
-                        else:
-                            name = "val" + str(ind)
-                            value = val
-                        name = name.replace(' ', '')
-                        try:
-                            columns.append((name, IStorage._conversions[value]))
-                        except KeyError:
-                            columns.append((name, value))
-                if table_name in this:
-                    this[table_name].update({'type': 'StorageDict', 'primary_keys': primary_keys, 'columns': columns})
-                else:
-                    this[table_name] = {
-                        'type': 'StorageDict',
-                        'primary_keys': primary_keys,
-                        'columns': columns}
-            else:
-                m = StorageObj._tuple_case.match(line)
-                if m is not None:
-                    table_name, simple_type = m.groups()
-                    simple_type = simple_type.replace(' ', '')
-                    simple_type_split = simple_type.split(',')
-                    conversion = ''
-                    for ind, val in enumerate(simple_type_split):
-                        if ind == 0:
-                            conversion += IStorage._conversions[val]
-                        else:
-                            conversion += "," + IStorage._conversions[val]
-                    this[table_name] = {
-                        'type': 'tuple',
-                        'columns': conversion
-                    }
-                else:
-                    m = IStorage._list_case.match(line)
-                    if m is not None:
-                        table_name, simple_type = m.groups()
-
-                        try:
-                            conversion = IStorage._conversions[simple_type]
-                        except KeyError:
-                            conversion = simple_type
-                        this[table_name] = {
-                            'type': 'list',
-                            'columns': conversion
-                        }
-                    else:
-                        m = IStorage._val_case.match(line)
-                        if m is not None:
-                            table_name, simple_type = m.groups()
-                            this[table_name] = {
-                                'type': IStorage._conversions[simple_type]
-                            }
-                        else:
-                            m = IStorage._so_val_case.match(line)
-                            if m is not None:
-                                table_name, simple_type = m.groups()
-                                if simple_type == 'numpy.ndarray':
-                                    simple_type = 'hecuba.hnumpy.StorageNumpy'
-                                this[table_name] = {
-                                    'type': simple_type
-                                }
-            m = StorageObj._index_vars.match(line)
-            if m is not None:
-                table_name, indexed_values = m.groups()
-                indexed_values = indexed_values.replace(' ', '').split(',')
-                if table_name in this:
-                    this[table_name].update({'indexed_values': indexed_values})
-                else:
-                    this[table_name] = {'indexed_values': indexed_values}
-
-        return this
+        parser = Parser("ClassField")
+        return parser._parse_comments(comments)
 
     def __init__(self, name="", tokens=None, storage_id=None, istorage_props=None, **kwargs):
         """
@@ -342,6 +186,9 @@ class StorageObj(object, IStorage):
         self._create_tables()
 
         self._is_persistent = True
+        if self._build_args.storage_id is None:
+            self._build_args = self._build_args._replace(name=self._ksp + '.' + self._table,
+                                                         storage_id=self._storage_id)
         self._store_meta(self._build_args)
 
         # Iterate over the objects the user has requested to be persistent
@@ -470,10 +317,6 @@ class StorageObj(object, IStorage):
         if attribute[0] is '_' or attribute not in self._persistent_attrs:
             object.__setattr__(self, attribute, value)
             return
-
-        if config.hecuba_type_checking and value is not None and not isinstance(value, dict) and \
-                        IStorage._conversions[value.__class__.__name__] != self._persistent_props[attribute]['type']:
-            raise TypeError
 
         # Transform numpy.ndarrays and python dicts to StorageNumpy and StorageDicts
         if not isinstance(value, IStorage):

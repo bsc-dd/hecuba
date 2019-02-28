@@ -12,21 +12,21 @@ import numpy as np
 
 class Result(StorageObj):
     '''
-    @ClassField instances dict<<word:str>,numinstances:int>
+    @ClassField instances dict<<word:str>, numinstances:int>
     '''
     pass
 
 
 class TestStorageObj(StorageObj):
     '''
-       @ClassField test dict<<position:int>,text:str>
+       @ClassField test dict<<position:int>, text:str>
     '''
     pass
 
 
 class TestStorageIndexedArgsObj(StorageObj):
     '''
-       @ClassField test dict<<position:int>,x:float,y:float,z:float>
+       @ClassField test dict<<position:int>, x:float, y:float, z:float>
        @Index_on test x,y,z
     '''
     pass
@@ -74,21 +74,21 @@ class Test4bStorageObj(StorageObj):
 
 class Test5StorageObj(StorageObj):
     '''
-       @ClassField test2 dict<<position:int>,myso:tests.withcassandra.storageobj_tests.Test2StorageObj>
+       @ClassField test2 dict<<position:int>, myso:tests.withcassandra.storageobj_tests.Test2StorageObj>
     '''
     pass
 
 
 class Test6StorageObj(StorageObj):
     '''
-       @ClassField test3 dict<<int>,str,str>
+       @ClassField test3 dict<<key0:int>, val0:str, val1:str>
     '''
     pass
 
 
 class Test7StorageObj(StorageObj):
     '''
-       @ClassField test2 dict<<int>,tests.withcassandra.storageobj_tests.Test2StorageObj>
+       @ClassField test2 dict<<key0:int>, val0:tests.withcassandra.storageobj_tests.Test2StorageObj>
     '''
     pass
 
@@ -102,10 +102,9 @@ class TestStorageObjNumpy(StorageObj):
 
 class TestStorageObjNumpyDict(StorageObj):
     '''
-       @ClassField mynumpydict dict<<int>,numpy.ndarray>
+       @ClassField mynumpydict dict<<key:int>, val:numpy.ndarray>
     '''
     pass
-
 
 
 class TestAttributes(StorageObj):
@@ -124,16 +123,17 @@ class TestAttributes(StorageObj):
     def getvalue(self):
         return self.value
 
+
 class mixObj(StorageObj):
     '''
     @ClassField floatfield float
     @ClassField intField int
     @ClassField strField str
-    @ClassField intlistField list <int>
-    @ClassField floatlistField list <float>
-    @ClassField strlistField list <str>
-    @ClassField dictField dict <<int>,str>
-    @ClassField inttupleField tuple <int, int>
+    @ClassField intlistField list<int>
+    @ClassField floatlistField list<float>
+    @ClassField strlistField list<str>
+    @ClassField dictField dict<<key0:int>, val0:str>
+    @ClassField inttupleField tuple<int,int>
     '''
 
 
@@ -152,8 +152,9 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(config.execution_name, nopars._ksp)
         self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), nopars._storage_id)
         name, tkns = \
-        config.session.execute("SELECT name, tokens FROM hecuba.istorage WHERE storage_id = %s", [nopars._storage_id])[
-            0]
+            config.session.execute("SELECT name, tokens FROM hecuba.istorage WHERE storage_id = %s",
+                                   [nopars._storage_id])[
+                0]
 
         self.assertEqual(name, config.execution_name + '.tt1')
         self.assertEqual(tkns, r['tokens'])
@@ -409,7 +410,6 @@ class StorageObjTest(unittest.TestCase):
         self.assertRaises(AttributeError, del_attr2)
         self.assertRaises(AttributeError, del_attr3)
 
-
     def test_modify_simple_before_mkp_attributes(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.t2")
         so = Test2StorageObj()
@@ -426,28 +426,25 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(so.age, 2000)
 
     def test_paranoid_setattr_nonpersistent(self):
-        config.hecuba_type_checking = True
         config.session.execute("DROP TABLE IF EXISTS my_app.t2")
-        so = Test2StorageObj()
+        so = Test2StorageObj("myobj")
         so.name = 'my_name'
         self.assertEquals(so.name, 'my_name')
 
         def set_name_test():
             so.name = 1
 
-        self.assertRaises(TypeError, set_name_test)
+        self.assertRaises(cassandra.InvalidRequest, set_name_test)
         so.age = 1
         self.assertEquals(so.age, 1)
 
         def set_age_test():
             so.age = 'my_name'
 
-        self.assertRaises(TypeError, set_age_test)
-        config.hecuba_type_checking = False
+        self.assertRaises(cassandra.InvalidRequest, set_age_test)
 
     def test_paranoid_setattr_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.t2")
-        config.hecuba_type_checking = True
         so = Test2StorageObj("t2")
         so.name = 'my_name'
         result = config.session.execute("SELECT name FROM my_app.t2")
@@ -458,7 +455,7 @@ class StorageObjTest(unittest.TestCase):
         def setNameTest():
             so.name = 1
 
-        self.assertRaises(TypeError, setNameTest)
+        self.assertRaises(cassandra.InvalidRequest, setNameTest)
         so.age = 1
         result = config.session.execute("SELECT age FROM my_app.t2")
         for row in result:
@@ -468,15 +465,12 @@ class StorageObjTest(unittest.TestCase):
         def setAgeTest():
             so.age = 'my_name'
 
-        self.assertRaises(TypeError, setAgeTest)
-        config.hecuba_type_checking = False
+        self.assertRaises(cassandra.InvalidRequest, setAgeTest)
 
     def test_paranoid_setattr_float(self):
-        config.hecuba_type_checking = True
         config.session.execute("DROP TABLE IF EXISTS my_app.t2")
         so = Test2StorageObjFloat("t2")
         so.age = 2.0
-        config.hecuba_type_checking = False
 
     def test_nestedso_notpersistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
@@ -723,7 +717,6 @@ class StorageObjTest(unittest.TestCase):
         my_nested_so.test2[0].age = 10
         self.assertEquals(10, my_nested_so.test2[0].age)
 
-
     def test_nestedso_retrievedata(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tnr")
         config.session.execute("DROP TABLE IF EXISTS my_app.tnr_test2")
@@ -812,8 +805,6 @@ class StorageObjTest(unittest.TestCase):
         time.sleep(2)
         self.assertTrue(np.array_equal(mynumpydict, my_so.mynumpydict[0]))
 
-
-
     def test_numpy_operations(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy")
@@ -825,12 +816,11 @@ class StorageObjTest(unittest.TestCase):
         import time
         time.sleep(2)
         self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
-        base_numpy+=1
-        my_so.mynumpy+=1
+        base_numpy += 1
+        my_so.mynumpy += 1
         self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
-        self.assertEqual(np.average(base_numpy),np.average(my_so.mynumpy))
-        self.assertEqual(np.mean(base_numpy),np.mean(my_so.mynumpy))
-
+        self.assertEqual(np.average(base_numpy), np.average(my_so.mynumpy))
+        self.assertEqual(np.mean(base_numpy), np.mean(my_so.mynumpy))
 
     def test_numpy_ops_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
@@ -847,42 +837,39 @@ class StorageObjTest(unittest.TestCase):
         my_so.mynumpy += 1
         self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
 
-
         reloaded_so = TestStorageObjNumpy('mynewso')
         self.assertTrue(np.array_equal(base_numpy, reloaded_so.mynumpy))
         self.assertEqual(np.average(base_numpy), np.average(reloaded_so.mynumpy))
         self.assertEqual(np.mean(base_numpy), np.mean(reloaded_so.mynumpy))
 
     def test_numpy_reloading(self):
-        sizea, sizeb = (1000,1000)
+        sizea, sizeb = (1000, 1000)
         no = TestStorageObjNumpy("my_app.numpy_test_%d_%d" % (sizea, sizeb))
         a = np.ones((sizea, sizeb))
         no.mynumpy = a
         del no
         no = TestStorageObjNumpy("my_app.numpy_test_%d_%d" % (sizea, sizeb))
         a = no.mynumpy
-        self.assertEqual(np.shape(a),(sizea,sizeb))
-        self.assertEqual(np.sum(a),sizea*sizeb)
-
+        self.assertEqual(np.shape(a), (sizea, sizeb))
+        self.assertEqual(np.sum(a), sizea * sizeb)
 
     def test_numpy_reloading_internals(self):
-        sizea, sizeb = (1000,1000)
+        sizea, sizeb = (1000, 1000)
         no = TestStorageObjNumpy("my_app.numpy_test_%d_%d" % (sizea, sizeb))
         a = np.ones((sizea, sizeb))
         no.mynumpy = a
-        initial_name_so = no._ksp+'.'+no._table
-        initial_name_np = no.mynumpy._ksp+'.'+no.mynumpy._table
+        initial_name_so = no._ksp + '.' + no._table
+        initial_name_np = no.mynumpy._ksp + '.' + no.mynumpy._table
         del no
         no = TestStorageObjNumpy("my_app.numpy_test_%d_%d" % (sizea, sizeb))
         a = no.mynumpy
 
-        final_name_so = no._ksp+'.'+no._table
-        final_name_np = no.mynumpy._ksp+'.'+no.mynumpy._table
-        self.assertEqual(initial_name_so,final_name_so)
+        final_name_so = no._ksp + '.' + no._table
+        final_name_np = no.mynumpy._ksp + '.' + no.mynumpy._table
+        self.assertEqual(initial_name_so, final_name_so)
         self.assertEqual(initial_name_np, final_name_np)
 
     def test_storagedict_assign(self):
-        config.hecuba_type_checking = True
         config.session.execute("DROP TABLE IF EXISTS my_app.t2")
         config.session.execute("DROP TABLE IF EXISTS my_app.t2_test")
         config.session.execute("DROP TABLE IF EXISTS my_app.t2_test_0")
@@ -896,7 +883,6 @@ class StorageObjTest(unittest.TestCase):
         self.assertEquals('t2_test_1', so.test._table)
         so.test = {3: 'c', 4: 'd'}
         self.assertEquals('t2_test_2', so.test._table)
-        config.hecuba_type_checking = False
 
     def test_storageobj_coherence_basic(self):
         '''
@@ -926,7 +912,7 @@ class StorageObjTest(unittest.TestCase):
         myso_attr = Test2StorageObj()
         myso_attr.name = 'Oliver'
         myso_attr.age = 21
-        so.myso = myso_attr #creates my_app.test_myso_0, the original attribute pointed to test_myso
+        so.myso = myso_attr  # creates my_app.test_myso_0, the original attribute pointed to test_myso
         self.assertEqual(myso_attr.name, so.myso.name)
         del myso_attr
         self.assertEqual(so.myso.age, 21)
@@ -935,7 +921,6 @@ class StorageObjTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.test_myso_0")
         config.session.execute("DROP TABLE IF EXISTS my_app.test_myso2")
         config.session.execute("DROP TABLE IF EXISTS my_app.test_myso2_test")
-
 
     def test_storageobj_coherence_complex2(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.test")
@@ -947,26 +932,26 @@ class StorageObjTest(unittest.TestCase):
         myso_attr = Test2StorageObj()
         myso_attr.name = 'Oliver'
         myso_attr.age = 21
-        so.myso = myso_attr #creates my_app.test_myso_0, the original attribute pointed to test_myso
-        #now my_attr is persistent too, because it has been asigned to a persistent object
+        so.myso = myso_attr  # creates my_app.test_myso_0, the original attribute pointed to test_myso
+        # now my_attr is persistent too, because it has been asigned to a persistent object
         # Python behaviour, now the attribute points to the object, no copy made
         self.assertTrue(so.myso is myso_attr)
-        #any change on the nested attribute should change the original and backwards
+        # any change on the nested attribute should change the original and backwards
         attr_value = 123
         myso_attr.some_attribute = attr_value
         myso_attr.name = 'Benji'
-        self.assertTrue(hasattr(so.myso,'some_attribute'))
+        self.assertTrue(hasattr(so.myso, 'some_attribute'))
         self.assertEqual(so.myso.some_attribute, attr_value)
         self.assertEqual(so.myso.name, 'Benji')
 
-        #now we unreference the top persistent object called so which was made persistent as 'test'
+        # now we unreference the top persistent object called so which was made persistent as 'test'
         del so
 
-        #The object pointed by 'so.myso' should still exist because we still have one reference called 'myso_attr'
+        # The object pointed by 'so.myso' should still exist because we still have one reference called 'myso_attr'
 
         self.assertTrue(myso_attr is not None)
         self.assertTrue(isinstance(myso_attr, Test2StorageObj))
-        self.assertEqual(myso_attr.name,'Benji')
+        self.assertEqual(myso_attr.name, 'Benji')
         config.session.execute("DROP TABLE IF EXISTS my_app.test")
         config.session.execute("DROP TABLE IF EXISTS my_app.test_myso")
         config.session.execute("DROP TABLE IF EXISTS my_app.test_myso_0")
@@ -996,6 +981,7 @@ class StorageObjTest(unittest.TestCase):
 
         def method_nonexistent():
             storage_obj.i_dont_exist()
+
         # check that an attribute method which doesn't exist is detected
         self.assertRaises(AttributeError, method_nonexistent)
 
@@ -1006,7 +992,6 @@ class StorageObjTest(unittest.TestCase):
         self.assertRaises(AttributeError, method_nonexistent_pvt)
 
         config.session.execute("DROP TABLE IF EXISTS my_app.test_attr")
-
 
     def test_get_attr_3(self):
         # the same as test_get_attr_2 but the object is persistent since the beginning
@@ -1040,7 +1025,6 @@ class StorageObjTest(unittest.TestCase):
 
         config.session.execute("DROP TABLE IF EXISTS my_app.test_attr")
 
-
     def test_recreation_init(self):
         """
         New StorageObj
@@ -1070,7 +1054,6 @@ class StorageObjTest(unittest.TestCase):
 
         self.assertEqual(storage_obj.name, attr1)
         self.assertEqual(storage_obj.age, attr2)
-
 
     def test_recreation_init2(self):
         """
@@ -1106,8 +1089,6 @@ class StorageObjTest(unittest.TestCase):
 
         with self.assertRaises(AttributeError):
             attr = storage_obj.nonpersistent
-
-
 
     def test_recreation_make_pers(self):
         """
@@ -1146,8 +1127,6 @@ class StorageObjTest(unittest.TestCase):
         with self.assertRaises(AttributeError):
             attr = storage_obj.age
 
-
-
     def test_recreation_make_pers2(self):
         """
         New StorageObj
@@ -1184,12 +1163,11 @@ class StorageObjTest(unittest.TestCase):
         with self.assertRaises(AttributeError):
             attr = storage_obj.volatile
 
-
     def test_nested_recreation(self):
         sobj_name = "my_app.test_attr"
         config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name))
-        config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name+'_myotherso'))
-        config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name+'_myotherso_0'))
+        config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name + '_myotherso'))
+        config.session.execute("DROP TABLE IF EXISTS {}".format(sobj_name + '_myotherso_0'))
 
         storage_obj = Test2StorageObj()
         name_attr = 'Test1'
@@ -1203,13 +1181,14 @@ class StorageObjTest(unittest.TestCase):
         uuid_sobj_internal = storage_obj.getID()
         uuid_sobj_external = external_sobj.getID()
 
-        internal_name = external_sobj.myotherso._ksp+'.'+external_sobj.myotherso._table
+        internal_name = external_sobj.myotherso._ksp + '.' + external_sobj.myotherso._table
         storage_obj = None
         external_sobj = None
 
         # Check that they have been correctly stored into hecuba.istorage
 
-        result_set = iter(config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(uuid_sobj_external)))
+        result_set = iter(
+            config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(uuid_sobj_external)))
 
         try:
             result = result_set.next()
@@ -1230,7 +1209,8 @@ class StorageObjTest(unittest.TestCase):
 
         # They are both present in hecuba.istorage
 
-        result_set = iter(config.session.execute("SELECT * FROM {} WHERE storage_id={}".format(sobj_name, uuid_sobj_external)))
+        result_set = iter(
+            config.session.execute("SELECT * FROM {} WHERE storage_id={}".format(sobj_name, uuid_sobj_external)))
 
         try:
             result = result_set.next()
@@ -1240,17 +1220,17 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(str(result.myotherso), uuid_sobj_internal)
         # They have been saved with the expected istorage ids
 
-
         external_sobj = Test4StorageObj(sobj_name)
         # Check internal configuration is correct
         self.assertEqual(external_sobj.getID(), uuid_sobj_external)
-        self.assertEqual(external_sobj.myotherso.getID(),uuid_sobj_internal)
-        self.assertEqual(external_sobj._ksp+'.'+external_sobj._table, sobj_name)
+        self.assertEqual(external_sobj.myotherso.getID(), uuid_sobj_internal)
+        self.assertEqual(external_sobj._ksp + '.' + external_sobj._table, sobj_name)
         self.assertEqual(external_sobj.myotherso._ksp + '.' + external_sobj.myotherso._table, internal_name)
 
-        #Check data is correct
+        # Check data is correct
         self.assertEqual(external_sobj.myotherso.name, name_attr)
         self.assertEqual(external_sobj.myotherso.age, age_attr)
+
 
 if __name__ == '__main__':
     unittest.main()

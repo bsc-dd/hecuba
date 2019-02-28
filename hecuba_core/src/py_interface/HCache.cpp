@@ -133,6 +133,9 @@ static PyObject *get_row(HCache *self, PyObject *args) {
     }
 
     try {
+        if (self->T->get_metadata()->get_values()->empty()) {
+            std::vector<const TupleRow *> empty_result(0);
+        }
         py_row = self->valuesParser->make_pylist(v);
         for (uint32_t i = 0; i < v.size(); ++i) {
             delete (v[i]);
