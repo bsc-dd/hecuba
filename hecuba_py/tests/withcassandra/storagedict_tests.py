@@ -39,6 +39,19 @@ class MyStorageDictA(StorageDict):
     '''
 
 
+class mydict(StorageDict):
+    '''
+    @TypeSpec dict<<key0:int>, val0:tests.withcassandra.storagedict_tests.myobj2>
+    '''
+
+
+class myobj2(StorageObj):
+    '''
+    @ClassField attr1 int
+    @ClassField attr2 str
+    '''
+
+
 class StorageDictTest(unittest.TestCase):
     def test_init_empty(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab1")
@@ -844,6 +857,18 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona_0")
         config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona_1")
         config.session.execute("DROP TABLE IF EXISTS my_app.second_name")
+
+    def test_make_persistent_with_persistent_obj(self):
+        o2 = myobj2("obj")
+        o2.attr1 = 1
+        o2.attr2 = "2"
+
+        d = mydict()
+        d[0] = o2
+        try:
+            d.make_persistent("dict")
+        except Exception as ex:
+            self.fail("Raised exception unexpectedly.\n" + str(ex))
 
 
 if __name__ == '__main__':
