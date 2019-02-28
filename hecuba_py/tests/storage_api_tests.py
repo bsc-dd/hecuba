@@ -6,7 +6,7 @@ from hecuba import config, StorageDict
 
 class ApiTestSDict(StorageDict):
     '''
-    @TypeSpec <<key:int>, value:double>
+    @TypeSpec dict<<key:int>, value:double>
     '''
 
 class StorageApi_Tests(unittest.TestCase):
