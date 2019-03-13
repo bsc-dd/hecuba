@@ -167,7 +167,7 @@ class IStorage:
         return list(config.session.execute(self._select_istorage_meta, [storage_id]))
 
     def _count_name_collision(self, attribute):
-        m = re.compile("^%s_%s(_[0-9]+)?$" % (self._table, attribute))
+        m = re.compile("^%s_%s(_[0-9]+)?$" % (self._table.lower(), attribute))
         q = config.session.execute("SELECT table_name FROM  system_schema.tables WHERE keyspace_name = %s",
                                    [self._ksp])
         return len(filter(lambda (t_name, ): m.match(t_name), q))

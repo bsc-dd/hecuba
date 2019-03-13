@@ -205,7 +205,7 @@ class StorageDictSplitTest(unittest.TestCase):
         self.assertEqual(acc, nitems)
 
     def testSplitClassFieldSimple(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.so_split_dict_simple")
+        config.session.execute("DROP TABLE IF EXISTS hecuba.SObj_SimpleClassField")
         nitems = 80
         mybook = SObj_SimpleClassField("so_split_dict_simple")
         mybook.attr1 = nitems
@@ -233,7 +233,7 @@ class StorageDictSplitTest(unittest.TestCase):
         self.assertEqual(acc, nitems)
 
     def testSplitClassFieldComplex(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.so_split_dict_complex")
+        config.session.execute("DROP TABLE IF EXISTS hecuba.SObj_ComplexClassField")
         nitems = 250
         mybook = SObj_ComplexClassField("so_split_dict_complex")
         mybook.attr1 = nitems
