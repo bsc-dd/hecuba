@@ -14,8 +14,8 @@ class TestSimple(StorageObj):
 class StorageObjSplitTest(unittest.TestCase):
     def test_simple_iterkeys_split_test(self):
         tablename = "tab30"
-        config.session.execute("DROP TABLE IF EXISTS hecuba.TestSimple")
-        config.session.execute("DROP TABLE IF EXISTS hecuba.TestSimple_words")
+        config.session.execute("DROP TABLE IF EXISTS my_app.TestSimple")
+        config.session.execute("DROP TABLE IF EXISTS my_app.TestSimple_words")
         sto = TestSimple(tablename)
         pd = sto.words
         num_inserts = 1000
@@ -24,7 +24,7 @@ class StorageObjSplitTest(unittest.TestCase):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd, sto
-        count, = config.session.execute('SELECT count(*) FROM hecuba.TestSimple_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.TestSimple_words')[0]
         self.assertEqual(count, num_inserts)
 
         sto = TestSimple(tablename)
@@ -45,8 +45,8 @@ class StorageObjSplitTest(unittest.TestCase):
 
     def test_build_remotely_iterkeys_split_test(self):
         tablename = 'tab30'
-        config.session.execute("DROP TABLE IF EXISTS hecuba.TestSimple")
-        config.session.execute("DROP TABLE IF EXISTS hecuba.TestSimple_words")
+        config.session.execute("DROP TABLE IF EXISTS my_app.TestSimple")
+        config.session.execute("DROP TABLE IF EXISTS my_app.TestSimple_words")
         sto = TestSimple(tablename)
         pd = sto.words
         num_inserts = 1000
@@ -56,7 +56,7 @@ class StorageObjSplitTest(unittest.TestCase):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd, sto
-        count, = config.session.execute('SELECT count(*) FROM hecuba.TestSimple_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.TestSimple_words')[0]
         self.assertEqual(count, num_inserts)
 
         sto = TestSimple(tablename)
@@ -80,8 +80,8 @@ class StorageObjSplitTest(unittest.TestCase):
 
     def test_simple_iterkeys_split_fromSO_test(self):
         tablename = "tab31"
-        config.session.execute("DROP TABLE IF EXISTS hecuba.TestSimple")
-        config.session.execute("DROP TABLE IF EXISTS hecuba.TestSimple_words")
+        config.session.execute("DROP TABLE IF EXISTS my_app.TestSimple")
+        config.session.execute("DROP TABLE IF EXISTS my_app.TestSimple_words")
         sto = TestSimple(tablename)
         pd = sto.words
         num_inserts = 1000
@@ -90,7 +90,7 @@ class StorageObjSplitTest(unittest.TestCase):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd, sto
-        count, = config.session.execute('SELECT count(*) FROM hecuba.TestSimple_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.TestSimple_words')[0]
         self.assertEqual(count, num_inserts)
 
         sto = TestSimple(tablename)
@@ -109,8 +109,8 @@ class StorageObjSplitTest(unittest.TestCase):
 
     def test_build_remotely_iterkeys_split_fromSO_test(self):
         tablename = "tab32"
-        config.session.execute("DROP TABLE IF EXISTS hecuba.TestSimple")
-        config.session.execute("DROP TABLE IF EXISTS hecuba.TestSimple_words")
+        config.session.execute("DROP TABLE IF EXISTS my_app.TestSimple")
+        config.session.execute("DROP TABLE IF EXISTS my_app.TestSimple_words")
         sto = TestSimple(tablename)
         pd = sto.words
         num_inserts = 1000
@@ -119,7 +119,7 @@ class StorageObjSplitTest(unittest.TestCase):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd, sto
-        count, = config.session.execute('SELECT count(*) FROM hecuba.TestSimple_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.TestSimple_words')[0]
         self.assertEqual(count, num_inserts)
 
         sto = TestSimple(tablename)
@@ -141,8 +141,8 @@ class StorageObjSplitTest(unittest.TestCase):
 
     def test_split_with_different_storage_ids(self):
         tablename = "tab32"
-        config.session.execute("DROP TABLE IF EXISTS hecuba.TestSimple")
-        config.session.execute("DROP TABLE IF EXISTS hecuba.TestSimple_words")
+        config.session.execute("DROP TABLE IF EXISTS my_app.TestSimple")
+        config.session.execute("DROP TABLE IF EXISTS my_app.TestSimple_words")
         sto = TestSimple(tablename)
         pd = sto.words
 

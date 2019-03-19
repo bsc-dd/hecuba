@@ -40,7 +40,7 @@ class BlockTest(unittest.TestCase):
         Words._create_tables.assert_called_once()
         Words._load_attributes.assert_called_once()
         Words._store_meta.assert_called_once()
-        assert (b._ksp == "hecuba")
+        assert (b._ksp == "ksp1")
         assert (b._table == "Words")
 
         Words._create_tables, Words._load_attributes, Words._store_meta = words_mock_methods

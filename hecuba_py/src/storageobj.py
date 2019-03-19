@@ -13,11 +13,11 @@ from parser import Parser
 
 
 class StorageObj(object, IStorage):
-    args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name"]
+    args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name", "columns"]
     args = namedtuple('StorageObjArgs', args_names)
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba' +
-                                                  '.istorage (storage_id, class_name, name, tokens,istorage_props) '
-                                                  ' VALUES (?,?,?,?,?)')
+                                                  '.istorage (storage_id, class_name, columns, name, tokens, istorage_props) '
+                                                  ' VALUES (?,?,?,?,?,?)')
 
     """
     This class is where information will be stored in Hecuba.
@@ -37,6 +37,7 @@ class StorageObj(object, IStorage):
             config.session.execute(StorageObj._prepared_store_meta,
                                    [storage_args.storage_id,
                                     storage_args.class_name,
+                                    storage_args.columns,
                                     storage_args.name,
                                     storage_args.tokens,
                                     storage_args.istorage_props])
@@ -63,6 +64,7 @@ class StorageObj(object, IStorage):
         # Assign private attributes
         self._is_persistent = True if name or storage_id else False
         self._persistent_props = StorageObj._parse_comments(self.__doc__)
+        columns = [(column_name, typ["type"]) for column_name, typ in self._persistent_props.items()]
         self._persistent_attrs = self._persistent_props.keys()
         self._class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
         self._name = name
@@ -70,7 +72,7 @@ class StorageObj(object, IStorage):
         if self._is_persistent:
             if name:
                 self._name = ".".join(self._extract_ks_tab(name))
-                self._ksp, self._table = "hecuba", self._class_name.split('.')[-1]
+                self._ksp, self._table = self._name.split('.')[0], self._class_name.split('.')[-1]
 
             if not storage_id:
                 # Rebuild storage id
@@ -81,10 +83,13 @@ class StorageObj(object, IStorage):
 
             # If found data, replace the constructor data
             if len(metas) != 0:
+                columns_metas = metas[0].columns
+                if not all(i in columns_metas for i in columns):
+                    raise Exception("Schema error. Maybe you are using an existing keyspace and table.")
                 tokens = metas[0].tokens
                 istorage_props = metas[0].istorage_props
                 self._name = metas[0].name
-                self._ksp, self._table = "hecuba", self._class_name.split('.')[-1]
+                self._ksp, self._table = self._name.split('.')[0], metas[0].class_name.split('.')[-1]
 
         if tokens is None:
             # log.info('using all tokens')
@@ -100,12 +105,15 @@ class StorageObj(object, IStorage):
                                      self._tokens,
                                      self._storage_id,
                                      self._istorage_props,
-                                     self._class_name)
+                                     self._class_name,
+                                     columns)
 
         if self._is_persistent:
             # If never existed, must create the tables and register
             self._create_tables()
-            self._store_meta(self._build_args)
+            # if there is a existent obj with the same ksp.table but different class, do not override metadata
+            if self._table == self._build_args.class_name.split(".")[-1]:
+                self._store_meta(self._build_args)
 
         self._load_attributes()
 
@@ -134,7 +142,6 @@ class StorageObj(object, IStorage):
 
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
         config.session.execute(query_keyspace)
-
         query_simple = 'CREATE TABLE IF NOT EXISTS ' + self._ksp + '.' + self._table + \
                        '( storage_id uuid PRIMARY KEY, '
         for key, entry in self._persistent_props.items():
@@ -167,7 +174,7 @@ class StorageObj(object, IStorage):
                                          self._ksp, self._table, name)
 
         self._name = ".".join(self._extract_ks_tab(name))
-        self._ksp, self._table = "hecuba", self._class_name.split('.')[-1]
+        self._ksp, self._table = self._name.split('.')[0], self._class_name.split('.')[-1]
 
         if not self._storage_id:
             # Rebuild storage id
@@ -181,10 +188,14 @@ class StorageObj(object, IStorage):
         # If metadata was found, replace the private attrs
         if len(metas) != 0:
             # Persisted another
-            self._name = metas[0].name
-            self._ksp, self._table = "hecuba", self._class_name.split('.')[-1]
+            columns = [(column_name, typ["type"]) for column_name, typ in self._persistent_props.items()]
+            columns_metas = metas[0].columns
+            if not all(i in columns_metas for i in columns):
+                raise Exception("Schema error. Maybe you are using an existing keyspace and table.")
             self._tokens = metas[0].tokens
             self._istorage_props = metas[0].istorage_props
+            self._name = metas[0].name
+            self._ksp, self._table = self._name.split('.')[0], metas[0].class_name.split('.')[-1]
             # Create the interface with the backend to store the object
         self._create_tables()
 
@@ -192,7 +203,9 @@ class StorageObj(object, IStorage):
         if self._build_args.storage_id is None:
             self._build_args = self._build_args._replace(name=self._name,
                                                          storage_id=self._storage_id)
-        self._store_meta(self._build_args)
+        # if there is a existent obj with the same ksp.table but different class, do not override metadata
+        if self._table == self._build_args.class_name.split(".")[-1]:
+            self._store_meta(self._build_args)
 
         # Iterate over the objects the user has requested to be persistent
         # retrieve them from memory and make them persistent
