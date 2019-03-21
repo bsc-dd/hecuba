@@ -2526,3 +2526,176 @@ TEST(TestingCacheTable, DeleteRow) {
     cass_cluster_free(test_cluster);
     cass_session_free(test_session);
 }
+#include <iostream>
+#include "gtest/gtest.h"
+
+
+using namespace std;
+
+
+
+TEST(TableMeta, LetsTryTuple) {
+
+    CassSession *test_session = NULL;
+    CassCluster *test_cluster = NULL;
+
+    CassFuture *connect_future = NULL;
+    test_cluster = cass_cluster_new();
+    test_session = cass_session_new();
+
+    cass_cluster_set_contact_points(test_cluster, contact_p);
+    cass_cluster_set_port(test_cluster, nodePort);
+
+    connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
+
+
+    CassError rc = cass_future_error_code(connect_future);
+    EXPECT_TRUE(rc == CASS_OK);
+
+    cass_future_free(connect_future);
+
+    fireandforget("DROP KEYSPACE IF EXISTS test;", test_session);
+
+    fireandforget("CREATE KEYSPACE test WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};",
+                  test_session);
+    fireandforget(
+            "CREATE TABLE test.people(dni text PRIMARY KEY, info tuple<int,int>);",
+            test_session);
+
+    const char *query = "INSERT INTO test.people(dni, info) VALUES ('socUnDNI', (1,2));";
+
+    fireandforget(query,test_session);
+
+    //CassStatement *cs = cass_statement_new(query, 1);
+
+    CassStatement* cs
+            = cass_statement_new("INSERT INTO test.people(dni, info) VALUES ('socUnDNI2', ?)", 1);
+
+    std::vector <std::map<std::string, std::string>> keysnames = {{{"name", "dni"}}};
+
+    std::vector <std::map<std::string, std::string>> colsnames = {{{"name", "info"}}};
+    std::cout << "aqui es donde peta" << std::endl;
+    TableMetadata *table_meta = new TableMetadata("people", "test", keysnames, colsnames, test_session);
+
+    //std::tuple<int,int> mytuple (10,20);
+    std::tuple<int,int> mytuple (10,20);
+    using namespace std;
+    cout << "el size de la tupla es " << sizeof(mytuple) << endl;
+    cout << "el size de int is " << sizeof(int) << endl;
+    char *buffer2 = (char *) malloc(sizeof(mytuple)); //values
+
+    memcpy(buffer2, &mytuple, sizeof(mytuple));
+
+    int *b = (int *)malloc(2*sizeof(int));
+
+    char *p = buffer2;
+
+    for(int i=0;i<2;i++) {
+        b[i]=(int )*p;
+        printf("got value %d\n",b[i]);
+        p += sizeof(int);
+    }
+    int32_t result, value, ok = 20000;
+
+    std::map<std::string, std::string> info = {{"name", "mycolumn"}};
+    CassValueType cv_type = CASS_VALUE_TYPE_TUPLE;
+    uint16_t offset = 0;
+    uint16_t bsize = (sizeof(int));
+    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_INT, offset, bsize);
+    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_INT, offset, bsize);
+
+    std::vector<ColumnMeta> v = {cm1, cm2};
+    ColumnMeta CM = ColumnMeta();
+    CM.info = {{"name", "ciao"}};
+    CM.type = CASS_VALUE_TYPE_TUPLE;
+    CM.position = 0;
+    CM.size = sizeof(uint16_t);
+    CM.pointer = std::make_shared<std::vector<ColumnMeta>>(v);
+
+    TupleRow *valuess = new TupleRow(CM.pointer, sizeof(mytuple), buffer2);
+
+
+    TupleRow *values = new TupleRow(table_meta->get_values(), sizeof(mytuple), valuess);
+
+    cout <<  values->get_element(0) << endl;
+
+    std::shared_ptr<const std::vector<ColumnMeta> > cols = table_meta->get_values();
+
+    TupleRowFactory trf = TupleRowFactory(cols);
+
+    cout << "el n de elementos en trf es: " << trf.n_elements() << endl;
+
+    trf.bind(cs, values, 0);
+
+    cs = cass_statement_new("INSERT INTO test.people(dni, info) VALUES ('socUnDNI3', ?)", 1);
+
+
+    CassTuple *ct = cass_tuple_new(2);
+    cass_int32_t a = 1;
+    cass_int32_t c = 1;
+    cass_tuple_set_int32(ct,0,a);
+    cass_tuple_set_int32(ct,1,c);
+
+    cass_statement_bind_tuple(cs,0,ct);
+
+    connect_future = cass_session_execute(test_session, cs);
+
+    rc = cass_future_error_code(connect_future);
+
+    EXPECT_TRUE(rc == CASS_OK);
+    if (rc != CASS_OK) {
+        std::cout << "ERROR ON EXECUTING QUERY: " << cass_error_desc(rc) << std::endl;
+    }
+    cass_future_free(connect_future);
+    cass_statement_free(cs);
+
+    std::cout << "pero esto ya no lo hace" << std::endl;
+
+
+    //DONT KNOW WHAT TO DO NOW (PRINT THE VALUES?)
+
+
+    cass_cluster_free(test_cluster);
+    cass_session_free(test_session);
+
+}
+
+
+/*TEST(TestPythonUnitParsers, ParseTuple_c_to_py) {
+    std::shared_ptr<std::vector<ColumnMeta> > pointer;
+    auto cm = new ColumnMeta();
+    cm->type = CASS_VALUE_TYPE_INT;
+    pointer->emplace_back(cm);
+    pointer->emplace_back(cm);
+    void * internal_payload = malloc(sizeof(int)*2);
+    Int32Parser i32p(cm);
+   // i32p.py_to_c(tuple_elem, internal_payload);
+
+
+    TupleRow tr = new TupleRow(pointer, pointer->size(), internal_payload);
+    void * payload =
+    int32_t result, value, ok = 20000;
+
+    std::map<std::string, std::string> info = {{"name", "mycolumn"}};
+    CassValueType cv_type = CASS_VALUE_TYPE_TUPLE;
+    uint16_t offset = 0;
+    uint16_t bsize = (sizeof(int)*2);
+    ColumnMeta CM = ColumnMeta(info, cv_type, offset, bsize);
+    ColumnMeta *cm1 = new ColumnMeta();
+    cm1->type = CASS_VALUE_TYPE_INT;
+    CM.pointer->emplace_back(cm1);
+    CM.pointer->emplace_back(cm1);
+    UnitParser *parser = new TupleParser(CM);
+
+    PyObject *pt = Py_BuildValue("(ii)", 4, 5);
+
+    ok = parser->py_to_c(pt, &result);
+
+    EXPECT_FALSE(ok == -1); //object was null
+    EXPECT_FALSE(ok == -2); //something went wrong
+    EXPECT_TRUE(ok == 0); //it worked as expected
+
+
+    //EXPECT_EQ(result, value);
+    delete (parser);
+}*/
