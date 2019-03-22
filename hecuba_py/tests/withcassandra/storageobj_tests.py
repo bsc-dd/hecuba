@@ -491,6 +491,7 @@ class StorageObjTest(unittest.TestCase):
         so.age = 2.0
 
     def test_nestedso_notpersistent(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.Test2StorageObj")
         config.session.execute("DROP TABLE IF EXISTS my_app.Test3StorageObj")
         config.session.execute("DROP TABLE IF EXISTS my_app.test4bstorageobj")
 
@@ -525,7 +526,7 @@ class StorageObjTest(unittest.TestCase):
             error = True
         self.assertEquals(True, error)
 
-        my_nested_so3 = Test4bStorageObj('mynested')
+        my_nested_so3 = Test4bStorageObj('mynested_2')
         my_nested_subso = my_nested_so3.myotherso
 
         my_other_nested = getByID(my_nested_subso.getID())
