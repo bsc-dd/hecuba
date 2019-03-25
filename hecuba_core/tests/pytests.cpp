@@ -144,7 +144,7 @@ TEST(TestPythonUnitParsers, ParseInt16) {
 }
 
 
-TEST(TestPythonUnitParsers, ParseInt32) {
+/*TEST(TestPythonUnitParsers, ParseInt32) {
     PyErr_Clear();
     int32_t result, value, ok, range = 20000;
     PyObject *py_int;
@@ -164,7 +164,7 @@ TEST(TestPythonUnitParsers, ParseInt32) {
         EXPECT_EQ(result, value);
     }
     delete (parser);
-}
+}*/
 
 
 TEST(TestPythonUnitParsers, ParseInt64BigInt) {
@@ -270,14 +270,15 @@ TEST(TestPythonUnitParsers, ParseFloat) {
 TEST(TestPythonUnitParsers, ParseTuple_py_to_c) {
     PyErr_Clear();
 
-    int32_t result, value, ok = 20000;
+
+    int32_t value, ok = 20000;
 
     std::map<std::string, std::string> info = {{"name", "mycolumn"}};
     CassValueType cv_type = CASS_VALUE_TYPE_TUPLE;
     uint16_t offset = 0;
     uint16_t bsize = (sizeof(int));
-    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_INT, offset, bsize);
-    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_INT, offset, bsize);
+    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_INT, 0, bsize);
+    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_INT, bsize, bsize);
 
     std::vector<ColumnMeta> v = {cm1, cm2};
 
@@ -285,14 +286,30 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c) {
     CM.info = {{"name", "ciao"}};
     CM.type = CASS_VALUE_TYPE_TUPLE;
     CM.position = 0;
-    CM.size = sizeof(uint16_t);
+    CM.size = sizeof(TupleRow *);
     CM.pointer = std::make_shared<std::vector<ColumnMeta>>(v);
 
     UnitParser *parser = new TupleParser(CM);
 
     PyObject *pt = Py_BuildValue("(ii)", 4, 5);
 
-    ok = parser->py_to_c(pt, &result);
+    void * result = malloc(sizeof(int32_t)*2);
+    void *external=malloc(sizeof(TupleRow*));
+    ok = parser->py_to_c(pt, external);
+
+    const TupleRow* inner_data = * reinterpret_cast<const TupleRow**>(external);
+    const void * elem = inner_data->get_element(0);
+    const int32_t uziv1 = *(int32_t const *) elem;
+    const void * elem1 = inner_data->get_element(1);
+    const int32_t uziv2 = *(int32_t const *) elem1;
+
+    const void *elem_data = inner_data->get_payload();
+    char *ppp = (char *)(elem_data);
+    int32_t valuee = (cass_int32_t) *ppp;
+    const void *elem_data1 = inner_data->get_payload();
+    char *pppp = (char *)(elem_data1) + sizeof(int);
+    int32_t valueee = (cass_int32_t) *pppp;
+
 
     EXPECT_FALSE(ok == -1); //object was null
     EXPECT_FALSE(ok == -2); //something went wrong
