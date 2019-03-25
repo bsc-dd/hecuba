@@ -93,7 +93,23 @@ Int32Parser::Int32Parser(const ColumnMeta &CM) : UnitParser(CM) {
     if (CM.size != sizeof(int32_t))
         throw ModuleException("Bad size allocated for a Int32");
 }
-
+/*
+ *
+ * int count = 0;
+int16_t Int32Parser::py_to_c(PyObject *myint, void *payload) const {
+    int32_t t;
+    if (myint == Py_None) return -1;
+    int* intbuffer = (int*)payload;
+    if (PyInt_Check(myint) && PyArg_Parse(myint, Py_INT, &t)){
+        memcpy(intbuffer+count, &t, sizeof(int));
+        ++count;
+        return 0;
+    }
+    error_parsing("PyInt to Int32", myint);
+    return -2;
+}
+ */
+int count = 0;
 int16_t Int32Parser::py_to_c(PyObject *myint, void *payload) const {
     if (myint == Py_None) return -1;
     if (PyInt_Check(myint) && PyArg_Parse(myint, Py_INT, payload)) return 0;
@@ -311,17 +327,19 @@ TupleParser::TupleParser(const ColumnMeta &CM) : UnitParser(CM) {
 int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
     if (obj == Py_None) return -1;
 
-    uint16_t total_malloc = 0;
+    uint32_t total_malloc = 0;
     for(int i = 0; i < col_meta.pointer->size(); ++i) {
         total_malloc = total_malloc + col_meta.pointer->at(i).size;
     }
-    void * internal_payload = malloc(total_malloc);
-
+    //void * internal_payload = malloc(sizeof(int32_t)*2);
+    void *internal_payload = malloc(total_malloc);
    // void* internal_payload = malloc(sizeof(this->col_meta.pointer[0].second)*this->pointer.size()); NO
 
     Py_ssize_t size = PyTuple_Size(obj);
     for(int i = 0; i < size; ++i){
         PyObject* tuple_elem = PyTuple_GetItem(obj, i);
+        std::cout << "aquiii" << std::endl;
+        PyObject_Print(tuple_elem, stdout, i);
         CassValueType cvt = this->col_meta.pointer->at(i).type;
         switch(cvt) {
             case CASS_VALUE_TYPE_VARCHAR:
@@ -368,6 +386,7 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
             }
             case CASS_VALUE_TYPE_INT: {
                 Int32Parser i32p = Int32Parser(col_meta.pointer->at(i));
+                i32p = Int32Parser(col_meta.pointer->at(i));
                 i32p.py_to_c(tuple_elem, internal_payload);
                 break;
             }
@@ -422,7 +441,7 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
                 break;
         }
     }
-    TupleRow tr = new TupleRow(col_meta.pointer, (uint32_t) col_meta.pointer->size(), internal_payload);
+    TupleRow *tr = new TupleRow(col_meta.pointer, total_malloc, internal_payload);
     memcpy(payload, &tr, sizeof(tr));
     return 0;
 }
@@ -503,7 +522,6 @@ PyObject *TupleParser::c_to_py(const void *payload) const {
                 char *p = (char *)(payload) + nbytes;
                 PyObject *po = i32p.c_to_py(p);
                 PyTuple_SET_ITEM(tuple, i, po);
-                nbytes = nbytes + sizeof(cass_int32_t);
                 break;
             }
             case CASS_VALUE_TYPE_TIMESTAMP: {

@@ -1,5 +1,5 @@
 #include "TupleRowFactory.h"
-#include "gtest/gtest.h"
+
 /***
  * Builds a tuple factory to retrieve tuples based on rows and keys
  * extracting the information from Cassandra to decide the types to be used
@@ -582,18 +582,14 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                     break;
                 }
                 case CASS_VALUE_TYPE_TUPLE: {
-                    TupleRow* inner_data = const_cast<TupleRow*>( static_cast<const TupleRow*>(element_i) );
-
+                    //const void** inner_data = reinterpret_cast<const void**>(element_i);
+                    TupleRow** ptr = (TupleRow**) element_i;
+                    const TupleRow* inner_data = *ptr;
 
                     const void *elem_data = inner_data->get_payload();
                     unsigned long n_types = metadata->at(i).pointer->size();
 
-                    CassDataType* data_type = cass_data_type_new_tuple(2);
-                    for(unsigned int n = 0; n < n_types; ++n) {
 
-
-                        cass_data_type_add_sub_value_type(data_type, metadata->at(i).pointer->at(n).type);
-                    }
 
                     CassTuple* tuple = cass_tuple_new(n_types);
                     cout << "el size es " << metadata->at(0).type << endl;
@@ -731,34 +727,7 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                         }
                         std::cout << "la pos es " << row->get_element(0) << std::endl;
                     }
-                    CassError ce = cass_statement_bind_tuple(statement, 0, tuple);
-
-                    const char *keyspace = "test";
-                    const char *particles_table = "particle";
-                    const char *particles_wr_table = "particle_write";
-                    const char *words_wr_table = "words_write";
-                    const char *words_table = "words";
-                    CassSession *test_session = NULL;
-                    CassCluster *test_cluster = NULL;
-                    const char *contact_p = "127.0.0.1";
-                    CassFuture *connect_future = NULL;
-                    test_cluster = cass_cluster_new();
-                    test_session = cass_session_new();
-                    uint32_t nodePort = 9042;
-
-                    cass_cluster_set_contact_points(test_cluster, contact_p);
-                    cass_cluster_set_port(test_cluster, nodePort);
-
-                    connect_future = cass_session_connect(test_session, test_cluster);
-                    CassError rc = cass_future_error_code(connect_future);
-                    EXPECT_TRUE(rc == CASS_OK);
-                    if (rc != CASS_OK) {
-                        std::cout << "ERROR ON EXECUTING QUERY: " << cass_error_desc(rc) << std::endl;
-                    }
-                    cass_future_free(connect_future);
-
-                    cass_session_execute(test_session, statement);
-                    std::cout << cass_error_desc(ce) << std::endl;
+                    CassError ce = cass_statement_bind_tuple(statement, bind_pos, tuple);
 
                     break;
                 }

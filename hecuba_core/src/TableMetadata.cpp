@@ -93,7 +93,7 @@ uint16_t TableMetadata::compute_size_of(const ColumnMeta &CM) const {
             break;
         }
         case CASS_VALUE_TYPE_TUPLE: {
-            return sizeof(int32_t);
+            return sizeof(void*);
         }
         case CASS_VALUE_TYPE_UDT: {
             throw ModuleException("Can't parse data: User defined type not supported");
