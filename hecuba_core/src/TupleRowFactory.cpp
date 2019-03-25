@@ -443,7 +443,6 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
         const void *element_i = row->get_element(i);
 
         using namespace std;
-        cout << "soy el elemento donde estan los datos: " << element_i << endl;
 
         uint32_t bind_pos = i + offset;
         if (i >= localMeta->size())
@@ -592,8 +591,7 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
 
 
                     CassTuple* tuple = cass_tuple_new(n_types);
-                    cout << "el size es " << metadata->at(0).type << endl;
-                    cout << "el info es " << metadata->at(0).info.size() << endl;
+
                     int nbytes = 0;
                     for(unsigned int n = 0; n < n_types; ++n) {
                         CassValueType cvt = metadata->at(i).pointer->at(n).type;
@@ -660,9 +658,10 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                             }
                             case CASS_VALUE_TYPE_INT: {
                                 char *p = (char *)(elem_data) + nbytes;
-                                cass_int32_t value = (cass_int32_t) *p;
-                                cass_tuple_set_int32(tuple, (size_t)n, value);
-                                nbytes = nbytes + sizeof(cass_int32_t);
+                                int32_t* value = (int32_t*) inner_data->get_element(n);
+                                std::cout << "Binding"<<*value<<"at"<<n<<"addris"<<(void*)p << std::endl;
+                                cass_tuple_set_int32(tuple, (size_t)n, *value);
+                                nbytes = nbytes + sizeof(int32_t);
                                 break;
                             }
                             case CASS_VALUE_TYPE_TIMESTAMP: {
