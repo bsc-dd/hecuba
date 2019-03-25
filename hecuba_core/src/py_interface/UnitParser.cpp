@@ -333,14 +333,12 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
     }
     //void * internal_payload = malloc(sizeof(int32_t)*2);
     void *internal_payload = malloc(total_malloc);
-    std::cout << "unitparser_creates_internal" << internal_payload << std::endl;
    // void* internal_payload = malloc(sizeof(this->col_meta.pointer[0].second)*this->pointer.size()); NO
 
     Py_ssize_t size = PyTuple_Size(obj);
     for(int i = 0; i < size; ++i){
         PyObject* tuple_elem = PyTuple_GetItem(obj, i);
-        std::cout << "aquiii" << std::endl;
-        PyObject_Print(tuple_elem, stdout, i);
+        //PyObject_Print(tuple_elem, stdout, i);
         CassValueType cvt = this->col_meta.pointer->at(i).type;
         void* destiny = (char*)internal_payload + this->col_meta.pointer->at(i).position;
         switch(cvt) {
@@ -389,7 +387,6 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
             case CASS_VALUE_TYPE_INT: {
                 Int32Parser i32p = Int32Parser(col_meta.pointer->at(i));
                 i32p = Int32Parser(col_meta.pointer->at(i));
-                std::cout << "unitparser_parsesto" << destiny << std::endl;
                 i32p.py_to_c(tuple_elem, destiny);
                 break;
             }
