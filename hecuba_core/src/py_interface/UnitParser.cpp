@@ -333,6 +333,7 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
     }
     //void * internal_payload = malloc(sizeof(int32_t)*2);
     void *internal_payload = malloc(total_malloc);
+    std::cout << "unitparser_creates_internal" << internal_payload << std::endl;
    // void* internal_payload = malloc(sizeof(this->col_meta.pointer[0].second)*this->pointer.size()); NO
 
     Py_ssize_t size = PyTuple_Size(obj);
@@ -341,34 +342,35 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
         std::cout << "aquiii" << std::endl;
         PyObject_Print(tuple_elem, stdout, i);
         CassValueType cvt = this->col_meta.pointer->at(i).type;
+        void* destiny = (char*)internal_payload + this->col_meta.pointer->at(i).position;
         switch(cvt) {
             case CASS_VALUE_TYPE_VARCHAR:
             case CASS_VALUE_TYPE_TEXT:
             case CASS_VALUE_TYPE_ASCII: {
                 Int64Parser i64p = Int64Parser(col_meta.pointer->at(i));
-                i64p.py_to_c(tuple_elem, internal_payload);
+                i64p.py_to_c(tuple_elem, destiny);
                 break;
             }
             case CASS_VALUE_TYPE_VARINT:
             case CASS_VALUE_TYPE_BIGINT: {
                 Int64Parser i64p(col_meta);
-                i64p.py_to_c(tuple_elem, internal_payload);
+                i64p.py_to_c(tuple_elem, destiny);
                 break;
             }
             case CASS_VALUE_TYPE_BLOB: {
                 BytesParser bp = BytesParser(col_meta.pointer->at(i));
-                bp.py_to_c(tuple_elem, internal_payload);
+                bp.py_to_c(tuple_elem, destiny);
                 break;
             }
             case CASS_VALUE_TYPE_BOOLEAN: {
                 BoolParser bp = BoolParser(col_meta.pointer->at(i));
-                bp.py_to_c(tuple_elem, internal_payload);
+                bp.py_to_c(tuple_elem, destiny);
                 break;
             }
                 //TODO parsed as uint32 or uint64 on different methods
             case CASS_VALUE_TYPE_COUNTER: {
                 Int64Parser i64p = Int64Parser(col_meta.pointer->at(i));
-                i64p.py_to_c(tuple_elem, internal_payload);
+                i64p.py_to_c(tuple_elem, destiny);
                 break;
             }
             case CASS_VALUE_TYPE_DECIMAL: {
@@ -378,7 +380,7 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
             }
             case CASS_VALUE_TYPE_DOUBLE: {
                 DoubleParser dp = DoubleParser(col_meta.pointer->at(i));
-                dp.py_to_c(tuple_elem, internal_payload);
+                dp.py_to_c(tuple_elem, destiny);
                 break;
             }
             case CASS_VALUE_TYPE_FLOAT: {
@@ -387,7 +389,8 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
             case CASS_VALUE_TYPE_INT: {
                 Int32Parser i32p = Int32Parser(col_meta.pointer->at(i));
                 i32p = Int32Parser(col_meta.pointer->at(i));
-                i32p.py_to_c(tuple_elem, internal_payload);
+                std::cout << "unitparser_parsesto" << destiny << std::endl;
+                i32p.py_to_c(tuple_elem, destiny);
                 break;
             }
             case CASS_VALUE_TYPE_TIMESTAMP: {
@@ -396,7 +399,7 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
             }
             case CASS_VALUE_TYPE_UUID: {
                 UuidParser uip = UuidParser(col_meta.pointer->at(i));
-                uip.py_to_c(tuple_elem, internal_payload);
+                uip.py_to_c(tuple_elem, destiny);
                 break;
             }
             case CASS_VALUE_TYPE_TIMEUUID: {
@@ -417,12 +420,12 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
             }
             case CASS_VALUE_TYPE_SMALL_INT: {
                 Int16Parser i16p = Int16Parser(col_meta.pointer->at(i));
-                i16p.py_to_c(tuple_elem, internal_payload);
+                i16p.py_to_c(tuple_elem, destiny);
                 break;
             }
             case CASS_VALUE_TYPE_TINY_INT: {
                 Int8Parser i8p = Int8Parser(col_meta.pointer->at(i));
-                i8p.py_to_c(tuple_elem, internal_payload);
+                i8p.py_to_c(tuple_elem, destiny);
                 break;
             }
             case CASS_VALUE_TYPE_LIST: {
