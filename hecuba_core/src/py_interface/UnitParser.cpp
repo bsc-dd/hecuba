@@ -448,8 +448,8 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
 
 
 PyObject *TupleParser::c_to_py(const void *payload) const {
-    TupleRow* inner_data = const_cast<TupleRow*>( static_cast<const TupleRow*>(payload) );
-    payload = inner_data->get_payload();
+    TupleRow** ptr = (TupleRow**) payload;
+    const TupleRow* inner_data = *ptr;
 
     int size = col_meta.pointer->size();
     PyObject* tuple = PyTuple_New(size);
@@ -519,7 +519,7 @@ PyObject *TupleParser::c_to_py(const void *payload) const {
             }
             case CASS_VALUE_TYPE_INT: {
                 Int32Parser i32p = Int32Parser(col_meta.pointer->at(i));
-                char *p = (char *)(payload) + nbytes;
+                int32_t* p = (int32_t*) inner_data->get_element(i);
                 PyObject *po = i32p.c_to_py(p);
                 PyTuple_SET_ITEM(tuple, i, po);
                 break;
