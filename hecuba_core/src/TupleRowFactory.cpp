@@ -233,9 +233,50 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             break;
         }
         case CASS_VALUE_TYPE_TUPLE: {
-            int n_types = metadata->at(col).pointer->size();
-            for(int i = 0; i < n_types; ++i) {
-                CassValueType type = metadata->at(col).pointer->at(i).type;
+           TupleRow** ptr = (TupleRow**) data;
+            //const TupleRow* inner_data = *ptr;
+
+            //void *tuple_data = inner_data->get_payload();
+            auto last_elem = --metadata->at(col).pointer->end();
+            if (last_elem == metadata->at(col).pointer->end()) throw ModuleException("Empty tuple");
+
+            uint32_t internal_size = last_elem->position + last_elem->size;
+            void *tuple_data = malloc(internal_size);
+
+            *ptr = new TupleRow(metadata->at(col).pointer,internal_size, tuple_data);
+
+                //CassValueType type = metadata->at(col).pointer->at(i).type;
+                /* Retrieve tuple value from column */
+            //const CassValue* tuple_value = lhs;
+
+            /* Create an iterator for the UDT value */
+
+
+            std::cout << "FINDME" << cass_value_type(lhs) << "-" << CASS_VALUE_TYPE_TUPLE << std::endl;
+
+            auto TFACT = TupleRowFactory(metadata->at(col).pointer);
+
+            CassIterator* tuple_iterator = cass_iterator_from_tuple(lhs);
+            if (!tuple_iterator) throw ModuleException("Cassandra to C: Data type is not tuple");
+            /* Iterate over the tuple fields */
+            uint32_t j = 0;
+           while (cass_iterator_next(tuple_iterator)) {
+
+                //const char* field_name;
+                //size_t field_name_length;
+                /* Get tuple value */
+                const CassValue* value = cass_iterator_get_value(tuple_iterator);
+                TFACT.cass_to_c(value, tuple_data, j);
+                ++j;
+
+            /* ... */
+            }
+
+            /* The tuple iterator needs to be freed */
+            cass_iterator_free(tuple_iterator);
+
+
+                /*
                 switch (type) {
                     case CASS_VALUE_TYPE_TEXT:
                     case CASS_VALUE_TYPE_VARCHAR:
@@ -248,12 +289,12 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
                         char *permanent = (char *) malloc(l_size + 1);
                         memcpy(permanent, l_temp, l_size);
                         permanent[l_size] = '\0';
-                        memcpy(data, &permanent, sizeof(char *));
+                        memcpy(tuple_data, &permanent, sizeof(char *));
                         //return 0;
                     }
                     case CASS_VALUE_TYPE_VARINT:
                     case CASS_VALUE_TYPE_BIGINT: {
-                        int64_t *p = static_cast<int64_t * >(data);
+                        int64_t *p = static_cast<int64_t * >(tuple_data);
                         CassError rc = cass_value_get_int64(lhs, p);
                         CHECK_CASS(
                                 "TupleRowFactory: Cassandra to C parse bigint/varint unsuccessful, column:" + std::to_string(col));
@@ -282,7 +323,7 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
                             memcpy(permanent + sizeof(uint64_t), l_temp, l_size);
 
                             //copy pointer to payload
-                            memcpy(data, &permanent, sizeof(char *));
+                            memcpy(tuple_data, &permanent, sizeof(char *));
                         }
                         else {
                             uint32_t bytes_offset = 0;
@@ -299,7 +340,8 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
                             if (nbytes%sizeof(uint32_t)!=0) throw ModuleException("something went wrong reading the dims of a numpy");
                             arr_metas->dims=std::vector<uint32_t >(nelem);
                             memcpy(arr_metas->dims.data(),l_temp+bytes_offset,nbytes);
-                            memcpy(data,&arr_metas,sizeof(arr_metas));
+                            memcpy(tuple_
+                            data,&arr_metas,sizeof(arr_metas));
 
                         }
                         //return 0;
@@ -309,13 +351,13 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
                         CassError rc = cass_value_get_bool(lhs, &b);
                         CHECK_CASS("TupleRowFactory: Cassandra to C parse bool unsuccessful, column:" + std::to_string(col));
                         if (rc == CASS_ERROR_LIB_NULL_VALUE) return -1;
-                        bool *p = static_cast<bool *>(data);
+                        bool *p = static_cast<bool *>(tuple_data);
                         if (b == cass_true) *p = true;
                         else *p = false;
                         //return 0;
                     }
                     case CASS_VALUE_TYPE_COUNTER: {
-                        CassError rc = cass_value_get_uint32(lhs, reinterpret_cast<uint32_t *>(data));
+                        CassError rc = cass_value_get_uint32(lhs, reinterpret_cast<uint32_t *>(tuple_data));
                         CHECK_CASS("TupleRowFactory: Cassandra to C parse counter as uint32 unsuccessful, column:" +
                                    std::to_string(col));
                         if (rc == CASS_ERROR_LIB_NULL_VALUE) return -1;
@@ -327,19 +369,19 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
                         break;
                     }
                     case CASS_VALUE_TYPE_DOUBLE: {
-                        CassError rc = cass_value_get_double(lhs, reinterpret_cast<double *>(data));
+                        CassError rc = cass_value_get_double(lhs, reinterpret_cast<double *>(tuple_data));
                         CHECK_CASS("TupleRowFactory: Cassandra to C parse double unsuccessful, column:" + std::to_string(col));
                         if (rc == CASS_ERROR_LIB_NULL_VALUE) return -1;
                         //return 0;
                     }
                     case CASS_VALUE_TYPE_FLOAT: {
-                        CassError rc = cass_value_get_float(lhs, reinterpret_cast<float * >(data));
+                        CassError rc = cass_value_get_float(lhs, reinterpret_cast<float * >(tuple_data));
                         CHECK_CASS("TupleRowFactory: Cassandra to C parse float unsuccessful, column:" + std::to_string(col));
                         if (rc == CASS_ERROR_LIB_NULL_VALUE) return -1;
                         //return 0;
                     }
                     case CASS_VALUE_TYPE_INT: {
-                        CassError rc = cass_value_get_int32(lhs, reinterpret_cast<int32_t * >(data));
+                        CassError rc = cass_value_get_int32(lhs, reinterpret_cast<int32_t * >(tuple_data));
                         CHECK_CASS("TupleRowFactory: Cassandra to C parse int32 unsuccessful, column:" + std::to_string(col));
                         if (rc == CASS_ERROR_LIB_NULL_VALUE) return -1;
                         //return 0;
@@ -359,7 +401,7 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
                         char *permanent = (char *) malloc(sizeof(uint64_t) * 2);
                         memcpy(permanent, &time_and_version, sizeof(uint64_t));
                         memcpy(permanent + sizeof(uint64_t), &clock_seq_and_node, sizeof(uint64_t));
-                        memcpy(data, &permanent, sizeof(char *));
+                        memcpy(tuple_data, &permanent, sizeof(char *));
                         //return 0;
                     }
                     case CASS_VALUE_TYPE_TIMEUUID: {
@@ -379,12 +421,12 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
                         break;
                     }
                     case CASS_VALUE_TYPE_SMALL_INT: {
-                        CassError rc = cass_value_get_int16(lhs, reinterpret_cast<int16_t * >(data));
+                        CassError rc = cass_value_get_int16(lhs, reinterpret_cast<int16_t * >(tuple_data));
                         CHECK_CASS("TupleRowFactory: Cassandra to C parse int16 unsuccessful, column:" + std::to_string(col));
                         if (rc == CASS_ERROR_LIB_NULL_VALUE) return -1;
                     }
                     case CASS_VALUE_TYPE_TINY_INT: {
-                        CassError rc = cass_value_get_int8(lhs, reinterpret_cast<int8_t * >(data));
+                        CassError rc = cass_value_get_int8(lhs, reinterpret_cast<int8_t * >(tuple_data));
                         CHECK_CASS("TupleRowFactory: Cassandra to C parse int16 unsuccessful, column:" + std::to_string(col));
                         if (rc == CASS_ERROR_LIB_NULL_VALUE) return -1;
                     }
@@ -410,7 +452,8 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
                         //TODO
                         break;
                 }
-            }
+                */
+
             return 0;
             //break;
         }
