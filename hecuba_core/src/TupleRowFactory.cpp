@@ -476,7 +476,7 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
 
     const std::vector<ColumnMeta> *localMeta = metadata.get();
 
-    if(localMeta == nullptr) std::cout << "es null" << std::endl;
+    if(localMeta == nullptr) std::cout << "metadata is null" << std::endl;
 
     if (!localMeta)
         throw ModuleException("Tuple row, tuple_as_py: Null metadata");
@@ -702,7 +702,6 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                             case CASS_VALUE_TYPE_INT: {
                                 char *p = (char *)(elem_data) + nbytes;
                                 int32_t* value = (int32_t*) inner_data->get_element(n);
-                                std::cout << "Binding"<<*value<<"at"<<n<<"addris"<<(void*)p << std::endl;
                                 cass_tuple_set_int32(tuple, (size_t)n, *value);
                                 nbytes = nbytes + sizeof(int32_t);
                                 break;
@@ -767,7 +766,6 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                             default:
                                 break;
                         }
-                        std::cout << "la pos es " << row->get_element(0) << std::endl;
                     }
                     CassError ce = cass_statement_bind_tuple(statement, bind_pos, tuple);
 
