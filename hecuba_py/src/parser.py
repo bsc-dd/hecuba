@@ -84,11 +84,13 @@ class Parser(object):
         if len(converted_primary_keys) > 1:
             counter = count(0)
             for type_val in converted_primary_keys:
-                aux_list.append((t1 + '_' + str(counter.next()), type_val))
-                string_str = ',{"type": "%s", "%s": %s}' % (type, pk_col, aux_list)
+                #aux_list.append((t1 + '_' + str(counter.next()), type_val))
+                aux_list.append(type_val)
+                # string_str = ',{"name": "%s", "type": "%s", "%s": ["%s"]}' % (t1, type, pk_col, '","'.join(aux_list))
+                string_str = ',{"name": "%s", "type": "%s", "%s": %s}' % (t1, type, pk_col, aux_list)
         else:
             aux_list.append((t1, converted_primary_keys[0]))
-            string_str = ',{"type": "%s", "%s": %s}' % (type, pk_col, aux_list)
+            string_str = ',{"name": "%s", "type": "%s", "%s": %s}' % (t1, type, pk_col, aux_list)
         return string_str
 
     def _get_dict_str(self, varsk, cleank, typek):
@@ -97,7 +99,7 @@ class Parser(object):
         string_str = ""
         for t, t1, t2 in zip(cleank, varsk, typek):  # first keys
             if t2 == 'set':
-                string_str = self._set_or_tuple('set', 'primary_keys', t, t1)
+                string_str = self._set_or_tuple('set', 'columns', t, t1)
             elif t2 == 'tuple':
                 string_str = self._set_or_tuple('tuple', 'columns', t, t1)
             else:
