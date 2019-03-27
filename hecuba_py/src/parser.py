@@ -1,6 +1,8 @@
 import re
 from itertools import count
 
+import regex
+
 from IStorage import IStorage
 
 
@@ -67,7 +69,7 @@ class Parser(object):
         typevk, finalvarsk = self._append_values_to_list_after_replace(valsc)
 
         for var in varsv:
-            values = values.replace(var, ' ')
+            values = values.replace(var, ' ', 1)
 
         valsc1 = values[1:].split(', ')  # all valuesk separated by comma
 
@@ -84,8 +86,10 @@ class Parser(object):
         if len(converted_primary_keys) > 1:
             counter = count(0)
             for type_val in converted_primary_keys:
-                #aux_list.append((t1 + '_' + str(counter.next()), type_val))
-                aux_list.append(type_val)
+                if type == "set":
+                    aux_list.append((t1 + '_' + str(counter.next()), type_val))
+                else:
+                    aux_list.append(type_val)
                 # string_str = ',{"name": "%s", "type": "%s", "%s": ["%s"]}' % (t1, type, pk_col, '","'.join(aux_list))
                 string_str = ',{"name": "%s", "type": "%s", "%s": %s}' % (t1, type, pk_col, aux_list)
         else:

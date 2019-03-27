@@ -266,7 +266,7 @@ class StorageObjTest(unittest.TestCase):
         nopars.ciao3 = [1, 2, 3]
         nopars.ciao4 = (1, 2, 3)
         for i in range(10):
-            nopars.words[i] = 'ciao' + str(i)
+            nopars.words[i] = ['ciao' + str(i)]
 
         count, = config.session.execute(
             "SELECT count(*) FROM system_schema.tables WHERE keyspace_name = 'hecuba_test' and table_name = 'words'")[0]
@@ -278,7 +278,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(10, count)
 
         nopars2 = Test6StorageObj("hecuba_test.nonames")
-        nopars2.test3[0] = '1', '2'
+        nopars2.test3[0] = ['1', '2']
         time.sleep(2)
         result = config.session.execute("SELECT val0, val1 FROM hecuba_test.nonames_test3 WHERE key0 = 0")
 

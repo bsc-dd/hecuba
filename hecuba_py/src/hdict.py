@@ -474,7 +474,7 @@ class StorageDict(dict, IStorage):
 
         persistent_values = []
         # key_names = map(lambda a: a[0], persistent_keys)
-        key_names = [col[0] if isinstance(col, tuple) else col["name"] for col in self._primary_keys]
+        key_names = [col[0] if isinstance(col, tuple) else col["name"] for col in persistent_keys]
         if not self._has_embedded_set:
             persistent_values = []
             for col in self._columns:
@@ -528,10 +528,9 @@ class StorageDict(dict, IStorage):
 
         # persistent_columns = [{"name": tup[0], "type": tup[1]} for tup in persistent_values]
         persistent_columns = []
-        for col in self._columns:
-            persistent_columns.append(col)
-            if col["type"] not in self._basic_types:
-                persistent_columns[-1]["type"] = "uuid"
+        if not self._has_embedded_set:
+            persistent_columns = [col if col["type"] in self._basic_types
+                                  else {"type": "uuid", "name": col["name"]} for col in self._columns]
 
         self._hcache_params = (self._ksp, self._table,
                                self._storage_id,
@@ -547,7 +546,7 @@ class StorageDict(dict, IStorage):
             if issubclass(value.__class__, IStorage):
                 # new name as ksp.table_valuename, where valuename is either defined by the user or set by hecuba
                 if not value._is_persistent:
-                    val_name = self._ksp + '.' + self._table + '_' + self._columns[0][0]
+                    val_name = self._ksp + '.' + self._table + '_' + self._columns[0]["name"]
                     value.make_persistent(val_name)
                 value = value._storage_id
             self._hcache.put_row(self._make_key(key), self._make_value(value))
@@ -638,7 +637,7 @@ class StorageDict(dict, IStorage):
                 val[index] = self.__make_val_persistent(element, index)
         if isinstance(val, IStorage) and not val._is_persistent:
             val._storage_id = uuid.uuid4()
-            attribute = self._columns[col][0]
+            attribute = self._columns[col]["name"]
             count = self._count_name_collision(attribute)
             if count == 0:
                 name = self._ksp + "." + self._table + "_" + attribute

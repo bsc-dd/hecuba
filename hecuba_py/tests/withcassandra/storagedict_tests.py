@@ -894,6 +894,7 @@ class StorageDictTest(unittest.TestCase):
             what_should_be[i] = (i, i+10)
             d[i] = (i, i+10)
 
+        print(d[0])
         time.sleep(1)
         for i in range(0, 10):
             self.assertEqual(d[i], (i, i))
