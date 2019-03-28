@@ -409,8 +409,176 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_LONG) {
     PyObject_Print(result2, stdout, 0);
     cout << endl;
 
+}
+
+TEST(TestPythonUnitParsers, ParseTuple_py_to_c_TEXT) {
+    PyErr_Clear();
 
 
+    int32_t value, ok = 20000;
+
+    std::map<std::string, std::string> info = {{"name", "mycolumn"}};
+    CassValueType cv_type = CASS_VALUE_TYPE_TUPLE;
+    uint16_t offset = 0;
+    uint16_t bsize = (sizeof(int64_t));
+    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_TEXT, 0, bsize);
+    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_TEXT, bsize, bsize);
+
+    std::vector<ColumnMeta> v = {cm1, cm2};
+
+    ColumnMeta CM = ColumnMeta();
+    CM.info = {{"name", "ciao"}};
+    CM.type = CASS_VALUE_TYPE_TUPLE;
+    CM.position = 0;
+    CM.size = sizeof(TupleRow *);
+    CM.pointer = std::make_shared<std::vector<ColumnMeta>>(v);
+
+    UnitParser *parser = new TupleParser(CM);
+
+    PyObject *pt = Py_BuildValue("(ss)", "texto1", "texto2");
+    void *external=malloc(sizeof(TupleRow*));
+    ok = parser->py_to_c(pt, external);
+
+    const TupleRow* inner_data = * reinterpret_cast<const TupleRow**>(external);
+    const void * elem = inner_data->get_element(0);
+    const int64_t uziv1 = *(int64_t const *) elem;
+    const void * elem1 = inner_data->get_element(1);
+    const int64_t uziv2 = *(int64_t const *) elem1;
+
+
+    EXPECT_FALSE(ok == -1); //object was null
+    EXPECT_FALSE(ok == -2); //something went wrong
+    EXPECT_TRUE(ok == 0); //it worked as expected
     //EXPECT_EQ(result, value);
+
+
+////////////////
+
+    PyObject* tuple = PyTuple_New(2);
+    tuple = parser->c_to_py(external);
+
+    PyObject *result1 = PyTuple_GetItem(tuple, 0);
+    cout << "El primer value del pyobj es: ";
+    PyObject_Print(result1, stdout, 0);
+    cout << endl;
+    PyObject *result2 = PyTuple_GetItem(tuple, 1);
+    cout << "El segon value del pyobj es: ";
+    PyObject_Print(result2, stdout, 0);
+    cout << endl;
+
+}
+
+TEST(TestPythonUnitParsers, ParseTuple_py_to_c_DOUBLE) {
+    PyErr_Clear();
+
+
+    int32_t value, ok = 20000;
+
+    std::map<std::string, std::string> info = {{"name", "mycolumn"}};
+    CassValueType cv_type = CASS_VALUE_TYPE_TUPLE;
+    uint16_t offset = 0;
+    uint16_t bsize = (sizeof(double_t));
+    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_DOUBLE, 0, bsize);
+    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_DOUBLE, bsize, bsize);
+
+    std::vector<ColumnMeta> v = {cm1, cm2};
+
+    ColumnMeta CM = ColumnMeta();
+    CM.info = {{"name", "ciao"}};
+    CM.type = CASS_VALUE_TYPE_TUPLE;
+    CM.position = 0;
+    CM.size = sizeof(TupleRow *);
+    CM.pointer = std::make_shared<std::vector<ColumnMeta>>(v);
+
+    UnitParser *parser = new TupleParser(CM);
+
+    PyObject *pt = Py_BuildValue("(dd)", 2.00, 2.01);
+    void *external=malloc(sizeof(TupleRow*));
+    ok = parser->py_to_c(pt, external);
+
+    const TupleRow* inner_data = * reinterpret_cast<const TupleRow**>(external);
+    const void * elem = inner_data->get_element(0);
+    const int64_t uziv1 = *(int64_t const *) elem;
+    const void * elem1 = inner_data->get_element(1);
+    const int64_t uziv2 = *(int64_t const *) elem1;
+
+
+    EXPECT_FALSE(ok == -1); //object was null
+    EXPECT_FALSE(ok == -2); //something went wrong
+    EXPECT_TRUE(ok == 0); //it worked as expected
+    //EXPECT_EQ(result, value);
+
+
+////////////////
+
+    PyObject* tuple = PyTuple_New(2);
+    tuple = parser->c_to_py(external);
+
+    PyObject *result1 = PyTuple_GetItem(tuple, 0);
+    cout << "El primer value del pyobj es: ";
+    PyObject_Print(result1, stdout, 0);
+    cout << endl;
+    PyObject *result2 = PyTuple_GetItem(tuple, 1);
+    cout << "El segon value del pyobj es: ";
+    PyObject_Print(result2, stdout, 0);
+    cout << endl;
+
+}
+
+TEST(TestPythonUnitParsers, ParseTuple_py_to_c_BOOLEAN) {
+    PyErr_Clear();
+
+
+    int32_t value, ok = 20000;
+
+    std::map<std::string, std::string> info = {{"name", "mycolumn"}};
+    CassValueType cv_type = CASS_VALUE_TYPE_TUPLE;
+    uint16_t offset = 0;
+    uint16_t bsize = (sizeof(bool));
+    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_BOOLEAN, 0, bsize);
+    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_BOOLEAN, bsize, bsize);
+
+    std::vector<ColumnMeta> v = {cm1, cm2};
+
+    ColumnMeta CM = ColumnMeta();
+    CM.info = {{"name", "ciao"}};
+    CM.type = CASS_VALUE_TYPE_TUPLE;
+    CM.position = 0;
+    CM.size = sizeof(TupleRow *);
+    CM.pointer = std::make_shared<std::vector<ColumnMeta>>(v);
+
+    UnitParser *parser = new TupleParser(CM);
+    PyObject * t1 = Py_True;
+    PyObject * t2 = Py_False;
+    PyObject *pt = Py_BuildValue("(OO)", t1, t2);
+    void *external=malloc(sizeof(TupleRow*));
+    ok = parser->py_to_c(pt, external);
+
+    const TupleRow* inner_data = * reinterpret_cast<const TupleRow**>(external);
+    const void * elem = inner_data->get_element(0);
+    const int64_t uziv1 = *(int64_t const *) elem;
+    const void * elem1 = inner_data->get_element(1);
+    const int64_t uziv2 = *(int64_t const *) elem1;
+
+
+    EXPECT_FALSE(ok == -1); //object was null
+    EXPECT_FALSE(ok == -2); //something went wrong
+    EXPECT_TRUE(ok == 0); //it worked as expected
+    //EXPECT_EQ(result, value);
+
+
+////////////////
+
+    PyObject* tuple = PyTuple_New(2);
+    tuple = parser->c_to_py(external);
+
+    PyObject *result1 = PyTuple_GetItem(tuple, 0);
+    cout << "El primer value del pyobj es: ";
+    PyObject_Print(result1, stdout, 0);
+    cout << endl;
+    PyObject *result2 = PyTuple_GetItem(tuple, 1);
+    cout << "El segon value del pyobj es: ";
+    PyObject_Print(result2, stdout, 0);
+    cout << endl;
 
 }
