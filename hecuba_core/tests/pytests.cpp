@@ -267,7 +267,7 @@ TEST(TestPythonUnitParsers, ParseFloat) {
     delete (parser);
 }
 
-TEST(TestPythonUnitParsers, ParseTuple_py_to_c) {
+TEST(TestPythonUnitParsers, ParseTuple_py_to_c_INT) {
     PyErr_Clear();
 
 
@@ -337,7 +337,7 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c) {
 
     TupleRow *values = new TupleRow(CM.pointer, sizeof(mytuple), buffer2);
     PyObject* tuple = PyTuple_New(2);
-    tuple = parser->c_to_py(values);
+    tuple = parser->c_to_py(external);
 
     PyObject *result1 = PyTuple_GetItem(tuple, 0);
     cout << "El primer value del pyobj es: ";
@@ -354,3 +354,63 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c) {
 
 }
 
+TEST(TestPythonUnitParsers, ParseTuple_py_to_c_LONG) {
+    PyErr_Clear();
+
+
+    int32_t value, ok = 20000;
+
+    std::map<std::string, std::string> info = {{"name", "mycolumn"}};
+    CassValueType cv_type = CASS_VALUE_TYPE_TUPLE;
+    uint16_t offset = 0;
+    uint16_t bsize = (sizeof(int64_t));
+    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_BIGINT, 0, bsize);
+    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_BIGINT, bsize, bsize);
+
+    std::vector<ColumnMeta> v = {cm1, cm2};
+
+    ColumnMeta CM = ColumnMeta();
+    CM.info = {{"name", "ciao"}};
+    CM.type = CASS_VALUE_TYPE_TUPLE;
+    CM.position = 0;
+    CM.size = sizeof(TupleRow *);
+    CM.pointer = std::make_shared<std::vector<ColumnMeta>>(v);
+
+    UnitParser *parser = new TupleParser(CM);
+
+    PyObject *pt = Py_BuildValue("(LL)", 9223372036854775807, 9223372036854775806);
+    void *external=malloc(sizeof(TupleRow*));
+    ok = parser->py_to_c(pt, external);
+
+    const TupleRow* inner_data = * reinterpret_cast<const TupleRow**>(external);
+    const void * elem = inner_data->get_element(0);
+    const int64_t uziv1 = *(int64_t const *) elem;
+    const void * elem1 = inner_data->get_element(1);
+    const int64_t uziv2 = *(int64_t const *) elem1;
+
+
+    EXPECT_FALSE(ok == -1); //object was null
+    EXPECT_FALSE(ok == -2); //something went wrong
+    EXPECT_TRUE(ok == 0); //it worked as expected
+    //EXPECT_EQ(result, value);
+
+
+////////////////
+
+    PyObject* tuple = PyTuple_New(2);
+    tuple = parser->c_to_py(external);
+
+    PyObject *result1 = PyTuple_GetItem(tuple, 0);
+    cout << "El primer value del pyobj es: ";
+    PyObject_Print(result1, stdout, 0);
+    cout << endl;
+    PyObject *result2 = PyTuple_GetItem(tuple, 1);
+    cout << "El segon value del pyobj es: ";
+    PyObject_Print(result2, stdout, 0);
+    cout << endl;
+
+
+
+    //EXPECT_EQ(result, value);
+
+}
