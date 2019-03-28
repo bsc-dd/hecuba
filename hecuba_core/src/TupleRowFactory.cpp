@@ -643,41 +643,31 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                         switch(cvt) {
                             case CASS_VALUE_TYPE_VARCHAR:
                             case CASS_VALUE_TYPE_TEXT:{
-                                char *p = (char *)(elem_data) + nbytes;
-                                cass_int64_t value = (cass_int64_t) *p;
-                                cass_tuple_set_int64(tuple, (size_t)n, value);
-                                nbytes = nbytes + sizeof(cass_int64_t);
+                                int64_t * value = (int64_t*) inner_data->get_element(n);
+                                cass_tuple_set_int64(tuple, (size_t)n, *value);
                                 break;
                             }
                             case CASS_VALUE_TYPE_ASCII:
                             case CASS_VALUE_TYPE_VARINT:
                             case CASS_VALUE_TYPE_BIGINT: {
-                                char *p = (char *)(elem_data) + nbytes;
-                                cass_int64_t value = (cass_int64_t) *p;
-                                cass_tuple_set_int64(tuple, (size_t)n, value);
-                                nbytes = nbytes + sizeof(cass_int64_t);
+                                int64_t * value = (int64_t*) inner_data->get_element(n);
+                                cass_tuple_set_int64(tuple, (size_t)n, *value);
                                 break;
                             }
                             case CASS_VALUE_TYPE_BLOB: {
-                                char *p = (char *)(elem_data) + nbytes;
-                                cass_int64_t value = (cass_int64_t) *p;
-                                cass_tuple_set_int64(tuple, (size_t)n, value);
-                                nbytes = nbytes + sizeof(cass_int64_t);
+                                int64_t * value = (int64_t*) inner_data->get_element(n);
+                                cass_tuple_set_int64(tuple, (size_t)n, *value);
                                 break;
                             }
                             case CASS_VALUE_TYPE_BOOLEAN: {
-                                char *p = (char *)(elem_data) + nbytes;
-                                cass_bool_t value = (cass_bool_t) *p;
-                                cass_tuple_set_bool(tuple, (size_t)n, value);
-                                nbytes = nbytes + sizeof(cass_bool_t);
+                                cass_bool_t * value = (cass_bool_t*) inner_data->get_element(n);
+                                cass_tuple_set_int64(tuple, (size_t)n, *value);
                                 break;
                             }
                                 //TODO parsed as uint32 or uint64 on different methods
                             case CASS_VALUE_TYPE_COUNTER: {
-                                char *p = (char *)(elem_data) + nbytes;
-                                cass_int64_t value = (cass_int64_t) *p;
-                                cass_tuple_set_int64(tuple, (size_t)n, value);
-                                nbytes = nbytes + sizeof(cass_int64_t);
+                                int64_t * value = (int64_t*) inner_data->get_element(n);
+                                cass_tuple_set_int64(tuple, (size_t)n, *value);
                                 break;
                             }
                             case CASS_VALUE_TYPE_DECIMAL: {
@@ -686,24 +676,18 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                                 break;
                             }
                             case CASS_VALUE_TYPE_DOUBLE: {
-                                char *p = (char *)(elem_data) + nbytes;
-                                cass_double_t value = (cass_double_t) *p;
-                                cass_tuple_set_double(tuple, (size_t)n, value);
-                                nbytes = nbytes + sizeof(cass_double_t);
+                                double_t * value = (double_t*) inner_data->get_element(n);
+                                cass_tuple_set_double(tuple, (size_t)n, *value);
                                 break;
                             }
                             case CASS_VALUE_TYPE_FLOAT: {
-                                char *p = (char *)(elem_data) + nbytes;
-                                cass_float_t value = (cass_float_t) *p;
-                                cass_tuple_set_float(tuple, (size_t)n, value);
-                                nbytes = nbytes + sizeof(cass_float_t);
+                                float_t * value = (float_t*) inner_data->get_element(n);
+                                cass_tuple_set_float(tuple, (size_t)n, *value);
                                 break;
                             }
                             case CASS_VALUE_TYPE_INT: {
-                                char *p = (char *)(elem_data) + nbytes;
                                 int32_t* value = (int32_t*) inner_data->get_element(n);
                                 cass_tuple_set_int32(tuple, (size_t)n, *value);
-                                nbytes = nbytes + sizeof(int32_t);
                                 break;
                             }
                             case CASS_VALUE_TYPE_TIMESTAMP: {
@@ -711,14 +695,13 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                                 break;
                             }
                             case CASS_VALUE_TYPE_UUID: {
-                                const uint64_t **uuid = (const uint64_t **) elem_data+nbytes;
+                                const uint64_t **uuid = (const uint64_t **) inner_data->get_element(n);
 
                                 const uint64_t *time_and_version = *uuid;
                                 const uint64_t *clock_seq_and_node = *uuid + 1;
 
                                 CassUuid cass_uuid = {*time_and_version, *clock_seq_and_node};
                                 cass_tuple_set_uuid(tuple, (size_t)n, cass_uuid);
-                                nbytes = nbytes + sizeof(uint64_t);
                                 break;
                             }
                             case CASS_VALUE_TYPE_TIMEUUID: {
@@ -738,17 +721,13 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                                 break;
                             }
                             case CASS_VALUE_TYPE_SMALL_INT: {
-                                char *p = (char *)(elem_data) + nbytes;
-                                cass_int16_t value = (cass_int16_t) *p;
-                                cass_tuple_set_int16(tuple, (size_t)n, value);
-                                nbytes = nbytes + sizeof(cass_int16_t);
+                                int16_t * value = (int16_t*) inner_data->get_element(n);
+                                cass_tuple_set_int16(tuple, (size_t)n, *value);
                                 break;
                             }
                             case CASS_VALUE_TYPE_TINY_INT: {
-                                char *p = (char *)(elem_data) + nbytes;
-                                cass_int8_t value = (cass_int8_t) *p;
-                                cass_tuple_set_int8(tuple, (size_t)n, value);
-                                nbytes = nbytes + sizeof(cass_int8_t);
+                                int8_t * value = (int8_t*) inner_data->get_element(n);
+                                cass_tuple_set_int8(tuple, (size_t)n, *value);
                                 break;
                             }
                             case CASS_VALUE_TYPE_LIST: {
