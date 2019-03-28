@@ -260,13 +260,14 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             if (!tuple_iterator) throw ModuleException("Cassandra to C: Data type is not tuple");
             /* Iterate over the tuple fields */
             uint32_t j = 0;
-           while (cass_iterator_next(tuple_iterator)) {
+            while (cass_iterator_next(tuple_iterator)) {
 
                 //const char* field_name;
                 //size_t field_name_length;
                 /* Get tuple value */
                 const CassValue* value = cass_iterator_get_value(tuple_iterator);
-                TFACT.cass_to_c(value, tuple_data, j);
+                char* pos_to_copy = (char*)tuple_data+metadata->at(col).pointer->at(j).position;
+                TFACT.cass_to_c(value, pos_to_copy, j);
                 ++j;
 
             /* ... */
