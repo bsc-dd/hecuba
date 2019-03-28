@@ -642,15 +642,14 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                         
                         switch(cvt) {
                             case CASS_VALUE_TYPE_VARCHAR:
-                            case CASS_VALUE_TYPE_TEXT:
-                            case CASS_VALUE_TYPE_ASCII: {
-
+                            case CASS_VALUE_TYPE_TEXT:{
                                 char *p = (char *)(elem_data) + nbytes;
                                 cass_int64_t value = (cass_int64_t) *p;
                                 cass_tuple_set_int64(tuple, (size_t)n, value);
                                 nbytes = nbytes + sizeof(cass_int64_t);
                                 break;
                             }
+                            case CASS_VALUE_TYPE_ASCII:
                             case CASS_VALUE_TYPE_VARINT:
                             case CASS_VALUE_TYPE_BIGINT: {
                                 char *p = (char *)(elem_data) + nbytes;

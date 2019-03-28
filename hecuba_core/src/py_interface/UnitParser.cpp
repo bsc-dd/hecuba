@@ -343,15 +343,15 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
         void* destiny = (char*)internal_payload + this->col_meta.pointer->at(i).position;
         switch(cvt) {
             case CASS_VALUE_TYPE_VARCHAR:
-            case CASS_VALUE_TYPE_TEXT:
-            case CASS_VALUE_TYPE_ASCII: {
-                Int64Parser i64p = Int64Parser(col_meta.pointer->at(i));
-                i64p.py_to_c(tuple_elem, destiny);
+            case CASS_VALUE_TYPE_TEXT:{
+                TextParser tp = TextParser(col_meta.pointer->at(i));
+                tp.py_to_c(tuple_elem, destiny);
                 break;
             }
+            case CASS_VALUE_TYPE_ASCII:
             case CASS_VALUE_TYPE_VARINT:
             case CASS_VALUE_TYPE_BIGINT: {
-                Int64Parser i64p(col_meta);
+                Int64Parser i64p = Int64Parser(col_meta);
                 i64p.py_to_c(tuple_elem, destiny);
                 break;
             }
@@ -457,14 +457,14 @@ PyObject *TupleParser::c_to_py(const void *payload) const {
         CassValueType cvt = this->col_meta.pointer->at(i).type;
         switch(cvt) {
             case CASS_VALUE_TYPE_VARCHAR:
-            case CASS_VALUE_TYPE_TEXT:
-            case CASS_VALUE_TYPE_ASCII: {
-                Int64Parser i64p = Int64Parser(col_meta.pointer->at(i));
+            case CASS_VALUE_TYPE_TEXT:{
+                TextParser tp = TextParser(col_meta.pointer->at(i));
                 int64_t * p = (int64_t *) inner_data->get_element(i);
-                PyObject *po = i64p.c_to_py(p);
+                PyObject *po = tp.c_to_py(p);
                 PyTuple_SET_ITEM(tuple, i, po);
                 break;
             }
+            case CASS_VALUE_TYPE_ASCII:
             case CASS_VALUE_TYPE_VARINT:
             case CASS_VALUE_TYPE_BIGINT: {
                 Int64Parser i64p = Int64Parser(col_meta.pointer->at(i));
