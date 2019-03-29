@@ -6,9 +6,10 @@ from IStorage import IStorage, AlreadyPersistentError
 from hecuba import config, log, Parser
 from hecuba.hnumpy import StorageNumpy
 import uuid
+import inspect
 import re
 import numpy as np
-
+CALLER_FUNC = "Soy la funcion que te ha llamado"
 
 class EmbeddedSet(set):
     '''
@@ -539,7 +540,7 @@ class StorageDict(dict, IStorage):
             #persistent_values = [(tup[0], "uuid" if tup[1] not in self._basic_types else tup[1]) for tup in
             #                   self._columns]
 
-        if config.id_create_schema == -1:
+        if config.id_create_schema == -1 and not IStorage._built_remotely:
             query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
             try:
                 log.debug('MAKE PERSISTENCE: %s', query_keyspace)
