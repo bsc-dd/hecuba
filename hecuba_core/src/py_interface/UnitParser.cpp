@@ -217,7 +217,8 @@ PyObject *TextParser::c_to_py(const void *payload) const {
     int64_t *addr = (int64_t *) ((char *) payload);
     char *d = reinterpret_cast<char *>(*addr);
     if (d == nullptr) throw ModuleException("Error parsing from C to Py, expected ptr to text, found NULL");
-    return PyUnicode_FromString(d);
+    //return PyUnicode_FromString(d);
+    return Py_BuildValue(Py_STRING, d);
 }
 
 
