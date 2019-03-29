@@ -63,7 +63,7 @@ class DictWithTuples2(StorageDict):
 
 class DictWithTuples3(StorageDict):
     '''
-    @TypeSpec dict<<key:int>, val0:int, val1:tuple<int,int>, val2:str, val3:tuple<int,int>>
+    @TypeSpec dict<<key:int>, val0:int, val1:tuple<long,int>, val2:str, val3:tuple<str,float>>
     '''
 
 
@@ -894,12 +894,11 @@ class StorageDictTest(unittest.TestCase):
             what_should_be[i] = (i, i+10)
             d[i] = (i, i+10)
 
-        print(d[0])
         time.sleep(1)
         for i in range(0, 10):
-            self.assertEqual(d[i], (i, i))
+            self.assertEqual(d[i], (i, i+10))
 
-        self.assertEqual(len(d), 10)
+        self.assertEqual(len(d.keys()), 10)
 
         res = dict()
         count = 0
@@ -963,15 +962,16 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(what_should_be, res)
 
     def test_multiple_tuples(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples3")
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictmultipletuples")
         d = DictWithTuples3("my_app.dictmultipletuples")
+        # @TypeSpec dict<<key:int>, val0:int, val1:tuple<long,int>, val2:str, val3:tuple<str,float>>
 
         for i in range(0, 10):
-            d[i] = [i, (i, i), str(i), (i+10, i+20)]
+            d[i] = [i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))]
 
         time.sleep(2)
         for i in range(0, 10):
-            self.assertEqual(list(d[i]), [i, (i, i), str(i), (i+10, i+20)])
+            self.assertEqual(list(d[i]), [i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))])
 
         self.assertEqual(len(d), 10)
 
