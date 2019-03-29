@@ -69,9 +69,7 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
                               std::to_string(metadata->size()) + " are present");
     }
     switch (metadata->at(col).type) {
-        case CASS_VALUE_TYPE_TEXT:
-        case CASS_VALUE_TYPE_VARCHAR:
-        case CASS_VALUE_TYPE_ASCII: {
+        case CASS_VALUE_TYPE_TEXT:{
             const char *l_temp;
             size_t l_size;
             CassError rc = cass_value_get_string(lhs, &l_temp, &l_size);
@@ -83,6 +81,8 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             memcpy(data, &permanent, sizeof(char *));
             return 0;
         }
+        case CASS_VALUE_TYPE_VARCHAR:
+        case CASS_VALUE_TYPE_ASCII:
         case CASS_VALUE_TYPE_VARINT:
         case CASS_VALUE_TYPE_BIGINT: {
             int64_t *p = static_cast<int64_t * >(data);
@@ -253,7 +253,6 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
 
 
             std::cout << "FINDME" << cass_value_type(lhs) << "-" << CASS_VALUE_TYPE_TUPLE << std::endl;
-
             auto TFACT = TupleRowFactory(metadata->at(col).pointer);
 
             CassIterator* tuple_iterator = cass_iterator_from_tuple(lhs);
@@ -496,8 +495,7 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
         if (element_i != nullptr) {
             switch (localMeta->at(i).type) {
                 case CASS_VALUE_TYPE_VARCHAR:
-                case CASS_VALUE_TYPE_TEXT:
-                case CASS_VALUE_TYPE_ASCII: {
+                case CASS_VALUE_TYPE_TEXT:{
                     int64_t *addr = (int64_t *) element_i;
                     const char *d = reinterpret_cast<char *>(*addr);
                     CassError rc = cass_statement_bind_string(statement, bind_pos, d);
@@ -505,6 +503,7 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                                localMeta->at(bind_pos).info[0]);
                     break;
                 }
+                case CASS_VALUE_TYPE_ASCII:
                 case CASS_VALUE_TYPE_VARINT:
                 case CASS_VALUE_TYPE_BIGINT: {
                     const int64_t *data = static_cast<const int64_t *>(element_i);

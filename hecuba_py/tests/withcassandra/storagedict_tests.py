@@ -63,7 +63,7 @@ class DictWithTuples2(StorageDict):
 
 class DictWithTuples3(StorageDict):
     '''
-    @TypeSpec dict<<key:int>, val0:int, val1:tuple<long,int>, val2:str, val3:tuple<str,float>>
+    @TypeSpec dict<<key:int>, val0:int, val1:tuple<long,int>, val2:str>
     '''
 
 
@@ -967,11 +967,11 @@ class StorageDictTest(unittest.TestCase):
         # @TypeSpec dict<<key:int>, val0:int, val1:tuple<long,int>, val2:str, val3:tuple<str,float>>
 
         for i in range(0, 10):
-            d[i] = [i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))]
+            d[i] = [i, (5500000000000000L, i + 10), "hola"]
 
         time.sleep(2)
         for i in range(0, 10):
-            self.assertEqual(list(d[i]), [i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))])
+            self.assertEqual(list(d[i]), [i, (5500000000000000L, i + 10), "hola"])
 
         self.assertEqual(len(d), 10)
 
