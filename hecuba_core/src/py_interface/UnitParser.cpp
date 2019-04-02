@@ -378,16 +378,15 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
                 break;
             }
             case CASS_VALUE_TYPE_DOUBLE: {
+
+            }
+            case CASS_VALUE_TYPE_FLOAT: {
                 DoubleParser dp = DoubleParser(col_meta.pointer->at(i));
                 dp.py_to_c(tuple_elem, destiny);
                 break;
             }
-            case CASS_VALUE_TYPE_FLOAT: {
-                throw ModuleException("Float type not supported");
-            }
             case CASS_VALUE_TYPE_INT: {
                 Int32Parser i32p = Int32Parser(col_meta.pointer->at(i));
-                i32p = Int32Parser(col_meta.pointer->at(i));
                 i32p.py_to_c(tuple_elem, destiny);
                 break;
             }
@@ -502,14 +501,15 @@ PyObject *TupleParser::c_to_py(const void *payload) const {
                 break;
             }
             case CASS_VALUE_TYPE_DOUBLE: {
+                throw ModuleException("Float type not supported");
+            }
+            case CASS_VALUE_TYPE_FLOAT: {
                 DoubleParser dp = DoubleParser(col_meta.pointer->at(i));
                 double_t * p = (double_t *) inner_data->get_element(i);
                 PyObject *po = dp.c_to_py(p);
                 PyTuple_SET_ITEM(tuple, i, po);
                 break;
-            }
-            case CASS_VALUE_TYPE_FLOAT: {
-                throw ModuleException("Float type not supported");
+
             }
             case CASS_VALUE_TYPE_INT: {
                 Int32Parser i32p = Int32Parser(col_meta.pointer->at(i));

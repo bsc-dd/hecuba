@@ -2698,65 +2698,56 @@ TEST(TableMeta, LetsTryTupleWithString) {
 
     fireandforget(query,test_session);
 
-    //CassStatement *cs = cass_statement_new(query, 1);
-
     CassStatement* cs
             = cass_statement_new("INSERT INTO test.people(dni, info) VALUES ('socUnDNI2', ?)", 1);
 
     std::vector <std::map<std::string, std::string>> keysnames = {{{"name", "dni"}}};
 
     std::vector <std::map<std::string, std::string>> colsnames = {{{"name", "info"}}};
-    std::cout << "aqui es donde peta" << std::endl;
+
     TableMetadata *table_meta = new TableMetadata("people", "test", keysnames, colsnames, test_session);
 
     /////////////// 2 INTS /////////////////
-    std::tuple<int,std::string> mytuple (10,"mamamia");
-    using namespace std;
-    cout << "el size de la tupla es " << sizeof(mytuple) << endl;
-    cout << "el size de int is " << sizeof(int) << endl;
-    char *buffer2 = (char *) malloc(sizeof(mytuple)); //values
+    // INSERT WITH BIND METHOD //
 
+    std::tuple<int,int> mytuple (10,10);
+    using namespace std;
+
+    int * buffer2 = (int *) malloc(sizeof(mytuple));
     memcpy(buffer2, &mytuple, sizeof(mytuple));
 
-
     std::map<std::string, std::string> info = {{"name", "mycolumn"}};
-    CassValueType cv_type = CASS_VALUE_TYPE_TUPLE;
-    uint16_t offset = 0;
-    uint16_t bsize = (sizeof(int));
-    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_INT, offset, bsize);
-    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_TEXT, offset, bsize);
+    uint16_t bsize = (sizeof(int32_t));
+    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_INT, 0, bsize);
+    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_INT, bsize, bsize);
 
-    //////////////// 1 STRING. 1 INT /////////////////
-
-
-
-
-
-
-
-    ////////////////////////////////////////////
     std::vector<ColumnMeta> v = {cm1, cm2};
+
     ColumnMeta CM = ColumnMeta();
     CM.info = {{"name", "ciao"}};
     CM.type = CASS_VALUE_TYPE_TUPLE;
     CM.position = 0;
-    CM.size = sizeof(uint32_t);
+    CM.size = sizeof(TupleRow *);
     CM.pointer = std::make_shared<std::vector<ColumnMeta>>(v);
 
-    TupleRow *valuess = new TupleRow(CM.pointer, sizeof(mytuple), buffer2);
-
-
-    TupleRow *values = new TupleRow(table_meta->get_values(), sizeof(mytuple), valuess);
-
-    cout <<  values->get_element(0) << endl;
+    TupleRow *values = new TupleRow(CM.pointer, sizeof(mytuple), buffer2);
+    TupleRow *valuess = new TupleRow(table_meta->get_values(), sizeof(mytuple), &values);
 
     std::shared_ptr<const std::vector<ColumnMeta> > cols = table_meta->get_values();
 
+    const void *element_i = valuess->get_element(0);
+    TupleRow** ptr = (TupleRow**) element_i;
+    const TupleRow* inner_data = *ptr;
+    int32_t* value = (int32_t*) inner_data->get_element(0);
+
+    std::cout << *value << std::endl;
+
     TupleRowFactory trf = TupleRowFactory(cols);
 
-    cout << "el n de elementos en trf es: " << trf.n_elements() << endl;
+    trf.bind(cs, valuess, 0);
+    connect_future = cass_session_execute(test_session, cs);
 
-    trf.bind(cs, values, 0);
+    // INSERT WITH CASSANDRA METHODS //
 
     cs = cass_statement_new("INSERT INTO test.people(dni, info) VALUES ('socUnDNI3', ?)", 1);
 
@@ -2779,53 +2770,251 @@ TEST(TableMeta, LetsTryTupleWithString) {
     }
     cass_future_free(connect_future);
     cass_statement_free(cs);
+    cass_cluster_free(test_cluster);
+    cass_session_free(test_session);
 
-    std::cout << "pero esto ya no lo hace" << std::endl;
+}
+
+TEST(TableMeta, BigIntFromCassandra) {
+
+    CassSession *test_session = NULL;
+    CassCluster *test_cluster = NULL;
+
+    CassFuture *connect_future = NULL;
+    test_cluster = cass_cluster_new();
+    test_session = cass_session_new();
+
+    cass_cluster_set_contact_points(test_cluster, contact_p);
+    cass_cluster_set_port(test_cluster, nodePort);
+
+    connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
 
 
-    //DONT KNOW WHAT TO DO NOW (PRINT THE VALUES?)
+    CassError rc = cass_future_error_code(connect_future);
+    EXPECT_TRUE(rc == CASS_OK);
 
+    cass_future_free(connect_future);
+
+    fireandforget("DROP KEYSPACE IF EXISTS test;", test_session);
+
+    fireandforget("CREATE KEYSPACE test WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};",
+                  test_session);
+    fireandforget(
+            "CREATE TABLE test.people(dni text PRIMARY KEY, info tuple<bigint,bigint>);",
+            test_session);
+
+    CassStatement* cs
+            = cass_statement_new("INSERT INTO test.people(dni, info) VALUES ('socUnDNI2', ?)", 1);
+
+    std::vector <std::map<std::string, std::string>> keysnames = {{{"name", "dni"}}};
+
+    std::vector <std::map<std::string, std::string>> colsnames = {{{"name", "info"}}};
+    std::cout << "aqui es donde peta" << std::endl;
+    TableMetadata *table_meta = new TableMetadata("people", "test", keysnames, colsnames, test_session);
+
+    CassTuple *ct = cass_tuple_new(2);
+    cass_int64_t a = 55000000000000000;
+    cass_int64_t c = 55000000000000001;
+    cass_tuple_set_int64(ct,0,a);
+    cass_tuple_set_int64(ct,1,c);
+
+    cass_statement_bind_tuple(cs,0,ct);
+
+    connect_future = cass_session_execute(test_session, cs);
+
+    rc = cass_future_error_code(connect_future);
+
+    EXPECT_TRUE(rc == CASS_OK);
+    if (rc != CASS_OK) {
+        std::cout << "ERROR ON EXECUTING QUERY: " << cass_error_desc(rc) << std::endl;
+    }
+
+    std::map<std::string, std::string> info = {{"name", "mycolumn"}};
+    CassValueType cv_type = CASS_VALUE_TYPE_TUPLE;
+    uint16_t offset = 0;
+    uint16_t bsize = (sizeof(int64_t));
+    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_BIGINT, 0, bsize);
+    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_BIGINT, bsize, bsize);
+
+    std::vector<ColumnMeta> v = {cm1, cm2};
+
+    ColumnMeta CM = ColumnMeta();
+    CM.info = {{"name", "ciao"}};
+    CM.type = CASS_VALUE_TYPE_TUPLE;
+    CM.position = 0;
+    CM.size = sizeof(TupleRow *);
+    CM.pointer = std::make_shared<std::vector<ColumnMeta>>(v);
+
+    std::shared_ptr<const std::vector<ColumnMeta> > cols = table_meta->get_values();
+    TupleRowFactory trf = TupleRowFactory(cols);
+
+    std::tuple<long,long> mytuple (55000000000000000,5500000000000001);
+    char *buffer2 = (char *) malloc(sizeof(mytuple)); //values
+
+    memcpy(buffer2, &mytuple, sizeof(mytuple));
+    TupleRow *values = new TupleRow(CM.pointer, sizeof(mytuple), buffer2);
+    TupleRow *valuess = new TupleRow(table_meta->get_values(), sizeof(mytuple), &values);
+
+    trf.bind(cs, valuess, 0);
+    connect_future = cass_session_execute(test_session, cs);
+
+    //NOW LET'S TRY TO RETRIEVE THE DATA INSERTED (GET ROW)
+    CassStatement* statement = cass_statement_new("SELECT info FROM test.people", 0);
+    CassFuture* query_future = cass_session_execute(test_session, statement);
+    const CassResult *result = cass_future_get_result(query_future);
+    rc = cass_future_error_code(connect_future);
+    if (result == NULL) {
+        /* Handle error */
+        std::string error(cass_error_desc(rc));
+        cass_future_free(connect_future);
+        cass_statement_free(cs);
+        throw ModuleException("CacheTable: Get row error on result" + error);
+    }
+
+    cass_future_free(connect_future);
+    cass_statement_free(cs);
+
+    int64_t counter = 0;
+    std::vector<const TupleRow *> gvalues(cass_result_row_count(result));
+    const CassRow *row;
+    CassIterator *it = cass_iterator_from_result(result);
+
+
+    while (cass_iterator_next(it)) {
+        row = cass_iterator_get_row(it);
+        gvalues[counter] = trf.make_tuple(row);
+        ++counter;
+    }
+
+    const void *element_i = gvalues[0]->get_element(0);
+    TupleRow** ptr = (TupleRow**) element_i;
+    const TupleRow* inner_data = *ptr;
+
+    int64_t * value = (int64_t*) inner_data->get_element(0);
+    int64_t * value2 = (int64_t*) inner_data->get_element(1);
+
+    std::cout << *value << std::endl;
+    std::cout << *value2 << std::endl;
+
+    cass_iterator_free(it);
+    cass_result_free(result);
 
     cass_cluster_free(test_cluster);
     cass_session_free(test_session);
 
 }
 
-/*TEST(TestPythonUnitParsers, ParseTuple_c_to_py) {
-    std::shared_ptr<std::vector<ColumnMeta> > pointer;
-    auto cm = new ColumnMeta();
-    cm->type = CASS_VALUE_TYPE_INT;
-    pointer->emplace_back(cm);
-    pointer->emplace_back(cm);
-    void * internal_payload = malloc(sizeof(int)*2);
-    Int32Parser i32p(cm);
-   // i32p.py_to_c(tuple_elem, internal_payload);
+
+TEST(TableMeta, BigIntANDTextFromCassandra) {
+
+    CassSession *test_session = NULL;
+    CassCluster *test_cluster = NULL;
+
+    CassFuture *connect_future = NULL;
+    test_cluster = cass_cluster_new();
+    test_session = cass_session_new();
+
+    cass_cluster_set_contact_points(test_cluster, contact_p);
+    cass_cluster_set_port(test_cluster, nodePort);
+
+    connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
 
 
-    TupleRow tr = new TupleRow(pointer, pointer->size(), internal_payload);
-    void * payload =
-    int32_t result, value, ok = 20000;
+    CassError rc = cass_future_error_code(connect_future);
+    EXPECT_TRUE(rc == CASS_OK);
+
+    cass_future_free(connect_future);
+
+    fireandforget("DROP KEYSPACE IF EXISTS test;", test_session);
+
+    fireandforget("CREATE KEYSPACE test WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};",
+                  test_session);
+    fireandforget(
+            "CREATE TABLE test.people(dni text PRIMARY KEY, info tuple<bigint,text>);",
+            test_session);
+
+    CassStatement* cs
+            = cass_statement_new("INSERT INTO test.people(dni, info) VALUES ('socUnDNI2', ?)", 1);
+
+    std::vector <std::map<std::string, std::string>> keysnames = {{{"name", "dni"}}};
+
+    std::vector <std::map<std::string, std::string>> colsnames = {{{"name", "info"}}};
+    std::cout << "aqui es donde peta" << std::endl;
+    TableMetadata *table_meta = new TableMetadata("people", "test", keysnames, colsnames, test_session);
+
+    //connect_future = cass_session_execute(test_session, cs);
+
 
     std::map<std::string, std::string> info = {{"name", "mycolumn"}};
-    CassValueType cv_type = CASS_VALUE_TYPE_TUPLE;
-    uint16_t offset = 0;
-    uint16_t bsize = (sizeof(int)*2);
-    ColumnMeta CM = ColumnMeta(info, cv_type, offset, bsize);
-    ColumnMeta *cm1 = new ColumnMeta();
-    cm1->type = CASS_VALUE_TYPE_INT;
-    CM.pointer->emplace_back(cm1);
-    CM.pointer->emplace_back(cm1);
-    UnitParser *parser = new TupleParser(CM);
+    uint16_t bsize = (sizeof(int64_t));
+    uint16_t bsize2 = sizeof(string);
+    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_BIGINT, 0, bsize);
+    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_TEXT, bsize, bsize);
 
-    PyObject *pt = Py_BuildValue("(ii)", 4, 5);
+    std::vector<ColumnMeta> v = {cm1, cm2};
 
-    ok = parser->py_to_c(pt, &result);
+    ColumnMeta CM = ColumnMeta();
+    CM.info = {{"name", "ciao"}};
+    CM.type = CASS_VALUE_TYPE_TUPLE;
+    CM.position = 0;
+    CM.size = sizeof(TupleRow *);
+    CM.pointer = std::make_shared<std::vector<ColumnMeta>>(v);
 
-    EXPECT_FALSE(ok == -1); //object was null
-    EXPECT_FALSE(ok == -2); //something went wrong
-    EXPECT_TRUE(ok == 0); //it worked as expected
+    std::shared_ptr<const std::vector<ColumnMeta> > cols = table_meta->get_values();
+    TupleRowFactory trf = TupleRowFactory(cols);
+
+    std::tuple<long,std::string> mytuple (55000000000000000,"no quiero parsearme");
+    char *buffer2 = (char *) malloc(sizeof(mytuple)); //values
+
+    memcpy(buffer2, &mytuple, sizeof(mytuple));
+    TupleRow *values = new TupleRow(CM.pointer, sizeof(mytuple), buffer2);
+    TupleRow *valuess = new TupleRow(table_meta->get_values(), sizeof(mytuple), &values);
+
+    trf.bind(cs, valuess, 0);
+    connect_future = cass_session_execute(test_session, cs);
+
+    //NOW LET'S TRY TO RETRIEVE THE DATA INSERTED (GET ROW)
+    CassStatement* statement = cass_statement_new("SELECT info FROM test.people", 0);
+    CassFuture* query_future = cass_session_execute(test_session, statement);
+    const CassResult *result = cass_future_get_result(query_future);
+    rc = cass_future_error_code(connect_future);
+    if (result == NULL) {
+        /* Handle error */
+        std::string error(cass_error_desc(rc));
+        cass_future_free(connect_future);
+        cass_statement_free(cs);
+        throw ModuleException("CacheTable: Get row error on result" + error);
+    }
+
+    cass_future_free(connect_future);
+    cass_statement_free(cs);
+
+   /* int64_t counter = 0;
+    std::vector<const TupleRow *> gvalues(cass_result_row_count(result));
+    const CassRow *row;
+    CassIterator *it = cass_iterator_from_result(result);
 
 
-    //EXPECT_EQ(result, value);
-    delete (parser);
-}*/
+    while (cass_iterator_next(it)) {
+        row = cass_iterator_get_row(it);
+        gvalues[counter] = trf.make_tuple(row);
+        ++counter;
+    }
+
+    const void *element_i = gvalues[0]->get_element(0);
+    TupleRow** ptr = (TupleRow**) element_i;
+    const TupleRow* inner_data = *ptr;
+
+    int64_t * value = (int64_t*) inner_data->get_element(0);
+    int64_t * value2 = (int64_t*) inner_data->get_element(1);
+
+    std::cout << *value << std::endl;
+    std::cout << *value2 << std::endl;*/
+
+    //cass_iterator_free(it);
+    cass_result_free(result);
+
+    cass_cluster_free(test_cluster);
+    cass_session_free(test_session);
+
+}
