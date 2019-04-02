@@ -313,7 +313,7 @@ class StorageDict(dict, IStorage):
             self._columns = self._persistent_props['columns']
 
             try:
-                self._indexed_args = self._persistent_props[self.__class__.__name__]['indexed_values']
+                self._indexed_args = self._persistent_props['indexed_on']
             except KeyError:
                 self._indexed_args = indexed_on
         else:
@@ -535,6 +535,13 @@ class StorageDict(dict, IStorage):
                     config.session.execute(index_query)
                 except Exception as ex:
                     log.error("Error creating the Qbeast custom index: %s %s", index_query, ex)
+                    raise ex
+                trigger_query = "CREATE TRIGGER %s%s_qtr ON %s.%s USING 'es.bsc.qbeast.index.QbeastTrigger';" % \
+                                (self._ksp, self._table, self._ksp, self._table)
+                try:
+                    config.session.execute(trigger_query)
+                except Exception as ex:
+                    log.error("Error creating the Qbeast trigger: %s %s", trigger_query, ex)
                     raise ex
 
         persistent_columns = [{"name": tup[0], "type": tup[1]} for tup in persistent_values]
