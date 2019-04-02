@@ -628,7 +628,6 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                     TupleRow** ptr = (TupleRow**) element_i;
                     const TupleRow* inner_data = *ptr;
 
-                    const void *elem_data = inner_data->get_payload();
                     unsigned long n_types = metadata->at(i).pointer->size();
 
 
@@ -642,16 +641,18 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                         switch(cvt) {
                             case CASS_VALUE_TYPE_VARCHAR:
                             case CASS_VALUE_TYPE_TEXT:{
-                                int64_t * value = (int64_t*) inner_data->get_element(n);
-                                cass_tuple_set_int64(tuple, (size_t)n, *value);
+                                int64_t *addr = (int64_t *) inner_data->get_element(n);
+                                const char *d = reinterpret_cast<char *>(*addr);
+                                cass_tuple_set_string(tuple, (size_t)n, d);
                                 break;
                             }
                             case CASS_VALUE_TYPE_ASCII:
                             case CASS_VALUE_TYPE_VARINT:
                             case CASS_VALUE_TYPE_BIGINT: {
-                                int64_t * value = (int64_t*) inner_data->get_element(n);
+                                int64_t* value = (int64_t*) inner_data->get_element(n);
                                 cass_tuple_set_int64(tuple, (size_t)n, *value);
                                 break;
+
                             }
                             case CASS_VALUE_TYPE_BLOB: {
                                 int64_t * value = (int64_t*) inner_data->get_element(n);

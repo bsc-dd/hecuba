@@ -53,7 +53,7 @@ class myobj2(StorageObj):
 
 class DictWithTuples(StorageDict):
     '''
-    @TypeSpec dict<<key:int>, val:tuple<int,int>>
+    @TypeSpec dict<<key:long>, val:tuple<long,long>>
     '''
 
 class DictWithTuples2(StorageDict):
@@ -63,7 +63,7 @@ class DictWithTuples2(StorageDict):
 
 class DictWithTuples3(StorageDict):
     '''
-    @TypeSpec dict<<key:int>, val0:int, val1:tuple<long,int>, val2:str>
+    @TypeSpec dict<<key:int>, val0:int, val1:tuple<long,int>, val2:str, val3:tuple<str,float>>
     '''
 
 
@@ -914,7 +914,7 @@ class StorageDictTest(unittest.TestCase):
         d = DictWithTuples("my_app.dictwithtuples")
 
         what_should_be = set()
-        for i in range(0, 10):
+        for i in range(55000000000000000, 55000000000000010):
             what_should_be.add((i, i + 10))
             d[i] = (i, i + 10)
 
@@ -967,13 +967,13 @@ class StorageDictTest(unittest.TestCase):
         # @TypeSpec dict<<key:int>, val0:int, val1:tuple<long,int>, val2:str, val3:tuple<str,float>>
 
         for i in range(0, 10):
-            d[i] = [i, (5500000000000000L, i + 10), "hola"]
+            d[i] = [i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))]
 
         time.sleep(2)
         for i in range(0, 10):
-            self.assertEqual(list(d[i]), [i, (5500000000000000L, i + 10), "hola"])
-
-        self.assertEqual(len(d), 10)
+            self.assertEqual(list(d[i]), [i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))])
+        print(list(d.keys()))
+        self.assertEqual(len(list(d.keys())), 10)
 
 
 if __name__ == '__main__':
