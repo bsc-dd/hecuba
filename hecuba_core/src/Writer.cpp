@@ -116,8 +116,8 @@ void Writer::set_error_occurred(std::string error, const void *keys_p, const voi
     CassStatement *statement = cass_prepared_bind(prepared_query);
 
 
-    this->k_factory->bind(statement, keys, 0);
-    this->v_factory->bind(statement, values, this->k_factory->n_elements());
+    this->k_factory->bind(statement, keys, 0, NULL, "NONE");
+    this->v_factory->bind(statement, values, this->k_factory->n_elements(), NULL, "NONE");
 
 
     CassFuture *query_future = cass_session_execute(session, statement);
@@ -161,9 +161,8 @@ void Writer::call_async() {
 
     CassStatement *statement = cass_prepared_bind(prepared_query);
 
-
-    this->k_factory->bind(statement, item.first, 0);
-    this->v_factory->bind(statement, item.second, this->k_factory->n_elements());
+    this->k_factory->bind(statement, item.first, 0, NULL, "NONE");
+    this->v_factory->bind(statement, item.second, this->k_factory->n_elements(), NULL, "NONE");
 
 
     CassFuture *query_future = cass_session_execute(session, statement);

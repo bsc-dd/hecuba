@@ -116,7 +116,7 @@ std::map<std::string, ColumnMeta> TableMetadata::getMetaTypes(CassIterator *iter
         size_t length;
         cass_column_meta_name(cmeta, &value, &length);
         const CassDataType *type = cass_column_meta_data_type(cmeta);
-        if(cass_data_type_type(type) == CASS_VALUE_TYPE_TUPLE) { //let's try using tuple
+        if(cass_data_type_type(type) == CASS_VALUE_TYPE_TUPLE) {
             int n_subtypes = (int)cass_data_type_sub_type_count(type);
             std::vector<ColumnMeta> v;
             uint32_t offset = 0;
@@ -124,7 +124,6 @@ std::map<std::string, ColumnMeta> TableMetadata::getMetaTypes(CassIterator *iter
                 metadatas[value].type = cass_data_type_type(type);
                 metadatas[value].col_type = cass_column_meta_type(cmeta);
                 CassValueType cvt = cass_data_type_type(cass_data_type_sub_data_type(type, subtype));
-                //metadatas[value].pointer.emplace_back(value,cvt);
                 auto cm = ColumnMeta();
                 cm.info.insert(std::pair<std::string,std::string>("name_tuple_col",value));
                 cm.type = cvt;
@@ -133,7 +132,6 @@ std::map<std::string, ColumnMeta> TableMetadata::getMetaTypes(CassIterator *iter
                 offset += size;
                 cm.size = size;
                 v.emplace_back(cm);
-                //insert(std::pair<std::string, CassValueType>(value, cvt));
             }
             metadatas[value].pointer = std::make_shared<std::vector<ColumnMeta>>(v);
         }

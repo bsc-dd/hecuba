@@ -93,23 +93,7 @@ Int32Parser::Int32Parser(const ColumnMeta &CM) : UnitParser(CM) {
     if (CM.size != sizeof(int32_t))
         throw ModuleException("Bad size allocated for a Int32");
 }
-/*
- *
- * int count = 0;
-int16_t Int32Parser::py_to_c(PyObject *myint, void *payload) const {
-    int32_t t;
-    if (myint == Py_None) return -1;
-    int* intbuffer = (int*)payload;
-    if (PyInt_Check(myint) && PyArg_Parse(myint, Py_INT, &t)){
-        memcpy(intbuffer+count, &t, sizeof(int));
-        ++count;
-        return 0;
-    }
-    error_parsing("PyInt to Int32", myint);
-    return -2;
-}
- */
-int count = 0;
+
 int16_t Int32Parser::py_to_c(PyObject *myint, void *payload) const {
     if (myint == Py_None) return -1;
     if (PyInt_Check(myint) && PyArg_Parse(myint, Py_INT, payload)) return 0;
@@ -331,10 +315,7 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
     for(int i = 0; i < col_meta.pointer->size(); ++i) {
         total_malloc = total_malloc + col_meta.pointer->at(i).size;
     }
-    //void * internal_payload = malloc(sizeof(int32_t)*2);
     void *internal_payload = malloc(total_malloc);
-   // void* internal_payload = malloc(sizeof(this->col_meta.pointer[0].second)*this->pointer.size()); NO
-
     Py_ssize_t size = PyTuple_Size(obj);
     for(int i = 0; i < size; ++i){
         PyObject* tuple_elem = PyTuple_GetItem(obj, i);
@@ -372,7 +353,6 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
                 break;
             }
             case CASS_VALUE_TYPE_DECIMAL: {
-                //decimal.Decimal
                 //TODO
                 break;
             }
@@ -495,7 +475,6 @@ PyObject *TupleParser::c_to_py(const void *payload) const {
                 break;
             }
             case CASS_VALUE_TYPE_DECIMAL: {
-                //decimal.Decimal
                 //TODO
                 break;
             }
