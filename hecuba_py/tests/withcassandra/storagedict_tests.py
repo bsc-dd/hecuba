@@ -972,7 +972,6 @@ class StorageDictTest(unittest.TestCase):
         time.sleep(2)
         for i in range(0, 10):
             self.assertEqual(list(d[i]), [i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))])
-        print(list(d.keys()))
         self.assertEqual(len(list(d.keys())), 10)
 
 

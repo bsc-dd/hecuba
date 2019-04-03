@@ -251,8 +251,6 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
 
             /* Create an iterator for the UDT value */
 
-
-            std::cout << "FINDME" << cass_value_type(lhs) << "-" << CASS_VALUE_TYPE_TUPLE << std::endl;
             auto TFACT = TupleRowFactory(metadata->at(col).pointer);
 
             CassIterator* tuple_iterator = cass_iterator_from_tuple(lhs);
@@ -641,6 +639,7 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                         switch(cvt) {
                             case CASS_VALUE_TYPE_VARCHAR:
                             case CASS_VALUE_TYPE_TEXT:{
+
                                 int64_t *addr = (int64_t *) inner_data->get_element(n);
                                 const char *d = reinterpret_cast<char *>(*addr);
                                 cass_tuple_set_string(tuple, (size_t)n, d);
