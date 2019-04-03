@@ -2905,6 +2905,125 @@ TEST(TableMeta, BigIntFromCassandra) {
 }
 
 
+TEST(TableMeta, TwoTextFromCassandra) {
+
+    CassSession *test_session = NULL;
+    CassCluster *test_cluster = NULL;
+
+    CassFuture *connect_future = NULL;
+    test_cluster = cass_cluster_new();
+    test_session = cass_session_new();
+
+    cass_cluster_set_contact_points(test_cluster, contact_p);
+    cass_cluster_set_port(test_cluster, nodePort);
+
+    connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
+
+
+    CassError rc = cass_future_error_code(connect_future);
+    EXPECT_TRUE(rc == CASS_OK);
+
+    cass_future_free(connect_future);
+
+    fireandforget("DROP KEYSPACE IF EXISTS test;", test_session);
+
+    fireandforget("CREATE KEYSPACE test WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};",
+                  test_session);
+    fireandforget(
+            "CREATE TABLE test.people(dni text PRIMARY KEY, info tuple<text,text>);",
+            test_session);
+
+    CassStatement* cs
+            = cass_statement_new("INSERT INTO test.people(dni, info) VALUES ('socUnDNI2', ?)", 1);
+
+    std::vector <std::map<std::string, std::string>> keysnames = {{{"name", "dni"}}};
+
+    std::vector <std::map<std::string, std::string>> colsnames = {{{"name", "info"}}};
+
+    TableMetadata *table_meta = new TableMetadata("people", "test", keysnames, colsnames, test_session);
+
+    //connect_future = cass_session_execute(test_session, cs);
+
+
+    std::map<std::string, std::string> info = {{"name", "mycolumn"}};
+    uint16_t bsize = (sizeof(int64_t));
+    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_TEXT, 0, bsize);
+    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_TEXT, bsize, bsize);
+
+    std::vector<ColumnMeta> v = {cm1, cm2};
+
+    ColumnMeta CM = ColumnMeta();
+    CM.info = {{"name", "ciao"}};
+    CM.type = CASS_VALUE_TYPE_TUPLE;
+    CM.position = 0;
+    CM.size = sizeof(TupleRow *);
+    CM.pointer = std::make_shared<std::vector<ColumnMeta>>(v);
+
+    std::shared_ptr<const std::vector<ColumnMeta> > cols = table_meta->get_values();
+    TupleRowFactory trf = TupleRowFactory(cols);
+
+    std::tuple<string,string> mytuple;
+    mytuple = make_tuple("quiero","no quiero parsearme");
+
+    void* buffer = malloc(sizeof(int64_t) * 2);
+    int64_t* buffer2 = (int64_t*)buffer;
+
+
+    memcpy(buffer2, &(get<0>(mytuple)), sizeof(int64_t));
+    memcpy(buffer2+1, &(get<1>(mytuple)), sizeof(int64_t));
+
+    TupleRow *values = new TupleRow(CM.pointer, sizeof(mytuple), buffer2);
+    TupleRow *valuess = new TupleRow(table_meta->get_values(), sizeof(mytuple), &values);
+
+    trf.bind(cs, valuess, 0);
+    connect_future = cass_session_execute(test_session, cs);
+
+    //NOW LET'S TRY TO RETRIEVE THE DATA INSERTED (GET ROW)
+    CassStatement* statement = cass_statement_new("SELECT info FROM test.people", 0);
+    CassFuture* query_future = cass_session_execute(test_session, statement);
+    const CassResult *result = cass_future_get_result(query_future);
+    rc = cass_future_error_code(connect_future);
+    if (result == NULL) {
+        /* Handle error */
+        std::string error(cass_error_desc(rc));
+        cass_future_free(connect_future);
+        cass_statement_free(cs);
+        throw ModuleException("CacheTable: Get row error on result" + error);
+    }
+
+    cass_future_free(connect_future);
+    cass_statement_free(cs);
+
+    int64_t counter = 0;
+    std::vector<const TupleRow *> gvalues(cass_result_row_count(result));
+    const CassRow *row;
+    CassIterator *it = cass_iterator_from_result(result);
+
+
+    while (cass_iterator_next(it)) {
+        row = cass_iterator_get_row(it);
+        gvalues[counter] = trf.make_tuple(row);
+        ++counter;
+    }
+
+    const void *element_i = gvalues[0]->get_element(0);
+    TupleRow** ptr = (TupleRow**) element_i;
+    const TupleRow* inner_data = *ptr;
+
+    int64_t * value = (int64_t*) inner_data->get_element(0);
+    int64_t * value2 = (int64_t*) inner_data->get_element(1);
+
+    std::cout << reinterpret_cast<char *>(*value) << std::endl;
+    std::cout << reinterpret_cast<char *>(*value2) << std::endl;
+
+    //cass_iterator_free(it);
+    cass_result_free(result);
+
+    cass_cluster_free(test_cluster);
+    cass_session_free(test_session);
+
+}
+
 TEST(TableMeta, BigIntANDTextFromCassandra) {
 
     CassSession *test_session = NULL;
@@ -2939,7 +3058,7 @@ TEST(TableMeta, BigIntANDTextFromCassandra) {
     std::vector <std::map<std::string, std::string>> keysnames = {{{"name", "dni"}}};
 
     std::vector <std::map<std::string, std::string>> colsnames = {{{"name", "info"}}};
-    std::cout << "aqui es donde peta" << std::endl;
+
     TableMetadata *table_meta = new TableMetadata("people", "test", keysnames, colsnames, test_session);
 
     //connect_future = cass_session_execute(test_session, cs);
@@ -2947,7 +3066,6 @@ TEST(TableMeta, BigIntANDTextFromCassandra) {
 
     std::map<std::string, std::string> info = {{"name", "mycolumn"}};
     uint16_t bsize = (sizeof(int64_t));
-    uint16_t bsize2 = sizeof(string);
     ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_BIGINT, 0, bsize);
     ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_TEXT, bsize, bsize);
 
@@ -2963,10 +3081,16 @@ TEST(TableMeta, BigIntANDTextFromCassandra) {
     std::shared_ptr<const std::vector<ColumnMeta> > cols = table_meta->get_values();
     TupleRowFactory trf = TupleRowFactory(cols);
 
-    std::tuple<long,std::string> mytuple (55000000000000000,"no quiero parsearme");
-    char *buffer2 = (char *) malloc(sizeof(mytuple)); //values
+    std::tuple<long ,string> mytuple;
+    mytuple = make_tuple(1000000000000000000,"no quiero parsearme");
 
-    memcpy(buffer2, &mytuple, sizeof(mytuple));
+    void* buffer = malloc(sizeof(int64_t) * 2);
+    int64_t* buffer2 = (int64_t*)buffer;
+
+
+    memcpy(buffer2, &(get<0>(mytuple)), sizeof(int64_t));
+    memcpy(buffer2+1, &(get<1>(mytuple)), sizeof(int64_t));
+
     TupleRow *values = new TupleRow(CM.pointer, sizeof(mytuple), buffer2);
     TupleRow *valuess = new TupleRow(table_meta->get_values(), sizeof(mytuple), &values);
 
@@ -2989,7 +3113,7 @@ TEST(TableMeta, BigIntANDTextFromCassandra) {
     cass_future_free(connect_future);
     cass_statement_free(cs);
 
-   /* int64_t counter = 0;
+    int64_t counter = 0;
     std::vector<const TupleRow *> gvalues(cass_result_row_count(result));
     const CassRow *row;
     CassIterator *it = cass_iterator_from_result(result);
@@ -3008,8 +3132,8 @@ TEST(TableMeta, BigIntANDTextFromCassandra) {
     int64_t * value = (int64_t*) inner_data->get_element(0);
     int64_t * value2 = (int64_t*) inner_data->get_element(1);
 
-    std::cout << *value << std::endl;
-    std::cout << *value2 << std::endl;*/
+    std::cout << (*value) << std::endl;
+    std::cout << reinterpret_cast<char *>(*value2) << std::endl;
 
     //cass_iterator_free(it);
     cass_result_free(result);
