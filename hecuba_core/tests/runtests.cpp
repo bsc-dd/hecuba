@@ -2631,7 +2631,7 @@ TEST(TableMeta, LetsTryTuple) {
 
     cout << "el n de elementos en trf es: " << trf.n_elements() << endl;
 
-    trf.bind(cs, values, 0);
+    trf.bind(cs, values, 0, NULL, "NONE");
 
     cs = cass_statement_new("INSERT INTO test.people(dni, info) VALUES ('socUnDNI3', ?)", 1);
 
@@ -2744,7 +2744,7 @@ TEST(TableMeta, LetsTryTupleWithString) {
 
     TupleRowFactory trf = TupleRowFactory(cols);
 
-    trf.bind(cs, valuess, 0);
+    trf.bind(cs, valuess, 0, NULL, "NONE");
     connect_future = cass_session_execute(test_session, cs);
 
     // INSERT WITH CASSANDRA METHODS //
@@ -2855,7 +2855,7 @@ TEST(TableMeta, BigIntFromCassandra) {
     TupleRow *values = new TupleRow(CM.pointer, sizeof(mytuple), buffer2);
     TupleRow *valuess = new TupleRow(table_meta->get_values(), sizeof(mytuple), &values);
 
-    trf.bind(cs, valuess, 0);
+    trf.bind(cs, valuess, 0, NULL, "NONE");
     connect_future = cass_session_execute(test_session, cs);
 
     //NOW LET'S TRY TO RETRIEVE THE DATA INSERTED (GET ROW)
@@ -2975,7 +2975,7 @@ TEST(TableMeta, TwoTextFromCassandra) {
     TupleRow *values = new TupleRow(CM.pointer, sizeof(mytuple), buffer2);
     TupleRow *valuess = new TupleRow(table_meta->get_values(), sizeof(mytuple), &values);
 
-    trf.bind(cs, valuess, 0);
+    trf.bind(cs, valuess, 0, NULL, "NONE");
     connect_future = cass_session_execute(test_session, cs);
 
     //NOW LET'S TRY TO RETRIEVE THE DATA INSERTED (GET ROW)
@@ -3094,7 +3094,7 @@ TEST(TableMeta, BigIntANDTextFromCassandra) {
     TupleRow *values = new TupleRow(CM.pointer, sizeof(mytuple), buffer2);
     TupleRow *valuess = new TupleRow(table_meta->get_values(), sizeof(mytuple), &values);
 
-    trf.bind(cs, valuess, 0);
+    trf.bind(cs, valuess, 0, NULL, "NONE");
     connect_future = cass_session_execute(test_session, cs);
 
     //NOW LET'S TRY TO RETRIEVE THE DATA INSERTED (GET ROW)

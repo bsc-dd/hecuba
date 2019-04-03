@@ -118,7 +118,7 @@ std::vector<const TupleRow *> CacheTable::retrieve_from_cassandra(const TupleRow
     /* Not present on cache, a query is performed */
     CassStatement *statement = cass_prepared_bind(prepared_query);
 
-    this->keys_factory->bind(statement, keys, 0);
+    this->keys_factory->bind(statement, keys, 0, NULL, "NONE");
 
     CassFuture *query_future = cass_session_execute(session, statement);
     const CassResult *result = cass_future_get_result(query_future);
@@ -179,7 +179,7 @@ void CacheTable::delete_crow(const TupleRow *keys) {
     //Remove row from Cassandra
     CassStatement *statement = cass_prepared_bind(delete_query);
 
-    this->keys_factory->bind(statement, keys, 0);
+    this->keys_factory->bind(statement, keys, 0, NULL, "NONE");
 
     CassFuture *query_future = cass_session_execute(session, statement);
     const CassResult *result = cass_future_get_result(query_future);
