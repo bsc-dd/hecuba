@@ -319,7 +319,6 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
     Py_ssize_t size = PyTuple_Size(obj);
     for(int i = 0; i < size; ++i){
         PyObject* tuple_elem = PyTuple_GetItem(obj, i);
-        PyObject_Print(tuple_elem, stdout, i);
         CassValueType cvt = this->col_meta.pointer->at(i).type;
         void* destiny = (char*)internal_payload + this->col_meta.pointer->at(i).position;
         switch(cvt) {
