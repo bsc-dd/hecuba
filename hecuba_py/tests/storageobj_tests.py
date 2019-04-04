@@ -48,30 +48,24 @@ class StorageObjTest(unittest.TestCase):
                                                 'text')],
                               'type': 'StorageDict'}
                 }
-        both_comment = '  @ClassField wordinfo dict<<position:int>,wordinfo:str>\n ' + \
-                       '@ClassField instances dict<<word:str>,instances:atomicint> '
+        both_comment = "'''\n@ClassField wordinfo dict<<position:int>,wordinfo:str>\n " + \
+                       "@ClassField instances dict<<word:str>,instances:atomicint>\n''' "
         p = StorageObj._parse_comments(both_comment)
         self.assertEqual(both, p)
 
-        both2 = {'wordinfo': {'indexed_values': ['wordinfo',
-                                                 'position'],
-                              'columns': [('wordinfo', 'text')],
+        both2 = {'wordinfo': {'columns': [('wordinfo', 'text')],
                               'primary_keys': [('position',
                                                 'int')],
                               'type': 'StorageDict'},
-                 'instances': {'indexed_values': ['instances',
-                                                  'word'],
-                               'columns': [('instances',
+                 'instances': {'columns': [('instances',
                                             'counter')],
                                'primary_keys': [('word',
                                                  'text')],
                                'type': 'StorageDict'
                                }
                  }
-        both_comment = '  @ClassField wordinfo dict<<position:int>,wordinfo:str>\n ' + \
-                       '  @Index_on instances instances,word\n ' + \
-                       '  @ClassField instances dict<<word:str>,instances:atomicint> ' + \
-                       '  @Index_on wordinfo wordinfo,position\n '
+        both_comment = "'''\n@ClassField wordinfo dict<<position:int>,wordinfo:str>\n " + \
+                       "  @ClassField instances dict<<word:str>,instances:atomicint>\n'''"
         p = StorageObj._parse_comments(both_comment)
         self.assertEqual(both2, p)
 
