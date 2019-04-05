@@ -416,7 +416,7 @@ void TupleRowFactory::bind_tuple(CassStatement *statement, const TupleRow *row, 
     }
 }
 
-void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t offset, CassTuple * tuple = NULL, std::string type = "NONE") const {
+void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t offset, CassTuple * tuple, std::string type) const {
 
     const std::vector<ColumnMeta> *localMeta = metadata.get();
 

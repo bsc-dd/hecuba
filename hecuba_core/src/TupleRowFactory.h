@@ -38,7 +38,7 @@ public:
 
 
     //void bind(CassStatement *statement, const TupleRow *row, u_int16_t offset) const;
-    void bind(CassStatement *statement, const TupleRow *row, u_int16_t offset, CassTuple * tuple, std::string type) const;
+    void bind(CassStatement *statement, const TupleRow *row, u_int16_t offset, CassTuple * tuple = nullptr, std::string type = "NONE") const;
     void bind_tuple(CassStatement *statement, const TupleRow *row, u_int16_t offset, CassTuple * tuple) const;
     inline std::shared_ptr<const std::vector<ColumnMeta>> get_metadata() const {
         return metadata;
