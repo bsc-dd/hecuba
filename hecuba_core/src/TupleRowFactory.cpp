@@ -472,7 +472,7 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                         cass_statement_bind_bytes(statement, bind_pos, bytes, *num_bytes);
                     }
 
-                    else cass_statement_bind_bytes(statement, bind_pos, bytes, *num_bytes);
+                    else cass_tuple_set_bytes(tuple, (size_t)i, bytes, *num_bytes);
                     break;
                 }
                 case CASS_VALUE_TYPE_BOOLEAN: {
