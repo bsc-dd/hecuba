@@ -238,12 +238,6 @@ class Parser(object):
         '''Def: Remove all the spaces of the line splitted from comments
                 Returns: same line with no spaces.'''
         line = re.sub(' +', '*', line)
-        check_dif_type_parser = line.find(self.type_parser)
-        if check_dif_type_parser < 0:
-            if self.type_parser == "@ClassField":
-                self.type_parser = "@TypeSpec"
-            else:
-                self.type_parser = "@ClassField"
         line = line[line.find(self.type_parser):]
         if (line.count('tuple') == 1 and line.count('dict') == 0):
             pos = re.search(r'\b(tuple)\b', line)

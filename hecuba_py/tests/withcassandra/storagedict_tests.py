@@ -68,23 +68,6 @@ class DictWithTuples3(StorageDict):
 
 
 class StorageDictTest(unittest.TestCase):
-    def test_attribute_double_assignation_so(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.somename")
-        dic = mydict()
-
-        so1 = myobj2()
-        so1.attr1 = 1
-        so1.attr2 = "a"
-
-        so2 = myobj2()
-        so2.attr1 = 2
-        so2.attr2 = "b"
-
-        dic[0] = so1
-        dic[0] = so2
-
-        self.assertEqual(dic[0], so2)
-
     def test_init_empty(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab1")
         tablename = "ksp.tab1"
