@@ -139,7 +139,8 @@ class mixObj(StorageObj):
 
 class StorageObjTest(unittest.TestCase):
     def test_build_remotely(self):
-
+        config.session.execute("DROP TABLE IF EXISTS " + config.execution_name + ".tt1")
+        obj = TestStorageObj(config.execution_name + ".tt1")
         r = {"storage_id": uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), "ksp" :  config.execution_name,
              "class_name": str(TestStorageObj.__module__) + "." + TestStorageObj.__name__, "name": 'tt1',
              "columns": [('val1', 'str')], "entry_point": 'localhost', "primary_keys": [('pk1', 'int')],

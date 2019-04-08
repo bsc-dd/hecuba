@@ -279,7 +279,7 @@ class StorageDict(dict, IStorage):
             raise ex
 
     def __init__(self, name=None, primary_keys=None, columns=None, tokens=None,
-                 storage_id=None, indexed_on=None, **kwargs):
+                 storage_id=None, indexed_on=None, create_schema=True, **kwargs):
         """
         Creates a new StorageDict.
 
@@ -294,6 +294,7 @@ class StorageDict(dict, IStorage):
         """
 
         super(StorageDict, self).__init__(**kwargs)
+        self._create_schema = create_schema
         self._is_persistent = False
         log.debug("CREATED StorageDict(%s,%s,%s,%s,%s,%s)", primary_keys, columns, name, tokens, storage_id, kwargs)
 
@@ -540,7 +541,7 @@ class StorageDict(dict, IStorage):
             #persistent_values = [(tup[0], "uuid" if tup[1] not in self._basic_types else tup[1]) for tup in
             #                   self._columns]
 
-        if config.id_create_schema == -1 and not IStorage._built_remotely:
+        if config.id_create_schema == -1 and self._create_schema:
             query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
             try:
                 log.debug('MAKE PERSISTENCE: %s', query_keyspace)

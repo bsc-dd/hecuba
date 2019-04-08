@@ -32,7 +32,7 @@ class StorageNumpy(np.ndarray, IStorage):
     args_names = ["storage_id", "class_name", "name", "shape", "dtype", "block_id"]
     args = namedtuple('StorageNumpyArgs', args_names)
 
-    def __new__(cls, input_array=None, storage_id=None, name=None, **kwargs):
+    def __new__(cls, input_array=None, storage_id=None, name=None, create_schema=True, **kwargs):
 
         if input_array is None and name and storage_id is not None:
             result = cls.load_array(storage_id, name)
@@ -55,6 +55,7 @@ class StorageNumpy(np.ndarray, IStorage):
             obj._storage_id = storage_id
         # Finally, we must return the newly created object:
         obj._class_name = '%s.%s' % (cls.__module__, cls.__name__)
+        obj._create_schema = create_schema
         return obj
 
     # used as copy constructor
@@ -124,15 +125,16 @@ class StorageNumpy(np.ndarray, IStorage):
 
         log.info("PERSISTING DATA INTO %s %s", self._ksp, self._table)
 
-        query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
-        config.session.execute(query_keyspace)
+        if self._create_schema:
+            query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
+            config.session.execute(query_keyspace)
 
-        config.session.execute('CREATE TABLE IF NOT EXISTS ' + self._ksp + '.' + self._table + '_numpies'
-                                                                                               '(storage_id uuid , '
-                                                                                               'cluster_id int, '
-                                                                                               'block_id int, '
-                                                                                               'payload blob, '
-                                                                                               'PRIMARY KEY((storage_id,cluster_id),block_id))')
+            config.session.execute('CREATE TABLE IF NOT EXISTS ' + self._ksp + '.' + self._table + '_numpies'
+                                                                                                   '(storage_id uuid , '
+                                                                                                   'cluster_id int, '
+                                                                                                   'block_id int, '
+                                                                                                   'payload blob, '
+                                                                                                   'PRIMARY KEY((storage_id,cluster_id),block_id))')
 
         self._hcache_params = (self._ksp, self._table + '_numpies',
                                self._storage_id, [], ['storage_id', 'cluster_id', 'block_id'],
