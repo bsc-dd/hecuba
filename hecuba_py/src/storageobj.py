@@ -49,7 +49,7 @@ class StorageObj(object, IStorage):
         parser = Parser("ClassField")
         return parser._parse_comments(comments)
 
-    def __init__(self, name="", tokens=None, storage_id=None, istorage_props=None, **kwargs):
+    def __init__(self, name="", tokens=None, storage_id=None, istorage_props=None, create_schema=True, **kwargs):
         """
             Creates a new storageobj.
             Args:
@@ -103,7 +103,8 @@ class StorageObj(object, IStorage):
 
         if self._is_persistent:
             # If never existed, must create the tables and register
-            self._create_tables()
+            if create_schema:
+                self._create_tables()
             self._store_meta(self._build_args)
 
         self._load_attributes()
