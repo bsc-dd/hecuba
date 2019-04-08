@@ -150,6 +150,40 @@ class LambdaParserTest(unittest.TestCase):
         self.assertTrue((3, 3) in res)
         self.assertTrue((4, 4) in res)
 
+    def test_non_hecuba_filter(self):
+        l = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        res = filter(lambda x: x >= 5, l)
+        self.assertEqual(res, [5, 6, 7, 8, 9])
+
+    def test_split_filter(self):
+        config.session.execute("DROP TABLE IF EXISTS hfilter_tests.simpledict")
+        simple_dict = SimpleDict("hfilter_tests.simpledict")
+        what_should_be = dict()
+        for i in range(0, 10):
+            what_should_be[i] = i
+            simple_dict[i] = i
+        time.sleep(1)
+
+        filtered = []
+        normal_filtered = python_filter(lambda x: x[0] > 3, simple_dict.items())
+
+        i = 0
+        for partition in simple_dict.split():
+            # aggregation of filtering on each partition should be equal to a filter on the whole object
+            res = filter(lambda x: x.key0 > 3, partition)
+            for row in res:
+                filtered.append(row)
+
+            for k, v in partition.iteritems():
+                # self.assertTrue((tuple(row.key), list(row.value)) in f2)
+                self.assertEqual(what_should_be[k], v)
+                i += 1
+
+        self.assertEqual(len(what_should_be), i)
+        self.assertEqual(len(filtered), len(normal_filtered))
+        for row in filtered:
+            self.assertTrue(row in normal_filtered)
+
 
 if __name__ == "__main__":
     unittest.main()

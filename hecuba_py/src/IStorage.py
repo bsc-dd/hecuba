@@ -1,9 +1,9 @@
+import re
 import uuid
 from collections import namedtuple
 from time import time
+
 from hecuba import config, log
-import re
-import regex
 
 
 class AlreadyPersistentError(RuntimeError):
