@@ -199,8 +199,9 @@ class IStorage:
         args = {k: v for k, v in args.items() if k in imported_class.args_names}
         args.pop('class_name', None)
 
-        args["create_schema"] = False
         built_object = imported_class(**args)
+
+        built_object._built_remotely = True
 
         return built_object
 
