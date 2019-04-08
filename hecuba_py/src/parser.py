@@ -130,7 +130,7 @@ class Parser(object):
         varsk, varsv, cleank, cleanv, typek, typevv = self._get_str_primary_keys_values(pk)
         pks = self._get_dict_str(varsk, cleank, typek)
         values = self._get_dict_str(varsv, cleanv, typevv)
-        if (table == None):
+        if table == None:
             final_dict = '{"primary_keys": [%s], "columns": [%s], "type": "StorageDict"}' % (pks, values)
         else:
             final_dict = '{"%s": {"primary_keys": [%s], "columns": [%s], "type": "StorageDict"}}' % (table, pks, values)
@@ -155,7 +155,7 @@ class Parser(object):
             string_str = '{"%s":{"%s": "%s","type": "%s"}}' % (table, pk_or_col, converted_primary_keys, str(type))
             final_string = eval(string_str)
             aux = '{"%s": {"%s"},"type": "%s"}' % (pk_or_col, converted_primary_keys, str(type))
-        if (table in this):
+        if table in this:
             this[table].update(eval(aux))
             return this
         return final_string
@@ -164,14 +164,28 @@ class Parser(object):
         '''Def: parses index declaration, checking for the introduced vars.
                                 Returns: a dict structure with the parsed dict.'''
 
-        table = "indexed_on"
-        atributes = line.split(' ', 2)
-        atributes = atributes[1].replace(" ", '')
+        if self.type_parser == "TypeSpec":
+            table = "indexed_on"
+            atributes = line.split(' ', 2)
+            atributes = atributes[1].replace(" ", '')
+        else:
+            table = line.split()[1]
+            atributes = line.split(' ', 2)
+            atributes = atributes[2].replace(" ", '')
+
         atributes = atributes.split(',')
         converted_atributes = ", ".join([IStorage._conversions.get(w, w) for w in atributes])
         converted_atributes = converted_atributes.split(',')
         converted_atributes = [w.replace(" ", "") for w in converted_atributes]
-        this[table] = converted_atributes
+
+        if self.type_parser == "TypeSpec":
+            this[table] = converted_atributes
+        else:
+            if table in this:
+                this[table].update({'indexed_on': converted_atributes})
+            else:
+                this[table] = {'indexed_on': converted_atributes}
+
         return this
 
     def _parse_file(self, line, new):
@@ -207,7 +221,7 @@ class Parser(object):
         type = IStorage._conversions[split_line[2]]
         simple = '{"%s":{"type":"%s"}}' % (table, type)
         simple = eval(simple)
-        if (table in this):
+        if table in this:
             this[table].update(simple)
         return simple
 
@@ -231,6 +245,7 @@ class Parser(object):
         line = re.sub(' +', '*', line)
         if line.find('@Index_on') == -1:
             line = line[line.find(self.type_parser):]
+
         if line.count('tuple') == 1 and line.count('dict') == 0:
             pos = re.search(r'\b(tuple)\b', line)
             pos = pos.start()

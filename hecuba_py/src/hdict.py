@@ -1,13 +1,16 @@
-from collections import Iterable, defaultdict
-from collections import namedtuple
-from collections import Mapping
-from hfetch import Hcache
-from IStorage import IStorage, AlreadyPersistentError
-from hecuba import config, log, Parser
-from hecuba.hnumpy import StorageNumpy
 import uuid
-import re
+from collections import Iterable, defaultdict
+from collections import Mapping
+from collections import namedtuple
+
 import numpy as np
+from hecuba import config, log, Parser
+from hecuba.tools import NamedItemsIterator, NamedIterator
+from hecuba.hnumpy import StorageNumpy
+from hfetch import Hcache
+
+from IStorage import IStorage, AlreadyPersistentError
+from hecuba.qbeast import QbeastIterator
 
 
 class EmbeddedSet(set):
@@ -193,56 +196,6 @@ class EmbeddedSet(set):
     def clear(self):
         for value in self._father[tuple(self._keys)]:
             self.remove(value)
-
-
-class NamedIterator:
-    # Class that allows to iterate over the keys or the values of a dict
-    def __init__(self, hiterator, builder, father):
-        self.hiterator = hiterator
-        self.builder = builder
-        self._storage_father = father
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        n = self.hiterator.get_next()
-        if self.builder is not None:
-            if self._storage_father._get_set_types() is not None:
-                nkeys = len(n) - len(self._storage_father._get_set_types())
-                n = n[:nkeys]
-            return self.builder(*n)
-        else:
-            return n[0]
-
-
-class NamedItemsIterator:
-    # Class that allows to iterate over the keys and the values of a dict
-    builder = namedtuple('row', 'key, value')
-
-    def __init__(self, key_builder, column_builder, k_size, hiterator, father):
-        self.key_builder = key_builder
-        self.k_size = k_size
-        self.column_builder = column_builder
-        self.hiterator = hiterator
-        self._storage_father = father
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        n = self.hiterator.get_next()
-        if self.key_builder is None:
-            k = n[0]
-        else:
-            k = self.key_builder(*n[0:self.k_size])
-        if self.column_builder is None:
-            v = n[self.k_size]
-            if isinstance(v, unicode):
-                v = str(v)
-        else:
-            v = self.column_builder(*n[self.k_size:])
-        return self.builder(k, v)
 
 
 class StorageDict(dict, IStorage):
@@ -536,7 +489,7 @@ class StorageDict(dict, IStorage):
                 except Exception as ex:
                     log.error("Error creating the Qbeast custom index: %s %s", index_query, ex)
                     raise ex
-                trigger_query = "CREATE TRIGGER %s%s_qtr ON %s.%s USING 'es.bsc.qbeast.index.QbeastTrigger';" % \
+                trigger_query = "CREATE TRIGGER IF NOT EXISTS %s%s_qtr ON %s.%s USING 'es.bsc.qbeast.index.QbeastTrigger';" % \
                                 (self._ksp, self._table, self._ksp, self._table)
                 try:
                     config.session.execute(trigger_query)
@@ -752,20 +705,26 @@ class StorageDict(dict, IStorage):
                 dict.iteritems(self)
         """
         if self._is_persistent:
-            ik = self._hcache.iteritems(config.prefetch_size)
-            iterator = NamedItemsIterator(self._key_builder,
-                                          self._column_builder,
-                                          self._k_size,
-                                          ik,
-                                          self)
-            if self._has_embedded_set:
-                d = defaultdict(set)
-                # iteritems has the set values in different rows, this puts all the set values in the same row
-                if len(self._get_set_types()) == 1:
-                    map(lambda row: d[row[0]].add(row[1][0]), iterator)
-                else:
-                    map(lambda row: d[row[0]].add(tuple(row[1])), iterator)
-                iterator = d.iteritems()
+            if hasattr(self, '_indexed_args') and self._indexed_args is not None:
+                name = "%s.%s" % (self._ksp, self._table)
+                iterator = QbeastIterator(primary_keys=self._primary_keys, indexed_args=self._indexed_args, columns=self._columns, name=name,
+                                          storage_id=self._storage_id, tokens=self._tokens)
+                return iterator
+            else:
+                ik = self._hcache.iteritems(config.prefetch_size)
+                iterator = NamedItemsIterator(self._key_builder,
+                                              self._column_builder,
+                                              self._k_size,
+                                              ik,
+                                              self)
+                if self._has_embedded_set:
+                    d = defaultdict(set)
+                    # iteritems has the set values in different rows, this puts all the set values in the same row
+                    if len(self._get_set_types()) == 1:
+                        map(lambda row: d[row[0]].add(row[1][0]), iterator)
+                    else:
+                        map(lambda row: d[row[0]].add(tuple(row[1])), iterator)
+                    iterator = d.iteritems()
 
             return iterator
         else:
