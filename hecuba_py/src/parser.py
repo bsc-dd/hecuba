@@ -9,6 +9,20 @@ from IStorage import IStorage
 class Parser(object):
     args_names = ["type_parser"]
 
+    def _append_values_to_list_after_replace(self, typev, finalvars, vals):
+        for var in vals:
+            aux = var
+            if var.count("tuple") > 0:
+                typev.append("tuple")
+                aux = aux.replace('tuple', '').replace('<', '').replace('>', '')
+            elif var.count("set") > 0:
+                typev.append("set")
+                aux = aux.replace('set', '').replace('<', '').replace('>', '')
+            else:
+                typev.append("simple")
+            finalvars.append(aux)
+        return typev, finalvars
+
     def _get_str_primary_keys_values(self, pk):
         pk = pk[5:]
         count = 0
@@ -42,19 +56,8 @@ class Parser(object):
 
         typevk = []
         finalvarsk = []
-        for var in valsc:
-            aux = var
-            if var.count("tuple") > 0:
-                typevk.append("tuple")
-                aux = aux.replace('tuple', '').replace('<', '').replace('>', '')
-            elif var.count("set") > 0:
-                typevk.append("set")
-                aux = aux.replace('set', '').replace('<', '').replace('>', '')
-            else:
-                typevk.append("simple")
-            finalvarsk.append(aux)
 
-        # We get the valuesv
+        typevk, finalvarsk = self._append_values_to_list_after_replace(typevk, finalvarsk, valsc)
 
         for var in varsv:
             values = values.replace(var, ' ')
@@ -63,18 +66,8 @@ class Parser(object):
 
         typevv = []
         finalvarsv = []
-        for var in valsc1:
-            aux = var
-            if var.count("tuple") > 0:
-                typevv.append("tuple")
-                aux = aux.replace('tuple', '').replace('<', '').replace('>', '')
-            elif var.count("set") > 0:
-                typevv.append("set")
-                aux = aux.replace('set', '').replace('<', '').replace('>', '')
-            else:
-                typevv.append("simple")
-            finalvarsv.append(aux)
 
+        typevv, finalvarsv = self._append_values_to_list_after_replace(typevv, finalvarsv, valsc1)
         return varskc, varsvc, finalvarsk, finalvarsv, typevk, typevv
 
     def _set_or_tuple(self, type, pk_col, t, t1):
@@ -104,7 +97,7 @@ class Parser(object):
             elif t2 == 'tuple':
                 string_str = self._set_or_tuple('tuple', 'columns', t, t1)
             else:
-                if(t not in IStorage._conversions):
+                if (t not in IStorage._conversions):
                     route = t
                     cname, module = IStorage.process_path(route)
                     try:
@@ -121,7 +114,7 @@ class Parser(object):
 
     def _parse_dict(self, line, this):
         split_line = line.split()
-        if(len(split_line) == 2):
+        if (len(split_line) == 2):
             pk = split_line[1]
             table = None
         else:
@@ -130,7 +123,7 @@ class Parser(object):
         varsk, varsv, cleank, cleanv, typek, typevv = self._get_str_primary_keys_values(pk)
         pks = self._get_dict_str(varsk, cleank, typek)
         values = self._get_dict_str(varsv, cleanv, typevv)
-        if(table == None):
+        if (table == None):
             final_dict = '{"primary_keys": [%s], "columns": [%s], "type": "StorageDict"}' % (pks, values)
         else:
             final_dict = '{"%s": {"primary_keys": [%s], "columns": [%s], "type": "StorageDict"}}' % (table, pks, values)
@@ -147,7 +140,7 @@ class Parser(object):
         line = re.sub('[<>, ]', ' ', split_line[2].replace(str(type), ""))
         primary_keys = line.split()
         converted_primary_keys = ", ".join([IStorage._conversions.get(w, w) for w in primary_keys])
-        if(len(primary_keys) == 1):
+        if (len(primary_keys) == 1):
             string_str = '{"%s":{"%s": "%s","type": "%s"}}' % (table, pk_or_col, converted_primary_keys, str(type))
             final_string = eval(string_str)
             aux = '{"%s": "%s","type": "%s"}' % (pk_or_col, converted_primary_keys, str(type))
@@ -197,13 +190,12 @@ class Parser(object):
         return new
 
     def _parse_set_tuple_list(self, line, this):
-        if(line.count('set')) > 0:
+        if (line.count('set')) > 0:
             return self._parse_set_or_tuple('set', line, 'primary_keys', this)
-        elif(line.count('tuple')) > 0:
+        elif (line.count('tuple')) > 0:
             return self._parse_set_or_tuple('tuple', line, 'columns', this)
         elif (line.count('list')) > 0:
             return self._parse_set_or_tuple('list', line, 'columns', this)
-
 
     def _parse_simple(self, line, this):
         split_line = line.split()
@@ -211,14 +203,15 @@ class Parser(object):
         type = IStorage._conversions[split_line[2]]
         simple = '{"%s":{"type":"%s"}}' % (table, type)
         simple = eval(simple)
-        if(table in this):
+        if (table in this):
             this[table].update(simple)
         return simple
 
     def _input_type(self, line, this):
         if (line.count('<') == 1):  # is tuple, set, list
             aux = (self._parse_set_tuple_list(line, this))
-        elif (line.count('<') == 0 and line.count('Index_on') == 0 and line.count('.') == 0 or (line.count('numpy.ndarray') and line.count('dict') == 0)):  # is simple type
+        elif (line.count('<') == 0 and line.count('Index_on') == 0 and line.count('.') == 0 or (
+                line.count('numpy.ndarray') and line.count('dict') == 0)):  # is simple type
             aux = (self._parse_simple(line, this))
         elif (line.count('Index_on') == 1):
             aux = self._parse_index(line, this)
@@ -239,14 +232,14 @@ class Parser(object):
         elif (line.count('set') == 1 and line.count('dict') == 0):
             pos = re.search(r'\b(set)\b', line)
             pos = pos.start()
-        elif(line.count('@Index_on') == 1):
+        elif (line.count('@Index_on') == 1):
             pos = line.find('@Index_on')
             line = line[pos:]
             return line.replace('*', ' ')
-        elif(line.count('dict') > 0):
+        elif (line.count('dict') > 0):
             pos = re.search(r'\b(dict)\b', line)
             pos = pos.start()
-        elif(line.count('list') > 0):
+        elif (line.count('list') > 0):
             pos = re.search(r'\b(list)\b', line)
             pos = pos.start()
         else:
