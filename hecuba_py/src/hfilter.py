@@ -158,20 +158,23 @@ def parse_lambda(func):
 
 def hfilter(lambda_filter, iterable):
     if not isinstance(iterable, IStorage):
-        return python_filter(lambda_filter, iterable)
+        try:
+            iterable = iterable._storage_father
+        except AttributeError:
+            return python_filter(lambda_filter, iterable)
 
     parsed_lambda = parse_lambda(lambda_filter)
 
-    if isinstance(iterable, QbeastIterator):
+    if hasattr(iterable, '_indexed_on') and iterable._indexed_on is not None:
         non_index_arguments = ""
-        # initialize lists of the same size as indexed_args
-        from_p = [None] * len(iterable._indexed_args)
-        to_p = [None] * len(iterable._indexed_args)
+        # initialize lists of the same size as indexed_on
+        from_p = [None] * len(iterable._indexed_on)
+        to_p = [None] * len(iterable._indexed_on)
         precision = None
 
         for expression in parsed_lambda:
-            if expression[0] in iterable._indexed_args:
-                index = iterable._indexed_args.index(expression[0])
+            if expression[0] in iterable._indexed_on:
+                index = iterable._indexed_on.index(expression[0])
                 if expression[1] == ">":
                     from_p[index] = expression[2]
                 elif expression[1] == "<":
@@ -188,14 +191,12 @@ def hfilter(lambda_filter, iterable):
         if precision is None:
             precision = 1.0
         name = "%s.%s" % (iterable._ksp, iterable._table)
+
         qbeast_meta = QbeastMeta(non_index_arguments[:-5], from_p, to_p, precision)
         new_iterable = QbeastIterator(primary_keys=iterable._primary_keys, columns=iterable._columns,
-                                      indexed_args=iterable._indexed_args, name=name, qbeast_meta=qbeast_meta,
+                                      indexed_on=iterable._indexed_on, name=name, qbeast_meta=qbeast_meta,
                                       tokens=iterable._tokens)
         return new_iterable
-
-    if not iterable._is_persistent:
-        raise Exception("The StorageDict needs to be persistent.")
 
     predicate = Predicate(iterable)
     for expression in parsed_lambda:

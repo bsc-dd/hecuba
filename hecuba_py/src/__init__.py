@@ -233,7 +233,7 @@ class Config:
                         istorage_props map<text,text>, 
                         tokens list<frozen<tuple<bigint,bigint>>>,
                         indexed_on list<text>,
-                        qbeast_id uuid,
+                        qbeast_random text,
                         qbeast_meta frozen<q_meta>,
                         numpy_meta frozen<np_meta>,
                         primary_keys list<frozen<tuple<text,text>>>,

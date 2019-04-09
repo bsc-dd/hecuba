@@ -25,38 +25,17 @@ class QbeastIterator(IStorage):
     """
     Object used to access data from workers.
     """
-    args_names = ['primary_keys', 'columns', 'indexed_on', 'name', 'qbeast_meta', 'qbeast_id',
+    args_names = ['primary_keys', 'columns', 'indexed_on', 'name', 'qbeast_meta', 'qbeast_random',
                   'storage_id', 'tokens', 'class_name']
     _building_args = namedtuple('StorageDictArgs', args_names)
     _prepared_store_meta = config.session.prepare(
         'INSERT INTO hecuba.istorage'
         '(primary_keys, columns, name, qbeast_meta,'
-        ' qbeast_id, storage_id, tokens, class_name)'
+        ' qbeast_random, storage_id, tokens, class_name)'
         'VALUES (?,?,?,?,?,?,?,?)')
-    _prepared_set_qbeast_id = config.session.prepare(
-        'INSERT INTO hecuba.istorage (storage_id, qbeast_id)VALUES (?,?)')
     _prepared_set_qbeast_meta = config.session.prepare(
         'INSERT INTO hecuba.istorage (storage_id, qbeast_meta)VALUES (?,?)')
     _row_namedtuple = namedtuple("row", "key,value")
-
-    @staticmethod
-    def build_remotely(result):
-        """
-        Launches the Block.__init__ from the api.getByID
-        Args:
-            result: a namedtuple with all  the information needed to create again the block
-        """
-        log.debug("Building Storage dict with %s", result)
-
-        return QbeastIterator(result.primary_keys,
-                              result.columns,
-                              result.indexed_on,
-                              result.name,
-                              result.qbeast_meta,
-                              result.qbeast_id,
-                              result.storage_id,
-                              result.tokens
-                              )
 
     @staticmethod
     def _store_meta(storage_args):
@@ -68,7 +47,7 @@ class QbeastIterator(IStorage):
                                     storage_args.columns,
                                     storage_args.name,
                                     storage_args.qbeast_meta,
-                                    storage_args.qbeast_id,
+                                    storage_args.qbeast_random,
                                     storage_args.storage_id,
                                     storage_args.tokens,
                                     storage_args.class_name])
@@ -76,25 +55,27 @@ class QbeastIterator(IStorage):
             log.error("Error creating the StorageDictIx metadata: %s %s", storage_args, ex)
             raise ex
 
-    def __init__(self, primary_keys, columns, indexed_args, name, qbeast_meta=None, qbeast_id=None,
+    def __init__(self, primary_keys, columns, indexed_on, name, qbeast_meta=None, qbeast_random=None,
                  storage_id=None, tokens=None):
         """
         Creates a new block.
         Args:
-            table_name (string): the name of the collection/table
-            keyspace_name (string): name of the Cassandra keyspace.
             primary_keys (list(tuple)): a list of (key,type) primary keys (primary + clustering).
             columns (list(tuple)): a list of (key,type) columns
-            tokens (list): list of tokens
+            indexed_on (list(str)): a list of the names of the indexed columns
+            name (string): keyspace.table of the Cassandra collection
+            qbeast_random (str): qbeast random string, when selecting in different nodes this must have the same value
             storage_id (uuid): the storage id identifier
+            tokens (list): list of tokens
         """
         log.debug("CREATED QbeastIterator(%s,%s,%s,%s)", storage_id, tokens, )
         (self._ksp, self._table) = self._extract_ks_tab(name)
-        self._primary_keys = primary_keys
-        self._columns = columns
-        self._indexed_args = indexed_args
+        self._indexed_on = indexed_on
         self._qbeast_meta = qbeast_meta
-        self._qbeast_id = qbeast_id
+        if qbeast_random is None:
+            self._qbeast_random = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(5))
+        else:
+            self._qbeast_random = qbeast_random
         if tokens is None:
             log.info('using all tokens')
             tokens = map(lambda a: a.value, config.cluster.metadata.token_map.ring)
@@ -126,10 +107,10 @@ class QbeastIterator(IStorage):
         self._build_args = self._building_args(
             primary_keys,
             columns,
-            indexed_args,
+            self._indexed_on,
             self._ksp + "." + self._table,
-            qbeast_meta,
-            qbeast_id,
+            self._qbeast_meta,
+            self._qbeast_random,
             self._storage_id,
             self._tokens,
             class_name)
@@ -145,11 +126,6 @@ class QbeastIterator(IStorage):
                                 'writer_buffer': config.write_buffer_size})
         log.debug("HCACHE params %s", self._hcache_params)
         self._hcache = Hcache(*self._hcache_params)
-
-    def _set_qbeast_id(self, qbeast_id):
-        self._qbeast_id = qbeast_id
-        self._build_args = self._build_args._replace(qbeast_id=qbeast_id)
-        config.session.execute(QbeastIterator._prepared_set_qbeast_id, [self._storage_id, qbeast_id])
 
     def _set_qbeast_meta(self, qbeast_meta):
         self._qbeast_meta = qbeast_meta
@@ -168,13 +144,12 @@ class QbeastIterator(IStorage):
         if hasattr(self, "_qbeast_meta") and self._qbeast_meta is not None:
             conditions = ""
             for index, (from_p, to_p) in enumerate(zip(self._qbeast_meta.from_point, self._qbeast_meta.to_point)):
-                conditions += "{0} > {1} AND {0} < {2} AND ".format(self._indexed_args[index], from_p, to_p)
+                conditions += "{0} > {1} AND {0} < {2} AND ".format(self._indexed_on[index], from_p, to_p)
 
             conditions = conditions[:-5] + self._qbeast_meta.mem_filter
 
-            random_string = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5))
             conditions += " AND expr(%s_idx, 'precision=%s:%s') ALLOW FILTERING" \
-                          % (self._table, self._qbeast_meta.precision, random_string)
+                          % (self._table, self._qbeast_meta.precision, self._qbeast_random)
 
             hiter = self._hcache.iteritems({'custom_select': conditions, 'prefetch_size': config.prefetch_size})
         else:
