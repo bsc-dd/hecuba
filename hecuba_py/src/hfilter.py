@@ -1,8 +1,15 @@
+from collections import Iterable
+
 import regex
 import inspect
 import re
 from hecuba import config
+from hecuba.qbeast import QbeastIterator, QbeastMeta
+
 from IStorage import IStorage
+from hecuba.tools import NamedItemsIterator
+
+magical_regex = regex.compile('(?:\d+(?:\.\d+)?|\w|"\w+")+|[^\s\w\_]')
 
 
 def func_to_str(func):
@@ -17,7 +24,7 @@ def func_to_str(func):
 def substit_var(final_list, func_vars, dictv):
     list_with_values = []
     for elem in final_list:
-        if isinstance(elem, tuple) or isinstance(elem, set) or isinstance(elem, list):
+        if not isinstance(elem, str) and isinstance(elem, Iterable):
             list_with_values.append(elem)
         elif (elem != 'in' and not isinstance(elem, int) and not regex.match('[^\s\w]', elem)) and (not elem.isdigit()):
             if elem.find('.') > 0:
@@ -32,11 +39,8 @@ def substit_var(final_list, func_vars, dictv):
                 else:
                     list_with_values.append(elem[elem.find('.') + 1:])
             else:
-                get_ele = dictv.get(str(elem))
-                if get_ele is None:
-                    list_with_values.append(elem)
-                else:
-                    list_with_values.append(dictv.get(str(elem)))
+                get_elem = dictv.get(str(elem), elem)
+                list_with_values.append(get_elem)
         else:
             list_with_values.append(elem)
 
@@ -45,13 +49,13 @@ def substit_var(final_list, func_vars, dictv):
 
 def istype(var):
     try:
-        if int(var) == float(var):
-            return 'int'
-    except:
+        int(var)
+        return 'int'
+    except ValueError:
         try:
             float(var)
             return 'float'
-        except:
+        except ValueError:
             return 'str'
 
 
@@ -59,36 +63,23 @@ def transform_to_correct_type(final_list, dictv):
     final = []
     for elem in final_list:
         aux = []
-        index = 0
         for i, value in enumerate(elem):
-
-            # elif isinstance(value, str)
-            # if(not isinstance(value, tuple) and not isinstance(value, set)and not isinstance(value, list)):
-            #     if (regex.match('[^\s\w]', value) or regex.match('(in)', value) is not None):
-            #         index = i
-            if isinstance(value, int) or isinstance(value, list) or isinstance(value, set) or isinstance(value, tuple) or isinstance(value, float):
+            if isinstance(value, int) or isinstance(value, list) or isinstance(value, set) \
+                    or isinstance(value, tuple) or isinstance(value, float):
                 aux.append(value)
-
             elif not value.find('"') == -1:
                 aux.append(value.replace('"', ''))
-
             elif value.isdigit() and value not in dictv.values():
                 aux.append(int(value))
-
             elif istype(value) is 'float' and value not in dictv.values():
                 aux.append(float(value))
-            # elif isinstance(value, str) and "'" not in value and value.isdigit():
-            #     aux.append(int(value))
-            # elif "'" in value:
-            #     aux.append(value[1:len(value) - 1])
-
             elif re.match('True', value) is not None:
                 aux.append(True)
             elif re.match('False', value) is not None:
                 aux.append(False)
             else:
                 aux.append(value)
-        # Cols in the left side
+
         if (isinstance(aux[0], str) and aux[0].isdigit()) or isinstance(aux[0], int):
             aux.reverse()
             if aux[1] == '>=':
@@ -100,29 +91,25 @@ def transform_to_correct_type(final_list, dictv):
             elif aux[1] == '<':
                 aux[1] = '>'
         final.append(aux)
-        # #Rotate cols if they are in the right side
-        # if(index is not 0): # NOT POSSIBLE 0 value for index, but anyways...
-        #     print('a')
 
     return final
 
 
 def parse_lambda(func):
     func_vars, clean_string = func_to_str(func)
-    magical_regex = regex.compile('(?:\d+(?:\.\d+)?|\w|"\w+")+|[^\s\w\_]')
     parsed_string = magical_regex.findall(clean_string)
-    # Fusing .'s, symbols
-    # print(str(parsed_string))
     for i, elem in enumerate(parsed_string):
-        #if elem.find('.') > 0  and len(elem) is 1:
         try:
-            if elem.index('.') > -1:
-                parsed_string[i - 1:i + 2] = [''.join(parsed_string[i - 1:i + 2])]
-        except:
-            if (elem is '=') and re.match('(>|<)', parsed_string[i - 1]) is not None:
-                parsed_string[i - 1:i + 1] = [''.join(parsed_string[i - 1:i + 1])]
-            elif (elem is '=') and (parsed_string[i - 1] is '='):
-                parsed_string[i - 1:i + 1] = '='
+            float(elem)
+        except ValueError:
+            try:
+                if elem.index('.') > -1:
+                    parsed_string[i - 1:i + 2] = [''.join(parsed_string[i - 1:i + 2])]
+            except:
+                if (elem is '=') and re.match('(>|<)', parsed_string[i - 1]) is not None:
+                    parsed_string[i - 1:i + 1] = [''.join(parsed_string[i - 1:i + 1])]
+                elif (elem is '=') and (parsed_string[i - 1] is '='):
+                    parsed_string[i - 1:i + 1] = '='
 
     # Getting variables
     dictv = {}
@@ -152,6 +139,8 @@ def parse_lambda(func):
             else:
                 newpos = len(parsed_string)
             sublist = parsed_string[lastpos:newpos]
+            if () in sublist:
+                sublist.remove(())
             lastpos = newpos + 1
             sublist = substit_var(sublist, func_vars, dictv)
 
@@ -169,12 +158,46 @@ def parse_lambda(func):
 
 def hfilter(lambda_filter, iterable):
     if not isinstance(iterable, IStorage):
-        return python_filter(lambda_filter, iterable)
-
-    if not iterable._is_persistent:
-        raise Exception("The StorageDict needs to be persistent.")
+        try:
+            iterable = iterable._storage_father
+        except AttributeError:
+            return python_filter(lambda_filter, iterable)
 
     parsed_lambda = parse_lambda(lambda_filter)
+
+    if hasattr(iterable, '_indexed_on') and iterable._indexed_on is not None:
+        non_index_arguments = ""
+        # initialize lists of the same size as indexed_on
+        from_p = [None] * len(iterable._indexed_on)
+        to_p = [None] * len(iterable._indexed_on)
+        precision = None
+
+        for expression in parsed_lambda:
+            if expression[0] in iterable._indexed_on:
+                index = iterable._indexed_on.index(expression[0])
+                if expression[1] == ">":
+                    from_p[index] = expression[2]
+                elif expression[1] == "<":
+                    to_p[index] = expression[2]
+                elif expression[1] == "in":
+                    raise Exception("Cannot use <in> on a QbeastIterator")
+                else:
+                    non_index_arguments += "%s %s %s AND " % (expression[0], expression[1], expression[2])
+            elif expression[0].find("random") > -1:
+                precision = expression[2]
+            else:
+                non_index_arguments += "%s %s %s AND " % (expression[0], expression[1], expression[2])
+
+        if precision is None:
+            precision = 1.0
+        name = "%s.%s" % (iterable._ksp, iterable._table)
+
+        qbeast_meta = QbeastMeta(non_index_arguments[:-5], from_p, to_p, precision)
+        new_iterable = QbeastIterator(primary_keys=iterable._primary_keys, columns=iterable._columns,
+                                      indexed_on=iterable._indexed_on, name=name, qbeast_meta=qbeast_meta,
+                                      tokens=iterable._tokens)
+        return new_iterable
+
     predicate = Predicate(iterable)
     for expression in parsed_lambda:
         if expression[1] in (">", "<", "=", ">=", "<="):
@@ -196,7 +219,7 @@ class Predicate:
 
     def comp(self, col, value, comp):
         '''
-        Select all rows where col == value
+        Select all rows where col (==, >=, <=, >, <) value
         '''
         if col not in self.columns + self.primary_keys:
             raise Exception("Wrong column.")
@@ -237,5 +260,13 @@ class Predicate:
         Execute the CQL query
         Returns an iterator over the rows
         '''
-        query_filter = "SELECT * FROM {}.{} WHERE".format(self.father._ksp, self.father._table)
-        return config.session.execute("".join((query_filter, self.predicate, " ALLOW FILTERING")))
+        conditions = self.predicate + " ALLOW FILTERING"
+
+        hiter = self.father._hcache.iteritems({'custom_select': conditions, 'prefetch_size': config.prefetch_size})
+        iterator = NamedItemsIterator(self.father._key_builder,
+                                      self.father._column_builder,
+                                      self.father._k_size,
+                                      hiter,
+                                      self.father)
+
+        return iterator
