@@ -241,7 +241,7 @@ class StorageDict(dict, IStorage):
             columns (list(tuple)): a list of (key,type) columns
             tokens (list): list of tokens
             storage_id (string): the storage id identifier
-            indexed_args (list): values that will be used as index
+            indexed_on (list): values that will be used as index
             kwargs: other parameters
         """
 
@@ -266,9 +266,9 @@ class StorageDict(dict, IStorage):
             self._columns = self._persistent_props['columns']
 
             try:
-                self._indexed_args = self._persistent_props['indexed_on']
+                self._indexed_on = self._persistent_props['indexed_on']
             except KeyError:
-                self._indexed_args = indexed_on
+                self._indexed_on = indexed_on
         else:
             self._primary_keys = primary_keys
             set_pks = []
@@ -279,7 +279,7 @@ class StorageDict(dict, IStorage):
                 self._columns = [{"type": "set", "primary_keys": set_pks}]
             else:
                 self._columns = columns
-            self._indexed_args = indexed_on
+            self._indexed_on = indexed_on
 
         self._has_embedded_set = False
         for attr in self._columns:
@@ -314,7 +314,7 @@ class StorageDict(dict, IStorage):
             self._build_column = self._columns[:]
 
         self._build_args = self.args(None, self._primary_keys, self._build_column, self._tokens,
-                                         self._storage_id, self._indexed_args, class_name)
+                                         self._storage_id, self._indexed_on, class_name)
 
         if name:
             self.make_persistent(name)
@@ -480,9 +480,9 @@ class StorageDict(dict, IStorage):
                 log.warn("Error creating the StorageDict table: %s %s", query_table, ex)
                 raise ex
 
-            if hasattr(self, '_indexed_args') and self._indexed_args is not None:
+            if hasattr(self, '_indexed_on') and self._indexed_on is not None:
                 index_query = 'CREATE CUSTOM INDEX IF NOT EXISTS ' + self._table + '_idx ON '
-                index_query += self._ksp + '.' + self._table + ' (' + str.join(',', self._indexed_args) + ') '
+                index_query += self._ksp + '.' + self._table + ' (' + str.join(',', self._indexed_on) + ') '
                 index_query += "using 'es.bsc.qbeast.index.QbeastIndex';"
                 try:
                     config.session.execute(index_query)
@@ -705,26 +705,20 @@ class StorageDict(dict, IStorage):
                 dict.iteritems(self)
         """
         if self._is_persistent:
-            if hasattr(self, '_indexed_args') and self._indexed_args is not None:
-                name = "%s.%s" % (self._ksp, self._table)
-                iterator = QbeastIterator(primary_keys=self._primary_keys, indexed_args=self._indexed_args, columns=self._columns, name=name,
-                                          storage_id=self._storage_id, tokens=self._tokens)
-                return iterator
-            else:
-                ik = self._hcache.iteritems(config.prefetch_size)
-                iterator = NamedItemsIterator(self._key_builder,
-                                              self._column_builder,
-                                              self._k_size,
-                                              ik,
-                                              self)
-                if self._has_embedded_set:
-                    d = defaultdict(set)
-                    # iteritems has the set values in different rows, this puts all the set values in the same row
-                    if len(self._get_set_types()) == 1:
-                        map(lambda row: d[row[0]].add(row[1][0]), iterator)
-                    else:
-                        map(lambda row: d[row[0]].add(tuple(row[1])), iterator)
-                    iterator = d.iteritems()
+            ik = self._hcache.iteritems(config.prefetch_size)
+            iterator = NamedItemsIterator(self._key_builder,
+                                          self._column_builder,
+                                          self._k_size,
+                                          ik,
+                                          self)
+            if self._has_embedded_set:
+                d = defaultdict(set)
+                # iteritems has the set values in different rows, this puts all the set values in the same row
+                if len(self._get_set_types()) == 1:
+                    map(lambda row: d[row[0]].add(row[1][0]), iterator)
+                else:
+                    map(lambda row: d[row[0]].add(tuple(row[1])), iterator)
+                iterator = d.iteritems()
 
             return iterator
         else:
