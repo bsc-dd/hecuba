@@ -2,14 +2,13 @@ from collections import Iterable
 
 import regex
 import inspect
-import re
 from hecuba import config
-from hecuba.qbeast import QbeastIterator, QbeastMeta
+# from hecuba.qbeast import QbeastIterator, QbeastMeta
 
 from IStorage import IStorage
-from hecuba.tools import NamedItemsIterator
+from hecuba.hdict import NamedItemsIterator
 
-magical_regex = regex.compile('(?:\d+(?:\.\d+)?|\w|"\w+")+|[^\s\w\_]')
+magical_regex = regex.compile(r'(?:\d+(?:\.\d+)?|\w|"\w+")+|[^\s\w\_]')
 
 
 def func_to_str(func):
@@ -26,18 +25,19 @@ def substit_var(final_list, func_vars, dictv):
     for elem in final_list:
         if not isinstance(elem, str) and isinstance(elem, Iterable):
             list_with_values.append(elem)
-        elif (elem != 'in' and not isinstance(elem, int) and not regex.match('[^\s\w]', elem)) and (not elem.isdigit()):
-            if elem.find('.') > 0:
-                elem_var = elem[:elem.find('.')]
+        elif (elem != 'in' and not isinstance(elem, int) and not regex.match(r'[^\s\w]', elem)) and not elem.isdigit():
+            i = elem.find('.')
+            if i > 0:
+                elem_var = elem[:i]
                 if elem_var not in func_vars:
-                    elemm = elem[elem.find('.'):]
+                    elemm = elem[i:]
                     get_ele = dictv.get(str(elemm))
                     if get_ele is None:
                         list_with_values.append(elem)
                     else:
                         list_with_values.append(dictv.get(str(elem)))
                 else:
-                    list_with_values.append(elem[elem.find('.') + 1:])
+                    list_with_values.append(elem[i+1:])
             else:
                 get_elem = dictv.get(str(elem), elem)
                 list_with_values.append(get_elem)
@@ -47,49 +47,39 @@ def substit_var(final_list, func_vars, dictv):
     return list_with_values
 
 
-def istype(var):
+def is_float(var):
     try:
-        int(var)
-        return 'int'
+        float(var)
+        return True
     except ValueError:
-        try:
-            float(var)
-            return 'float'
-        except ValueError:
-            return 'str'
+        return False
 
 
 def transform_to_correct_type(final_list, dictv):
     final = []
+    reverse_comparison = {">=": "<=", "<=": ">=", ">": "<", "<": ">"}
     for elem in final_list:
         aux = []
         for i, value in enumerate(elem):
-            if isinstance(value, int) or isinstance(value, list) or isinstance(value, set) \
-                    or isinstance(value, tuple) or isinstance(value, float):
+            if isinstance(value, (int, float, Iterable)) and not isinstance(value, str):
                 aux.append(value)
             elif not value.find('"') == -1:
                 aux.append(value.replace('"', ''))
             elif value.isdigit() and value not in dictv.values():
                 aux.append(int(value))
-            elif istype(value) is 'float' and value not in dictv.values():
+            elif is_float(value) and value not in dictv.values():
                 aux.append(float(value))
-            elif re.match('True', value) is not None:
+            elif value == "True":
                 aux.append(True)
-            elif re.match('False', value) is not None:
+            elif value == "False":
                 aux.append(False)
             else:
                 aux.append(value)
 
         if (isinstance(aux[0], str) and aux[0].isdigit()) or isinstance(aux[0], int):
             aux.reverse()
-            if aux[1] == '>=':
-                aux[1] = '<='
-            elif aux[1] == '<=':
-                aux[1] = '>='
-            elif aux[1] == '>':
-                aux[1] = '<'
-            elif aux[1] == '<':
-                aux[1] = '>'
+            aux[1] = reverse_comparison[aux[1]]
+
         final.append(aux)
 
     return final
@@ -98,18 +88,22 @@ def transform_to_correct_type(final_list, dictv):
 def parse_lambda(func):
     func_vars, clean_string = func_to_str(func)
     parsed_string = magical_regex.findall(clean_string)
+    simplified_filter = []
+
     for i, elem in enumerate(parsed_string):
-        try:
-            float(elem)
-        except ValueError:
-            try:
-                if elem.index('.') > -1:
-                    parsed_string[i - 1:i + 2] = [''.join(parsed_string[i - 1:i + 2])]
-            except:
-                if (elem is '=') and re.match('(>|<)', parsed_string[i - 1]) is not None:
-                    parsed_string[i - 1:i + 1] = [''.join(parsed_string[i - 1:i + 1])]
-                elif (elem is '=') and (parsed_string[i - 1] is '='):
-                    parsed_string[i - 1:i + 1] = '='
+        if i > 0:
+            if elem == '=' and simplified_filter[-1] == "=":
+                pass
+            elif elem == '=' and (simplified_filter[-1] == "<" or simplified_filter[-1] == ">"):
+                simplified_filter[-1] = simplified_filter[-1] + "="
+            elif simplified_filter[-1][-1] == ".":
+                simplified_filter[-1] += elem
+            elif elem == ".":
+                simplified_filter[-1] = simplified_filter[-1] + elem
+            else:
+                simplified_filter.append(elem)
+        else:
+            simplified_filter.append(elem)
 
     # Getting variables
     dictv = {}
@@ -117,28 +111,28 @@ def parse_lambda(func):
         dictv[str(elem)] = func.__closure__[i].cell_contents
 
     # Combine set or tuple
-    for i, elem in enumerate(parsed_string):
+    for i, elem in enumerate(simplified_filter):
         if elem is "[":
-            index = parsed_string[i:].index(']')
-            c = ''.join(parsed_string[i:index + i + 1])
-            parsed_string[i:index + i + 1] = [eval(c)]
+            index = simplified_filter[i:].index(']')
+            c = ''.join(simplified_filter[i:index + i + 1])
+            simplified_filter[i:index + i + 1] = [eval(c)]
         elif elem is '(':
-            index = parsed_string[i:].index(')')
-            c = ''.join(parsed_string[i:index + i + 1])
-            parsed_string[i:index + i + 1] = [eval(c)]
+            index = simplified_filter[i:].index(')')
+            c = ''.join(simplified_filter[i:index + i + 1])
+            simplified_filter[i:index + i + 1] = [eval(c)]
 
     # Creating sublists
     lastpos = 0
     newpos = 0
     final_list = []
-    if len(parsed_string) > 3:
-        while newpos < len(parsed_string):
-            if 'and' in parsed_string[lastpos:]:
-                newpos = parsed_string[lastpos:].index('and')
+    if len(simplified_filter) > 3:
+        while newpos < len(simplified_filter):
+            if 'and' in simplified_filter[lastpos:]:
+                newpos = simplified_filter[lastpos:].index('and')
                 newpos = newpos + lastpos
             else:
-                newpos = len(parsed_string)
-            sublist = parsed_string[lastpos:newpos]
+                newpos = len(simplified_filter)
+            sublist = simplified_filter[lastpos:newpos]
             if () in sublist:
                 sublist.remove(())
             lastpos = newpos + 1
@@ -147,7 +141,7 @@ def parse_lambda(func):
             final_list.append(sublist)
     else:
 
-        sublist = substit_var(parsed_string, func_vars, dictv)
+        sublist = substit_var(simplified_filter, func_vars, dictv)
         final_list.append(sublist)
     # Replace types for correct ones
 
@@ -164,39 +158,6 @@ def hfilter(lambda_filter, iterable):
             return python_filter(lambda_filter, iterable)
 
     parsed_lambda = parse_lambda(lambda_filter)
-
-    if hasattr(iterable, '_indexed_on') and iterable._indexed_on is not None:
-        non_index_arguments = ""
-        # initialize lists of the same size as indexed_on
-        from_p = [None] * len(iterable._indexed_on)
-        to_p = [None] * len(iterable._indexed_on)
-        precision = None
-
-        for expression in parsed_lambda:
-            if expression[0] in iterable._indexed_on:
-                index = iterable._indexed_on.index(expression[0])
-                if expression[1] == ">":
-                    from_p[index] = expression[2]
-                elif expression[1] == "<":
-                    to_p[index] = expression[2]
-                elif expression[1] == "in":
-                    raise Exception("Cannot use <in> on a QbeastIterator")
-                else:
-                    non_index_arguments += "%s %s %s AND " % (expression[0], expression[1], expression[2])
-            elif expression[0].find("random") > -1:
-                precision = expression[2]
-            else:
-                non_index_arguments += "%s %s %s AND " % (expression[0], expression[1], expression[2])
-
-        if precision is None:
-            precision = 1.0
-        name = "%s.%s" % (iterable._ksp, iterable._table)
-
-        qbeast_meta = QbeastMeta(non_index_arguments[:-5], from_p, to_p, precision)
-        new_iterable = QbeastIterator(primary_keys=iterable._primary_keys, columns=iterable._columns,
-                                      indexed_on=iterable._indexed_on, name=name, qbeast_meta=qbeast_meta,
-                                      tokens=iterable._tokens)
-        return new_iterable
 
     predicate = Predicate(iterable)
     for expression in parsed_lambda:
