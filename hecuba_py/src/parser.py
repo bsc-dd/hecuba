@@ -7,7 +7,10 @@ from IStorage import IStorage
 class Parser(object):
     args_names = ["type_parser"]
 
-    def _append_values_to_list_after_replace(self, typev, finalvars, vals):
+    def _append_values_to_list_after_replace(self, vals):
+        typev = []
+        finalvars = []
+
         for var in vals:
             aux = var
             if var.count("tuple") > 0:
@@ -52,20 +55,14 @@ class Parser(object):
 
         valsc = keys[1:].split(', ')  # all valuesk separated by comma
 
-        typevk = []
-        finalvarsk = []
-
-        typevk, finalvarsk = self._append_values_to_list_after_replace(typevk, finalvarsk, valsc)
+        typevk, finalvarsk = self._append_values_to_list_after_replace(valsc)
 
         for var in varsv:
             values = values.replace(var, ' ')
 
         valsc1 = values[1:].split(', ')  # all valuesk separated by comma
 
-        typevv = []
-        finalvarsv = []
-
-        typevv, finalvarsv = self._append_values_to_list_after_replace(typevv, finalvarsv, valsc1)
+        typevv, finalvarsv = self._append_values_to_list_after_replace(valsc1)
         return varskc, varsvc, finalvarsk, finalvarsv, typevk, typevv
 
     def _set_or_tuple(self, type, pk_col, t, t1):
@@ -188,11 +185,11 @@ class Parser(object):
         return new
 
     def _parse_set_tuple_list(self, line, this):
-        if (line.count('set')) > 0:
+        if line.count('set') > 0:
             return self._parse_set_or_tuple('set', line, 'primary_keys', this)
-        elif (line.count('tuple')) > 0:
+        elif line.count('tuple') > 0:
             return self._parse_set_or_tuple('tuple', line, 'columns', this)
-        elif (line.count('list')) > 0:
+        elif line.count('list') > 0:
             return self._parse_set_or_tuple('list', line, 'columns', this)
 
     def _parse_simple(self, line, this):
@@ -207,16 +204,16 @@ class Parser(object):
 
     def _input_type(self, line, this):
         if line.count('<') == 1:  # is tuple, set, list
-            aux = (self._parse_set_tuple_list(line, this))
-        elif (line.count('<') == 0 and line.count('Index_on') == 0 and line.count('.') == 0 or (
-                line.count('numpy.ndarray') and line.count('dict') == 0)):  # is simple type
-            aux = (self._parse_simple(line, this))
+            aux = self._parse_set_tuple_list(line, this)
+        elif line.count('<') == 0 and line.count('Index_on') == 0 and line.count('.') == 0 or (
+                line.count('numpy.ndarray') and line.count('dict') == 0):  # is simple type
+            aux = self._parse_simple(line, this)
         elif line.count('Index_on') == 1:
             aux = self._parse_index(line, this)
         elif line.count('.') > 0 and line.count('dict') == 0:
             aux = self._parse_file(line, this)
         else:  # is dict
-            aux = (self._parse_dict(line, this))
+            aux = self._parse_dict(line, this)
         return aux
 
     def _remove_spaces_from_line(self, line):
