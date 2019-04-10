@@ -1,15 +1,17 @@
+import uuid
 from collections import Iterable, defaultdict
-from collections import namedtuple
 from collections import Mapping
-from hfetch import Hcache
-from IStorage import IStorage, AlreadyPersistentError
+from collections import namedtuple
+
+import numpy as np
 from hecuba import config, log, Parser
 from hecuba.hnumpy import StorageNumpy
-import uuid
-import inspect
-import re
-import numpy as np
+from hfetch import Hcache
+
+from IStorage import IStorage, AlreadyPersistentError
+
 CALLER_FUNC = "Soy la funcion que te ha llamado"
+
 
 class EmbeddedSet(set):
     '''
@@ -258,7 +260,6 @@ class StorageDict(dict, IStorage):
                                                   'primary_keys, columns, indexed_on)'
                                                   'VALUES (?,?,?,?,?,?,?)')
 
-
     @staticmethod
     def _store_meta(storage_args):
         """
@@ -380,7 +381,7 @@ class StorageDict(dict, IStorage):
             self._build_column = self._columns[:]
 
         self._build_args = self.args(None, build_keys, self._build_column, self._tokens,
-                                         self._storage_id, self._indexed_args, class_name)
+                                     self._storage_id, self._indexed_args, class_name)
 
         if name:
             self.make_persistent(name)
@@ -537,10 +538,10 @@ class StorageDict(dict, IStorage):
                         persistent_values.append((col["name"], "uuid"))
                     else:
                         persistent_values.append((col["name"], col["type"]))
-            #persistent_values = [(tup[0], "uuid" if tup[1] not in self._basic_types else tup[1]) for tup in
+            # persistent_values = [(tup[0], "uuid" if tup[1] not in self._basic_types else tup[1]) for tup in
             #                   self._columns]
 
-        if config.id_create_schema == -1 and not IStorage._built_remotely:
+        if config.id_create_schema == -1:
             query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
             try:
                 log.debug('MAKE PERSISTENCE: %s', query_keyspace)
@@ -663,7 +664,8 @@ class StorageDict(dict, IStorage):
                 if col_type not in IStorage._basic_types:
                     # element is not a built-in type
                     table_name = self._ksp + '.' + self._table + '_' + name
-                    info = {"name": table_name, "tokens": self._build_args.tokens, "storage_id": uuid.UUID(element), "class_name": col_type}
+                    info = {"name": table_name, "tokens": self._build_args.tokens, "storage_id": uuid.UUID(element),
+                            "class_name": col_type}
                     element = IStorage.build_remotely(info)
 
                 final_results.append(element)

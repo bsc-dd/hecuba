@@ -10,9 +10,8 @@ template<
         class TMutex = Poco::FastMutex,
         class TEventMutex = Poco::FastMutex
 >
-class TupleRowCache : public Poco::AbstractCache<TKey, TValue, LRUPersistentStrategy<TKey, TValue>, TMutex, TEventMutex>
-
-{
+class TupleRowCache
+        : public Poco::AbstractCache<TKey, TValue, LRUPersistentStrategy<TKey, TValue>, TMutex, TEventMutex> {
 public:
     TupleRowCache(long size = 1024) :
             Poco::AbstractCache<TKey, TValue, LRUPersistentStrategy<TKey, TValue>, TMutex, TEventMutex>(

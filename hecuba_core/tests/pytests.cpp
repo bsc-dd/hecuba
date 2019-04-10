@@ -3,6 +3,7 @@
 
 
 #include "../src/py_interface/PythonParser.h"
+
 using namespace std;
 
 #define PY_ERR_CHECK if (PyErr_Occurred()){PyErr_Print(); PyErr_Clear();}
@@ -293,21 +294,21 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_INT) {
 
     PyObject *pt = Py_BuildValue("(ii)", 4, 5);
 
-    void * result = malloc(sizeof(int32_t)*2);
-    void *external=malloc(sizeof(TupleRow*));
+    void *result = malloc(sizeof(int32_t) * 2);
+    void *external = malloc(sizeof(TupleRow *));
     ok = parser->py_to_c(pt, external);
 
-    const TupleRow* inner_data = * reinterpret_cast<const TupleRow**>(external);
-    const void * elem = inner_data->get_element(0);
+    const TupleRow *inner_data = *reinterpret_cast<const TupleRow **>(external);
+    const void *elem = inner_data->get_element(0);
     const int32_t uziv1 = *(int32_t const *) elem;
-    const void * elem1 = inner_data->get_element(1);
+    const void *elem1 = inner_data->get_element(1);
     const int32_t uziv2 = *(int32_t const *) elem1;
 
     const void *elem_data = inner_data->get_payload();
-    char *ppp = (char *)(elem_data);
+    char *ppp = (char *) (elem_data);
     int32_t valuee = (cass_int32_t) *ppp;
     const void *elem_data1 = inner_data->get_payload();
-    char *pppp = (char *)(elem_data1) + sizeof(int);
+    char *pppp = (char *) (elem_data1) + sizeof(int);
     int32_t valueee = (cass_int32_t) *pppp;
 
 
@@ -318,25 +319,25 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_INT) {
 
 
 ////////////////
-    std::tuple<int,int> mytuple (10,20);
+    std::tuple<int, int> mytuple(10, 20);
 
     char *buffer2 = (char *) malloc(sizeof(mytuple)); //values
 
     memcpy(buffer2, &mytuple, sizeof(mytuple));
 
-    int *b = (int *)malloc(2*sizeof(int));
+    int *b = (int *) malloc(2 * sizeof(int));
 
     char *p = buffer2;
 
     cout << "Els elements de la tupla son: " << endl;
-    for(int i=0;i<2;i++) {
-        b[i]=(int )*p;
-        printf("got value %d\n",b[i]);
+    for (int i = 0; i < 2; i++) {
+        b[i] = (int) *p;
+        printf("got value %d\n", b[i]);
         p += sizeof(int);
     }
 
     TupleRow *values = new TupleRow(CM.pointer, sizeof(mytuple), buffer2);
-    PyObject* tuple = PyTuple_New(2);
+    PyObject *tuple = PyTuple_New(2);
     tuple = parser->c_to_py(external);
 
     PyObject *result1 = PyTuple_GetItem(tuple, 0);
@@ -379,13 +380,13 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_LONG) {
     UnitParser *parser = new TupleParser(CM);
 
     PyObject *pt = Py_BuildValue("(LL)", 5500000000000000L, 9223372036854775806);
-    void *external=malloc(sizeof(TupleRow*));
+    void *external = malloc(sizeof(TupleRow *));
     ok = parser->py_to_c(pt, external);
 
-    const TupleRow* inner_data = * reinterpret_cast<const TupleRow**>(external);
-    const void * elem = inner_data->get_element(0);
+    const TupleRow *inner_data = *reinterpret_cast<const TupleRow **>(external);
+    const void *elem = inner_data->get_element(0);
     const int64_t uziv1 = *(int64_t const *) elem;
-    const void * elem1 = inner_data->get_element(1);
+    const void *elem1 = inner_data->get_element(1);
     const int64_t uziv2 = *(int64_t const *) elem1;
 
 
@@ -397,7 +398,7 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_LONG) {
 
 ////////////////
 
-    PyObject* tuple = PyTuple_New(2);
+    PyObject *tuple = PyTuple_New(2);
     tuple = parser->c_to_py(external);
 
     PyObject *result1 = PyTuple_GetItem(tuple, 0);
@@ -436,13 +437,13 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_TEXT) {
     UnitParser *parser = new TupleParser(CM);
 
     PyObject *pt = Py_BuildValue("(ss)", "texto1", "texto2");
-    void *external=malloc(sizeof(TupleRow*));
+    void *external = malloc(sizeof(TupleRow *));
     ok = parser->py_to_c(pt, external);
 
-    const TupleRow* inner_data = * reinterpret_cast<const TupleRow**>(external);
-    const void * elem = inner_data->get_element(0);
+    const TupleRow *inner_data = *reinterpret_cast<const TupleRow **>(external);
+    const void *elem = inner_data->get_element(0);
     const int64_t uziv1 = *(int64_t const *) elem;
-    const void * elem1 = inner_data->get_element(1);
+    const void *elem1 = inner_data->get_element(1);
     const int64_t uziv2 = *(int64_t const *) elem1;
 
 
@@ -454,7 +455,7 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_TEXT) {
 
 ////////////////
 
-    PyObject* tuple = PyTuple_New(2);
+    PyObject *tuple = PyTuple_New(2);
     tuple = parser->c_to_py(external);
 
     PyObject *result1 = PyTuple_GetItem(tuple, 0);
@@ -493,13 +494,13 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_DOUBLE) {
     UnitParser *parser = new TupleParser(CM);
 
     PyObject *pt = Py_BuildValue("(dd)", 2.00, 2.01);
-    void *external=malloc(sizeof(TupleRow*));
+    void *external = malloc(sizeof(TupleRow *));
     ok = parser->py_to_c(pt, external);
 
-    const TupleRow* inner_data = * reinterpret_cast<const TupleRow**>(external);
-    const void * elem = inner_data->get_element(0);
+    const TupleRow *inner_data = *reinterpret_cast<const TupleRow **>(external);
+    const void *elem = inner_data->get_element(0);
     const int64_t uziv1 = *(int64_t const *) elem;
-    const void * elem1 = inner_data->get_element(1);
+    const void *elem1 = inner_data->get_element(1);
     const int64_t uziv2 = *(int64_t const *) elem1;
 
 
@@ -511,7 +512,7 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_DOUBLE) {
 
 ////////////////
 
-    PyObject* tuple = PyTuple_New(2);
+    PyObject *tuple = PyTuple_New(2);
     tuple = parser->c_to_py(external);
 
     PyObject *result1 = PyTuple_GetItem(tuple, 0);
@@ -548,16 +549,16 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_BOOLEAN) {
     CM.pointer = std::make_shared<std::vector<ColumnMeta>>(v);
 
     UnitParser *parser = new TupleParser(CM);
-    PyObject * t1 = Py_True;
-    PyObject * t2 = Py_False;
+    PyObject *t1 = Py_True;
+    PyObject *t2 = Py_False;
     PyObject *pt = Py_BuildValue("(OO)", t1, t2);
-    void *external=malloc(sizeof(TupleRow*));
+    void *external = malloc(sizeof(TupleRow *));
     ok = parser->py_to_c(pt, external);
 
-    const TupleRow* inner_data = * reinterpret_cast<const TupleRow**>(external);
-    const void * elem = inner_data->get_element(0);
+    const TupleRow *inner_data = *reinterpret_cast<const TupleRow **>(external);
+    const void *elem = inner_data->get_element(0);
     const int64_t uziv1 = *(int64_t const *) elem;
-    const void * elem1 = inner_data->get_element(1);
+    const void *elem1 = inner_data->get_element(1);
     const int64_t uziv2 = *(int64_t const *) elem1;
 
 
@@ -569,7 +570,7 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_BOOLEAN) {
 
 ////////////////
 
-    PyObject* tuple = PyTuple_New(2);
+    PyObject *tuple = PyTuple_New(2);
     tuple = parser->c_to_py(external);
 
     PyObject *result1 = PyTuple_GetItem(tuple, 0);
@@ -608,13 +609,13 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_DOUBLE_AND_TEXT) {
     UnitParser *parser = new TupleParser(CM);
 
     PyObject *pt = Py_BuildValue("(ds)", 2.00, "hola");
-    void *external=malloc(sizeof(TupleRow*));
+    void *external = malloc(sizeof(TupleRow *));
     ok = parser->py_to_c(pt, external);
 
-    const TupleRow* inner_data = * reinterpret_cast<const TupleRow**>(external);
-    const void * elem = inner_data->get_element(0);
+    const TupleRow *inner_data = *reinterpret_cast<const TupleRow **>(external);
+    const void *elem = inner_data->get_element(0);
     const int64_t uziv1 = *(int64_t const *) elem;
-    const void * elem1 = inner_data->get_element(1);
+    const void *elem1 = inner_data->get_element(1);
     const int64_t uziv2 = *(int64_t const *) elem1;
 
 
@@ -626,7 +627,7 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_DOUBLE_AND_TEXT) {
 
 ////////////////
 
-    PyObject* tuple = PyTuple_New(2);
+    PyObject *tuple = PyTuple_New(2);
     tuple = parser->c_to_py(external);
 
     PyObject *result1 = PyTuple_GetItem(tuple, 0);

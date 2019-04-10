@@ -6,13 +6,13 @@ from struct import *
 from hecuba import config
 from hecuba import log
 from hecuba.IStorage import IStorage
-from thrift.protocol import TBinaryProtocol
-from thrift.transport import TSocket
-from thrift.transport import TTransport
 from hecuba.qthrift import QbeastMaster
 from hecuba.qthrift import QbeastWorker
 from hecuba.qthrift.ttypes import BasicTypes
 from hecuba.qthrift.ttypes import FilteringArea
+from thrift.protocol import TBinaryProtocol
+from thrift.transport import TSocket
+from thrift.transport import TTransport
 
 
 class QbeastMeta(object):

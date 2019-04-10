@@ -1,8 +1,9 @@
-import os
 import logging
+import os
+import re
+
 from cassandra.cluster import Cluster
 from cassandra.policies import RetryPolicy
-import re
 
 # Set default log.handler to avoid "No handler found" warnings.
 
