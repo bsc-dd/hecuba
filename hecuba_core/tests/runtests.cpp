@@ -84,7 +84,9 @@ void setupcassandra() {
     }
     cass_prepared_free(prepared);
 
-    fireandforget("CREATE TABLE test.only_keys(first int, second int, third text, PRIMARY KEY((first, second), third));", test_session);
+    fireandforget(
+            "CREATE TABLE test.only_keys(first int, second int, third text, PRIMARY KEY((first, second), third));",
+            test_session);
     /*
     prepare_future = cass_session_prepare(test_session,
                                           "INSERT INTO test.words(position,wordinfo ) VALUES (?, ?)");
@@ -170,20 +172,20 @@ TEST(TestTBBQueue, Try_pop) {
 
 //Test to verify the Zorder produce the correct result
 TEST(TestZorder, Zorder) {
-    std::vector<uint32_t> ccs = {0,0,0,2}; //row 3, column 2
+    std::vector<uint32_t> ccs = {0, 0, 0, 2}; //row 3, column 2
     SpaceFillingCurve SP;
     ArrayMetadata *arr_metas = new ArrayMetadata();
-    arr_metas->dims = {4,4,4,4};
+    arr_metas->dims = {4, 4, 4, 4};
     arr_metas->elem_size = sizeof(uint32_t);
-    arr_metas->partition_type=ZORDER_ALGORITHM;
+    arr_metas->partition_type = ZORDER_ALGORITHM;
 
 
     ZorderCurveGenerator *partitioner = new ZorderCurveGenerator(arr_metas, nullptr);
     uint64_t result = partitioner->computeZorder(ccs);
     uint64_t expected_zorder = 128;
-    EXPECT_EQ(expected_zorder,result);
-    delete(arr_metas);
-    delete(partitioner);
+    EXPECT_EQ(expected_zorder, result);
+    delete (arr_metas);
+    delete (partitioner);
 }
 
 
@@ -191,52 +193,52 @@ TEST(TestZorder, Zorder) {
 TEST(TestZorder, ZorderInv) {
     std::vector<uint32_t> ccs = {23, 25, 40};
     ArrayMetadata *arr_metas = new ArrayMetadata();
-    arr_metas->dims = {32,40,64};
+    arr_metas->dims = {32, 40, 64};
     arr_metas->elem_size = sizeof(uint32_t);
-    arr_metas->partition_type=ZORDER_ALGORITHM;
+    arr_metas->partition_type = ZORDER_ALGORITHM;
 
     ZorderCurveGenerator *partitioner = new ZorderCurveGenerator();
     uint64_t result = partitioner->computeZorder(ccs);
-    std::vector<uint32_t > inverse = partitioner->zorderInverse(result,ccs.size());
-    EXPECT_TRUE(ccs==inverse);
-    delete(arr_metas);
-    delete(partitioner);
+    std::vector<uint32_t> inverse = partitioner->zorderInverse(result, ccs.size());
+    EXPECT_TRUE(ccs == inverse);
+    delete (arr_metas);
+    delete (partitioner);
 }
 
 //Verify that ZorderCurve::getIndexes returns the correct coordinates of the nth_element
 //inside an array of shape dims
 TEST(TestMakePartitions, Indexes) {
     ArrayMetadata *arr_metas = new ArrayMetadata();
-    arr_metas->dims = {8,8};
+    arr_metas->dims = {8, 8};
     arr_metas->elem_size = sizeof(uint32_t);
-    arr_metas->partition_type=ZORDER_ALGORITHM;
+    arr_metas->partition_type = ZORDER_ALGORITHM;
 
     ZorderCurveGenerator *partitioner = new ZorderCurveGenerator();
     uint64_t nth_element = 43;
-    std::vector<uint32_t> indexes = partitioner->getIndexes(nth_element,arr_metas->dims);
-    std::vector<uint32_t> expected_coordinates = {5,3};
-    EXPECT_TRUE(indexes==expected_coordinates);
-    delete(arr_metas);
-    delete(partitioner);
+    std::vector<uint32_t> indexes = partitioner->getIndexes(nth_element, arr_metas->dims);
+    std::vector<uint32_t> expected_coordinates = {5, 3};
+    EXPECT_TRUE(indexes == expected_coordinates);
+    delete (arr_metas);
+    delete (partitioner);
 }
 
 
 //Verify the that transforming the coordinates to an offset and back to coordinates
 // produces the same result
 TEST(TestMakePartitions, Indexes2ways) {
-    std::vector<uint32_t> ccs = {53,28,34};
+    std::vector<uint32_t> ccs = {53, 28, 34};
     ArrayMetadata *arr_metas = new ArrayMetadata();
-    arr_metas->dims = {32,40,64};
+    arr_metas->dims = {32, 40, 64};
     arr_metas->elem_size = sizeof(uint32_t);
-    arr_metas->partition_type=ZORDER_ALGORITHM;
+    arr_metas->partition_type = ZORDER_ALGORITHM;
 
     ZorderCurveGenerator *partitioner = new ZorderCurveGenerator();
     uint64_t id = 1077;
-    std::vector<uint32_t> indexes = partitioner->getIndexes(id,ccs);
-    uint64_t computed_id = partitioner->getIdFromIndexes(ccs,indexes);
-    EXPECT_EQ(computed_id,id);
-    delete(arr_metas);
-    delete(partitioner);
+    std::vector<uint32_t> indexes = partitioner->getIndexes(id, ccs);
+    uint64_t computed_id = partitioner->getIdFromIndexes(ccs, indexes);
+    EXPECT_EQ(computed_id, id);
+    delete (arr_metas);
+    delete (partitioner);
 }
 
 
@@ -246,49 +248,49 @@ TEST(TestMakePartitions, Indexes2ways) {
 TEST(TestMakePartitions, 2DZorder) {
     uint32_t nrows = 463;
     uint32_t ncols = 53;
-    std::vector<uint32_t> ccs = {nrows,ncols};
+    std::vector<uint32_t> ccs = {nrows, ncols};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
     arr_metas->inner_type = CASS_VALUE_TYPE_INT;
     arr_metas->elem_size = sizeof(int32_t);
-    arr_metas->partition_type=ZORDER_ALGORITHM;
+    arr_metas->partition_type = ZORDER_ALGORITHM;
 
-    int32_t *data = new int32_t[ncols*nrows];
-    for (uint32_t row = 0; row<nrows; ++row) {
-        for (uint32_t col = 0; col<ncols; ++col) {
-            data[col+(ncols*row)] = (int32_t) col+(ncols*row);
+    int32_t *data = new int32_t[ncols * nrows];
+    for (uint32_t row = 0; row < nrows; ++row) {
+        for (uint32_t col = 0; col < ncols; ++col) {
+            data[col + (ncols * row)] = (int32_t) col + (ncols * row);
         }
     }
     SpaceFillingCurve SFC;
-    SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas,data);
+    SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas, data);
 
 
     std::set<int32_t> elements_found;
     uint64_t total_elem = 0;
     while (!partitioner->isDone()) {
         Partition chunk = partitioner->getNextPartition();
-        uint64_t* size = (uint64_t *) chunk.data;
+        uint64_t *size = (uint64_t *) chunk.data;
         uint64_t nelem = *size / arr_metas->elem_size;
-        total_elem+=nelem;
-        int32_t* chunk_data = (int32_t*) ((char*) chunk.data+sizeof(uint64_t));
-        for (uint64_t pos = 0; pos<nelem; ++pos) {
+        total_elem += nelem;
+        int32_t *chunk_data = (int32_t *) ((char *) chunk.data + sizeof(uint64_t));
+        for (uint64_t pos = 0; pos < nelem; ++pos) {
             elements_found.insert(*chunk_data);
             ++chunk_data;
         }
         free(chunk.data);
     }
-    for (uint32_t row = 0; row<nrows; ++row) {
-        for (uint32_t col = 0; col<ncols; ++col) {
-            EXPECT_TRUE(elements_found.find((int32_t) col+(ncols*row))!=elements_found.end());
+    for (uint32_t row = 0; row < nrows; ++row) {
+        for (uint32_t col = 0; col < ncols; ++col) {
+            EXPECT_TRUE(elements_found.find((int32_t) col + (ncols * row)) != elements_found.end());
         }
     }
-    EXPECT_EQ(total_elem,ncols*nrows);
-    EXPECT_EQ(elements_found.size(),ncols*nrows);
-    EXPECT_EQ(*elements_found.begin(),0);
-    EXPECT_EQ(*elements_found.rbegin(),ncols*nrows-1);
+    EXPECT_EQ(total_elem, ncols * nrows);
+    EXPECT_EQ(elements_found.size(), ncols * nrows);
+    EXPECT_EQ(*elements_found.begin(), 0);
+    EXPECT_EQ(*elements_found.rbegin(), ncols * nrows - 1);
     delete[](data);
-    delete(arr_metas);
-    delete(partitioner);
+    delete (arr_metas);
+    delete (partitioner);
 }
 
 
@@ -300,39 +302,39 @@ TEST(TestMakePartitions, 2DZorder) {
 TEST(TestMakePartitions, 2DZorderZeroes) {
     uint32_t nrows = 463;
     uint32_t ncols = 53;
-    std::vector<uint32_t> ccs = {nrows,ncols};
+    std::vector<uint32_t> ccs = {nrows, ncols};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
     arr_metas->inner_type = CASS_VALUE_TYPE_DOUBLE;
     arr_metas->elem_size = sizeof(double);
-    arr_metas->partition_type=ZORDER_ALGORITHM;
+    arr_metas->partition_type = ZORDER_ALGORITHM;
 
-    double *data = new double[ncols*nrows];
-    for (uint32_t row = 0; row<nrows; ++row) {
-        for (uint32_t col = 0; col<ncols; ++col) {
-            data[col+(ncols*row)] = (double) 0;
+    double *data = new double[ncols * nrows];
+    for (uint32_t row = 0; row < nrows; ++row) {
+        for (uint32_t col = 0; col < ncols; ++col) {
+            data[col + (ncols * row)] = (double) 0;
         }
     }
 
     SpaceFillingCurve SFC;
-    SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas,data);
+    SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas, data);
 
 
     std::set<int32_t> elements_found;
     uint64_t total_elem = 0;
     while (!partitioner->isDone()) {
         Partition chunk = partitioner->getNextPartition();
-        uint64_t* size = (uint64_t *) chunk.data;
+        uint64_t *size = (uint64_t *) chunk.data;
         uint64_t nelem = *size / arr_metas->elem_size;
-        total_elem+=nelem;
-        double* chunk_data = (double*) ((char*) chunk.data+sizeof(uint64_t));
-        for (uint64_t pos = 0; pos<nelem; ++pos) {
-            EXPECT_EQ(*chunk_data,(double) 0);
+        total_elem += nelem;
+        double *chunk_data = (double *) ((char *) chunk.data + sizeof(uint64_t));
+        for (uint64_t pos = 0; pos < nelem; ++pos) {
+            EXPECT_EQ(*chunk_data, (double) 0);
             ++chunk_data;
         }
         free(chunk.data);
     }
-    EXPECT_EQ(total_elem,ncols*nrows);
+    EXPECT_EQ(total_elem, ncols * nrows);
 //    EXPECT_EQ(elements_found.size(),ncols*nrows);
 //    EXPECT_EQ(*elements_found.begin(),0);
 //    EXPECT_EQ(*elements_found.rbegin(),ncols*nrows-1);
@@ -341,175 +343,175 @@ TEST(TestMakePartitions, 2DZorderZeroes) {
 
     //std::cout << "FInal memcmp " << memcmp(array,data,ncols*nrows*arr_metas->elem_size) << std::endl;
     delete[](data);
-    delete(arr_metas);
-    delete(partitioner);
+    delete (arr_metas);
+    delete (partitioner);
 }
 
 //Test to analyze the partitioning of a small 3D array
 TEST(TestMakePartitions, 3DZorder_Small) {
-    std::vector<uint32_t> ccs = {17 , 17, 17};
+    std::vector<uint32_t> ccs = {17, 17, 17};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
     arr_metas->inner_type = CASS_VALUE_TYPE_INT;
     arr_metas->elem_size = sizeof(int32_t);
-    arr_metas->partition_type=ZORDER_ALGORITHM;
+    arr_metas->partition_type = ZORDER_ALGORITHM;
 
     uint64_t arr_size = 1;
     for (uint32_t size_dim:ccs) {
-        arr_size*=size_dim;
+        arr_size *= size_dim;
     }
     int32_t *data = new int32_t[arr_size];
-    for (uint32_t i = 0; i<arr_size; ++i) {
-       data[i] = i;
-    }
-
-    SpaceFillingCurve SFC;
-    SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas,data);
-
-    std::vector<int32_t> elements_found(arr_size,0);
-    uint64_t total_elem = 0;
-    bool check;
-    while (!partitioner->isDone()) {
-        Partition chunk = partitioner->getNextPartition();
-        uint64_t* size = (uint64_t *) chunk.data;
-        uint64_t nelem = *size / arr_metas->elem_size;
-        total_elem+=nelem;
-        int32_t* chunk_data = (int32_t*) ((char*) chunk.data+sizeof(uint64_t));
-        for (uint64_t pos = 0; pos<nelem; ++pos) {
-            check = *chunk_data>=(int64_t) arr_size || *chunk_data<0;
-            EXPECT_FALSE (check);
-            if (!check) elements_found[*chunk_data]++;
-            ++chunk_data;
-        }
-        free(chunk.data);
-    }
-    int32_t max_elem = 1;
-    for (int32_t cc:ccs) {
-        max_elem*=cc;
-    }
-    bool found;
-    for (int32_t elem = 0; elem<max_elem; ++elem) {
-        found = elements_found[elem]==1;
-        EXPECT_EQ(elements_found[elem],1);
-        if (!found) std::cout << "Element not found: " << elem << std::endl;
-    }
-    EXPECT_EQ(total_elem,max_elem);
-    EXPECT_EQ(elements_found.size(),max_elem);
-    delete[](data);
-    delete(arr_metas);
-    delete(partitioner);
-}
-
-//Test to analyze the partitioning of a medium 3D array, approx 72MB
-TEST(TestMakePartitions, 3DZorder_Medium) {
-    std::vector<uint32_t> ccs = {250 , 150, 500};
-    ArrayMetadata *arr_metas = new ArrayMetadata();
-    arr_metas->dims = ccs;
-    arr_metas->inner_type = CASS_VALUE_TYPE_INT;
-    arr_metas->elem_size = sizeof(int32_t);
-    arr_metas->partition_type=ZORDER_ALGORITHM;
-
-    uint64_t arr_size = 1;
-    for (uint32_t size_dim:ccs) {
-        arr_size*=size_dim;
-    }
-    int32_t *data = new int32_t[arr_size];
-    for (uint32_t i = 0; i<arr_size; ++i) {
+    for (uint32_t i = 0; i < arr_size; ++i) {
         data[i] = i;
     }
 
     SpaceFillingCurve SFC;
-    SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas,data);
+    SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas, data);
 
-    std::vector<int32_t> elements_found(arr_size,0);
+    std::vector<int32_t> elements_found(arr_size, 0);
     uint64_t total_elem = 0;
     bool check;
     while (!partitioner->isDone()) {
         Partition chunk = partitioner->getNextPartition();
-        uint64_t* size = (uint64_t *) chunk.data;
+        uint64_t *size = (uint64_t *) chunk.data;
         uint64_t nelem = *size / arr_metas->elem_size;
-        total_elem+=nelem;
-        int32_t* chunk_data = (int32_t*) ((char*) chunk.data+sizeof(uint64_t));
-        for (uint64_t pos = 0; pos<nelem; ++pos) {
-            check = *chunk_data>=(int64_t) arr_size || *chunk_data<0;
+        total_elem += nelem;
+        int32_t *chunk_data = (int32_t *) ((char *) chunk.data + sizeof(uint64_t));
+        for (uint64_t pos = 0; pos < nelem; ++pos) {
+            check = *chunk_data >= (int64_t) arr_size || *chunk_data < 0;
             EXPECT_FALSE (check);
             if (!check) elements_found[*chunk_data]++;
             ++chunk_data;
         }
         free(chunk.data);
     }
-    delete(partitioner);
+    int32_t max_elem = 1;
+    for (int32_t cc:ccs) {
+        max_elem *= cc;
+    }
+    bool found;
+    for (int32_t elem = 0; elem < max_elem; ++elem) {
+        found = elements_found[elem] == 1;
+        EXPECT_EQ(elements_found[elem], 1);
+        if (!found) std::cout << "Element not found: " << elem << std::endl;
+    }
+    EXPECT_EQ(total_elem, max_elem);
+    EXPECT_EQ(elements_found.size(), max_elem);
+    delete[](data);
+    delete (arr_metas);
+    delete (partitioner);
+}
+
+//Test to analyze the partitioning of a medium 3D array, approx 72MB
+TEST(TestMakePartitions, 3DZorder_Medium) {
+    std::vector<uint32_t> ccs = {250, 150, 500};
+    ArrayMetadata *arr_metas = new ArrayMetadata();
+    arr_metas->dims = ccs;
+    arr_metas->inner_type = CASS_VALUE_TYPE_INT;
+    arr_metas->elem_size = sizeof(int32_t);
+    arr_metas->partition_type = ZORDER_ALGORITHM;
+
+    uint64_t arr_size = 1;
+    for (uint32_t size_dim:ccs) {
+        arr_size *= size_dim;
+    }
+    int32_t *data = new int32_t[arr_size];
+    for (uint32_t i = 0; i < arr_size; ++i) {
+        data[i] = i;
+    }
+
+    SpaceFillingCurve SFC;
+    SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas, data);
+
+    std::vector<int32_t> elements_found(arr_size, 0);
+    uint64_t total_elem = 0;
+    bool check;
+    while (!partitioner->isDone()) {
+        Partition chunk = partitioner->getNextPartition();
+        uint64_t *size = (uint64_t *) chunk.data;
+        uint64_t nelem = *size / arr_metas->elem_size;
+        total_elem += nelem;
+        int32_t *chunk_data = (int32_t *) ((char *) chunk.data + sizeof(uint64_t));
+        for (uint64_t pos = 0; pos < nelem; ++pos) {
+            check = *chunk_data >= (int64_t) arr_size || *chunk_data < 0;
+            EXPECT_FALSE (check);
+            if (!check) elements_found[*chunk_data]++;
+            ++chunk_data;
+        }
+        free(chunk.data);
+    }
+    delete (partitioner);
 
     int32_t max_elem = 1;
     for (int32_t cc:ccs) {
-        max_elem*=cc;
+        max_elem *= cc;
     }
     bool found;
-    for (int32_t elem = 0; elem<max_elem; ++elem) {
-        found = elements_found[elem]==1;
-        EXPECT_EQ(elements_found[elem],1);
+    for (int32_t elem = 0; elem < max_elem; ++elem) {
+        found = elements_found[elem] == 1;
+        EXPECT_EQ(elements_found[elem], 1);
         if (!found) std::cout << "Element not found: " << elem << std::endl;
     }
-    EXPECT_EQ(total_elem,max_elem);
+    EXPECT_EQ(total_elem, max_elem);
     delete[](data);
-    delete(arr_metas);
+    delete (arr_metas);
 }
 
 
 //Test to analyze the partitioning of a big 3D array, approx 256MB
 TEST(TestMakePartitions, 3DZorder_Big) {
-    std::vector<uint32_t> ccs = {512 ,256 , 512};
+    std::vector<uint32_t> ccs = {512, 256, 512};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
     arr_metas->inner_type = CASS_VALUE_TYPE_INT;
     arr_metas->elem_size = sizeof(int32_t);
-    arr_metas->partition_type=ZORDER_ALGORITHM;
+    arr_metas->partition_type = ZORDER_ALGORITHM;
 
     uint64_t arr_size = 1;
     for (int32_t size_dim:ccs) {
-        arr_size*=size_dim;
+        arr_size *= size_dim;
     }
     int32_t *data = new int32_t[arr_size];
-    for (uint32_t i = 0; i<arr_size; ++i) {
+    for (uint32_t i = 0; i < arr_size; ++i) {
         data[i] = i;
     }
     SpaceFillingCurve SFC;
-    SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas,data);
+    SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas, data);
 
 
-    std::vector<int32_t> elements_found(arr_size,0);
+    std::vector<int32_t> elements_found(arr_size, 0);
     uint64_t total_elem = 0;
     bool check;
     while (!partitioner->isDone()) {
         Partition chunk = partitioner->getNextPartition();
-        uint64_t* size = (uint64_t *) chunk.data;
+        uint64_t *size = (uint64_t *) chunk.data;
         uint64_t nelem = *size / arr_metas->elem_size;
-        total_elem+=nelem;
-        int32_t* chunk_data = (int32_t*) ((char*) chunk.data+sizeof(uint64_t));
-        for (uint64_t pos = 0; pos<nelem; ++pos) {
-            check = *chunk_data>=(int64_t)arr_size || *chunk_data<0;
+        total_elem += nelem;
+        int32_t *chunk_data = (int32_t *) ((char *) chunk.data + sizeof(uint64_t));
+        for (uint64_t pos = 0; pos < nelem; ++pos) {
+            check = *chunk_data >= (int64_t) arr_size || *chunk_data < 0;
             EXPECT_FALSE (check);
             if (!check) elements_found[*chunk_data]++;
             ++chunk_data;
         }
         free(chunk.data);
     }
-    delete(partitioner);
+    delete (partitioner);
 
     int32_t max_elem = 1;
     for (int32_t cc:ccs) {
-        max_elem*=cc;
+        max_elem *= cc;
     }
     bool found;
-    for (int32_t elem = 0; elem<max_elem; ++elem) {
-        found = elements_found[elem]==1;
-        EXPECT_EQ(elements_found[elem],1);
+    for (int32_t elem = 0; elem < max_elem; ++elem) {
+        found = elements_found[elem] == 1;
+        EXPECT_EQ(elements_found[elem], 1);
         if (!found) std::cout << "Element not found: " << elem << std::endl;
 
     }
-    EXPECT_EQ(total_elem,max_elem);
+    EXPECT_EQ(total_elem, max_elem);
     delete[](data);
-    delete(arr_metas);
+    delete (arr_metas);
 
 }
 
@@ -518,11 +520,11 @@ TEST(TestMakePartitions, NDZorder) {
     uint32_t max_dims = 6;
     std::vector<uint32_t> ccs = {17};
     ArrayMetadata *arr_metas = new ArrayMetadata();
-    while (ccs.size()<=max_dims) {
+    while (ccs.size() <= max_dims) {
         arr_metas->dims = ccs;
         arr_metas->inner_type = CASS_VALUE_TYPE_INT;
         arr_metas->elem_size = sizeof(int32_t);
-        arr_metas->partition_type=ZORDER_ALGORITHM;
+        arr_metas->partition_type = ZORDER_ALGORITHM;
 
         uint64_t arr_size = 1;
         for (int32_t size_dim:ccs) {
@@ -534,9 +536,9 @@ TEST(TestMakePartitions, NDZorder) {
         }
 
         SpaceFillingCurve SFC;
-        SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas,data);
+        SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas, data);
 
-        std::vector<int32_t> elements_found(arr_size,0);
+        std::vector<int32_t> elements_found(arr_size, 0);
         uint64_t total_elem = 0;
         bool check;
         while (!partitioner->isDone()) {
@@ -546,7 +548,7 @@ TEST(TestMakePartitions, NDZorder) {
             total_elem += nelem;
             int32_t *chunk_data = (int32_t *) ((char *) chunk.data + sizeof(uint64_t));
             for (uint64_t pos = 0; pos < nelem; ++pos) {
-                check = *chunk_data>=(int64_t)arr_size || *chunk_data<0;
+                check = *chunk_data >= (int64_t) arr_size || *chunk_data < 0;
                 EXPECT_FALSE (check);
                 if (!check) elements_found[*chunk_data]++;
                 ++chunk_data;
@@ -554,15 +556,15 @@ TEST(TestMakePartitions, NDZorder) {
             free(chunk.data);
 
         }
-        delete(partitioner);
+        delete (partitioner);
         int32_t max_elem = 1;
         for (int32_t cc:ccs) {
             max_elem *= cc;
         }
         bool found;
         for (int32_t elem = 0; elem < max_elem; ++elem) {
-            found = elements_found[elem]==1;
-            EXPECT_EQ(elements_found[elem],1);
+            found = elements_found[elem] == 1;
+            EXPECT_EQ(elements_found[elem], 1);
             if (!found) std::cout << "Element not found: " << elem << std::endl;
 
         }
@@ -580,54 +582,54 @@ TEST(TestMakePartitions, NDZorder) {
 TEST(TestMakePartitions, 2DZorder128Double) {
     uint32_t ncols = 1000;
     uint32_t nrows = 1000;
-    std::vector<uint32_t> ccs = {nrows,ncols}; //4D 128 elements
+    std::vector<uint32_t> ccs = {nrows, ncols}; //4D 128 elements
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
     arr_metas->inner_type = CASS_VALUE_TYPE_DOUBLE;
     arr_metas->elem_size = sizeof(double);
-    arr_metas->partition_type=ZORDER_ALGORITHM;
+    arr_metas->partition_type = ZORDER_ALGORITHM;
 
 
     uint64_t arr_size = 1;
     for (int32_t size_dim:ccs) {
-        arr_size*=size_dim;
+        arr_size *= size_dim;
     }
 
-    double *data = new double[ncols*nrows];
-    for (uint32_t row = 0; row<nrows; ++row) {
-        for (uint32_t col = 0; col<ncols; ++col) {
-            data[col+(ncols*row)] = (double) col+(ncols*row);
+    double *data = new double[ncols * nrows];
+    for (uint32_t row = 0; row < nrows; ++row) {
+        for (uint32_t col = 0; col < ncols; ++col) {
+            data[col + (ncols * row)] = (double) col + (ncols * row);
         }
     }
 
     SpaceFillingCurve SFC;
-    SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas,data);
+    SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas, data);
     std::set<double> elements_found;
     uint64_t total_elem = 0;
     while (!partitioner->isDone()) {
         Partition chunk = partitioner->getNextPartition();
-        uint64_t* size = (uint64_t *) chunk.data;
+        uint64_t *size = (uint64_t *) chunk.data;
         uint64_t nelem = *size / arr_metas->elem_size;
-        total_elem+=nelem;
-        double* chunk_data = (double*) ((char*) chunk.data+sizeof(uint64_t));
-        for (uint64_t pos = 0; pos<nelem; ++pos) {
+        total_elem += nelem;
+        double *chunk_data = (double *) ((char *) chunk.data + sizeof(uint64_t));
+        for (uint64_t pos = 0; pos < nelem; ++pos) {
             elements_found.insert(*chunk_data);
             ++chunk_data;
         }
         free(chunk.data);
     }
-    for (uint32_t row = 0; row<nrows; ++row) {
-        for (uint32_t col = 0; col<ncols; ++col) {
-            EXPECT_TRUE(elements_found.find((double) col+(ncols*row))!=elements_found.end());
+    for (uint32_t row = 0; row < nrows; ++row) {
+        for (uint32_t col = 0; col < ncols; ++col) {
+            EXPECT_TRUE(elements_found.find((double) col + (ncols * row)) != elements_found.end());
         }
     }
-    EXPECT_EQ(total_elem,ncols*nrows);
-    EXPECT_EQ(elements_found.size(),ncols*nrows);
-    EXPECT_EQ(*elements_found.begin(),0);
-    EXPECT_EQ(*elements_found.rbegin(),ncols*nrows-1);
+    EXPECT_EQ(total_elem, ncols * nrows);
+    EXPECT_EQ(elements_found.size(), ncols * nrows);
+    EXPECT_EQ(*elements_found.begin(), 0);
+    EXPECT_EQ(*elements_found.rbegin(), ncols * nrows - 1);
     delete[](data);
-    delete(arr_metas);
-    delete(partitioner);
+    delete (arr_metas);
+    delete (partitioner);
 }
 
 
@@ -637,14 +639,14 @@ TEST(TestMakePartitions, 2DZorderByRange) {
 
     uint32_t maxcols = 128;
     uint32_t maxrows = 128;
-    for (uint32_t ncols = 1; ncols<maxcols; ++ncols) {
+    for (uint32_t ncols = 1; ncols < maxcols; ++ncols) {
         for (uint32_t nrows = 1; nrows < maxrows; ++nrows) {
             std::vector<uint32_t> ccs = {nrows, ncols}; //4D 128 elements
             ArrayMetadata *arr_metas = new ArrayMetadata();
             arr_metas->dims = ccs;
             arr_metas->inner_type = CASS_VALUE_TYPE_DOUBLE;
             arr_metas->elem_size = sizeof(double);
-            arr_metas->partition_type=ZORDER_ALGORITHM;
+            arr_metas->partition_type = ZORDER_ALGORITHM;
 
             uint64_t arr_size = 1;
             for (int32_t size_dim:ccs) {
@@ -659,8 +661,8 @@ TEST(TestMakePartitions, 2DZorderByRange) {
             }
             bool check;
             SpaceFillingCurve SFC;
-            SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas,data);
-            std::vector<uint32_t > elements_found(arr_size,0);
+            SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas, data);
+            std::vector<uint32_t> elements_found(arr_size, 0);
             uint64_t total_elem = 0;
             while (!partitioner->isDone()) {
                 Partition chunk = partitioner->getNextPartition();
@@ -669,23 +671,23 @@ TEST(TestMakePartitions, 2DZorderByRange) {
                 total_elem += nelem;
                 double *chunk_data = (double *) ((char *) chunk.data + sizeof(uint64_t));
                 for (uint64_t pos = 0; pos < nelem; ++pos) {
-                    check = *chunk_data>=(double)arr_size || *chunk_data<0;
+                    check = *chunk_data >= (double) arr_size || *chunk_data < 0;
                     EXPECT_FALSE (check);
                     double elem_data = *chunk_data;
-                    EXPECT_DOUBLE_EQ(elem_data-(int32_t) elem_data,0.0);
+                    EXPECT_DOUBLE_EQ(elem_data - (int32_t) elem_data, 0.0);
                     if (!check) elements_found[*chunk_data]++;
                     ++chunk_data;
                 }
                 free(chunk.data);
             }
-            delete(partitioner);
+            delete (partitioner);
 
             bool found;
             for (uint32_t row = 0; row < nrows; ++row) {
                 for (uint32_t col = 0; col < ncols; ++col) {
                     int32_t elem = col + (ncols * row);
-                    found = elements_found[elem]==1;
-                    EXPECT_EQ(elements_found[elem],1);
+                    found = elements_found[elem] == 1;
+                    EXPECT_EQ(elements_found[elem], 1);
                     if (!found) std::cout << "Element not found: " << elem << std::endl;
                 }
             }
@@ -703,33 +705,33 @@ TEST(TestMakePartitions, 2DZorderByRange) {
 TEST(TestMakePartitions, 2DNopart) {
     uint32_t nrows = 124;
     uint32_t ncols = 1104;
-    int32_t arr_size = ncols*nrows;
+    int32_t arr_size = ncols * nrows;
     std::vector<uint32_t> ccs = {ncols, nrows};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
     arr_metas->inner_type = CASS_VALUE_TYPE_INT;
     arr_metas->elem_size = sizeof(int32_t);
-    arr_metas->partition_type=NO_PARTITIONS;
+    arr_metas->partition_type = NO_PARTITIONS;
 
     int32_t *data = new int32_t[arr_size];
-    for (uint32_t col = 0; col<ncols; ++col) {
-        for (uint32_t row = 0; row<nrows; ++row) {
-            data[col+(ncols*row)] = (int32_t) col+(ncols*row);
+    for (uint32_t col = 0; col < ncols; ++col) {
+        for (uint32_t row = 0; row < nrows; ++row) {
+            data[col + (ncols * row)] = (int32_t) col + (ncols * row);
         }
     }
     SpaceFillingCurve SFC;
-    SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas,data);
+    SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas, data);
     Partition part = partitioner->getNextPartition();
     EXPECT_TRUE(partitioner->isDone());
     uint64_t *chunk_size = (uint64_t *) part.data;
-    EXPECT_EQ(*chunk_size, arr_size*arr_metas->elem_size);
-    char* partition_data = ((char*)part.data) + sizeof(uint64_t);
-    int32_t equal = memcmp(partition_data,data, arr_size*sizeof(int32_t));
-    EXPECT_TRUE(equal==0);
-    EXPECT_FALSE(data==(int32_t *) partition_data);
+    EXPECT_EQ(*chunk_size, arr_size * arr_metas->elem_size);
+    char *partition_data = ((char *) part.data) + sizeof(uint64_t);
+    int32_t equal = memcmp(partition_data, data, arr_size * sizeof(int32_t));
+    EXPECT_TRUE(equal == 0);
+    EXPECT_FALSE(data == (int32_t *) partition_data);
     delete[](data);
-    delete(arr_metas);
-    delete(partitioner);
+    delete (arr_metas);
+    delete (partitioner);
 }
 
 
@@ -738,33 +740,33 @@ TEST(TestMakePartitions, 2DNopart) {
 //Test to generate partitions of the array using Zorder and merge them back
 // into a single array and make sure both processes performed correctly
 TEST(TestMakePartitions, 3DZorderAndReverse) {
-    std::vector<uint32_t> ccs = {45 , 17, 32};
+    std::vector<uint32_t> ccs = {45, 17, 32};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
     arr_metas->inner_type = CASS_VALUE_TYPE_INT;
     arr_metas->elem_size = sizeof(int32_t);
-    arr_metas->partition_type=ZORDER_ALGORITHM;
+    arr_metas->partition_type = ZORDER_ALGORITHM;
 
     uint64_t arr_size = 1;
     for (int32_t size_dim:ccs) {
-        arr_size*=size_dim;
+        arr_size *= size_dim;
     }
     int32_t *data = new int32_t[arr_size];
-    for (uint32_t i = 0; i<arr_size; ++i) {
+    for (uint32_t i = 0; i < arr_size; ++i) {
         data[i] = i;
     }
     SpaceFillingCurve SFC;
-    SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas,data);
+    SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas, data);
     std::set<int32_t> elements_found;
     uint64_t total_elem = 0;
     std::vector<Partition> chunks;
     while (!partitioner->isDone()) {
         Partition chunk = partitioner->getNextPartition();
-        uint64_t* size = (uint64_t *) chunk.data;
+        uint64_t *size = (uint64_t *) chunk.data;
         uint64_t nelem = *size / arr_metas->elem_size;
-        total_elem+=nelem;
-        int32_t* chunk_data = (int32_t*) ((char*) chunk.data+sizeof(uint64_t));
-        for (uint64_t pos = 0; pos<nelem; ++pos) {
+        total_elem += nelem;
+        int32_t *chunk_data = (int32_t *) ((char *) chunk.data + sizeof(uint64_t));
+        for (uint64_t pos = 0; pos < nelem; ++pos) {
             elements_found.insert(*chunk_data);
             ++chunk_data;
         }
@@ -772,36 +774,36 @@ TEST(TestMakePartitions, 3DZorderAndReverse) {
     }
     int32_t max_elem = 1;
     for (int32_t cc:ccs) {
-        max_elem*=cc;
+        max_elem *= cc;
     }
     bool found;
-    for (int32_t elem = 0; elem<max_elem; ++elem) {
-        found = elements_found.find(elem)!=elements_found.end();
+    for (int32_t elem = 0; elem < max_elem; ++elem) {
+        found = elements_found.find(elem) != elements_found.end();
         EXPECT_TRUE(found);
         if (!found) std::cout << "Element not found: " << elem << std::endl;
 
     }
-    EXPECT_EQ(total_elem,max_elem);
-    EXPECT_EQ(elements_found.size(),max_elem);
-    EXPECT_EQ(*elements_found.begin(),0);
-    EXPECT_EQ(*elements_found.rbegin(),max_elem-1);
+    EXPECT_EQ(total_elem, max_elem);
+    EXPECT_EQ(elements_found.size(), max_elem);
+    EXPECT_EQ(*elements_found.begin(), 0);
+    EXPECT_EQ(*elements_found.rbegin(), max_elem - 1);
 
-    void * array = partitioner->merge_partitions(arr_metas,chunks);
+    void *array = partitioner->merge_partitions(arr_metas, chunks);
 
-    int32_t* ptr_to_array=(int32_t*) array;
-    for (int32_t elem = 0; elem<max_elem; ++elem) {
-        EXPECT_EQ(elem,*ptr_to_array);
+    int32_t *ptr_to_array = (int32_t *) array;
+    for (int32_t elem = 0; elem < max_elem; ++elem) {
+        EXPECT_EQ(elem, *ptr_to_array);
         ++ptr_to_array;
     }
-    int32_t equal = memcmp(array,data,arr_size*sizeof(int32_t));
-    EXPECT_TRUE(equal==0);
+    int32_t equal = memcmp(array, data, arr_size * sizeof(int32_t));
+    EXPECT_TRUE(equal == 0);
     free(array);
     delete[](data);
-    delete(arr_metas);
+    delete (arr_metas);
     for (Partition chunk:chunks) {
         free(chunk.data);
     }
-    delete(partitioner);
+    delete (partitioner);
 }
 
 
@@ -810,33 +812,33 @@ TEST(TestMakePartitions, 3DZorderAndReverse) {
 //Test to generate partitions of the array using Zorder and merge them back
 // into a single array and make sure both processes performed correctly
 TEST(TestMakePartitions, 4DZorderAndReverse) {
-    std::vector<uint32_t> ccs = {100 , 20, 150, 30};
+    std::vector<uint32_t> ccs = {100, 20, 150, 30};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
     arr_metas->inner_type = CASS_VALUE_TYPE_INT;
     arr_metas->elem_size = sizeof(int32_t);
-    arr_metas->partition_type=ZORDER_ALGORITHM;
+    arr_metas->partition_type = ZORDER_ALGORITHM;
 
     uint64_t arr_size = 1;
     for (int32_t size_dim:ccs) {
-        arr_size*=size_dim;
+        arr_size *= size_dim;
     }
     int32_t *data = new int32_t[arr_size];
-    for (uint32_t i = 0; i<arr_size; ++i) {
+    for (uint32_t i = 0; i < arr_size; ++i) {
         data[i] = i;
     }
     SpaceFillingCurve SFC;
-    SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas,data);
+    SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas, data);
     std::set<int32_t> elements_found;
     uint64_t total_elem = 0;
     std::vector<Partition> chunks;
     while (!partitioner->isDone()) {
         Partition chunk = partitioner->getNextPartition();
-        uint64_t* size = (uint64_t *) chunk.data;
+        uint64_t *size = (uint64_t *) chunk.data;
         uint64_t nelem = *size / arr_metas->elem_size;
-        total_elem+=nelem;
-        int32_t* chunk_data = (int32_t*) ((char*) chunk.data+sizeof(uint64_t));
-        for (uint64_t pos = 0; pos<nelem; ++pos) {
+        total_elem += nelem;
+        int32_t *chunk_data = (int32_t *) ((char *) chunk.data + sizeof(uint64_t));
+        for (uint64_t pos = 0; pos < nelem; ++pos) {
             elements_found.insert(*chunk_data);
             ++chunk_data;
         }
@@ -844,35 +846,35 @@ TEST(TestMakePartitions, 4DZorderAndReverse) {
     }
     int32_t max_elem = 1;
     for (int32_t cc:ccs) {
-        max_elem*=cc;
+        max_elem *= cc;
     }
     bool found;
-    for (int32_t elem = 0; elem<max_elem; ++elem) {
-        found = elements_found.find(elem)!=elements_found.end();
+    for (int32_t elem = 0; elem < max_elem; ++elem) {
+        found = elements_found.find(elem) != elements_found.end();
         EXPECT_TRUE(found);
         if (!found) std::cout << "Element not found: " << elem << std::endl;
 
     }
-    EXPECT_EQ(total_elem,max_elem);
-    EXPECT_EQ(elements_found.size(),max_elem);
-    EXPECT_EQ(*elements_found.begin(),0);
-    EXPECT_EQ(*elements_found.rbegin(),max_elem-1);
-    void * array = partitioner->merge_partitions(arr_metas,chunks);
+    EXPECT_EQ(total_elem, max_elem);
+    EXPECT_EQ(elements_found.size(), max_elem);
+    EXPECT_EQ(*elements_found.begin(), 0);
+    EXPECT_EQ(*elements_found.rbegin(), max_elem - 1);
+    void *array = partitioner->merge_partitions(arr_metas, chunks);
 
-    int32_t* ptr_to_array=(int32_t*) array;
-    for (int32_t elem = 0; elem<max_elem; ++elem) {
-        EXPECT_EQ(elem,*ptr_to_array);
+    int32_t *ptr_to_array = (int32_t *) array;
+    for (int32_t elem = 0; elem < max_elem; ++elem) {
+        EXPECT_EQ(elem, *ptr_to_array);
         ++ptr_to_array;
     }
-    int32_t equal = memcmp(array,data,arr_size*sizeof(int32_t));
-    EXPECT_TRUE(equal==0);
+    int32_t equal = memcmp(array, data, arr_size * sizeof(int32_t));
+    EXPECT_TRUE(equal == 0);
     free(array);
     delete[](data);
-    delete(arr_metas);
+    delete (arr_metas);
     for (Partition chunk:chunks) {
         free(chunk.data);
     }
-    delete(partitioner);
+    delete (partitioner);
 }
 
 
@@ -1258,8 +1260,9 @@ TEST(TestingEmptyValues, WriteSimple) {
 
     //partid int,time float,x float,y float,z float, PRIMARY KEY(partid,time)
 
-    std::vector<std::map<std::string, std::string> > keysnames = {{{"name", "first"}}, {{"name", "second"}},
-                                                              {{"name", "third"}}};
+    std::vector<std::map<std::string, std::string> > keysnames = {{{"name", "first"}},
+                                                                  {{"name", "second"}},
+                                                                  {{"name", "third"}}};
     std::vector<std::map<std::string, std::string> > colsnames = {};
 
     std::vector<std::pair<int64_t, int64_t> > tokens = {};
@@ -1275,32 +1278,28 @@ TEST(TestingEmptyValues, WriteSimple) {
     CacheTable *cache = new CacheTable(table_meta, test_session, config);
 
 
-    char *buffer = (char *) malloc(sizeof(int) + sizeof(int) + sizeof(char*)); //keys
+    char *buffer = (char *) malloc(sizeof(int) + sizeof(int) + sizeof(char *)); //keys
 
     int32_t k1 = 3682;
     int32_t k2 = 3682;
-    const char* k3_base = "SomeKey";
-    char *k3 = (char*) malloc(std::strlen(k3_base)+1);
+    const char *k3_base = "SomeKey";
+    char *k3 = (char *) malloc(std::strlen(k3_base) + 1);
 
-    std::memcpy(k3,k3_base,std::strlen(k3_base)+1);
+    std::memcpy(k3, k3_base, std::strlen(k3_base) + 1);
 
     memcpy(buffer, &k1, sizeof(int32_t));
     memcpy(buffer + sizeof(int), &k2, sizeof(int32_t));
-    memcpy(buffer + sizeof(int) + sizeof(int), &k3, sizeof(char*));
-
+    memcpy(buffer + sizeof(int) + sizeof(int), &k3, sizeof(char *));
 
 
     char *buffer2 = nullptr;
 
 
-    TupleRow *keys = new TupleRow(table_meta->get_keys(), sizeof(int) + sizeof(int) + sizeof(char*), buffer);
-    TupleRow *values = new TupleRow(table_meta->get_values(),0, buffer2);
+    TupleRow *keys = new TupleRow(table_meta->get_keys(), sizeof(int) + sizeof(int) + sizeof(char *), buffer);
+    TupleRow *values = new TupleRow(table_meta->get_values(), 0, buffer2);
 
 
     cache->put_crow(keys, values);
-
-
-
 
 
     std::vector<const TupleRow *> results = cache->get_crow(keys);
@@ -1308,7 +1307,6 @@ TEST(TestingEmptyValues, WriteSimple) {
     delete (keys);
     delete (values);
     delete (cache);
-
 
 
     CassFuture *close_future = cass_session_close(test_session);
@@ -2402,7 +2400,6 @@ TEST(TestingStorageInterfaceCpp, IteratePrefetch) {
 }
 
 
-
 TEST(TestingCacheTable, DeleteRow) {
 
 /** CONNECT **/
@@ -2424,15 +2421,15 @@ TEST(TestingCacheTable, DeleteRow) {
 
     cass_future_free(connect_future);
 
-    std::vector <std::map<std::string, std::string>> keysnames = {{{"name", "partid"}},
-                                                                  {{"name", "time"}}};
-    std::vector <std::map<std::string, std::string>> colsnames = {{{"name", "x"}},
-                                                                  {{"name", "y"}},
-                                                                  {{"name", "z"}}};
+    std::vector<std::map<std::string, std::string>> keysnames = {{{"name", "partid"}},
+                                                                 {{"name", "time"}}};
+    std::vector<std::map<std::string, std::string>> colsnames = {{{"name", "x"}},
+                                                                 {{"name", "y"}},
+                                                                 {{"name", "z"}}};
 
-    std::vector <std::pair<int64_t, int64_t>> tokens = {};
+    std::vector<std::pair<int64_t, int64_t>> tokens = {};
 
-    std::map <std::string, std::string> config;
+    std::map<std::string, std::string> config;
     config["writer_par"] = "4";
     config["writer_buffer"] = "20";
     config["cache_size"] = "10";
@@ -2447,13 +2444,13 @@ TEST(TestingCacheTable, DeleteRow) {
 
     int32_t k1 = 4682;
     float k2 = 93.2;
-    memcpy(buffer, &k1,sizeof(int));
+    memcpy(buffer, &k1, sizeof(int));
     memcpy(buffer + sizeof(int), &k2, sizeof(float));
 
     float v[] = {4.43, 9.99, 1.238};
 
     char *buffer2 = (char *) malloc(sizeof(float) * 3); //values
-    memcpy(buffer2, &v,sizeof(float)*3);
+    memcpy(buffer2, &v, sizeof(float) * 3);
 
 
     TupleRow *keys = new TupleRow(table_meta->get_keys(), sizeof(int) + sizeof(float), buffer);
@@ -2462,9 +2459,9 @@ TEST(TestingCacheTable, DeleteRow) {
 
     cache->put_crow(keys, values);
 
-    delete(keys);
-    delete(values);
-    delete(cache);
+    delete (keys);
+    delete (values);
+    delete (cache);
 
 
 //now we read the data
@@ -2490,7 +2487,7 @@ TEST(TestingCacheTable, DeleteRow) {
 
 
     std::vector<const TupleRow *> results = cache->get_crow(keys);
-    ASSERT_TRUE(results.size()==1);
+    ASSERT_TRUE(results.size() == 1);
     const TupleRow *read_values = results[0];
     const float *v0 = (float *) read_values->get_element(0);
     const float *v1 = (float *) read_values->get_element(1);
@@ -2499,7 +2496,7 @@ TEST(TestingCacheTable, DeleteRow) {
     EXPECT_DOUBLE_EQ(*v1, v[1]);
     EXPECT_DOUBLE_EQ(*v2, v[2]);
 
-    delete(keys);
+    delete (keys);
 
 
     buffer = (char *) malloc(sizeof(int) + sizeof(float)); //keys
@@ -2515,9 +2512,9 @@ TEST(TestingCacheTable, DeleteRow) {
 
     EXPECT_TRUE(results.empty());
 
-    delete(keys);
-    delete(read_values);
-    delete(cache);
+    delete (keys);
+    delete (read_values);
+    delete (cache);
 
     CassFuture *close_future = cass_session_close(test_session);
     cass_future_wait(close_future);
@@ -2526,12 +2523,12 @@ TEST(TestingCacheTable, DeleteRow) {
     cass_cluster_free(test_cluster);
     cass_session_free(test_session);
 }
+
 #include <iostream>
 #include "gtest/gtest.h"
 
 
 using namespace std;
-
 
 
 TEST(TableMeta, LetsTryTuple) {
@@ -2564,21 +2561,21 @@ TEST(TableMeta, LetsTryTuple) {
 
     const char *query = "INSERT INTO test.people(dni, info) VALUES ('socUnDNI', (1,2));";
 
-    fireandforget(query,test_session);
+    fireandforget(query, test_session);
 
     //CassStatement *cs = cass_statement_new(query, 1);
 
-    CassStatement* cs
+    CassStatement *cs
             = cass_statement_new("INSERT INTO test.people(dni, info) VALUES ('socUnDNI2', ?)", 1);
 
-    std::vector <std::map<std::string, std::string>> keysnames = {{{"name", "dni"}}};
+    std::vector<std::map<std::string, std::string>> keysnames = {{{"name", "dni"}}};
 
-    std::vector <std::map<std::string, std::string>> colsnames = {{{"name", "info"}}};
+    std::vector<std::map<std::string, std::string>> colsnames = {{{"name", "info"}}};
     std::cout << "aqui es donde peta" << std::endl;
     TableMetadata *table_meta = new TableMetadata("people", "test", keysnames, colsnames, test_session);
 
     /////////////// 2 INTS /////////////////
-    std::tuple<int,int> mytuple (10,20);
+    std::tuple<int, int> mytuple(10, 20);
     using namespace std;
     cout << "el size de la tupla es " << sizeof(mytuple) << endl;
     cout << "el size de int is " << sizeof(int) << endl;
@@ -2586,13 +2583,13 @@ TEST(TableMeta, LetsTryTuple) {
 
     memcpy(buffer2, &mytuple, sizeof(mytuple));
 
-    int *b = (int *)malloc(2*sizeof(int));
+    int *b = (int *) malloc(2 * sizeof(int));
 
     char *p = buffer2;
 
-    for(int i=0;i<2;i++) {
-        b[i]=(int )*p;
-        printf("got value %d\n",b[i]);
+    for (int i = 0; i < 2; i++) {
+        b[i] = (int) *p;
+        printf("got value %d\n", b[i]);
         p += sizeof(int);
     }
     int32_t result, value, ok = 20000;
@@ -2623,7 +2620,7 @@ TEST(TableMeta, LetsTryTuple) {
 
     TupleRow *values = new TupleRow(table_meta->get_values(), sizeof(mytuple), valuess);
 
-    cout <<  values->get_element(0) << endl;
+    cout << values->get_element(0) << endl;
 
     std::shared_ptr<const std::vector<ColumnMeta> > cols = table_meta->get_values();
 
@@ -2639,10 +2636,10 @@ TEST(TableMeta, LetsTryTuple) {
     CassTuple *ct = cass_tuple_new(2);
     cass_int32_t a = 1;
     cass_int32_t c = 1;
-    cass_tuple_set_int32(ct,0,a);
-    cass_tuple_set_int32(ct,1,c);
+    cass_tuple_set_int32(ct, 0, a);
+    cass_tuple_set_int32(ct, 1, c);
 
-    cass_statement_bind_tuple(cs,0,ct);
+    cass_statement_bind_tuple(cs, 0, ct);
 
     connect_future = cass_session_execute(test_session, cs);
 
@@ -2696,24 +2693,24 @@ TEST(TableMeta, LetsTryTupleWithString) {
 
     const char *query = "INSERT INTO test.people(dni, info) VALUES ('socUnDNI', (1,2));";
 
-    fireandforget(query,test_session);
+    fireandforget(query, test_session);
 
-    CassStatement* cs
+    CassStatement *cs
             = cass_statement_new("INSERT INTO test.people(dni, info) VALUES ('socUnDNI2', ?)", 1);
 
-    std::vector <std::map<std::string, std::string>> keysnames = {{{"name", "dni"}}};
+    std::vector<std::map<std::string, std::string>> keysnames = {{{"name", "dni"}}};
 
-    std::vector <std::map<std::string, std::string>> colsnames = {{{"name", "info"}}};
+    std::vector<std::map<std::string, std::string>> colsnames = {{{"name", "info"}}};
 
     TableMetadata *table_meta = new TableMetadata("people", "test", keysnames, colsnames, test_session);
 
     /////////////// 2 INTS /////////////////
     // INSERT WITH BIND METHOD //
 
-    std::tuple<int,int> mytuple (10,10);
+    std::tuple<int, int> mytuple(10, 10);
     using namespace std;
 
-    int * buffer2 = (int *) malloc(sizeof(mytuple));
+    int *buffer2 = (int *) malloc(sizeof(mytuple));
     memcpy(buffer2, &mytuple, sizeof(mytuple));
 
     std::map<std::string, std::string> info = {{"name", "mycolumn"}};
@@ -2736,9 +2733,9 @@ TEST(TableMeta, LetsTryTupleWithString) {
     std::shared_ptr<const std::vector<ColumnMeta> > cols = table_meta->get_values();
 
     const void *element_i = valuess->get_element(0);
-    TupleRow** ptr = (TupleRow**) element_i;
-    const TupleRow* inner_data = *ptr;
-    int32_t* value = (int32_t*) inner_data->get_element(0);
+    TupleRow **ptr = (TupleRow **) element_i;
+    const TupleRow *inner_data = *ptr;
+    int32_t *value = (int32_t *) inner_data->get_element(0);
 
     std::cout << *value << std::endl;
 
@@ -2755,10 +2752,10 @@ TEST(TableMeta, LetsTryTupleWithString) {
     CassTuple *ct = cass_tuple_new(2);
     cass_int32_t a = 1;
     cass_int32_t c = 1;
-    cass_tuple_set_int32(ct,0,a);
-    cass_tuple_set_int32(ct,1,c);
+    cass_tuple_set_int32(ct, 0, a);
+    cass_tuple_set_int32(ct, 1, c);
 
-    cass_statement_bind_tuple(cs,0,ct);
+    cass_statement_bind_tuple(cs, 0, ct);
 
     connect_future = cass_session_execute(test_session, cs);
 
@@ -2803,22 +2800,22 @@ TEST(TableMeta, BigIntFromCassandra) {
             "CREATE TABLE test.people(dni text PRIMARY KEY, info tuple<bigint,bigint>);",
             test_session);
 
-    CassStatement* cs
+    CassStatement *cs
             = cass_statement_new("INSERT INTO test.people(dni, info) VALUES ('socUnDNI2', ?)", 1);
 
-    std::vector <std::map<std::string, std::string>> keysnames = {{{"name", "dni"}}};
+    std::vector<std::map<std::string, std::string>> keysnames = {{{"name", "dni"}}};
 
-    std::vector <std::map<std::string, std::string>> colsnames = {{{"name", "info"}}};
+    std::vector<std::map<std::string, std::string>> colsnames = {{{"name", "info"}}};
     std::cout << "aqui es donde peta" << std::endl;
     TableMetadata *table_meta = new TableMetadata("people", "test", keysnames, colsnames, test_session);
 
     CassTuple *ct = cass_tuple_new(2);
     cass_int64_t a = 55000000000000000;
     cass_int64_t c = 55000000000000001;
-    cass_tuple_set_int64(ct,0,a);
-    cass_tuple_set_int64(ct,1,c);
+    cass_tuple_set_int64(ct, 0, a);
+    cass_tuple_set_int64(ct, 1, c);
 
-    cass_statement_bind_tuple(cs,0,ct);
+    cass_statement_bind_tuple(cs, 0, ct);
 
     connect_future = cass_session_execute(test_session, cs);
 
@@ -2848,7 +2845,7 @@ TEST(TableMeta, BigIntFromCassandra) {
     std::shared_ptr<const std::vector<ColumnMeta> > cols = table_meta->get_values();
     TupleRowFactory trf = TupleRowFactory(cols);
 
-    std::tuple<long,long> mytuple (55000000000000000,5500000000000001);
+    std::tuple<long, long> mytuple(55000000000000000, 5500000000000001);
     char *buffer2 = (char *) malloc(sizeof(mytuple)); //values
 
     memcpy(buffer2, &mytuple, sizeof(mytuple));
@@ -2859,8 +2856,8 @@ TEST(TableMeta, BigIntFromCassandra) {
     connect_future = cass_session_execute(test_session, cs);
 
     //NOW LET'S TRY TO RETRIEVE THE DATA INSERTED (GET ROW)
-    CassStatement* statement = cass_statement_new("SELECT info FROM test.people", 0);
-    CassFuture* query_future = cass_session_execute(test_session, statement);
+    CassStatement *statement = cass_statement_new("SELECT info FROM test.people", 0);
+    CassFuture *query_future = cass_session_execute(test_session, statement);
     const CassResult *result = cass_future_get_result(query_future);
     rc = cass_future_error_code(connect_future);
     if (result == NULL) {
@@ -2887,11 +2884,11 @@ TEST(TableMeta, BigIntFromCassandra) {
     }
 
     const void *element_i = gvalues[0]->get_element(0);
-    TupleRow** ptr = (TupleRow**) element_i;
-    const TupleRow* inner_data = *ptr;
+    TupleRow **ptr = (TupleRow **) element_i;
+    const TupleRow *inner_data = *ptr;
 
-    int64_t * value = (int64_t*) inner_data->get_element(0);
-    int64_t * value2 = (int64_t*) inner_data->get_element(1);
+    int64_t *value = (int64_t *) inner_data->get_element(0);
+    int64_t *value2 = (int64_t *) inner_data->get_element(1);
 
     std::cout << *value << std::endl;
     std::cout << *value2 << std::endl;
@@ -2933,12 +2930,12 @@ TEST(TableMeta, TwoTextFromCassandra) {
             "CREATE TABLE test.people(dni text PRIMARY KEY, info tuple<text,text>);",
             test_session);
 
-    CassStatement* cs
+    CassStatement *cs
             = cass_statement_new("INSERT INTO test.people(dni, info) VALUES ('socUnDNI2', ?)", 1);
 
-    std::vector <std::map<std::string, std::string>> keysnames = {{{"name", "dni"}}};
+    std::vector<std::map<std::string, std::string>> keysnames = {{{"name", "dni"}}};
 
-    std::vector <std::map<std::string, std::string>> colsnames = {{{"name", "info"}}};
+    std::vector<std::map<std::string, std::string>> colsnames = {{{"name", "info"}}};
 
     TableMetadata *table_meta = new TableMetadata("people", "test", keysnames, colsnames, test_session);
 
@@ -2962,15 +2959,15 @@ TEST(TableMeta, TwoTextFromCassandra) {
     std::shared_ptr<const std::vector<ColumnMeta> > cols = table_meta->get_values();
     TupleRowFactory trf = TupleRowFactory(cols);
 
-    std::tuple<string,string> mytuple;
-    mytuple = make_tuple("quiero","no quiero parsearme");
+    std::tuple<string, string> mytuple;
+    mytuple = make_tuple("quiero", "no quiero parsearme");
 
-    void* buffer = malloc(sizeof(int64_t) * 2);
-    int64_t* buffer2 = (int64_t*)buffer;
+    void *buffer = malloc(sizeof(int64_t) * 2);
+    int64_t *buffer2 = (int64_t *) buffer;
 
 
     memcpy(buffer2, &(get<0>(mytuple)), sizeof(int64_t));
-    memcpy(buffer2+1, &(get<1>(mytuple)), sizeof(int64_t));
+    memcpy(buffer2 + 1, &(get<1>(mytuple)), sizeof(int64_t));
 
     TupleRow *values = new TupleRow(CM.pointer, sizeof(mytuple), buffer2);
     TupleRow *valuess = new TupleRow(table_meta->get_values(), sizeof(mytuple), &values);
@@ -2979,8 +2976,8 @@ TEST(TableMeta, TwoTextFromCassandra) {
     connect_future = cass_session_execute(test_session, cs);
 
     //NOW LET'S TRY TO RETRIEVE THE DATA INSERTED (GET ROW)
-    CassStatement* statement = cass_statement_new("SELECT info FROM test.people", 0);
-    CassFuture* query_future = cass_session_execute(test_session, statement);
+    CassStatement *statement = cass_statement_new("SELECT info FROM test.people", 0);
+    CassFuture *query_future = cass_session_execute(test_session, statement);
     const CassResult *result = cass_future_get_result(query_future);
     rc = cass_future_error_code(connect_future);
     if (result == NULL) {
@@ -3007,11 +3004,11 @@ TEST(TableMeta, TwoTextFromCassandra) {
     }
 
     const void *element_i = gvalues[0]->get_element(0);
-    TupleRow** ptr = (TupleRow**) element_i;
-    const TupleRow* inner_data = *ptr;
+    TupleRow **ptr = (TupleRow **) element_i;
+    const TupleRow *inner_data = *ptr;
 
-    int64_t * value = (int64_t*) inner_data->get_element(0);
-    int64_t * value2 = (int64_t*) inner_data->get_element(1);
+    int64_t *value = (int64_t *) inner_data->get_element(0);
+    int64_t *value2 = (int64_t *) inner_data->get_element(1);
 
     std::cout << reinterpret_cast<char *>(*value) << std::endl;
     std::cout << reinterpret_cast<char *>(*value2) << std::endl;
@@ -3052,12 +3049,12 @@ TEST(TableMeta, BigIntANDTextFromCassandra) {
             "CREATE TABLE test.people(dni text PRIMARY KEY, info tuple<bigint,text>);",
             test_session);
 
-    CassStatement* cs
+    CassStatement *cs
             = cass_statement_new("INSERT INTO test.people(dni, info) VALUES ('socUnDNI2', ?)", 1);
 
-    std::vector <std::map<std::string, std::string>> keysnames = {{{"name", "dni"}}};
+    std::vector<std::map<std::string, std::string>> keysnames = {{{"name", "dni"}}};
 
-    std::vector <std::map<std::string, std::string>> colsnames = {{{"name", "info"}}};
+    std::vector<std::map<std::string, std::string>> colsnames = {{{"name", "info"}}};
 
     TableMetadata *table_meta = new TableMetadata("people", "test", keysnames, colsnames, test_session);
 
@@ -3081,15 +3078,15 @@ TEST(TableMeta, BigIntANDTextFromCassandra) {
     std::shared_ptr<const std::vector<ColumnMeta> > cols = table_meta->get_values();
     TupleRowFactory trf = TupleRowFactory(cols);
 
-    std::tuple<long ,string> mytuple;
-    mytuple = make_tuple(1000000000000000000,"no quiero parsearme");
+    std::tuple<long, string> mytuple;
+    mytuple = make_tuple(1000000000000000000, "no quiero parsearme");
 
-    void* buffer = malloc(sizeof(int64_t) * 2);
-    int64_t* buffer2 = (int64_t*)buffer;
+    void *buffer = malloc(sizeof(int64_t) * 2);
+    int64_t *buffer2 = (int64_t *) buffer;
 
 
     memcpy(buffer2, &(get<0>(mytuple)), sizeof(int64_t));
-    memcpy(buffer2+1, &(get<1>(mytuple)), sizeof(int64_t));
+    memcpy(buffer2 + 1, &(get<1>(mytuple)), sizeof(int64_t));
 
     TupleRow *values = new TupleRow(CM.pointer, sizeof(mytuple), buffer2);
     TupleRow *valuess = new TupleRow(table_meta->get_values(), sizeof(mytuple), &values);
@@ -3098,8 +3095,8 @@ TEST(TableMeta, BigIntANDTextFromCassandra) {
     connect_future = cass_session_execute(test_session, cs);
 
     //NOW LET'S TRY TO RETRIEVE THE DATA INSERTED (GET ROW)
-    CassStatement* statement = cass_statement_new("SELECT info FROM test.people", 0);
-    CassFuture* query_future = cass_session_execute(test_session, statement);
+    CassStatement *statement = cass_statement_new("SELECT info FROM test.people", 0);
+    CassFuture *query_future = cass_session_execute(test_session, statement);
     const CassResult *result = cass_future_get_result(query_future);
     rc = cass_future_error_code(connect_future);
     if (result == NULL) {
@@ -3126,11 +3123,11 @@ TEST(TableMeta, BigIntANDTextFromCassandra) {
     }
 
     const void *element_i = gvalues[0]->get_element(0);
-    TupleRow** ptr = (TupleRow**) element_i;
-    const TupleRow* inner_data = *ptr;
+    TupleRow **ptr = (TupleRow **) element_i;
+    const TupleRow *inner_data = *ptr;
 
-    int64_t * value = (int64_t*) inner_data->get_element(0);
-    int64_t * value2 = (int64_t*) inner_data->get_element(1);
+    int64_t *value = (int64_t *) inner_data->get_element(0);
+    int64_t *value2 = (int64_t *) inner_data->get_element(1);
 
     std::cout << (*value) << std::endl;
     std::cout << reinterpret_cast<char *>(*value2) << std::endl;

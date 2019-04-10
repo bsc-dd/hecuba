@@ -15,7 +15,6 @@ class IStorage:
     args_names = []
     args = namedtuple("IStorage", [])
     _build_args = args()
-    _built_remotely = False
     _valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map', 'bigint', 'blob',
                     'tuple', 'dict', 'float', 'numpy.ndarray']
 
@@ -200,8 +199,6 @@ class IStorage:
         args.pop('class_name', None)
 
         built_object = imported_class(**args)
-
-        built_object._built_remotely = True
 
         return built_object
 

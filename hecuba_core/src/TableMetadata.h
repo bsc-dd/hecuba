@@ -48,7 +48,6 @@ public:
                   const CassSession *session);
 
 
-
     std::shared_ptr<const std::vector<ColumnMeta> > get_keys() const {
         return keys;
     }
@@ -95,6 +94,7 @@ public:
 
 private:
     uint16_t compute_size_of(const ColumnMeta &CM) const;
+
     std::map<std::string, ColumnMeta> getMetaTypes(CassIterator *iterator);
 
     //uint32_t total_bytes;

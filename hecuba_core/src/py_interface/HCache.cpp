@@ -506,7 +506,7 @@ static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
     const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
 
     PyObject *numpy;
-    try{
+    try {
         numpy = self->NumpyDataStore->read(storage_id);
     }
     catch (std::exception &e) {
