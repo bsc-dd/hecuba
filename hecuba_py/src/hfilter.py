@@ -6,9 +6,9 @@ from hecuba import config
 from hecuba.qbeast import QbeastIterator, QbeastMeta
 
 from IStorage import IStorage
-from hecuba.hdict import NamedItemsIterator
+from hecuba.tools import NamedItemsIterator
 
-magical_regex = regex.compile(r'(?:\d+(?:\.\d+)?|\w|"\w+")+|[^\s\w\_]')
+magical_regex = regex.compile('(?:\d+(?:\.\d+)?|\w|"\w+")+|[^\s\w\_]')
 
 
 def func_to_str(func):
