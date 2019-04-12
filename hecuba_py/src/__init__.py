@@ -251,10 +251,6 @@ class Config:
                 log.error('Exception creating cluster session. Are you in a testing env? %s', e)
 
 
-filter_reg = re.compile(' *lambda *\( *\( *([\w, ]+) *\) *, *\( *([\w, ]+) *\) *\) *: *([\w<>().&*+/ ]+) *,')
-random_reg = re.compile('(.*)((random.random\(\)|random\(\)) *< *([0.1]))(.*)')
-
-
 global config
 config = Config()
 
