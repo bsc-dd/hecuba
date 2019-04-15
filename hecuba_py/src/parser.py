@@ -6,37 +6,46 @@ from IStorage import IStorage
 
 class Parser(object):
     args_names = ["type_parser"]
+    split_dtypes_regex = re.compile('^(tuple|set)<(.*)>$')
 
     def _append_values_to_list_after_replace(self, vals):
+        """
+        Receives a list of data types. Strips the outermost data type.
+        Returns:
+            typev: list of the outer data types, with the keyword "simple" if not found
+            finalvars: list of the corresponding internal data types
+        """
         typev = []
         finalvars = []
-
         for var in vals:
-            aux = var
-            if var.count("tuple") > 0:
-                typev.append("tuple")
-                aux = aux.replace('tuple', '').replace('<', '').replace('>', '')
-            elif var.count("set") > 0:
-                typev.append("set")
-                aux = aux.replace('set', '').replace('<', '').replace('>', '')
+            res = self.split_dtypes_regex.search(var)
+            if res:
+                typev.append(res.group(1))
+                finalvars.append(res.group(2))
             else:
                 typev.append("simple")
-            finalvars.append(aux)
+                finalvars.append(var)
         return typev, finalvars
 
     def _get_str_primary_keys_values(self, pk):
-        pk = pk[5:]
-        count = 0
+        pk = pk.replace("dict", "", 1).strip()
+
+        # Find point to split keys from values
+        n_brackets = 0
         pos = 0
-        for c in pk:
-            pos = pos + 1
+        for pos, c in enumerate(pk):
             if c == '<':
-                count = count + 1
+                n_brackets = n_brackets + 1
             elif c == '>':
-                count = count - 1
-            if count == 0: break
-        keys = pk[1:pos - 1]
-        values = pk[pos + 1:len(pk) - 1]
+                n_brackets = n_brackets - 1
+                if n_brackets == 1:
+                    break
+
+        keys = pk[2:pos]
+        values = pk[pos + 2:len(pk) - 1]
+
+        if not keys:
+            raise SyntaxError("Can't detect the keys in the TypeSpec")
 
         # We get the variables
 
@@ -97,8 +106,8 @@ class Parser(object):
                     cname, module = IStorage.process_path(route)
                     try:
                         mod = __import__(module, globals(), locals(), [cname], 0)
-                    except ValueError:
-                        raise ValueError("Can't import class {} from module {}".format(cname, module))
+                    except ImportError:
+                        raise ImportError("Can't import class {} from module {}".format(cname, module))
                     string_str = ',("%s", "%s")' % (t1, t)
                 else:
                     type = IStorage._conversions[t]
@@ -175,8 +184,8 @@ class Parser(object):
         cname, module = IStorage.process_path(route)
         try:
             mod = __import__(module, globals(), locals(), [cname], 0)
-        except ValueError:
-            raise ValueError("Can't import class {} from module {}".format(cname, module))
+        except (ImportError, ValueError) as ex:
+            raise ImportError("Can't import class {} from module {}".format(cname, module))
         output["type"] = str(route)
         if table_name in new:
             new[table_name].update(output)
@@ -206,7 +215,7 @@ class Parser(object):
         if line.count('<') == 1:  # is tuple, set, list
             aux = self._parse_set_tuple_list(line, this)
         elif line.count('<') == 0 and line.count('Index_on') == 0 and line.count('.') == 0 or (
-                line.count('numpy.ndarray') and line.count('dict') == 0):  # is simple type
+                    line.count('numpy.ndarray') and line.count('dict') == 0):  # is simple type
             aux = self._parse_simple(line, this)
         elif line.count('Index_on') == 1:
             aux = self._parse_index(line, this)
