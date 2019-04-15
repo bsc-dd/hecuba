@@ -106,7 +106,7 @@ class Parser(object):
                     cname, module = IStorage.process_path(route)
                     try:
                         mod = __import__(module, globals(), locals(), [cname], 0)
-                    except ImportError:
+                    except (ImportError, ValueError) as ex:
                         raise ImportError("Can't import class {} from module {}".format(cname, module))
                     string_str = ',("%s", "%s")' % (t1, t)
                 else:
