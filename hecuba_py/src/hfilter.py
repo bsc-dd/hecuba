@@ -61,6 +61,9 @@ def transform_to_correct_type(final_list, dictv):
     for elem in final_list:
         aux = []
         for i, value in enumerate(elem):
+            if isinstance(value, unicode):
+                value = str(value)
+
             if isinstance(value, (int, float, Iterable)) and not isinstance(value, str):
                 aux.append(value)
             elif not value.find('"') == -1:
@@ -92,6 +95,7 @@ def parse_lambda(func):
 
     for i, elem in enumerate(parsed_string):
         if i > 0:
+            elem = str(elem)
             if elem == '=' and simplified_filter[-1] == "=":
                 pass
             elif elem == '=' and (simplified_filter[-1] == "<" or simplified_filter[-1] == ">"):
@@ -99,7 +103,7 @@ def parse_lambda(func):
             elif simplified_filter[-1][-1] == ".":
                 simplified_filter[-1] += elem
             elif elem == ".":
-                simplified_filter[-1] = simplified_filter[-1] + elem
+                simplified_filter[-1] = str(simplified_filter[-1] + elem)
             else:
                 simplified_filter.append(elem)
         else:
@@ -112,11 +116,12 @@ def parse_lambda(func):
 
     # Combine set or tuple
     for i, elem in enumerate(simplified_filter):
-        if elem is "[":
+        elem = str(elem)
+        if elem == "[":
             index = simplified_filter[i:].index(']')
             c = ''.join(simplified_filter[i:index + i + 1])
             simplified_filter[i:index + i + 1] = [eval(c)]
-        elif elem is '(':
+        elif elem == '(':
             index = simplified_filter[i:].index(')')
             c = ''.join(simplified_filter[i:index + i + 1])
             joined_tuple = eval(c)
@@ -143,13 +148,11 @@ def parse_lambda(func):
 
             final_list.append(sublist)
     else:
-
         sublist = substit_var(simplified_filter, func_vars, dictv)
         final_list.append(sublist)
-    # Replace types for correct ones
 
+    # Replace types for correct ones
     final_list = transform_to_correct_type(final_list, dictv)
-    # print(final_list)
     return final_list
 
 
