@@ -119,7 +119,12 @@ def parse_lambda(func):
         elif elem is '(':
             index = simplified_filter[i:].index(')')
             c = ''.join(simplified_filter[i:index + i + 1])
-            simplified_filter[i:index + i + 1] = [eval(c)]
+            joined_tuple = eval(c)
+            if len(joined_tuple) > 0:
+                simplified_filter[i:index + i + 1] = [joined_tuple]
+            else:
+                simplified_filter[i:index + i + 1] = []
+                simplified_filter[i-1] += "()"
 
     # Creating sublists
     lastpos = 0
@@ -133,8 +138,6 @@ def parse_lambda(func):
             else:
                 newpos = len(simplified_filter)
             sublist = simplified_filter[lastpos:newpos]
-            if () in sublist:
-                sublist.remove(())
             lastpos = newpos + 1
             sublist = substit_var(sublist, func_vars, dictv)
 
