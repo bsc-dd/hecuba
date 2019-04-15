@@ -15,6 +15,7 @@ class IStorage:
     args_names = []
     args = namedtuple("IStorage", [])
     _build_args = args()
+
     _valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map', 'bigint', 'blob',
                     'tuple', 'dict', 'float', 'numpy.ndarray']
 
@@ -198,9 +199,7 @@ class IStorage:
         args = {k: v for k, v in args.items() if k in imported_class.args_names}
         args.pop('class_name', None)
 
-        built_object = imported_class(**args)
-
-        return built_object
+        return imported_class(**args)
 
     @staticmethod
     def _store_meta(storage_args):
