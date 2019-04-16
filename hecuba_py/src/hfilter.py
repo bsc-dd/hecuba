@@ -23,7 +23,7 @@ def func_to_str(func):
 def substit_var(final_list, func_vars, dictv):
     list_with_values = []
     for elem in final_list:
-        if not isinstance(elem, str) and isinstance(elem, Iterable):
+        if not isinstance(elem, (str, unicode)) and isinstance(elem, Iterable):
             list_with_values.append(elem)
         elif (elem != 'in' and not isinstance(elem, int) and not regex.match(r'[^\s\w]', elem)) and not elem.isdigit():
             i = elem.find('.')
@@ -61,10 +61,7 @@ def transform_to_correct_type(final_list, dictv):
     for elem in final_list:
         aux = []
         for i, value in enumerate(elem):
-            if isinstance(value, unicode):
-                value = str(value)
-
-            if isinstance(value, (int, float, Iterable)) and not isinstance(value, str):
+            if isinstance(value, (int, float, Iterable)) and not isinstance(value, (str, unicode)):
                 aux.append(value)
             elif not value.find('"') == -1:
                 aux.append(value.replace('"', ''))
@@ -79,7 +76,7 @@ def transform_to_correct_type(final_list, dictv):
             else:
                 aux.append(value)
 
-        if (isinstance(aux[0], str) and aux[0].isdigit()) or isinstance(aux[0], int):
+        if (isinstance(aux[0], (str, unicode)) and aux[0].isdigit()) or isinstance(aux[0], int):
             aux.reverse()
             aux[1] = reverse_comparison[aux[1]]
 
@@ -91,11 +88,11 @@ def transform_to_correct_type(final_list, dictv):
 def parse_lambda(func):
     func_vars, clean_string = func_to_str(func)
     parsed_string = magical_regex.findall(clean_string)
+    parsed_string = [unicode(s) for s in parsed_string]
     simplified_filter = []
 
     for i, elem in enumerate(parsed_string):
         if i > 0:
-            elem = str(elem)
             if elem == '=' and simplified_filter[-1] == "=":
                 pass
             elif elem == '=' and (simplified_filter[-1] == "<" or simplified_filter[-1] == ">"):
@@ -103,7 +100,7 @@ def parse_lambda(func):
             elif simplified_filter[-1][-1] == ".":
                 simplified_filter[-1] += elem
             elif elem == ".":
-                simplified_filter[-1] = str(simplified_filter[-1] + elem)
+                simplified_filter[-1] = simplified_filter[-1] + elem
             else:
                 simplified_filter.append(elem)
         else:
@@ -112,11 +109,10 @@ def parse_lambda(func):
     # Getting variables
     dictv = {}
     for i, elem in enumerate(func.__code__.co_freevars):
-        dictv[str(elem)] = func.__closure__[i].cell_contents
+        dictv[elem] = func.__closure__[i].cell_contents
 
     # Combine set or tuple
     for i, elem in enumerate(simplified_filter):
-        elem = str(elem)
         if elem == "[":
             index = simplified_filter[i:].index(']')
             c = ''.join(simplified_filter[i:index + i + 1])
@@ -229,7 +225,7 @@ class Predicate:
         else:
             self.predicate = ""
 
-        if isinstance(value, str):
+        if isinstance(value, (str, unicode)):
             value = "'{}'".format(value)
 
         self.predicate += " {} {} {}".format(col, comp, value)
@@ -249,7 +245,7 @@ class Predicate:
 
         self.predicate += " {} IN (".format(col)
         for value in values:
-            if isinstance(value, str):
+            if isinstance(value, (str, unicode)):
                 value = "'{}'".format(value)
             self.predicate += "{}, ".format(value)
         self.predicate = self.predicate[:-2] + ")"
