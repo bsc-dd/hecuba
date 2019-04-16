@@ -1,9 +1,7 @@
 #ifndef HFETCH_NUMPYSTORAGE_H
 #define HFETCH_NUMPYSTORAGE_H
 
-#include "../StorageInterface.h"
-#include "../SpaceFillingCurve.h"
-
+#include "../ArrayDataStore.h"
 
 #include <python2.7/Python.h>
 #include <climits>
@@ -19,36 +17,25 @@
  * Responsible to store a numpy to the keyspace.table_numpies, associating an attribute_name and a storage_id(uuid)
  */
 
-class NumpyStorage {
+class NumpyStorage : public ArrayDataStore {
 
 public:
 
-    NumpyStorage(const TableMetadata *table_meta, std::shared_ptr<StorageInterface> storage,
+    NumpyStorage(CacheTable *cache, CacheTable *read_cache,
                  std::map<std::string, std::string> &config);
 
     ~NumpyStorage();
 
-    void store(const uint64_t *storage_id, PyArrayObject *numpy) const;
+    void store_numpy(const uint64_t *storage_id, PyArrayObject *numpy) const;
 
-    PyObject *read(const uint64_t *storage_id);
-
-    PyObject *read_by_tokens(const uint64_t *storage_id, const std::vector<std::pair<int64_t, int64_t>> &tokens);
+    PyObject *read_numpy(const uint64_t *storage_id);
 
 
 private:
 
-    const ArrayMetadata *read_array_meta(const uint64_t *storage_id, CacheTable *cache) const;
-
-    void store_array_meta(const uint64_t *storage_id, ArrayMetadata *np_metas) const;
-
-    void store_entire_array(const uint64_t *storage_id, ArrayMetadata *np_metas, PyArrayObject *numpy) const;
-
     ArrayMetadata *get_np_metadata(PyArrayObject *numpy) const;
 
-    std::shared_ptr<StorageInterface> storage;
-    Writer *writer;
 
-    SpaceFillingCurve partitioner;
 
 };
 

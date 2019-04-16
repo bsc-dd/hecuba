@@ -470,7 +470,7 @@ static PyObject *save_numpy(HNumpyStore *self, PyObject *args) {
 
     // 1 Extract metadatas && write data
     try {
-        self->NumpyDataStore->store(storage_id, numpy_arr);
+        self->NumpyDataStore->store_numpy(storage_id, numpy_arr);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -507,7 +507,7 @@ static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
 
     PyObject *numpy;
     try{
-        numpy = self->NumpyDataStore->read(storage_id);
+        numpy = self->NumpyDataStore->read_numpy(storage_id);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -522,7 +522,9 @@ static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
 
 
 static void hnumpy_store_dealloc(HNumpyStore *self) {
-    delete (self->NumpyDataStore);
+    delete(self->NumpyDataStore);
+    delete(self->cache);
+    delete(self->read_cache);
     self->ob_type->tp_free((PyObject *) self);
 }
 
@@ -619,9 +621,18 @@ static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) 
 
 
     try {
-        TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names,
-                                                      storage->get_session());
-        self->NumpyDataStore = new NumpyStorage(table_meta, storage, config);
+        self->cache = storage->make_cache(table, keyspace, keys_names, columns_names, config);
+        std::vector<std::map<std::string, std::string>> read_keys_names(keys_names.begin(), (keys_names.end()-1));
+        std::vector<std::map<std::string, std::string>> read_columns_names = columns_names;
+
+
+        read_columns_names.insert(read_columns_names.begin(),keys_names.back());
+
+
+        self->read_cache = storage->make_cache(table, keyspace, read_keys_names, read_columns_names, config);
+
+
+        self->NumpyDataStore = new NumpyStorage(self->cache, self->read_cache, config);
     } catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return -1;
