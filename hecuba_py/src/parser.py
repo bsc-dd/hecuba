@@ -1,27 +1,51 @@
 import re
-import ast
 from itertools import count
-import json
 
 from IStorage import IStorage
 
 
 class Parser(object):
     args_names = ["type_parser"]
+    split_dtypes_regex = re.compile('^(tuple|set)<(.*)>$')
+
+    def _append_values_to_list_after_replace(self, vals):
+        """
+        Receives a list of data types. Strips the outermost data type.
+        Returns:
+            typev: list of the outer data types, with the keyword "simple" if not found
+            finalvars: list of the corresponding internal data types
+        """
+        typev = []
+        finalvars = []
+        for var in vals:
+            res = self.split_dtypes_regex.search(var)
+            if res:
+                typev.append(res.group(1))
+                finalvars.append(res.group(2))
+            else:
+                typev.append("simple")
+                finalvars.append(var)
+        return typev, finalvars
 
     def _get_str_primary_keys_values(self, pk):
-        pk = pk[5:]
-        count = 0
+        pk = pk.replace("dict", "", 1).strip()
+
+        # Find point to split keys from values
+        n_brackets = 0
         pos = 0
-        for c in pk:
-            pos = pos + 1
+        for pos, c in enumerate(pk):
             if c == '<':
-                count = count + 1
+                n_brackets = n_brackets + 1
             elif c == '>':
-                count = count - 1
-            if count == 0: break
-        keys = pk[1:pos - 1]
-        values = pk[pos + 1:len(pk) - 1]
+                n_brackets = n_brackets - 1
+                if n_brackets == 1:
+                    break
+
+        keys = pk[2:pos]
+        values = pk[pos + 2:len(pk) - 1]
+
+        if not keys:
+            raise SyntaxError("Can't detect the keys in the TypeSpec")
 
         # We get the variables
 
@@ -40,41 +64,14 @@ class Parser(object):
 
         valsc = keys[1:].split(', ')  # all valuesk separated by comma
 
-        typevk = []
-        finalvarsk = []
-        for var in valsc:
-            aux = var
-            if var.count("tuple") > 0:
-                typevk.append("tuple")
-                aux = aux.replace('tuple', '').replace('<', '').replace('>', '')
-            elif var.count("set") > 0:
-                typevk.append("set")
-                aux = aux.replace('set', '').replace('<', '').replace('>', '')
-            else:
-                typevk.append("simple")
-            finalvarsk.append(aux)
-
-        # We get the valuesv
+        typevk, finalvarsk = self._append_values_to_list_after_replace(valsc)
 
         for var in varsv:
             values = values.replace(var, ' ')
 
         valsc1 = values[1:].split(', ')  # all valuesk separated by comma
 
-        typevv = []
-        finalvarsv = []
-        for var in valsc1:
-            aux = var
-            if var.count("tuple") > 0:
-                typevv.append("tuple")
-                aux = aux.replace('tuple', '').replace('<', '').replace('>', '')
-            elif var.count("set") > 0:
-                typevv.append("set")
-                aux = aux.replace('set', '').replace('<', '').replace('>', '')
-            else:
-                typevv.append("simple")
-            finalvarsv.append(aux)
-
+        typevv, finalvarsv = self._append_values_to_list_after_replace(valsc1)
         return varskc, varsvc, finalvarsk, finalvarsv, typevk, typevv
 
     def _set_or_tuple(self, type, pk_col, t, t1):
@@ -109,8 +106,8 @@ class Parser(object):
                     cname, module = IStorage.process_path(route)
                     try:
                         mod = __import__(module, globals(), locals(), [cname], 0)
-                    except ValueError:
-                        raise ValueError("Can't import class {} from module {}".format(cname, module))
+                    except (ImportError, ValueError) as ex:
+                        raise ImportError("Can't import class {} from module {}".format(cname, module))
                     string_str = ',("%s", "%s")' % (t1, t)
                 else:
                     type = IStorage._conversions[t]
@@ -198,8 +195,8 @@ class Parser(object):
         cname, module = IStorage.process_path(route)
         try:
             mod = __import__(module, globals(), locals(), [cname], 0)
-        except ValueError:
-            raise ValueError("Can't import class {} from module {}".format(cname, module))
+        except (ImportError, ValueError) as ex:
+            raise ImportError("Can't import class {} from module {}".format(cname, module))
         output["type"] = str(route)
         if table_name in new:
             new[table_name].update(output)
@@ -208,11 +205,11 @@ class Parser(object):
         return new
 
     def _parse_set_tuple_list(self, line, this):
-        if (line.count('set')) > 0:
+        if line.count('set') > 0:
             return self._parse_set_or_tuple('set', line, 'primary_keys', this)
-        elif (line.count('tuple')) > 0:
+        elif line.count('tuple') > 0:
             return self._parse_set_or_tuple('tuple', line, 'columns', this)
-        elif (line.count('list')) > 0:
+        elif line.count('list') > 0:
             return self._parse_set_or_tuple('list', line, 'columns', this)
 
     def _parse_simple(self, line, this):
@@ -227,16 +224,16 @@ class Parser(object):
 
     def _input_type(self, line, this):
         if line.count('<') == 1:  # is tuple, set, list
-            aux = (self._parse_set_tuple_list(line, this))
-        elif (line.count('<') == 0 and line.count('Index_on') == 0 and line.count('.') == 0 or (
-                line.count('numpy.ndarray') and line.count('dict') == 0)):  # is simple type
-            aux = (self._parse_simple(line, this))
+            aux = self._parse_set_tuple_list(line, this)
+        elif line.count('<') == 0 and line.count('Index_on') == 0 and line.count('.') == 0 or (
+                    line.count('numpy.ndarray') and line.count('dict') == 0):  # is simple type
+            aux = self._parse_simple(line, this)
         elif line.count('Index_on') == 1:
             aux = self._parse_index(line, this)
         elif line.count('.') > 0 and line.count('dict') == 0:
             aux = self._parse_file(line, this)
         else:  # is dict
-            aux = (self._parse_dict(line, this))
+            aux = self._parse_dict(line, this)
         return aux
 
     def _remove_spaces_from_line(self, line):
