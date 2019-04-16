@@ -1,6 +1,6 @@
 from collections import Iterable
 
-import regex
+import re
 import inspect
 from hecuba import config
 from hecuba.qbeast import QbeastIterator, QbeastMeta
@@ -8,7 +8,8 @@ from hecuba.qbeast import QbeastIterator, QbeastMeta
 from IStorage import IStorage
 from hecuba.tools import NamedItemsIterator
 
-magical_regex = regex.compile('(?:\d+(?:\.\d+)?|\w|"\w+")+|[^\s\w\_]')
+magical_regex = re.compile(r'(?:\d+(?:\.\d+)?|\w|"\w+")+|[^\s\w\_]')
+is_numerical = re.compile(r'\d+(\.\d+)?')
 
 
 def func_to_str(func):
@@ -25,7 +26,7 @@ def substit_var(final_list, func_vars, dictv):
     for elem in final_list:
         if not isinstance(elem, (str, unicode)) and isinstance(elem, Iterable):
             list_with_values.append(elem)
-        elif (elem != 'in' and not isinstance(elem, int) and not regex.match(r'[^\s\w]', elem)) and not elem.isdigit():
+        elif (elem != 'in' and not isinstance(elem, int) and not re.match(r'[^\s\w]', elem)) and not elem.isdigit():
             i = elem.find('.')
             if i > 0:
                 elem_var = elem[:i]
@@ -48,11 +49,7 @@ def substit_var(final_list, func_vars, dictv):
 
 
 def is_float(var):
-    try:
-        float(var)
-        return True
-    except ValueError:
-        return False
+    return is_numerical.match(var) is not None
 
 
 def transform_to_correct_type(final_list, dictv):
@@ -127,22 +124,13 @@ def parse_lambda(func):
                 simplified_filter[i:index + i + 1] = []
                 simplified_filter[i-1] += "()"
 
-    # Creating sublists
-    lastpos = 0
-    newpos = 0
     final_list = []
-    if len(simplified_filter) > 3:
-        while newpos < len(simplified_filter):
-            if 'and' in simplified_filter[lastpos:]:
-                newpos = simplified_filter[lastpos:].index('and')
-                newpos = newpos + lastpos
-            else:
-                newpos = len(simplified_filter)
-            sublist = simplified_filter[lastpos:newpos]
-            lastpos = newpos + 1
-            sublist = substit_var(sublist, func_vars, dictv)
-
-            final_list.append(sublist)
+    while 'and' in simplified_filter:
+        i = simplified_filter.index('and')
+        sublist = simplified_filter[:i]
+        sublist = substit_var(sublist, func_vars, dictv)
+        final_list.append(sublist)
+        simplified_filter[:i+1] = []
     else:
         sublist = substit_var(simplified_filter, func_vars, dictv)
         final_list.append(sublist)

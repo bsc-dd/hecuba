@@ -60,6 +60,19 @@ class QbeastStorageDictTest(unittest.TestCase):
         for row in filtered_list:
             self.assertTrue((tuple(row.key), list(row.value)) in normal_filtered)
 
+    def testCanBeRebuilt(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.indexed_dict")
+        config.session.execute("DROP TABLE IF EXISTS my_app_qbeast.indexed_dict_indexed_dict_idx_d8tree")
+        d = TestIndexObj("my_app.indexed_dict")
+        for i in range(0, 30):
+            d[i, i + 1.0] = [i * 0.1 / 9.0, i * 0.2 / 9.0, i * 0.3 / 9.0]
+
+        time.sleep(1)
+
+        from storage.api import getByID
+        it2 = getByID(d.getID())
+        self.assertEqual(d.getID(), it2.getID())
+
     def testBuildRemotely(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.indexed_dict")
         config.session.execute("DROP TABLE IF EXISTS my_app_qbeast.indexed_dict_indexed_dict_idx_d8tree")
@@ -84,6 +97,20 @@ class QbeastStorageDictTest(unittest.TestCase):
         filtered = filter(lambda row: row.x > 0.0 and row.x < 1.0 and row.y > 0.0 and row.y < 1.0 and row.z > 0.0 and row.z < 1.0, rebuild.iteritems())
         for k, v in filtered:
             self.assertEqual(what_should_be[k], list(v))
+
+    def testSplitBuildRemotely(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.indexed_dict")
+        config.session.execute("DROP TABLE IF EXISTS my_app_qbeast.indexed_dict_indexed_dict_idx_d8tree")
+        d = TestIndexObj("my_app.indexed_dict")
+        what_should_be = dict()
+        for i in range(0, 30):
+            what_should_be[i, i + 1.0] = [i * 0.1 / 9.0, i * 0.2 / 9.0, i * 0.3 / 9.0]
+            d[i, i + 1.0] = [i * 0.1 / 9.0, i * 0.2 / 9.0, i * 0.3 / 9.0]
+
+        for partition in d.split():
+            rebuild = StorageDict.build_remotely(partition._build_args._asdict())
+            for k, v in rebuild.iteritems():
+                self.assertEqual(what_should_be[k], list(v))
 
     def test_precision(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.indexed_dict")

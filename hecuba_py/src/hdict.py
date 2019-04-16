@@ -264,11 +264,7 @@ class StorageDict(dict, IStorage):
             self._persistent_props = self._parse_comments(self.__doc__)
             self._primary_keys = self._persistent_props['primary_keys']
             self._columns = self._persistent_props['columns']
-
-            try:
-                self._indexed_on = self._persistent_props['indexed_on']
-            except KeyError:
-                self._indexed_on = indexed_on
+            self._indexed_on = self._persistent_props.get('indexed_on', indexed_on)
         else:
             self._primary_keys = primary_keys
             set_pks = []
