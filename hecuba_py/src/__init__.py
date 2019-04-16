@@ -1,7 +1,7 @@
 import os
 import logging
 from cassandra.cluster import Cluster
-from cassandra.policies import RetryPolicy
+from cassandra.policies import RetryPolicy, RoundRobinPolicy, TokenAwarePolicy
 import re
 
 # Set default log.handler to avoid "No handler found" warnings.
@@ -210,7 +210,7 @@ class Config:
         else:
             log.info('Initializing global session')
             try:
-                singleton.cluster = Cluster(contact_points=singleton.contact_names, port=singleton.nodePort,
+                singleton.cluster = Cluster(contact_points=singleton.contact_names, load_balancing_policy=TokenAwarePolicy(RoundRobinPolicy()), port=singleton.nodePort,
                                             default_retry_policy=_NRetry(5))
                 singleton.session = singleton.cluster.connect()
                 singleton.session.encoder.mapping[tuple] = singleton.session.encoder.cql_encode_tuple
