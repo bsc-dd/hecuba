@@ -1,18 +1,13 @@
+import random
+import string
 import uuid
 from collections import namedtuple
-from exceptions import ValueError
-from struct import *
 
-from hecuba import config
-from hecuba import log
-from hecuba.IStorage import IStorage
-from thrift.protocol import TBinaryProtocol
-from thrift.transport import TSocket
-from thrift.transport import TTransport
-from hecuba.qthrift import QbeastMaster
-from hecuba.qthrift import QbeastWorker
-from hecuba.qthrift.ttypes import BasicTypes
-from hecuba.qthrift.ttypes import FilteringArea
+from hecuba import config, log
+from hecuba.tools import NamedItemsIterator
+from hfetch import Hcache
+
+from IStorage import IStorage
 
 
 class QbeastMeta(object):
@@ -30,36 +25,17 @@ class QbeastIterator(IStorage):
     """
     Object used to access data from workers.
     """
-    args_names = ['primary_keys', 'columns', 'name', 'qbeast_meta', 'qbeast_id',
-                  'entry_point', 'storage_id', 'tokens', 'class_name']
+    args_names = ['primary_keys', 'columns', 'indexed_on', 'name', 'qbeast_meta', 'qbeast_random',
+                  'storage_id', 'tokens', 'class_name']
     _building_args = namedtuple('StorageDictArgs', args_names)
     _prepared_store_meta = config.session.prepare(
         'INSERT INTO hecuba.istorage'
         '(primary_keys, columns, name, qbeast_meta,'
-        ' qbeast_id, entry_point, storage_id, tokens, class_name)'
-        'VALUES (?,?,?,?,?,?,?,?,?)')
-    _prepared_set_qbeast_id = config.session.prepare(
-        'INSERT INTO hecuba.istorage (storage_id,qbeast_id)VALUES (?,?)')
+        ' qbeast_random, storage_id, tokens, class_name)'
+        'VALUES (?,?,?,?,?,?,?,?)')
+    _prepared_set_qbeast_meta = config.session.prepare(
+        'INSERT INTO hecuba.istorage (storage_id, qbeast_meta)VALUES (?,?)')
     _row_namedtuple = namedtuple("row", "key,value")
-
-    @staticmethod
-    def build_remotely(result):
-        """
-        Launches the Block.__init__ from the api.getByID
-        Args:
-            result: a namedtuple with all  the information needed to create again the block
-        """
-        log.debug("Building Storage dict with %s", result)
-
-        return QbeastIterator(result.primary_keys,
-                              result.columns,
-                              result.name,
-                              result.qbeast_meta,
-                              result.qbeast_id,
-                              result.entry_point,
-                              result.storage_id,
-                              result.tokens
-                              )
 
     @staticmethod
     def _store_meta(storage_args):
@@ -71,8 +47,7 @@ class QbeastIterator(IStorage):
                                     storage_args.columns,
                                     storage_args.name,
                                     storage_args.qbeast_meta,
-                                    storage_args.qbeast_id,
-                                    storage_args.entry_point,
+                                    storage_args.qbeast_random,
                                     storage_args.storage_id,
                                     storage_args.tokens,
                                     storage_args.class_name])
@@ -80,29 +55,27 @@ class QbeastIterator(IStorage):
             log.error("Error creating the StorageDictIx metadata: %s %s", storage_args, ex)
             raise ex
 
-    def __init__(self, primary_keys, columns, name, qbeast_meta,
-                 qbeast_id=None,
-                 entry_point=None, storage_id=None, tokens=None):
+    def __init__(self, primary_keys, columns, indexed_on, name, qbeast_meta=None, qbeast_random=None,
+                 storage_id=None, tokens=None):
         """
         Creates a new block.
         Args:
-            table_name (string): the name of the collection/table
-            keyspace_name (string): name of the Cassandra keyspace.
             primary_keys (list(tuple)): a list of (key,type) primary keys (primary + clustering).
             columns (list(tuple)): a list of (key,type) columns
-            tokens (list): list of tokens
+            indexed_on (list(str)): a list of the names of the indexed columns
+            name (string): keyspace.table of the Cassandra collection
+            qbeast_random (str): qbeast random string, when selecting in different nodes this must have the same value
             storage_id (uuid): the storage id identifier
+            tokens (list): list of tokens
         """
         log.debug("CREATED QbeastIterator(%s,%s,%s,%s)", storage_id, tokens, )
-        self._selects = map(lambda a: a[0], primary_keys + columns)
-        key_namedtuple = namedtuple("key", map(lambda a: a[0], primary_keys))
-        value_namedtuple = namedtuple("value", map(lambda a: a[0], columns))
-        div = len(primary_keys)
-        self._row_builder = lambda a: self._row_namedtuple(key_namedtuple(*a[:div]), value_namedtuple(*a[div:]))
         (self._ksp, self._table) = self._extract_ks_tab(name)
+        self._indexed_on = indexed_on
         self._qbeast_meta = qbeast_meta
-        self._qbeast_id = qbeast_id
-        self._entry_point = entry_point
+        if qbeast_random is None:
+            self._qbeast_random = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(5))
+        else:
+            self._qbeast_random = qbeast_random
         if tokens is None:
             log.info('using all tokens')
             tokens = map(lambda a: a.value, config.cluster.metadata.token_map.ring)
@@ -112,9 +85,19 @@ class QbeastIterator(IStorage):
 
         class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
 
-        # primary_keys columns name tokens
-        # indexed_args nonindexed_args value_list
-        # mem_filter port storage_id class_name
+        key_names = [pkname for (pkname, dt) in primary_keys]
+        column_names = [colname for (colname, dt) in columns]
+        if len(key_names) > 1:
+            self._key_builder = namedtuple('row', key_names)
+        else:
+            self._key_builder = None
+        if len(column_names) > 1:
+            self._column_builder = namedtuple('row', column_names)
+        else:
+            self._column_builder = None
+
+        self._k_size = len(primary_keys)
+
         if storage_id is None:
             self._storage_id = uuid.uuid4()
             save = True
@@ -124,76 +107,30 @@ class QbeastIterator(IStorage):
         self._build_args = self._building_args(
             primary_keys,
             columns,
+            self._indexed_on,
             self._ksp + "." + self._table,
-            qbeast_meta,
-            qbeast_id,
-            entry_point,
+            self._qbeast_meta,
+            self._qbeast_random,
             self._storage_id,
             self._tokens,
             class_name)
         if save:
             self._store_meta(self._build_args)
 
-    def split(self):
-        """
-        Initializes the iterator, and saves the information about the token ranges of each block
-        Args:
-            my_dict (PersistentDict): Hecuba PersistentDict
-        """
-        splits = [s for s in IStorage.split(self)]
+        persistent_columns = [{"name": col[0], "type": col[1]} for col in columns]
+        self._hcache_params = (self._ksp, self._table,
+                               self._storage_id,
+                               self._tokens, key_names, persistent_columns,
+                               {'cache_size': config.max_cache_size,
+                                'writer_par': config.write_callbacks_number,
+                                'writer_buffer': config.write_buffer_size})
+        log.debug("HCACHE params %s", self._hcache_params)
+        self._hcache = Hcache(*self._hcache_params)
 
-        if type(config.qbeast_entry_node) == list:
-            qbeast_node = config.qbeast_entry_node[0]
-        else:
-            qbeast_node = config.qbeast_entry_node
-
-        transport = TSocket.TSocket(qbeast_node, config.qbeast_master_port)
-
-        # Buffering is critical. Raw sockets are very slow
-        transport = TTransport.TFramedTransport(transport)
-
-        # Wrap in a protocol
-        protocol = TBinaryProtocol.TBinaryProtocol(transport)
-
-        # Create a client to use the protocol encoder
-        client = QbeastMaster.Client(protocol)
-
-        # Connect!
-        transport.open()
-
-        area = FilteringArea(fromPoint=self._qbeast_meta.from_point,
-                             toPoint=self._qbeast_meta.to_point)
-        uuids = map(lambda x: str(x._storage_id), splits)
-
-        log.info("calling initQuery (%s, %s, %s, precision=%f ,area=%s, uuids=%s, max_results=%f",
-                 self._selects,
-                 self._ksp,
-                 self._table,
-                 self._qbeast_meta.precision,
-                 area, uuids,
-                 config.qbeast_max_results)
-
-        self._qbeast_id = uuid.UUID(client.initQuery(self._selects,
-                                                     self._ksp + '_qbeast',
-                                                     self._table + '_' + self._table + '_idx_d8tree',
-                                                     area,
-                                                     self._qbeast_meta.precision,
-                                                     config.qbeast_max_results,
-                                                     uuids))
-        transport.close()
-
-        for i in splits:
-            i._set_qbeast_id(self._qbeast_id)
-
-        return iter(splits)
-
-    def _set_qbeast_id(self, qbeast_id):
-        self._qbeast_id = qbeast_id
-        self._build_args = self._build_args._replace(qbeast_id=qbeast_id)
-        config.session.execute(QbeastIterator._prepared_set_qbeast_id, [qbeast_id])
-
-    def getID(self):
-        return str(self._storage_id)
+    def _set_qbeast_meta(self, qbeast_meta):
+        self._qbeast_meta = qbeast_meta
+        self._build_args = self._build_args._replace(qbeast_meta=qbeast_meta)
+        config.session.execute(QbeastIterator._prepared_set_qbeast_meta, [self._storage_id, qbeast_meta])
 
     def __eq__(self, other):
         return self._storage_id == other._storage_id and \
@@ -201,162 +138,27 @@ class QbeastIterator(IStorage):
                and self._table == other.table_name and self._ksp == other.keyspace
 
     def __len__(self):
-        i = 0
-        for _ in self:
-            i += 1
-        return i
+        return len([row for row in self.__iter__()])
 
     def __iter__(self):
-        if self._storage_id is None or self._qbeast_id is None:
-            '''
-             In this case, we are doing a query without splitting the object,
-             and thus we have to initialize the query for only this iterator
-            '''
-            if type(config.qbeast_entry_node) == list:
-                qbeast_node = config.qbeast_entry_node[0]
-            else:
-                qbeast_node = config.qbeast_entry_node
+        if hasattr(self, "_qbeast_meta") and self._qbeast_meta is not None:
+            conditions = ""
+            for index, (from_p, to_p) in enumerate(zip(self._qbeast_meta.from_point, self._qbeast_meta.to_point)):
+                conditions += "{0} > {1} AND {0} < {2} AND ".format(self._indexed_on[index], from_p, to_p)
 
-            transport = TSocket.TSocket(qbeast_node, config.qbeast_master_port)
+            conditions = conditions[:-5] + self._qbeast_meta.mem_filter
 
-            # Buffering is critical. Raw sockets are very slow
-            transport = TTransport.TFramedTransport(transport)
+            conditions += " AND expr(%s_idx, 'precision=%s:%s') ALLOW FILTERING" \
+                          % (self._table, self._qbeast_meta.precision, self._qbeast_random)
 
-            # Wrap in a protocol
-            protocol = TBinaryProtocol.TBinaryProtocol(transport)
+            hiter = self._hcache.iteritems({'custom_select': conditions, 'prefetch_size': config.prefetch_size})
+        else:
+            hiter = self._hcache.iteritems(config.prefetch_size)
 
-            # Create a client to use the protocol encoder
-            client = QbeastMaster.Client(protocol)
+        iterator = NamedItemsIterator(self._key_builder,
+                                      self._column_builder,
+                                      self._k_size,
+                                      hiter,
+                                      self)
 
-            # Connect!
-            transport.open()
-
-            area = FilteringArea(fromPoint=self._qbeast_meta.from_point,
-                                 toPoint=self._qbeast_meta.to_point)
-
-            if self._storage_id is None:
-                self._storage_id = uuid.uuid4()
-                self._build_args = self._build_args._replace(storage_id=self._storage_id)
-                self._store_meta(self._build_args)
-            uuids = [str(self._storage_id)]
-
-            log.info("calling initQuery (%s, %s, %s, precision=%f ,area=%s, uuids=%s, max_results=%f",
-                     self._selects,
-                     self._ksp,
-                     self._table,
-                     self._qbeast_meta.precision,
-                     area, uuids,
-                     config.qbeast_max_results)
-
-            self._qbeast_id = client.initQuery(self._selects,
-                                               self._ksp + '_qbeast',
-                                               self._table + '_' + self._table + '_idx_d8tree',
-                                               area,
-                                               self._qbeast_meta.precision,
-                                               config.qbeast_max_results,
-                                               uuids)
-            self._store_meta(self._build_args)
-            transport.close()
-
-        return IndexedIterValue(self._storage_id, self._entry_point, self._row_builder)
-
-
-class Row:
-    def __init__(self, metadata, row):
-        self._list = []
-        for key, value in row.iteritems():
-            v = Row.deserialize_type(metadata[key].type, value)
-            cname = metadata[key].columnName
-            setattr(self, cname, v)
-            if cname is not 'rand':
-                self._list.append(v)
-
-    def __getitem__(self, key):
-        return self._list[key]
-
-    def __str__(self):
-        return '(%s)' % (','.join(map(str, self._list)))
-
-    @staticmethod
-    def deserialize_type(type, data):
-        """
-        :param data: bytes
-        :type type: BasicTypes
-        """
-        if type == BasicTypes.BIGINT:
-            val, = unpack('!q', data)
-            return val
-        if type == BasicTypes.BLOB:
-            size, = unpack('!i', data[0:4])
-            return data[4:size + 4]
-        if type == BasicTypes.BOOLEAN:
-            val, = unpack('!b', data)
-            if val == 0:
-                return False
-            else:
-                return True
-        if type == BasicTypes.DOUBLE:
-            val, = unpack('!d', data)
-            return val
-        if type == BasicTypes.FLOAT:
-            val, = unpack('!f', data)
-            return val
-        if type == BasicTypes.INT:
-            val, = unpack('!i', data)
-            return val
-        if type == BasicTypes.TEXT:
-            bin = Row.deserialize_type(BasicTypes.BLOB, data)
-            return bin.decode('utf8')
-        raise ValueError
-
-
-class IndexedIterValue(object):
-    def __iter__(self):
-        return self
-
-    def __init__(self, storage_id, host, row_builder):
-        '''
-
-        Args:
-            storage_dict: type IxBlock
-        '''
-
-        self._row_builder = row_builder
-        self._storage_id = storage_id
-        workerT = TTransport.TFramedTransport(TSocket.TSocket(host, config.qbeast_worker_port))
-
-        # Buffering is critical. Raw sockets are very slow
-
-        # Wrap in a protocol
-        pw = TBinaryProtocol.TBinaryProtocol(workerT)
-
-        workerT.open()
-        # Create a client to use the protocol encoder
-        self._worker = QbeastWorker.Client(pw)
-        self._tmp_iter = None
-        self._has_more = True
-
-    def next(self):
-
-        if self._tmp_iter is not None:
-            try:
-                return self._row_builder(self._tmp_iter.next())
-            except StopIteration:
-                if self._has_more is False:
-                    raise StopIteration
-
-        # TODO remove hardcoded parameters
-        result = self._worker.get(str(self._storage_id), 1000, 10000)
-        self._has_more = result.hasMore
-        self._tmp_iter = IndexedIterValue.deserialize(result.metadata, result.data)
-        return self._row_builder(self._tmp_iter.next())
-
-    @staticmethod
-    def deserialize(metadata, rows):
-        # type: (object, object) -> object
-        """
-        :type metadata: map
-        :type rows: list[map]
-        """
-        for row in rows:
-            yield Row(metadata, row)
+        return iterator

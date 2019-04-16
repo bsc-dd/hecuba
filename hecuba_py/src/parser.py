@@ -161,17 +161,28 @@ class Parser(object):
         '''Def: parses index declaration, checking for the introduced vars.
                                 Returns: a dict structure with the parsed dict.'''
 
-        table = line.split()[1]
-        atributes = line.split(' ', 2)
-        atributes = atributes[2].replace(" ", '')
+        if self.type_parser == "TypeSpec":
+            table = "indexed_on"
+            atributes = line.split(' ', 2)
+            atributes = atributes[1].replace(" ", '')
+        else:
+            table = line.split()[1]
+            atributes = line.split(' ', 2)
+            atributes = atributes[2].replace(" ", '')
+
         atributes = atributes.split(',')
         converted_atributes = ", ".join([IStorage._conversions.get(w, w) for w in atributes])
         converted_atributes = converted_atributes.split(',')
         converted_atributes = [w.replace(" ", "") for w in converted_atributes]
-        if table in this:
-            this[table].update({'indexed_values': converted_atributes})
+
+        if self.type_parser == "TypeSpec":
+            this[table] = converted_atributes
         else:
-            this[table] = {'indexed_values': converted_atributes}
+            if table in this:
+                this[table].update({'indexed_on': converted_atributes})
+            else:
+                this[table] = {'indexed_on': converted_atributes}
+
         return this
 
     def _parse_file(self, line, new):
@@ -229,7 +240,9 @@ class Parser(object):
         '''Def: Remove all the spaces of the line splitted from comments
                 Returns: same line with no spaces.'''
         line = re.sub(' +', '*', line)
-        line = line[line.find(self.type_parser):]
+        if line.find('@Index_on') == -1:
+            line = line[line.find(self.type_parser):]
+
         if line.count('tuple') == 1 and line.count('dict') == 0:
             pos = re.search(r'\b(tuple)\b', line)
             pos = pos.start()
