@@ -85,8 +85,8 @@ class QbeastIterator(IStorage):
 
         class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
 
-        key_names = [pkname for (pkname, dt) in primary_keys]
-        column_names = [colname for (colname, dt) in columns]
+        key_names = [col[0] if isinstance(col, tuple) else col["name"] for col in primary_keys]
+        column_names = [col[0] if isinstance(col, tuple) else col["name"] for col in columns]
         if len(key_names) > 1:
             self._key_builder = namedtuple('row', key_names)
         else:
@@ -117,10 +117,9 @@ class QbeastIterator(IStorage):
         if save:
             self._store_meta(self._build_args)
 
-        persistent_columns = [{"name": col[0], "type": col[1]} for col in columns]
         self._hcache_params = (self._ksp, self._table,
                                self._storage_id,
-                               self._tokens, key_names, persistent_columns,
+                               self._tokens, key_names, columns,
                                {'cache_size': config.max_cache_size,
                                 'writer_par': config.write_callbacks_number,
                                 'writer_buffer': config.write_buffer_size})

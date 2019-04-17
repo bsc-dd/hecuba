@@ -984,6 +984,21 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(count, len(what_should_be))
         self.assertEqual(what_should_be, res)
 
+    def test_dict_complex_tuples(self):
+        # @TypeSpec dict<<key:int>, val0:int, val1:tuple<long,int>, val2:str, val3:tuple<str,float>>
+        config.session.execute("DROP TABLE IF EXISTS my_app.DictWithTuples3")
+        d = DictWithTuples3("my_app.DictWithTuples3")
+
+        for i in range(0, 10):
+            d[i] = [i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))]
+
+        for i in range(0, 10):
+            row = d[i]
+            self.assertEqual(row.val0, i)
+            self.assertEqual(row.val1, (5500000000000000L, i+10))
+            self.assertEqual(row.val2, "hola")
+            self.assertEqual(row.val3, ("adios", i+20.5))
+
 
 if __name__ == '__main__':
     unittest.main()
