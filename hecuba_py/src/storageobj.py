@@ -103,7 +103,8 @@ class StorageObj(object, IStorage):
 
         if self._is_persistent:
             # If never existed, must create the tables and register
-            self._create_tables()
+            if not self._built_remotely:
+                self._create_tables()
             self._store_meta(self._build_args)
 
         self._load_attributes()
@@ -300,7 +301,7 @@ class StorageObj(object, IStorage):
             # Build the IStorage obj
             info = {"name" :attr_name, "tokens":self._build_args.tokens, "storage_id":value}
             info.update(value_info)
-            value = IStorage.build_remotely(info)
+            value = IStorage._build_istorage_obj(info)
 
         object.__setattr__(self, attribute, value)
         return value
@@ -326,7 +327,7 @@ class StorageObj(object, IStorage):
                 per_dict = self._persistent_props[attribute]
                 info = {"name": '', "tokens": self._build_args.tokens, "storage_id": None}
                 info.update(per_dict)
-                new_value = IStorage.build_remotely(info)
+                new_value = IStorage._build_istorage_obj(info)
                 new_value.update(value)
                 value = new_value
 
