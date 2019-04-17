@@ -15,7 +15,7 @@ class IStorage:
     args_names = []
     args = namedtuple("IStorage", [])
     _build_args = args()
-
+    _built_remotely = False
     _valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map', 'bigint', 'blob',
                     'tuple', 'dict', 'float', 'numpy.ndarray']
 
@@ -25,7 +25,7 @@ class IStorage:
 
     AT = 'int | atomicint | str | bool | decimal | float | long | double | buffer'
 
-    ATD = 'int | atomicint | str | bool | decimal | float | long | double | buffer | set'
+    ATD = 'int | atomicint | str | bool | deccimal | float | long | double | buffer | set'
 
     _python_types = [int, str, bool, float, tuple, set, dict, long, bytearray]
     _storage_id = None
@@ -124,6 +124,36 @@ class IStorage:
                 yield tokens[i:i + splits]
 
     @staticmethod
+    def _build_istorage_obj(args):
+        """
+              Takes the information which consists of at least the type,
+              :raises TypeError if the object class doesn't subclass IStorage
+              :param args: Contains the information to be used to create the IStorage obj
+              :return: An IStorage object
+              """
+        obj_type = args.get('class_name', args.get('type', None))
+        if obj_type is None:
+            raise TypeError("Trying to build an IStorage obj without giving the type")
+
+        # Import the class defined by obj_type
+        cname, module = IStorage.process_path(obj_type)
+
+        try:
+            mod = __import__(module, globals(), locals(), [cname], 0)
+        except ValueError:
+            raise ValueError("Can't import class {} from module {}".format(cname, module))
+
+        imported_class = getattr(mod, cname)
+        if not issubclass(imported_class, IStorage):
+            raise TypeError("Trying to build remotely an object '%s' != IStorage subclass" % cname)
+
+        args = {k: v for k, v in args.items() if k in imported_class.args_names}
+        args.pop('class_name', None)
+        built_object = imported_class(**args)
+
+        return built_object
+
+    @staticmethod
     def _discrete_token_ranges(tokens):
         """
         Makes proper tokens ranges ensuring that in a tuple (a,b) a <= b
@@ -180,26 +210,9 @@ class IStorage:
         :param obj_info: Contains the information to be used to create the IStorage obj
         :return: An IStorage object
         """
-        obj_type = args.get('class_name', args.get('type', None))
-        if obj_type is None:
-            raise TypeError("Trying to build an IStorage obj without giving the type")
-
-        # Import the class defined by obj_type
-        cname, module = IStorage.process_path(obj_type)
-
-        try:
-            mod = __import__(module, globals(), locals(), [cname], 0)
-        except ValueError:
-            raise ValueError("Can't import class {} from module {}".format(cname, module))
-
-        imported_class = getattr(mod, cname)
-        if not issubclass(imported_class, IStorage):
-            raise TypeError("Trying to build remotely an object '%s' != IStorage subclass" % cname)
-
-        args = {k: v for k, v in args.items() if k in imported_class.args_names}
-        args.pop('class_name', None)
-
-        return imported_class(**args)
+        built_object = IStorage._build_istorage_obj(args)
+        built_object._built_remotely = True
+        return built_object
 
     @staticmethod
     def _store_meta(storage_args):

@@ -124,6 +124,8 @@ class StorageNumpy(np.ndarray, IStorage):
 
         log.info("PERSISTING DATA INTO %s %s", self._ksp, self._table)
 
+
+
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
         config.session.execute(query_keyspace)
 

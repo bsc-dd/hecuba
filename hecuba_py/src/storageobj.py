@@ -257,7 +257,7 @@ class StorageObj(object, IStorage):
                 # We are not persistent or the attribute hasn't been assigned an IStorage obj, we build one
                 info = {"name":'', "tokens":self._build_args.tokens, "storage_id":None}
                 info.update(value_info)
-                value = IStorage.build_remotely(info)
+                value = IStorage._build_istorage_obj(info)
                 object.__setattr__(self, attribute, value)
                 return value
 
