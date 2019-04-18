@@ -164,6 +164,7 @@ public:
 };
 
 class TupleParser : public UnitParser {
+
 public:
 
     TupleParser(const ColumnMeta &CM);
@@ -174,7 +175,6 @@ public:
 
 private:
     ColumnMeta col_meta;
-
 
 };
 

@@ -2701,7 +2701,6 @@ TEST(TableMeta, LetsTryTupleWithString) {
 
     std::tuple<int, int> mytuple(10, 10);
 
-
     int *buffer2 = (int *) malloc(sizeof(mytuple));
     memcpy(buffer2, &mytuple, sizeof(mytuple));
 

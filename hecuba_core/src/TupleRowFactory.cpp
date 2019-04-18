@@ -405,12 +405,12 @@ TupleRowFactory::bind_tuple(CassStatement *statement, const TupleRow *row, u_int
     }
 }
 
+
+
 void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t offset, CassTuple *tuple,
                            std::string type) const {
 
     const std::vector<ColumnMeta> *localMeta = metadata.get();
-
-    if (localMeta == nullptr) std::cout << "metadata is null" << std::endl;
 
     if (!localMeta)
         throw ModuleException("Tuple row, tuple_as_py: Null metadata");
@@ -418,8 +418,6 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
     for (uint16_t i = 0; i < row->n_elem(); ++i) {
 
         const void *element_i = row->get_element(i);
-
-        using namespace std;
 
         uint32_t bind_pos = i + offset;
         if (i >= localMeta->size())
@@ -429,7 +427,8 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
         if (element_i != nullptr) {
             switch (localMeta->at(i).type) {
                 case CASS_VALUE_TYPE_VARCHAR:
-                case CASS_VALUE_TYPE_TEXT: {
+                case CASS_VALUE_TYPE_TEXT:
+                case CASS_VALUE_TYPE_ASCII: {
                     int64_t *addr = (int64_t *) element_i;
                     const char *d = reinterpret_cast<char *>(*addr);
                     if (type == "NONE") {
@@ -439,7 +438,6 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                     } else cass_tuple_set_string(tuple, (size_t) i, d);
                     break;
                 }
-                case CASS_VALUE_TYPE_ASCII:
                 case CASS_VALUE_TYPE_VARINT:
                 case CASS_VALUE_TYPE_BIGINT: {
                     const int64_t *data = static_cast<const int64_t *>(element_i);

@@ -5,12 +5,14 @@ from collections import namedtuple
 
 import numpy as np
 from hecuba import config, log, Parser
+from hecuba.tools import NamedItemsIterator, NamedIterator
 from hecuba.hnumpy import StorageNumpy
 from hfetch import Hcache
 
 from IStorage import IStorage, AlreadyPersistentError
 
-CALLER_FUNC = "Soy la funcion que te ha llamado"
+#from hecuba.qbeast import QbeastIterator
+
 
 
 class EmbeddedSet(set):
@@ -198,56 +200,6 @@ class EmbeddedSet(set):
             self.remove(value)
 
 
-class NamedIterator:
-    # Class that allows to iterate over the keys or the values of a dict
-    def __init__(self, hiterator, builder, father):
-        self.hiterator = hiterator
-        self.builder = builder
-        self._storage_father = father
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        n = self.hiterator.get_next()
-        if self.builder is not None:
-            if self._storage_father._get_set_types() is not None:
-                nkeys = len(n) - len(self._storage_father._get_set_types())
-                n = n[:nkeys]
-            return self.builder(*n)
-        else:
-            return n[0]
-
-
-class NamedItemsIterator:
-    # Class that allows to iterate over the keys and the values of a dict
-    builder = namedtuple('row', 'key, value')
-
-    def __init__(self, key_builder, column_builder, k_size, hiterator, father):
-        self.key_builder = key_builder
-        self.k_size = k_size
-        self.column_builder = column_builder
-        self.hiterator = hiterator
-        self._storage_father = father
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        n = self.hiterator.get_next()
-        if self.key_builder is None:
-            k = n[0]
-        else:
-            k = self.key_builder(*n[0:self.k_size])
-        if self.column_builder is None:
-            v = n[self.k_size]
-            if isinstance(v, unicode):
-                v = str(v)
-        else:
-            v = self.column_builder(*n[self.k_size:])
-        return self.builder(k, v)
-
-
 class StorageDict(dict, IStorage):
     # """
     # Object used to access data from workers.
@@ -290,7 +242,7 @@ class StorageDict(dict, IStorage):
             columns (list(tuple)): a list of (key,type) columns
             tokens (list): list of tokens
             storage_id (string): the storage id identifier
-            indexed_args (list): values that will be used as index
+            indexed_on (list): values that will be used as index
             kwargs: other parameters
         """
 
@@ -313,11 +265,7 @@ class StorageDict(dict, IStorage):
             self._persistent_props = self._parse_comments(self.__doc__)
             self._primary_keys = self._persistent_props['primary_keys']
             self._columns = self._persistent_props['columns']
-
-            try:
-                self._indexed_args = self._persistent_props[self.__class__.__name__]['indexed_values']
-            except KeyError:
-                self._indexed_args = indexed_on
+            self._indexed_on = self._persistent_props.get('indexed_on', indexed_on)
         else:
             self._primary_keys = primary_keys
             set_pks = []
@@ -331,7 +279,7 @@ class StorageDict(dict, IStorage):
                 self._columns = [{"type": "set", "columns": set_pks}]
             else:
                 self._columns = columns
-            self._indexed_args = indexed_on
+            self._indexed_on = indexed_on
 
         self._has_embedded_set = False
         self._build_column = []
@@ -381,7 +329,8 @@ class StorageDict(dict, IStorage):
             self._build_column = self._columns[:]
 
         self._build_args = self.args(None, build_keys, self._build_column, self._tokens,
-                                     self._storage_id, self._indexed_args, class_name)
+                                         self._storage_id, self._indexed_on, class_name)
+
 
         if name:
             self.make_persistent(name)
@@ -562,14 +511,21 @@ class StorageDict(dict, IStorage):
                 log.warn("Error creating the StorageDict table: %s %s", query_table, ex)
                 raise ex
 
-            if hasattr(self, '_indexed_args') and self._indexed_args is not None:
+            if hasattr(self, '_indexed_on') and self._indexed_on is not None:
                 index_query = 'CREATE CUSTOM INDEX IF NOT EXISTS ' + self._table + '_idx ON '
-                index_query += self._ksp + '.' + self._table + ' (' + str.join(',', self._indexed_args) + ') '
+                index_query += self._ksp + '.' + self._table + ' (' + str.join(',', self._indexed_on) + ') '
                 index_query += "using 'es.bsc.qbeast.index.QbeastIndex';"
                 try:
                     config.session.execute(index_query)
                 except Exception as ex:
                     log.error("Error creating the Qbeast custom index: %s %s", index_query, ex)
+                    raise ex
+                trigger_query = "CREATE TRIGGER IF NOT EXISTS %s%s_qtr ON %s.%s USING 'es.bsc.qbeast.index.QbeastTrigger';" % \
+                                (self._ksp, self._table, self._ksp, self._table)
+                try:
+                    config.session.execute(trigger_query)
+                except Exception as ex:
+                    log.error("Error creating the Qbeast trigger: %s %s", trigger_query, ex)
                     raise ex
 
         # persistent_columns = [{"name": tup[0], "type": tup[1]} for tup in persistent_values]
