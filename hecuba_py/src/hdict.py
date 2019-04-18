@@ -11,9 +11,6 @@ from hfetch import Hcache
 
 from IStorage import IStorage, AlreadyPersistentError
 
-#from hecuba.qbeast import QbeastIterator
-
-
 
 class EmbeddedSet(set):
     '''
@@ -303,7 +300,6 @@ class StorageDict(dict, IStorage):
         keys = [{"type": key[1], "name": key[0]} if isinstance(key, tuple) else key for key in self._primary_keys]
         self._primary_keys = keys
 
-        # key_names = [pkname for (pkname, dt) in self._primary_keys]
         key_names = [col[0] if isinstance(col, tuple) else col["name"] for col in self._primary_keys]
         column_names = [col[0] if isinstance(col, tuple) else col["name"] for col in self._columns]
 
@@ -329,8 +325,7 @@ class StorageDict(dict, IStorage):
             self._build_column = self._columns[:]
 
         self._build_args = self.args(None, build_keys, self._build_column, self._tokens,
-                                         self._storage_id, self._indexed_on, class_name)
-
+                                     self._storage_id, self._indexed_on, class_name)
 
         if name:
             self.make_persistent(name)
@@ -470,12 +465,10 @@ class StorageDict(dict, IStorage):
         self._build_args = self._build_args._replace(storage_id=self._storage_id, name=self._ksp + "." + self._table)
 
         # Prepare data
-        # persistent_keys = self._primary_keys + self._get_set_types()
         persistent_keys = [(key["name"], "tuple<" + ",".join(key["columns"]) + ">") if key["type"] == "tuple"
                            else (key["name"], key["type"]) for key in self._primary_keys] + self._get_set_types()
 
         persistent_values = []
-        # key_names = map(lambda a: a[0], persistent_keys)
         key_names = [col[0] if isinstance(col, tuple) else col["name"] for col in persistent_keys]
         if not self._has_embedded_set:
             persistent_values = []
@@ -487,8 +480,6 @@ class StorageDict(dict, IStorage):
                         persistent_values.append((col["name"], "uuid"))
                     else:
                         persistent_values.append((col["name"], col["type"]))
-            # persistent_values = [(tup[0], "uuid" if tup[1] not in self._basic_types else tup[1]) for tup in
-            #                   self._columns]
 
         if config.id_create_schema == -1:
             query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
@@ -528,7 +519,6 @@ class StorageDict(dict, IStorage):
                     log.error("Error creating the Qbeast trigger: %s %s", trigger_query, ex)
                     raise ex
 
-        # persistent_columns = [{"name": tup[0], "type": tup[1]} for tup in persistent_values]
         persistent_columns = []
         if not self._has_embedded_set:
             persistent_columns = [col if col["type"] in self._basic_types

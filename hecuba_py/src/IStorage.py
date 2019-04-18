@@ -198,9 +198,7 @@ class IStorage:
         args = {k: v for k, v in args.items() if k in imported_class.args_names}
         args.pop('class_name', None)
 
-        built_object = imported_class(**args)
-
-        return built_object
+        return imported_class(**args)
 
     @staticmethod
     def _store_meta(storage_args):
