@@ -69,18 +69,7 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
                               std::to_string(metadata->size()) + " are present");
     }
     switch (metadata->at(col).type) {
-        case CASS_VALUE_TYPE_TEXT: {
-            const char *l_temp;
-            size_t l_size;
-            CassError rc = cass_value_get_string(lhs, &l_temp, &l_size);
-            CHECK_CASS("TupleRowFactory: Cassandra to C parse text unsuccessful, column" + std::to_string(col));
-            if (rc == CASS_ERROR_LIB_NULL_VALUE) return -1;
-            char *permanent = (char *) malloc(l_size + 1);
-            memcpy(permanent, l_temp, l_size);
-            permanent[l_size] = '\0';
-            memcpy(data, &permanent, sizeof(char *));
-            return 0;
-        }
+        case CASS_VALUE_TYPE_TEXT:
         case CASS_VALUE_TYPE_VARCHAR:
         case CASS_VALUE_TYPE_ASCII: {
             const char *l_temp;
@@ -271,16 +260,12 @@ TupleRowFactory::bind_tuple(CassStatement *statement, const TupleRow *row, u_int
 
     const std::vector<ColumnMeta> *localMeta = metadata.get();
 
-    if (localMeta == nullptr) std::cout << "metadata is null" << std::endl;
-
     if (!localMeta)
         throw ModuleException("Tuple row, tuple_as_py: Null metadata");
 
     for (uint16_t n = 0; n < row->n_elem(); ++n) {
 
         const void *element_i = row->get_element(n);
-
-        using namespace std;
 
         uint32_t bind_pos = n + offset;
         if (n >= localMeta->size())
@@ -290,13 +275,13 @@ TupleRowFactory::bind_tuple(CassStatement *statement, const TupleRow *row, u_int
         if (element_i != nullptr) {
             switch (localMeta->at(n).type) {
                 case CASS_VALUE_TYPE_VARCHAR:
-                case CASS_VALUE_TYPE_TEXT: {
+                case CASS_VALUE_TYPE_TEXT:
+                case CASS_VALUE_TYPE_ASCII: {
                     int64_t *addr = (int64_t *) row->get_element(n);
                     const char *d = reinterpret_cast<char *>(*addr);
                     cass_tuple_set_string(tuple, (size_t) n, d);
                     break;
                 }
-                case CASS_VALUE_TYPE_ASCII:
                 case CASS_VALUE_TYPE_VARINT:
                 case CASS_VALUE_TYPE_BIGINT: {
                     int64_t *value = (int64_t *) row->get_element(n);
@@ -420,12 +405,12 @@ TupleRowFactory::bind_tuple(CassStatement *statement, const TupleRow *row, u_int
     }
 }
 
+
+
 void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t offset, CassTuple *tuple,
                            std::string type) const {
 
     const std::vector<ColumnMeta> *localMeta = metadata.get();
-
-    if (localMeta == nullptr) std::cout << "metadata is null" << std::endl;
 
     if (!localMeta)
         throw ModuleException("Tuple row, tuple_as_py: Null metadata");
@@ -433,8 +418,6 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
     for (uint16_t i = 0; i < row->n_elem(); ++i) {
 
         const void *element_i = row->get_element(i);
-
-        using namespace std;
 
         uint32_t bind_pos = i + offset;
         if (i >= localMeta->size())
@@ -444,7 +427,8 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
         if (element_i != nullptr) {
             switch (localMeta->at(i).type) {
                 case CASS_VALUE_TYPE_VARCHAR:
-                case CASS_VALUE_TYPE_TEXT: {
+                case CASS_VALUE_TYPE_TEXT:
+                case CASS_VALUE_TYPE_ASCII: {
                     int64_t *addr = (int64_t *) element_i;
                     const char *d = reinterpret_cast<char *>(*addr);
                     if (type == "NONE") {
@@ -454,7 +438,6 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                     } else cass_tuple_set_string(tuple, (size_t) i, d);
                     break;
                 }
-                case CASS_VALUE_TYPE_ASCII:
                 case CASS_VALUE_TYPE_VARINT:
                 case CASS_VALUE_TYPE_BIGINT: {
                     const int64_t *data = static_cast<const int64_t *>(element_i);

@@ -432,6 +432,9 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
 
 
 PyObject *TupleParser::c_to_py(const void *payload) const {
+
+    if (payload == nullptr) throw ModuleException("Error parsing payload from c to py, expected a non-null payload");
+
     TupleRow **ptr = (TupleRow **) payload;
     const TupleRow *inner_data = *ptr;
 

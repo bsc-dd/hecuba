@@ -10,7 +10,9 @@ from hecuba.hnumpy import StorageNumpy
 from hfetch import Hcache
 
 from IStorage import IStorage, AlreadyPersistentError
-from hecuba.qbeast import QbeastIterator
+
+#from hecuba.qbeast import QbeastIterator
+
 
 
 class EmbeddedSet(set):
@@ -328,6 +330,7 @@ class StorageDict(dict, IStorage):
 
         self._build_args = self.args(None, build_keys, self._build_column, self._tokens,
                                          self._storage_id, self._indexed_on, class_name)
+
 
         if name:
             self.make_persistent(name)

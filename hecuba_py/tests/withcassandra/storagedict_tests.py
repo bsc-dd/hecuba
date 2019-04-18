@@ -53,7 +53,7 @@ class myobj2(StorageObj):
 
 class DictWithTuples(StorageDict):
     '''
-    @TypeSpec dict<<key:long>, val:tuple<long,long>>
+    @TypeSpec dict<<key:int>, val:tuple<int,int>>
     '''
 
 class DictWithTuples2(StorageDict):
@@ -891,12 +891,12 @@ class StorageDictTest(unittest.TestCase):
 
         what_should_be = dict()
         for i in range(0, 10):
-            what_should_be[i] = (i, i+10)
-            d[i] = (i, i+10)
+            what_should_be[i] = (i, i + 10)
+            d[i] = (i, i + 10)
 
         time.sleep(1)
         for i in range(0, 10):
-            self.assertEqual(d[i], (i, i+10))
+            self.assertEqual(d[i], (i, i + 10))
 
         self.assertEqual(len(d.keys()), 10)
 
@@ -904,28 +904,30 @@ class StorageDictTest(unittest.TestCase):
         count = 0
         for key, item in d.iteritems():
             res[key] = item
-            count +=1
+            count += 1
 
         self.assertEqual(count, len(what_should_be))
         self.assertEqual(what_should_be, res)
 
     def test_itervalues_tuples(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples")
-        d = DictWithTuples("my_app.dictwithtuples")
+        # @TypeSpec dict<<key:int>, val0:int, val1:tuple<long,int>, val2:str, val3:tuple<str,float>>
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples3")
+        d = DictWithTuples3("my_app.dictwithtuples3")
 
         what_should_be = set()
-        for i in range(55000000000000000, 55000000000000010):
-            what_should_be.add((i, i + 10))
-            d[i] = (i, i + 10)
+        for i in range(0, 20):
+            what_should_be.add((i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))))
+            d[i] = [i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))]
 
         time.sleep(1)
         res = set()
         count = 0
         for item in d.itervalues():
-            res.add(item)
+            res.add(tuple(item))
             count += 1
 
         self.assertEqual(count, len(what_should_be))
+        self.assertEqual(what_should_be, res)
         self.assertEqual(what_should_be, res)
 
     def test_tuples_in_key(self):
@@ -984,20 +986,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(count, len(what_should_be))
         self.assertEqual(what_should_be, res)
 
-    def test_dict_complex_tuples(self):
-        # @TypeSpec dict<<key:int>, val0:int, val1:tuple<long,int>, val2:str, val3:tuple<str,float>>
-        config.session.execute("DROP TABLE IF EXISTS my_app.DictWithTuples3")
-        d = DictWithTuples3("my_app.DictWithTuples3")
 
-        for i in range(0, 10):
-            d[i] = [i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))]
-
-        for i in range(0, 10):
-            row = d[i]
-            self.assertEqual(row.val0, i)
-            self.assertEqual(row.val1, (5500000000000000L, i+10))
-            self.assertEqual(row.val2, "hola")
-            self.assertEqual(row.val3, ("adios", i+20.5))
 
 
 if __name__ == '__main__':

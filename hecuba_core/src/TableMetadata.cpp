@@ -121,7 +121,6 @@ std::map<std::string, ColumnMeta> TableMetadata::getMetaTypes(CassIterator *iter
         if (cass_data_type_type(type) == CASS_VALUE_TYPE_TUPLE) {
             uint32_t n_subtypes = (uint32_t) cass_data_type_sub_type_count(type);
             std::vector<ColumnMeta> v(n_subtypes);
-            metadatas[value].pointer = std::make_shared<std::vector<ColumnMeta>>(v);
             uint32_t offset = 0;
             CassValueType cvt;
             uint16_t size;
@@ -139,6 +138,7 @@ std::map<std::string, ColumnMeta> TableMetadata::getMetaTypes(CassIterator *iter
                 v[subtype] = cm;
             }
             metadatas[value].pointer = std::make_shared<std::vector<ColumnMeta>>(v);
+
         } else {
             metadatas[value].type = cass_data_type_type(type);
             metadatas[value].col_type = cass_column_meta_type(cmeta);

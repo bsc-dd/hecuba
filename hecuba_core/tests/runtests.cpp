@@ -4,7 +4,6 @@
 #include "../src/CacheTable.h"
 #include "../src/StorageInterface.h"
 
-
 using namespace std;
 
 #define PY_ERR_CHECK if (PyErr_Occurred()){PyErr_Print(); PyErr_Clear();}
@@ -2524,12 +2523,6 @@ TEST(TestingCacheTable, DeleteRow) {
     cass_session_free(test_session);
 }
 
-#include <iostream>
-#include "gtest/gtest.h"
-
-
-using namespace std;
-
 
 TEST(TableMeta, LetsTryTuple) {
 
@@ -2576,7 +2569,6 @@ TEST(TableMeta, LetsTryTuple) {
 
     /////////////// 2 INTS /////////////////
     std::tuple<int, int> mytuple(10, 20);
-    using namespace std;
     cout << "el size de la tupla es " << sizeof(mytuple) << endl;
     cout << "el size de int is " << sizeof(int) << endl;
     char *buffer2 = (char *) malloc(sizeof(mytuple)); //values
@@ -2708,7 +2700,6 @@ TEST(TableMeta, LetsTryTupleWithString) {
     // INSERT WITH BIND METHOD //
 
     std::tuple<int, int> mytuple(10, 10);
-    using namespace std;
 
     int *buffer2 = (int *) malloc(sizeof(mytuple));
     memcpy(buffer2, &mytuple, sizeof(mytuple));

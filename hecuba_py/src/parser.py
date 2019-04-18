@@ -1,8 +1,6 @@
 import re
 from itertools import count
 
-import regex
-
 from IStorage import IStorage
 
 
@@ -134,6 +132,7 @@ class Parser(object):
         pks = self._get_dict_str(varsk, cleank, typek)
         values = self._get_dict_str(varsv, cleanv, typevv)
         if table == None:
+
             final_dict = '{"primary_keys": [%s], "columns": [%s], "type": "StorageDict"}' % (pks, values)
         else:
             final_dict = '{"%s": {"primary_keys": [%s], "columns": [%s], "type": "StorageDict"}}' % (table, pks, values)
