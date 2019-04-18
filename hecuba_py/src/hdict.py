@@ -283,7 +283,7 @@ class StorageDict(dict, IStorage):
         self._build_column = []
         columns = []
         for col in self._columns:
-            if isinstance(col, dict) and "type" in col:
+            if isinstance(col, dict):
                 types = col["columns"]
                 if col["type"] == "set":
                     self._has_embedded_set = True
