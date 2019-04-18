@@ -322,7 +322,8 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
     uint32_t size = (uint32_t) PyTuple_Size(obj);
     for (uint32_t i = 0; i < size; ++i) {
         PyObject *tuple_elem = PyTuple_GetItem(obj, i);
-        if (tuple_elem == Py_None) throw ModuleException(
+        if (tuple_elem == Py_None)
+            throw ModuleException(
                     "Error parsing PyObject from py to c, expected a non-none object at position " + std::to_string(i) +
                     " in Py_tuple");
         CassValueType cvt = this->col_meta.pointer->at(i).type;
@@ -432,6 +433,7 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
 
 
 PyObject *TupleParser::c_to_py(const void *payload) const {
+    if (payload == nullptr) throw ModuleException("Error parsing payload from c to py, expected a non-null payload");
     TupleRow **ptr = (TupleRow **) payload;
     const TupleRow *inner_data = *ptr;
 

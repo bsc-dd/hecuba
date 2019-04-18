@@ -138,7 +138,6 @@ std::map<std::string, ColumnMeta> TableMetadata::getMetaTypes(CassIterator *iter
                 cm.size = size;
                 v[subtype] = cm;
             }
-            metadatas[value].pointer = std::make_shared<std::vector<ColumnMeta>>(v);
         } else {
             metadatas[value].type = cass_data_type_type(type);
             metadatas[value].col_type = cass_column_meta_type(cmeta);

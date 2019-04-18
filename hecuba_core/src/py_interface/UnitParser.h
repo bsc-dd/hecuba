@@ -164,8 +164,6 @@ public:
 };
 
 class TupleParser : public UnitParser {
-private:
-    ColumnMeta col_meta;
 public:
 
     TupleParser(const ColumnMeta &CM);
@@ -173,6 +171,10 @@ public:
     virtual int16_t py_to_c(PyObject *text, void *payload) const;
 
     virtual PyObject *c_to_py(const void *payload) const;
+
+private:
+    ColumnMeta col_meta;
+
 
 };
 
