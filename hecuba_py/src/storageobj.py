@@ -259,6 +259,7 @@ class StorageObj(object, IStorage):
                 # We are not persistent or the attribute hasn't been assigned an IStorage obj, we build one
                 info = {"name":'', "tokens":self._build_args.tokens, "storage_id":None}
                 info.update(value_info)
+                info["built_remotely"] = self._built_remotely
                 value = IStorage.build_remotely(info)
                 object.__setattr__(self, attribute, value)
                 return value
@@ -302,7 +303,7 @@ class StorageObj(object, IStorage):
             # Build the IStorage obj
             info = {"name" :attr_name, "tokens":self._build_args.tokens, "storage_id":value}
             info.update(value_info)
-            info["built_remotely"] = False
+            info["built_remotely"] = self._built_remotely
             value = IStorage.build_remotely(info)
 
         object.__setattr__(self, attribute, value)
@@ -327,7 +328,7 @@ class StorageObj(object, IStorage):
                 value = StorageNumpy(value)
             elif isinstance(value, dict):
                 per_dict = self._persistent_props[attribute]
-                info = {"name": '', "tokens": self._build_args.tokens, "storage_id": None}
+                info = {"name": '', "tokens": self._build_args.tokens, "storage_id": None, "built_remotely": self._built_remotely}
                 info.update(per_dict)
                 new_value = IStorage.build_remotely(info)
                 new_value.update(value)

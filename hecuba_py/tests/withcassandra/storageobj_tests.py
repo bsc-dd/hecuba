@@ -140,7 +140,7 @@ class mixObj(StorageObj):
 class StorageObjTest(unittest.TestCase):
     def test_build_remotely(self):
 
-        r = {"storage_id": uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), "ksp" :  config.execution_name,
+        r = {"built_remotely": False, "storage_id": uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), "ksp" :  config.execution_name,
              "class_name": str(TestStorageObj.__module__) + "." + TestStorageObj.__name__, "name": 'tt1',
              "columns": [('val1', 'str')], "entry_point": 'localhost', "primary_keys": [('pk1', 'int')],
              "istorage_props": {}, "tokens": IStorage._discrete_token_ranges(
@@ -148,7 +148,6 @@ class StorageObjTest(unittest.TestCase):
                  8603491526474728284, 8628291680139169981, 8687301163739303017, 9111581078517061776])}
 
         nopars = StorageObj.build_remotely(r)
-        self.assertEqual(nopars._built_remotely, True)
         self.assertEqual('tt1', nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
         self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), nopars._storage_id)
@@ -165,7 +164,7 @@ class StorageObjTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.tt1_instances")
         config.session.execute("DROP TABLE IF EXISTS " + config.execution_name + '.tt1')
 
-        r = {"storage_id": uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), "ksp": config.execution_name,
+        r = {"built_remotely": False, "storage_id": uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), "ksp": config.execution_name,
              "class_name": str(TestStorageObj.__module__) + "." + TestStorageObj.__name__, "name": 'tt1',
              "columns": [('val1', 'str')], "entry_point": 'localhost', "primary_keys": [('pk1', 'int')],
              "istorage_props": {}, "tokens": IStorage._discrete_token_ranges(
@@ -173,7 +172,7 @@ class StorageObjTest(unittest.TestCase):
                  8603491526474728284, 8628291680139169981, 8687301163739303017, 9111581078517061776])}
 
         nopars = StorageObj.build_remotely(r)
-        self.assertEqual(nopars._built_remotely, True)
+        self.assertEqual(nopars._built_remotely, False)
         self.assertEqual('tt1', nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
         self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), nopars._storage_id)

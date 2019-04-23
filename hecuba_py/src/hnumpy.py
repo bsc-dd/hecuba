@@ -55,6 +55,7 @@ class StorageNumpy(np.ndarray, IStorage):
             obj = np.asarray(input_array).view(cls)
             obj._storage_id = storage_id
         # Finally, we must return the newly created object:
+        obj._built_remotely = built_remotely
         obj._class_name = '%s.%s' % (cls.__module__, cls.__name__)
         return obj
 
