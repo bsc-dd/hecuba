@@ -67,6 +67,7 @@ class StorageDictSplitTest(unittest.TestCase):
         count = 0
         res = set()
         for partition in pd.split():
+            self.assertEqual(partition._built_remotely, True)
             for val in partition.iterkeys():
                 res.add(val)
                 count += 1
@@ -97,6 +98,7 @@ class StorageDictSplitTest(unittest.TestCase):
         count = 0
         res = set()
         for partition in pd.split():
+            self.assertEqual(partition._built_remotely, True)
             id = partition.getID()
             from storage.api import getByID
             rebuild = getByID(id)
@@ -130,6 +132,7 @@ class StorageDictSplitTest(unittest.TestCase):
         count = 0
         res = {}
         for partition in pd.split():
+            self.assertEqual(partition._built_remotely, True)
             for key, val in partition.iteritems():
                 res[key] = val
                 count += 1
@@ -171,6 +174,7 @@ class StorageDictSplitTest(unittest.TestCase):
         acc = 0
         nsplits = 0
         for b in myfinalbook.split():  # this split fails
+            self.assertEqual(b._built_remotely, True)
             acc = acc + self.computeItems(b)
             nsplits = nsplits + 1
 
@@ -199,6 +203,7 @@ class StorageDictSplitTest(unittest.TestCase):
         acc = 0
         nsplits = 0
         for b in myfinalbook.split():  # this split fails
+            self.assertEqual(b._built_remotely, True)
             acc = acc + self.computeItems(b)
             nsplits = nsplits + 1
 
@@ -227,6 +232,7 @@ class StorageDictSplitTest(unittest.TestCase):
         acc = 0
         nsplits = 0
         for b in myfinalbook.mydict.split():  # this split fails
+            self.assertEqual(b._built_remotely, True)
             acc = acc + self.computeItems(b)
             nsplits = nsplits + 1
 
@@ -259,6 +265,7 @@ class StorageDictSplitTest(unittest.TestCase):
         acc = 0
         nsplits = 0
         for b in myfinalbook.mydict.split():  # this split fails
+            self.assertEqual(b._built_remotely, True)
             acc = acc + self.computeItems(b)
             nsplits = nsplits + 1
 

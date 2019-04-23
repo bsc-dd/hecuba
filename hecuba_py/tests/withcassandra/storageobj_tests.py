@@ -148,6 +148,7 @@ class StorageObjTest(unittest.TestCase):
                  8603491526474728284, 8628291680139169981, 8687301163739303017, 9111581078517061776])}
 
         nopars = StorageObj.build_remotely(r)
+        self.assertEqual(nopars._built_remotely, True)
         self.assertEqual('tt1', nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
         self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), nopars._storage_id)
@@ -172,6 +173,7 @@ class StorageObjTest(unittest.TestCase):
                  8603491526474728284, 8628291680139169981, 8687301163739303017, 9111581078517061776])}
 
         nopars = StorageObj.build_remotely(r)
+        self.assertEqual(nopars._built_remotely, True)
         self.assertEqual('tt1', nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
         self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), nopars._storage_id)
@@ -246,6 +248,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(name, 'ksp1.ttta')
 
         rebuild = StorageObj.build_remotely(res._asdict())
+        self.assertEqual(rebuild._built_remotely, True)
         self.assertEqual('ttta', rebuild._table)
         self.assertEqual('ksp1', rebuild._ksp)
         self.assertEqual(storage_id, rebuild._storage_id)

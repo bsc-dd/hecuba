@@ -231,7 +231,7 @@ class StorageDict(dict, IStorage):
             raise ex
 
     def __init__(self, name=None, primary_keys=None, columns=None, tokens=None,
-                 storage_id=None, indexed_on=None, **kwargs):
+                 storage_id=None, indexed_on=None, built_remotely=False, **kwargs):
         """
         Creates a new StorageDict.
 
@@ -247,6 +247,7 @@ class StorageDict(dict, IStorage):
 
         super(StorageDict, self).__init__(**kwargs)
         self._is_persistent = False
+        self._built_remotely = built_remotely
         log.debug("CREATED StorageDict(%s,%s,%s,%s,%s,%s)", primary_keys, columns, name, tokens, storage_id, kwargs)
 
         if tokens is None:
@@ -455,7 +456,7 @@ class StorageDict(dict, IStorage):
             persistent_values = [(tup[0], "uuid" if tup[1] not in self._basic_types else tup[1]) for tup in
                                 self._columns]
 
-        if config.id_create_schema == -1:
+        if config.id_create_schema == -1 and not self._built_remotely:
             query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
             try:
                 log.debug('MAKE PERSISTENCE: %s', query_keyspace)
@@ -493,6 +494,8 @@ class StorageDict(dict, IStorage):
                     log.error("Error creating the Qbeast trigger: %s %s", trigger_query, ex)
                     raise ex
 
+        self._store_meta(self._build_args)
+
         persistent_columns = [{"name": tup[0], "type": tup[1]} for tup in persistent_values]
         self._hcache_params = (self._ksp, self._table,
                                self._storage_id,
@@ -514,8 +517,6 @@ class StorageDict(dict, IStorage):
             self._hcache.put_row(self._make_key(key), self._make_value(value))
 
         super(StorageDict, self).clear()
-
-        self._store_meta(self._build_args)
 
     def stop_persistent(self):
         """

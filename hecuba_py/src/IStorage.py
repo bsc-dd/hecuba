@@ -180,6 +180,11 @@ class IStorage:
         :param obj_info: Contains the information to be used to create the IStorage obj
         :return: An IStorage object
         """
+        if "built_remotely" not in args.keys():
+            built_remotely = True
+        else:
+            built_remotely = args["built_remotely"]
+
         obj_type = args.get('class_name', args.get('type', None))
         if obj_type is None:
             raise TypeError("Trying to build an IStorage obj without giving the type")
@@ -198,6 +203,7 @@ class IStorage:
 
         args = {k: v for k, v in args.items() if k in imported_class.args_names}
         args.pop('class_name', None)
+        args["built_remotely"] = built_remotely
 
         return imported_class(**args)
 

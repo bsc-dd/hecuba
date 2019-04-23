@@ -49,7 +49,7 @@ class StorageObj(object, IStorage):
         parser = Parser("ClassField")
         return parser._parse_comments(comments)
 
-    def __init__(self, name="", tokens=None, storage_id=None, istorage_props=None, **kwargs):
+    def __init__(self, name="", tokens=None, storage_id=None, istorage_props=None, built_remotely=False, **kwargs):
         """
             Creates a new storageobj.
             Args:
@@ -62,6 +62,7 @@ class StorageObj(object, IStorage):
         log.debug("CREATED StorageObj(%s)", name)
         # Assign private attributes
         self._is_persistent = True if name or storage_id else False
+        self._built_remotely = built_remotely
         self._persistent_props = StorageObj._parse_comments(self.__doc__)
         self._persistent_attrs = self._persistent_props.keys()
         self._class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
@@ -103,7 +104,8 @@ class StorageObj(object, IStorage):
 
         if self._is_persistent:
             # If never existed, must create the tables and register
-            self._create_tables()
+            if not self._built_remotely:
+                self._create_tables()
             self._store_meta(self._build_args)
 
         self._load_attributes()
@@ -300,6 +302,7 @@ class StorageObj(object, IStorage):
             # Build the IStorage obj
             info = {"name" :attr_name, "tokens":self._build_args.tokens, "storage_id":value}
             info.update(value_info)
+            info["built_remotely"] = False
             value = IStorage.build_remotely(info)
 
         object.__setattr__(self, attribute, value)
