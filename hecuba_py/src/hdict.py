@@ -256,8 +256,6 @@ class StorageDict(dict, IStorage):
 
         self._storage_id = storage_id
 
-        self._build_column = None
-
         if self.__doc__ is not None:
             self._persistent_props = self._parse_comments(self.__doc__)
             self._primary_keys = self._persistent_props['primary_keys']
@@ -279,7 +277,7 @@ class StorageDict(dict, IStorage):
             self._indexed_on = indexed_on
 
         self._has_embedded_set = False
-        self._build_column = []
+        build_column = []
         columns = []
         for col in self._columns:
             if isinstance(col, dict):
@@ -287,21 +285,21 @@ class StorageDict(dict, IStorage):
                 if col["type"] == "set":
                     self._has_embedded_set = True
                     for t in types:
-                        self._build_column.append(("_" + col["type"] + "_" + t[0], t[1]))
-                elif col["type"] == "tuple":
-                    self._build_column.append((col["name"], col["type"]))
+                        build_column.append(("_set_" + t[0], t[1]))
+                else:
+                    build_column.append((col["name"], col["type"]))
                 columns.append(col)
             else:
                 columns.append({"type": col[1], "name": col[0]})
-                self._build_column.append(col)
+                build_column.append(col)
 
         self._columns = columns[:]
-        build_keys = [(key["name"], key["type"]) if isinstance(key, dict) else key for key in self._primary_keys]
-        keys = [{"type": key[1], "name": key[0]} if isinstance(key, tuple) else key for key in self._primary_keys]
-        self._primary_keys = keys
+        self._primary_keys = [{"type": key[1], "name": key[0]} if isinstance(key, tuple) else key
+                              for key in self._primary_keys]
+        build_keys = [(key["name"], key["type"]) for key in self._primary_keys]
 
-        key_names = [col[0] if isinstance(col, tuple) else col["name"] for col in self._primary_keys]
-        column_names = [col[0] if isinstance(col, tuple) else col["name"] for col in self._columns]
+        key_names = [col["name"] for col in self._primary_keys]
+        column_names = [col["name"] for col in self._columns]
 
         self._item_builder = namedtuple('row', key_names + column_names)
 
@@ -321,10 +319,10 @@ class StorageDict(dict, IStorage):
 
         class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
 
-        if self._build_column is None:
-            self._build_column = self._columns[:]
+        if build_column is None:
+            build_column = self._columns[:]
 
-        self._build_args = self.args(None, build_keys, self._build_column, self._tokens,
+        self._build_args = self.args(None, build_keys, build_column, self._tokens,
                                      self._storage_id, self._indexed_on, class_name)
 
         if name:
@@ -467,19 +465,18 @@ class StorageDict(dict, IStorage):
         # Prepare data
         persistent_keys = [(key["name"], "tuple<" + ",".join(key["columns"]) + ">") if key["type"] == "tuple"
                            else (key["name"], key["type"]) for key in self._primary_keys] + self._get_set_types()
-
         persistent_values = []
-        key_names = [col[0] if isinstance(col, tuple) else col["name"] for col in persistent_keys]
         if not self._has_embedded_set:
-            persistent_values = []
             for col in self._columns:
                 if col["type"] == "tuple":
-                    persistent_values.append((col["name"], "tuple<" + ",".join(col["columns"]) + ">"))
+                    persistent_values.append({"name": col["name"], "type": "tuple<" + ",".join(col["columns"]) + ">"})
                 else:
                     if col["type"] not in self._basic_types:
-                        persistent_values.append((col["name"], "uuid"))
+                        persistent_values.append({"name": col["name"], "type": "uuid"})
                     else:
-                        persistent_values.append((col["name"], col["type"]))
+                        persistent_values.append({"name": col["name"], "type": col["type"]})
+
+        key_names = [col[0] if isinstance(col, tuple) else col["name"] for col in persistent_keys]
 
         if config.id_create_schema == -1:
             query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
@@ -490,10 +487,12 @@ class StorageDict(dict, IStorage):
                 log.warn("Error creating the StorageDict keyspace %s, %s", (query_keyspace), ex)
                 raise ex
 
+            persistent_columns = [(col["name"], col["type"]) for col in persistent_values]
+
             query_table = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" \
                           % (self._ksp,
                              self._table,
-                             ",".join("%s %s" % tup for tup in persistent_keys + persistent_values),
+                             ",".join("%s %s" % tup for tup in persistent_keys + persistent_columns),
                              str.join(',', key_names))
             try:
                 log.debug('MAKE PERSISTENCE: %s', query_table)
@@ -519,14 +518,9 @@ class StorageDict(dict, IStorage):
                     log.error("Error creating the Qbeast trigger: %s %s", trigger_query, ex)
                     raise ex
 
-        persistent_columns = []
-        if not self._has_embedded_set:
-            persistent_columns = [col if col["type"] in self._basic_types
-                                  else {"type": "uuid", "name": col["name"]} for col in self._columns]
-
         self._hcache_params = (self._ksp, self._table,
                                self._storage_id,
-                               self._tokens, key_names, persistent_columns,
+                               self._tokens, key_names, persistent_values,
                                {'cache_size': config.max_cache_size,
                                 'writer_par': config.write_callbacks_number,
                                 'writer_buffer': config.write_buffer_size})
