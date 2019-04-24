@@ -470,11 +470,10 @@ class StorageDict(dict, IStorage):
             for col in self._columns:
                 if col["type"] == "tuple":
                     persistent_values.append({"name": col["name"], "type": "tuple<" + ",".join(col["columns"]) + ">"})
+                elif col["type"] not in self._basic_types:
+                    persistent_values.append({"name": col["name"], "type": "uuid"})
                 else:
-                    if col["type"] not in self._basic_types:
-                        persistent_values.append({"name": col["name"], "type": "uuid"})
-                    else:
-                        persistent_values.append({"name": col["name"], "type": col["type"]})
+                    persistent_values.append({"name": col["name"], "type": col["type"]})
 
         key_names = [col[0] if isinstance(col, tuple) else col["name"] for col in persistent_keys]
 
