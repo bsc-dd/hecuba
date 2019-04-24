@@ -304,54 +304,20 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_INT) {
     const void *elem1 = inner_data->get_element(1);
     const int32_t uziv2 = *(int32_t const *) elem1;
 
-    const void *elem_data = inner_data->get_payload();
-    char *ppp = (char *) (elem_data);
-    int32_t valuee = (cass_int32_t) *ppp;
-    const void *elem_data1 = inner_data->get_payload();
-    char *pppp = (char *) (elem_data1) + sizeof(int);
-    int32_t valueee = (cass_int32_t) *pppp;
-
+    EXPECT_EQ(uziv1, 4);
+    EXPECT_EQ(uziv2, 5);
 
     EXPECT_FALSE(ok == -1); //object was null
     EXPECT_FALSE(ok == -2); //something went wrong
     EXPECT_TRUE(ok == 0); //it worked as expected
-    //EXPECT_EQ(result, value);
 
-
-////////////////
-    std::tuple<int, int> mytuple(10, 20);
-
-    char *buffer2 = (char *) malloc(sizeof(mytuple)); //values
-
-    memcpy(buffer2, &mytuple, sizeof(mytuple));
-
-    int *b = (int *) malloc(2 * sizeof(int));
-
-    char *p = buffer2;
-
-    cout << "Els elements de la tupla son: " << endl;
-    for (int i = 0; i < 2; i++) {
-        b[i] = (int) *p;
-        printf("got value %d\n", b[i]);
-        p += sizeof(int);
-    }
-
-    TupleRow *values = new TupleRow(CM.pointer, sizeof(mytuple), buffer2);
-    PyObject *tuple = PyTuple_New(2);
-    tuple = parser->c_to_py(external);
-
+    PyObject *tuple = parser->c_to_py(external);
     PyObject *result1 = PyTuple_GetItem(tuple, 0);
-    cout << "El primer value del pyobj es: ";
-    PyObject_Print(result1, stdout, 0);
-    cout << endl;
-    PyObject *result2 = PyTuple_GetItem(tuple, 1);
-    cout << "El segon value del pyobj es: ";
-    PyObject_Print(result2, stdout, 0);
-    cout << endl;
-
-
-
-    //EXPECT_EQ(result, value);
+    long p1 = PyLong_AsLong(result1);
+    EXPECT_EQ(p1, 4);
+    result1 = PyTuple_GetItem(tuple, 1);
+    p1 = PyLong_AsLong(result1);
+    EXPECT_EQ(p1, 5);
 
 }
 
@@ -393,22 +359,14 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_LONG) {
     EXPECT_FALSE(ok == -1); //object was null
     EXPECT_FALSE(ok == -2); //something went wrong
     EXPECT_TRUE(ok == 0); //it worked as expected
-    //EXPECT_EQ(result, value);
 
-
-////////////////
-
-    PyObject *tuple = PyTuple_New(2);
-    tuple = parser->c_to_py(external);
-
+    PyObject *tuple = parser->c_to_py(external);
     PyObject *result1 = PyTuple_GetItem(tuple, 0);
-    cout << "El primer value del pyobj es: ";
-    PyObject_Print(result1, stdout, 0);
-    cout << endl;
-    PyObject *result2 = PyTuple_GetItem(tuple, 1);
-    cout << "El segon value del pyobj es: ";
-    PyObject_Print(result2, stdout, 0);
-    cout << endl;
+    long p1 = PyLong_AsLong(result1);
+    EXPECT_EQ(p1, 5500000000000000L);
+    result1 = PyTuple_GetItem(tuple, 1);
+    p1 = PyLong_AsLong(result1);
+    EXPECT_EQ(p1, 9223372036854775806);
 
 }
 
@@ -436,7 +394,7 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_TEXT) {
 
     UnitParser *parser = new TupleParser(CM);
 
-    PyObject *pt = Py_BuildValue("(ss)", "texto1", "texto2");
+    PyObject *pt = Py_BuildValue("(ss)", "text1", "text2");
     void *external = malloc(sizeof(TupleRow *));
     ok = parser->py_to_c(pt, external);
 
@@ -450,22 +408,15 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_TEXT) {
     EXPECT_FALSE(ok == -1); //object was null
     EXPECT_FALSE(ok == -2); //something went wrong
     EXPECT_TRUE(ok == 0); //it worked as expected
-    //EXPECT_EQ(result, value);
 
-
-////////////////
-
-    PyObject *tuple = PyTuple_New(2);
-    tuple = parser->c_to_py(external);
-
+    PyObject *tuple = parser->c_to_py(external);
     PyObject *result1 = PyTuple_GetItem(tuple, 0);
-    cout << "El primer value del pyobj es: ";
-    PyObject_Print(result1, stdout, 0);
-    cout << endl;
-    PyObject *result2 = PyTuple_GetItem(tuple, 1);
-    cout << "El segon value del pyobj es: ";
-    PyObject_Print(result2, stdout, 0);
-    cout << endl;
+    std::string valstr = PyString_AsString(result1);
+    EXPECT_EQ(valstr, "text1");
+    result1 = PyTuple_GetItem(tuple, 1);
+    valstr = PyString_AsString(result1);
+    EXPECT_EQ(valstr, "text2");
+
 
 }
 
@@ -478,9 +429,9 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_DOUBLE) {
     std::map<std::string, std::string> info = {{"name", "mycolumn"}};
     CassValueType cv_type = CASS_VALUE_TYPE_TUPLE;
     uint16_t offset = 0;
-    uint16_t bsize = (sizeof(double_t));
-    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_DOUBLE, 0, bsize);
-    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_DOUBLE, bsize, bsize);
+    uint16_t bsize = (sizeof(float));
+    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_FLOAT, 0, bsize);
+    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_FLOAT, bsize, bsize);
 
     std::vector<ColumnMeta> v = {cm1, cm2};
 
@@ -507,22 +458,14 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_DOUBLE) {
     EXPECT_FALSE(ok == -1); //object was null
     EXPECT_FALSE(ok == -2); //something went wrong
     EXPECT_TRUE(ok == 0); //it worked as expected
-    //EXPECT_EQ(result, value);
 
-
-////////////////
-
-    PyObject *tuple = PyTuple_New(2);
-    tuple = parser->c_to_py(external);
-
+    PyObject *tuple = parser->c_to_py(external);
     PyObject *result1 = PyTuple_GetItem(tuple, 0);
-    cout << "El primer value del pyobj es: ";
-    PyObject_Print(result1, stdout, 0);
-    cout << endl;
-    PyObject *result2 = PyTuple_GetItem(tuple, 1);
-    cout << "El segon value del pyobj es: ";
-    PyObject_Print(result2, stdout, 0);
-    cout << endl;
+    float res = PyFloat_AsDouble(result1);
+    EXPECT_FLOAT_EQ(res, 2.00);
+    result1 = PyTuple_GetItem(tuple, 1);
+    res = PyFloat_AsDouble(result1);
+    EXPECT_FLOAT_EQ(res, 2.01);
 
 }
 
@@ -565,22 +508,12 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_BOOLEAN) {
     EXPECT_FALSE(ok == -1); //object was null
     EXPECT_FALSE(ok == -2); //something went wrong
     EXPECT_TRUE(ok == 0); //it worked as expected
-    //EXPECT_EQ(result, value);
 
-
-////////////////
-
-    PyObject *tuple = PyTuple_New(2);
-    tuple = parser->c_to_py(external);
-
+    PyObject *tuple = parser->c_to_py(external);
     PyObject *result1 = PyTuple_GetItem(tuple, 0);
-    cout << "El primer value del pyobj es: ";
-    PyObject_Print(result1, stdout, 0);
-    cout << endl;
-    PyObject *result2 = PyTuple_GetItem(tuple, 1);
-    cout << "El segon value del pyobj es: ";
-    PyObject_Print(result2, stdout, 0);
-    cout << endl;
+    EXPECT_EQ(result1, t1);
+    result1 = PyTuple_GetItem(tuple, 1);
+    EXPECT_EQ(result1, t2);
 
 }
 
@@ -593,9 +526,10 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_DOUBLE_AND_TEXT) {
     std::map<std::string, std::string> info = {{"name", "mycolumn"}};
     CassValueType cv_type = CASS_VALUE_TYPE_TUPLE;
     uint16_t offset = 0;
-    uint16_t bsize = (sizeof(double_t));
-    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_DOUBLE, 0, bsize);
-    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_TEXT, bsize, bsize);
+    uint16_t bsize = (sizeof(float));
+    uint16_t bsize2 = (sizeof(int64_t));
+    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_FLOAT, 0, bsize);
+    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_TEXT, bsize, bsize2);
 
     std::vector<ColumnMeta> v = {cm1, cm2};
 
@@ -622,21 +556,13 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_DOUBLE_AND_TEXT) {
     EXPECT_FALSE(ok == -1); //object was null
     EXPECT_FALSE(ok == -2); //something went wrong
     EXPECT_TRUE(ok == 0); //it worked as expected
-    //EXPECT_EQ(result, value);
 
-
-////////////////
-
-    PyObject *tuple = PyTuple_New(2);
-    tuple = parser->c_to_py(external);
-
+    PyObject *tuple = parser->c_to_py(external);
     PyObject *result1 = PyTuple_GetItem(tuple, 0);
-    cout << "El primer value del pyobj es: ";
-    PyObject_Print(result1, stdout, 0);
-    cout << endl;
-    PyObject *result2 = PyTuple_GetItem(tuple, 1);
-    cout << "El segon value del pyobj es: ";
-    PyObject_Print(result2, stdout, 0);
-    cout << endl;
+    float res = PyFloat_AsDouble(result1);
+    EXPECT_FLOAT_EQ(res, 2.00);
+    result1 = PyTuple_GetItem(tuple, 1);
+    std::string valstr = PyString_AsString(result1);
+    EXPECT_EQ(valstr, "hola");
 
 }
