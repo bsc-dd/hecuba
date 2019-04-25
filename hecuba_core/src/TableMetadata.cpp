@@ -144,6 +144,7 @@ std::map<std::string, ColumnMeta> TableMetadata::getMetaTypes(CassIterator *iter
             metadatas[value].col_type = cass_column_meta_type(cmeta);
         }
     }
+    cass_iterator_free(iterator);
     return metadatas;
 }
 
@@ -196,7 +197,8 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
     CassIterator *iterator = cass_iterator_columns_from_table_meta(table_meta);
 
     std::map<std::string, ColumnMeta> metadatas = getMetaTypes(iterator);
-
+    cass_iterator_free(iterator);
+    cass_schema_meta_free(schema_meta);
 
     std::string key = keys_names[0]["name"];
     if (key.empty()) throw ModuleException("Empty key name given on position 0");

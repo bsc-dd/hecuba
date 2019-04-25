@@ -323,6 +323,7 @@ TupleRowFactory::bind(CassTuple *tuple, const TupleRow *row) const {
                     CassTuple *new_tuple = cass_tuple_new(n_types);
                     TFACT.bind(new_tuple, inner_data);
                     CassError rc = cass_tuple_set_tuple(tuple, (size_t) bind_pos, new_tuple);
+                    cass_tuple_free(tuple);
                     CHECK_CASS("TupleRowFactory: Cassandra unsuccessful binding a new Tuple to the existing tuple");
                     break;
                 }
@@ -479,6 +480,7 @@ TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t o
                     CassTuple *tuple = cass_tuple_new(n_types);
                     TFACT.bind(tuple, inner_data);
                     cass_statement_bind_tuple(statement, bind_pos, tuple);
+                    cass_tuple_free(tuple);
                     break;
                 }
                 case CASS_VALUE_TYPE_DECIMAL:
