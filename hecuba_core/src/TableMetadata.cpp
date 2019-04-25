@@ -144,7 +144,6 @@ std::map<std::string, ColumnMeta> TableMetadata::getMetaTypes(CassIterator *iter
             metadatas[value].col_type = cass_column_meta_type(cmeta);
         }
     }
-    cass_iterator_free(iterator);
     return metadatas;
 }
 
