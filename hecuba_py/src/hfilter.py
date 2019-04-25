@@ -197,8 +197,8 @@ def hfilter(lambda_filter, iterable):
 class Predicate:
     def __init__(self, father):
         self.father = father
-        self.primary_keys = [name for (name, _) in self.father._primary_keys]
-        self.columns = [name for (name, _) in self.father._columns]
+        self.primary_keys = [col[0] if isinstance(col, tuple) else col["name"] for col in self.father._primary_keys]
+        self.columns = [col[0] if isinstance(col, tuple) else col["name"] for col in self.father._columns]
         self.predicate = None
 
     def comp(self, col, value, comp):

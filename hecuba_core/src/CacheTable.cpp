@@ -153,7 +153,7 @@ std::vector<const TupleRow *> CacheTable::retrieve_from_cassandra(const TupleRow
 std::vector<const TupleRow *> CacheTable::get_crow(const TupleRow *keys) {
     if (myCache) {
         Poco::SharedPtr<TupleRow> ptrElem = myCache->get(*keys);
-        if (!ptrElem.isNull()) return std::vector<const TupleRow *> {new TupleRow(ptrElem.get())};
+        if (!ptrElem.isNull()) return std::vector<const TupleRow *>{new TupleRow(ptrElem.get())};
     }
 
     std::vector<const TupleRow *> values = retrieve_from_cassandra(keys);

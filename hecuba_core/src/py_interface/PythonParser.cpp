@@ -28,6 +28,8 @@ PythonParser::PythonParser(std::shared_ptr<StorageInterface> storage,
             parsers[meta_i] = new Int8Parser(CM);
         } else if (CM.type == CASS_VALUE_TYPE_UDT) {
             throw ModuleException("Support for UDT other than Numpy not implemented");
+        } else if (CM.type == CASS_VALUE_TYPE_TUPLE) {
+            parsers[meta_i] = new TupleParser(CM);
         } else parsers[meta_i] = new UnitParser(CM);
         ++meta_i;
     }
@@ -51,7 +53,6 @@ TupleRow *PythonParser::make_tuple(PyObject *obj) const {
     if (!PyList_Check(obj)) throw ModuleException("PythonParser: Make tuple: Expected python list");
     if (size_t(PyList_Size(obj)) != parsers.size())
         throw ModuleException("PythonParser: Got less python elements than columns configured");
-
     uint32_t total_bytes = 0;
     char *buffer = nullptr;
     if (!metas->empty()) {
