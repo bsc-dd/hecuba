@@ -110,38 +110,32 @@ uint16_t TableMetadata::compute_size_of(const ColumnMeta &CM) const {
 
 std::map<std::string, ColumnMeta> TableMetadata::getMetaTypes(CassIterator *iterator) {
     std::map<std::string, ColumnMeta> metadatas;
-    const CassColumnMeta *cmeta;
     const char *value;
     size_t length;
     const CassDataType *type;
     while (cass_iterator_next(iterator)) {
-        cmeta = cass_iterator_get_column_meta(iterator);
+        // Get column name and type
+        const CassColumnMeta *cmeta = cass_iterator_get_column_meta(iterator);
         cass_column_meta_name(cmeta, &value, &length);
         type = cass_column_meta_data_type(cmeta);
+        metadatas[value].type = cass_data_type_type(type);
+        metadatas[value].col_type = cass_column_meta_type(cmeta);
+
         if (cass_data_type_type(type) == CASS_VALUE_TYPE_TUPLE) {
             uint32_t n_subtypes = (uint32_t) cass_data_type_sub_type_count(type);
             std::vector<ColumnMeta> v(n_subtypes);
-            uint32_t offset = 0;
-            CassValueType cvt;
-            uint16_t size;
+            uint16_t offset = 0;
+            // Get tuple elements information
             for (uint32_t subtype = 0; subtype < n_subtypes; ++subtype) {
-                metadatas[value].type = cass_data_type_type(type);
-                metadatas[value].col_type = cass_column_meta_type(cmeta);
-                cvt = cass_data_type_type(cass_data_type_sub_data_type(type, subtype));
-                ColumnMeta cm = ColumnMeta();
-                cm.info.insert(std::pair<std::string, std::string>("name_tuple_col", value));
-                cm.type = cvt;
-                cm.position = offset;
-                size = compute_size_of(cm);
-                offset += size;
-                cm.size = size;
-                v[subtype] = cm;
+                CassValueType cvt = cass_data_type_type(cass_data_type_sub_data_type(type, subtype));
+                v[subtype].info["name"] = value;
+                v[subtype].type = cvt;
+                v[subtype].position = offset;
+                v[subtype].size = compute_size_of(v[subtype]);
+                offset += v[subtype].size;
+
             }
             metadatas[value].pointer = std::make_shared<std::vector<ColumnMeta>>(v);
-
-        } else {
-            metadatas[value].type = cass_data_type_type(type);
-            metadatas[value].col_type = cass_column_meta_type(cmeta);
         }
     }
     return metadatas;

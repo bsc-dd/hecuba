@@ -17,14 +17,23 @@
 
 
 struct ColumnMeta {
-    ColumnMeta() {}
+    ColumnMeta() = default;
+
+    ColumnMeta(const ColumnMeta &CM) {
+        this->info = CM.info;
+        this->type = CM.type;
+        this->position = CM.position;
+        this->size = CM.size;
+        this->col_type = CM.col_type;
+        this->pointer = CM.pointer;
+    }
 
     ColumnMeta(std::map<std::string, std::string> &info, CassValueType cv_type, uint16_t offset, uint16_t bsize) {
         this->info = info;
         this->type = cv_type;
         this->position = offset;
         this->size = bsize;
-        col_type = CASS_COLUMN_TYPE_REGULAR;
+        this->col_type = CASS_COLUMN_TYPE_REGULAR;
     }
 
     uint16_t position, size;
