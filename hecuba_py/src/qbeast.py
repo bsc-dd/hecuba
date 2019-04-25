@@ -56,7 +56,7 @@ class QbeastIterator(IStorage):
             raise ex
 
     def __init__(self, primary_keys, columns, indexed_on, name, qbeast_meta=None, qbeast_random=None,
-                 storage_id=None, tokens=None):
+                 storage_id=None, tokens=None, built_remotely=False):
         """
         Creates a new block.
         Args:
@@ -100,10 +100,9 @@ class QbeastIterator(IStorage):
 
         if storage_id is None:
             self._storage_id = uuid.uuid4()
-            save = True
         else:
             self._storage_id = storage_id
-            save = False
+
         self._build_args = self._building_args(
             primary_keys,
             columns,
@@ -114,7 +113,8 @@ class QbeastIterator(IStorage):
             self._storage_id,
             self._tokens,
             class_name)
-        if save:
+
+        if not built_remotely:
             self._store_meta(self._build_args)
 
         persistent_columns = [{"name": col[0], "type": col[1]} for col in columns]

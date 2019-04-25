@@ -34,7 +34,6 @@ class StorageObjSplitTest(unittest.TestCase):
         res = set()
         splits = 0
         for partition in pd.split():
-            self.assertEqual(partition._built_remotely, True)
             splits += 1
             for val in partition.iterkeys():
                 res.add(val)
@@ -67,7 +66,6 @@ class StorageObjSplitTest(unittest.TestCase):
         res = set()
         splits = 0
         for partition in pd.split():
-            self.assertEqual(partition._built_remotely, True)
             id = partition.getID()
             from storage.api import getByID
             rebuild = getByID(id)
@@ -100,7 +98,6 @@ class StorageObjSplitTest(unittest.TestCase):
         res = set()
         splits = 0
         for partition in sto.split():
-            self.assertEqual(partition._built_remotely, True)
             splits += 1
             for val in partition.words.iterkeys():
                 res.add(val)
@@ -130,7 +127,6 @@ class StorageObjSplitTest(unittest.TestCase):
         res = set()
         splits = 0
         for partition in sto.split():
-            self.assertEqual(partition._built_remotely, True)
             splits += 1
             id = partition.getID()
             from storage.api import getByID

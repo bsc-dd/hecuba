@@ -86,7 +86,9 @@ class IStorage:
             storage_id = uuid.uuid4()
             log.debug('assigning to %s %d  tokens', str(storage_id), len(token_split))
             new_args = self._build_args._replace(tokens=token_split, storage_id=storage_id)
-            yield self.__class__.build_remotely(new_args._asdict())
+            args_dict = new_args._asdict()
+            args_dict["built_remotely"] = False
+            yield self.__class__.build_remotely(args_dict)
         log.debug('completed split of %s in %f', self.__class__.__name__, time() - st)
 
     @staticmethod
