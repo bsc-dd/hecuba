@@ -94,7 +94,6 @@ void Writer::callback(CassFuture *future, void *ptr) {
         W->call_async();
     }
     free(data);
-
 }
 
 
@@ -119,7 +118,7 @@ void Writer::set_error_occurred(std::string error, const void *keys_p, const voi
     this->k_factory->bind(statement, keys, 0);
     this->v_factory->bind(statement, values, this->k_factory->n_elements());
 
-
+    cass_statement_set_timestamp(statement,keys->get_timestamp());
     CassFuture *query_future = cass_session_execute(session, statement);
 
     cass_statement_free(statement);
