@@ -98,7 +98,8 @@ class StorageObj(object, IStorage):
                                      self._tokens,
                                      self._storage_id,
                                      self._istorage_props,
-                                     self._class_name)
+                                     self._class_name,
+                                     built_remotely)
 
         if self._is_persistent:
             # If never existed, must create the tables and register

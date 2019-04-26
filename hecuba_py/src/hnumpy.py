@@ -122,7 +122,7 @@ class StorageNumpy(np.ndarray, IStorage):
             self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table + '_numpies')
 
         self._build_args = self.args(self._storage_id, self._class_name, self._ksp + '.' + self._table,
-                                     self.shape, self.dtype.num, self._block_id)
+                                     self.shape, self.dtype.num, self._block_id, self._built_remotely)
 
         if not self._built_remotely:
             log.info("PERSISTING DATA INTO %s %s", self._ksp, self._table)

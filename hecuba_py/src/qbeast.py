@@ -116,7 +116,8 @@ class QbeastIterator(IStorage):
             self._qbeast_random,
             self._storage_id,
             self._tokens,
-            class_name)
+            class_name,
+            built_remotely)
 
         persistent_columns = [{"name": col[0], "type": col[1]} if isinstance(col, tuple) else col for col in columns]
 

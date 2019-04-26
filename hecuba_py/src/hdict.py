@@ -324,7 +324,7 @@ class StorageDict(dict, IStorage):
             build_column = self._columns[:]
 
         self._build_args = self.args(None, build_keys, build_column, self._tokens,
-                                     self._storage_id, self._indexed_on, class_name)
+                                     self._storage_id, self._indexed_on, class_name, built_remotely)
 
         if name:
             self.make_persistent(name)
