@@ -29,7 +29,7 @@ class StorageNumpy(np.ndarray, IStorage):
                                                   '(storage_id, class_name, name, numpy_meta)'
                                                   'VALUES (?,?,?,?)')
 
-    args_names = ["storage_id", "class_name", "name", "shape", "dtype", "block_id"]
+    args_names = ["storage_id", "class_name", "name", "shape", "dtype", "block_id", "built_remotely"]
     args = namedtuple('StorageNumpyArgs', args_names)
 
     def __new__(cls, input_array=None, storage_id=None, name=None, built_remotely=False, **kwargs):

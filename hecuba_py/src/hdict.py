@@ -203,7 +203,7 @@ class StorageDict(dict, IStorage):
     # Object used to access data from workers.
     # """
 
-    args_names = ["name", "primary_keys", "columns", "tokens", "storage_id", "indexed_on", "class_name"]
+    args_names = ["name", "primary_keys", "columns", "tokens", "storage_id", "indexed_on", "class_name", "built_remotely"]
     args = namedtuple('StorageDictArgs', args_names)
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
                                                   '(storage_id, class_name, name, tokens, '
