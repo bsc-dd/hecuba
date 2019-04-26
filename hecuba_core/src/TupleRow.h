@@ -44,7 +44,7 @@ public:
         this->payload->unsetNull(position);
     }
 
-    inline void setTimestamp(uint64_t timestamp) {
+    inline void set_timestamp(uint64_t timestamp) {
         this->payload->setTimestamp(timestamp);
     }
 
