@@ -10,7 +10,7 @@ from parser import Parser
 
 
 class StorageObj(object, IStorage):
-    args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name"]
+    args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name", "built_remotely"]
     args = namedtuple('StorageObjArgs', args_names)
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba' +
                                                   '.istorage (storage_id, class_name, name, tokens,istorage_props) '
@@ -47,7 +47,7 @@ class StorageObj(object, IStorage):
         parser = Parser("ClassField")
         return parser._parse_comments(comments)
 
-    def __init__(self, name="", tokens=None, storage_id=None, istorage_props=None, **kwargs):
+    def __init__(self, name="", tokens=None, storage_id=None, istorage_props=None, built_remotely=False, **kwargs):
         """
             Creates a new storageobj.
             Args:
@@ -60,6 +60,7 @@ class StorageObj(object, IStorage):
         log.debug("CREATED StorageObj(%s)", name)
         # Assign private attributes
         self._is_persistent = True if name or storage_id else False
+        self._built_remotely = built_remotely
         self._persistent_props = StorageObj._parse_comments(self.__doc__)
         self._persistent_attrs = self._persistent_props.keys()
         self._class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
@@ -97,11 +98,13 @@ class StorageObj(object, IStorage):
                                      self._tokens,
                                      self._storage_id,
                                      self._istorage_props,
-                                     self._class_name)
+                                     self._class_name,
+                                     built_remotely)
 
         if self._is_persistent:
             # If never existed, must create the tables and register
-            self._create_tables()
+            if not self._built_remotely:
+                self._create_tables()
             self._store_meta(self._build_args)
 
         self._load_attributes()
@@ -255,6 +258,7 @@ class StorageObj(object, IStorage):
                 # We are not persistent or the attribute hasn't been assigned an IStorage obj, we build one
                 info = {"name": '', "tokens": self._build_args.tokens, "storage_id": None}
                 info.update(value_info)
+                info["built_remotely"] = self._built_remotely
                 value = IStorage.build_remotely(info)
                 object.__setattr__(self, attribute, value)
                 return value
@@ -298,6 +302,7 @@ class StorageObj(object, IStorage):
             # Build the IStorage obj
             info = {"name": attr_name, "tokens": self._build_args.tokens, "storage_id": value}
             info.update(value_info)
+            info["built_remotely"] = self._built_remotely
             value = IStorage.build_remotely(info)
 
         object.__setattr__(self, attribute, value)
@@ -322,7 +327,7 @@ class StorageObj(object, IStorage):
                 value = StorageNumpy(value)
             elif isinstance(value, dict):
                 per_dict = self._persistent_props[attribute]
-                info = {"name": '', "tokens": self._build_args.tokens, "storage_id": None}
+                info = {"name": '', "tokens": self._build_args.tokens, "storage_id": None, "built_remotely": self._built_remotely}
                 info.update(per_dict)
                 new_value = IStorage.build_remotely(info)
                 new_value.update(value)

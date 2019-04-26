@@ -85,7 +85,9 @@ class IStorage:
             storage_id = uuid.uuid4()
             log.debug('assigning to %s %d  tokens', str(storage_id), len(token_split))
             new_args = self._build_args._replace(tokens=token_split, storage_id=storage_id)
-            yield self.__class__.build_remotely(new_args._asdict())
+            args_dict = new_args._asdict()
+            args_dict["built_remotely"] = False
+            yield self.__class__.build_remotely(args_dict)
         log.debug('completed split of %s in %f', self.__class__.__name__, time() - st)
 
     @staticmethod
@@ -179,6 +181,11 @@ class IStorage:
         :param obj_info: Contains the information to be used to create the IStorage obj
         :return: An IStorage object
         """
+        if "built_remotely" not in args.keys():
+            built_remotely = True
+        else:
+            built_remotely = args["built_remotely"]
+
         obj_type = args.get('class_name', args.get('type', None))
         if obj_type is None:
             raise TypeError("Trying to build an IStorage obj without giving the type")
@@ -197,6 +204,7 @@ class IStorage:
 
         args = {k: v for k, v in args.items() if k in imported_class.args_names}
         args.pop('class_name', None)
+        args["built_remotely"] = built_remotely
 
         return imported_class(**args)
 

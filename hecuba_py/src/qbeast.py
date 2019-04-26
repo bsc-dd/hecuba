@@ -26,7 +26,7 @@ class QbeastIterator(IStorage):
     Object used to access data from workers.
     """
     args_names = ['primary_keys', 'columns', 'indexed_on', 'name', 'qbeast_meta', 'qbeast_random',
-                  'storage_id', 'tokens', 'class_name']
+                  'storage_id', 'tokens', 'class_name', 'built_remotely']
     _building_args = namedtuple('QbeastArgs', args_names)
     _prepared_store_meta = config.session.prepare(
         'INSERT INTO hecuba.istorage'
@@ -57,7 +57,7 @@ class QbeastIterator(IStorage):
             raise ex
 
     def __init__(self, primary_keys, columns, indexed_on, name, qbeast_meta=None, qbeast_random=None,
-                 storage_id=None, tokens=None):
+                 storage_id=None, tokens=None, built_remotely=False):
         """
         Creates a new block.
         Args:
@@ -116,9 +116,8 @@ class QbeastIterator(IStorage):
             self._qbeast_random,
             self._storage_id,
             self._tokens,
-            class_name)
-
-        self._store_meta(self._build_args)
+            class_name,
+            built_remotely)
 
         persistent_columns = [{"name": col[0], "type": col[1]} if isinstance(col, tuple) else col for col in columns]
 
@@ -130,6 +129,9 @@ class QbeastIterator(IStorage):
                                 'writer_buffer': config.write_buffer_size})
         log.debug("HCACHE params %s", self._hcache_params)
         self._hcache = Hcache(*self._hcache_params)
+      
+        if not built_remotely:
+            self._store_meta(self._build_args)
 
     def _set_qbeast_meta(self, qbeast_meta):
         self._qbeast_meta = qbeast_meta

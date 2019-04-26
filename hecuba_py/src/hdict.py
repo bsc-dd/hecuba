@@ -202,7 +202,7 @@ class StorageDict(dict, IStorage):
     # Object used to access data from workers.
     # """
 
-    args_names = ["name", "primary_keys", "columns", "tokens", "storage_id", "indexed_on", "class_name"]
+    args_names = ["name", "primary_keys", "columns", "tokens", "storage_id", "indexed_on", "class_name", "built_remotely"]
     args = namedtuple('StorageDictArgs', args_names)
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
                                                   '(storage_id, class_name, name, tokens, '
@@ -229,7 +229,7 @@ class StorageDict(dict, IStorage):
             raise ex
 
     def __init__(self, name=None, primary_keys=None, columns=None, tokens=None,
-                 storage_id=None, indexed_on=None, **kwargs):
+                 storage_id=None, indexed_on=None, built_remotely=False, **kwargs):
         """
         Creates a new StorageDict.
 
@@ -245,6 +245,7 @@ class StorageDict(dict, IStorage):
 
         super(StorageDict, self).__init__(**kwargs)
         self._is_persistent = False
+        self._built_remotely = built_remotely
         log.debug("CREATED StorageDict(%s,%s,%s,%s,%s,%s)", primary_keys, columns, name, tokens, storage_id, kwargs)
 
         if tokens is None:
@@ -323,7 +324,7 @@ class StorageDict(dict, IStorage):
             build_column = self._columns[:]
 
         self._build_args = self.args(None, build_keys, build_column, self._tokens,
-                                     self._storage_id, self._indexed_on, class_name)
+                                     self._storage_id, self._indexed_on, class_name, built_remotely)
 
         if name:
             self.make_persistent(name)
@@ -477,7 +478,7 @@ class StorageDict(dict, IStorage):
 
         key_names = [col[0] if isinstance(col, tuple) else col["name"] for col in persistent_keys]
 
-        if config.id_create_schema == -1:
+        if config.id_create_schema == -1 and not self._built_remotely:
             query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
             try:
                 log.debug('MAKE PERSISTENCE: %s', query_keyspace)

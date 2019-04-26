@@ -88,6 +88,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(nopars.__class__.__name__, 'StorageDict')
 
         rebuild = StorageDict.build_remotely(res._asdict())
+        self.assertEqual(rebuild._built_remotely, True)
         self.assertEqual('tab1', rebuild._table)
         self.assertEqual("ksp", rebuild._ksp)
         self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, tablename), rebuild._storage_id)
@@ -114,6 +115,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(nopars.__class__.__name__, 'StorageDict')
 
         rebuild = StorageDict.build_remotely(res._asdict())
+        self.assertEqual(rebuild._built_remotely, True)
         self.assertEqual('tab1', rebuild._table)
         self.assertEqual(config.execution_name, rebuild._ksp)
         self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename), rebuild._storage_id)
