@@ -76,6 +76,7 @@ protected:
         bool isDone() { return done; };
 
         void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks);
+
     protected:
         bool done;
         const ArrayMetadata *metas;
@@ -84,8 +85,6 @@ protected:
     };
 
 };
-
-
 
 
 class ZorderCurveGenerator : public SpaceFillingCurve::PartitionGenerator {

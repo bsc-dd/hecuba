@@ -17,20 +17,32 @@
 
 
 struct ColumnMeta {
-    ColumnMeta() {}
+    ColumnMeta() = default;
+
+    ColumnMeta(const ColumnMeta &CM) {
+        this->info = CM.info;
+        this->type = CM.type;
+        this->position = CM.position;
+        this->size = CM.size;
+        this->col_type = CM.col_type;
+        this->pointer = CM.pointer;
+    }
 
     ColumnMeta(std::map<std::string, std::string> &info, CassValueType cv_type, uint16_t offset, uint16_t bsize) {
         this->info = info;
         this->type = cv_type;
         this->position = offset;
         this->size = bsize;
-        col_type = CASS_COLUMN_TYPE_REGULAR;
+        this->col_type = CASS_COLUMN_TYPE_REGULAR;
     }
 
     uint16_t position, size;
     CassValueType type;
     CassColumnType col_type;
     std::map<std::string, std::string> info;
+    std::shared_ptr<std::vector<ColumnMeta> > pointer;
+
+
 };
 
 
@@ -43,6 +55,7 @@ public:
                   std::vector<std::map<std::string, std::string>> &keys_names,
                   std::vector<std::map<std::string, std::string>> &columns_names,
                   const CassSession *session);
+
 
     std::shared_ptr<const std::vector<ColumnMeta> > get_keys() const {
         return keys;
@@ -90,6 +103,8 @@ public:
 
 private:
     uint16_t compute_size_of(const ColumnMeta &CM) const;
+
+    std::map<std::string, ColumnMeta> getMetaTypes(CassIterator *iterator);
 
     //uint32_t total_bytes;
     std::shared_ptr<const std::vector<ColumnMeta> > cols;

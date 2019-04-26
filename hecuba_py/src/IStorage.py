@@ -15,7 +15,6 @@ class IStorage:
     args_names = []
     args = namedtuple("IStorage", [])
     _build_args = args()
-
     _valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map', 'bigint', 'blob',
                     'tuple', 'dict', 'float', 'numpy.ndarray']
 

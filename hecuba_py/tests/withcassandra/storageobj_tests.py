@@ -139,13 +139,12 @@ class mixObj(StorageObj):
 
 class StorageObjTest(unittest.TestCase):
     def test_build_remotely(self):
-
+        config.session.execute("DROP TABLE IF EXISTS " + config.execution_name + ".tt1")
+        obj = TestStorageObj(config.execution_name + ".tt1")
         r = {"built_remotely": False, "storage_id": uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), "ksp" :  config.execution_name,
              "class_name": str(TestStorageObj.__module__) + "." + TestStorageObj.__name__, "name": 'tt1',
              "columns": [('val1', 'str')], "entry_point": 'localhost', "primary_keys": [('pk1', 'int')],
-             "istorage_props": {}, "tokens": IStorage._discrete_token_ranges(
-                [8508619251581300691, 8514581128764531689, 8577968535836399533, 8596162846302799189,
-                 8603491526474728284, 8628291680139169981, 8687301163739303017, 9111581078517061776])}
+             "istorage_props": {}, "tokens": IStorage._discrete_token_ranges([token.value for token in config.cluster.metadata.token_map.ring])}
 
         nopars = StorageObj.build_remotely(r)
         self.assertEqual('tt1', nopars._table)
@@ -167,9 +166,7 @@ class StorageObjTest(unittest.TestCase):
         r = {"built_remotely": False, "storage_id": uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), "ksp": config.execution_name,
              "class_name": str(TestStorageObj.__module__) + "." + TestStorageObj.__name__, "name": 'tt1',
              "columns": [('val1', 'str')], "entry_point": 'localhost', "primary_keys": [('pk1', 'int')],
-             "istorage_props": {}, "tokens": IStorage._discrete_token_ranges(
-                [8508619251581300691, 8514581128764531689, 8577968535836399533, 8596162846302799189,
-                 8603491526474728284, 8628291680139169981, 8687301163739303017, 9111581078517061776])}
+             "istorage_props": {}, "tokens": IStorage._discrete_token_ranges([token.value for token in config.cluster.metadata.token_map.ring])}
 
         nopars = StorageObj.build_remotely(r)
         self.assertEqual(nopars._built_remotely, False)
@@ -268,7 +265,7 @@ class StorageObjTest(unittest.TestCase):
         nopars.ciao3 = [1, 2, 3]
         nopars.ciao4 = (1, 2, 3)
         for i in range(10):
-            nopars.words[i] = 'ciao' + str(i)
+            nopars.words[i] = ['ciao' + str(i)]
 
         count, = config.session.execute(
             "SELECT count(*) FROM system_schema.tables WHERE keyspace_name = 'hecuba_test' and table_name = 'words'")[0]
@@ -280,7 +277,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(10, count)
 
         nopars2 = Test6StorageObj("hecuba_test.nonames")
-        nopars2.test3[0] = '1', '2'
+        nopars2.test3[0] = ['1', '2']
         time.sleep(2)
         result = config.session.execute("SELECT val0, val1 FROM hecuba_test.nonames_test3 WHERE key0 = 0")
 

@@ -145,7 +145,7 @@ const ArrayMetadata *NumpyStorage::read_array_meta(const uint64_t *storage_id, C
     // Get metas from Cassandra
     int32_t cluster_id = -1;
 
-    char *buffer = (char *) malloc(sizeof(uint64_t*)+sizeof(int32_t));
+    char *buffer = (char *) malloc(sizeof(uint64_t *) + sizeof(int32_t));
     // UUID
     uint64_t *c_uuid = (uint64_t *) malloc(sizeof(uint64_t) * 2);
     c_uuid[0] = *storage_id;
@@ -186,7 +186,7 @@ const ArrayMetadata *NumpyStorage::read_array_meta(const uint64_t *storage_id, C
     arr_metas->dims = std::vector<uint32_t>(nelem);
     memcpy(arr_metas->dims.data(), payload + bytes_offset, nbytes);
 
-    for (const TupleRow* &v : results) delete(v);
+    for (const TupleRow *&v : results) delete (v);
     return arr_metas;
 }
 

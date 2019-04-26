@@ -1,12 +1,12 @@
-from IStorage import IStorage, AlreadyPersistentError
-from hecuba import config, log
-
-#from hfetch import Hcache
-from hfetch import HNumpyStore
-
 import uuid
 from collections import namedtuple
+
 import numpy as np
+from hecuba import config, log
+# from hfetch import Hcache
+from hfetch import HNumpyStore
+
+from IStorage import IStorage, AlreadyPersistentError
 
 
 class StorageNumpy(np.ndarray, IStorage):

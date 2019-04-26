@@ -106,7 +106,7 @@ class LambdaParserTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS hfilter_tests.complexdict")
         complex_dict = ComplexDict("hfilter_tests.complexdict")
         for i in range(0, 20):
-            complex_dict[str(i), i] = (str(i), i, float(i), True)
+            complex_dict[str(i), i] = [str(i), i, float(i), True]
         time.sleep(2)
 
         res = filter(lambda x: x.key0 in ["1", "2", "3", "4", "5"] and x.val1 >= 1 and x.val1 <= 5 and x.val2 >= 1.0 and x.val2 <= 4.0 and x.val3 == True, complex_dict.iteritems())

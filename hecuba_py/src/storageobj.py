@@ -1,15 +1,13 @@
-import re
 import uuid
 from collections import namedtuple
 
 import numpy as np
-import sys
-from IStorage import IStorage, AlreadyPersistentError
-from hdict import StorageDict
 from hecuba import config, log, Parser
+
+from IStorage import IStorage, AlreadyPersistentError
 from hnumpy import StorageNumpy
-from collections import OrderedDict
 from parser import Parser
+
 
 class StorageObj(object, IStorage):
     args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name", "built_remotely"]
@@ -257,7 +255,7 @@ class StorageObj(object, IStorage):
                 return object.__getattribute__(self, attribute)
             else:
                 # We are not persistent or the attribute hasn't been assigned an IStorage obj, we build one
-                info = {"name":'', "tokens":self._build_args.tokens, "storage_id":None}
+                info = {"name": '', "tokens": self._build_args.tokens, "storage_id": None}
                 info.update(value_info)
                 info["built_remotely"] = self._built_remotely
                 value = IStorage.build_remotely(info)
@@ -301,7 +299,7 @@ class StorageObj(object, IStorage):
             if count > 1:
                 attr_name += '_' + str(count - 2)
             # Build the IStorage obj
-            info = {"name" :attr_name, "tokens":self._build_args.tokens, "storage_id":value}
+            info = {"name": attr_name, "tokens": self._build_args.tokens, "storage_id": value}
             info.update(value_info)
             info["built_remotely"] = self._built_remotely
             value = IStorage.build_remotely(info)

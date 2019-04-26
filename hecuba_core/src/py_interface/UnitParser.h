@@ -163,5 +163,20 @@ public:
     virtual PyObject *c_to_py(const void *payload) const;
 };
 
+class TupleParser : public UnitParser {
+
+public:
+
+    TupleParser(const ColumnMeta &CM);
+
+    virtual int16_t py_to_c(PyObject *text, void *payload) const;
+
+    virtual PyObject *c_to_py(const void *payload) const;
+
+private:
+    ColumnMeta col_meta;
+
+};
+
 
 #endif //HFETCH_UNITPARSER_H
