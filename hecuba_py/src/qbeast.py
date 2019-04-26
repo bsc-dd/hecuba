@@ -18,11 +18,7 @@ class QbeastMeta(object):
         self.mem_filter = mem_filter
 
 
-config.session.execute("CREATE TYPE IF NOT EXISTS hecuba.q_meta("
-                       "precision float,"
-                       "from_point frozen<list<double>>,"
-                       "to_point frozen<list<double>>,"
-                       "mem_filter text)")
+config.cluster.register_user_type('hecuba', 'q_meta', QbeastMeta)
 
 
 class QbeastIterator(IStorage):
