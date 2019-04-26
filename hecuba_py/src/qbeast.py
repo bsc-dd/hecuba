@@ -13,8 +13,8 @@ from IStorage import IStorage
 class QbeastMeta(object):
     def __init__(self, mem_filter, from_point, to_point, precision):
         self.precision = precision
-        self.to_point = to_point
         self.from_point = from_point
+        self.to_point = to_point
         self.mem_filter = mem_filter
 
 
@@ -27,12 +27,12 @@ class QbeastIterator(IStorage):
     """
     args_names = ['primary_keys', 'columns', 'indexed_on', 'name', 'qbeast_meta', 'qbeast_random',
                   'storage_id', 'tokens', 'class_name']
-    _building_args = namedtuple('StorageDictArgs', args_names)
+    _building_args = namedtuple('QbeastArgs', args_names)
     _prepared_store_meta = config.session.prepare(
         'INSERT INTO hecuba.istorage'
-        '(primary_keys, columns, name, qbeast_meta,'
+        '(primary_keys, columns, indexed_on, name, qbeast_meta,'
         ' qbeast_random, storage_id, tokens, class_name)'
-        'VALUES (?,?,?,?,?,?,?,?)')
+        'VALUES (?,?,?,?,?,?,?,?,?)')
     _prepared_set_qbeast_meta = config.session.prepare(
         'INSERT INTO hecuba.istorage (storage_id, qbeast_meta)VALUES (?,?)')
     _row_namedtuple = namedtuple("row", "key,value")
@@ -45,6 +45,7 @@ class QbeastIterator(IStorage):
             config.session.execute(QbeastIterator._prepared_store_meta,
                                    [storage_args.primary_keys,
                                     storage_args.columns,
+                                    storage_args.indexed_on,
                                     storage_args.name,
                                     storage_args.qbeast_meta,
                                     storage_args.qbeast_random,
@@ -100,13 +101,15 @@ class QbeastIterator(IStorage):
 
         if storage_id is None:
             self._storage_id = uuid.uuid4()
-            save = True
         else:
             self._storage_id = storage_id
-            save = False
+
+        build_keys = [(key["name"], key["type"]) if isinstance(key, dict) else key for key in primary_keys]
+        build_columns = [(col["name"], col["type"]) if isinstance(col, dict) else col for col in columns]
+
         self._build_args = self._building_args(
-            primary_keys,
-            columns,
+            build_keys,
+            build_columns,
             self._indexed_on,
             self._ksp + "." + self._table,
             self._qbeast_meta,
@@ -114,8 +117,10 @@ class QbeastIterator(IStorage):
             self._storage_id,
             self._tokens,
             class_name)
-        if save:
-            self._store_meta(self._build_args)
+
+        self._store_meta(self._build_args)
+
+        persistent_columns = [{"name": col[0], "type": col[1]} if isinstance(col, tuple) else col for col in columns]
 
         self._hcache_params = (self._ksp, self._table,
                                self._storage_id,
