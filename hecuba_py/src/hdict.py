@@ -494,8 +494,6 @@ class StorageDict(dict, IStorage):
                     log.error("Error creating the Qbeast trigger: %s %s", trigger_query, ex)
                     raise ex
 
-        self._store_meta(self._build_args)
-
         persistent_columns = [{"name": tup[0], "type": tup[1]} for tup in persistent_values]
         self._hcache_params = (self._ksp, self._table,
                                self._storage_id,
@@ -517,6 +515,8 @@ class StorageDict(dict, IStorage):
             self._hcache.put_row(self._make_key(key), self._make_value(value))
 
         super(StorageDict, self).clear()
+
+        self._store_meta(self._build_args)
 
     def stop_persistent(self):
         """

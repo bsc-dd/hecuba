@@ -137,8 +137,6 @@ class StorageNumpy(np.ndarray, IStorage):
                                                                                                    'payload blob, '
                                                                                                    'PRIMARY KEY((storage_id,cluster_id),block_id))')
 
-        self._store_meta(self._build_args)
-
         self._hcache_params = (self._ksp, self._table + '_numpies',
                                self._storage_id, [], ['storage_id', 'cluster_id', 'block_id'],
                                [{'name': "payload", 'type': 'numpy'}],
@@ -147,8 +145,9 @@ class StorageNumpy(np.ndarray, IStorage):
                                 'write_buffer': config.write_buffer_size})
 
         self._hcache = HNumpyStore(*self._hcache_params)
-        if len(self.shape) != 0 and not self._built_remotely:
+        if len(self.shape) != 0:
             self._hcache.save_numpy([self._storage_id], [self])
+        self._store_meta(self._build_args)
 
     def delete_persistent(self):
         """
