@@ -173,13 +173,13 @@ std::vector<const TupleRow *> CacheTable::get_crow(void *keys) {
 
 
 void CacheTable::delete_crow(const TupleRow *keys) {
-    // To avoid consistency problems we flush the elements pending to be written
-    this->writer->flush_elements();
+    auto tse = std::chrono::system_clock::now().time_since_epoch();
 
     //Remove row from Cassandra
     CassStatement *statement = cass_prepared_bind(delete_query);
 
     this->keys_factory->bind(statement, keys, 0);
+    cass_statement_set_timestamp(statement, std::chrono::duration_cast<std::chrono::nanoseconds>(tse).count());
 
     CassFuture *query_future = cass_session_execute(session, statement);
     const CassResult *result = cass_future_get_result(query_future);
