@@ -253,11 +253,49 @@ if (DEFINED ENV{GTEST_ROOT})
             include_directories(${GTEST_INCLUDE_DIRS})
 
             enable_testing()
+
             add_executable(hfetch_test tests/runtests.cpp)
             set_target_properties(hfetch_test
                     PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
             target_link_libraries(hfetch_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch)
             add_test(test hfetch_test)
+
+
+            find_package(PythonInterp 2.7)
+            find_package(PythonLibs 2.7.5 REQUIRED)
+            find_package(NumPy 1.8)
+
+            if (NUMPY_FOUND)
+                include_directories(${NUMPY_INCLUDE_DIR})
+            else ()
+                message("Numpy headers not found, Numpy arrays support won't be available")
+            endif ()
+
+            include_directories(${PYTHON_INCLUDE_DIRS})
+            set(ALL_LIBS ${ALL_LIBS} ${PYTHON_LIBRARIES})
+
+
+            file(GLOB COREPY_H_FILES ${CORE_SRC_DIR}/py_interface/*.h)
+            file(GLOB COREPY_SRC_FILES ${CORE_SRC_DIR}/py_interface/*.cpp)
+            set(PY_H_FILES ${COREPY_H_FILES})
+            set(PY_SRC_FILES ${COREPY_SRC_FILES})
+
+            #set(PY_SRC_FILES py_interface/HCache.cpp PythonParser.cpp UnitParser.cpp NumpyStorage.cpp)
+            #set(PY_H_FILES HCache.h PythonParser.h UnitParser.h NumpyStorage.h)
+            add_library(pyinterface SHARED ${PY_SRC_FILES} ${PY_H_FILES})
+            set_target_properties(pyinterface
+                    PROPERTIES PREFIX ""
+                    INSTALL_RPATH "$ORIGIN/"
+                    BUILD_WITH_INSTALL_RPATH 1)
+            target_link_libraries(pyinterface ${ALL_LIBS})
+
+
+            add_executable(py_hfetch_test tests/pytests.cpp)
+            set_target_properties(py_hfetch_test
+                    PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
+            target_link_libraries(py_hfetch_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch pyinterface)
+            add_test(test py_hfetch_test)
+
         else ()
             message(STATUS "If GTest is installed, point the environment var GTEST_ROOT to its root (/home/user/local)")
         endif (GTest_FOUND)

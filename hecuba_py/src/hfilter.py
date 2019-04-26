@@ -8,7 +8,7 @@ from hecuba.qbeast import QbeastIterator, QbeastMeta
 from IStorage import IStorage
 from hecuba.tools import NamedItemsIterator
 
-magical_regex = re.compile(r'(?:\d+(?:\.\d+)?|\w|"\w+")+|[^\s\w\_]')
+magical_regex = re.compile(r'(?:\d+(?:\.\d+)?|\w|"\w+"|\'\w+\')+|[^\s\w\_]')
 is_numerical = re.compile(r'\d+(\.\d+)?')
 
 
@@ -17,7 +17,7 @@ def func_to_str(func):
     start, end = func_string.find("lambda"), func_string.rfind(",")
     func_string = func_string[start:end]
     func_vars = func_string[7:func_string.find(':')].replace(" ", "").split(',')
-    clean_string = func_string[func_string.find(':') + 1:].replace("\\n", '').replace("'", '')
+    clean_string = func_string[func_string.find(':') + 1:].replace("\\n", '')
     return func_vars, clean_string
 
 
@@ -62,6 +62,8 @@ def transform_to_correct_type(final_list, dictv):
                 aux.append(value)
             elif not value.find('"') == -1:
                 aux.append(value.replace('"', ''))
+            elif not value.find("'") == -1:
+                aux.append(value.replace("'", ""))
             elif value.isdigit() and value not in dictv.values():
                 aux.append(int(value))
             elif is_float(value) and value not in dictv.values():
@@ -197,8 +199,8 @@ def hfilter(lambda_filter, iterable):
 class Predicate:
     def __init__(self, father):
         self.father = father
-        self.primary_keys = [name for (name, _) in self.father._primary_keys]
-        self.columns = [name for (name, _) in self.father._columns]
+        self.primary_keys = [col[0] if isinstance(col, tuple) else col["name"] for col in self.father._primary_keys]
+        self.columns = [col[0] if isinstance(col, tuple) else col["name"] for col in self.father._columns]
         self.predicate = None
 
     def comp(self, col, value, comp):

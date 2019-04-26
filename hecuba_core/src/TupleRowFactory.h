@@ -39,6 +39,8 @@ public:
 
     void bind(CassStatement *statement, const TupleRow *row, u_int16_t offset) const;
 
+    void bind(CassTuple *tuple, const TupleRow *row) const;
+
     inline std::shared_ptr<const std::vector<ColumnMeta>> get_metadata() const {
         return metadata;
     }
@@ -46,6 +48,10 @@ public:
     inline const uint16_t n_elements() const {
         return (uint16_t)
                 this->metadata->size();
+    }
+
+    inline const uint16_t get_nbytes() const {
+        return total_bytes;
     }
 
 private:

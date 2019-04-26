@@ -161,7 +161,6 @@ void Writer::call_async() {
 
     CassStatement *statement = cass_prepared_bind(prepared_query);
 
-
     this->k_factory->bind(statement, item.first, 0);
     this->v_factory->bind(statement, item.second, this->k_factory->n_elements());
 

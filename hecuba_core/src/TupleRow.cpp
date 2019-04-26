@@ -21,6 +21,13 @@ TupleRow::TupleRow(std::shared_ptr<const std::vector<ColumnMeta>> metas,
                                                                 free(d);
                                                                 break;
                                                             }
+                                                            case CASS_VALUE_TYPE_TUPLE: {
+                                                                int64_t *addr = (int64_t *) ((char *) holder->data +
+                                                                                             metas->at(i).position);
+                                                                TupleRow *tr = reinterpret_cast<TupleRow *>(*addr);
+                                                                delete (tr);
+                                                                break;
+                                                            }
                                                             default:
                                                                 break;
                                                         }

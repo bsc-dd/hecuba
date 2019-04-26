@@ -117,7 +117,7 @@ class StorageDictSplitTest(unittest.TestCase):
         num_inserts = 10000
         what_should_be = {}
         for i in range(num_inserts):
-            pd[i, i + 100] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
+            pd[i, i + 100] = ['ciao' + str(i), i * 0.1, i * 0.2, i * 0.3]
             what_should_be[i, i + 100] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
 
         del pd
