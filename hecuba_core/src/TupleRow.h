@@ -56,7 +56,6 @@ public:
         return this->payload->ptr_length;
     }
 
-
     inline const uint16_t n_elem() const {
         return (uint16_t) metadatas->size();
     }
@@ -170,6 +169,7 @@ private:
 };
 
 
+// Allows indexing TupleRows in a hash map. Trivial implementation, a custom hash should reduce overhead.
 namespace std {
     template<>
     struct hash<TupleRow> {
