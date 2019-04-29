@@ -242,6 +242,11 @@ if (DEFINED ENV{GTEST_ROOT})
             target_link_libraries(hfetch_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch)
             add_test(test hfetch_test)
 
+            add_executable(cache_imp_test tests/cache_tests.cpp)
+            set_target_properties(cache_imp_test
+                    PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
+            target_link_libraries(cache_imp_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch)
+            add_test(test cache_imp_test)
 
             find_package(PythonInterp 2.7)
             find_package(PythonLibs 2.7.5 REQUIRED)
