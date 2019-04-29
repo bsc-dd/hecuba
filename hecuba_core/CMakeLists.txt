@@ -161,24 +161,6 @@ else ()
 endif ()
 
 
-if (NOT POCO)
-    message("Downloading Poco Libs")
-    unset(POCO) #to avoid name clash
-    ExternalProject_Add(
-            POCO
-            DOWNLOAD_DIR ${CMAKE_CURRENT_LIST_DIR}/dependencies
-            URL https://pocoproject.org/releases/poco-1.7.7/poco-1.7.7.tar.gz
-            URL_HASH SHA1=bdac2ff5cb2bea078cc71f1d85704bbeba7e14c9
-            CMAKE_ARGS ${CMAKE_SUBPROJECT_FLAGS} -DCMAKE_INSTALL_PREFIX=${PROJECT_BINARY_DIR} -DENABLE_CPPUNIT=OFF -DENABLE_XML=OFF -DENABLE_JSON=OFF -DENABLE_MONGODB=OFF -DENABLE_PDF=OFF -DENABLE_UTIL=OFF -DENABLE_NET=OFF -DENABLE_NETSSL=OFF -DENABLE_NETSSL_WIN=OFF -DENABLE_CRYPTO=OFF -DENABLE_DATA=OFF -DENABLE_DATA_SQLITE=OFF -DENABLE_DATA_MYSQL=OFF -DENABLE_DATA_POSTGRESQL=OFF -DENABLE_DATA_ODBC=OFF -DENABLE_SEVENZIP=OFF -DENABLE_ZIP=OFF -DENABLE_APACHECONNECTOR=OFF -DENABLE_CPPPARSER=OFF -DENABLE_POCODOC=OFF -DENABLE_PAGECOMPILER=OFF -DENABLE_PAGECOMPILER_FILE2PAGE=OFF -DENABLE_REDIS=OFF -DENABLE_TESTS=OFF -DENABLE_SAMPLES=OFF -DENABLE_MSVC_MP=OFF
-    )
-    add_dependencies(hfetch POCO)
-    target_link_libraries(hfetch ${PROJECT_BINARY_DIR}/lib/libPocoFoundation.so)
-else ()
-    message(STATUS "Using system's POCO: " ${POCO})
-    set(ALL_LIBS ${ALL_LIBS} ${POCO})
-endif ()
-
-
 if (NOT CASS)
     message("Downloading C++ Cassandra Driver")
     unset(CASS) #to avoid name clash
