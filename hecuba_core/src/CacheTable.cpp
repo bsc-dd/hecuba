@@ -52,7 +52,7 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
     this->keys_factory = new TupleRowFactory(table_meta->get_keys());
     this->values_factory = new TupleRowFactory(table_meta->get_values());
 
-    if (cache_size) this->myCache = new TupleRowCache<TupleRow, TupleRow>(cache_size);
+    if (cache_size) this->myCache = new KVCache<TupleRow, TupleRow>(cache_size);
 };
 
 
@@ -79,7 +79,7 @@ const void CacheTable::flush_elements() const {
 
 void CacheTable::put_crow(const TupleRow *keys, const TupleRow *values) {
     this->writer->write_to_cassandra(keys, values);
-    if (myCache) this->myCache->update(*keys, values); //Inserts if not present, otherwise replaces
+    if (myCache) this->myCache->add(*keys, values); //Inserts if not present, otherwise replaces
 }
 
 
@@ -101,7 +101,7 @@ void CacheTable::put_crow(void *keys, void *values) {
 void CacheTable::add_to_cache(void *keys, void *values) {
     const TupleRow *k = keys_factory->make_tuple(keys);
     const TupleRow *v = values_factory->make_tuple(values);
-    if (myCache) this->myCache->update(*k, v);
+    if (myCache) this->myCache->add(*k, v);
     delete (k);
     delete (v);
 }
@@ -152,8 +152,14 @@ std::vector<const TupleRow *> CacheTable::retrieve_from_cassandra(const TupleRow
 
 std::vector<const TupleRow *> CacheTable::get_crow(const TupleRow *keys) {
     if (myCache) {
-        Poco::SharedPtr<TupleRow> ptrElem = myCache->get(*keys);
-        if (!ptrElem.isNull()) return std::vector<const TupleRow *>{new TupleRow(ptrElem.get())};
+        TupleRow *value;
+        try {
+            value = new TupleRow(myCache->get(*keys));
+            return std::vector<const TupleRow *>{value};
+        }
+        catch (std::out_of_range &ex) {
+            value = nullptr;
+        }
     }
 
     std::vector<const TupleRow *> values = retrieve_from_cassandra(keys);
@@ -197,5 +203,5 @@ void CacheTable::delete_crow(const TupleRow *keys) {
     cass_result_free(result);
 
     //Remove entry from cache
-    if (myCache) myCache->Remove(*keys);
+    if (myCache) myCache->remove(*keys);
 }
