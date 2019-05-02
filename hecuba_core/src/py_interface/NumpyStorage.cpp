@@ -285,16 +285,23 @@ PyObject *NumpyStorage::read(const uint64_t *storage_id) {
     for (uint32_t i = 0; i < arr_meta->dims.size(); ++i) {
         dims[i] = arr_meta->dims[i];
     }
+    PyObject* resulting_array;
     try {
-        return PyArray_SimpleNewFromData((int32_t) arr_meta->dims.size(),
-                                         dims,
-                                         arr_meta->inner_type, data);
+        resulting_array =  PyArray_SimpleNewFromData((int32_t) arr_meta->dims.size(),
+                                                     dims,
+                                                     arr_meta->inner_type, data);
+        delete(arr_meta);
+        PyArrayObject* converted_array;
+        PyArray_OutputConverter(resulting_array, &converted_array);
+        PyArray_ENABLEFLAGS(converted_array, NPY_ARRAY_OWNDATA);
+        //PyArray_ENABLEFLAGS((PyArrayObject*)resulting_array, NPY_ARRAY_OWNDATA);
     }
     catch (std::exception e) {
         if (PyErr_Occurred()) PyErr_Print();
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
+    return resulting_array;
 }
 
 /***
