@@ -123,7 +123,7 @@ class QbeastIterator(IStorage):
 
         self._hcache_params = (self._ksp, self._table,
                                self._storage_id,
-                               self._tokens, key_names, columns,
+                               self._tokens, key_names, persistent_columns,
                                {'cache_size': config.max_cache_size,
                                 'writer_par': config.write_callbacks_number,
                                 'writer_buffer': config.write_buffer_size})
