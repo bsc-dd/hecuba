@@ -1,5 +1,7 @@
 import logging
 import os
+import sys
+
 import re
 
 from cassandra.cluster import Cluster
@@ -61,6 +63,22 @@ class Config:
         Config.reset(mock_cassandra=mock_cassandra)
 
     @staticmethod
+    def get_mpi_rank():
+        envvars = {
+            "OMPI_COMM_WORLD_RANK",
+            "MV2_COMM_WORLD_RANK",
+            "PMI_RANK",
+            "MPI_RANKID",
+            "MP_CHILD",
+            "SLURM_PROCID"
+        }
+        try:
+            rank = next(os.environ.get(var_i) for var_i in envvars if os.environ.get(var_i, None))
+            return int(rank) - 1
+        except StopIteration:
+            return -1
+
+    @staticmethod
     def reset(mock_cassandra=False):
         singleton = Config.instance
         if singleton.configured and singleton.mock_cassandra == mock_cassandra:
@@ -75,7 +93,7 @@ class Config:
         if 'CREATE_SCHEMA' in os.environ:
             singleton.id_create_schema = int(os.environ['CREATE_SCHEMA'])
         else:
-            singleton.id_create_schema = -1
+            singleton.id_create_schema = Config.get_mpi_rank()
 
         if mock_cassandra:
             log.info('configuring mock environment')
