@@ -2,7 +2,7 @@
 
 
 TupleRow::TupleRow(std::shared_ptr<const std::vector<ColumnMeta>> metas,
-                   uint32_t payload_size, void *buffer) {
+                   size_t payload_size, void *buffer) {
 
     metadatas = metas;
     payload = std::shared_ptr<TupleRowData>(new TupleRowData(buffer, payload_size, (uint32_t) metas->size()),
@@ -21,14 +21,11 @@ TupleRow::TupleRow(std::shared_ptr<const std::vector<ColumnMeta>> metas,
                                                                 free(d);
                                                                 break;
                                                             }
-                                                            case CASS_VALUE_TYPE_UDT: {
-                                                                if (metas->at(i).info.find("numpy") !=
-                                                                    metas->at(i).info.end()) {
-                                                                    int64_t *addr = (int64_t *) ((char *) holder->data +
-                                                                                                 metas->at(i).position);
-                                                                    ArrayMetadata *arr_meta = reinterpret_cast<ArrayMetadata *>(*addr);
-                                                                    delete (arr_meta);
-                                                                }
+                                                            case CASS_VALUE_TYPE_TUPLE: {
+                                                                int64_t *addr = (int64_t *) ((char *) holder->data +
+                                                                                             metas->at(i).position);
+                                                                TupleRow *tr = reinterpret_cast<TupleRow *>(*addr);
+                                                                delete (tr);
                                                                 break;
                                                             }
                                                             default:

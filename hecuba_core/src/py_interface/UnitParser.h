@@ -14,10 +14,10 @@
 #include <stdlib.h>
 
 
-#include "TupleRow.h"
-#include "ModuleException.h"
-#include "TableMetadata.h"
-#include "StorageInterface.h"
+#include "../TupleRow.h"
+#include "../ModuleException.h"
+#include "../TableMetadata.h"
+#include "../StorageInterface.h"
 #include "NumpyStorage.h"
 
 // Python flags describing the data types
@@ -163,25 +163,20 @@ public:
     virtual PyObject *c_to_py(const void *payload) const;
 };
 
+class TupleParser : public UnitParser {
 
-class NumpyParser : public UnitParser {
 public:
-    NumpyParser(const ColumnMeta &CM);
 
-    ~NumpyParser();
+    TupleParser(const ColumnMeta &CM);
 
-    virtual int16_t py_to_c(PyObject *numpy, void *payload) const;
+    virtual int16_t py_to_c(PyObject *text, void *payload) const;
 
     virtual PyObject *c_to_py(const void *payload) const;
 
-    inline void setStorage(std::shared_ptr<StorageInterface> storage) {
-        np_storage = new NumpyStorage(table, keyspace, storage);
-    }
-
 private:
-    NumpyStorage *np_storage;
-    std::string table, keyspace, attribute_name;
-    CassUuid storage_id;
+    ColumnMeta col_meta;
+
 };
+
 
 #endif //HFETCH_UNITPARSER_H

@@ -33,6 +33,9 @@ public:
                         std::map<std::string, std::string> &config);
 
 
+    Writer *make_writer(const TableMetadata *table_meta,
+                        std::map<std::string, std::string> &config);
+
     Prefetch *get_iterator(const char *table, const char *keyspace,
                            std::vector<std::map<std::string, std::string>> &keys_names,
                            std::vector<std::map<std::string, std::string>> &columns_names,
@@ -42,6 +45,10 @@ public:
     Prefetch *get_iterator(const TableMetadata *table_meta,
                            const std::vector<std::pair<int64_t, int64_t>> &tokens,
                            std::map<std::string, std::string> &config);
+
+    inline const CassSession *get_session() {
+        return this->session;
+    }
 
     int disconnectCassandra();
 

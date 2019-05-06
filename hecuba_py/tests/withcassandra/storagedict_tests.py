@@ -1,3 +1,4 @@
+import cassandra
 import unittest
 
 from hecuba import config, StorageObj, StorageDict
@@ -8,33 +9,61 @@ import time
 
 class MyStorageDict(StorageDict):
     '''
-    @TypeSpec <<position:int>,val:int>
+    @TypeSpec dict<<position:int>, val:int>
     '''
     pass
 
 
 class MyStorageDict2(StorageDict):
     '''
-    @TypeSpec <<position:int, position2:str>,val:int>
+    @TypeSpec dict<<position:int, position2:str>, val:int>
     '''
     pass
 
 
 class MyStorageDict3(StorageDict):
     '''
-    @TypeSpec <<str>,int>
+    @TypeSpec dict<<key:str>, val:int>
     '''
 
 
 class MyStorageObjC(StorageObj):
     '''
-    @ClassField mona dict<<a:str>,b:int>
+    @ClassField mona dict<<a:str>, b:int>
     '''
 
 
 class MyStorageDictA(StorageDict):
     '''
-    @TypeSpec <<a:str>,b:int>
+    @TypeSpec dict<<a:str>, b:int>
+    '''
+
+
+class mydict(StorageDict):
+    '''
+    @TypeSpec dict<<key0:int>, val0:tests.withcassandra.storagedict_tests.myobj2>
+    '''
+
+
+class myobj2(StorageObj):
+    '''
+    @ClassField attr1 int
+    @ClassField attr2 str
+    '''
+
+class DictWithTuples(StorageDict):
+    '''
+    @TypeSpec dict<<key:int>, val:tuple<int,int>>
+    '''
+
+class DictWithTuples2(StorageDict):
+    '''
+    @TypeSpec dict<<key0:tuple<int,int>, key1:int>, val:str>
+    '''
+
+class DictWithTuples3(StorageDict):
+    '''
+    @TypeSpec dict<<key:int>, val0:int, val1:tuple<long,int>, val2:str, val3:tuple<str,float>>
     '''
 
 
@@ -58,7 +87,8 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(nopars.__class__.__module__, 'hecuba.hdict')
         self.assertEqual(nopars.__class__.__name__, 'StorageDict')
 
-        rebuild = StorageDict.build_remotely(res)
+        rebuild = StorageDict.build_remotely(res._asdict())
+        self.assertEqual(rebuild._built_remotely, True)
         self.assertEqual('tab1', rebuild._table)
         self.assertEqual("ksp", rebuild._ksp)
         self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, tablename), rebuild._storage_id)
@@ -84,7 +114,8 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(nopars.__class__.__module__, 'hecuba.hdict')
         self.assertEqual(nopars.__class__.__name__, 'StorageDict')
 
-        rebuild = StorageDict.build_remotely(res)
+        rebuild = StorageDict.build_remotely(res._asdict())
+        self.assertEqual(rebuild._built_remotely, True)
         self.assertEqual('tab1', rebuild._table)
         self.assertEqual(config.execution_name, rebuild._ksp)
         self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename), rebuild._storage_id)
@@ -171,29 +202,26 @@ class StorageDictTest(unittest.TestCase):
         count, = config.session.execute('SELECT count(*) FROM my_app.t_make_words')[0]
         self.assertEqual(10, count)
 
-
     def test_none_value(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.somename")
         mydict = MyStorageDict('somename')
-        mydict[0]=None
-        self.assertEqual(mydict[0],None)
+        mydict[0] = None
+        self.assertEqual(mydict[0], None)
         config.session.execute("DROP TABLE IF EXISTS my_app.somename")
-
 
     def test_none_keys(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.somename")
         mydict = MyStorageDict('somename')
+
         def set_none_key():
             mydict[None] = 1
 
         self.assertRaises(TypeError, set_none_key)
         config.session.execute("DROP TABLE IF EXISTS my_app.somename")
 
-
-
     def test_paranoid_setitem_nonpersistent(self):
-        config.hecuba_type_checking = True
-        pd = StorageDict(None,
+        config.session.execute("DROP TABLE IF EXISTS my_app.mydict")
+        pd = StorageDict("mydict",
                          [('position', 'int')],
                          [('value', 'text')])
         pd[0] = 'bla'
@@ -202,36 +230,33 @@ class StorageDictTest(unittest.TestCase):
         def set_wrong_val_1():
             pd[0] = 1
 
-        self.assertRaises(ValueError, set_wrong_val_1)
+        self.assertRaises(TypeError, set_wrong_val_1)
 
         def set_wrong_val_2():
             pd['bla'] = 'bla'
 
-        self.assertRaises(KeyError, set_wrong_val_2)
-        config.hecuba_type_checking = False
+        self.assertRaises(TypeError, set_wrong_val_2)
 
     def test_paranoid_setitem_multiple_nonpersistent(self):
-        config.hecuba_type_checking = True
-        pd = StorageDict(None,
+        config.session.execute("DROP TABLE IF EXISTS my_app.mydict")
+        pd = StorageDict("mydict",
                          [('position1', 'int'), ('position2', 'text')],
                          [('value1', 'text'), ('value2', 'int')])
-        pd[0, 'pos1'] = 'bla', 1
+        pd[0, 'pos1'] = ['bla', 1]
         self.assertEquals(pd[0, 'pos1'], ('bla', 1))
 
         def set_wrong_val_1():
-            pd[0, 'pos1'] = 1, 'bla'
+            pd[0, 'pos1'] = [1, 'bla']
 
-        self.assertRaises(ValueError, set_wrong_val_1)
+        self.assertRaises(TypeError, set_wrong_val_1)
 
         def set_wrong_val_2():
-            pd['pos1', 0] = 'bla', 1
+            pd['pos1', 0] = ['bla', 1]
 
-        self.assertRaises(KeyError, set_wrong_val_2)
-        config.hecuba_type_checking = False
+        self.assertRaises(TypeError, set_wrong_val_2)
 
     def test_paranoid_setitem_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a1")
-        config.hecuba_type_checking = True
         pd = StorageDict("tab_a1",
                          [('position', 'int')],
                          [('value', 'text')])
@@ -243,34 +268,30 @@ class StorageDictTest(unittest.TestCase):
         def set_wrong_val_test():
             pd[0] = 1
 
-        self.assertRaises(ValueError, set_wrong_val_test)
-        config.hecuba_type_checking = False
+        self.assertRaises(TypeError, set_wrong_val_test)
 
     def test_paranoid_setitem_multiple_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a2")
-        config.hecuba_type_checking = True
         pd = StorageDict("tab_a2",
                          [('position1', 'int'), ('position2', 'text')],
                          [('value1', 'text'), ('value2', 'int')])
-        pd[0, 'pos1'] = 'bla', 1
+        pd[0, 'pos1'] = ['bla', 1]
         for result in pd.itervalues():
             self.assertEquals(result.value1, 'bla')
             self.assertEquals(result.value2, 1)
 
         def set_wrong_val():
-            pd[0, 'pos1'] = 'bla', 'bla1'
+            pd[0, 'pos1'] = ['bla', 'bla1']
 
-        self.assertRaises(ValueError, set_wrong_val)
+        self.assertRaises(TypeError, set_wrong_val)
 
         def set_wrong_key():
-            pd['bla', 'pos1'] = 'bla', 1
+            pd['bla', 'pos1'] = ['bla', 1]
 
-        self.assertRaises(KeyError, set_wrong_key)
-        config.hecuba_type_checking = False
+        self.assertRaises(TypeError, set_wrong_key)
 
     def test_paranoid_setitemdouble_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a3")
-        config.hecuba_type_checking = True
         pd = StorageDict("tab_a3",
                          [('position', 'int')],
                          [('value', 'double')])
@@ -282,19 +303,16 @@ class StorageDictTest(unittest.TestCase):
         def set_wrong_val_test():
             pd[0] = 1
 
-        self.assertRaises(ValueError, set_wrong_val_test)
-        config.hecuba_type_checking = False
+        set_wrong_val_test()
 
     def test_paranoid_setitemdouble_multiple_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a4")
-        config.hecuba_type_checking = True
         pd = StorageDict("tab_a4",
                          [('position1', 'int'), ('position2', 'text')],
                          [('value1', 'text'), ('value2', 'double')])
         pd[0, 'pos1'] = ['bla', 1.0]
         time.sleep(2)
         self.assertEquals(pd[0, 'pos1'], ('bla', 1.0))
-        config.hecuba_type_checking = False
 
     def test_empty_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.wordsso_words")
@@ -474,8 +492,8 @@ class StorageDictTest(unittest.TestCase):
 
         what_should_be = {}
         for i in range(100):
-            pd[i, i + 100] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
-            what_should_be[i, i + 100] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
+            pd[i, i + 100] = ['ciao' + str(i), i * 0.1, i * 0.2, i * 0.3]
+            what_should_be[i, i + 100] = ['ciao' + str(i), i * 0.1, i * 0.2, i * 0.3]
 
         del pd
 
@@ -508,8 +526,8 @@ class StorageDictTest(unittest.TestCase):
 
         what_should_be = {}
         for i in range(100):
-            pd[i, i + 100.0] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
-            what_should_be[i, i + 100.0] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
+            pd[i, i + 100.0] = ['ciao' + str(i), i * 0.1, i * 0.2, i * 0.3]
+            what_should_be[i, i + 100.0] = ['ciao' + str(i), i * 0.1, i * 0.2, i * 0.3]
 
         del pd
 
@@ -812,14 +830,19 @@ class StorageDictTest(unittest.TestCase):
     def test_assign_and_replace(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.first_name")
         config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona")
+        config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona_0")
+        config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona_1")
         config.session.execute("DROP TABLE IF EXISTS my_app.second_name")
 
         first_storagedict = MyStorageDictA()
         my_storageobj = MyStorageObjC("first_name")
         self.assertTrue(my_storageobj.mona._is_persistent)
 
+        # Creates the 'my_app.first_name_mona' table
         my_storageobj.mona['uno'] = 123
+
         # empty dict no persistent assigned to persistent object
+        # creates the 'my_app.first_name_mona_0' table
         my_storageobj.mona = first_storagedict
 
         self.assertTrue(my_storageobj.mona._is_persistent)
@@ -848,7 +871,124 @@ class StorageDictTest(unittest.TestCase):
 
         config.session.execute("DROP TABLE IF EXISTS my_app.first_name")
         config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona")
+        config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona_0")
+        config.session.execute("DROP TABLE IF EXISTS my_app.first_name_mona_1")
         config.session.execute("DROP TABLE IF EXISTS my_app.second_name")
+
+    def test_make_persistent_with_persistent_obj(self):
+        o2 = myobj2("obj")
+        o2.attr1 = 1
+        o2.attr2 = "2"
+
+        d = mydict()
+        d[0] = o2
+        try:
+            d.make_persistent("dict")
+        except Exception as ex:
+            self.fail("Raised exception unexpectedly.\n" + str(ex))
+
+    def test_int_tuples(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples")
+        d = DictWithTuples("my_app.dictwithtuples")
+
+        what_should_be = dict()
+        for i in range(0, 10):
+            what_should_be[i] = (i, i + 10)
+            d[i] = (i, i + 10)
+
+        time.sleep(1)
+        for i in range(0, 10):
+            self.assertEqual(d[i], (i, i + 10))
+
+        self.assertEqual(len(d.keys()), 10)
+
+        res = dict()
+        count = 0
+        for key, item in d.iteritems():
+            res[key] = item
+            count += 1
+
+        self.assertEqual(count, len(what_should_be))
+        self.assertEqual(what_should_be, res)
+
+    def test_itervalues_tuples(self):
+        # @TypeSpec dict<<key:int>, val0:int, val1:tuple<long,int>, val2:str, val3:tuple<str,float>>
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples3")
+        d = DictWithTuples3("my_app.dictwithtuples3")
+
+        what_should_be = set()
+        for i in range(0, 20):
+            what_should_be.add((i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))))
+            d[i] = [i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))]
+
+        time.sleep(1)
+        res = set()
+        count = 0
+        for item in d.itervalues():
+            res.add(tuple(item))
+            count += 1
+
+        self.assertEqual(count, len(what_should_be))
+        self.assertEqual(what_should_be, res)
+        self.assertEqual(what_should_be, res)
+
+    def test_tuples_in_key(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples2")
+        d = DictWithTuples2("my_app.dictwithtuples2")
+
+        for i in range(0, 10):
+            d[(i, i), i+1] = str(i)
+
+        time.sleep(1)
+        for i in range(0, 10):
+            self.assertEqual(d[(i, i), i+1], str(i))
+
+        self.assertEqual(len(d.keys()), 10)
+
+    def test_iterkeys_tuples(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples2")
+        d = DictWithTuples2("my_app.dictwithtuples2")
+
+        what_should_be = set()
+        for i in range(0, 10):
+            what_should_be.add(((i, i), i+1))
+            d[(i, i), i+1] = str(i)
+
+        time.sleep(1)
+
+        res = set()
+        count = 0
+        for key in d.iterkeys():
+            res.add(tuple(key))
+            count += 1
+
+        self.assertEqual(count, len(what_should_be))
+        self.assertEqual(what_should_be, res)
+
+    def test_multiple_tuples(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictmultipletuples")
+        d = DictWithTuples3("my_app.dictmultipletuples")
+
+        what_should_be = dict()
+        for i in range(0, 10):
+            what_should_be[i] = [i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))]
+            d[i] = [i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))]
+
+        time.sleep(2)
+        for i in range(0, 10):
+            self.assertEqual(list(d[i]), [i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))])
+        self.assertEqual(len(list(d.keys())), 10)
+
+        res = dict()
+        count = 0
+        for key, item in d.iteritems():
+            res[key] = list(item)
+            count += 1
+
+        self.assertEqual(count, len(what_should_be))
+        self.assertEqual(what_should_be, res)
+
+
 
 
 if __name__ == '__main__':

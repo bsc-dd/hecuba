@@ -1,8 +1,9 @@
+import re
 import uuid
 from collections import namedtuple
 from time import time
+
 from hecuba import config, log
-import re
 
 
 class AlreadyPersistentError(RuntimeError):
@@ -14,20 +15,16 @@ class IStorage:
     args_names = []
     args = namedtuple("IStorage", [])
     _build_args = args()
-
     _valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map', 'bigint', 'blob',
                     'tuple', 'dict', 'float', 'numpy.ndarray']
 
     _basic_types = _valid_types[:-1]
     _hecuba_valid_types = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer' \
                           '|counter|double)'
-    _data_type = re.compile('(\w+) *: *%s' % _hecuba_valid_types)
-    _so_data_type = re.compile('(\w+)*:(\w.+)')
-    _list_case = re.compile('.*@ClassField +(\w+) +list+ *< *([\w:.+]+) *>')
-    _sub_dict_case = re.compile(' *< *< *([\w:, ]+)+ *> *, *([\w+:, <>]+) *>')
-    _sub_tuple_case = re.compile(' *< *([\w:, ]+)+ *>')
-    _val_case = re.compile('.*@ClassField +(\w+) +%s' % _hecuba_valid_types)
-    _so_val_case = re.compile('.*@ClassField +(\w+) +([\w.]+)')
+
+    AT = 'int | atomicint | str | bool | decimal | float | long | double | buffer'
+
+    ATD = 'int | atomicint | str | bool | decimal | float | long | double | buffer | set'
 
     _python_types = [int, str, bool, float, tuple, set, dict, long, bytearray]
     _storage_id = None
@@ -48,7 +45,9 @@ class IStorage:
                     'bytearray': 'blob',
                     'counter': 'counter',
                     'double': 'double',
-                    'StorageDict': 'dict'}
+                    'StorageDict': 'dict',
+                    'ndarray': 'hecuba.hnumpy.StorageNumpy',
+                    'numpy.ndarray': 'hecuba.hnumpy.StorageNumpy'}
 
     @staticmethod
     def process_path(module_path):
@@ -86,7 +85,9 @@ class IStorage:
             storage_id = uuid.uuid4()
             log.debug('assigning to %s %d  tokens', str(storage_id), len(token_split))
             new_args = self._build_args._replace(tokens=token_split, storage_id=storage_id)
-            yield self.__class__.build_remotely(new_args)
+            args_dict = new_args._asdict()
+            args_dict["built_remotely"] = False
+            yield self.__class__.build_remotely(args_dict)
         log.debug('completed split of %s in %f', self.__class__.__name__, time() - st)
 
     @staticmethod
@@ -163,25 +164,31 @@ class IStorage:
             table = name
         return ksp.lower().encode('UTF8'), table.lower().encode('UTF8')
 
+    def _get_istorage_attrs(self, storage_id):
+        return list(config.session.execute(self._select_istorage_meta, [storage_id]))
+
     def _count_name_collision(self, attribute):
         m = re.compile("^%s_%s(_[0-9]+)?$" % (self._table, attribute))
         q = config.session.execute("SELECT table_name FROM  system_schema.tables WHERE keyspace_name = %s",
                                    [self._ksp])
         return len(filter(lambda (t_name, ): m.match(t_name), q))
 
-    def _build_istorage_obj(self, **obj_info):
+    @staticmethod
+    def build_remotely(args):
         """
         Takes the information which consists of at least the type,
         :raises TypeError if the object class doesn't subclass IStorage
         :param obj_info: Contains the information to be used to create the IStorage obj
         :return: An IStorage object
         """
-        try:
-            obj_type = obj_info['type']
-        except KeyError:
-            raise TypeError("Trying to build an IStorage obj without giving the type")
+        if "built_remotely" not in args.keys():
+            built_remotely = True
+        else:
+            built_remotely = args["built_remotely"]
 
-        obj_info['class_name'] = obj_type
+        obj_type = args.get('class_name', args.get('type', None))
+        if obj_type is None:
+            raise TypeError("Trying to build an IStorage obj without giving the type")
 
         # Import the class defined by obj_type
         cname, module = IStorage.process_path(obj_type)
@@ -191,19 +198,15 @@ class IStorage:
         except ValueError:
             raise ValueError("Can't import class {} from module {}".format(cname, module))
 
-        is_class = getattr(mod, cname)
-        if not issubclass(is_class, IStorage):
+        imported_class = getattr(mod, cname)
+        if not issubclass(imported_class, IStorage):
             raise TypeError("Trying to build remotely an object '%s' != IStorage subclass" % cname)
 
-        # Build the object's namedtuple from the given arguments
-        namedtuple_args = [obj_info.get(arg, None) for arg in is_class.args_names]
-        obj_namedtuple = is_class.args(*namedtuple_args)
-        # Build the IStorage object through build_remotely method
-        return is_class.build_remotely(obj_namedtuple)
+        args = {k: v for k, v in args.items() if k in imported_class.args_names}
+        args.pop('class_name', None)
+        args["built_remotely"] = built_remotely
 
-    @staticmethod
-    def build_remotely(new_args):
-        raise Exception("to be implemented")
+        return imported_class(**args)
 
     @staticmethod
     def _store_meta(storage_args):

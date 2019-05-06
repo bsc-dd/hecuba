@@ -93,18 +93,14 @@ uint16_t TableMetadata::compute_size_of(const ColumnMeta &CM) const {
             break;
         }
         case CASS_VALUE_TYPE_TUPLE: {
-            //TODO
-
-            std::cerr << "Tuple data type supported yet" << std::endl;
-            break;
+            return sizeof(void *);
         }
         case CASS_VALUE_TYPE_UDT: {
             throw ModuleException("Can't parse data: User defined type not supported");
         }
         case CASS_VALUE_TYPE_CUSTOM:
         case CASS_VALUE_TYPE_UNKNOWN:
-        default:
-        {
+        default: {
             throw ModuleException("Can't parse data: Unknown data type or user defined type");
             //TODO
         }
@@ -112,11 +108,43 @@ uint16_t TableMetadata::compute_size_of(const ColumnMeta &CM) const {
     return 0;
 }
 
+std::map<std::string, ColumnMeta> TableMetadata::getMetaTypes(CassIterator *iterator) {
+    std::map<std::string, ColumnMeta> metadatas;
+    const char *value;
+    size_t length;
+    const CassDataType *type;
+    while (cass_iterator_next(iterator)) {
+        // Get column name and type
+        const CassColumnMeta *cmeta = cass_iterator_get_column_meta(iterator);
+        cass_column_meta_name(cmeta, &value, &length);
+        type = cass_column_meta_data_type(cmeta);
+        metadatas[value].type = cass_data_type_type(type);
+        metadatas[value].col_type = cass_column_meta_type(cmeta);
+
+        if (cass_data_type_type(type) == CASS_VALUE_TYPE_TUPLE) {
+            uint32_t n_subtypes = (uint32_t) cass_data_type_sub_type_count(type);
+            std::vector<ColumnMeta> v(n_subtypes);
+            uint16_t offset = 0;
+            // Get tuple elements information
+            for (uint32_t subtype = 0; subtype < n_subtypes; ++subtype) {
+                CassValueType cvt = cass_data_type_type(cass_data_type_sub_data_type(type, subtype));
+                v[subtype].info["name"] = value;
+                v[subtype].type = cvt;
+                v[subtype].position = offset;
+                v[subtype].size = compute_size_of(v[subtype]);
+                offset += v[subtype].size;
+
+            }
+            metadatas[value].pointer = std::make_shared<std::vector<ColumnMeta>>(v);
+        }
+    }
+    return metadatas;
+}
 
 TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
                              std::vector<std::map<std::string, std::string>> &keys_names,
                              std::vector<std::map<std::string, std::string>> &columns_names,
-                             CassSession *session) {
+                             const CassSession *session) {
 
 
     if (keys_names.empty()) throw ModuleException("TableMetadata: No keys received");
@@ -147,39 +175,23 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
     const CassKeyspaceMeta *keyspace_meta = cass_schema_meta_keyspace_by_name(schema_meta, this->keyspace.c_str());
     if (!keyspace_meta) {
         throw ModuleException("The keyspace " + std::string(keyspace_name) + " has no metadatas,"
-                "check the keyspace name and make sure it exists");
+                                                                             "check the keyspace name and make sure it exists");
     }
 
 
     const CassTableMeta *table_meta = cass_keyspace_meta_table_by_name(keyspace_meta, this->table.c_str());
     if (!table_meta || (cass_table_meta_column_count(table_meta) == 0)) {
         throw ModuleException("The table " + std::string(table_name) + " has no metadatas,"
-                " check the table name and make sure it exists");
+                                                                       " check the table name and make sure it exists");
     }
 
 //TODO Switch to unordered maps for efficiency
 
-    std::map<std::string, ColumnMeta> metadatas;
-
-/*** build metadata ***/
-
     CassIterator *iterator = cass_iterator_columns_from_table_meta(table_meta);
-    while (cass_iterator_next(iterator)) {
-        const CassColumnMeta *cmeta = cass_iterator_get_column_meta(iterator);
 
-        const char *value;
-        size_t length;
-        cass_column_meta_name(cmeta, &value, &length);
-
-        const CassDataType *type = cass_column_meta_data_type(cmeta);
-
-        metadatas[value] = {};
-        metadatas[value].type = cass_data_type_type(type);
-        metadatas[value].col_type = cass_column_meta_type(cmeta);
-    }
+    std::map<std::string, ColumnMeta> metadatas = getMetaTypes(iterator);
     cass_iterator_free(iterator);
     cass_schema_meta_free(schema_meta);
-
 
     std::string key = keys_names[0]["name"];
     if (key.empty()) throw ModuleException("Empty key name given on position 0");
@@ -213,9 +225,11 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
     }
     std::string keys_and_cols = keys;
     if (!cols.empty()) keys_and_cols += ", " + cols;
+    else cols = keys;
 
     std::string select_tokens_where = " token(" + tokens_keys + ")>=? AND token(" + tokens_keys + ")<? ";
     select = "SELECT " + cols + " FROM " + this->keyspace + "." + this->table + " WHERE " + select_where + ";";
+
     select_keys_tokens =
             "SELECT " + keys + " FROM " + this->keyspace + "." + this->table + " WHERE " + select_tokens_where + ";";
     select_tokens_values =

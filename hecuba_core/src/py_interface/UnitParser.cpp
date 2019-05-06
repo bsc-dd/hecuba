@@ -71,6 +71,8 @@ Int16Parser::Int16Parser(const ColumnMeta &CM) : UnitParser(CM) {
 int16_t Int16Parser::py_to_c(PyObject *myint, void *payload) const {
     if (myint == Py_None) return -1;
     int16_t temp;
+
+
     if (PyInt_Check(myint) && PyArg_Parse(myint, Py_SHORT_INT, &temp)) {
         memcpy(payload, &temp, sizeof(int16_t));
         return 0;
@@ -301,39 +303,263 @@ PyObject *UuidParser::c_to_py(const void *payload) const {
     return PyString_FromString(final);
 }
 
-
-/*** Numpy parser ***/
-
-NumpyParser::NumpyParser(const ColumnMeta &CM) : UnitParser(CM) {
-    if (CM.size != sizeof(ArrayMetadata *))
-        throw ModuleException("Bad size allocated for a Numpy");
-    table = CM.info.at("table");
-    attribute_name = CM.info.at("name");
-    keyspace = CM.info.at("keyspace");
-    //parse storage id
-    uint64_t *uuid = (uint64_t *) CM.info.at("storage_id").c_str();
-    storage_id = {*uuid, *(uuid + 1)};
+TupleParser::TupleParser(const ColumnMeta &CM) : UnitParser(CM) {
+    this->col_meta = CM;
 }
 
-NumpyParser::~NumpyParser() {
-    delete (np_storage);
-}
 
-int16_t NumpyParser::py_to_c(PyObject *numpy, void *payload) const {
-    if (numpy == Py_None) return -1;
-    PyArrayObject *arr;
-    if (!PyArray_OutputConverter(numpy, &arr))
-        error_parsing("Numpy", numpy); //failed to convert array from PyObject to PyArray
-    const ArrayMetadata *metas = np_storage->store(storage_id, arr);
-    memcpy(payload, &metas, sizeof(ArrayMetadata *));
+int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
+    if (obj == Py_None) throw ModuleException("Error parsing PyObject from py to c, expected a non-none object");
+    if (!PyTuple_Check(obj)) throw ModuleException("Error parsing PyObject from py to c, expected a tuple object");
+    if (PyTuple_Size(obj) != col_meta.pointer->size())
+        throw ModuleException(
+                "Error parsing PyObject from py to c, expected size of Py_tuple being the same as Column_meta");
+    uint32_t total_malloc = 0;
+    for (int i = 0; i < col_meta.pointer->size(); ++i) {
+        total_malloc = total_malloc + col_meta.pointer->at(i).size;
+    }
+    void *internal_payload = malloc(total_malloc);
+    uint32_t size = (uint32_t) PyTuple_Size(obj);
+    for (uint32_t i = 0; i < size; ++i) {
+        PyObject *tuple_elem = PyTuple_GetItem(obj, i);
+        if (tuple_elem == Py_None) throw ModuleException(
+                    "Error parsing PyObject from py to c, expected a non-none object at position " + std::to_string(i) +
+                    " in Py_tuple");
+        CassValueType cvt = this->col_meta.pointer->at(i).type;
+        void *destiny = (char *) internal_payload + this->col_meta.pointer->at(i).position;
+        switch (cvt) {
+            case CASS_VALUE_TYPE_VARCHAR:
+            case CASS_VALUE_TYPE_TEXT:
+            case CASS_VALUE_TYPE_ASCII: {
+                TextParser tp = TextParser(col_meta.pointer->at(i));
+                tp.py_to_c(tuple_elem, destiny);
+                break;
+            }
+            case CASS_VALUE_TYPE_VARINT:
+            case CASS_VALUE_TYPE_BIGINT: {
+                Int64Parser i64p = Int64Parser(col_meta.pointer->at(i));
+                i64p.py_to_c(tuple_elem, destiny);
+                break;
+            }
+            case CASS_VALUE_TYPE_BLOB: {
+                BytesParser bp = BytesParser(col_meta.pointer->at(i));
+                bp.py_to_c(tuple_elem, destiny);
+                break;
+            }
+            case CASS_VALUE_TYPE_BOOLEAN: {
+                BoolParser bp = BoolParser(col_meta.pointer->at(i));
+                bp.py_to_c(tuple_elem, destiny);
+                break;
+            }
+                //TODO parsed as uint32 or uint64 on different methods
+            case CASS_VALUE_TYPE_COUNTER: {
+                Int64Parser i64p = Int64Parser(col_meta.pointer->at(i));
+                i64p.py_to_c(tuple_elem, destiny);
+                break;
+            }
+            case CASS_VALUE_TYPE_DECIMAL: {
+                //TODO
+                break;
+            }
+            case CASS_VALUE_TYPE_DOUBLE: {
+
+            }
+            case CASS_VALUE_TYPE_FLOAT: {
+                DoubleParser dp = DoubleParser(col_meta.pointer->at(i));
+                dp.py_to_c(tuple_elem, destiny);
+                break;
+            }
+            case CASS_VALUE_TYPE_INT: {
+                Int32Parser i32p = Int32Parser(col_meta.pointer->at(i));
+                i32p.py_to_c(tuple_elem, destiny);
+                break;
+            }
+            case CASS_VALUE_TYPE_TIMESTAMP: {
+                //TODO
+                break;
+            }
+            case CASS_VALUE_TYPE_UUID: {
+                UuidParser uip = UuidParser(col_meta.pointer->at(i));
+                uip.py_to_c(tuple_elem, destiny);
+                break;
+            }
+            case CASS_VALUE_TYPE_TIMEUUID: {
+                //TODO
+                break;
+            }
+            case CASS_VALUE_TYPE_INET: {
+                //TODO
+                break;
+            }
+            case CASS_VALUE_TYPE_DATE: {
+
+                break;
+            }
+            case CASS_VALUE_TYPE_TIME: {
+                //TODO
+                break;
+            }
+            case CASS_VALUE_TYPE_SMALL_INT: {
+                Int16Parser i16p = Int16Parser(col_meta.pointer->at(i));
+                i16p.py_to_c(tuple_elem, destiny);
+                break;
+            }
+            case CASS_VALUE_TYPE_TINY_INT: {
+                Int8Parser i8p = Int8Parser(col_meta.pointer->at(i));
+                i8p.py_to_c(tuple_elem, destiny);
+                break;
+            }
+            case CASS_VALUE_TYPE_LIST: {
+                //TODO
+                break;
+            }
+            case CASS_VALUE_TYPE_MAP: {
+                //TODO
+                break;
+            }
+            case CASS_VALUE_TYPE_SET: {
+                //TODO
+                break;
+            }
+            default:
+                break;
+        }
+    }
+    TupleRow *tr = new TupleRow(col_meta.pointer, total_malloc, internal_payload);
+    memcpy(payload, &tr, sizeof(tr));
     return 0;
 }
 
-PyObject *NumpyParser::c_to_py(const void *payload) const {
-    if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to bytes, found NULL");
-    //Receives a Arraymetadata
-    const ArrayMetadata **metas = (const ArrayMetadata **) payload;
-    PyObject *arr = np_storage->read(table, keyspace, storage_id, *metas);
-    if (!arr) return Py_None;
-    return arr;
+
+PyObject *TupleParser::c_to_py(const void *payload) const {
+
+    if (payload == nullptr) throw ModuleException("Error parsing payload from c to py, expected a non-null payload");
+
+    TupleRow **ptr = (TupleRow **) payload;
+    const TupleRow *inner_data = *ptr;
+
+    int size = col_meta.pointer->size();
+    PyObject *tuple = PyTuple_New(size);
+    for (int i = 0; i < size; ++i) {
+        CassValueType cvt = this->col_meta.pointer->at(i).type;
+        switch (cvt) {
+            case CASS_VALUE_TYPE_VARCHAR:
+            case CASS_VALUE_TYPE_TEXT:
+            case CASS_VALUE_TYPE_ASCII: {
+                TextParser tp = TextParser(col_meta.pointer->at(i));
+                int64_t *p = (int64_t *) inner_data->get_element(i);
+                PyObject *po = tp.c_to_py(p);
+                PyTuple_SET_ITEM(tuple, i, po);
+                break;
+            }
+            case CASS_VALUE_TYPE_VARINT:
+            case CASS_VALUE_TYPE_BIGINT: {
+                Int64Parser i64p = Int64Parser(col_meta.pointer->at(i));
+                int64_t *p = (int64_t *) inner_data->get_element(i);
+                PyObject *po = i64p.c_to_py(p);
+                PyTuple_SET_ITEM(tuple, i, po);
+                break;
+            }
+            case CASS_VALUE_TYPE_BLOB: {
+                BytesParser bp = BytesParser(col_meta.pointer->at(i));
+                int64_t *p = (int64_t *) inner_data->get_element(i);
+                PyObject *po = bp.c_to_py(p);
+                PyTuple_SET_ITEM(tuple, i, po);
+                break;
+            }
+            case CASS_VALUE_TYPE_BOOLEAN: {
+                BoolParser bp = BoolParser(col_meta.pointer->at(i));
+                double_t *p = (double_t *) inner_data->get_element(i);
+                PyObject *po = bp.c_to_py(p);
+                PyTuple_SET_ITEM(tuple, i, po);
+                break;
+            }
+                //TODO parsed as uint32 or uint64 on different methods
+            case CASS_VALUE_TYPE_COUNTER: {
+                Int64Parser i64p = Int64Parser(col_meta.pointer->at(i));
+                int64_t *p = (int64_t *) inner_data->get_element(i);
+                PyObject *po = i64p.c_to_py(p);
+                PyTuple_SET_ITEM(tuple, i, po);
+                break;
+            }
+            case CASS_VALUE_TYPE_DECIMAL: {
+                //TODO
+                break;
+            }
+            case CASS_VALUE_TYPE_DOUBLE: {
+                throw ModuleException("Float type not supported");
+            }
+            case CASS_VALUE_TYPE_FLOAT: {
+                DoubleParser dp = DoubleParser(col_meta.pointer->at(i));
+                double_t *p = (double_t *) inner_data->get_element(i);
+                PyObject *po = dp.c_to_py(p);
+                PyTuple_SET_ITEM(tuple, i, po);
+                break;
+
+            }
+            case CASS_VALUE_TYPE_INT: {
+                Int32Parser i32p = Int32Parser(col_meta.pointer->at(i));
+                int32_t *p = (int32_t *) inner_data->get_element(i);
+                PyObject *po = i32p.c_to_py(p);
+                PyTuple_SET_ITEM(tuple, i, po);
+                break;
+            }
+            case CASS_VALUE_TYPE_TIMESTAMP: {
+                //TODO
+                break;
+            }
+            case CASS_VALUE_TYPE_UUID: {
+                UuidParser uip = UuidParser((col_meta.pointer->at(i)));
+                uint64_t *p = (uint64_t *) inner_data->get_element(i);
+                PyObject *po = uip.c_to_py(p);
+                PyTuple_SET_ITEM(tuple, i, po);
+                break;
+            }
+            case CASS_VALUE_TYPE_TIMEUUID: {
+                //TODO
+                break;
+            }
+            case CASS_VALUE_TYPE_INET: {
+                //TODO
+                break;
+            }
+            case CASS_VALUE_TYPE_DATE: {
+
+                break;
+            }
+            case CASS_VALUE_TYPE_TIME: {
+                //TODO
+                break;
+            }
+            case CASS_VALUE_TYPE_SMALL_INT: {
+                Int16Parser i16p = Int16Parser(col_meta.pointer->at(i));
+                int16_t *p = (int16_t *) inner_data->get_element(i);
+                PyObject *po = i16p.c_to_py(p);
+                PyTuple_SET_ITEM(tuple, i, po);
+                break;
+            }
+            case CASS_VALUE_TYPE_TINY_INT: {
+                Int8Parser i8p = Int8Parser(col_meta.pointer->at(i));
+                int8_t *p = (int8_t *) inner_data->get_element(i);
+                PyObject *po = i8p.c_to_py(p);
+                PyTuple_SET_ITEM(tuple, i, po);
+                break;
+            }
+            case CASS_VALUE_TYPE_LIST: {
+                //TODO
+                break;
+            }
+            case CASS_VALUE_TYPE_MAP: {
+                //TODO
+                break;
+            }
+            case CASS_VALUE_TYPE_SET: {
+                //TODO
+                break;
+            }
+            default:
+                break;
+        }
+    }
+    return tuple;
 }

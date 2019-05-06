@@ -1,6 +1,5 @@
 import uuid
 
-
 def init(config_file_path=None):
     """
     Function that can be useful when running the application with COMPSs >= 2.0
@@ -93,6 +92,8 @@ def getByID(objid):
                     (Block| Storageobj)
                """
     from hecuba import log
+    from hecuba.IStorage import IStorage
+
     try:
         from hecuba import config
         query = "SELECT * FROM hecuba.istorage WHERE storage_id = %s"
@@ -100,15 +101,6 @@ def getByID(objid):
     except Exception as e:
         log.error("Query %s failed", query)
         raise e
-    class_name = results.class_name
 
-    log.debug("IStorage API:getByID(%s) of class %s", objid, class_name)
-    last = 0
-    for key, i in enumerate(class_name):
-        if i == '.' and key > last:
-            last = key
-    module = class_name[:last]
-    cname = class_name[last + 1:]
-    mod = __import__(module, globals(), locals(), [cname], 0)
-    b = getattr(mod, cname).build_remotely(results)
-    return b
+    log.debug("IStorage API:getByID(%s) of class %s", objid, results.class_name)
+    return IStorage.build_remotely(results._asdict())
