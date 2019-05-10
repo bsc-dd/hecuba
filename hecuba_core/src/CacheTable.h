@@ -7,7 +7,7 @@
 #include <string>
 #include <memory>
 
-
+#include "TimestampGenerator.h"
 #include "TupleRow.h"
 #include "TupleRowFactory.h"
 #include "TupleRowCache.h"
@@ -54,6 +54,8 @@ private:
     /* CASSANDRA INFORMATION FOR RETRIEVING DATA */
     CassSession *session;
     const CassPrepared *prepared_query, *delete_query;
+
+    TimestampGenerator timestamp_gen;
 
     //Key based on copy constructor, Value based on Poco:SharedPtr
     TupleRowCache<TupleRow, TupleRow> *myCache;

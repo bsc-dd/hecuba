@@ -44,7 +44,7 @@ public:
         this->payload->unsetNull(position);
     }
 
-    inline void set_timestamp(uint64_t timestamp) {
+    inline void set_timestamp(int64_t timestamp) {
         this->payload->setTimestamp(timestamp);
     }
 
@@ -96,7 +96,7 @@ private:
         void *data;
         uint32_t length;
         std::vector<uint32_t> null_values;
-        uint64_t timestamp;
+        int64_t timestamp;
 
 
         /* Constructors */
@@ -127,7 +127,7 @@ private:
             if (!null_values.empty()) this->null_values[position >> 5] &= !(0x1 << (position % 32));
         }
 
-        void setTimestamp(uint64_t timestamp) {
+        void setTimestamp(int64_t timestamp) {
             this->timestamp = timestamp;
         }
 

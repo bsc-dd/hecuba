@@ -51,6 +51,7 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
     this->max_calls = (uint32_t) max_callbacks;
     this->ncallbacks = 0;
     this->error_count = 0;
+    this->timestamp_gen = TimestampGenerator();
 }
 
 
@@ -62,6 +63,11 @@ Writer::~Writer() {
     }
     delete (this->k_factory);
     delete (this->v_factory);
+}
+
+
+void Writer::set_timestamp_gen(TimestampGenerator &time_gen) {
+    this->timestamp_gen = time_gen;
 }
 
 
@@ -118,7 +124,7 @@ void Writer::set_error_occurred(std::string error, const void *keys_p, const voi
     this->k_factory->bind(statement, keys, 0);
     this->v_factory->bind(statement, values, this->k_factory->n_elements());
 
-    cass_statement_set_timestamp(statement,keys->get_timestamp());
+    cass_statement_set_timestamp(statement, keys->get_timestamp());
     CassFuture *query_future = cass_session_execute(session, statement);
 
     cass_statement_free(statement);
@@ -134,8 +140,7 @@ void Writer::set_error_occurred(std::string error, const void *keys_p, const voi
 
 void Writer::write_to_cassandra(const TupleRow *keys, const TupleRow *values) {
     TupleRow *queued_keys = new TupleRow(keys);
-    auto tse = std::chrono::system_clock::now().time_since_epoch();
-    queued_keys->set_timestamp(std::chrono::duration_cast<std::chrono::nanoseconds>(tse).count());
+    queued_keys->set_timestamp(timestamp_gen.next()); // Set write time
 
     std::pair<const TupleRow *, const TupleRow *> item = std::make_pair(queued_keys, new TupleRow(values));
     data.push(item);

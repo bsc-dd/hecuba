@@ -51,7 +51,8 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
     this->writer = new Writer(table_meta, session, config);
     this->keys_factory = new TupleRowFactory(table_meta->get_keys());
     this->values_factory = new TupleRowFactory(table_meta->get_values());
-
+    this->timestamp_gen = TimestampGenerator();
+    this->writer->set_timestamp_gen(this->timestamp_gen);
     if (cache_size) this->myCache = new TupleRowCache<TupleRow, TupleRow>(cache_size);
 };
 
@@ -173,13 +174,12 @@ std::vector<const TupleRow *> CacheTable::get_crow(void *keys) {
 
 
 void CacheTable::delete_crow(const TupleRow *keys) {
-    auto tse = std::chrono::system_clock::now().time_since_epoch();
 
     //Remove row from Cassandra
     CassStatement *statement = cass_prepared_bind(delete_query);
 
     this->keys_factory->bind(statement, keys, 0);
-    cass_statement_set_timestamp(statement, std::chrono::duration_cast<std::chrono::nanoseconds>(tse).count());
+    cass_statement_set_timestamp(statement, timestamp_gen.next()); // Set delete time
 
     CassFuture *query_future = cass_session_execute(session, statement);
     const CassResult *result = cass_future_get_result(query_future);
