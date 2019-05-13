@@ -183,10 +183,13 @@ TextParser::TextParser(const ColumnMeta &CM) : UnitParser(CM) {
 int16_t TextParser::py_to_c(PyObject *text, void *payload) const {
     if (text == Py_None) return -1;
     if (PyString_Check(text) || PyUnicode_Check(text)) {
-        char *l_temp;
+
+
         Py_ssize_t l_size;
-        // PyString_AsStringAndSize returns internal string buffer of obj, not a copy.
-        if (PyString_AsStringAndSize(text, &l_temp, &l_size) < 0) error_parsing("PyString", text);
+        char *l_temp = PyUnicode_AsUTF8AndSize(text, &l_size);
+        if (!l_temp) error_parsing("PyString", text);
+        // l_temp points to the internal "text" memory buffer
+
         char *permanent = (char *) malloc(l_size + 1);
         memcpy(permanent, l_temp, l_size);
         permanent[l_size] = '\0';
