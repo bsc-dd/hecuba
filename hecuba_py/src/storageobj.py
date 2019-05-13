@@ -8,7 +8,7 @@ from hecuba.IStorage import IStorage, AlreadyPersistentError
 from hecuba.hnumpy import StorageNumpy
 
 
-class StorageObj(object, IStorage):
+class StorageObj(IStorage):
     args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name", "built_remotely"]
     args = namedtuple('StorageObjArgs', args_names)
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba' +
