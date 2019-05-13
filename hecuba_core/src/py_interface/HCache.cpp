@@ -1277,7 +1277,7 @@ static struct PyModuleDef hfetch_module_info = {
 
 
 PyMODINIT_FUNC
-inithfetch(void) {
+PyInit_hfetch(void) {
 
 #define IMPORT_ERROR NULL
     hfetch_HNumpyStoreType.tp_new = PyType_GenericNew;
