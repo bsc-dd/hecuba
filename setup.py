@@ -1,14 +1,10 @@
 #!/usr/bin/env python
-from __future__ import print_function
-
+from setuptools import setup, find_packages, Extension
 import os
 import subprocess
 import sys
 import glob
 import numpy
-
-import setuptools.command.build_py
-from setuptools import setup, find_packages, Extension
 
 
 def package_files(directory):
