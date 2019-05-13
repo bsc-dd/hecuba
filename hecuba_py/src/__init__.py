@@ -264,8 +264,8 @@ from hecuba.hnumpy import StorageNumpy
 from hecuba.hfilter import hfilter
 
 if not filter == hfilter:
-    import __builtin__
-    __builtin__.python_filter = filter
-    __builtin__.filter = hfilter
+    import builtins
+    builtins.python_filter = filter
+    builtins.filter = hfilter
 
 __all__ = ['StorageObj', 'StorageDict', 'StorageNumpy', 'Parser']
