@@ -5,9 +5,9 @@ from collections import namedtuple
 
 from hecuba import config, log
 from hecuba.tools import NamedItemsIterator
-from hfetch import Hcache
+from hecuba.hfetch import Hcache
 
-from IStorage import IStorage
+from hecuba.IStorage import IStorage
 
 
 class QbeastMeta(object):

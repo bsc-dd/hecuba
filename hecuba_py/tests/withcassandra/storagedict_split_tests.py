@@ -43,7 +43,7 @@ class SObj_ComplexClassField(StorageObj):
 
 class StorageDictSplitTest(unittest.TestCase):
 
-    def test_simple_iterkeys_split_test(self):
+    def test_simple_keys_split_test(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab30")
         config.session.execute(
             "CREATE TABLE IF NOT EXISTS my_app.tab30(position int, value text, PRIMARY KEY(position))")
@@ -67,13 +67,13 @@ class StorageDictSplitTest(unittest.TestCase):
         count = 0
         res = set()
         for partition in pd.split():
-            for val in partition.iterkeys():
+            for val in partition.keys():
                 res.add(val)
                 count += 1
         self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
-    def test_remote_build_iterkeys_split_test(self):
+    def test_remote_build_keys_split_test(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_b0")
         config.session.execute(
             "CREATE TABLE IF NOT EXISTS my_app.tab_b0(position int, value text, PRIMARY KEY(position))")
@@ -100,13 +100,13 @@ class StorageDictSplitTest(unittest.TestCase):
             id = partition.getID()
             from storage.api import getByID
             rebuild = getByID(id)
-            for val in rebuild.iterkeys():
+            for val in rebuild.keys():
                 res.add(val)
                 count += 1
         self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
-    def test_composed_iteritems_test(self):
+    def test_composed_items_test(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_b1")
         config.session.execute(
             "CREATE TABLE IF NOT EXISTS my_app.tab_b1(pid int,time int, value text,x float,y float,z float, PRIMARY KEY(pid,time))")
@@ -130,7 +130,7 @@ class StorageDictSplitTest(unittest.TestCase):
         count = 0
         res = {}
         for partition in pd.split():
-            for key, val in partition.iteritems():
+            for key, val in partition.items():
                 res[key] = val
                 count += 1
         self.assertEqual(count, num_inserts)
@@ -146,7 +146,7 @@ class StorageDictSplitTest(unittest.TestCase):
     def computeItems(self, SDict):
         expected = len(SDict)
         counter = 0
-        for item in SDict.iterkeys():
+        for item in SDict.keys():
             counter = counter + 1
         # self.assertEqual(counter, expected)
         return counter
@@ -155,7 +155,7 @@ class StorageDictSplitTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.test_records")
         nitems = 1000
         mybook = SDict_SimpleTypeSpec("test_records")
-        for id in xrange(0, nitems):
+        for id in range(0, nitems):
             mybook[id] = 'someRandomText' + str(id)
 
         del mybook
@@ -180,7 +180,7 @@ class StorageDictSplitTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.experimentx")
         nitems = 10
         mybook = SDict_ComplexTypeSpec("experimentx")
-        for id in xrange(0, nitems):
+        for id in range(0, nitems):
             mybook[id] = SObj_Basic()
             mybook[id].attr1 = id
             mybook[id].attr2 = id / nitems
@@ -210,7 +210,7 @@ class StorageDictSplitTest(unittest.TestCase):
         mybook = SObj_SimpleClassField("so_split_dict_simple")
         mybook.attr1 = nitems
         mybook.attr3 = nitems / 100
-        for id in xrange(0, nitems):
+        for id in range(0, nitems):
             key_text = 'so_split_dict_simple' + str(id)
             mybook.mydict[key_text] = id / nitems
 
@@ -238,7 +238,7 @@ class StorageDictSplitTest(unittest.TestCase):
         mybook = SObj_ComplexClassField("so_split_dict_complex")
         mybook.attr1 = nitems
         mybook.attr3 = nitems / 100
-        for id in xrange(0, nitems):
+        for id in range(0, nitems):
             key_text = 'so_split_dict_simple' + str(id)
             so = SObj_Basic()
             so.attr1 = id
@@ -265,7 +265,7 @@ class StorageDictSplitTest(unittest.TestCase):
         self.assertEqual(acc, nitems)
 
     '''
-    def test_remote_build_composed_iteritems_test(self):
+    def test_remote_build_composed_items_test(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_b2")
         config.session.execute(
             "CREATE TABLE IF NOT EXISTS my_app.tab_b2(pid int,time int, value text,x float,y float,z float, PRIMARY KEY(pid,time))")
@@ -292,7 +292,7 @@ class StorageDictSplitTest(unittest.TestCase):
             id = partition.getID()
             from storage.api import getByID
             rebuild = getByID(id)
-            for key, val in rebuild.iteritems():
+            for key, val in rebuild.items():
                 res[key] = val
                 count += 1
         self.assertEqual(count, 10000)

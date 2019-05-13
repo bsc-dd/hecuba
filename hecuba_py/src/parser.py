@@ -1,7 +1,7 @@
 import re
 from itertools import count
 
-from IStorage import IStorage
+from hecuba.IStorage import IStorage
 
 
 class Parser(object):
@@ -85,7 +85,7 @@ class Parser(object):
             counter = count(0)
             for type_val in converted_primary_keys:
                 if type == "set":
-                    aux_list.append((t1 + '_' + str(counter.next()), type_val))
+                    aux_list.append((t1 + '_' + str(next(counter)), type_val))
                 else:
                     aux_list.append(type_val)
                 # string_str = ',{"name": "%s", "type": "%s", "%s": ["%s"]}' % (t1, type, pk_col, '","'.join(aux_list))

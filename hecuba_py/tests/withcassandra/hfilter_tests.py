@@ -20,7 +20,7 @@ class LambdaParserTest(unittest.TestCase):
     def test_simple_filter(self):
         config.session.execute("DROP TABLE IF EXISTS hfilter_tests.simpledict")
         simple_dict = SimpleDict("hfilter_tests.simpledict")
-        res = filter(lambda x: x.key0 == 5, simple_dict.iteritems())
+        res = filter(lambda x: x.key0 == 5, simple_dict.items())
         res = [i for i in res]
         self.assertEqual(0, len(res))
 
@@ -31,7 +31,7 @@ class LambdaParserTest(unittest.TestCase):
             simple_dict[i] = i
         time.sleep(1)
 
-        res = filter(lambda x: x.key0 > 5, simple_dict.iteritems())
+        res = filter(lambda x: x.key0 > 5, simple_dict.items())
         res = [i for i in res]
         self.assertEqual(4, len(res))
         self.assertTrue((6, 6) in res)
@@ -44,7 +44,7 @@ class LambdaParserTest(unittest.TestCase):
         simple_dict = SimpleDict("hfilter_tests.simpledict")
 
         def filter_nonexisting_key():
-            return filter(lambda x: x.key1 == 5, simple_dict.iteritems())
+            return filter(lambda x: x.key1 == 5, simple_dict.items())
 
         self.assertRaises(Exception, filter_nonexisting_key)
 
@@ -54,7 +54,7 @@ class LambdaParserTest(unittest.TestCase):
         for i in range(0, 10):
             simple_dict[i] = i
 
-        res = filter(lambda x: x[0] > 5, simple_dict.iteritems())
+        res = filter(lambda x: x[0] > 5, simple_dict.items())
         res = [i for i in res]
         self.assertEqual(4, len(res))
         self.assertTrue((6, 6) in res)
@@ -69,7 +69,7 @@ class LambdaParserTest(unittest.TestCase):
             simple_dict[i] = i
         time.sleep(1)
 
-        res = filter(lambda x: x.key0 == 5, simple_dict.iteritems())
+        res = filter(lambda x: x.key0 == 5, simple_dict.items())
         res = [i for i in res]
         self.assertEqual(1, len(res))
         self.assertEqual((5, 5), res[0])
@@ -81,7 +81,7 @@ class LambdaParserTest(unittest.TestCase):
             simple_dict[i] = i
         time.sleep(1)
 
-        res = filter(lambda x: x.key0 in [1, 3], simple_dict.iteritems())
+        res = filter(lambda x: x.key0 in [1, 3], simple_dict.items())
         res = [i for i in res]
         self.assertEqual(2, len(res))
         self.assertTrue((1, 1) in res)
@@ -94,7 +94,7 @@ class LambdaParserTest(unittest.TestCase):
             simple_dict[i] = i
         time.sleep(1)
 
-        res = filter(lambda x: x.key0 in [1, 2, 3, 5, 6, 9] and x.val0 >= 0 and x.val0 <= 5, simple_dict.iteritems())
+        res = filter(lambda x: x.key0 in [1, 2, 3, 5, 6, 9] and x.val0 >= 0 and x.val0 <= 5, simple_dict.items())
         res = [i for i in res]
         self.assertEqual(4, len(res))
         self.assertTrue((1, 1) in res)
@@ -109,7 +109,7 @@ class LambdaParserTest(unittest.TestCase):
             complex_dict[str(i), i] = [str(i), i, float(i), True]
         time.sleep(2)
 
-        res = filter(lambda x: x.key0 in ["1", "2", "3", "4", "5"] and x.val1 >= 1 and x.val1 <= 5 and x.val2 >= 1.0 and x.val2 <= 4.0 and x.val3 == True, complex_dict.iteritems())
+        res = filter(lambda x: x.key0 in ["1", "2", "3", "4", "5"] and x.val1 >= 1 and x.val1 <= 5 and x.val2 >= 1.0 and x.val2 <= 4.0 and x.val3 == True, complex_dict.items())
         res = [tuple(i) for i in res]
         self.assertEqual(4, len(res))
         self.assertTrue((("1", 1), ("1", 1, 1.0, True)) in res)
@@ -125,7 +125,7 @@ class LambdaParserTest(unittest.TestCase):
         time.sleep(1)
 
         def execute_bad_type():
-            res = filter(lambda x: x.key0 == "1", simple_dict.iteritems())
+            res = filter(lambda x: x.key0 == "1", simple_dict.items())
 
         self.assertRaises(Exception, execute_bad_type)
 
@@ -136,7 +136,7 @@ class LambdaParserTest(unittest.TestCase):
             simple_dict[i] = i
         time.sleep(1)
 
-        res = filter(lambda x: x.key0 < 5 and x.key0 >= 3, simple_dict.iteritems())
+        res = filter(lambda x: x.key0 < 5 and x.key0 >= 3, simple_dict.items())
         res = [i for i in res]
         self.assertEqual(2, len(res))
         self.assertTrue((3, 3) in res)
@@ -149,7 +149,7 @@ class LambdaParserTest(unittest.TestCase):
             simple_dict[i] = i
         time.sleep(1)
 
-        res = filter(lambda x: 5 > x.key0 and 3 <= x.key0, simple_dict.iteritems())
+        res = filter(lambda x: 5 > x.key0 and 3 <= x.key0, simple_dict.items())
         res = [i for i in res]
         self.assertEqual(2, len(res))
         self.assertTrue((3, 3) in res)
@@ -170,16 +170,16 @@ class LambdaParserTest(unittest.TestCase):
         time.sleep(1)
 
         filtered = []
-        normal_filtered = python_filter(lambda x: x[0] > 3, simple_dict.iteritems())
+        normal_filtered = python_filter(lambda x: x[0] > 3, simple_dict.items())
 
         i = 0
         for partition in simple_dict.split():
             # aggregation of filtering on each partition should be equal to a filter on the whole object
-            res = filter(lambda x: x.key0 > 3, partition.iteritems())
+            res = filter(lambda x: x.key0 > 3, partition.items())
             for row in res:
                 filtered.append(row)
 
-            for k, v in partition.iteritems():
+            for k, v in partition.items():
                 # self.assertTrue((tuple(row.key), list(row.value)) in f2)
                 self.assertEqual(what_should_be[k], v)
                 i += 1

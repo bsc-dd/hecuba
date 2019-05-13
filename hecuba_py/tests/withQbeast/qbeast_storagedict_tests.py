@@ -37,7 +37,7 @@ class QbeastStorageDictTest(unittest.TestCase):
             what_should_be[i, i+1.0] = [i*0.1/9.0, i*0.2/9.0, i*0.3/9.0]
             d[i, i+1.0] = [i*0.1/9.0, i*0.2/9.0, i*0.3/9.0]
 
-        it = d.iteritems()
+        it = d.items()
         for k, v in it:
             self.assertEqual(what_should_be[k], list(v))
 
@@ -52,8 +52,8 @@ class QbeastStorageDictTest(unittest.TestCase):
 
         time.sleep(1)
 
-        filtered = filter(lambda row: row.x > 0.02 and row.x < 0.25 and row.y > 0.26 and row.y < 0.45 and row.z > 0.58 and row.z < 0.9, d.iteritems())
-        normal_filtered = python_filter(lambda row: row[1][0] > 0.02 and row[1][0] < 0.25 and row[1][1] > 0.26 and row[1][1] < 0.45 and row[1][2] > 0.58 and row[1][2] < 0.9, what_should_be.iteritems())
+        filtered = filter(lambda row: row.x > 0.02 and row.x < 0.25 and row.y > 0.26 and row.y < 0.45 and row.z > 0.58 and row.z < 0.9, d.items())
+        normal_filtered = python_filter(lambda row: row[1][0] > 0.02 and row[1][0] < 0.25 and row[1][1] > 0.26 and row[1][1] < 0.45 and row[1][2] > 0.58 and row[1][2] < 0.9, what_should_be.items())
 
         filtered_list = [row for row in filtered]
         self.assertEqual(len(filtered_list), len(normal_filtered))
@@ -68,7 +68,7 @@ class QbeastStorageDictTest(unittest.TestCase):
             d[i, i + 1.0] = [i * 0.1 / 9.0, i * 0.2 / 9.0, i * 0.3 / 9.0]
 
         time.sleep(1)
-        filtered = filter(lambda row: row.x > 0.02 and row.x < 0.25 and row.y > 0.26 and row.y < 0.45 and row.z > 0.58 and row.z < 0.9, d.iteritems())
+        filtered = filter(lambda row: row.x > 0.02 and row.x < 0.25 and row.y > 0.26 and row.y < 0.45 and row.z > 0.58 and row.z < 0.9, d.items())
         from storage.api import getByID
         for partition in filtered.split():
             it2 = getByID(partition.getID())
@@ -94,8 +94,8 @@ class QbeastStorageDictTest(unittest.TestCase):
         self.assertEqual(rebuild._ksp, 'my_app')
         self.assertEqual(rebuild._table, 'indexed_dict')
 
-        self.assertEqual(len(what_should_be), len([row for row in rebuild.iteritems()]))
-        filtered = filter(lambda row: row.x > 0.0 and row.x < 1.0 and row.y > 0.0 and row.y < 1.0 and row.z > 0.0 and row.z < 1.0, rebuild.iteritems())
+        self.assertEqual(len(what_should_be), len([row for row in rebuild.items()]))
+        filtered = filter(lambda row: row.x > 0.0 and row.x < 1.0 and row.y > 0.0 and row.y < 1.0 and row.z > 0.0 and row.z < 1.0, rebuild.items())
         for k, v in filtered:
             self.assertEqual(what_should_be[k], list(v))
 
@@ -110,7 +110,7 @@ class QbeastStorageDictTest(unittest.TestCase):
 
         for partition in d.split():
             rebuild = StorageDict.build_remotely(partition._build_args._asdict())
-            for k, v in rebuild.iteritems():
+            for k, v in rebuild.items():
                 self.assertEqual(what_should_be[k], list(v))
 
     def test_precision(self):
@@ -124,15 +124,15 @@ class QbeastStorageDictTest(unittest.TestCase):
 
         time.sleep(1)
 
-        filtered = filter(lambda row: row.x > 0.02 and row.x < 0.25 and row.y > 0.26 and row.y < 0.45 and row.z > 0.58 and row.z < 0.9 and random.random() < 1, d.iteritems())
-        normal_filtered = python_filter(lambda row: row[1][0] > 0.02 and row[1][0] < 0.25 and row[1][1] > 0.26 and row[1][1] < 0.45 and row[1][2] > 0.58 and row[1][2] < 0.9, what_should_be.iteritems())
+        filtered = filter(lambda row: row.x > 0.02 and row.x < 0.25 and row.y > 0.26 and row.y < 0.45 and row.z > 0.58 and row.z < 0.9 and random.random() < 1, d.items())
+        normal_filtered = python_filter(lambda row: row[1][0] > 0.02 and row[1][0] < 0.25 and row[1][1] > 0.26 and row[1][1] < 0.45 and row[1][2] > 0.58 and row[1][2] < 0.9, what_should_be.items())
 
         filtered_list = [row for row in filtered]
         self.assertEqual(len(filtered_list), len(normal_filtered))
         for row in filtered_list:
             self.assertTrue((tuple(row.key), list(row.value)) in normal_filtered)
 
-        filtered = filter(lambda row: row.x > 0.02 and row.x < 0.25 and row.y > 0.26 and row.y < 0.45 and row.z > 0.58 and row.z < 0.9 and random() < 1, d.iteritems())
+        filtered = filter(lambda row: row.x > 0.02 and row.x < 0.25 and row.y > 0.26 and row.y < 0.45 and row.z > 0.58 and row.z < 0.9 and random() < 1, d.items())
 
         filtered_list = [row for row in filtered]
         self.assertEqual(len(filtered_list), len(normal_filtered))
@@ -150,7 +150,7 @@ class QbeastStorageDictTest(unittest.TestCase):
 
         time.sleep(1)
 
-        qbeast_filtered = filter(lambda row: row.x > 0.02 and row.x < 0.25 and row.y > 0.26 and row.y < 0.45 and row.z > 0.58 and row.z < 0.9, d.iteritems())
+        qbeast_filtered = filter(lambda row: row.x > 0.02 and row.x < 0.25 and row.y > 0.26 and row.y < 0.45 and row.z > 0.58 and row.z < 0.9, d.items())
 
         for partition in qbeast_filtered.split():
             # with qbeast, a split returns all the data of the node where is iterated

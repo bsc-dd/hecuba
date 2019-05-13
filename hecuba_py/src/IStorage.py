@@ -26,7 +26,7 @@ class IStorage:
 
     ATD = 'int | atomicint | str | bool | decimal | float | long | double | buffer | set'
 
-    _python_types = [int, str, bool, float, tuple, set, dict, long, bytearray]
+    _python_types = [int, str, bool, float, tuple, set, dict, bytearray]
     _storage_id = None
     _conversions = {'atomicint': 'counter',
                     'str': 'text',
@@ -121,7 +121,7 @@ class IStorage:
             # This is the case we have more tokens than partitions,.
             splits = max(len(tokens) / number_of_partitions, 1)
 
-            for i in xrange(0, len(tokens), splits):
+            for i in range(0, len(tokens), splits):
                 yield tokens[i:i + splits]
 
     @staticmethod
@@ -171,7 +171,7 @@ class IStorage:
         m = re.compile("^%s_%s(_[0-9]+)?$" % (self._table, attribute))
         q = config.session.execute("SELECT table_name FROM  system_schema.tables WHERE keyspace_name = %s",
                                    [self._ksp])
-        return len(filter(lambda (t_name, ): m.match(t_name), q))
+        return len(list(filter(lambda t_name: m.match(t_name[0]), q)))
 
     @staticmethod
     def build_remotely(args):

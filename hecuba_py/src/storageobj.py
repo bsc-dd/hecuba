@@ -4,9 +4,8 @@ from collections import namedtuple
 import numpy as np
 from hecuba import config, log, Parser
 
-from IStorage import IStorage, AlreadyPersistentError
-from hnumpy import StorageNumpy
-from parser import Parser
+from hecuba.IStorage import IStorage, AlreadyPersistentError
+from hecuba.hnumpy import StorageNumpy
 
 
 class StorageObj(object, IStorage):
@@ -114,7 +113,7 @@ class StorageObj(object, IStorage):
             Loads the IStorage objects into memory by creating them or retrieving from the backend.
         """
         attrs = []
-        for attribute, value_info in self._persistent_props.iteritems():
+        for attribute, value_info in self._persistent_props.items():
             if value_info['type'] not in IStorage._basic_types:
                 # The attribute is an IStorage object
                 attrs.append((attribute, getattr(self, attribute)))

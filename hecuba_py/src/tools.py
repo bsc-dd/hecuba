@@ -44,8 +44,6 @@ class NamedItemsIterator:
             k = self.key_builder(*n[0:self.k_size])
         if self.column_builder is None:
             v = n[self.k_size]
-            if isinstance(v, unicode):
-                v = str(v)
         else:
             v = self.column_builder(*n[self.k_size:])
         return self.builder(k, v)

@@ -23,7 +23,7 @@ class BlockTest(unittest.TestCase):
         from app.words import Words
         results = {"built_remotely": False, "storage_id": uuid.uuid4(), "class_name": 'tests.app.words.Words', "name": 'ksp1.tab1',
                    "columns": [('val1', 'str')], "entry_point": 'localhost', "primary_keys": [('pk1', 'int')],
-                   "istorage_props": {}, "tokens": [(1l, 2l), (2l, 3l), (3l, 4l), (3l, 5l)]}
+                   "istorage_props": {}, "tokens": [(1, 2), (2, 3), (3, 4), (3, 5)]}
 
         words_mock_methods = Words._create_tables, Words._load_attributes, Words._store_meta
 

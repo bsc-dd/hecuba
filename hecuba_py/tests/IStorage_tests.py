@@ -1,4 +1,5 @@
 import unittest
+from functools import reduce
 
 from hecuba import Config
 from hecuba.IStorage import IStorage
@@ -1114,11 +1115,11 @@ class IStorageTest(unittest.TestCase):
 
     def check_full_range(self, list_of_ranges):
         list_of_ranges.sort()
-        start = map(lambda a: a[0], list_of_ranges)
-        counts = filter(lambda size: size[1] > 1, map(lambda number: (number, start.count(number)), start))
+        start = list(map(lambda a: a[0], list_of_ranges))
+        counts = list(filter(lambda size: size[1] > 1, map(lambda number: (number, start.count(number)), start)))
         self.assertEqual(0, len(counts), "duplicated starts")
-        end = map(lambda a: a[0], list_of_ranges)
-        counts = filter(lambda size: size[1] > 1, map(lambda number: (number, end.count(number)), end))
+        end = list(map(lambda a: a[0], list_of_ranges))
+        counts = list(filter(lambda size: size[1] > 1, map(lambda number: (number, end.count(number)), end)))
         self.assertEqual(0, len(counts), "duplicated ends")
 
         first, last = list_of_ranges[0]

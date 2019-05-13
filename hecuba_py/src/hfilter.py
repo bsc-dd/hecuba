@@ -5,7 +5,7 @@ import inspect
 from hecuba import config
 from hecuba.qbeast import QbeastIterator, QbeastMeta
 
-from IStorage import IStorage
+from hecuba.IStorage import IStorage
 from hecuba.tools import NamedItemsIterator
 
 magical_regex = re.compile(r'(?:\d+(?:\.\d+)?|\w|"\w+"|\'\w+\')+|[^\s\w\_]')
@@ -24,7 +24,7 @@ def func_to_str(func):
 def substit_var(final_list, func_vars, dictv):
     list_with_values = []
     for elem in final_list:
-        if not isinstance(elem, (str, unicode)) and isinstance(elem, Iterable):
+        if not isinstance(elem, str) and isinstance(elem, Iterable):
             list_with_values.append(elem)
         elif (elem != 'in' and not isinstance(elem, int) and not re.match(r'[^\s\w]', elem)) and not elem.isdigit():
             i = elem.find('.')
@@ -75,7 +75,7 @@ def transform_to_correct_type(final_list, dictv):
             else:
                 aux.append(value)
 
-        if (isinstance(aux[0], (str, unicode)) and aux[0].isdigit()) or isinstance(aux[0], int):
+        if (isinstance(aux[0], str) and aux[0].isdigit()) or isinstance(aux[0], int):
             aux.reverse()
             aux[1] = reverse_comparison[aux[1]]
 
@@ -87,7 +87,6 @@ def transform_to_correct_type(final_list, dictv):
 def parse_lambda(func):
     func_vars, clean_string = func_to_str(func)
     parsed_string = magical_regex.findall(clean_string)
-    parsed_string = [unicode(s) for s in parsed_string]
     simplified_filter = []
 
     for i, elem in enumerate(parsed_string):
@@ -215,7 +214,7 @@ class Predicate:
         else:
             self.predicate = ""
 
-        if isinstance(value, (str, unicode)):
+        if isinstance(value, str):
             value = "'{}'".format(value)
 
         self.predicate += " {} {} {}".format(col, comp, value)
@@ -235,7 +234,7 @@ class Predicate:
 
         self.predicate += " {} IN (".format(col)
         for value in values:
-            if isinstance(value, (str, unicode)):
+            if isinstance(value, str):
                 value = "'{}'".format(value)
             self.predicate += "{}, ".format(value)
         self.predicate = self.predicate[:-2] + ")"
