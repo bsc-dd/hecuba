@@ -46,7 +46,7 @@ Int8Parser::Int8Parser(const ColumnMeta &CM) : UnitParser(CM) {
 int16_t Int8Parser::py_to_c(PyObject *myint, void *payload) const {
     if (myint == Py_None) return -1;
     int8_t temp;
-    if (PyInt_Check(myint) && PyArg_Parse(myint, Py_SHORT_INT, &temp)) {
+    if (PyLong_Check(myint) && PyArg_Parse(myint, Py_SHORT_INT, &temp)) {
         memcpy(payload, &temp, sizeof(int8_t));
         return 0;
     }
@@ -73,7 +73,7 @@ int16_t Int16Parser::py_to_c(PyObject *myint, void *payload) const {
     int16_t temp;
 
 
-    if (PyInt_Check(myint) && PyArg_Parse(myint, Py_SHORT_INT, &temp)) {
+    if (PyLong_Check(myint) && PyArg_Parse(myint, Py_SHORT_INT, &temp)) {
         memcpy(payload, &temp, sizeof(int16_t));
         return 0;
     }
@@ -97,7 +97,7 @@ Int32Parser::Int32Parser(const ColumnMeta &CM) : UnitParser(CM) {
 
 int16_t Int32Parser::py_to_c(PyObject *myint, void *payload) const {
     if (myint == Py_None) return -1;
-    if (PyInt_Check(myint) && PyArg_Parse(myint, Py_INT, payload)) return 0;
+    if (PyLong_Check(myint) && PyArg_Parse(myint, Py_INT, payload)) return 0;
     error_parsing("PyInt to Int32", myint);
     return -2;
 }
@@ -118,7 +118,7 @@ Int64Parser::Int64Parser(const ColumnMeta &CM) : UnitParser(CM) {
 
 int16_t Int64Parser::py_to_c(PyObject *myint, void *payload) const {
     if (myint == Py_None) return -1;
-    if (PyInt_Check(myint) || PyLong_Check(myint)) {
+    if (PyLong_Check(myint)) {
         int64_t t; //TODO it might be safe to pass the payload instead of the var t
         if (PyArg_Parse(myint, Py_LONGLONG, &t) < 0) error_parsing("PyInt64", myint);
         memcpy(payload, &t, sizeof(t));
@@ -148,7 +148,7 @@ DoubleParser::DoubleParser(const ColumnMeta &CM) : UnitParser(CM) {
 
 int16_t DoubleParser::py_to_c(PyObject *obj, void *payload) const {
     if (obj == Py_None) return -1;
-    if (!PyFloat_Check(obj) && !PyInt_Check(obj)) error_parsing("PyDouble", obj);
+    if (!PyFloat_Check(obj) && !PyLong_Check(obj)) error_parsing("PyDouble", obj);
     if (isFloat) {
         float t;
         if (!PyArg_Parse(obj, Py_FLOAT, &t)) error_parsing("PyDouble as Float", obj);
@@ -182,9 +182,7 @@ TextParser::TextParser(const ColumnMeta &CM) : UnitParser(CM) {
 
 int16_t TextParser::py_to_c(PyObject *text, void *payload) const {
     if (text == Py_None) return -1;
-    if (PyString_Check(text) || PyUnicode_Check(text)) {
-
-
+    if (PyUnicode_Check(text)) {
         Py_ssize_t l_size;
         char *l_temp = PyUnicode_AsUTF8AndSize(text, &l_size);
         if (!l_temp) error_parsing("PyString", text);
@@ -303,7 +301,7 @@ PyObject *UuidParser::c_to_py(const void *payload) const {
     //trick to transform the data back, since it was parsed using the cassandra generator
     CassUuid uuid = {*((uint64_t *) it), *((uint64_t *) it + 1)};
     cass_uuid_string(uuid, final);
-    return PyString_FromString(final);
+    return PyUnicode_DecodeUTF8(final, sizeof(uint64_t)*2, NULL);
 }
 
 TupleParser::TupleParser(const ColumnMeta &CM) : UnitParser(CM) {
