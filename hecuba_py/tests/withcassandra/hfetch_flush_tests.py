@@ -8,7 +8,6 @@ class StorageDictTest(unittest.TestCase):
 
     @staticmethod
     def setUpClass():
-        config.reset(mock_cassandra=False)
         config.session.execute(
             "CREATE KEYSPACE IF NOT EXISTS ksp WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};")
 

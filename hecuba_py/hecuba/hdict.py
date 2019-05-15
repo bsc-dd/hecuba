@@ -9,7 +9,7 @@ from hecuba.tools import NamedItemsIterator, NamedIterator
 from hecuba.hnumpy import StorageNumpy
 from hfetch import Hcache
 
-from IStorage import IStorage, AlreadyPersistentError
+from IStorage import IStorage, AlreadyPersistentError, _basic_types, _discrete_token_ranges, _extract_ks_tab
 
 
 class EmbeddedSet(set):
@@ -251,7 +251,7 @@ class StorageDict(dict, IStorage):
         if tokens is None:
             log.info('using all tokens')
             tokens = map(lambda a: a.value, config.cluster.metadata.token_map.ring)
-            self._tokens = IStorage._discrete_token_ranges(tokens)
+            self._tokens = _discrete_token_ranges(tokens)
         else:
             self._tokens = tokens
 
@@ -457,7 +457,7 @@ class StorageDict(dict, IStorage):
 
         # Update local StorageDict metadata
         self._is_persistent = True
-        (self._ksp, self._table) = self._extract_ks_tab(name)
+        (self._ksp, self._table) = _extract_ks_tab(name)
 
         if self._storage_id is None:
             self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table)
@@ -471,7 +471,7 @@ class StorageDict(dict, IStorage):
             for col in self._columns:
                 if col["type"] == "tuple":
                     persistent_values.append({"name": col["name"], "type": "tuple<" + ",".join(col["columns"]) + ">"})
-                elif col["type"] not in self._basic_types:
+                elif col["type"] not in _basic_types:
                     persistent_values.append({"name": col["name"], "type": "uuid"})
                 else:
                     persistent_values.append({"name": col["name"], "type": col["type"]})
@@ -601,7 +601,7 @@ class StorageDict(dict, IStorage):
                 name = col["name"]
                 col_type = col["type"]
                 element = persistent_result[index]
-                if col_type not in IStorage._basic_types:
+                if col_type not in _basic_types:
                     # element is not a built-in type
                     table_name = self._ksp + '.' + self._table + '_' + name
                     info = {"name": table_name, "tokens": self._build_args.tokens, "storage_id": uuid.UUID(element),

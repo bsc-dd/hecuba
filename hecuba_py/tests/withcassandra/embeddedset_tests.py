@@ -1,9 +1,8 @@
 import time
-import os
 import unittest
 
-from hecuba import config
 from hecuba import StorageDict
+from hecuba import config
 
 
 class DictSet(StorageDict):
@@ -11,15 +10,18 @@ class DictSet(StorageDict):
     @TypeSpec dict<<k1:str, k2:int>, s1:set<int, int>>
     '''
 
+
 class DictSet2(StorageDict):
     '''
     @TypeSpec dict<<k1:str, k2:int>, s1:set<str>>
     '''
 
+
 class DictSet3(StorageDict):
     '''
     @TypeSpec dict<<k1:str, k2:int>, s1:set<int>>
     '''
+
 
 class DictSet4(StorageDict):
     '''

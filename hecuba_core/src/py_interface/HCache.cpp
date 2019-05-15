@@ -42,6 +42,12 @@ static PyObject *connectCassandra(PyObject *self, PyObject *args) {
     Py_RETURN_NONE;
 }
 
+static PyObject *disconnectCassandra(PyObject *self) {
+    if (storage != NULL)
+        storage->disconnectCassandra();
+    Py_RETURN_NONE;
+}
+
 
 /*** HCACHE DATA TYPE METHODS AND SETUP ***/
 
@@ -1093,6 +1099,7 @@ static PyTypeObject hfetch_HWriterType = {
 
 static PyMethodDef module_methods[] = {
         {"connectCassandra", (PyCFunction) connectCassandra, METH_VARARGS, NULL},
+        {"disconnectCassandra", (PyCFunction) disconnectCassandra,  METH_NOARGS, NULL},
         {NULL, NULL, 0,                                                    NULL}
 };
 

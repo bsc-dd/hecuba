@@ -25,10 +25,12 @@ addons:
       - libtool
       - python-numpy
 env:
-  global:
-    - PYTHONPATH=/home/travis/.local/lib/python2.7/site-packages/
+  - TEST_CASSANDRA_VERSION=3.11.4
+  - TEST_CASSANDRA_VERSION=3.0.18
+  - TEST_CASSANDRA_VERSION=2.2.14
+env.global:
+  - PYTHONPATH=/home/travis/.local/lib/python2.7/site-packages/
 before_install:
   - export PYTHONPATH=/home/travis/.local/lib/python2.7/site-packages/
   - export CFLAGS='-std=c++11'
   - java -version
-  - wget http://archive.apache.org/dist/cassandra/3.11.3/apache-cassandra-3.11.3-bin.tar.gz && tar -xzf apache-cassandra-3.11.3-bin.tar.gz && apache-cassandra-3.11.3/bin/cassandra & disown
