@@ -162,7 +162,7 @@ class IStorage:
         else:
             ksp = config.execution_name
             table = name
-        return ksp.lower().encode('UTF8'), table.lower().encode('UTF8')
+        return ksp.lower(), table.lower()
 
     def _get_istorage_attrs(self, storage_id):
         return list(config.session.execute(self._select_istorage_meta, [storage_id]))
