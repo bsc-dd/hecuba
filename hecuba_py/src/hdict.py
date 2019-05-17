@@ -34,7 +34,7 @@ class EmbeddedSet(set):
 
     def add(self, value):
         keys = self._keys[:]
-        if not isinstance(value, Iterable) or isinstance(value, str) or isinstance(value, unicode):
+        if not isinstance(value, Iterable) or isinstance(value, str):
             keys.append(value)
         else:
             keys += list(value)
@@ -43,7 +43,7 @@ class EmbeddedSet(set):
     def remove(self, value):
         if value in self:
             keys = self._keys[:]
-            if not isinstance(value, Iterable) or isinstance(value, str) or isinstance(value, unicode):
+            if not isinstance(value, Iterable) or isinstance(value, str):
                 keys.append(value)
             else:
                 keys += list(value)
@@ -55,7 +55,7 @@ class EmbeddedSet(set):
         try:
             if value in self:
                 keys = self._keys[:]
-                if not isinstance(value, Iterable) or isinstance(value, str) or isinstance(value, unicode):
+                if not isinstance(value, Iterable) or isinstance(value, str):
                     keys.append(value)
                 else:
                     keys += list(value)
@@ -76,7 +76,7 @@ class EmbeddedSet(set):
 
     def __contains__(self, value):
         keys = self._keys[:]
-        if not isinstance(value, Iterable) or isinstance(value, str) or isinstance(value, unicode):
+        if not isinstance(value, Iterable) or isinstance(value, str):
             keys.append(value)
         else:
             keys += list(value)
@@ -370,10 +370,8 @@ class StorageDict(dict, IStorage):
         Args:
             key: the data that needs to get the correct format
         """
-        if isinstance(key, str) or isinstance(key, unicode) or not isinstance(key, Iterable):
+        if isinstance(key, str) or not isinstance(key, Iterable):
             if len(self._primary_keys) == 1:
-                if isinstance(key, unicode):
-                    return [key.encode('ascii', 'ignore')]
                 return [key]
             else:
                 raise Exception('missing a primary key')
@@ -397,8 +395,6 @@ class StorageDict(dict, IStorage):
             return [uuid.UUID(value.getID())]
         elif isinstance(value, str) or not isinstance(value, Iterable) or isinstance(value, np.ndarray):
             return [value]
-        elif isinstance(value, unicode):
-            return [value.encode('ascii', 'ignore')]
         elif isinstance(value, tuple):
             return [value]
         elif isinstance(value, Iterable):
@@ -547,7 +543,7 @@ class StorageDict(dict, IStorage):
             self._hcache.delete_row([key])
 
     def __create_embeddedset(self, key, val=None):
-        if not isinstance(key, Iterable) or isinstance(key, str) or isinstance(key, unicode):
+        if not isinstance(key, Iterable) or isinstance(key, str):
             return EmbeddedSet(self, [key], val)
         else:
             return EmbeddedSet(self, list(key), val)
@@ -714,9 +710,12 @@ class StorageDict(dict, IStorage):
                 d = defaultdict(set)
                 # iteritems has the set values in different rows, this puts all the set values in the same row
                 if len(self._get_set_types()) == 1:
-                    map(lambda row: d[row[0]].add(row[1][0]), iterator)
+                    for row in iterator:
+                        d[row.key].add(row.value[0])
                 else:
-                    map(lambda row: d[row[0]].add(tuple(row[1])), iterator)
+                    for row in iterator:
+                        d[row.key].add(tuple(row.value))
+
                 iterator = d.items()
 
             return iterator

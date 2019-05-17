@@ -150,7 +150,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEquals(pd.__repr__(), "{0: 'a'}")
 
         pd[1] = 'b'
-        self.assertEquals(pd.__repr__(), "{0: 'a', 1: 'b'}")
+        self.assertEquals(pd.__repr__(), "{1: 'b', 0: 'a'}")
 
         for i in range(1100):
             pd[i] = str(i)
@@ -679,7 +679,7 @@ class StorageDictTest(unittest.TestCase):
 
         del my_dict  # force sync
         my_dict = MyStorageDict2('test_keys')
-        total_items = my_dict.items()
+        total_items = list(my_dict.items())
 
         self.assertEqual(len(total_items), nitems)
 
@@ -699,13 +699,13 @@ class StorageDictTest(unittest.TestCase):
         my_second_dict = MyStorageDict2()
         my_second_dict.make_persistent('test_keys')
 
-        total_items = my_second_dict.items()
+        total_items = list(my_second_dict.items())
         self.assertEqual(len(total_items), 2 * nitems)
         del my_dict
         del my_second_dict
 
         my_third_dict = MyStorageDict2('test_keys')
-        total_items = my_third_dict.items()
+        total_items = list(my_third_dict.items())
         self.assertEqual(len(total_items), 2 * nitems)
 
         del my_third_dict
@@ -728,7 +728,7 @@ class StorageDictTest(unittest.TestCase):
         my_dict = MyStorageDict2('test_values')
         total_items = my_dict.items()
 
-        self.assertEqual(len(total_items), nitems)
+        self.assertEqual(len(list(total_items)), nitems)
 
         # del my_dict
 
@@ -746,13 +746,13 @@ class StorageDictTest(unittest.TestCase):
         my_second_dict = MyStorageDict2()
         my_second_dict.make_persistent('test_values')
 
-        total_items = my_second_dict.items()
+        total_items = list(my_second_dict.items())
         self.assertEqual(len(total_items), 2 * nitems)
         del my_dict
         del my_second_dict
 
         my_third_dict = MyStorageDict2('test_values')
-        total_items = my_third_dict.items()
+        total_items = list(my_third_dict.items())
         self.assertEqual(len(total_items), 2 * nitems)
 
         del my_third_dict
@@ -773,7 +773,7 @@ class StorageDictTest(unittest.TestCase):
 
         del my_dict  # force sync
         my_dict = MyStorageDict2('test_items')
-        total_items = my_dict.items()
+        total_items = list(my_dict.items())
 
         self.assertEqual(len(total_items), nitems)
 
@@ -793,13 +793,13 @@ class StorageDictTest(unittest.TestCase):
         my_second_dict = MyStorageDict2()
         my_second_dict.make_persistent('test_items')
 
-        total_items = my_second_dict.items()
+        total_items = list(my_second_dict.items())
         self.assertEqual(len(total_items), 2 * nitems)
         del my_dict
         del my_second_dict
 
         my_third_dict = MyStorageDict2('test_items')
-        total_items = my_third_dict.items()
+        total_items = list(my_third_dict.items())
         self.assertEqual(len(total_items), 2 * nitems)
 
         del my_third_dict
@@ -821,7 +821,7 @@ class StorageDictTest(unittest.TestCase):
                 text_id = 'someText' + str(id)
             my_dict[(id, text_id)] = id
 
-        total_items = my_dict.items()
+        total_items = list(my_dict.items())
 
         self.assertEqual(len(total_items), nitems)
         del my_dict
@@ -846,7 +846,7 @@ class StorageDictTest(unittest.TestCase):
         my_storageobj.mona = first_storagedict
 
         self.assertTrue(my_storageobj.mona._is_persistent)
-        nitems = my_storageobj.mona.items()
+        nitems = list(my_storageobj.mona.items())
         self.assertEqual(len(nitems), 0)
         # it was assigned to a persistent storage obj, it should be persistent
         self.assertTrue(first_storagedict._is_persistent)
@@ -856,16 +856,18 @@ class StorageDictTest(unittest.TestCase):
         # store the second non persistent dict into the StorageObj attribute
         my_storageobj.mona = my_storagedict
         # contents should not be merged, the contents should be the same as in the last storage_dict
-        elements = my_storageobj.mona.items()
+        elements = list(my_storageobj.mona.items())
         self.assertEqual(len(elements), 1)
         my_storagedict = MyStorageDictA('second_name')
         last_key = 'some_key'
         last_value = 123
+
         my_storagedict[last_key] = last_value
         # my_storageobj.mona
         my_storageobj.mona = my_storagedict
-        self.assertFalse(my_storageobj.mona.has_key(last_key))
-        last_items = my_storageobj.mona.items()
+        self.assertTrue(last_key in my_storageobj.mona)
+
+        last_items = list(my_storageobj.mona.items())
         self.assertEqual(len(last_items), 1)
         self.assertEqual(my_storagedict[last_key], last_value)
 
@@ -900,7 +902,7 @@ class StorageDictTest(unittest.TestCase):
         for i in range(0, 10):
             self.assertEqual(d[i], (i, i + 10))
 
-        self.assertEqual(len(d.keys()), 10)
+        self.assertEqual(len(list(d.keys())), 10)
 
         res = dict()
         count = 0
@@ -943,7 +945,7 @@ class StorageDictTest(unittest.TestCase):
         for i in range(0, 10):
             self.assertEqual(d[(i, i), i+1], str(i))
 
-        self.assertEqual(len(d.keys()), 10)
+        self.assertEqual(len(list(d.keys())), 10)
 
     def test_keys_tuples(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples2")

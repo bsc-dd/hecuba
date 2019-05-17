@@ -104,7 +104,7 @@ class IStorage:
         if len(tokens) < min_number_of_tokens:
             # In this case we have few token and thus we split them
             tkns_per_partition = min_number_of_tokens / number_of_partitions
-            step_size = ((2 ** 64) - 1) / min_number_of_tokens
+            step_size = ((2 ** 64) - 1) // min_number_of_tokens
             partition = []
             for fraction, to in tokens:
                 while fraction < to - step_size:
@@ -119,7 +119,7 @@ class IStorage:
                 yield partition
         else:
             # This is the case we have more tokens than partitions,.
-            splits = max(len(tokens) / number_of_partitions, 1)
+            splits = max(len(tokens) // number_of_partitions, 1)
 
             for i in range(0, len(tokens), splits):
                 yield tokens[i:i + splits]

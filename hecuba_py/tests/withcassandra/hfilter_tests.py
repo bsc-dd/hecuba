@@ -157,7 +157,7 @@ class LambdaParserTest(unittest.TestCase):
 
     def test_non_hecuba_filter(self):
         l = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-        res = filter(lambda x: x >= 5, l)
+        res = list(filter(lambda x: x >= 5, l))
         self.assertEqual(res, [5, 6, 7, 8, 9])
 
     def test_split_filter(self):
@@ -170,7 +170,7 @@ class LambdaParserTest(unittest.TestCase):
         time.sleep(1)
 
         filtered = []
-        normal_filtered = python_filter(lambda x: x[0] > 3, simple_dict.items())
+        normal_filtered = list(python_filter(lambda x: x[0] > 3, simple_dict.items()))
 
         i = 0
         for partition in simple_dict.split():

@@ -13,7 +13,7 @@ class StorageTests(unittest.TestCase):
     def test_getByID_block(self):
         # ki = KeyIter('testspace', 'tt', 'app.words.Words', 'fake-id', ['position'])
         SO = Words('so')
-        b = SO.split().next()
+        b = next(SO.split())
         new_block = getByID(b.getID())
         self.assertEqual(b.getID(), new_block.getID())
         self.assertEqual(b, new_block)

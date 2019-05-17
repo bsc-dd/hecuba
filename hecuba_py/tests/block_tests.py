@@ -2,8 +2,10 @@ import unittest
 import uuid
 
 from hecuba import Config
-
 Config.reset(True)  ## THIS MUST STAY ONE THE TOP
+
+from hecuba_py.tests.app.words import Words
+
 from mock import Mock
 
 
@@ -12,15 +14,14 @@ class MockStorageObj:
 
 
 class BlockTest(unittest.TestCase):
-    @staticmethod
-    def setUpClass():
+    @classmethod
+    def setUpClass(cls):
         Config.reset(mock_cassandra=True)
 
     def test_astatic_creation(self):
         # TODO This test passes StorageDict arguments (results) to a StorageObj. Fix this test.
 
 
-        from app.words import Words
         results = {"built_remotely": False, "storage_id": uuid.uuid4(), "class_name": 'tests.app.words.Words', "name": 'ksp1.tab1',
                    "columns": [('val1', 'str')], "entry_point": 'localhost', "primary_keys": [('pk1', 'int')],
                    "istorage_props": {}, "tokens": [(1, 2), (2, 3), (3, 4), (3, 5)]}

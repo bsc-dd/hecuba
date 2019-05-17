@@ -58,7 +58,7 @@ def transform_to_correct_type(final_list, dictv):
     for elem in final_list:
         aux = []
         for i, value in enumerate(elem):
-            if isinstance(value, (int, float, Iterable)) and not isinstance(value, (str, unicode)):
+            if isinstance(value, (int, float, Iterable)) and not isinstance(value, str):
                 aux.append(value)
             elif not value.find('"') == -1:
                 aux.append(value.replace('"', ''))

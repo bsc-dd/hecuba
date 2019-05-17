@@ -217,7 +217,7 @@ class Config:
                                             default_retry_policy=_NRetry(5))
                 singleton.session = singleton.cluster.connect()
                 singleton.session.encoder.mapping[tuple] = singleton.session.encoder.cql_encode_tuple
-                from hfetch import connectCassandra
+                from hecuba.hfetch import connectCassandra
                 # connecting c++ bindings
                 connectCassandra(singleton.contact_names, singleton.nodePort)
                 if singleton.id_create_schema == -1:

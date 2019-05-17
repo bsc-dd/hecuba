@@ -1,11 +1,6 @@
 import unittest
 
-from mock import Mock
-
-from hecuba.IStorage import IStorage
-from app.words import Words
-from hecuba import config, Config
-from hecuba import hdict
+from hecuba import Config
 from hecuba import StorageDict
 
 
