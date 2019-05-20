@@ -6,7 +6,6 @@ from cassandra.cluster import Cluster
 
 from cassandra.policies import RetryPolicy, RoundRobinPolicy, TokenAwarePolicy
 
-
 # Set default log.handler to avoid "No handler found" warnings.
 
 stderrLogger = logging.StreamHandler()
@@ -138,7 +137,7 @@ class Config:
             singleton.max_cache_size = int(os.environ['MAX_CACHE_SIZE'])
             log.info('MAX_CACHE_SIZE: %d', singleton.max_cache_size)
         except KeyError:
-            singleton.max_cache_size = 0
+            singleton.max_cache_size = 1000
             log.warn('using default MAX_CACHE_SIZE: %d', singleton.max_cache_size)
 
         try:
@@ -197,6 +196,11 @@ class Config:
             singleton.timestamped_writes = True
             log.warn('using default TIMESTAMPED_WRITES: %s', singleton.timestamped_writes)
 
+        if singleton.max_cache_size < singleton.write_buffer_size:
+            import warnings
+            message = "Defining a MAX_CACHE_SIZE smaller than WRITE_BUFFER_SIZE can result " \
+                      "in reading outdated results from the persistent storage"
+            warnings.warn(message)
 
         if mock_cassandra:
             class clusterMock:
@@ -222,7 +226,9 @@ class Config:
         else:
             log.info('Initializing global session')
             try:
-                singleton.cluster = Cluster(contact_points=singleton.contact_names, load_balancing_policy=TokenAwarePolicy(RoundRobinPolicy()), port=singleton.nodePort,
+                singleton.cluster = Cluster(contact_points=singleton.contact_names,
+                                            load_balancing_policy=TokenAwarePolicy(RoundRobinPolicy()),
+                                            port=singleton.nodePort,
                                             default_retry_policy=_NRetry(5))
                 singleton.session = singleton.cluster.connect()
                 singleton.session.encoder.mapping[tuple] = singleton.session.encoder.cql_encode_tuple
@@ -274,6 +280,7 @@ from hecuba.hfilter import hfilter
 
 if not filter == hfilter:
     import __builtin__
+
     __builtin__.python_filter = filter
     __builtin__.filter = hfilter
 
