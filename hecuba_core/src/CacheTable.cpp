@@ -187,7 +187,8 @@ void CacheTable::delete_crow(const TupleRow *keys) {
     CassStatement *statement = cass_prepared_bind(delete_query);
 
     this->keys_factory->bind(statement, keys, 0);
-    if (!disable_timestamps) cass_statement_set_timestamp(statement, timestamp_gen.next()); // Set delete time
+    if (disable_timestamps) cass_statement_set_timestamp(statement, timestamp_gen.next()); // Set delete time
+    else this->writer->flush_elements();
 
     CassFuture *query_future = cass_session_execute(session, statement);
     const CassResult *result = cass_future_get_result(query_future);
