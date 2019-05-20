@@ -10,7 +10,7 @@
 #include "TimestampGenerator.h"
 #include "TupleRow.h"
 #include "TupleRowFactory.h"
-#include "TupleRowCache.h"
+#include "KVCache.h"
 #include "Writer.h"
 
 
@@ -58,8 +58,8 @@ private:
     bool disable_timestamps;
     TimestampGenerator timestamp_gen;
 
-    //Key based on copy constructor, Value based on Poco:SharedPtr
-    TupleRowCache<TupleRow, TupleRow> *myCache;
+    //Key and Value copy constructed
+    KVCache<TupleRow, TupleRow> *myCache;
 
     TupleRowFactory *keys_factory;
     TupleRowFactory *values_factory;

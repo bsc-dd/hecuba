@@ -3,7 +3,6 @@
 
 #include <iostream>
 #include <memory>
-#include <chrono>
 #include <cstring>
 #include <string>
 #include <stdlib.h>
@@ -19,7 +18,7 @@ class TupleRow {
 public:
 
     /* Constructor */
-    TupleRow(std::shared_ptr<const std::vector<ColumnMeta> > metas, uint32_t payload_size, void *buffer);
+    TupleRow(std::shared_ptr<const std::vector<ColumnMeta> > metas, size_t payload_size, void *buffer);
 
     /* Copy constructors */
     TupleRow(const TupleRow &t);
@@ -62,6 +61,10 @@ public:
         return this->payload->data;
     }
 
+    inline size_t length() const {
+        return this->payload->ptr_length;
+    }
+
     inline const uint16_t n_elem() const {
         return (uint16_t) metadatas->size();
     }
@@ -94,16 +97,16 @@ private:
 
         /* Attributes */
         void *data;
-        uint32_t length;
+        size_t ptr_length;
         std::vector<uint32_t> null_values;
         int64_t timestamp;
 
 
         /* Constructors */
-        TupleRowData(void *data_ptr, uint32_t length, uint32_t nelem) {
+        TupleRowData(void *data_ptr, size_t length, uint32_t nelem) {
             this->data = data_ptr;
             this->null_values = std::vector<uint32_t>(nelem, 0);
-            this->length = length;
+            this->ptr_length = length;
             this->timestamp = 0;
         }
 
@@ -144,12 +147,12 @@ private:
 
         /* Comparators */
         bool operator<(TupleRowData &rhs) {
-            if (this->length != rhs.length) return this->length < rhs.length;
+            if (this->ptr_length != rhs.ptr_length) return this->ptr_length < rhs.ptr_length;
             if (this->null_values.size() != rhs.null_values.size())
                 return this->null_values < rhs.null_values;
             if (this->null_values != rhs.null_values)
                 return this->null_values < rhs.null_values;
-            return memcmp(this->data, rhs.data, this->length) < 0;
+            return memcmp(this->data, rhs.data, this->ptr_length) < 0;
         }
 
         bool operator>(TupleRowData &rhs) {
@@ -157,12 +160,12 @@ private:
         }
 
         bool operator<=(TupleRowData &rhs) {
-            if (this->length != rhs.length) return this->length < rhs.length;
+            if (this->ptr_length != rhs.ptr_length) return this->ptr_length < rhs.ptr_length;
             if (this->null_values.size() != rhs.null_values.size())
                 return this->null_values < rhs.null_values;
             if (this->null_values != rhs.null_values)
                 return this->null_values < rhs.null_values;
-            return memcmp(this->data, rhs.data, this->length) <= 0;
+            return memcmp(this->data, rhs.data, this->ptr_length) <= 0;
         }
 
         bool operator>=(TupleRowData &rhs) {
@@ -170,12 +173,12 @@ private:
         }
 
         bool operator==(TupleRowData &rhs) {
-            if (this->length != rhs.length) return false;
+            if (this->ptr_length != rhs.ptr_length) return false;
             if (this->null_values.size() != rhs.null_values.size())
                 return false;
             if (this->null_values != rhs.null_values)
                 return false;
-            return memcmp(this->data, rhs.data, length) == 0;
+            return memcmp(this->data, rhs.data, ptr_length) == 0;
         }
 
     };
@@ -184,5 +187,17 @@ private:
     std::shared_ptr<TupleRowData> payload;
     std::shared_ptr<const std::vector<ColumnMeta>> metadatas;
 };
+
+
+// Allows indexing TupleRows in a hash map. Trivial implementation, a custom hash should reduce overhead.
+namespace std {
+    template<>
+    struct hash<TupleRow> {
+        std::size_t operator()(const TupleRow &k) const {
+            return hash<std::string>()(std::string((char *) k.get_payload(), k.length()));
+        }
+    };
+}
+
 
 #endif //TUPLEROW_H

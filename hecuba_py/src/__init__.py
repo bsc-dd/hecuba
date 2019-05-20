@@ -234,8 +234,8 @@ class Config:
                         "CREATE KEYSPACE IF NOT EXISTS hecuba  WITH replication = %s" % singleton.replication,
                         """CREATE TYPE IF NOT EXISTS hecuba.q_meta(
                         mem_filter text, 
-                        from_point frozen<list<float>>,
-                        to_point frozen<list<float>>,
+                        from_point frozen<list<double>>,
+                        to_point frozen<list<double>>,
                         precision float);
                         """,
                         'CREATE TYPE IF NOT EXISTS hecuba.np_meta(dims frozen<list<int>>,type int,block_id int);',

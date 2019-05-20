@@ -29,10 +29,10 @@ class StorageNumpy(np.ndarray, IStorage):
                                                   '(storage_id, class_name, name, numpy_meta)'
                                                   'VALUES (?,?,?,?)')
 
-    args_names = ["storage_id", "class_name", "name", "shape", "dtype", "block_id"]
+    args_names = ["storage_id", "class_name", "name", "shape", "dtype", "block_id", "built_remotely"]
     args = namedtuple('StorageNumpyArgs', args_names)
 
-    def __new__(cls, input_array=None, storage_id=None, name=None, **kwargs):
+    def __new__(cls, input_array=None, storage_id=None, name=None, built_remotely=False, **kwargs):
 
         if input_array is None and name and storage_id is not None:
             result = cls.load_array(storage_id, name)
@@ -49,11 +49,13 @@ class StorageNumpy(np.ndarray, IStorage):
                 or (storage_id is None and name):
             obj = np.asarray(input_array).view(cls)
             obj._storage_id = storage_id
+            obj._built_remotely = built_remotely
             obj.make_persistent(name)
         else:
             obj = np.asarray(input_array).view(cls)
             obj._storage_id = storage_id
         # Finally, we must return the newly created object:
+        obj._built_remotely = built_remotely
         obj._class_name = '%s.%s' % (cls.__module__, cls.__name__)
         return obj
 
@@ -121,19 +123,20 @@ class StorageNumpy(np.ndarray, IStorage):
             self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table + '_numpies')
 
         self._build_args = self.args(self._storage_id, self._class_name, self._ksp + '.' + self._table,
-                                     self.shape, self.dtype.num, self._block_id)
+                                     self.shape, self.dtype.num, self._block_id, self._built_remotely)
 
-        log.info("PERSISTING DATA INTO %s %s", self._ksp, self._table)
+        if not self._built_remotely:
+            log.info("PERSISTING DATA INTO %s %s", self._ksp, self._table)
 
-        query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
-        config.session.execute(query_keyspace)
+            query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
+            config.session.execute(query_keyspace)
 
-        config.session.execute('CREATE TABLE IF NOT EXISTS ' + self._ksp + '.' + self._table + '_numpies'
-                                                                                               '(storage_id uuid , '
-                                                                                               'cluster_id int, '
-                                                                                               'block_id int, '
-                                                                                               'payload blob, '
-                                                                                               'PRIMARY KEY((storage_id,cluster_id),block_id))')
+            config.session.execute('CREATE TABLE IF NOT EXISTS ' + self._ksp + '.' + self._table + '_numpies'
+                                                                                                   '(storage_id uuid , '
+                                                                                                   'cluster_id int, '
+                                                                                                   'block_id int, '
+                                                                                                   'payload blob, '
+                                                                                                   'PRIMARY KEY((storage_id,cluster_id),block_id))')
 
         self._hcache_params = (self._ksp, self._table + '_numpies',
                                self._storage_id, [], ['storage_id', 'cluster_id', 'block_id'],

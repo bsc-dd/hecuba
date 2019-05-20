@@ -68,10 +68,11 @@ class QbeastStorageDictTest(unittest.TestCase):
             d[i, i + 1.0] = [i * 0.1 / 9.0, i * 0.2 / 9.0, i * 0.3 / 9.0]
 
         time.sleep(1)
-
+        filtered = filter(lambda row: row.x > 0.02 and row.x < 0.25 and row.y > 0.26 and row.y < 0.45 and row.z > 0.58 and row.z < 0.9, d.iteritems())
         from storage.api import getByID
-        it2 = getByID(d.getID())
-        self.assertEqual(d.getID(), it2.getID())
+        for partition in filtered.split():
+            it2 = getByID(partition.getID())
+            self.assertEqual(filtered._qbeast_random, it2._qbeast_random)
 
     def testBuildRemotely(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.indexed_dict")

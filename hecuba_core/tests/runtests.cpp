@@ -878,12 +878,12 @@ TEST(TestMakePartitions, 4DZorderAndReverse) {
 
 
 
-/** Test to asses Poco Cache is performing as expected with pointer **/
-TEST(TestingPocoCache, InsertGetDeleteOps) {
+/** Test to asses KV Cache is performing as expected with pointer **/
+TEST(TestingKVCache, InsertGetDeleteOps) {
     const uint16_t i = 123;
     const uint16_t j = 456;
     size_t ss = sizeof(uint16_t) * 2;
-    TupleRowCache<TupleRow, TupleRow> myCache(2);
+    KVCache<TupleRow, TupleRow> myCache(2);
 
     ColumnMeta cm1 = ColumnMeta();
     cm1.info = {{"name", "ciao"}};
@@ -917,7 +917,7 @@ TEST(TestingPocoCache, InsertGetDeleteOps) {
     myCache.add(*key1, t1);
     delete (t1);
 
-    EXPECT_EQ(myCache.getAllKeys().size(), 1);
+    EXPECT_EQ(myCache.size(), 1);
     //TupleRow t = *(myCache.getAllKeys().begin());
     //EXPECT_TRUE(t == *key1);
     //EXPECT_FALSE(&t == key1);
@@ -930,11 +930,11 @@ TEST(TestingPocoCache, InsertGetDeleteOps) {
 }
 
 
-TEST(TestingPocoCache, ReplaceOp) {
+TEST(TestingKVCache, ReplaceOp) {
     uint16_t i = 123;
     uint16_t j = 456;
     size_t ss = sizeof(uint16_t) * 2;
-    TupleRowCache<TupleRow, TupleRow> myCache(2);
+    KVCache<TupleRow, TupleRow> myCache(2);
 
     ColumnMeta cm1 = ColumnMeta();
     cm1.info = {{"name", "ciao"}};
@@ -967,8 +967,8 @@ TEST(TestingPocoCache, ReplaceOp) {
     TupleRow *key1 = new TupleRow(metas, sizeof(uint16_t) * 2, b2);
     myCache.add(key1, t1);
 
-    EXPECT_EQ(myCache.getAllKeys().size(), 1);
-    TupleRow t = *(myCache.getAllKeys().begin());
+    EXPECT_EQ(myCache.size(), 1);
+    TupleRow t = myCache.get(key1);
     EXPECT_TRUE(t == *key1);
     EXPECT_FALSE(&t == key1);
 
@@ -988,11 +988,8 @@ TEST(TestingPocoCache, ReplaceOp) {
     const TupleRow *t3 = new TupleRow(metas, sizeof(uint16_t) * 2, b2);
     myCache.add(key1, t3);
 
-    EXPECT_EQ(myCache.getAllKeys().size(), 1);
-    t = *(myCache.getAllKeys().begin());
-    EXPECT_TRUE(t == *key1);
-    EXPECT_FALSE(&t == key1);
-    t = *(myCache.get(t));
+    EXPECT_EQ(myCache.size(), 1);
+    t = myCache.get(key1);
     EXPECT_TRUE(t == *t3);
     EXPECT_FALSE(&t == t3);
 
@@ -1003,7 +1000,6 @@ TEST(TestingPocoCache, ReplaceOp) {
     delete (key1);
     delete (t3);
 }
-
 
 
 
