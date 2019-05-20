@@ -9,7 +9,14 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
 
     int32_t buff_size = default_writer_buff;
     int32_t max_callbacks = default_writer_callbacks;
+    this->disable_timestamps = false;
 
+    if (config.find("disable_ts") != config.end()) {
+        std::string check_timestamps = config["disable_ts"];
+        std::transform(check_timestamps.begin(), check_timestamps.end(), check_timestamps.begin(), ::tolower);
+        if (check_timestamps == "true" || check_timestamps == "yes")
+            disable_timestamps = true;
+    }
 
     if (config.find("writer_par") != config.end()) {
         std::string max_callbacks_str = config["writer_par"];
@@ -124,7 +131,7 @@ void Writer::set_error_occurred(std::string error, const void *keys_p, const voi
     this->k_factory->bind(statement, keys, 0);
     this->v_factory->bind(statement, values, this->k_factory->n_elements());
 
-    cass_statement_set_timestamp(statement, keys->get_timestamp());
+    if (!this->disable_timestamps) cass_statement_set_timestamp(statement, keys->get_timestamp());
     CassFuture *query_future = cass_session_execute(session, statement);
 
     cass_statement_free(statement);
@@ -140,7 +147,7 @@ void Writer::set_error_occurred(std::string error, const void *keys_p, const voi
 
 void Writer::write_to_cassandra(const TupleRow *keys, const TupleRow *values) {
     TupleRow *queued_keys = new TupleRow(keys);
-    queued_keys->set_timestamp(timestamp_gen.next()); // Set write time
+    if (!disable_timestamps) queued_keys->set_timestamp(timestamp_gen.next()); // Set write time
 
     std::pair<const TupleRow *, const TupleRow *> item = std::make_pair(queued_keys, new TupleRow(values));
     data.push(item);
@@ -172,7 +179,10 @@ void Writer::call_async() {
     this->k_factory->bind(statement, item.first, 0);
     this->v_factory->bind(statement, item.second, this->k_factory->n_elements());
 
-    cass_statement_set_timestamp(statement, item.first->get_timestamp());
+    if (!this->disable_timestamps) {
+        cass_statement_set_timestamp(statement, item.first->get_timestamp());
+    }
+
     CassFuture *query_future = cass_session_execute(session, statement);
     cass_statement_free(statement);
 

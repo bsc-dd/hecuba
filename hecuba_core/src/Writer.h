@@ -54,6 +54,7 @@ private:
     std::atomic<uint32_t> error_count;
     const TableMetadata *table_metadata;
 
+    bool disable_timestamps;
     TimestampGenerator timestamp_gen;
 
     static void callback(CassFuture *future, void *ptr);

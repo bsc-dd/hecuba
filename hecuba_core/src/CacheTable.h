@@ -55,6 +55,7 @@ private:
     CassSession *session;
     const CassPrepared *prepared_query, *delete_query;
 
+    bool disable_timestamps;
     TimestampGenerator timestamp_gen;
 
     //Key based on copy constructor, Value based on Poco:SharedPtr
