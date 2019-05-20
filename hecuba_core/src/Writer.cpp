@@ -11,10 +11,10 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
     int32_t max_callbacks = default_writer_callbacks;
     this->disable_timestamps = false;
 
-    if (config.find("disable_ts") != config.end()) {
-        std::string check_timestamps = config["disable_ts"];
+    if (config.find("timestamped_writes") != config.end()) {
+        std::string check_timestamps = config["timestamped_writes"];
         std::transform(check_timestamps.begin(), check_timestamps.end(), check_timestamps.begin(), ::tolower);
-        if (check_timestamps == "true" || check_timestamps == "yes")
+        if (check_timestamps == "false" || check_timestamps == "no")
             disable_timestamps = true;
     }
 
