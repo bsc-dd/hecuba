@@ -301,7 +301,9 @@ PyObject *UuidParser::c_to_py(const void *payload) const {
     //trick to transform the data back, since it was parsed using the cassandra generator
     CassUuid uuid = {*((uint64_t *) it), *((uint64_t *) it + 1)};
     cass_uuid_string(uuid, final);
-    return PyUnicode_DecodeUTF8(final, sizeof(uint64_t)*2, NULL);
+
+    // The PyUnicode_DecodeUTF8 does not recognize the end flag \0
+    return PyUnicode_DecodeUTF8(final, CASS_UUID_STRING_LENGTH - 1, NULL);
 }
 
 TupleParser::TupleParser(const ColumnMeta &CM) : UnitParser(CM) {
