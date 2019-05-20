@@ -189,6 +189,15 @@ class Config:
             singleton.write_callbacks_number = 16
             log.warn('using default WRITE_CALLBACKS_NUMBER: %s', singleton.write_callbacks_number)
 
+        try:
+            env_var = os.environ['TIMESTAMPED_WRITES'].lower()
+            singleton.timestamped_writes = False if env_var == 'no' or env_var == 'false' else True
+            log.info('TIMESTAMPED WRITES ENABLED? {}'.format(singleton.timestamped_writes))
+        except KeyError:
+            singleton.timestamped_writes = True
+            log.warn('using default TIMESTAMPED_WRITES: %s', singleton.timestamped_writes)
+
+
         if mock_cassandra:
             class clusterMock:
                 def __init__(self):
