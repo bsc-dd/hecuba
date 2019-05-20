@@ -6,11 +6,12 @@ python:
 # command to install dependencies
 install:
   - pip install -r requirements.txt
+  - pip install codecov
   - python setup.py install --user
 # command to run tests
 script:
-  - nosetests -v -s hecuba_py/tests/*.py
-  - nosetests -v -s hecuba_py/tests/withcassandra
+  - nosetests --with-coverage -v -s hecuba_py/tests/*.py
+  - nosetests --with-coverage -v -s hecuba_py/tests/withcassandra
 jdk:
   - oraclejdk8
 #caches dependencies
@@ -26,11 +27,13 @@ addons:
       - python-numpy
 env:
   - TEST_CASSANDRA_VERSION=3.11.4
-  - TEST_CASSANDRA_VERSION=3.0.18
-  - TEST_CASSANDRA_VERSION=2.2.14
 env.global:
   - PYTHONPATH=/home/travis/.local/lib/python2.7/site-packages/
 before_install:
   - export PYTHONPATH=/home/travis/.local/lib/python2.7/site-packages/
   - export CFLAGS='-std=c++11'
   - java -version
+
+# Push the results back to codecov
+after_success:
+  - codecov
