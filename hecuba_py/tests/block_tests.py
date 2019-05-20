@@ -4,7 +4,7 @@ import uuid
 from hecuba import Config
 Config.reset(True)  ## THIS MUST STAY ONE THE TOP
 
-from hecuba_py.tests.app.words import Words
+from .app.words import Words
 
 from mock import Mock
 
