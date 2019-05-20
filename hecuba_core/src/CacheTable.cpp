@@ -19,6 +19,14 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
         throw ModuleException("CacheTable: Session is Null");
 
     int32_t cache_size = default_cache_size;
+    this->disable_timestamps = false;
+
+    if (config.find("timestamped_writes") != config.end()) {
+        std::string check_timestamps = config["timestamped_writes"];
+        std::transform(check_timestamps.begin(), check_timestamps.end(), check_timestamps.begin(), ::tolower);
+        if (check_timestamps == "false" || check_timestamps == "no")
+            this->disable_timestamps = true;
+    }
 
     if (config.find("cache_size") != config.end()) {
         std::string cache_size_str = config["cache_size"];
