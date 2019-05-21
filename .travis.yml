@@ -9,11 +9,38 @@ install:
   - pip install codecov
   - python setup.py install --user
 # command to run tests
-script:
-  - nosetests --with-coverage -v -s hecuba_py/tests/*.py
-  - nosetests --with-coverage -v -s hecuba_py/tests/withcassandra
+
 jdk:
   - oraclejdk8
+jobs:
+  include:
+    - stage: testing
+      env:
+        - TEST_CASSANDRA_VERSION=3.11.4
+      script:
+        - nosetests --with-coverage -v -s hecuba_py/tests/*.py
+        - nosetests --with-coverage -v -s hecuba_py/tests/withcassandra
+    - stage: building
+      matrix:
+        include:
+          - sudo: required
+            services:
+              - docker
+            env: DOCKER_IMAGE=quay.io/pypa/manylinux1_x86_64
+              PLAT=manylinux1_x86_64
+          - sudo: required
+            services:
+              - docker
+            env: DOCKER_IMAGE=quay.io/pypa/manylinux2010_x86_64
+              PLAT=manylinux2010_x86_64
+
+      install:
+        - docker pull $DOCKER_IMAGE
+
+      script:
+        - docker run --rm -e PLAT=$PLAT -v `pwd`:/io $DOCKER_IMAGE $PRE_CMD /io/.travis/build-wheels.sh
+        - ls wheelhouse/
+
 #caches dependencies
 cache: bundler
 addons:
@@ -25,8 +52,7 @@ addons:
       - gcc-4.8
       - libtool
       - python-numpy
-env:
-  - TEST_CASSANDRA_VERSION=3.11.4
+
 env.global:
   - PYTHONPATH=/home/travis/.local/lib/python2.7/site-packages/
 before_install:
