@@ -877,6 +877,86 @@ TEST(TestMakePartitions, 4DZorderAndReverse) {
 }
 
 
+TEST(TestMakePartitions, ReadBlockOnlyOnce) {
+    uint32_t nrows = 463;
+    uint32_t ncols = 53;
+    std::vector<uint32_t> ccs = {nrows, ncols};
+    ArrayMetadata *arr_metas = new ArrayMetadata();
+    arr_metas->dims = ccs;
+    arr_metas->inner_type = CASS_VALUE_TYPE_INT;
+    arr_metas->elem_size = sizeof(int32_t);
+    arr_metas->partition_type = ZORDER_ALGORITHM;
+
+    int32_t *data = new int32_t[ncols * nrows];
+    for (uint32_t row = 0; row < nrows; ++row) {
+        for (uint32_t col = 0; col < ncols; ++col) {
+            data[col + (ncols * row)] = (int32_t) col + (ncols * row);
+        }
+    }
+
+    // We first break the array in blocks and clusters. Count the number of unique clusters.
+    SpaceFillingCurve SFC;
+    SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas, data);
+
+    std::set<uint32_t> clusters_found;
+    std::set<int32_t> elements_found;
+    uint64_t total_elem = 0;
+    while (!partitioner->isDone()) {
+        Partition chunk = partitioner->getNextPartition();
+        uint64_t *size = (uint64_t *) chunk.data;
+        uint64_t nelem = *size / arr_metas->elem_size;
+        total_elem += nelem;
+        int32_t *chunk_data = (int32_t *) ((char *) chunk.data + sizeof(uint64_t));
+        for (uint64_t pos = 0; pos < nelem; ++pos) {
+            elements_found.insert(*chunk_data);
+            ++chunk_data;
+        }
+        clusters_found.insert(chunk.cluster_id);
+        free(chunk.data);
+
+    }
+    for (uint32_t row = 0; row < nrows; ++row) {
+        for (uint32_t col = 0; col < ncols; ++col) {
+            EXPECT_TRUE(elements_found.find((int32_t) col + (ncols * row)) != elements_found.end());
+        }
+    }
+    EXPECT_EQ(total_elem, ncols * nrows);
+    EXPECT_EQ(elements_found.size(), ncols * nrows);
+    EXPECT_EQ(*elements_found.begin(), 0);
+    EXPECT_EQ(*elements_found.rbegin(), ncols * nrows - 1);
+
+    delete[](data);
+    delete (partitioner);
+
+    // Assess the partitioner produces the same number of clusters as generated before
+    partitioner = SFC.make_partitions_generator(arr_metas, nullptr);
+    uint32_t n_clusters = 0;
+    while (!partitioner->isDone()) {
+        partitioner->computeNextClusterId();
+        ++n_clusters;
+    }
+
+    delete (partitioner);
+
+    EXPECT_EQ(clusters_found.size(), n_clusters);
+
+    // Verify each cluster id is gen
+    // erated exactly once
+    clusters_found.clear();
+    partitioner = SFC.make_partitions_generator(arr_metas, nullptr);
+
+
+    int32_t cluster_id;
+    while (!partitioner->isDone()) {
+        cluster_id = partitioner->computeNextClusterId();
+        auto it = clusters_found.insert(cluster_id);
+        ASSERT_TRUE(it.second);
+    }
+
+    delete (arr_metas);
+    delete (partitioner);
+}
+
 
 /** Test to asses KV Cache is performing as expected with pointer **/
 TEST(TestingKVCache, InsertGetDeleteOps) {

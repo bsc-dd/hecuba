@@ -103,7 +103,8 @@ class StorageNumpy(np.ndarray, IStorage):
                          [{'name': "payload", 'type': 'numpy'}],
                          {'cache_size': config.max_cache_size,
                           'writer_par': config.write_callbacks_number,
-                          'write_buffer': config.write_buffer_size})
+                          'write_buffer': config.write_buffer_size,
+                          'timestamped_writes': config.timestamped_writes})
         hcache = HNumpyStore(*hcache_params)
         result = hcache.get_numpy([storage_id])
         if len(result) == 1:
@@ -142,7 +143,8 @@ class StorageNumpy(np.ndarray, IStorage):
                                [{'name': "payload", 'type': 'numpy'}],
                                {'cache_size': config.max_cache_size,
                                 'writer_par': config.write_callbacks_number,
-                                'write_buffer': config.write_buffer_size})
+                                'write_buffer': config.write_buffer_size,
+                                'timestamped_writes': config.timestamped_writes})
 
         self._hcache = HNumpyStore(*self._hcache_params)
         if len(self.shape) != 0:

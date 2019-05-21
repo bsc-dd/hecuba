@@ -43,9 +43,18 @@ public:
         this->payload->unsetNull(position);
     }
 
+    inline void set_timestamp(int64_t timestamp) {
+        this->payload->setTimestamp(timestamp);
+    }
+
+
     /* Get methods */
     inline bool isNull(uint32_t position) const {
         return this->payload->isNull(position);
+    }
+
+    inline uint64_t get_timestamp() const {
+        return this->payload->getTimestamp();
     }
 
     inline void *get_payload() const {
@@ -90,6 +99,7 @@ private:
         void *data;
         size_t ptr_length;
         std::vector<uint32_t> null_values;
+        int64_t timestamp;
 
 
         /* Constructors */
@@ -97,6 +107,7 @@ private:
             this->data = data_ptr;
             this->null_values = std::vector<uint32_t>(nelem, 0);
             this->ptr_length = length;
+            this->timestamp = 0;
         }
 
         /* Destructors */
@@ -119,11 +130,20 @@ private:
             if (!null_values.empty()) this->null_values[position >> 5] &= !(0x1 << (position % 32));
         }
 
+        void setTimestamp(int64_t timestamp) {
+            this->timestamp = timestamp;
+        }
+
         /* Get methods */
         bool isNull(uint32_t position) const {
             if (!data || null_values.empty()) return true;
             return (this->null_values[position >> 5] & (0x1 << position % 32)) > 0;
         }
+
+        uint64_t getTimestamp() const {
+            return this->timestamp;
+        }
+
 
         /* Comparators */
         bool operator<(TupleRowData &rhs) {

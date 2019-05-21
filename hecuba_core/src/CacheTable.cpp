@@ -19,6 +19,14 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
         throw ModuleException("CacheTable: Session is Null");
 
     int32_t cache_size = default_cache_size;
+    this->disable_timestamps = false;
+
+    if (config.find("timestamped_writes") != config.end()) {
+        std::string check_timestamps = config["timestamped_writes"];
+        std::transform(check_timestamps.begin(), check_timestamps.end(), check_timestamps.begin(), ::tolower);
+        if (check_timestamps == "false" || check_timestamps == "no")
+            this->disable_timestamps = true;
+    }
 
     if (config.find("cache_size") != config.end()) {
         std::string cache_size_str = config["cache_size"];
@@ -51,6 +59,8 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
     this->writer = new Writer(table_meta, session, config);
     this->keys_factory = new TupleRowFactory(table_meta->get_keys());
     this->values_factory = new TupleRowFactory(table_meta->get_values());
+    this->timestamp_gen = TimestampGenerator();
+    this->writer->set_timestamp_gen(this->timestamp_gen);
 
     if (cache_size) this->myCache = new KVCache<TupleRow, TupleRow>(cache_size);
 };
@@ -179,13 +189,13 @@ std::vector<const TupleRow *> CacheTable::get_crow(void *keys) {
 
 
 void CacheTable::delete_crow(const TupleRow *keys) {
-    // To avoid consistency problems we flush the elements pending to be written
-    this->writer->flush_elements();
 
     //Remove row from Cassandra
     CassStatement *statement = cass_prepared_bind(delete_query);
 
     this->keys_factory->bind(statement, keys, 0);
+    if (disable_timestamps) this->writer->flush_elements();
+    else cass_statement_set_timestamp(statement, timestamp_gen.next()); // Set delete time
 
     CassFuture *query_future = cass_session_execute(session, statement);
     const CassResult *result = cass_future_get_result(query_future);

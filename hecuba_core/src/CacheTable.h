@@ -7,7 +7,7 @@
 #include <string>
 #include <memory>
 
-
+#include "TimestampGenerator.h"
 #include "TupleRow.h"
 #include "TupleRowFactory.h"
 #include "KVCache.h"
@@ -54,6 +54,9 @@ private:
     /* CASSANDRA INFORMATION FOR RETRIEVING DATA */
     CassSession *session;
     const CassPrepared *prepared_query, *delete_query;
+
+    bool disable_timestamps;
+    TimestampGenerator timestamp_gen;
 
     //Key and Value copy constructed
     KVCache<TupleRow, TupleRow> *myCache;
