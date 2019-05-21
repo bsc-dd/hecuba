@@ -7,7 +7,7 @@ from hecuba import config, log
 from hecuba.tools import NamedItemsIterator
 from hfetch import Hcache
 
-from IStorage import IStorage
+from IStorage import IStorage, _discrete_token_ranges, _extract_ks_tab
 
 
 class QbeastMeta(object):
@@ -70,7 +70,7 @@ class QbeastIterator(IStorage):
             tokens (list): list of tokens
         """
         log.debug("CREATED QbeastIterator(%s,%s,%s,%s)", storage_id, tokens, )
-        (self._ksp, self._table) = self._extract_ks_tab(name)
+        (self._ksp, self._table) = _extract_ks_tab(name)
         self._indexed_on = indexed_on
         self._qbeast_meta = qbeast_meta
         if qbeast_random is None:
@@ -80,7 +80,7 @@ class QbeastIterator(IStorage):
         if tokens is None:
             log.info('using all tokens')
             tokens = map(lambda a: a.value, config.cluster.metadata.token_map.ring)
-            self._tokens = IStorage._discrete_token_ranges(tokens)
+            self._tokens = _discrete_token_ranges(tokens)
         else:
             self._tokens = tokens
 

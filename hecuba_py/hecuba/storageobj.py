@@ -4,7 +4,8 @@ from collections import namedtuple
 import numpy as np
 from hecuba import config, log, Parser
 
-from IStorage import IStorage, AlreadyPersistentError
+from IStorage import IStorage, AlreadyPersistentError, _discrete_token_ranges, _basic_types, _valid_types, \
+    _extract_ks_tab
 from hnumpy import StorageNumpy
 from parser import Parser
 
@@ -67,7 +68,7 @@ class StorageObj(object, IStorage):
 
         if self._is_persistent:
             if name:
-                self._ksp, self._table = self._extract_ks_tab(name)
+                self._ksp, self._table = _extract_ks_tab(name)
                 name = self._ksp + '.' + self._table
 
             if not storage_id:
@@ -82,12 +83,12 @@ class StorageObj(object, IStorage):
                 tokens = metas[0].tokens
                 istorage_props = metas[0].istorage_props
                 name = metas[0].name
-                self._ksp, self._table = self._extract_ks_tab(name)
+                self._ksp, self._table = _extract_ks_tab(name)
 
         if tokens is None:
             # log.info('using all tokens')
             tokens = [token.value for token in config.cluster.metadata.token_map.ring]
-            tokens = IStorage._discrete_token_ranges(tokens)
+            tokens = _discrete_token_ranges(tokens)
 
         self._tokens = tokens
         self._storage_id = storage_id
@@ -115,7 +116,7 @@ class StorageObj(object, IStorage):
         """
         attrs = []
         for attribute, value_info in self._persistent_props.iteritems():
-            if value_info['type'] not in IStorage._basic_types:
+            if value_info['type'] not in _basic_types:
                 # The attribute is an IStorage object
                 attrs.append((attribute, getattr(self, attribute)))
         for (attr_name, attr) in attrs:
@@ -139,7 +140,7 @@ class StorageObj(object, IStorage):
                        '( storage_id uuid PRIMARY KEY, '
         for key, entry in self._persistent_props.items():
             query_simple += str(key) + ' '
-            if entry['type'] != 'dict' and entry['type'] in IStorage._valid_types:
+            if entry['type'] != 'dict' and entry['type'] in _valid_types:
                 if entry['type'] == 'list' or entry['type'] == 'tuple':
                     query_simple += entry['type'] + '<' + entry['columns'] + '>, '
                 else:
@@ -166,7 +167,7 @@ class StorageObj(object, IStorage):
             raise AlreadyPersistentError("This StorageObj is already persistent [Before:{}.{}][After:{}]",
                                          self._ksp, self._table, name)
 
-        (self._ksp, self._table) = self._extract_ks_tab(name)
+        (self._ksp, self._table) = _extract_ks_tab(name)
 
         if not self._storage_id:
             # Rebuild storage id
@@ -250,7 +251,7 @@ class StorageObj(object, IStorage):
             return object.__getattribute__(self, attribute)
 
         value_info = self._persistent_props[attribute]
-        is_istorage_attr = value_info['type'] not in IStorage._basic_types
+        is_istorage_attr = value_info['type'] not in _basic_types
         if not self._is_persistent:
             if not is_istorage_attr:
                 return object.__getattribute__(self, attribute)
