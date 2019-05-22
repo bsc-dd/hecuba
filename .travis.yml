@@ -21,16 +21,12 @@ jobs:
         - nosetests --with-coverage -v -s hecuba_py/tests/*.py
         - nosetests --with-coverage -v -s hecuba_py/tests/withcassandra
     - stage: building
-    - sudo: required
+      sudo: required
       services:
         - docker
-      env: DOCKER_IMAGE=quay.io/pypa/manylinux1_x86_64
-        PLAT=manylinux1_x86_64
-    - sudo: required
-      services:
-        - docker
-      env: DOCKER_IMAGE=quay.io/pypa/manylinux2010_x86_64
-        PLAT=manylinux2010_x86_64
+      env:
+       - DOCKER_IMAGE=quay.io/pypa/manylinux1_x86_64  PLAT=manylinux1_x86_64
+       - DOCKER_IMAGE=quay.io/pypa/manylinux2010_x86_64  PLAT=manylinux2010_x86_64
 
       install:
         - docker pull $DOCKER_IMAGE
