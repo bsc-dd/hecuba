@@ -130,7 +130,7 @@ class Config:
             singleton.max_cache_size = int(os.environ['MAX_CACHE_SIZE'])
             log.info('MAX_CACHE_SIZE: %d', singleton.max_cache_size)
         except KeyError:
-            singleton.max_cache_size = 0
+            singleton.max_cache_size = 1000
             log.warn('using default MAX_CACHE_SIZE: %d', singleton.max_cache_size)
 
         try:
@@ -188,6 +188,12 @@ class Config:
         except KeyError:
             singleton.timestamped_writes = True
             log.warn('using default TIMESTAMPED_WRITES: %s', singleton.timestamped_writes)
+
+        if singleton.max_cache_size < singleton.write_buffer_size:
+            import warnings
+            message = "Defining a MAX_CACHE_SIZE smaller than WRITE_BUFFER_SIZE can result " \
+                      "in reading outdated results from the persistent storage"
+            warnings.warn(message)
 
         log.info('Initializing global session')
 
