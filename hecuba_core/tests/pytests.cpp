@@ -546,13 +546,11 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_DOUBLE_AND_TEXT) {
     void *external = malloc(sizeof(TupleRow *));
     ok = parser->py_to_c(pt, external);
 
-    TupleRow *inner_data = *reinterpret_cast< TupleRow **>(external);
+    const TupleRow *inner_data = *reinterpret_cast<const TupleRow **>(external);
     const void *elem = inner_data->get_element(0);
     const int64_t uziv1 = *(int64_t const *) elem;
     const void *elem1 = inner_data->get_element(1);
     const int64_t uziv2 = *(int64_t const *) elem1;
-
-    inner_data->setNull(0);
 
     EXPECT_FALSE(ok == -1); //object was null
     EXPECT_FALSE(ok == -2); //something went wrong
