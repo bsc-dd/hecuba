@@ -6,7 +6,7 @@ from hecuba import config, log
 # from hfetch import Hcache
 from hfetch import HNumpyStore
 
-from IStorage import IStorage, AlreadyPersistentError
+from IStorage import IStorage, AlreadyPersistentError, _extract_ks_tab
 
 
 class StorageNumpy(np.ndarray, IStorage):
@@ -39,7 +39,7 @@ class StorageNumpy(np.ndarray, IStorage):
             input_array = result[0]
             obj = np.asarray(input_array).view(cls)
             obj._is_persistent = True
-            (obj._ksp, obj._table) = IStorage._extract_ks_tab(name)
+            (obj._ksp, obj._table) = _extract_ks_tab(name)
             obj._hcache = result[1]
             obj._hcache_params = result[2]
             obj._storage_id = storage_id
@@ -97,7 +97,7 @@ class StorageNumpy(np.ndarray, IStorage):
 
     @staticmethod
     def load_array(storage_id, name):
-        (ksp, table) = IStorage._extract_ks_tab(name)
+        (ksp, table) = _extract_ks_tab(name)
         hcache_params = (ksp, table + '_numpies',
                          storage_id, [], ['storage_id', 'cluster_id', 'block_id'],
                          [{'name': "payload", 'type': 'numpy'}],
@@ -118,7 +118,7 @@ class StorageNumpy(np.ndarray, IStorage):
                                          self._ksp, self._table, name)
         self._is_persistent = True
 
-        (self._ksp, self._table) = self._extract_ks_tab(name)
+        (self._ksp, self._table) = _extract_ks_tab(name)
         if self._storage_id is None:
             self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table + '_numpies')
 

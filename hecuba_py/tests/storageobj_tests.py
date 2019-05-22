@@ -16,8 +16,6 @@ class TestStorageObj(StorageObj):
 
 
 class StorageObjTest(unittest.TestCase):
-    def setUp(self):
-        Config.reset(mock_cassandra=True)
 
     def test_parse_comments(self):
         result = {'instances': {'columns': [('instances',

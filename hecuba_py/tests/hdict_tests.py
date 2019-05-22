@@ -1,11 +1,6 @@
 import unittest
 
-from mock import Mock
-
 from hecuba.IStorage import IStorage
-from app.words import Words
-from hecuba import config, Config
-from hecuba import hdict
 from hecuba import StorageDict
 
 
@@ -17,8 +12,7 @@ class TestHdict(StorageDict):
 
 
 class HdictTest(unittest.TestCase):
-    def setUp(self):
-        Config.reset(mock_cassandra=True)
+
 
     # TEST POSSIBLE WRONG INPUTS
 
