@@ -442,123 +442,129 @@ PyObject *TupleParser::c_to_py(const void *payload) const {
     PyObject *tuple = PyTuple_New(size);
     for (int i = 0; i < size; ++i) {
         CassValueType cvt = this->col_meta.pointer->at(i).type;
-        switch (cvt) {
-            case CASS_VALUE_TYPE_VARCHAR:
-            case CASS_VALUE_TYPE_TEXT:
-            case CASS_VALUE_TYPE_ASCII: {
-                TextParser tp = TextParser(col_meta.pointer->at(i));
-                int64_t *p = (int64_t *) inner_data->get_element(i);
-                PyObject *po = tp.c_to_py(p);
-                PyTuple_SET_ITEM(tuple, i, po);
-                break;
-            }
-            case CASS_VALUE_TYPE_VARINT:
-            case CASS_VALUE_TYPE_BIGINT: {
-                Int64Parser i64p = Int64Parser(col_meta.pointer->at(i));
-                int64_t *p = (int64_t *) inner_data->get_element(i);
-                PyObject *po = i64p.c_to_py(p);
-                PyTuple_SET_ITEM(tuple, i, po);
-                break;
-            }
-            case CASS_VALUE_TYPE_BLOB: {
-                BytesParser bp = BytesParser(col_meta.pointer->at(i));
-                int64_t *p = (int64_t *) inner_data->get_element(i);
-                PyObject *po = bp.c_to_py(p);
-                PyTuple_SET_ITEM(tuple, i, po);
-                break;
-            }
-            case CASS_VALUE_TYPE_BOOLEAN: {
-                BoolParser bp = BoolParser(col_meta.pointer->at(i));
-                double_t *p = (double_t *) inner_data->get_element(i);
-                PyObject *po = bp.c_to_py(p);
-                PyTuple_SET_ITEM(tuple, i, po);
-                break;
-            }
-                //TODO parsed as uint32 or uint64 on different methods
-            case CASS_VALUE_TYPE_COUNTER: {
-                Int64Parser i64p = Int64Parser(col_meta.pointer->at(i));
-                int64_t *p = (int64_t *) inner_data->get_element(i);
-                PyObject *po = i64p.c_to_py(p);
-                PyTuple_SET_ITEM(tuple, i, po);
-                break;
-            }
-            case CASS_VALUE_TYPE_DECIMAL: {
-                //TODO
-                break;
-            }
-            case CASS_VALUE_TYPE_DOUBLE: {
-                throw ModuleException("Float type not supported");
-            }
-            case CASS_VALUE_TYPE_FLOAT: {
-                DoubleParser dp = DoubleParser(col_meta.pointer->at(i));
-                double_t *p = (double_t *) inner_data->get_element(i);
-                PyObject *po = dp.c_to_py(p);
-                PyTuple_SET_ITEM(tuple, i, po);
-                break;
+        if(!inner_data->isNull(i)) {
+            switch (cvt) {
+                case CASS_VALUE_TYPE_VARCHAR:
+                case CASS_VALUE_TYPE_TEXT:
+                case CASS_VALUE_TYPE_ASCII: {
+                    TextParser tp = TextParser(col_meta.pointer->at(i));
+                    int64_t *p = (int64_t *) inner_data->get_element(i);
+                    PyObject *po = tp.c_to_py(p);
+                    PyTuple_SET_ITEM(tuple, i, po);
+                    break;
+                }
+                case CASS_VALUE_TYPE_VARINT:
+                case CASS_VALUE_TYPE_BIGINT: {
+                    Int64Parser i64p = Int64Parser(col_meta.pointer->at(i));
+                    int64_t *p = (int64_t *) inner_data->get_element(i);
+                    PyObject *po = i64p.c_to_py(p);
+                    PyTuple_SET_ITEM(tuple, i, po);
+                    break;
+                }
+                case CASS_VALUE_TYPE_BLOB: {
+                    BytesParser bp = BytesParser(col_meta.pointer->at(i));
+                    int64_t *p = (int64_t *) inner_data->get_element(i);
+                    PyObject *po = bp.c_to_py(p);
+                    PyTuple_SET_ITEM(tuple, i, po);
+                    break;
+                }
+                case CASS_VALUE_TYPE_BOOLEAN: {
+                    BoolParser bp = BoolParser(col_meta.pointer->at(i));
+                    double_t *p = (double_t *) inner_data->get_element(i);
+                    PyObject *po = bp.c_to_py(p);
+                    PyTuple_SET_ITEM(tuple, i, po);
+                    break;
+                }
+                    //TODO parsed as uint32 or uint64 on different methods
+                case CASS_VALUE_TYPE_COUNTER: {
+                    Int64Parser i64p = Int64Parser(col_meta.pointer->at(i));
+                    int64_t *p = (int64_t *) inner_data->get_element(i);
+                    PyObject *po = i64p.c_to_py(p);
+                    PyTuple_SET_ITEM(tuple, i, po);
+                    break;
+                }
+                case CASS_VALUE_TYPE_DECIMAL: {
+                    //TODO
+                    break;
+                }
+                case CASS_VALUE_TYPE_DOUBLE: {
+                    throw ModuleException("Float type not supported");
+                }
+                case CASS_VALUE_TYPE_FLOAT: {
+                    DoubleParser dp = DoubleParser(col_meta.pointer->at(i));
+                    double_t *p = (double_t *) inner_data->get_element(i);
+                    PyObject *po = dp.c_to_py(p);
+                    PyTuple_SET_ITEM(tuple, i, po);
+                    break;
 
-            }
-            case CASS_VALUE_TYPE_INT: {
-                Int32Parser i32p = Int32Parser(col_meta.pointer->at(i));
-                int32_t *p = (int32_t *) inner_data->get_element(i);
-                PyObject *po = i32p.c_to_py(p);
-                PyTuple_SET_ITEM(tuple, i, po);
-                break;
-            }
-            case CASS_VALUE_TYPE_TIMESTAMP: {
-                //TODO
-                break;
-            }
-            case CASS_VALUE_TYPE_UUID: {
-                UuidParser uip = UuidParser((col_meta.pointer->at(i)));
-                uint64_t *p = (uint64_t *) inner_data->get_element(i);
-                PyObject *po = uip.c_to_py(p);
-                PyTuple_SET_ITEM(tuple, i, po);
-                break;
-            }
-            case CASS_VALUE_TYPE_TIMEUUID: {
-                //TODO
-                break;
-            }
-            case CASS_VALUE_TYPE_INET: {
-                //TODO
-                break;
-            }
-            case CASS_VALUE_TYPE_DATE: {
+                }
+                case CASS_VALUE_TYPE_INT: {
+                    Int32Parser i32p = Int32Parser(col_meta.pointer->at(i));
+                    int32_t *p = (int32_t *) inner_data->get_element(i);
+                    PyObject *po = i32p.c_to_py(p);
+                    PyTuple_SET_ITEM(tuple, i, po);
+                    break;
+                }
+                case CASS_VALUE_TYPE_TIMESTAMP: {
+                    //TODO
+                    break;
+                }
+                case CASS_VALUE_TYPE_UUID: {
+                    UuidParser uip = UuidParser((col_meta.pointer->at(i)));
+                    uint64_t *p = (uint64_t *) inner_data->get_element(i);
+                    PyObject *po = uip.c_to_py(p);
+                    PyTuple_SET_ITEM(tuple, i, po);
+                    break;
+                }
+                case CASS_VALUE_TYPE_TIMEUUID: {
+                    //TODO
+                    break;
+                }
+                case CASS_VALUE_TYPE_INET: {
+                    //TODO
+                    break;
+                }
+                case CASS_VALUE_TYPE_DATE: {
 
-                break;
+                    break;
+                }
+                case CASS_VALUE_TYPE_TIME: {
+                    //TODO
+                    break;
+                }
+                case CASS_VALUE_TYPE_SMALL_INT: {
+                    Int16Parser i16p = Int16Parser(col_meta.pointer->at(i));
+                    int16_t *p = (int16_t *) inner_data->get_element(i);
+                    PyObject *po = i16p.c_to_py(p);
+                    PyTuple_SET_ITEM(tuple, i, po);
+                    break;
+                }
+                case CASS_VALUE_TYPE_TINY_INT: {
+                    Int8Parser i8p = Int8Parser(col_meta.pointer->at(i));
+                    int8_t *p = (int8_t *) inner_data->get_element(i);
+                    PyObject *po = i8p.c_to_py(p);
+                    PyTuple_SET_ITEM(tuple, i, po);
+                    break;
+                }
+                case CASS_VALUE_TYPE_LIST: {
+                    //TODO
+                    break;
+                }
+                case CASS_VALUE_TYPE_MAP: {
+                    //TODO
+                    break;
+                }
+                case CASS_VALUE_TYPE_SET: {
+                    //TODO
+                    break;
+                }
+                default:
+                    break;
             }
-            case CASS_VALUE_TYPE_TIME: {
-                //TODO
-                break;
-            }
-            case CASS_VALUE_TYPE_SMALL_INT: {
-                Int16Parser i16p = Int16Parser(col_meta.pointer->at(i));
-                int16_t *p = (int16_t *) inner_data->get_element(i);
-                PyObject *po = i16p.c_to_py(p);
-                PyTuple_SET_ITEM(tuple, i, po);
-                break;
-            }
-            case CASS_VALUE_TYPE_TINY_INT: {
-                Int8Parser i8p = Int8Parser(col_meta.pointer->at(i));
-                int8_t *p = (int8_t *) inner_data->get_element(i);
-                PyObject *po = i8p.c_to_py(p);
-                PyTuple_SET_ITEM(tuple, i, po);
-                break;
-            }
-            case CASS_VALUE_TYPE_LIST: {
-                //TODO
-                break;
-            }
-            case CASS_VALUE_TYPE_MAP: {
-                //TODO
-                break;
-            }
-            case CASS_VALUE_TYPE_SET: {
-                //TODO
-                break;
-            }
-            default:
-                break;
+        }
+        else {
+            Py_INCREF(Py_None) ;
+            PyTuple_SET_ITEM(tuple, i, Py_None);
         }
     }
     return tuple;
