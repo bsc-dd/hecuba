@@ -30,7 +30,7 @@ def set_ccm_cluster():
 def set_up_default_cassandra():
     set_ccm_cluster()
     try:
-        test_config.ccm_cluster.populate(test_config.n_nodes).start()
+        test_config.ccm_cluster.populate(test_config.n_nodes).start(allow_root=True)
     except Exception as a:
         if TEST_DEBUG:
             logging.warning("TEST_DEBUG: ignoring exception")

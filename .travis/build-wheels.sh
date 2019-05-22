@@ -3,7 +3,7 @@ set -e -x
 
 # Install a system package required by our library
 yum remove -y cmake
-yum install -y atlas-devel openssl openssl-devel cmake3  wget
+yum install -y atlas-devel openssl openssl-devel cmake3  wget java
 ln /usr/bin/cmake3 /usr/bin/cmake
 
 # getting the latest libuv
@@ -17,7 +17,7 @@ make install
 cd; wget https://github.com/datastax/cpp-driver/archive/2.12.0.tar.gz
 tar -xf 2.12.0.tar.gz
 cd cpp-driver-2.12.0/
-cmake -H. -Bbuild
+cmake -H. -Bbuild -DCASS_USE_LIBSSH2=OFF -DCASS_USE_OPENSSL=OFF
 cd build;make;make install
 
 
@@ -34,7 +34,7 @@ ORIGINAL_CPATH=${CPATH}
 ORIGINAL_LD=${LD_LIBRARY_PATH}
 export CFLAGS='-std=c++11'
 # Compile wheels
-for PYBIN in /opt/python/py27*; do
+for PYBIN in /opt/python/cp27*; do
      VNAME=`basename ${PYBIN}`
      export CPATH=$PYBIN/include:${ORIGINAL_CPATH}
      export LD_LIBRARY_PATH=${PYBIN}/lib:/io/build/lib:${ORIGINAL_LD}
@@ -42,7 +42,7 @@ for PYBIN in /opt/python/py27*; do
     "${PYBIN}/bin/pip" install -r /io/requirements.txt
     cd /io
     rm -rf build dist
-    "${PYBIN}/bin/python" setup.py install
+    "${PYBIN}/bin/python" setup.py build
     "${PYBIN}/bin/pip" wheel /io/ -w wheelhouse/${VNAME}
 
      # Bundle external shared libraries into the wheels
@@ -55,7 +55,9 @@ export LD_LIBRARY_PATH=${ORIGINAL_LD}
 
 
 # Install packages and test
-for PYBIN in /opt/python/*/bin/; do
+for PYBIN in /opt/python/cp27*/bin/; do
     "${PYBIN}/pip" install hecuba --no-index -f /io/wheelhouse/
-    (cd "$HOME"; "${PYBIN}/nosetests" hecuba)
+    "${PYBIN}/nosetests" --with-coverage -v -s /io/hecuba_py/tests/*.py
+    "${PYBIN}/nosetests" --with-coverage -v -s /io/hecuba_py/tests/withcassandra
 done
+ls /io/wheelhouse/
