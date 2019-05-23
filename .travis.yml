@@ -20,21 +20,30 @@ jobs:
       script:
         - nosetests --with-coverage -v -s hecuba_py/tests/*.py
         - nosetests --with-coverage -v -s hecuba_py/tests/withcassandra
-    - stage: building
+    - stage: building manylinux2010
       sudo: required
       services:
         - docker
       env:
-       - DOCKER_IMAGE=quay.io/pypa/manylinux1_x86_64  PLAT=manylinux1_x86_64
        - DOCKER_IMAGE=quay.io/pypa/manylinux2010_x86_64  PLAT=manylinux2010_x86_64
-
       install:
         - docker pull $DOCKER_IMAGE
-
       script:
         - docker run --rm -e PLAT=$PLAT -v `pwd`:/io $DOCKER_IMAGE /io/.travis/build-wheels.sh
-        - nosetests --with-coverage -v -s hecuba_py/tests/*.py
+        - python -c "import hfetch"
         - ls wheelhouse/
+    - stage: building manylinux1_x86_64
+        sudo: required
+        services:
+          - docker
+        env:
+          - DOCKER_IMAGE=quay.io/pypa/manylinux1_x86_64  PLAT=manylinux1_x86_64
+        install:
+          - docker pull $DOCKER_IMAGE
+        script:
+          - docker run --rm -e PLAT=$PLAT -v `pwd`:/io $DOCKER_IMAGE /io/.travis/build-wheels.sh
+          - python -c "import hfetch"
+          - ls wheelhouse/
 
 #caches dependencies
 cache: bundler
