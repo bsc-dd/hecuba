@@ -22,7 +22,7 @@ jobs:
       script:
         - nosetests --with-coverage -v -s hecuba_py/tests/*.py
         - nosetests --with-coverage -v -s hecuba_py/tests/withcassandra
-    - stage: building manylinux2010
+    - stage: building-manylinux2010
       sudo: required
       services:
         - docker
@@ -34,7 +34,7 @@ jobs:
         - docker run --rm -e PLAT=$PLAT -v `pwd`:/io $DOCKER_IMAGE /io/.travis/build-wheels.sh
         - python -c "import hfetch"
         - ls wheelhouse/
-    - stage: building manylinux1_x86_64
+    - stage: building-manylinux1_x86_64
         sudo: required
         services:
           - docker
