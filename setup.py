@@ -65,11 +65,10 @@ def setup_packages():
 
     # compute which libraries were built
     metadata = dict(name="Hecuba",
-                    version="0.1",
+                    version="0.1.2.post1",
                     package_dir={'hecuba': 'hecuba_py/hecuba', 'storage': 'storageAPI/storage'},
                     packages=['hecuba', 'storage'],  # find_packages(),
-
-                    # install_requires=['nose', 'cassandra-driver', 'mock'],
+                    install_requires=['cassandra-driver>=3.7.1', 'numpy>=1.16'],
                     zip_safe=False,
                     data_files=[('', extra_files)],
 
