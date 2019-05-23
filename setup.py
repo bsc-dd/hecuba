@@ -68,7 +68,7 @@ def setup_packages():
                     version="0.1.2",
                     package_dir={'hecuba': 'hecuba_py/hecuba', 'storage': 'storageAPI/storage'},
                     packages=['hecuba', 'storage'],  # find_packages(),
-                    install_requires=['cassandra-driver>=3.7.1', 'numpy>=1.13'],
+                    install_requires=['cassandra-driver>=3.7.1', 'numpy>=1.16'],
                     zip_safe=False,
                     data_files=[('', extra_files)],
 
