@@ -1,6 +1,5 @@
 import unittest
 
-from hecuba import Config
 from hecuba import StorageDict
 
 
@@ -12,8 +11,6 @@ class TestHdict(StorageDict):
 
 
 class HdictTest(unittest.TestCase):
-    def setUp(self):
-        Config.reset(mock_cassandra=True)
 
     # TEST POSSIBLE WRONG INPUTS
 

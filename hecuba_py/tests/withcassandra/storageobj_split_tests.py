@@ -39,7 +39,7 @@ class StorageObjSplitTest(unittest.TestCase):
                 res.add(val)
                 count += 1
         del pd
-        self.assertTrue(splits >= config.number_of_partitions)
+        self.assertTrue(splits >= config.spits_per_node * 2)
         self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
@@ -74,7 +74,7 @@ class StorageObjSplitTest(unittest.TestCase):
                 res.add(val)
                 count += 1
         del pd
-        self.assertTrue(splits >= config.number_of_partitions)
+        self.assertTrue(splits >= config.spits_per_node * 2)
         self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
@@ -103,7 +103,7 @@ class StorageObjSplitTest(unittest.TestCase):
                 res.add(val)
                 count += 1
         del sto
-        self.assertTrue(splits >= config.number_of_partitions)
+        self.assertTrue(splits >= config.spits_per_node * 2)
         self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
@@ -135,7 +135,7 @@ class StorageObjSplitTest(unittest.TestCase):
                 res.add(val)
                 count += 1
         del sto
-        self.assertTrue(splits >= config.number_of_partitions)
+        self.assertTrue(splits >= config.spits_per_node * 2)
         self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
@@ -147,7 +147,7 @@ class StorageObjSplitTest(unittest.TestCase):
         pd = sto.words
 
         ids = len(set(map(lambda x: x._storage_id, pd.split())))
-        self.assertTrue(ids >= config.number_of_partitions)
+        self.assertTrue(ids >= config.spits_per_node * 2)
 
 
 if __name__ == '__main__':

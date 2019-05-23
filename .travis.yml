@@ -2,17 +2,51 @@ sudo: false
 dist: trusty
 language: python
 python:
+  - "3.5"
   - "3.6"
+  - "3.7"
 # command to install dependencies
 install:
   - pip install -r requirements.txt
+  - pip install codecov
   - python setup.py install --user
 # command to run tests
-script:
-  - nosetests -v -s hecuba_py/tests/*.py
-  - nosetests -v -s hecuba_py/tests/withcassandra
+
 jdk:
   - oraclejdk8
+jobs:
+  include:
+    - stage: testing
+      env:
+        - TEST_CASSANDRA_VERSION=3.11.4
+      script:
+        - nosetests --with-coverage -v -s hecuba_py/tests/*.py
+        - nosetests --with-coverage -v -s hecuba_py/tests/withcassandra
+    - stage: building manylinux2010
+      sudo: required
+      services:
+        - docker
+      env:
+       - DOCKER_IMAGE=quay.io/pypa/manylinux2010_x86_64  PLAT=manylinux2010_x86_64
+      install:
+        - docker pull $DOCKER_IMAGE
+      script:
+        - docker run --rm -e PLAT=$PLAT -v `pwd`:/io $DOCKER_IMAGE /io/.travis/build-wheels.sh
+        - python -c "import hfetch"
+        - ls wheelhouse/
+    - stage: building manylinux1_x86_64
+        sudo: required
+        services:
+          - docker
+        env:
+          - DOCKER_IMAGE=quay.io/pypa/manylinux1_x86_64  PLAT=manylinux1_x86_64
+        install:
+          - docker pull $DOCKER_IMAGE
+        script:
+          - docker run --rm -e PLAT=$PLAT -v `pwd`:/io $DOCKER_IMAGE /io/.travis/build-wheels.sh
+          - python -c "import hfetch"
+          - ls wheelhouse/
+
 #caches dependencies
 cache: bundler
 addons:
@@ -24,11 +58,14 @@ addons:
       - gcc-4.8
       - libtool
       - python-numpy
-env:
-  global:
-    - PYTHONPATH=/home/travis/.local/lib/python3.6/site-packages/
+
+env.global:
+  - PYTHONPATH=/home/travis/.local/lib/python3.*/site-packages/
 before_install:
-  - export PYTHONPATH=/home/travis/.local/lib/python3.6/site-packages/
+  - export PYTHONPATH=/home/travis/.local/lib/python3.*/site-packages/
   - export CFLAGS='-std=c++11'
   - java -version
-  - wget http://archive.apache.org/dist/cassandra/3.11.3/apache-cassandra-3.11.3-bin.tar.gz && tar -xzf apache-cassandra-3.11.3-bin.tar.gz && apache-cassandra-3.11.3/bin/cassandra & disown
+
+# Push the results back to codecov
+after_success:
+  - codecov

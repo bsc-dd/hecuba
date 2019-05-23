@@ -7,9 +7,9 @@ import numpy as np
 from hecuba import config, log, Parser
 from hecuba.tools import NamedItemsIterator, NamedIterator
 from hecuba.hnumpy import StorageNumpy
-from hecuba.hfetch import Hcache
+from hfetch import Hcache
 
-from hecuba.IStorage import IStorage, AlreadyPersistentError
+from hecuba.IStorage import IStorage, AlreadyPersistentError, _basic_types, _discrete_token_ranges, _extract_ks_tab
 
 
 class EmbeddedSet(set):
@@ -251,7 +251,7 @@ class StorageDict(dict, IStorage):
         if tokens is None:
             log.info('using all tokens')
             tokens = list(map(lambda a: a.value, config.cluster.metadata.token_map.ring))
-            self._tokens = IStorage._discrete_token_ranges(tokens)
+            self._tokens = _discrete_token_ranges(tokens)
         else:
             self._tokens = tokens
 
@@ -429,7 +429,7 @@ class StorageDict(dict, IStorage):
 
         # Update local StorageDict metadata
         self._is_persistent = True
-        (self._ksp, self._table) = self._extract_ks_tab(name)
+        (self._ksp, self._table) = _extract_ks_tab(name)
 
         if self._storage_id is None:
             self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table)
@@ -443,7 +443,7 @@ class StorageDict(dict, IStorage):
             for col in self._columns:
                 if col["type"] == "tuple":
                     persistent_values.append({"name": col["name"], "type": "tuple<" + ",".join(col["columns"]) + ">"})
-                elif col["type"] not in self._basic_types:
+                elif col["type"] not in _basic_types:
                     persistent_values.append({"name": col["name"], "type": "uuid"})
                 else:
                     persistent_values.append({"name": col["name"], "type": col["type"]})
@@ -495,7 +495,8 @@ class StorageDict(dict, IStorage):
                                self._tokens, key_names, persistent_values,
                                {'cache_size': config.max_cache_size,
                                 'writer_par': config.write_callbacks_number,
-                                'writer_buffer': config.write_buffer_size})
+                                'writer_buffer': config.write_buffer_size,
+                                'timestamped_writes' : config.timestamped_writes})
         log.debug("HCACHE params %s", self._hcache_params)
         self._hcache = Hcache(*self._hcache_params)
 
@@ -573,7 +574,7 @@ class StorageDict(dict, IStorage):
                 name = col["name"]
                 col_type = col["type"]
                 element = persistent_result[index]
-                if col_type not in IStorage._basic_types:
+                if col_type not in _basic_types:
                     # element is not a built-in type
                     table_name = self._ksp + '.' + self._table + '_' + name
                     info = {"name": table_name, "tokens": self._build_args.tokens, "storage_id": uuid.UUID(element),

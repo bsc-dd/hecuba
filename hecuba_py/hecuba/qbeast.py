@@ -5,9 +5,9 @@ from collections import namedtuple
 
 from hecuba import config, log
 from hecuba.tools import NamedItemsIterator
-from hecuba.hfetch import Hcache
+from hfetch import Hcache
 
-from hecuba.IStorage import IStorage
+from hecuba.IStorage import IStorage, _discrete_token_ranges, _extract_ks_tab
 
 
 class QbeastMeta(object):
@@ -70,7 +70,7 @@ class QbeastIterator(IStorage):
             tokens (list): list of tokens
         """
         log.debug("CREATED QbeastIterator(%s,%s,%s,%s)", storage_id, tokens, )
-        (self._ksp, self._table) = self._extract_ks_tab(name)
+        (self._ksp, self._table) = _extract_ks_tab(name)
         self._indexed_on = indexed_on
         self._qbeast_meta = qbeast_meta
         if qbeast_random is None:
@@ -80,7 +80,7 @@ class QbeastIterator(IStorage):
         if tokens is None:
             log.info('using all tokens')
             tokens = map(lambda a: a.value, config.cluster.metadata.token_map.ring)
-            self._tokens = IStorage._discrete_token_ranges(tokens)
+            self._tokens = _discrete_token_ranges(tokens)
         else:
             self._tokens = tokens
 
@@ -123,13 +123,14 @@ class QbeastIterator(IStorage):
 
         self._hcache_params = (self._ksp, self._table,
                                self._storage_id,
-                               self._tokens, key_names, columns,
+                               self._tokens, key_names, persistent_columns,
                                {'cache_size': config.max_cache_size,
                                 'writer_par': config.write_callbacks_number,
-                                'writer_buffer': config.write_buffer_size})
+                                'writer_buffer': config.write_buffer_size,
+                                'timestamped_writes': config.timestamped_writes})
         log.debug("HCACHE params %s", self._hcache_params)
         self._hcache = Hcache(*self._hcache_params)
-      
+
         if not built_remotely:
             self._store_meta(self._build_args)
 

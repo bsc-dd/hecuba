@@ -7,10 +7,10 @@
 #include <string>
 #include <memory>
 
-
+#include "TimestampGenerator.h"
 #include "TupleRow.h"
 #include "TupleRowFactory.h"
-#include "TupleRowCache.h"
+#include "KVCache.h"
 #include "Writer.h"
 
 
@@ -55,8 +55,11 @@ private:
     CassSession *session;
     const CassPrepared *prepared_query, *delete_query;
 
-    //Key based on copy constructor, Value based on Poco:SharedPtr
-    TupleRowCache<TupleRow, TupleRow> *myCache;
+    bool disable_timestamps;
+    TimestampGenerator timestamp_gen;
+
+    //Key and Value copy constructed
+    KVCache<TupleRow, TupleRow> *myCache;
 
     TupleRowFactory *keys_factory;
     TupleRowFactory *values_factory;

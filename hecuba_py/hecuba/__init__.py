@@ -1,11 +1,8 @@
 import logging
 import os
-import re
 
 from cassandra.cluster import Cluster
-
 from cassandra.policies import RetryPolicy, RoundRobinPolicy, TokenAwarePolicy
-
 
 # Set default log.handler to avoid "No handler found" warnings.
 
@@ -57,18 +54,11 @@ class Config:
     def __getattr__(self, item):
         return getattr(Config.instance, item)
 
-    def __init__(self, mock_cassandra=False):
-        Config.reset(mock_cassandra=mock_cassandra)
-
-    @staticmethod
-    def reset(mock_cassandra=False):
+    def __init__(self):
         singleton = Config.instance
-        if singleton.configured and singleton.mock_cassandra == mock_cassandra:
+        if singleton.configured:
             log.info('setting down')
             return
-
-        singleton.mock_cassandra = mock_cassandra
-        log.info('setting up configuration with mock_cassandra = %s', mock_cassandra)
 
         singleton.configured = True
 
@@ -77,10 +67,6 @@ class Config:
         else:
             singleton.id_create_schema = -1
 
-        if mock_cassandra:
-            log.info('configuring mock environment')
-        else:
-            log.info('configuring production environment')
         try:
             singleton.nodePort = int(os.environ['NODE_PORT'])
             log.info('NODE_PORT: %d', singleton.nodePort)
@@ -119,26 +105,32 @@ class Config:
         except KeyError:
             singleton.execution_name = 'my_app'
             log.warn('using default EXECUTION_NAME: %s', singleton.execution_name)
+        try:
+            singleton.spits_per_node = int(os.environ['SPLITS_PER_NODE'])
+            log.info('SPLITS_PER_NODE: %d', singleton.spits_per_node)
+        except KeyError:
+            singleton.spits_per_node = 32
+            log.warn('using default SPLITS_PER_NODE: %d', singleton.spits_per_node)
 
         try:
-            singleton.number_of_partitions = int(os.environ['NUMBER_OF_BLOCKS'])
-            log.info('NUMBER_OF_BLOCKS: %d', singleton.number_of_partitions)
+            singleton.token_range_size = int(os.environ['TOKEN_RANGE_SIZE'])
+            log.info('TOKEN_RANGE_SIZE: %d', singleton.token_range_size)
+            singleton.target_token_range_size = None
         except KeyError:
-            singleton.number_of_partitions = 32
-            log.warn('using default NUMBER_OF_BLOCKS: %d', singleton.number_of_partitions)
+            singleton.token_range_size = None
 
-        try:
-            singleton.min_number_of_tokens = int(os.environ['MIN_NUMBER_OF_TOKENS'])
-            log.info('MIN_NUMBER_OF_TOKENS: %d', singleton.min_number_of_tokens)
-        except KeyError:
-            singleton.min_number_of_tokens = 1024
-            log.warn('using default MIN_NUMBER_OF_TOKENS: %d', singleton.min_number_of_tokens)
+            try:
+                singleton.target_token_range_size = int(os.environ['TARGET_TOKEN_RANGE_SIZE'])
+                log.info('TARGET_TOKEN_RANGE_SIZE: %d', singleton.target_token_range_size)
+            except KeyError:
+                singleton.target_token_range_size = 64 * 1024
+                log.warn('using default TARGET_TOKEN_RANGE_SIZE: %d', singleton.target_token_range_size)
 
         try:
             singleton.max_cache_size = int(os.environ['MAX_CACHE_SIZE'])
             log.info('MAX_CACHE_SIZE: %d', singleton.max_cache_size)
         except KeyError:
-            singleton.max_cache_size = 0
+            singleton.max_cache_size = 1000
             log.warn('using default MAX_CACHE_SIZE: %d', singleton.max_cache_size)
 
         try:
@@ -189,69 +181,61 @@ class Config:
             singleton.write_callbacks_number = 16
             log.warn('using default WRITE_CALLBACKS_NUMBER: %s', singleton.write_callbacks_number)
 
-        if mock_cassandra:
-            class clusterMock:
-                def __init__(self):
-                    from cassandra.metadata import Metadata
-                    self.metadata = Metadata()
-                    self.metadata.rebuild_token_map("Murmur3Partitioner", {})
+        try:
+            env_var = os.environ['TIMESTAMPED_WRITES'].lower()
+            singleton.timestamped_writes = False if env_var == 'no' or env_var == 'false' else True
+            log.info('TIMESTAMPED WRITES ENABLED? {}'.format(singleton.timestamped_writes))
+        except KeyError:
+            singleton.timestamped_writes = True
+            log.warn('using default TIMESTAMPED_WRITES: %s', singleton.timestamped_writes)
 
-            class sessionMock:
+        if singleton.max_cache_size < singleton.write_buffer_size:
+            import warnings
+            message = "Defining a MAX_CACHE_SIZE smaller than WRITE_BUFFER_SIZE can result " \
+                      "in reading outdated results from the persistent storage"
+            warnings.warn(message)
 
-                def execute(self, *args, **kwargs):
-                    log.info('called mock.session')
-                    return []
+        log.info('Initializing global session')
 
-                def prepare(self, *args, **kwargs):
-                    return self
+        singleton.cluster = Cluster(contact_points=singleton.contact_names,
+                                    load_balancing_policy=TokenAwarePolicy(RoundRobinPolicy()),
+                                    port=singleton.nodePort,
+                                    default_retry_policy=_NRetry(5))
+        singleton.session = singleton.cluster.connect()
+        singleton.session.encoder.mapping[tuple] = singleton.session.encoder.cql_encode_tuple
+        if singleton.id_create_schema == -1:
+            queries = [
+                "CREATE KEYSPACE IF NOT EXISTS hecuba  WITH replication = %s" % singleton.replication,
+                """CREATE TYPE IF NOT EXISTS hecuba.q_meta(
+                mem_filter text, 
+                from_point frozen<list<double>>,
+                to_point frozen<list<double>>,
+                precision float);
+                """,
+                'CREATE TYPE IF NOT EXISTS hecuba.np_meta(dims frozen<list<int>>,type int,block_id int);',
+                """CREATE TABLE IF NOT EXISTS hecuba
+                .istorage (storage_id uuid, 
+                class_name text,name text, 
+                istorage_props map<text,text>, 
+                tokens list<frozen<tuple<bigint,bigint>>>,
+                indexed_on list<text>,
+                qbeast_random text,
+                qbeast_meta frozen<q_meta>,
+                numpy_meta frozen<np_meta>,
+                primary_keys list<frozen<tuple<text,text>>>,
+                columns list<frozen<tuple<text,text>>>,
+                PRIMARY KEY(storage_id));
+                """]
+            for query in queries:
+                try:
+                    singleton.session.execute(query)
+                except Exception as e:
+                    log.error("Error executing query %s" % query)
+                    raise e
 
-                def bind(self, *args, **kwargs):
-                    return self
-
-            singleton.cluster = clusterMock()
-            singleton.session = sessionMock()
-        else:
-            log.info('Initializing global session')
-            try:
-                singleton.cluster = Cluster(contact_points=singleton.contact_names, load_balancing_policy=TokenAwarePolicy(RoundRobinPolicy()), port=singleton.nodePort,
-                                            default_retry_policy=_NRetry(5))
-                singleton.session = singleton.cluster.connect()
-                singleton.session.encoder.mapping[tuple] = singleton.session.encoder.cql_encode_tuple
-                from hecuba.hfetch import connectCassandra
-                # connecting c++ bindings
-                connectCassandra(singleton.contact_names, singleton.nodePort)
-                if singleton.id_create_schema == -1:
-                    queries = [
-                        "CREATE KEYSPACE IF NOT EXISTS hecuba  WITH replication = %s" % singleton.replication,
-                        """CREATE TYPE IF NOT EXISTS hecuba.q_meta(
-                        mem_filter text, 
-                        from_point frozen<list<double>>,
-                        to_point frozen<list<double>>,
-                        precision float);
-                        """,
-                        'CREATE TYPE IF NOT EXISTS hecuba.np_meta(dims frozen<list<int>>,type int,block_id int);',
-                        """CREATE TABLE IF NOT EXISTS hecuba
-                        .istorage (storage_id uuid, 
-                        class_name text,name text, 
-                        istorage_props map<text,text>, 
-                        tokens list<frozen<tuple<bigint,bigint>>>,
-                        indexed_on list<text>,
-                        qbeast_random text,
-                        qbeast_meta frozen<q_meta>,
-                        numpy_meta frozen<np_meta>,
-                        primary_keys list<frozen<tuple<text,text>>>,
-                        columns list<frozen<tuple<text,text>>>,
-                        PRIMARY KEY(storage_id));
-                        """]
-                    for query in queries:
-                        try:
-                            singleton.session.execute(query)
-                        except Exception as e:
-                            log.error("Error executing query %s" % query)
-                            raise e
-
-            except Exception as e:
-                log.error('Exception creating cluster session. Are you in a testing env? %s', e)
+        from hfetch import connectCassandra
+        # connecting c++ bindings
+        connectCassandra(singleton.contact_names, singleton.nodePort)
 
 
 global config

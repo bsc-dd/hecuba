@@ -5,11 +5,13 @@
 
 #include <thread>
 #include <atomic>
+#include <map>
 
 #include "tbb/concurrent_queue.h"
 
+#include "TimestampGenerator.h"
 #include "TupleRowFactory.h"
-#include <map>
+
 
 class Writer {
 public:
@@ -17,6 +19,8 @@ public:
            std::map<std::string, std::string> &config);
 
     ~Writer();
+
+    void set_timestamp_gen(TimestampGenerator &time_gen);
 
     void call_async();
 
@@ -49,6 +53,9 @@ private:
     std::atomic<uint32_t> ncallbacks;
     std::atomic<uint32_t> error_count;
     const TableMetadata *table_metadata;
+
+    bool disable_timestamps;
+    TimestampGenerator timestamp_gen;
 
     static void callback(CassFuture *future, void *ptr);
 };

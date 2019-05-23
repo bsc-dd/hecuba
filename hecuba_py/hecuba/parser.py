@@ -1,7 +1,7 @@
 import re
 from itertools import count
 
-from hecuba.IStorage import IStorage
+from hecuba.IStorage import _conversions, process_path
 
 
 class Parser(object):
@@ -77,7 +77,7 @@ class Parser(object):
     def _set_or_tuple(self, type, pk_col, t, t1):
         string_str = ""
         t = t.split(',')
-        converted_primary_keys = ", ".join([IStorage._conversions.get(w, w) for w in t])
+        converted_primary_keys = ", ".join([_conversions.get(w, w) for w in t])
         converted_primary_keys = converted_primary_keys.split(',')
         converted_primary_keys = [w.replace(' ', '') for w in converted_primary_keys]
         aux_list = []  # stores ((var_1, val),(var_2, val),...)
@@ -105,16 +105,16 @@ class Parser(object):
             elif t2 == 'tuple':
                 string_str = self._set_or_tuple('tuple', 'columns', t, t1)
             else:
-                if t not in IStorage._conversions:
+                if t not in _conversions:
                     route = t
-                    cname, module = IStorage.process_path(route)
+                    cname, module = process_path(route)
                     try:
                         mod = __import__(module, globals(), locals(), [cname], 0)
                     except (ImportError, ValueError) as ex:
                         raise ImportError("Can't import class {} from module {}".format(cname, module))
                     string_str = ',("%s", "%s")' % (t1, t)
                 else:
-                    type = IStorage._conversions[t]
+                    type = _conversions[t]
                     string_str = ',("%s", "%s")' % (t1, type)
             concatenated_keys = concatenated_keys + string_str
         concatenated_keys = concatenated_keys[1:]
@@ -148,7 +148,7 @@ class Parser(object):
         table = split_line[1]
         line = re.sub('[<>, ]', ' ', split_line[2].replace(str(type), ""))
         primary_keys = line.split()
-        converted_primary_keys = ", ".join([IStorage._conversions.get(w, w) for w in primary_keys])
+        converted_primary_keys = ", ".join([_conversions.get(w, w) for w in primary_keys])
         if len(primary_keys) == 1:
             string_str = '{"%s":{"%s": "%s","type": "%s"}}' % (table, pk_or_col, converted_primary_keys, str(type))
             final_string = eval(string_str)
@@ -176,7 +176,7 @@ class Parser(object):
             atributes = atributes[2].replace(" ", '')
 
         atributes = atributes.split(',')
-        converted_atributes = ", ".join([IStorage._conversions.get(w, w) for w in atributes])
+        converted_atributes = ", ".join([_conversions.get(w, w) for w in atributes])
         converted_atributes = converted_atributes.split(',')
         converted_atributes = [w.replace(" ", "") for w in converted_atributes]
 
@@ -197,7 +197,7 @@ class Parser(object):
         output = {}
         table_name = line[1]
         route = line[2]
-        cname, module = IStorage.process_path(route)
+        cname, module = process_path(route)
         try:
             mod = __import__(module, globals(), locals(), [cname], 0)
         except (ImportError, ValueError) as ex:
@@ -220,7 +220,7 @@ class Parser(object):
     def _parse_simple(self, line, this):
         split_line = line.split()
         table = split_line[1]
-        type = IStorage._conversions[split_line[2]]
+        type = _conversions[split_line[2]]
         simple = '{"%s":{"type":"%s"}}' % (table, type)
         simple = eval(simple)
         if table in this:
