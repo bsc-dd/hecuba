@@ -27,7 +27,7 @@ jobs:
       services:
         - docker
       env:
-       - DOCKER_IMAGE=quay.io/pypa/manylinux2010_x86_64  PLAT=manylinux2010_x86_64
+        - DOCKER_IMAGE=quay.io/pypa/manylinux2010_x86_64  PLAT=manylinux2010_x86_64
       install:
         - docker pull $DOCKER_IMAGE
       script:
@@ -40,7 +40,7 @@ jobs:
         - docker
       env:
         - DOCKER_IMAGE=quay.io/pypa/manylinux1_x86_64  PLAT=manylinux1_x86_64
-      install
+      install:
         - docker pull $DOCKER_IMAGE
       script:
         - docker run --rm -e PLAT=$PLAT -v `pwd`:/io $DOCKER_IMAGE /io/.travis/build-wheels.sh
