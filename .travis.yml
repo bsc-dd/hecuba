@@ -2,7 +2,6 @@ sudo: false
 dist: trusty
 language: python
 python:
-  - "3.5"
   - "3.6"
 # command to install dependencies
 install:
@@ -58,6 +57,8 @@ addons:
       - libtool
       - python-numpy
 
+env.global:
+  - PYTHONPATH=/home/travis/.local/lib/python3.6/site-packages/
 before_install:
   - export CFLAGS='-std=c++11'
   - java -version
