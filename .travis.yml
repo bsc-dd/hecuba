@@ -7,7 +7,7 @@ python:
 install:
   - pip install -r requirements.txt
   - pip install codecov
-  - python setup.py install --user
+  - python setup.py install
 # command to run tests
 
 jdk:
@@ -57,8 +57,6 @@ addons:
       - libtool
       - python-numpy
 
-env.global:
-  - PYTHONPATH=/home/travis/.local/lib/python3.6/site-packages/
 before_install:
   - export CFLAGS='-std=c++11'
   - java -version
