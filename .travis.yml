@@ -4,7 +4,6 @@ language: python
 python:
   - "3.5"
   - "3.6"
-  - "3.7"
 # command to install dependencies
 install:
   - pip install -r requirements.txt
@@ -59,10 +58,7 @@ addons:
       - libtool
       - python-numpy
 
-env.global:
-  - PYTHONPATH=/home/travis/.local/lib/python3.*/site-packages/
 before_install:
-  - export PYTHONPATH=/home/travis/.local/lib/python3.*/site-packages/
   - export CFLAGS='-std=c++11'
   - java -version
 
