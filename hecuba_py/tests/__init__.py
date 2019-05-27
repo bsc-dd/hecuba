@@ -51,10 +51,11 @@ def set_up_default_cassandra():
 @atexit.register
 def turning_down_cassandra():
     global test_config
-    if not TEST_DEBUG:
-        if test_config is not None and hasattr(test_config, "ccm_cluster"):
-            print("Turning down Cassandra")
-            from hfetch import disconnectCassandra
-            disconnectCassandra()
-            test_config.ccm_cluster.stop()
-            test_config.ccm_cluster.clear()
+    if TEST_DEBUG or test_config is None or not hasattr(test_config, "ccm_cluster"):
+        return
+
+    print("Turning down Cassandra")
+    from hfetch import disconnectCassandra
+    disconnectCassandra()
+    test_config.ccm_cluster.stop()
+    test_config.ccm_cluster.clear()
