@@ -185,7 +185,7 @@ class IStorage:
         tokens = self._build_args.tokens
 
         for token_split in _tokens_partitions(self._ksp, self._table, tokens,
-                                              config.spits_per_node,
+                                              config.splits_per_node,
                                               config.token_range_size,
                                               config.target_token_range_size):
             storage_id = uuid.uuid4()
@@ -203,7 +203,7 @@ class IStorage:
         m = re.compile("^%s_%s(_[0-9]+)?$" % (self._table, attribute))
         q = config.session.execute("SELECT table_name FROM  system_schema.tables WHERE keyspace_name = %s",
                                    [self._ksp])
-        return sum(map(lambda t_name: m.match(t_name[0]), q))
+        return sum(1 for elem in q if m.match(elem[0]))
 
     @staticmethod
     def build_remotely(args):

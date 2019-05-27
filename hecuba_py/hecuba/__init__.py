@@ -106,11 +106,11 @@ class Config:
             singleton.execution_name = 'my_app'
             log.warn('using default EXECUTION_NAME: %s', singleton.execution_name)
         try:
-            singleton.spits_per_node = int(os.environ['SPLITS_PER_NODE'])
-            log.info('SPLITS_PER_NODE: %d', singleton.spits_per_node)
+            singleton.splits_per_node = int(os.environ['SPLITS_PER_NODE'])
+            log.info('SPLITS_PER_NODE: %d', singleton.splits_per_node)
         except KeyError:
-            singleton.spits_per_node = 32
-            log.warn('using default SPLITS_PER_NODE: %d', singleton.spits_per_node)
+            singleton.splits_per_node = 32
+            log.warn('using default SPLITS_PER_NODE: %d', singleton.splits_per_node)
 
         try:
             singleton.token_range_size = int(os.environ['TOKEN_RANGE_SIZE'])
