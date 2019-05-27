@@ -4,7 +4,7 @@ from hecuba import config, Config
 from hecuba.storageobj import StorageObj
 from mock import Mock
 
-from hecuba_py.tests.app.words import Words
+from .app.words import Words
 
 
 class TestStorageObj(StorageObj):
