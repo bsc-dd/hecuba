@@ -7,7 +7,6 @@ import logging
 from distutils.util import strtobool
 
 
-
 class TestConfig:
     pass
 
@@ -30,7 +29,8 @@ def set_ccm_cluster():
 
 def set_up_default_cassandra():
     global test_config
-    if hasattr(test_config, "ccm_cluster") and any(map(lambda node: node.is_live(), test_config.ccm_cluster.nodes.values())):
+    if hasattr(test_config, "ccm_cluster") and any(
+            map(lambda node: node.is_live(), test_config.ccm_cluster.nodes.values())):
         return
 
     set_ccm_cluster()
@@ -52,8 +52,8 @@ def set_up_default_cassandra():
 def turning_down_cassandra():
     global test_config
     if not TEST_DEBUG:
-        print("Turning down Cassandra")
-        if test_config is not None and test_config.ccm_cluster is not None:
+        if test_config is not None and hasattr(test_config, "ccm_cluster"):
+            print("Turning down Cassandra")
             from hfetch import disconnectCassandra
             disconnectCassandra()
             test_config.ccm_cluster.stop()
