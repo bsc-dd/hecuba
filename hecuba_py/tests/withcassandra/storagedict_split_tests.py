@@ -314,17 +314,31 @@ class StorageDictSlitTestVnodes(StorageDictSplitTestbase):
         from .. import test_config, set_ccm_cluster
         test_config.ccm_cluster.clear()
         set_ccm_cluster()
-        test_config.ccm_cluster.populate(2, use_vnodes=True).start()
+        from .. import TEST_DEBUG
+        try:
+            test_config.ccm_cluster.populate(3, use_vnodes=True).start()
+        except Exception as ex:
+            if not TEST_DEBUG:
+                raise ex
+
         import hfetch
         import hecuba
-        reload(hfetch)
-        reload(hecuba)
+        import importlib
+        importlib.reload(hfetch)
+        import importlib
+        importlib.reload(hecuba)
         config.session.execute("DROP KEYSPACE IF EXISTS my_app")
         config.session.execute(
             "CREATE KEYSPACE IF NOT EXISTS my_app WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};")
+        super(StorageDictSplitTestbase, cls).setUpClass()
 
     @classmethod
-    def tearDownUpClass(cls):
+    def tearDownClass(cls):
+        from .. import test_config
+        from hfetch import disconnectCassandra
+        disconnectCassandra()
+
+        test_config.ccm_cluster.clear()
         from .. import set_up_default_cassandra
         set_up_default_cassandra()
 
