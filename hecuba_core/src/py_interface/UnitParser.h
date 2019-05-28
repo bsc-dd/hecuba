@@ -58,7 +58,7 @@ public:
         std::string error_message;
         PyObject *repr = PyObject_Str(obj);
         Py_ssize_t l_size;
-        char *l_temp = PyUnicode_AsUTF8AndSize(repr, &l_size);
+        const char *l_temp = PyUnicode_AsUTF8AndSize(repr, &l_size);
 
         if (l_temp != nullptr) {
             error_message = "Parse from python to c, found sth that can't be represented nor parsed";
