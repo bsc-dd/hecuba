@@ -52,7 +52,7 @@ cache: bundler
 addons:
   apt:
     packages:
-      - cmake3
+      - cmake
       - python-dev
       - libpython-dev
       - gcc-4.8
