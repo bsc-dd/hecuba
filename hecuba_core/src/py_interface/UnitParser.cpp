@@ -184,7 +184,7 @@ int16_t TextParser::py_to_c(PyObject *text, void *payload) const {
     if (text == Py_None) return -1;
     if (PyUnicode_Check(text)) {
         Py_ssize_t l_size;
-        char *l_temp = PyUnicode_AsUTF8AndSize(text, &l_size);
+        const char *l_temp = PyUnicode_AsUTF8AndSize(text, &l_size);
         if (!l_temp) error_parsing("PyString", text);
         // l_temp points to the internal "text" memory buffer
 
