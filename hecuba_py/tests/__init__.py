@@ -8,10 +8,11 @@ from distutils.util import strtobool
 
 
 class TestConfig:
-    n_nodes = int(os.environ.get('TEST_CASSANDRA_N_NODES', '2'))
-    ccm_cluster = None
+    pass
 
 
+test_config = TestConfig()
+test_config.n_nodes = int(os.environ.get('TEST_CASSANDRA_N_NODES', '2'))
 TEST_DEBUG = strtobool(os.environ.get("TEST_DEBUG", "False").lower())
 if TEST_DEBUG:
     logging.warning(("You are using TEST_DEBUG=True, a Cassandra cluster must be already running. "
@@ -19,24 +20,27 @@ if TEST_DEBUG:
 
 
 def set_ccm_cluster():
-    TestConfig.ccm_cluster = ccmlib.cluster.Cluster(
+    global test_config
+    test_config.ccm_cluster = ccmlib.cluster.Cluster(
         tempfile.mkdtemp("tmp_data"),
         'hecuba_test',
         cassandra_version=os.environ.get('TEST_CASSANDRA_VERSION', '3.11.4'))
 
 
 def set_up_default_cassandra():
-    if TestConfig.ccm_cluster and any(map(lambda node: node.is_live(), TestConfig.ccm_cluster.nodes.values())):
+    global test_config
+    if hasattr(test_config, "ccm_cluster") and any(
+            map(lambda node: node.is_live(), test_config.ccm_cluster.nodes.values())):
         return
 
     set_ccm_cluster()
     try:
-        TestConfig.ccm_cluster.populate(TestConfig.n_nodes).start(allow_root=True)
-    except Exception as ex:
+        test_config.ccm_cluster.populate(test_config.n_nodes).start(allow_root=True)
+    except Exception as a:
         if TEST_DEBUG:
             logging.warning("TEST_DEBUG: ignoring exception")
         else:
-            raise ex
+            raise a
 
     if 'hecuba' in sys.modules:
         import importlib
@@ -46,15 +50,15 @@ def set_up_default_cassandra():
 
 @atexit.register
 def turning_down_cassandra():
-    if TestConfig is None or TestConfig.ccm_cluster is None:
+    global test_config
+    if test_config is None or not hasattr(test_config, "ccm_cluster"):
         return
 
-    print("Shutting down Cassandra")
+    print("Turning down Cassandra")
     from hfetch import disconnectCassandra
     disconnectCassandra()
-    TestConfig.ccm_cluster.stop()
-    TestConfig.ccm_cluster.clear()
-    TestConfig.ccm_cluster = None
+    test_config.ccm_cluster.stop()
+    test_config.ccm_cluster.clear()
 
 
 set_up_default_cassandra()
