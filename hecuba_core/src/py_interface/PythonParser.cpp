@@ -78,8 +78,8 @@ PyObject *PythonParser::make_pylist(std::vector<const TupleRow *> &values) const
     //TODO design behaviour, should we expect N tuples or just one?
     const TupleRow *tuple = values[0];
 
-    /*if (tuple == nullptr)
-        throw ModuleException("PythonParser: Marshalling from c to python a NULL tuple, unsupported");*/
+    if (tuple == nullptr)
+        throw ModuleException("PythonParser: Marshalling from c to python a NULL tuple, unsupported");
     if (tuple->n_elem() != parsers.size())
         throw ModuleException("PythonParser: Found " + std::to_string(tuple->n_elem()) +
                               " elements from a max of " + std::to_string(parsers.size()));

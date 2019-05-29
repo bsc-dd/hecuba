@@ -998,7 +998,7 @@ class StorageDictTest(unittest.TestCase):
             else:
                 d[i] = (i, i+10)
 
-        time.sleep(1)
+        d = DictWithTuples("my_app.dictwithtuples")
         for i in range(0, 10):
             if i % 2 == 0:
                 self.assertEqual(d[i], (None, i + 10))
@@ -1018,7 +1018,7 @@ class StorageDictTest(unittest.TestCase):
                 what_should_be[i] = [i, (5500000000000000L, None), "hola", (None, (i + 20.5))]
                 d[i] = [i, (5500000000000000L, None), "hola", (None, (i + 20.5))]
 
-        time.sleep(2)
+        d = DictWithTuples3("my_app.dictmultipletuples")
         for i in range(0, 10):
             if i % 2 == 0:
                 self.assertEqual(list(d[i]), [i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))])

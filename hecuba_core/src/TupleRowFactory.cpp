@@ -197,7 +197,7 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
                 value = cass_iterator_get_value(tuple_iterator);
                 pos_to_copy = (char *) tuple_data + metadata->at(col).pointer->at(j).position;
                 if (TFACT.cass_to_c(value, pos_to_copy, j) < 0) {
-                    TupleRow *inner_data = *reinterpret_cast< TupleRow **>(ptr);
+                    TupleRow *inner_data = *ptr;
                     inner_data->setNull(j);
                 }
                 ++j;
@@ -344,8 +344,8 @@ TupleRowFactory::bind(CassTuple *tuple, const TupleRow *row) const {
         } else {
             //Element is a nullptr
             CassError rc = cass_tuple_set_null(tuple, bind_pos);
-            //CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [Null value], column:" +
-            //           localMeta->at(bind_pos).info[0]);
+            CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [Null value], column:" +
+                       localMeta->at(bind_pos).info[0])
         }
     }
 }
@@ -500,8 +500,8 @@ TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t o
         } else {
             //Element is a nullptr
             CassError rc = cass_statement_bind_null(statement, bind_pos);
-            /*CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [Null value], column:" +
-                       metadata->at(i).info[0]);*/
+            CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [Null value], column:" +
+                       metadata->at(i).info[0]);
         }
     }
 }
