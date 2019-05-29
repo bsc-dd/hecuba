@@ -988,6 +988,54 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(count, len(what_should_be))
         self.assertEqual(what_should_be, res)
 
+    def test_int_tuples_null_values(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples")
+        d = DictWithTuples("my_app.dictwithtuples")
+
+        for i in range(0, 10):
+            if i % 2 == 0:
+                d[i] = (None, i+10)
+            else:
+                d[i] = (i, i+10)
+
+        time.sleep(1)
+        for i in range(0, 10):
+            if i % 2 == 0:
+                self.assertEqual(d[i], (None, i + 10))
+            else:
+                self.assertEqual(d[i], (i, i + 10))
+
+    def test_multiple_tuples_NULL(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictmultipletuples")
+        d = DictWithTuples3("my_app.dictmultipletuples")
+
+        what_should_be = dict()
+        for i in range(0, 10):
+            if i % 2 == 0:
+                what_should_be[i] = [i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))]
+                d[i] = [i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))]
+            else:
+                what_should_be[i] = [i, (5500000000000000L, None), "hola", (None, (i + 20.5))]
+                d[i] = [i, (5500000000000000L, None), "hola", (None, (i + 20.5))]
+
+        time.sleep(2)
+        for i in range(0, 10):
+            if i % 2 == 0:
+                self.assertEqual(list(d[i]), [i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))])
+            else:
+                self.assertEqual(list(d[i]), [i, (5500000000000000L, None), "hola", (None, (i + 20.5))])
+
+
+        self.assertEqual(len(list(d.keys())), 10)
+
+        res = dict()
+        count = 0
+        for key, item in d.iteritems():
+            res[key] = list(item)
+            count += 1
+
+        self.assertEqual(count, len(what_should_be))
+        self.assertEqual(what_should_be, res)
 
 
 

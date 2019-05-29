@@ -320,112 +320,115 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
     }
     void *internal_payload = malloc(total_malloc);
     uint32_t size = (uint32_t) PyTuple_Size(obj);
+    TupleRow *tr = new TupleRow(col_meta.pointer, total_malloc, internal_payload);
     for (uint32_t i = 0; i < size; ++i) {
         PyObject *tuple_elem = PyTuple_GetItem(obj, i);
-        if (tuple_elem == Py_None) throw ModuleException(
-                    "Error parsing PyObject from py to c, expected a non-none object at position " + std::to_string(i) +
-                    " in Py_tuple");
         CassValueType cvt = this->col_meta.pointer->at(i).type;
         void *destiny = (char *) internal_payload + this->col_meta.pointer->at(i).position;
-        switch (cvt) {
-            case CASS_VALUE_TYPE_VARCHAR:
-            case CASS_VALUE_TYPE_TEXT:
-            case CASS_VALUE_TYPE_ASCII: {
-                TextParser tp = TextParser(col_meta.pointer->at(i));
-                tp.py_to_c(tuple_elem, destiny);
-                break;
-            }
-            case CASS_VALUE_TYPE_VARINT:
-            case CASS_VALUE_TYPE_BIGINT: {
-                Int64Parser i64p = Int64Parser(col_meta.pointer->at(i));
-                i64p.py_to_c(tuple_elem, destiny);
-                break;
-            }
-            case CASS_VALUE_TYPE_BLOB: {
-                BytesParser bp = BytesParser(col_meta.pointer->at(i));
-                bp.py_to_c(tuple_elem, destiny);
-                break;
-            }
-            case CASS_VALUE_TYPE_BOOLEAN: {
-                BoolParser bp = BoolParser(col_meta.pointer->at(i));
-                bp.py_to_c(tuple_elem, destiny);
-                break;
-            }
-                //TODO parsed as uint32 or uint64 on different methods
-            case CASS_VALUE_TYPE_COUNTER: {
-                Int64Parser i64p = Int64Parser(col_meta.pointer->at(i));
-                i64p.py_to_c(tuple_elem, destiny);
-                break;
-            }
-            case CASS_VALUE_TYPE_DECIMAL: {
-                //TODO
-                break;
-            }
-            case CASS_VALUE_TYPE_DOUBLE: {
+        if(tuple_elem != Py_None) {
+            switch (cvt) {
+                case CASS_VALUE_TYPE_VARCHAR:
+                case CASS_VALUE_TYPE_TEXT:
+                case CASS_VALUE_TYPE_ASCII: {
+                    TextParser tp = TextParser(col_meta.pointer->at(i));
+                    tp.py_to_c(tuple_elem, destiny);
+                    break;
+                }
+                case CASS_VALUE_TYPE_VARINT:
+                case CASS_VALUE_TYPE_BIGINT: {
+                    Int64Parser i64p = Int64Parser(col_meta.pointer->at(i));
+                    i64p.py_to_c(tuple_elem, destiny);
+                    break;
+                }
+                case CASS_VALUE_TYPE_BLOB: {
+                    BytesParser bp = BytesParser(col_meta.pointer->at(i));
+                    bp.py_to_c(tuple_elem, destiny);
+                    break;
+                }
+                case CASS_VALUE_TYPE_BOOLEAN: {
+                    BoolParser bp = BoolParser(col_meta.pointer->at(i));
+                    bp.py_to_c(tuple_elem, destiny);
+                    break;
+                }
+                    //TODO parsed as uint32 or uint64 on different methods
+                case CASS_VALUE_TYPE_COUNTER: {
+                    Int64Parser i64p = Int64Parser(col_meta.pointer->at(i));
+                    i64p.py_to_c(tuple_elem, destiny);
+                    break;
+                }
+                case CASS_VALUE_TYPE_DECIMAL: {
+                    //TODO
+                    break;
+                }
+                case CASS_VALUE_TYPE_DOUBLE: {
 
-            }
-            case CASS_VALUE_TYPE_FLOAT: {
-                DoubleParser dp = DoubleParser(col_meta.pointer->at(i));
-                dp.py_to_c(tuple_elem, destiny);
-                break;
-            }
-            case CASS_VALUE_TYPE_INT: {
-                Int32Parser i32p = Int32Parser(col_meta.pointer->at(i));
-                i32p.py_to_c(tuple_elem, destiny);
-                break;
-            }
-            case CASS_VALUE_TYPE_TIMESTAMP: {
-                //TODO
-                break;
-            }
-            case CASS_VALUE_TYPE_UUID: {
-                UuidParser uip = UuidParser(col_meta.pointer->at(i));
-                uip.py_to_c(tuple_elem, destiny);
-                break;
-            }
-            case CASS_VALUE_TYPE_TIMEUUID: {
-                //TODO
-                break;
-            }
-            case CASS_VALUE_TYPE_INET: {
-                //TODO
-                break;
-            }
-            case CASS_VALUE_TYPE_DATE: {
+                }
+                case CASS_VALUE_TYPE_FLOAT: {
+                    DoubleParser dp = DoubleParser(col_meta.pointer->at(i));
+                    dp.py_to_c(tuple_elem, destiny);
+                    break;
+                }
+                case CASS_VALUE_TYPE_INT: {
+                    Int32Parser i32p = Int32Parser(col_meta.pointer->at(i));
+                    i32p.py_to_c(tuple_elem, destiny);
+                    break;
+                }
+                case CASS_VALUE_TYPE_TIMESTAMP: {
+                    //TODO
+                    break;
+                }
+                case CASS_VALUE_TYPE_UUID: {
+                    UuidParser uip = UuidParser(col_meta.pointer->at(i));
+                    uip.py_to_c(tuple_elem, destiny);
+                    break;
+                }
+                case CASS_VALUE_TYPE_TIMEUUID: {
+                    //TODO
+                    break;
+                }
+                case CASS_VALUE_TYPE_INET: {
+                    //TODO
+                    break;
+                }
+                case CASS_VALUE_TYPE_DATE: {
 
-                break;
+                    break;
+                }
+                case CASS_VALUE_TYPE_TIME: {
+                    //TODO
+                    break;
+                }
+                case CASS_VALUE_TYPE_SMALL_INT: {
+                    Int16Parser i16p = Int16Parser(col_meta.pointer->at(i));
+                    i16p.py_to_c(tuple_elem, destiny);
+                    break;
+                }
+                case CASS_VALUE_TYPE_TINY_INT: {
+                    Int8Parser i8p = Int8Parser(col_meta.pointer->at(i));
+                    i8p.py_to_c(tuple_elem, destiny);
+                    break;
+                }
+                case CASS_VALUE_TYPE_LIST: {
+                    //TODO
+                    break;
+                }
+                case CASS_VALUE_TYPE_MAP: {
+                    //TODO
+                    break;
+                }
+                case CASS_VALUE_TYPE_SET: {
+                    //TODO
+                    break;
+                }
+                default:
+                    break;
             }
-            case CASS_VALUE_TYPE_TIME: {
-                //TODO
-                break;
-            }
-            case CASS_VALUE_TYPE_SMALL_INT: {
-                Int16Parser i16p = Int16Parser(col_meta.pointer->at(i));
-                i16p.py_to_c(tuple_elem, destiny);
-                break;
-            }
-            case CASS_VALUE_TYPE_TINY_INT: {
-                Int8Parser i8p = Int8Parser(col_meta.pointer->at(i));
-                i8p.py_to_c(tuple_elem, destiny);
-                break;
-            }
-            case CASS_VALUE_TYPE_LIST: {
-                //TODO
-                break;
-            }
-            case CASS_VALUE_TYPE_MAP: {
-                //TODO
-                break;
-            }
-            case CASS_VALUE_TYPE_SET: {
-                //TODO
-                break;
-            }
-            default:
-                break;
         }
+        else {
+            tr->setNull(i);
+        }
+
     }
-    TupleRow *tr = new TupleRow(col_meta.pointer, total_malloc, internal_payload);
     memcpy(payload, &tr, sizeof(tr));
     return 0;
 }
@@ -440,7 +443,7 @@ PyObject *TupleParser::c_to_py(const void *payload) const {
 
     int size = col_meta.pointer->size();
     PyObject *tuple = PyTuple_New(size);
-    for (int i = 0; i < size; ++i) {
+    for (uint32_t i = 0; i < size; ++i) {
         CassValueType cvt = this->col_meta.pointer->at(i).type;
         if(!inner_data->isNull(i)) {
             switch (cvt) {
