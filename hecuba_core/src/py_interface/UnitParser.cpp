@@ -247,6 +247,11 @@ PyObject *BytesParser::c_to_py(const void *payload) const {
 UuidParser::UuidParser(const ColumnMeta &CM) : UnitParser(CM) {
     if (CM.size != sizeof(uint64_t *))
         throw ModuleException("Bad size allocated for a text");
+    Py_INCREF(this);
+}
+
+UuidParser::~UuidParser() {
+    Py_DECREF(this);
 }
 
 int16_t UuidParser::py_to_c(PyObject *obj, void *payload) const {
@@ -302,7 +307,6 @@ PyObject *UuidParser::c_to_py(const void *payload) const {
     cass_uuid_string(uuid, final);
     std::string uuid_string(final);
     PyObject *uuid_module = PyImport_ImportModule("UUID");
-    Py_INCREF(uuid_module);
     return PyObject_CallMethod(uuid_module, "uuid", "(s)", uuid_string.c_str());
 }
 
