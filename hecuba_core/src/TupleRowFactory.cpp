@@ -197,8 +197,8 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
                 value = cass_iterator_get_value(tuple_iterator);
                 pos_to_copy = (char *) tuple_data + metadata->at(col).pointer->at(j).position;
                 if (TFACT.cass_to_c(value, pos_to_copy, j) < 0) {
-                    cass_iterator_free(tuple_iterator);
-                    return -1;
+                    TupleRow *inner_data = *ptr;
+                    inner_data->setNull(j);
                 }
                 ++j;
             }
