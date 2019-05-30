@@ -321,11 +321,13 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
     void *internal_payload = malloc(total_malloc);
     uint32_t size = (uint32_t) PyTuple_Size(obj);
     TupleRow *tr = new TupleRow(col_meta.pointer, total_malloc, internal_payload);
+    memcpy(payload, &tr, sizeof(tr));
+
     for (uint32_t i = 0; i < size; ++i) {
         PyObject *tuple_elem = PyTuple_GetItem(obj, i);
         CassValueType cvt = this->col_meta.pointer->at(i).type;
         void *destiny = (char *) internal_payload + this->col_meta.pointer->at(i).position;
-        if(tuple_elem != Py_None) {
+        if (tuple_elem != Py_None) {
             switch (cvt) {
                 case CASS_VALUE_TYPE_VARCHAR:
                 case CASS_VALUE_TYPE_TEXT:
@@ -423,13 +425,11 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
                 default:
                     break;
             }
-        }
-        else {
+        } else {
             tr->setNull(i);
         }
 
     }
-    memcpy(payload, &tr, sizeof(tr));
     return 0;
 }
 
@@ -441,11 +441,11 @@ PyObject *TupleParser::c_to_py(const void *payload) const {
     TupleRow **ptr = (TupleRow **) payload;
     const TupleRow *inner_data = *ptr;
 
-    int size = col_meta.pointer->size();
+    size_t size = col_meta.pointer->size();
     PyObject *tuple = PyTuple_New(size);
     for (uint32_t i = 0; i < size; ++i) {
         CassValueType cvt = this->col_meta.pointer->at(i).type;
-        if(!inner_data->isNull(i)) {
+        if (!inner_data->isNull(i)) {
             switch (cvt) {
                 case CASS_VALUE_TYPE_VARCHAR:
                 case CASS_VALUE_TYPE_TEXT:
@@ -564,9 +564,8 @@ PyObject *TupleParser::c_to_py(const void *payload) const {
                 default:
                     break;
             }
-        }
-        else {
-            Py_INCREF(Py_None) ;
+        } else {
+            Py_INCREF(Py_None);
             PyTuple_SET_ITEM(tuple, i, Py_None);
         }
     }
