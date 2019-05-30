@@ -4,6 +4,8 @@ language: python
 python:
   - '3.6'
   - '3.7'
+services:
+  - docker
 
 env:
   matrix:
@@ -42,20 +44,23 @@ script:
   - nosetests --with-coverage -v -s hecuba_py/tests/withcassandra
 
 jobs:
-  sudo: required
-  services:
-    - docker
-  install:
-    - docker pull $DOCKER_IMAGE
-  script:
-    - docker run --rm -e PLAT=$PLAT -v `pwd`:/io $DOCKER_IMAGE /io/.travis/build-wheels.sh
   include:
     - stage: build_wheel_manylinux2010
+      sudo: required
       env:
         - DOCKER_IMAGE=quay.io/pypa/manylinux2010_x86_64  PLAT=manylinux2010_x86_64
+      install:
+        - docker pull $DOCKER_IMAGE
+      script:
+        - docker run --rm -e PLAT=$PLAT -v `pwd`:/io $DOCKER_IMAGE /io/.travis/build-wheels.sh
     - stage: build_wheel_manylinux1
+      sudo: required
       env:
         - DOCKER_IMAGE=quay.io/pypa/manylinux1_x86_64  PLAT=manylinux1_x86_64
+      install:
+        - docker pull $DOCKER_IMAGE
+      script:
+        - docker run --rm -e PLAT=$PLAT -v `pwd`:/io $DOCKER_IMAGE /io/.travis/build-wheels.sh
 
 # Push the results back to codecov
 after_success:
