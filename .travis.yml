@@ -1,51 +1,28 @@
 sudo: false
+dist: xenial
 language: python
+python:
+  - '3.6'
+  - '3.7'
+
+env:
+  matrix:
+    - TEST_CASSANDRA_VERSION=3.11.4
+
+stages:
+  - test
+  - build_wheel_manylinux2010
+  - build_wheel_manylinux1
+
+before_install:
+  - export CFLAGS='-std=c++11'
+  - source .travis/install_openjdk8.sh
+
 # command to install dependencies
 install:
   - pip install -r requirements.txt
   - pip install codecov
   - python setup.py install
-# command to run tests
-
-jdk:
-  - oraclejdk8
-jobs:
-  include:
-    - stage: testing
-      dist: xenial 
-      python:
-        - "3.6"
-        - "3.7"
-        - "3.8"
-      env:
-        - TEST_CASSANDRA_VERSION=3.11.4
-      script:
-        - nosetests --with-coverage -v -s hecuba_py/tests/*.py
-        - nosetests --with-coverage -v -s hecuba_py/tests/withcassandra
-    - stage: building-manylinux2010
-      sudo: required
-      services:
-        - docker
-      env:
-        - DOCKER_IMAGE=quay.io/pypa/manylinux2010_x86_64  PLAT=manylinux2010_x86_64
-      install:
-        - docker pull $DOCKER_IMAGE
-      script:
-        - docker run --rm -e PLAT=$PLAT -v `pwd`:/io $DOCKER_IMAGE /io/.travis/build-wheels.sh
-        - python -c "import hfetch"
-        - ls wheelhouse/
-    - stage: building-manylinux1_x86_64
-      sudo: required
-      services:
-        - docker
-      env:
-        - DOCKER_IMAGE=quay.io/pypa/manylinux1_x86_64  PLAT=manylinux1_x86_64
-      install:
-        - docker pull $DOCKER_IMAGE
-      script:
-        - docker run --rm -e PLAT=$PLAT -v `pwd`:/io $DOCKER_IMAGE /io/.travis/build-wheels.sh
-        - python -c "import hfetch"
-        - ls wheelhouse/
 
 #caches dependencies
 cache: bundler
@@ -59,9 +36,26 @@ addons:
       - libtool
       - python-numpy
 
-before_install:
-  - export CFLAGS='-std=c++11'
-  - java -version
+# command to run tests
+script:
+  - nosetests --with-coverage -v -s hecuba_py/tests/*.py
+  - nosetests --with-coverage -v -s hecuba_py/tests/withcassandra
+
+jobs:
+  sudo: required
+  services:
+    - docker
+  install:
+    - docker pull $DOCKER_IMAGE
+  script:
+    - docker run --rm -e PLAT=$PLAT -v `pwd`:/io $DOCKER_IMAGE /io/.travis/build-wheels.sh
+  include:
+    - stage: build_wheel_manylinux2010
+      env:
+        - DOCKER_IMAGE=quay.io/pypa/manylinux2010_x86_64  PLAT=manylinux2010_x86_64
+    - stage: build_wheel_manylinux1
+      env:
+        - DOCKER_IMAGE=quay.io/pypa/manylinux1_x86_64  PLAT=manylinux1_x86_64
 
 # Push the results back to codecov
 after_success:
