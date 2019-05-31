@@ -1014,25 +1014,25 @@ class StorageDictTest(unittest.TestCase):
         what_should_be = dict()
         for i in range(0, 10):
             if i % 2 == 0:
-                what_should_be[i] = [i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))]
-                d[i] = [i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))]
+                what_should_be[i] = [i, (5500000000000000, i + 10), "hola", ("adios", (i + 20.5))]
+                d[i] = [i, (5500000000000000, i + 10), "hola", ("adios", (i + 20.5))]
             else:
-                what_should_be[i] = [i, (5500000000000000L, None), "hola", (None, (i + 20.5))]
-                d[i] = [i, (5500000000000000L, None), "hola", (None, (i + 20.5))]
+                what_should_be[i] = [i, (5500000000000000, None), "hola", (None, (i + 20.5))]
+                d[i] = [i, (5500000000000000, None), "hola", (None, (i + 20.5))]
 
         d = DictWithTuples3("my_app.dictmultipletuples")
         for i in range(0, 10):
             if i % 2 == 0:
-                self.assertEqual(list(d[i]), [i, (5500000000000000L, i + 10), "hola", ("adios", (i + 20.5))])
+                self.assertEqual(list(d[i]), [i, (5500000000000000, i + 10), "hola", ("adios", (i + 20.5))])
             else:
-                self.assertEqual(list(d[i]), [i, (5500000000000000L, None), "hola", (None, (i + 20.5))])
+                self.assertEqual(list(d[i]), [i, (5500000000000000, None), "hola", (None, (i + 20.5))])
 
 
         self.assertEqual(len(list(d.keys())), 10)
 
         res = dict()
         count = 0
-        for key, item in d.iteritems():
+        for key, item in d.items():
             res[key] = list(item)
             count += 1
 
