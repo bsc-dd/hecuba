@@ -110,18 +110,24 @@ class IStorageSplitLocalityTestVnodes(IStorageSplitLocalityTest):
         from .. import TEST_DEBUG
         try:
             test_config.ccm_cluster.populate(3, use_vnodes=True).start()
-        except Exception as a:
+        except Exception as ex:
             if not TEST_DEBUG:
-                raise a
+                raise ex
 
         import hfetch
         import hecuba
-        reload(hfetch)
-        reload(hecuba)
-        super(IStorageSplitLocalityTestVnodes, cls).setUpClass()
+        import importlib
+        importlib.reload(hfetch)
+        import importlib
+        importlib.reload(hecuba)
+        super(IStorageSplitLocalityTest, cls).setUpClass()
 
     @classmethod
-    def tearDownUpClass(cls):
+    def tearDownClass(cls):
+        from hfetch import disconnectCassandra
+        disconnectCassandra()
+
+        test_config.ccm_cluster.clear()
         from .. import set_up_default_cassandra
         set_up_default_cassandra()
 

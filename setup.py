@@ -1,13 +1,10 @@
 #!/usr/bin/env python
-from __future__ import print_function
-
-import glob
+from setuptools import setup, find_packages, Extension
 import os
 import subprocess
 import sys
-
+import glob
 import numpy
-from setuptools import setup, Extension
 
 
 def package_files(directory):
@@ -65,7 +62,7 @@ def setup_packages():
 
     # compute which libraries were built
     metadata = dict(name="Hecuba",
-                    version="0.1.2.post1",
+                    version="0.1.3",
                     package_dir={'hecuba': 'hecuba_py/hecuba', 'storage': 'storageAPI/storage'},
                     packages=['hecuba', 'storage'],  # find_packages(),
                     install_requires=['cassandra-driver>=3.7.1', 'numpy>=1.16'],

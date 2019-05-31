@@ -28,7 +28,7 @@ AT = 'int | atomicint | str | bool | decimal | float | long | double | buffer'
 
 ATD = 'int | atomicint | str | bool | decimal | float | long | double | buffer | set'
 
-_python_types = [int, str, bool, float, tuple, set, dict, long, bytearray]
+_python_types = [int, str, bool, float, tuple, set, dict, bytearray]
 _conversions = {'atomicint': 'counter',
                 'str': 'text',
                 'bool': 'boolean',
@@ -167,7 +167,7 @@ def _extract_ks_tab(name):
     else:
         ksp = config.execution_name
         table = name
-    return ksp.lower().encode('UTF8'), table.lower().encode('UTF8')
+    return ksp.lower(), table.lower()
 
 
 class IStorage:
@@ -185,7 +185,7 @@ class IStorage:
         tokens = self._build_args.tokens
 
         for token_split in _tokens_partitions(self._ksp, self._table, tokens,
-                                              config.spits_per_node,
+                                              config.splits_per_node,
                                               config.token_range_size,
                                               config.target_token_range_size):
             storage_id = uuid.uuid4()
@@ -203,7 +203,7 @@ class IStorage:
         m = re.compile("^%s_%s(_[0-9]+)?$" % (self._table, attribute))
         q = config.session.execute("SELECT table_name FROM  system_schema.tables WHERE keyspace_name = %s",
                                    [self._ksp])
-        return len(filter(lambda (t_name, ): m.match(t_name), q))
+        return sum(1 for elem in q if m.match(elem[0]))
 
     @staticmethod
     def build_remotely(args):

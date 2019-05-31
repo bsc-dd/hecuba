@@ -106,11 +106,11 @@ class Config:
             singleton.execution_name = 'my_app'
             log.warn('using default EXECUTION_NAME: %s', singleton.execution_name)
         try:
-            singleton.spits_per_node = int(os.environ['SPLITS_PER_NODE'])
-            log.info('SPLITS_PER_NODE: %d', singleton.spits_per_node)
+            singleton.splits_per_node = int(os.environ['SPLITS_PER_NODE'])
+            log.info('SPLITS_PER_NODE: %d', singleton.splits_per_node)
         except KeyError:
-            singleton.spits_per_node = 32
-            log.warn('using default SPLITS_PER_NODE: %d', singleton.spits_per_node)
+            singleton.splits_per_node = 32
+            log.warn('using default SPLITS_PER_NODE: %d', singleton.splits_per_node)
 
         try:
             singleton.token_range_size = int(os.environ['TOKEN_RANGE_SIZE'])
@@ -248,9 +248,8 @@ from hecuba.hnumpy import StorageNumpy
 from hecuba.hfilter import hfilter
 
 if not filter == hfilter:
-    import __builtin__
-
-    __builtin__.python_filter = filter
-    __builtin__.filter = hfilter
+    import builtins
+    builtins.python_filter = filter
+    builtins.filter = hfilter
 
 __all__ = ['StorageObj', 'StorageDict', 'StorageNumpy', 'Parser']

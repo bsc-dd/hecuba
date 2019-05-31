@@ -248,18 +248,12 @@ if (DEFINED ENV{GTEST_ROOT})
             target_link_libraries(cache_imp_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch)
             add_test(test cache_imp_test)
 
-            find_package(PythonInterp 2.7)
-            find_package(PythonLibs 2.7.5 REQUIRED)
-            find_package(NumPy 1.8)
-
-            if (NUMPY_FOUND)
-                include_directories(${NUMPY_INCLUDE_DIR})
-            else ()
-                message("Numpy headers not found, Numpy arrays support won't be available")
-            endif ()
-
-            include_directories(${PYTHON_INCLUDE_DIRS})
-            set(ALL_LIBS ${ALL_LIBS} ${PYTHON_LIBRARIES})
+            find_package(PythonLibs 3 REQUIRED)
+                
+            # Pass newly defined variables to CMake project
+            include_directories(${Python3_NumPy_INCLUDE_DIRS})
+            include_directories(${Python3_INCLUDE_DIRS})
+            set(ALL_LIBS ${ALL_LIBS} ${Python3_LIBRARIES})
 
 
             file(GLOB COREPY_H_FILES ${CORE_SRC_DIR}/py_interface/*.h)

@@ -7,7 +7,7 @@ from hecuba import config, log
 from hecuba.tools import NamedItemsIterator
 from hfetch import Hcache
 
-from IStorage import IStorage, _discrete_token_ranges, _extract_ks_tab
+from hecuba.IStorage import IStorage, _discrete_token_ranges, _extract_ks_tab
 
 
 class QbeastMeta(object):
@@ -130,7 +130,7 @@ class QbeastIterator(IStorage):
                                 'timestamped_writes': config.timestamped_writes})
         log.debug("HCACHE params %s", self._hcache_params)
         self._hcache = Hcache(*self._hcache_params)
-      
+
         if not built_remotely:
             self._store_meta(self._build_args)
 

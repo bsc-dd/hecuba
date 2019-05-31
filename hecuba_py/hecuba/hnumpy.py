@@ -3,10 +3,9 @@ from collections import namedtuple
 
 import numpy as np
 from hecuba import config, log
-# from hfetch import Hcache
 from hfetch import HNumpyStore
 
-from IStorage import IStorage, AlreadyPersistentError, _extract_ks_tab
+from hecuba.IStorage import IStorage, AlreadyPersistentError, _extract_ks_tab
 
 
 class StorageNumpy(np.ndarray, IStorage):

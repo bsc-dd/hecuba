@@ -74,7 +74,7 @@ class StorageDictSplitTestbase(unittest.TestCase):
         count = 0
         res = set()
         for partition in pd.split():
-            for val in partition.iterkeys():
+            for val in partition.keys():
                 res.add(val)
                 count += 1
         self.assertEqual(count, num_inserts)
@@ -106,7 +106,7 @@ class StorageDictSplitTestbase(unittest.TestCase):
             id = partition.getID()
             from storage.api import getByID
             rebuild = getByID(id)
-            for val in rebuild.iterkeys():
+            for val in rebuild.keys():
                 res.add(val)
                 count += 1
         self.assertEqual(count, num_inserts)
@@ -135,7 +135,7 @@ class StorageDictSplitTestbase(unittest.TestCase):
         count = 0
         res = {}
         for partition in pd.split():
-            for key, val in partition.iteritems():
+            for key, val in partition.items():
                 res[key] = val
                 count += 1
         self.assertEqual(count, num_inserts)
@@ -150,7 +150,7 @@ class StorageDictSplitTestbase(unittest.TestCase):
 
     def computeItems(self, SDict):
         counter = 0
-        for item in SDict.iterkeys():
+        for item in SDict.keys():
             counter = counter + 1
         # self.assertEqual(counter, expected)
         return counter
@@ -158,7 +158,7 @@ class StorageDictSplitTestbase(unittest.TestCase):
     def test_split_type_spec_basic(self):
         nitems = 1000
         mybook = SDict_SimpleTypeSpec("test_records")
-        for id in xrange(0, nitems):
+        for id in range(0, nitems):
             mybook[id] = 'someRandomText' + str(id)
 
         del mybook
@@ -182,7 +182,7 @@ class StorageDictSplitTestbase(unittest.TestCase):
     def test_split_type_spec_complex(self):
         nitems = 10
         mybook = SDict_ComplexTypeSpec("experimentx")
-        for id in xrange(0, nitems):
+        for id in range(0, nitems):
             mybook[id] = SObj_Basic()
             mybook[id].attr1 = id
             mybook[id].attr2 = id / nitems
@@ -211,7 +211,7 @@ class StorageDictSplitTestbase(unittest.TestCase):
         mybook = SObj_SimpleClassField("so_split_dict_simple")
         mybook.attr1 = nitems
         mybook.attr3 = nitems / 100
-        for id in xrange(0, nitems):
+        for id in range(0, nitems):
             key_text = 'so_split_dict_simple' + str(id)
             mybook.mydict[key_text] = id / nitems
 
@@ -238,7 +238,7 @@ class StorageDictSplitTestbase(unittest.TestCase):
         mybook = SObj_ComplexClassField("so_split_dict_complex")
         mybook.attr1 = nitems
         mybook.attr3 = nitems / 100
-        for id in xrange(0, nitems):
+        for id in range(0, nitems):
             key_text = 'so_split_dict_simple' + str(id)
             so = SObj_Basic()
             so.attr1 = id
@@ -291,7 +291,7 @@ class StorageDictSplitTestbase(unittest.TestCase):
             id = partition.getID()
             from storage.api import getByID
             rebuild = getByID(id)
-            for key, val in rebuild.iteritems():
+            for key, val in rebuild.items():
                 res[key] = val
                 count += 1
         self.assertEqual(count, 10000)
@@ -314,17 +314,31 @@ class StorageDictSlitTestVnodes(StorageDictSplitTestbase):
         from .. import test_config, set_ccm_cluster
         test_config.ccm_cluster.clear()
         set_ccm_cluster()
-        test_config.ccm_cluster.populate(2, use_vnodes=True).start()
+        from .. import TEST_DEBUG
+        try:
+            test_config.ccm_cluster.populate(3, use_vnodes=True).start()
+        except Exception as ex:
+            if not TEST_DEBUG:
+                raise ex
+
         import hfetch
         import hecuba
-        reload(hfetch)
-        reload(hecuba)
+        import importlib
+        importlib.reload(hfetch)
+        import importlib
+        importlib.reload(hecuba)
         config.session.execute("DROP KEYSPACE IF EXISTS my_app")
         config.session.execute(
             "CREATE KEYSPACE IF NOT EXISTS my_app WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};")
+        super(StorageDictSplitTestbase, cls).setUpClass()
 
     @classmethod
-    def tearDownUpClass(cls):
+    def tearDownClass(cls):
+        from .. import test_config
+        from hfetch import disconnectCassandra
+        disconnectCassandra()
+
+        test_config.ccm_cluster.clear()
         from .. import set_up_default_cassandra
         set_up_default_cassandra()
 
