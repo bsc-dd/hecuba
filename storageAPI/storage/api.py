@@ -97,10 +97,16 @@ def getByID(objid):
     try:
         from hecuba import config
         query = "SELECT * FROM hecuba.istorage WHERE storage_id = %s"
-        results = config.session.execute(query, [uuid.UUID(objid)])[0]
+	
+        
     except Exception as e:
         log.error("Query %s failed", query)
         raise e
+    
+    if not isinstance(objid, str):
+		results = config.session.execute(query, [objid])[0]
+    else:
+		results = config.session.execute(query, [uuid.UUID(objid)])[0]
 
     log.debug("IStorage API:getByID(%s) of class %s", objid, results.class_name)
     return IStorage.build_remotely(results._asdict())

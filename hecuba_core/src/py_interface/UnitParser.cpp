@@ -247,11 +247,13 @@ PyObject *BytesParser::c_to_py(const void *payload) const {
 UuidParser::UuidParser(const ColumnMeta &CM) : UnitParser(CM) {
     if (CM.size != sizeof(uint64_t *))
         throw ModuleException("Bad size allocated for a text");
-    Py_INCREF(this);
+    this->uuid_module = PyImport_ImportModule("uuid");
+    if (!this->uuid_module) throw ModuleException("Error importing the module 'uuid'");
+    Py_INCREF(uuid_module);
 }
 
 UuidParser::~UuidParser() {
-    Py_DECREF(this);
+    Py_DECREF(this->uuid_module);
 }
 
 int16_t UuidParser::py_to_c(PyObject *obj, void *payload) const {
@@ -305,9 +307,9 @@ PyObject *UuidParser::c_to_py(const void *payload) const {
     //trick to transform the data back, since it was parsed using the cassandra generator
     CassUuid uuid = {*((uint64_t *) it), *((uint64_t *) it + 1)};
     cass_uuid_string(uuid, final);
-    std::string uuid_string(final);
-    PyObject *uuid_module = PyImport_ImportModule("UUID");
-    return PyObject_CallMethod(uuid_module, "uuid", "(s)", uuid_string.c_str());
+    PyObject *uuidpy = PyObject_CallMethod(this->uuid_module, "UUID", "s", final);
+    if (!uuidpy) throw ModuleException("Error parsing UUID from C to Py, expected a non-NULL result");
+    return uuidpy;
 }
 
 TupleParser::TupleParser(const ColumnMeta &CM) : UnitParser(CM) {
@@ -329,7 +331,8 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
     uint32_t size = (uint32_t) PyTuple_Size(obj);
     for (uint32_t i = 0; i < size; ++i) {
         PyObject *tuple_elem = PyTuple_GetItem(obj, i);
-        if (tuple_elem == Py_None) throw ModuleException(
+        if (tuple_elem == Py_None)
+            throw ModuleException(
                     "Error parsing PyObject from py to c, expected a non-none object at position " + std::to_string(i) +
                     " in Py_tuple");
         CassValueType cvt = this->col_meta.pointer->at(i).type;

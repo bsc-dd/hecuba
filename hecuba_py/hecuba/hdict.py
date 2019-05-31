@@ -605,7 +605,7 @@ class StorageDict(dict, IStorage):
                 if col_type not in _basic_types:
                     # element is not a built-in type
                     table_name = self._ksp + '.' + self._table + '_' + name
-                    info = {"name": table_name, "tokens": self._build_args.tokens, "storage_id": uuid.UUID(element),
+                    info = {"name": table_name, "tokens": self._build_args.tokens, "storage_id": element,
                             "class_name": col_type}
                     element = IStorage.build_remotely(info)
 
