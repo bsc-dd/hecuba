@@ -370,7 +370,7 @@ class EmbeddedSetTest(unittest.TestCase):
         self.assertTrue(("1", 1) in l)
         self.assertEqual(4, len(l))
 
-    def testIterItems(self):
+    def testItems(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
         d1 = DictSet3("pruebas0.dictset1")
 
@@ -411,7 +411,7 @@ class EmbeddedSetTest(unittest.TestCase):
         self.assertTrue({8, 7, 6, 5} in l)
         self.assertTrue({4, 3, 2, 1} in l)
 
-    def testIterItemsWithTuples(self):
+    def testItemsWithTuples(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
         d1 = DictSet("pruebas0.dictset1")
 

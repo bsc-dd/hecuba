@@ -38,7 +38,7 @@ ORIGINAL_CPATH=${CPATH}
 ORIGINAL_LD=${LD_LIBRARY_PATH}
 export CFLAGS='-std=c++11'
 # Compile wheels
-for PYBIN in /opt/python/cp27*; do
+for PYBIN in /opt/python/cp3*; do
      VNAME=`basename ${PYBIN}`
      export CPATH=$PYBIN/include:${ORIGINAL_CPATH}
      export LD_LIBRARY_PATH=${PYBIN}/lib:/io/build/lib:${ORIGINAL_LD}
@@ -59,7 +59,7 @@ export LD_LIBRARY_PATH=${ORIGINAL_LD}
 
 
 # Install packages and test
-#for PYBIN in /opt/python/cp27*/bin/; do
+#for PYBIN in /opt/python/cp3*/bin/; do
 #    "${PYBIN}/pip" install hecuba --no-index -f /io/wheelhouse/
 #    "${PYBIN}/nosetests" --with-coverage -v -s /io/hecuba_py/tests/*.py
 #    "${PYBIN}/nosetests" --with-coverage -v -s /io/hecuba_py/tests/withcassandra

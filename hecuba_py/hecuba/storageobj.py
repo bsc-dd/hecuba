@@ -4,13 +4,11 @@ from collections import namedtuple
 import numpy as np
 from hecuba import config, log, Parser
 
-from IStorage import IStorage, AlreadyPersistentError, _discrete_token_ranges, _basic_types, _valid_types, \
+from hecuba.hnumpy import StorageNumpy
+from hecuba.IStorage import IStorage, AlreadyPersistentError, _discrete_token_ranges, _basic_types, _valid_types, \
     _extract_ks_tab
-from hnumpy import StorageNumpy
-from parser import Parser
 
-
-class StorageObj(object, IStorage):
+class StorageObj(IStorage):
     args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name", "built_remotely"]
     args = namedtuple('StorageObjArgs', args_names)
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba' +
@@ -115,7 +113,7 @@ class StorageObj(object, IStorage):
             Loads the IStorage objects into memory by creating them or retrieving from the backend.
         """
         attrs = []
-        for attribute, value_info in self._persistent_props.iteritems():
+        for attribute, value_info in self._persistent_props.items():
             if value_info['type'] not in _basic_types:
                 # The attribute is an IStorage object
                 attrs.append((attribute, getattr(self, attribute)))
@@ -328,7 +326,8 @@ class StorageObj(object, IStorage):
                 value = StorageNumpy(value)
             elif isinstance(value, dict):
                 per_dict = self._persistent_props[attribute]
-                info = {"name": '', "tokens": self._build_args.tokens, "storage_id": None, "built_remotely": self._built_remotely}
+                info = {"name": '', "tokens": self._build_args.tokens, "storage_id": None,
+                        "built_remotely": self._built_remotely}
                 info.update(per_dict)
                 new_value = IStorage.build_remotely(info)
                 new_value.update(value)

@@ -1,6 +1,5 @@
 import unittest
 
-from hecuba.IStorage import IStorage
 from hecuba import StorageDict
 
 
@@ -12,7 +11,6 @@ class TestHdict(StorageDict):
 
 
 class HdictTest(unittest.TestCase):
-
 
     # TEST POSSIBLE WRONG INPUTS
 

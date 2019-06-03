@@ -9,7 +9,7 @@ from hecuba.tools import NamedItemsIterator, NamedIterator
 from hecuba.hnumpy import StorageNumpy
 from hfetch import Hcache
 
-from IStorage import IStorage, AlreadyPersistentError, _basic_types, _discrete_token_ranges, _extract_ks_tab
+from hecuba.IStorage import IStorage, AlreadyPersistentError, _basic_types, _discrete_token_ranges, _extract_ks_tab
 
 
 class EmbeddedSet(set):
@@ -34,7 +34,7 @@ class EmbeddedSet(set):
 
     def add(self, value):
         keys = self._keys[:]
-        if not isinstance(value, Iterable) or isinstance(value, str) or isinstance(value, unicode):
+        if not isinstance(value, Iterable) or isinstance(value, str):
             keys.append(value)
         else:
             keys += list(value)
@@ -43,7 +43,7 @@ class EmbeddedSet(set):
     def remove(self, value):
         if value in self:
             keys = self._keys[:]
-            if not isinstance(value, Iterable) or isinstance(value, str) or isinstance(value, unicode):
+            if not isinstance(value, Iterable) or isinstance(value, str):
                 keys.append(value)
             else:
                 keys += list(value)
@@ -55,7 +55,7 @@ class EmbeddedSet(set):
         try:
             if value in self:
                 keys = self._keys[:]
-                if not isinstance(value, Iterable) or isinstance(value, str) or isinstance(value, unicode):
+                if not isinstance(value, Iterable) or isinstance(value, str):
                     keys.append(value)
                 else:
                     keys += list(value)
@@ -76,7 +76,7 @@ class EmbeddedSet(set):
 
     def __contains__(self, value):
         keys = self._keys[:]
-        if not isinstance(value, Iterable) or isinstance(value, str) or isinstance(value, unicode):
+        if not isinstance(value, Iterable) or isinstance(value, str):
             keys.append(value)
         else:
             keys += list(value)
@@ -250,7 +250,7 @@ class StorageDict(dict, IStorage):
 
         if tokens is None:
             log.info('using all tokens')
-            tokens = map(lambda a: a.value, config.cluster.metadata.token_map.ring)
+            tokens = list(map(lambda a: a.value, config.cluster.metadata.token_map.ring))
             self._tokens = _discrete_token_ranges(tokens)
         else:
             self._tokens = tokens
@@ -370,10 +370,8 @@ class StorageDict(dict, IStorage):
         Args:
             key: the data that needs to get the correct format
         """
-        if isinstance(key, str) or isinstance(key, unicode) or not isinstance(key, Iterable):
+        if isinstance(key, str) or not isinstance(key, Iterable):
             if len(self._primary_keys) == 1:
-                if isinstance(key, unicode):
-                    return [key.encode('ascii', 'ignore')]
                 return [key]
             else:
                 raise Exception('missing a primary key')
@@ -397,8 +395,6 @@ class StorageDict(dict, IStorage):
             return [uuid.UUID(value.getID())]
         elif isinstance(value, str) or not isinstance(value, Iterable) or isinstance(value, np.ndarray):
             return [value]
-        elif isinstance(value, unicode):
-            return [value.encode('ascii', 'ignore')]
         elif isinstance(value, tuple):
             return [value]
         elif isinstance(value, Iterable):
@@ -412,36 +408,12 @@ class StorageDict(dict, IStorage):
         else:
             return list(value)
 
-    def keys(self):
-        """
-        This method return a list of all the keys of the StorageDict.
-        Returns:
-          list: a list of keys
-        """
-        return [i for i in self.iterkeys()]
-
-    def values(self):
-        """
-        This method return a list of all the values of the StorageDict.
-        Returns:
-          list: a list of values
-        """
-        return [i for i in self.itervalues()]
-
-    def items(self):
-        """
-        This method return a list of all the key-value pairs of the StorageDict.
-        Returns:
-          list: a list of key-value pairs
-        """
-        return [i for i in self.iteritems()]
-
     def __iter__(self):
         """
         Method that overloads the python dict basic iteration, which returns
         an iterator over the dictionary keys.
         """
-        return self.iterkeys()
+        return self.keys()
 
     def make_persistent(self, name):
         """
@@ -529,7 +501,7 @@ class StorageDict(dict, IStorage):
         self._hcache = Hcache(*self._hcache_params)
 
         # Storing all in-memory values to cassandra
-        for key, value in dict.iteritems(self):
+        for key, value in dict.items(self):
             if issubclass(value.__class__, IStorage):
                 # new name as ksp.table_valuename, where valuename is either defined by the user or set by hecuba
                 if not value._is_persistent:
@@ -572,7 +544,7 @@ class StorageDict(dict, IStorage):
             self._hcache.delete_row([key])
 
     def __create_embeddedset(self, key, val=None):
-        if not isinstance(key, Iterable) or isinstance(key, str) or isinstance(key, unicode):
+        if not isinstance(key, Iterable) or isinstance(key, str):
             return EmbeddedSet(self, [key], val)
         else:
             return EmbeddedSet(self, list(key), val)
@@ -618,7 +590,7 @@ class StorageDict(dict, IStorage):
 
     def __make_val_persistent(self, val, col=0):
         if isinstance(val, StorageDict):
-            for k, element in val.iteritems():
+            for k, element in val.items():
                 val[k] = self.__make_val_persistent(element)
         elif isinstance(val, list):
             for index, element in enumerate(val):
@@ -672,7 +644,7 @@ class StorageDict(dict, IStorage):
 
         """
         to_return = {}
-        for item in self.iteritems():
+        for item in self.items():
             to_return[item[0]] = item[1]
             if len(to_return) == config.hecuba_print_limit:
                 return str(to_return)
@@ -692,7 +664,7 @@ class StorageDict(dict, IStorage):
         """
         if other is not None:
             if isinstance(other, StorageDict):
-                for k, v in other.iteritems():
+                for k, v in other.items():
                     self[k] = v
             else:
                 for k, v in other.items() if isinstance(other, Mapping) else other:
@@ -700,14 +672,14 @@ class StorageDict(dict, IStorage):
         for k, v in kwargs.items():
             self[k] = v
 
-    def iterkeys(self):
+    def keys(self):
         """
         Obtains the iterator for the keys of the StorageDict
         Returns:
             if persistent:
                 iterkeys(self): list of keys
             if not persistent:
-                dict.iterkeys(self)
+                dict.keys(self)
         """
         if self._is_persistent:
             ik = self._hcache.iterkeys(config.prefetch_size)
@@ -717,16 +689,16 @@ class StorageDict(dict, IStorage):
 
             return iterator
         else:
-            return dict.iterkeys(self)
+            return dict.keys(self)
 
-    def iteritems(self):
+    def items(self):
         """
         Obtains the iterator for the key,val pairs of the StorageDict
         Returns:
             if persistent:
                 NamedItemsIterator(self): list of key,val pairs
             if not persistent:
-                dict.iteritems(self)
+                dict.items(self)
         """
         if self._is_persistent:
             ik = self._hcache.iteritems(config.prefetch_size)
@@ -739,33 +711,36 @@ class StorageDict(dict, IStorage):
                 d = defaultdict(set)
                 # iteritems has the set values in different rows, this puts all the set values in the same row
                 if len(self._get_set_types()) == 1:
-                    map(lambda row: d[row[0]].add(row[1][0]), iterator)
+                    for row in iterator:
+                        d[row.key].add(row.value[0])
                 else:
-                    map(lambda row: d[row[0]].add(tuple(row[1])), iterator)
-                iterator = d.iteritems()
+                    for row in iterator:
+                        d[row.key].add(tuple(row.value))
+
+                iterator = d.items()
 
             return iterator
         else:
-            return dict.iteritems(self)
+            return dict.items(self)
 
-    def itervalues(self):
+    def values(self):
         """
         Obtains the iterator for the values of the StorageDict
         Returns:
             if persistent:
                 NamedIterator(self): list of valuesStorageDict
             if not persistent:
-                dict.itervalues(self)
+                dict.values(self)
         """
         if self._is_persistent:
             if self._has_embedded_set:
-                iteritems = self.iteritems()
-                return dict(iteritems).itervalues()
+                items = self.items()
+                return dict(items).values()
             else:
                 ik = self._hcache.itervalues(config.prefetch_size)
                 return NamedIterator(ik, self._column_builder, self)
         else:
-            return dict.itervalues(self)
+            return dict.values(self)
 
     def get(self, key, default):
         try:
