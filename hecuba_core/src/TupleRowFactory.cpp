@@ -242,7 +242,7 @@ TupleRowFactory::bind(CassTuple *tuple, const TupleRow *row) const {
                 case CASS_VALUE_TYPE_ASCII: {
                     int64_t *addr = (int64_t *) element_i;
                     const char *d = reinterpret_cast<char *>(*addr);
-                    CassError rc = CASS_ERROR_LIB_BAD_PARAMS; /*cass_tuple_set_string(tuple, (size_t) bind_pos, d);*/
+                    CassError rc = cass_tuple_set_string(tuple, (size_t) bind_pos, d); /*cass_tuple_set_string(tuple, (size_t) bind_pos, d);*/
                     CHECK_CASS("TupleRowFactory: Cassandra unsuccessful binding Varchar/Text/ASCII to the tuple");
                     break;
                 }
