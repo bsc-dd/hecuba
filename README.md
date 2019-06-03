@@ -60,7 +60,7 @@ And finally, under the "build" folder we will find the subfolder "include" and "
 
 + Start Cassandra and configure the environment variables as described in [Wiki Launch Hecuba](https://github.com/bsc-dd/hecuba/wiki/1:-User-Manual#how-to-execute).
 
-+ Append the path the site-packages directory where Hecuba was installed to the PYTHONPATH environment variable,
++ Append the path of the site-packages directory where Hecuba was installed to the PYTHONPATH environment variable.
 
 
 Please, refer to the [Hecuba manual](https://github.com/bsc-dd/hecuba/wiki/1:-User-Manual) to check more Hecuba configuration options.
