@@ -3,6 +3,7 @@ import uuid
 
 from mock import Mock
 from .app.words import Words
+from hecuba.IStorage import build_remotely
 
 
 class MockStorageObj:
@@ -10,7 +11,6 @@ class MockStorageObj:
 
 
 class BlockTest(unittest.TestCase):
-
     def test_astatic_creation(self):
         # TODO This test passes StorageDict arguments (results) to a StorageObj. Fix this test.
 
@@ -29,11 +29,10 @@ class BlockTest(unittest.TestCase):
         sdict_mock_methods = StorageDict.make_persistent
         StorageDict.make_persistent = Mock(return_value=None)
 
-        b = Words.build_remotely(results)
+        b = build_remotely(results)
         self.assertIsInstance(b, Words)
         Words._create_tables.assert_called_once()
         Words._load_attributes.assert_called_once()
-        Words._store_meta.assert_called_once()
         assert (b._ksp == "ksp1")
         assert (b._table == "tab1")
 
@@ -47,7 +46,6 @@ class BlockTest(unittest.TestCase):
         """
         from hecuba.hdict import StorageDict
         b = StorageDict(None, [('pk1', 'str')], [('val', 'int')])
-        b.is_persistent = False
 
         b['test1'] = 123124
         self.assertEqual(123124, b['test1'])
@@ -62,8 +60,8 @@ class BlockTest(unittest.TestCase):
         StorageDict.__init__ = Mock(return_value=None)
         bl = StorageDict()
         u = uuid.uuid4()
-        bl._storage_id = u
-        self.assertEquals(str(u), bl.getID())
+        bl.storage_id = u
+        self.assertEquals(u, bl.getID())
         StorageDict.__init__ = old
 
 

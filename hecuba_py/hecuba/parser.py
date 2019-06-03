@@ -1,7 +1,28 @@
 import re
 from itertools import count
 
-from hecuba.IStorage import _conversions, process_path
+from .tools import process_path
+
+_conversions = {'atomicint': 'counter',
+                'str': 'text',
+                'bool': 'boolean',
+                'decimal': 'decimal',
+                'float': 'float',
+                'int': 'int',
+                'tuple': 'tuple',
+                'list': 'list',
+                'generator': 'list',
+                'frozenset': 'set',
+                'set': 'set',
+                'dict': 'map',
+                'long': 'bigint',
+                'buffer': 'blob',
+                'bytearray': 'blob',
+                'counter': 'counter',
+                'double': 'double',
+                'StorageDict': 'dict',
+                'ndarray': 'hecuba.hnumpy.StorageNumpy',
+                'numpy.ndarray': 'hecuba.hnumpy.StorageNumpy'}
 
 
 class Parser(object):

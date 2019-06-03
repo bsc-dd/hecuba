@@ -11,6 +11,9 @@ class TestSimple(StorageObj):
     pass
 
 
+N_CASS_NODES = 2
+
+
 class StorageObjSplitTest(unittest.TestCase):
     def test_simple_keys_split_test(self):
         tablename = "tab30"
@@ -24,6 +27,8 @@ class StorageObjSplitTest(unittest.TestCase):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd, sto
+        import gc
+        gc.collect()
         count, = config.session.execute('SELECT count(*) FROM my_app.' + tablename + '_words')[0]
         self.assertEqual(count, num_inserts)
 
@@ -39,7 +44,7 @@ class StorageObjSplitTest(unittest.TestCase):
                 res.add(val)
                 count += 1
         del pd
-        self.assertTrue(splits >= config.splits_per_node * 2)
+        self.assertTrue(splits >= config.splits_per_node * N_CASS_NODES)
         self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
@@ -56,6 +61,8 @@ class StorageObjSplitTest(unittest.TestCase):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd, sto
+        import gc
+        gc.collect()
         count, = config.session.execute('SELECT count(*) FROM my_app.' + tablename + '_words')[0]
         self.assertEqual(count, num_inserts)
 
@@ -74,7 +81,7 @@ class StorageObjSplitTest(unittest.TestCase):
                 res.add(val)
                 count += 1
         del pd
-        self.assertTrue(splits >= config.splits_per_node * 2)
+        self.assertTrue(splits >= config.splits_per_node * N_CASS_NODES)
         self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
@@ -90,6 +97,8 @@ class StorageObjSplitTest(unittest.TestCase):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd, sto
+        import gc
+        gc.collect()
         count, = config.session.execute('SELECT count(*) FROM my_app.' + tablename + '_words')[0]
         self.assertEqual(count, num_inserts)
 
@@ -103,7 +112,7 @@ class StorageObjSplitTest(unittest.TestCase):
                 res.add(val)
                 count += 1
         del sto
-        self.assertTrue(splits >= config.splits_per_node * 2)
+        self.assertTrue(splits >= config.splits_per_node * N_CASS_NODES)
         self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
@@ -119,6 +128,8 @@ class StorageObjSplitTest(unittest.TestCase):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd, sto
+        import gc
+        gc.collect()
         count, = config.session.execute('SELECT count(*) FROM my_app.' + tablename + '_words')[0]
         self.assertEqual(count, num_inserts)
 
@@ -135,19 +146,19 @@ class StorageObjSplitTest(unittest.TestCase):
                 res.add(val)
                 count += 1
         del sto
-        self.assertTrue(splits >= config.splits_per_node * 2)
+        self.assertTrue(splits >= config.splits_per_node * N_CASS_NODES)
         self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
-    def test_split_with_different_storage_ids(self):
+    def test_split_with_differentstorage_ids(self):
         tablename = "tab32"
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + "_words")
         sto = TestSimple(tablename)
         pd = sto.words
 
-        ids = len(set(map(lambda x: x._storage_id, pd.split())))
-        self.assertTrue(ids >= config.splits_per_node * 2)
+        ids = len(set(map(lambda x: x.storage_id, pd.split())))
+        self.assertTrue(ids >= config.splits_per_node * N_CASS_NODES)
 
 
 if __name__ == '__main__':

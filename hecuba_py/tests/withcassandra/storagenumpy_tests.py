@@ -60,6 +60,30 @@ class StorageNumpyTest(unittest.TestCase):
             typed_array = StorageNumpy(None, storage_id, tablename)
             self.assertTrue(np.array_equal(typed_array, base_array.astype(typecode)))
 
+    def test_explicit_construct(self):
+        # From an explicit constructor - e.g. InfoArray():
+        #    obj is None
+        #    (we're in the middle of the InfoArray.__new__
+        #    constructor, and self.info will be set when we return to
+        #    InfoArray.__new__)
+
+        basic_init = StorageNumpy()
+
+    def test_view_cast(self):
+        # From view casting - e.g arr.view(InfoArray):
+        #    obj is arr
+        #    (type(obj) can be InfoArray)
+
+        base_array = np.arange(4096).reshape((64, 64))
+        view_cast = base_array.view(StorageNumpy)
+
+    def test_new_from_template(self):
+        # From new-from-template - e.g infoarr[:3]
+        #    type(obj) is InfoArray
+        base_array = np.arange(4096).reshape((64, 64))
+        basic_init = StorageNumpy(base_array)
+        new_from_template = basic_init[:32]
+
 
 if __name__ == '__main__':
     unittest.main()

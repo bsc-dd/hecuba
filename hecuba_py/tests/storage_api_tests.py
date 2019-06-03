@@ -11,10 +11,10 @@ class ApiTestSDict(StorageDict):
 
 
 class StorageApi_Tests(unittest.TestCase):
-
     def class_type_test(self):
         base_dict = ApiTestSDict('test.api_sdict')
-        storage_id = base_dict.getID()
+        # PyCOMPSs requires uuid of type str
+        storage_id = str(base_dict.getID())
         del base_dict
 
         rebuild_dict = getByID(storage_id)

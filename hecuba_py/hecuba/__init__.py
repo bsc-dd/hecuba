@@ -241,11 +241,11 @@ class Config:
 global config
 config = Config()
 
-from hecuba.parser import Parser
-from hecuba.storageobj import StorageObj
-from hecuba.hdict import StorageDict
-from hecuba.hnumpy import StorageNumpy
-from hecuba.hfilter import hfilter
+from .parser import Parser
+from .storageobj import StorageObj
+from .hdict import StorageDict
+from .hnumpy import StorageNumpy
+from .hfilter import hfilter
 
 if not filter == hfilter:
     import builtins

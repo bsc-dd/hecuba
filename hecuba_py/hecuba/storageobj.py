@@ -2,11 +2,14 @@ import uuid
 from collections import namedtuple
 
 import numpy as np
-from hecuba import config, log, Parser
+from . import config, log, Parser
 
-from hecuba.hnumpy import StorageNumpy
-from hecuba.IStorage import IStorage, AlreadyPersistentError, _discrete_token_ranges, _basic_types, _valid_types, \
-    _extract_ks_tab
+from .hnumpy import StorageNumpy
+from .IStorage import IStorage, AlreadyPersistentError
+
+from .tools import discrete_token_ranges, extract_ks_tab, count_name_collision, get_istorage_attrs, build_remotely, \
+    storage_id_from_name, basic_types, valid_types
+
 
 class StorageObj(IStorage):
     args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name", "built_remotely"]
@@ -57,54 +60,57 @@ class StorageObj(IStorage):
                 kwargs: more optional parameters
         """
         log.debug("CREATED StorageObj(%s)", name)
+
+        super().__init__()
+
         # Assign private attributes
-        self._is_persistent = True if name or storage_id else False
         self._built_remotely = built_remotely
         self._persistent_props = StorageObj._parse_comments(self.__doc__)
         self._persistent_attrs = self._persistent_props.keys()
         self._class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
 
-        if self._is_persistent:
-            if name:
-                self._ksp, self._table = _extract_ks_tab(name)
-                name = self._ksp + '.' + self._table
-
-            if not storage_id:
+        if name:
+            self._ksp, self._table = extract_ks_tab(name)
+            name = self._ksp + '.' + self._table
+            if storage_id is None:
                 # Rebuild storage id
-                storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, name)
+                storage_id = storage_id_from_name(name)
 
+        self.storage_id = storage_id
+        if self.storage_id:
             # Retrieve from hecuba istorage the data
-            metas = self._get_istorage_attrs(storage_id)
+            metas = get_istorage_attrs(self.storage_id)
 
             # If found data, replace the constructor data
             if len(metas) != 0:
                 tokens = metas[0].tokens
                 istorage_props = metas[0].istorage_props
                 name = metas[0].name
-                self._ksp, self._table = _extract_ks_tab(name)
+                self._ksp, self._table = extract_ks_tab(name)
 
         if tokens is None:
             # log.info('using all tokens')
             tokens = [token.value for token in config.cluster.metadata.token_map.ring]
-            tokens = _discrete_token_ranges(tokens)
+            tokens = discrete_token_ranges(tokens)
 
         self._tokens = tokens
-        self._storage_id = storage_id
         self._istorage_props = istorage_props
 
         # Arguments used to build objects remotely
         self._build_args = self.args(name,
                                      self._tokens,
-                                     self._storage_id,
+                                     self.storage_id,
                                      self._istorage_props,
                                      self._class_name,
                                      built_remotely)
 
-        if self._is_persistent:
+        if self.storage_id:
             # If never existed, must create the tables and register
             if not self._built_remotely:
                 self._create_tables()
-            self._store_meta(self._build_args)
+            super().make_persistent(name)
+            StorageObj._store_meta(self._build_args)
+            self._is_persistent = True
 
         self._load_attributes()
 
@@ -114,7 +120,7 @@ class StorageObj(IStorage):
         """
         attrs = []
         for attribute, value_info in self._persistent_props.items():
-            if value_info['type'] not in _basic_types:
+            if value_info['type'] not in basic_types:
                 # The attribute is an IStorage object
                 attrs.append((attribute, getattr(self, attribute)))
         for (attr_name, attr) in attrs:
@@ -138,7 +144,7 @@ class StorageObj(IStorage):
                        '( storage_id uuid PRIMARY KEY, '
         for key, entry in self._persistent_props.items():
             query_simple += str(key) + ' '
-            if entry['type'] != 'dict' and entry['type'] in _valid_types:
+            if entry['type'] != 'dict' and entry['type'] in valid_types:
                 if entry['type'] == 'list' or entry['type'] == 'tuple':
                     query_simple += entry['type'] + '<' + entry['columns'] + '>, '
                 else:
@@ -165,16 +171,12 @@ class StorageObj(IStorage):
             raise AlreadyPersistentError("This StorageObj is already persistent [Before:{}.{}][After:{}]",
                                          self._ksp, self._table, name)
 
-        (self._ksp, self._table) = _extract_ks_tab(name)
-
-        if not self._storage_id:
-            # Rebuild storage id
-            self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table)
-            self._build_args = self._build_args._replace(name=self._ksp + '.' + self._table,
-                                                         storage_id=self._storage_id)
+        super().make_persistent(name)
+        self._build_args = self._build_args._replace(name=self._ksp + '.' + self._table,
+                                                     storage_id=self.storage_id)
 
         # Retrieve from hecuba istorage the data
-        metas = self._get_istorage_attrs(self._storage_id)
+        metas = get_istorage_attrs(self.storage_id)
 
         # If metadata was found, replace the private attrs
         if len(metas) != 0:
@@ -185,19 +187,18 @@ class StorageObj(IStorage):
             # Create the interface with the backend to store the object
         self._create_tables()
 
-        self._is_persistent = True
         if self._build_args.storage_id is None:
             self._build_args = self._build_args._replace(name=self._ksp + '.' + self._table,
-                                                         storage_id=self._storage_id)
-        self._store_meta(self._build_args)
+                                                         storage_id=self.storage_id)
+        StorageObj._store_meta(self._build_args)
 
         # Iterate over the objects the user has requested to be persistent
         # retrieve them from memory and make them persistent
         for obj_name, obj_info in self._persistent_props.items():
             try:
                 pd = object.__getattribute__(self, obj_name)
-                if isinstance(pd, IStorage) and not pd._is_persistent:
-                    count = self._count_name_collision(obj_name)
+                if isinstance(pd, IStorage) and not pd.storage_id:
+                    count = count_name_collision(self._ksp, self._table, obj_name)
                     sd_name = self._ksp + "." + self._table + "_" + obj_name
                     if count > 1:
                         sd_name += '_' + str(count - 2)
@@ -208,32 +209,32 @@ class StorageObj(IStorage):
                 # Attribute unset, no action needed
                 pass
 
-    def stop_persistent(self):
+    def _stop_persistent(self):
         """
             The StorageObj stops being persistent, but keeps the information already stored in Cassandra
         """
+        super()._stop_persistent()
         for obj_name in self._persistent_attrs:
             attr = getattr(self, obj_name, None)
             if isinstance(attr, IStorage):
                 attr.stop_persistent()
 
         log.debug("STOP PERSISTENT")
-        self._is_persistent = False
 
-    def delete_persistent(self):
+    def _delete_persistent(self):
         """
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
+        log.debug("DELETE PERSISTENT: %s", self._table)
+        super()._delete_persistent()
+
         for obj_name in self._persistent_attrs:
             attr = getattr(self, obj_name, None)
             if isinstance(attr, IStorage):
                 attr.delete_persistent()
 
         query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
-        log.debug("DELETE PERSISTENT: %s", query)
         config.session.execute(query)
-
-        self._is_persistent = False
 
     def __getattr__(self, attribute):
         """
@@ -249,8 +250,8 @@ class StorageObj(IStorage):
             return object.__getattribute__(self, attribute)
 
         value_info = self._persistent_props[attribute]
-        is_istorage_attr = value_info['type'] not in _basic_types
-        if not self._is_persistent:
+        is_istorage_attr = value_info['type'] not in basic_types
+        if not self.storage_id:
             if not is_istorage_attr:
                 return object.__getattribute__(self, attribute)
             else:
@@ -258,7 +259,7 @@ class StorageObj(IStorage):
                 info = {"name": '', "tokens": self._build_args.tokens, "storage_id": None}
                 info.update(value_info)
                 info["built_remotely"] = self._built_remotely
-                value = IStorage.build_remotely(info)
+                value = build_remotely(info)
                 object.__setattr__(self, attribute, value)
                 return value
 
@@ -274,7 +275,7 @@ class StorageObj(IStorage):
             # Not present in memory, we will need to rebuild it
             pass
 
-        query = "SELECT %s FROM %s.%s WHERE storage_id = %s;" % (attribute, self._ksp, self._table, self._storage_id)
+        query = "SELECT %s FROM %s.%s WHERE storage_id = %s;" % (attribute, self._ksp, self._table, self.storage_id)
         log.debug("GETATTR: %s", query)
         try:
             result = config.session.execute(query)
@@ -291,18 +292,22 @@ class StorageObj(IStorage):
             if not is_istorage_attr:
                 raise AttributeError('value not found')
             value = None
+        except TypeError as ex:
+            print("ERROR ON QUERY RESULT {}".format(str(result)))
+            print("QUERY WAS {}".format(query))
+            raise ex
 
         if is_istorage_attr:
             # If IStorage type, then we rebuild
-            count = self._count_name_collision(attribute)
+            count = count_name_collision(self._ksp, self._table, attribute)
             attr_name = self._ksp + '.' + self._table + '_' + attribute
             if count > 1:
                 attr_name += '_' + str(count - 2)
             # Build the IStorage obj
-            info = {"name": attr_name, "tokens": self._build_args.tokens, "storage_id": value}
+            info = {"tokens": self._build_args.tokens, "storage_id": value}
             info.update(value_info)
             info["built_remotely"] = self._built_remotely
-            value = IStorage.build_remotely(info)
+            value = build_remotely(info)
 
         object.__setattr__(self, attribute, value)
         return value
@@ -329,25 +334,25 @@ class StorageObj(IStorage):
                 info = {"name": '', "tokens": self._build_args.tokens, "storage_id": None,
                         "built_remotely": self._built_remotely}
                 info.update(per_dict)
-                new_value = IStorage.build_remotely(info)
+                new_value = build_remotely(info)
                 new_value.update(value)
                 value = new_value
 
-        if self._is_persistent:
+        if self.storage_id:
             # Write attribute to the storage
             if isinstance(value, IStorage):
-                if not value._is_persistent:
+                if not value.storage_id:
                     name_collisions = attribute.lower()
-                    count = self._count_name_collision(name_collisions)
+                    count = count_name_collision(self._ksp, self._table, name_collisions)
                     attr_name = self._ksp + '.' + self._table + '_' + name_collisions
                     if count != 0:
                         attr_name += '_' + str(count - 1)
                     value.make_persistent(attr_name)
                 # We store the storage_id when the object belongs to an Hecuba class
-                values = [self._storage_id, value._storage_id]
+                values = [self.storage_id, value.storage_id]
                 # We store the IStorage object in memory, to avoid rebuilding when it is not necessary
             else:
-                values = [self._storage_id, value]
+                values = [self.storage_id, value]
 
             query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, attribute)
             query += " VALUES (%s,%s)"
@@ -364,8 +369,8 @@ class StorageObj(IStorage):
         Args:
             item: the name of the attribute to be deleted
         """
-        if self._is_persistent and item in self._persistent_attrs:
+        if self.storage_id and item in self._persistent_attrs:
             query = "UPDATE %s.%s SET %s = null WHERE storage_id = %s" % (
-                self._ksp, self._table, item, self._storage_id)
+                self._ksp, self._table, item, self.storage_id)
             config.session.execute(query)
         object.__delattr__(self, item)

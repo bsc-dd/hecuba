@@ -5,9 +5,12 @@ from storage.api import getByID
 
 
 class StorageTests(unittest.TestCase):
-
     def test_getByID_block(self):
         # ki = KeyIter('testspace', 'tt', 'app.words.Words', 'fake-id', ['position'])
+        from hecuba import config
+        config.session.execute("DROP TABLE IF EXISTS my_app.so")
+        config.session.execute("DROP TABLE IF EXISTS my_app.so_0")
+        config.session.execute("DROP TABLE IF EXISTS my_app.so_1")
         SO = Words('so')
         b = next(SO.split())
         new_block = getByID(b.getID())

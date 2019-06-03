@@ -5,9 +5,10 @@ import uuid
 import cassandra
 import numpy as np
 from hecuba import config
-from hecuba.IStorage import _discrete_token_ranges
+from hecuba.tools import _discrete_token_ranges
 from hecuba.storageobj import StorageObj
 from storage.api import getByID
+from hecuba.IStorage import build_remotely
 
 from ..app.words import Words
 
@@ -150,13 +151,13 @@ class StorageObjTest(unittest.TestCase):
              "istorage_props": {},
              "tokens": _discrete_token_ranges([token.value for token in config.cluster.metadata.token_map.ring])}
 
-        nopars = StorageObj.build_remotely(r)
+        nopars = build_remotely(r)
         self.assertEqual('tt1', nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
-        self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), nopars._storage_id)
+        self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), nopars.storage_id)
         name, tkns = \
             config.session.execute("SELECT name, tokens FROM hecuba.istorage WHERE storage_id = %s",
-                                   [nopars._storage_id])[
+                                   [nopars.storage_id])[
                 0]
 
         self.assertEqual(name, config.execution_name + '.tt1')
@@ -174,14 +175,14 @@ class StorageObjTest(unittest.TestCase):
              "istorage_props": {},
              "tokens": _discrete_token_ranges([token.value for token in config.cluster.metadata.token_map.ring])}
 
-        nopars = StorageObj.build_remotely(r)
+        nopars = build_remotely(r)
         self.assertEqual(nopars._built_remotely, False)
         self.assertEqual('tt1', nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
-        self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), nopars._storage_id)
+        self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), nopars.storage_id)
         name, tkns = \
             config.session.execute("SELECT name,tokens FROM hecuba.istorage WHERE storage_id = %s",
-                                   [nopars._storage_id])[0]
+                                   [nopars.storage_id])[0]
         self.assertEqual(name, config.execution_name + '.' + r['name'])
         self.assertEqual(tkns, r['tokens'])
 
@@ -193,11 +194,11 @@ class StorageObjTest(unittest.TestCase):
                         tokens=tkns)
         self.assertEqual('tt2', nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
-        self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt2'), nopars._storage_id)
+        self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt2'), nopars.storage_id)
         self.assertEqual(True, nopars._is_persistent)
         self.assertTrue(hasattr(nopars, 'instances'))
         name, read_tkns = config.session.execute("SELECT name,tokens FROM hecuba.istorage WHERE storage_id = %s",
-                                                 [nopars._storage_id])[0]
+                                                 [nopars.storage_id])[0]
 
         self.assertEqual(name, config.execution_name + '.tt2')
         self.assertEqual(tkns, read_tkns)
@@ -224,7 +225,7 @@ class StorageObjTest(unittest.TestCase):
                                    "floatlistField, "
                                    "strlistField, "
                                    "inttupleField "
-                                   "FROM hecuba_test.bla WHERE storage_id =" + str(myObj._storage_id))[0]
+                                   "FROM hecuba_test.bla WHERE storage_id =" + str(myObj.storage_id))[0]
 
         self.assertEquals(floatfield, myObj.floatfield)
         self.assertEquals(intField, myObj.intField)
@@ -242,18 +243,18 @@ class StorageObjTest(unittest.TestCase):
 
         res = config.session.execute(
             'SELECT storage_id, class_name, name, tokens, istorage_props FROM hecuba.istorage WHERE storage_id = %s',
-            [nopars._storage_id])[0]
+            [nopars.storage_id])[0]
 
         storage_id, storageobj_classname, name, tokens, istorage_props = res
-        self.assertEqual(storage_id, nopars._storage_id)
+        self.assertEqual(storage_id, nopars.storage_id)
         self.assertEqual(storageobj_classname, TestStorageObj.__module__ + "." + TestStorageObj.__name__)
         self.assertEqual(name, 'ksp1.ttta')
 
-        rebuild = StorageObj.build_remotely(res._asdict())
+        rebuild = build_remotely(res._asdict())
         self.assertEqual(rebuild._built_remotely, True)
         self.assertEqual('ttta', rebuild._table)
         self.assertEqual('ksp1', rebuild._ksp)
-        self.assertEqual(storage_id, rebuild._storage_id)
+        self.assertEqual(storage_id, rebuild.storage_id)
 
         self.assertEqual(nopars._is_persistent, rebuild._is_persistent)
         # self.assertEqual(vars(nopars), vars(rebuild))
@@ -309,7 +310,8 @@ class StorageObjTest(unittest.TestCase):
             so.words[i] = str.join(',', map(lambda a: "ciao", range(i)))
 
         del so
-
+        import gc
+        gc.collect()
         count, = config.session.execute('SELECT count(*) FROM my_app.wordsso_words')[0]
         self.assertEqual(10, count)
         so = Words()
@@ -853,6 +855,8 @@ class StorageObjTest(unittest.TestCase):
         a = np.ones((sizea, sizeb))
         no.mynumpy = a
         del no
+        import gc
+        gc.collect()
         no = TestStorageObjNumpy("my_app.numpy_test_%d_%d" % (sizea, sizeb))
         a = no.mynumpy
         self.assertEqual(np.shape(a), (sizea, sizeb))
@@ -866,6 +870,8 @@ class StorageObjTest(unittest.TestCase):
         initial_name_so = no._ksp + '.' + no._table
         initial_name_np = no.mynumpy._ksp + '.' + no.mynumpy._table
         del no
+        import gc
+        gc.collect()
         no = TestStorageObjNumpy("my_app.numpy_test_%d_%d" % (sizea, sizeb))
         a = no.mynumpy
 
@@ -1222,7 +1228,7 @@ class StorageObjTest(unittest.TestCase):
         except StopIteration as exc:
             self.fail("StorageObj istorage data was not saved")
 
-        self.assertEqual(str(result.myotherso), uuid_sobj_internal)
+        self.assertEqual(result.myotherso, uuid_sobj_internal)
         # They have been saved with the expected istorage ids
 
         external_sobj = Test4StorageObj(sobj_name)
