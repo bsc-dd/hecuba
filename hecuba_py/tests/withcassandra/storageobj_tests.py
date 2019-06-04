@@ -5,7 +5,7 @@ import uuid
 import cassandra
 import numpy as np
 from hecuba import config
-from hecuba.tools import _discrete_token_ranges
+from hecuba.tools import discrete_token_ranges
 from hecuba.storageobj import StorageObj
 from storage.api import getByID
 from hecuba.IStorage import build_remotely
@@ -149,7 +149,7 @@ class StorageObjTest(unittest.TestCase):
              "class_name": str(TestStorageObj.__module__) + "." + TestStorageObj.__name__, "name": 'tt1',
              "columns": [('val1', 'str')], "entry_point": 'localhost', "primary_keys": [('pk1', 'int')],
              "istorage_props": {},
-             "tokens": _discrete_token_ranges([token.value for token in config.cluster.metadata.token_map.ring])}
+             "tokens": discrete_token_ranges([token.value for token in config.cluster.metadata.token_map.ring])}
 
         nopars = build_remotely(r)
         self.assertEqual('tt1', nopars._table)
@@ -173,7 +173,7 @@ class StorageObjTest(unittest.TestCase):
              "class_name": str(TestStorageObj.__module__) + "." + TestStorageObj.__name__, "name": 'tt1',
              "columns": [('val1', 'str')], "entry_point": 'localhost', "primary_keys": [('pk1', 'int')],
              "istorage_props": {},
-             "tokens": _discrete_token_ranges([token.value for token in config.cluster.metadata.token_map.ring])}
+             "tokens": discrete_token_ranges([token.value for token in config.cluster.metadata.token_map.ring])}
 
         nopars = build_remotely(r)
         self.assertEqual(nopars._built_remotely, False)
@@ -186,7 +186,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(name, config.execution_name + '.' + r['name'])
         self.assertEqual(tkns, r['tokens'])
 
-        tkns = _discrete_token_ranges(
+        tkns = discrete_token_ranges(
             [8508619251581300691, 8514581128764531689, 8577968535836399533, 8596162846302799189,
              8603491526474728284, 8628291680139169981, 8687301163739303017, 9111581078517061776])
         config.session.execute("DROP TABLE IF EXISTS " + config.execution_name + '.tt2')

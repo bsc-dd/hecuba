@@ -3,7 +3,7 @@ import unittest
 from collections import defaultdict
 
 from hecuba import config
-from hecuba.tools import tokens_partitions, _discrete_token_ranges
+from hecuba.tools import tokens_partitions, discrete_token_ranges
 
 from .. import test_config
 
@@ -20,7 +20,7 @@ class IStorageSplitLocalityTest(unittest.TestCase):
     def test_enough_token(self):
         original_cfg = config.__dict__
         config.__dict__.update(splits_per_node=10, token_range_size=None, target_token_range_size=64 * 1024 * 1024)
-        all_tokens = _discrete_token_ranges(list(map(lambda a: a.value, config.cluster.metadata.token_map.ring)))
+        all_tokens = discrete_token_ranges(list(map(lambda a: a.value, config.cluster.metadata.token_map.ring)))
         tkns_p = list(tokens_partitions("test_ksp", "tab", all_tokens))
         self.check_all(tkns_p, 10, 20)
         config.__dict__ = original_cfg
@@ -28,7 +28,7 @@ class IStorageSplitLocalityTest(unittest.TestCase):
     def test_too_little_tokens(self):
         original_cfg = config.__dict__
         config.__dict__.update(splits_per_node=1000, token_range_size=None, target_token_range_size=64 * 1024)
-        all_tokens = _discrete_token_ranges(list(map(lambda a: a.value, config.cluster.metadata.token_map.ring)))
+        all_tokens = discrete_token_ranges(list(map(lambda a: a.value, config.cluster.metadata.token_map.ring)))
         tkns_p = list(tokens_partitions("test_ksp", "tab", all_tokens))
         self.check_all(tkns_p, 1000, 1000)
         config.__dict__ = original_cfg
@@ -38,7 +38,7 @@ class IStorageSplitLocalityTest(unittest.TestCase):
         config.__dict__.update(splits_per_node=1,
                                token_range_size=int((2 ** 64) / 1000),
                                target_token_range_size=None)
-        all_tokens = _discrete_token_ranges(list(map(lambda a: a.value, config.cluster.metadata.token_map.ring)))
+        all_tokens = discrete_token_ranges(list(map(lambda a: a.value, config.cluster.metadata.token_map.ring)))
         tkns_p = list(tokens_partitions("test_ksp", "tab", all_tokens))
         self.check_all(tkns_p, 1, 1000)
         config.__dict__ = original_cfg
@@ -52,7 +52,7 @@ class IStorageSplitLocalityTest(unittest.TestCase):
                                target_token_range_size=64)
         test_config.ccm_cluster.flush()
         test_config.ccm_cluster.compact()
-        all_tokens = _discrete_token_ranges(list(map(lambda a: a.value, config.cluster.metadata.token_map.ring)))
+        all_tokens = discrete_token_ranges(list(map(lambda a: a.value, config.cluster.metadata.token_map.ring)))
         tkns_p = list(tokens_partitions("test_ksp", "tab", all_tokens))
         config.__dict__ = original_cfg
         # self.check_all(tkns_p, 1, 1000)
