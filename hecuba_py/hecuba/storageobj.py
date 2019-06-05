@@ -1,18 +1,15 @@
-import re
 import uuid
 from collections import namedtuple
 
 import numpy as np
-import sys
-from IStorage import IStorage, AlreadyPersistentError
-from hdict import StorageDict
 from hecuba import config, log, Parser
-from hnumpy import StorageNumpy
-from collections import OrderedDict
-from parser import Parser
 
-class StorageObj(object, IStorage):
-    args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name"]
+from hecuba.hnumpy import StorageNumpy
+from hecuba.IStorage import IStorage, AlreadyPersistentError, _discrete_token_ranges, _basic_types, _valid_types, \
+    _extract_ks_tab
+
+class StorageObj(IStorage):
+    args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name", "built_remotely"]
     args = namedtuple('StorageObjArgs', args_names)
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba' +
                                                   '.istorage (storage_id, class_name, name, tokens,istorage_props) '
@@ -49,7 +46,7 @@ class StorageObj(object, IStorage):
         parser = Parser("ClassField")
         return parser._parse_comments(comments)
 
-    def __init__(self, name="", tokens=None, storage_id=None, istorage_props=None, **kwargs):
+    def __init__(self, name="", tokens=None, storage_id=None, istorage_props=None, built_remotely=False, **kwargs):
         """
             Creates a new storageobj.
             Args:
@@ -62,13 +59,14 @@ class StorageObj(object, IStorage):
         log.debug("CREATED StorageObj(%s)", name)
         # Assign private attributes
         self._is_persistent = True if name or storage_id else False
+        self._built_remotely = built_remotely
         self._persistent_props = StorageObj._parse_comments(self.__doc__)
         self._persistent_attrs = self._persistent_props.keys()
         self._class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
 
         if self._is_persistent:
             if name:
-                self._ksp, self._table = self._extract_ks_tab(name)
+                self._ksp, self._table = _extract_ks_tab(name)
                 name = self._ksp + '.' + self._table
 
             if not storage_id:
@@ -83,12 +81,12 @@ class StorageObj(object, IStorage):
                 tokens = metas[0].tokens
                 istorage_props = metas[0].istorage_props
                 name = metas[0].name
-                self._ksp, self._table = self._extract_ks_tab(name)
+                self._ksp, self._table = _extract_ks_tab(name)
 
         if tokens is None:
             # log.info('using all tokens')
             tokens = [token.value for token in config.cluster.metadata.token_map.ring]
-            tokens = IStorage._discrete_token_ranges(tokens)
+            tokens = _discrete_token_ranges(tokens)
 
         self._tokens = tokens
         self._storage_id = storage_id
@@ -99,11 +97,13 @@ class StorageObj(object, IStorage):
                                      self._tokens,
                                      self._storage_id,
                                      self._istorage_props,
-                                     self._class_name)
+                                     self._class_name,
+                                     built_remotely)
 
         if self._is_persistent:
             # If never existed, must create the tables and register
-            self._create_tables()
+            if not self._built_remotely:
+                self._create_tables()
             self._store_meta(self._build_args)
 
         self._load_attributes()
@@ -113,8 +113,8 @@ class StorageObj(object, IStorage):
             Loads the IStorage objects into memory by creating them or retrieving from the backend.
         """
         attrs = []
-        for attribute, value_info in self._persistent_props.iteritems():
-            if value_info['type'] not in IStorage._basic_types:
+        for attribute, value_info in self._persistent_props.items():
+            if value_info['type'] not in _basic_types:
                 # The attribute is an IStorage object
                 attrs.append((attribute, getattr(self, attribute)))
         for (attr_name, attr) in attrs:
@@ -138,7 +138,7 @@ class StorageObj(object, IStorage):
                        '( storage_id uuid PRIMARY KEY, '
         for key, entry in self._persistent_props.items():
             query_simple += str(key) + ' '
-            if entry['type'] != 'dict' and entry['type'] in IStorage._valid_types:
+            if entry['type'] != 'dict' and entry['type'] in _valid_types:
                 if entry['type'] == 'list' or entry['type'] == 'tuple':
                     query_simple += entry['type'] + '<' + entry['columns'] + '>, '
                 else:
@@ -165,7 +165,7 @@ class StorageObj(object, IStorage):
             raise AlreadyPersistentError("This StorageObj is already persistent [Before:{}.{}][After:{}]",
                                          self._ksp, self._table, name)
 
-        (self._ksp, self._table) = self._extract_ks_tab(name)
+        (self._ksp, self._table) = _extract_ks_tab(name)
 
         if not self._storage_id:
             # Rebuild storage id
@@ -249,14 +249,15 @@ class StorageObj(object, IStorage):
             return object.__getattribute__(self, attribute)
 
         value_info = self._persistent_props[attribute]
-        is_istorage_attr = value_info['type'] not in IStorage._basic_types
+        is_istorage_attr = value_info['type'] not in _basic_types
         if not self._is_persistent:
             if not is_istorage_attr:
                 return object.__getattribute__(self, attribute)
             else:
                 # We are not persistent or the attribute hasn't been assigned an IStorage obj, we build one
-                info = {"name":'', "tokens":self._build_args.tokens, "storage_id":None}
+                info = {"name": '', "tokens": self._build_args.tokens, "storage_id": None}
                 info.update(value_info)
+                info["built_remotely"] = self._built_remotely
                 value = IStorage.build_remotely(info)
                 object.__setattr__(self, attribute, value)
                 return value
@@ -298,8 +299,9 @@ class StorageObj(object, IStorage):
             if count > 1:
                 attr_name += '_' + str(count - 2)
             # Build the IStorage obj
-            info = {"name" :attr_name, "tokens":self._build_args.tokens, "storage_id":value}
+            info = {"name": attr_name, "tokens": self._build_args.tokens, "storage_id": value}
             info.update(value_info)
+            info["built_remotely"] = self._built_remotely
             value = IStorage.build_remotely(info)
 
         object.__setattr__(self, attribute, value)
@@ -324,7 +326,8 @@ class StorageObj(object, IStorage):
                 value = StorageNumpy(value)
             elif isinstance(value, dict):
                 per_dict = self._persistent_props[attribute]
-                info = {"name": '', "tokens": self._build_args.tokens, "storage_id": None}
+                info = {"name": '', "tokens": self._build_args.tokens, "storage_id": None,
+                        "built_remotely": self._built_remotely}
                 info.update(per_dict)
                 new_value = IStorage.build_remotely(info)
                 new_value.update(value)

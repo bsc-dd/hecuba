@@ -42,6 +42,12 @@ static PyObject *connectCassandra(PyObject *self, PyObject *args) {
     Py_RETURN_NONE;
 }
 
+static PyObject *disconnectCassandra(PyObject *self) {
+    if (storage != NULL)
+        storage->disconnectCassandra();
+    Py_RETURN_NONE;
+}
+
 
 /*** HCACHE DATA TYPE METHODS AND SETUP ***/
 
@@ -201,8 +207,7 @@ static void hcache_dealloc(HCache *self) {
     delete (self->keysParser);
     delete (self->valuesParser);
     delete (self->T);
-
-    self->ob_type->tp_free((PyObject *) self);
+    Py_TYPE((PyObject*) self)->tp_free((PyObject *) self);
 }
 
 
@@ -233,13 +238,13 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
 
         Py_ssize_t pos = 0;
         while (PyDict_Next(dict, &pos, &key, &value)) {
-            std::string conf_key(PyString_AsString(key));
-            if (PyString_Check(value)) {
-                std::string conf_val(PyString_AsString(value));
+            std::string conf_key(PyUnicode_AsUTF8(key));
+            if (PyUnicode_Check(value)) {
+                std::string conf_val(PyUnicode_AsUTF8(value));
                 config[conf_key] = conf_val;
             }
-            if (PyInt_Check(value)) {
-                int32_t c_val = (int32_t) PyInt_AsLong(value);
+            if (PyLong_Check(value)) {
+                int32_t c_val = (int32_t) PyLong_AsLong(value);
                 config[conf_key] = std::to_string(c_val);
             }
 
@@ -276,7 +281,7 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
     for (uint16_t i = 0; i < cols_size; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_cols_names, i);
 
-        if (PyString_Check(obj_to_convert) || PyUnicode_Check(obj_to_convert)) {
+        if (PyUnicode_Check(obj_to_convert)) {
             char *str_temp;
             if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
                 return -1;
@@ -288,8 +293,8 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
                 return -1;
             };
 
-            PyObject *py_name = PyDict_GetItem(dict, PyString_FromString("name"));
-            columns_names[i]["name"] = PyString_AsString(py_name);
+            PyObject *py_name = PyDict_GetItemString(dict, "name");
+            columns_names[i]["name"] = PyUnicode_AsUTF8(py_name);
         } else {
             PyErr_SetString(PyExc_TypeError, "Can't parse column names, expected String, Dict or Unicode");
             return -1;
@@ -525,7 +530,7 @@ static void hnumpy_store_dealloc(HNumpyStore *self) {
     delete(self->NumpyDataStore);
     delete(self->cache);
     delete(self->read_cache);
-    self->ob_type->tp_free((PyObject *) self);
+    Py_TYPE((PyObject*) self)->tp_free((PyObject *) self);
 }
 
 
@@ -556,13 +561,13 @@ static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) 
 
         Py_ssize_t pos = 0;
         while (PyDict_Next(dict, &pos, &key, &value)) {
-            std::string conf_key(PyString_AsString(key));
-            if (PyString_Check(value)) {
-                std::string conf_val(PyString_AsString(value));
+            std::string conf_key(PyUnicode_AsUTF8(key));
+            if (PyUnicode_Check(value)) {
+                std::string conf_val(PyUnicode_AsUTF8(value));
                 config[conf_key] = conf_val;
             }
-            if (PyInt_Check(value)) {
-                int32_t c_val = (int32_t) PyInt_AsLong(value);
+            if (PyLong_Check(value)) {
+                int32_t c_val = (int32_t) PyLong_AsLong(value);
                 config[conf_key] = std::to_string(c_val);
             }
 
@@ -599,7 +604,7 @@ static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) 
     for (uint16_t i = 0; i < cols_size; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_cols_names, i);
 
-        if (PyString_Check(obj_to_convert) || PyUnicode_Check(obj_to_convert)) {
+        if (PyUnicode_Check(obj_to_convert)) {
             char *str_temp;
             if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
                 return -1;
@@ -611,8 +616,8 @@ static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) 
                 return -1;
             };
 
-            PyObject *py_name = PyDict_GetItem(dict, PyString_FromString("name"));
-            columns_names[i]["name"] = PyString_AsString(py_name);
+            PyObject *py_name = PyDict_GetItemString(dict, "name");
+            columns_names[i]["name"] = PyUnicode_AsUTF8(py_name);
         } else {
             PyErr_SetString(PyExc_TypeError, "Can't parse column names, expected String, Dict or Unicode");
             return -1;
@@ -742,7 +747,7 @@ static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
     for (uint16_t i = 0; i < cols_size; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_cols_names, i);
 
-        if (PyString_Check(obj_to_convert) || PyUnicode_Check(obj_to_convert)) {
+        if (PyUnicode_Check(obj_to_convert)) {
             char *str_temp;
             if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
                 return -1;
@@ -755,21 +760,21 @@ static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
                 return -1;
             };
 
-            PyObject *aux_table = PyDict_GetItem(dict, PyString_FromString("npy_table"));
+            PyObject *aux_table = PyDict_GetItemString(dict, "npy_table");
             if (aux_table != NULL) {
-                columns_names[i]["npy_table"] = PyString_AsString(aux_table);
+                columns_names[i]["npy_table"] = PyUnicode_AsUTF8(aux_table);
             }
-            PyObject *py_name = PyDict_GetItem(dict, PyString_FromString("name"));
-            columns_names[i]["name"] = PyString_AsString(py_name);
+            PyObject *py_name = PyDict_GetItemString(dict, "name");
+            columns_names[i]["name"] = PyUnicode_AsUTF8(py_name);
 
-            PyObject *py_arr_type = PyDict_GetItem(dict, PyString_FromString("type"));
-            columns_names[i]["type"] = PyString_AsString(py_arr_type);
+            PyObject *py_arr_type = PyDict_GetItemString(dict, "type");
+            columns_names[i]["type"] = PyUnicode_AsUTF8(py_arr_type);
 
-            PyObject *py_arr_dims = PyDict_GetItem(dict, PyString_FromString("dims"));
-            columns_names[i]["dims"] = PyString_AsString(py_arr_dims);
+            PyObject *py_arr_dims = PyDict_GetItemString(dict, "dims");
+            columns_names[i]["dims"] = PyUnicode_AsUTF8(py_arr_dims);
 
-            PyObject *py_arr_partition = PyDict_GetItem(dict, PyString_FromString("partition"));
-            if (std::strcmp(PyString_AsString(py_arr_partition), "true") == 0) {
+            PyObject *py_arr_partition = PyDict_GetItemString(dict, "partition");
+            if (std::strcmp(PyUnicode_AsUTF8(py_arr_partition), "true") == 0) {
                 columns_names[i]["partition"] = "partition";
             } else columns_names[i]["partition"] = "no-partition";
         } else {
@@ -795,13 +800,13 @@ static int hiter_init(HIterator *self, PyObject *args, PyObject *kwds) {
         PyObject *key, *value;
         Py_ssize_t pos = 0;
         while (PyDict_Next(dict, &pos, &key, &value)) {
-            std::string conf_key(PyString_AsString(key));
-            if (PyString_Check(value)) {
-                std::string conf_val(PyString_AsString(value));
+            std::string conf_key(PyUnicode_AsUTF8(key));
+            if (PyUnicode_Check(value)) {
+                std::string conf_val(PyUnicode_AsUTF8(value));
                 config[conf_key] = conf_val;
             }
-            if (PyInt_Check(value)) {
-                int32_t c_val = (int32_t) PyInt_AsLong(value);
+            if (PyLong_Check(value)) {
+                int32_t c_val = (int32_t) PyLong_AsLong(value);
                 config[conf_key] = std::to_string(c_val);
             }
         }
@@ -858,7 +863,7 @@ static PyObject *get_next(HIterator *self) {
 static void hiter_dealloc(HIterator *self) {
     if (self->rowParser) delete (self->rowParser);
     if (self->P) delete (self->P);
-    self->ob_type->tp_free((PyObject *) self);
+    Py_TYPE((PyObject*) self)->tp_free((PyObject *) self);
 }
 
 
@@ -972,7 +977,7 @@ static int hwriter_init(HWriter *self, PyObject *args, PyObject *kwds) {
     for (uint16_t i = 0; i < cols_size; ++i) {
         PyObject *obj_to_convert = PyList_GetItem(py_cols_names, i);
 
-        if (PyString_Check(obj_to_convert) || PyUnicode_Check(obj_to_convert)) {
+        if (PyUnicode_Check(obj_to_convert)) {
             char *str_temp;
             if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
                 return -1;
@@ -985,21 +990,21 @@ static int hwriter_init(HWriter *self, PyObject *args, PyObject *kwds) {
                 return -1;
             };
 
-            PyObject *aux_table = PyDict_GetItem(dict, PyString_FromString("npy_table"));
+            PyObject *aux_table = PyDict_GetItemString(dict, "npy_table");
             if (aux_table != NULL) {
-                columns_names[i]["npy_table"] = PyString_AsString(aux_table);
+                columns_names[i]["npy_table"] = PyUnicode_AsUTF8(aux_table);
             }
-            PyObject *py_name = PyDict_GetItem(dict, PyString_FromString("name"));
-            columns_names[i]["name"] = PyString_AsString(py_name);
+            PyObject *py_name = PyDict_GetItemString(dict, "name");
+            columns_names[i]["name"] = PyUnicode_AsUTF8(py_name);
 
-            PyObject *py_arr_type = PyDict_GetItem(dict, PyString_FromString("type"));
-            columns_names[i]["type"] = PyString_AsString(py_arr_type);
+            PyObject *py_arr_type = PyDict_GetItemString(dict, "type");
+            columns_names[i]["type"] = PyUnicode_AsUTF8(py_arr_type);
 
-            PyObject *py_arr_dims = PyDict_GetItem(dict, PyString_FromString("dims"));
-            columns_names[i]["dims"] = PyString_AsString(py_arr_dims);
+            PyObject *py_arr_dims = PyDict_GetItemString(dict, "dims");
+            columns_names[i]["dims"] = PyUnicode_AsUTF8(py_arr_dims);
 
-            PyObject *py_arr_partition = PyDict_GetItem(dict, PyString_FromString("partition"));
-            if (std::strcmp(PyString_AsString(py_arr_partition), "true") == 0) {
+            PyObject *py_arr_partition = PyDict_GetItemString(dict, "partition");
+            if (std::strcmp(PyUnicode_AsUTF8(py_arr_partition), "true") == 0) {
                 columns_names[i]["partition"] = "partition";
             } else columns_names[i]["partition"] = "no-partition";
         } else {
@@ -1020,13 +1025,13 @@ static int hwriter_init(HWriter *self, PyObject *args, PyObject *kwds) {
         PyObject *key, *value;
         Py_ssize_t pos = 0;
         while (PyDict_Next(dict, &pos, &key, &value)) {
-            std::string conf_key(PyString_AsString(key));
-            if (PyString_Check(value)) {
-                std::string conf_val(PyString_AsString(value));
+            std::string conf_key(PyUnicode_AsUTF8(key));
+            if (PyUnicode_Check(value)) {
+                std::string conf_val(PyUnicode_AsUTF8(value));
                 config[conf_key] = conf_val;
             }
-            if (PyInt_Check(value)) {
-                int32_t c_val = (int32_t) PyInt_AsLong(value);
+            if (PyLong_Check(value)) {
+                int32_t c_val = (int32_t) PyLong_AsLong(value);
                 config[conf_key] = std::to_string(c_val);
             }
         }
@@ -1047,7 +1052,7 @@ static void hwriter_dealloc(HWriter *self) {
     if (self->keysParser) delete (self->keysParser);
     if (self->valuesParser) delete (self->valuesParser);
     if (self->W) delete (self->W);
-    self->ob_type->tp_free((PyObject *) self);
+    Py_TYPE((PyObject*) self)->tp_free((PyObject *) self);
 }
 
 
@@ -1104,6 +1109,7 @@ static PyTypeObject hfetch_HWriterType = {
 
 static PyMethodDef module_methods[] = {
         {"connectCassandra", (PyCFunction) connectCassandra, METH_VARARGS, NULL},
+        {"disconnectCassandra", (PyCFunction) disconnectCassandra,  METH_NOARGS, NULL},
         {NULL, NULL, 0,                                                    NULL}
 };
 
@@ -1126,18 +1132,18 @@ static PyObject *create_iter_items(HCache *self, PyObject *args) {
         PyObject *key, *value;
         Py_ssize_t pos = 0;
         while (PyDict_Next(dict, &pos, &key, &value)) {
-            std::string conf_key(PyString_AsString(key));
-            if (PyString_Check(value)) {
-                std::string conf_val(PyString_AsString(value));
+            std::string conf_key(PyUnicode_AsUTF8(key));
+            if (PyUnicode_Check(value)) {
+                std::string conf_val(PyUnicode_AsUTF8(value));
                 config[conf_key] = conf_val;
             }
-            if (PyInt_Check(value)) {
-                int32_t c_val = (int32_t) PyInt_AsLong(value);
+            if (PyLong_Check(value)) {
+                int32_t c_val = (int32_t) PyLong_AsLong(value);
                 config[conf_key] = std::to_string(c_val);
             }
         }
-    } else if PyInt_Check((py_config)) {
-        int32_t c_val = (int32_t) PyInt_AsLong(py_config);
+    } else if PyLong_Check((py_config)) {
+        int32_t c_val = (int32_t) PyLong_AsLong(py_config);
         config["prefetch_size"] = std::to_string(c_val);
     }
     config["type"] = "items";
@@ -1183,19 +1189,19 @@ static PyObject *create_iter_keys(HCache *self, PyObject *args) {
         PyObject *key, *value;
         Py_ssize_t pos = 0;
         while (PyDict_Next(dict, &pos, &key, &value)) {
-            std::string conf_key(PyString_AsString(key));
-            if (PyString_Check(value)) {
-                std::string conf_val(PyString_AsString(value));
+            std::string conf_key(PyUnicode_AsUTF8(key));
+            if (PyUnicode_Check(value)) {
+                std::string conf_val(PyUnicode_AsUTF8(value));
                 config[conf_key] = conf_val;
             }
-            if (PyInt_Check(value)) {
-                int32_t c_val = (int32_t) PyInt_AsLong(value);
+            if (PyLong_Check(value)) {
+                int32_t c_val = (int32_t) PyLong_AsLong(value);
                 config[conf_key] = std::to_string(c_val);
             }
 
         }
-    } else if PyInt_Check((py_config)) {
-        int32_t c_val = (int32_t) PyInt_AsLong(py_config);
+    } else if PyLong_Check((py_config)) {
+        int32_t c_val = (int32_t) PyLong_AsLong(py_config);
         config["prefetch_size"] = std::to_string(c_val);
     }
     config["type"] = "keys";
@@ -1237,19 +1243,19 @@ static PyObject *create_iter_values(HCache *self, PyObject *args) {
         PyObject *key, *value;
         Py_ssize_t pos = 0;
         while (PyDict_Next(dict, &pos, &key, &value)) {
-            std::string conf_key(PyString_AsString(key));
-            if (PyString_Check(value)) {
-                std::string conf_val(PyString_AsString(value));
+            std::string conf_key(PyUnicode_AsUTF8(key));
+            if (PyUnicode_Check(value)) {
+                std::string conf_val(PyUnicode_AsUTF8(value));
                 config[conf_key] = conf_val;
             }
-            if (PyInt_Check(value)) {
-                int32_t c_val = (int32_t) PyInt_AsLong(value);
+            if (PyLong_Check(value)) {
+                int32_t c_val = (int32_t) PyLong_AsLong(value);
                 config[conf_key] = std::to_string(c_val);
             }
 
         }
-    } else if PyInt_Check((py_config)) {
-        int32_t c_val = (int32_t) PyInt_AsLong(py_config);
+    } else if PyLong_Check((py_config)) {
+        int32_t c_val = (int32_t) PyLong_AsLong(py_config);
         config["prefetch_size"] = std::to_string(c_val);
     }
     config["type"] = "values";
@@ -1277,36 +1283,50 @@ static void module_dealloc(PyObject *self) {
     if (f) f(self);
 }
 
+
+static struct PyModuleDef hfetch_module_info = {
+        PyModuleDef_HEAD_INIT,
+        "hfetch",   /* name of module */
+        nullptr, /* module documentation, may be NULL */
+        -1,       /* size of per-interpreter state of the module,
+                 or -1 if the module keeps state in global variables. */
+        module_methods
+};
+
+
 PyMODINIT_FUNC
-inithfetch(void) {
+PyInit_hfetch(void) {
+
+#define IMPORT_ERROR NULL
     hfetch_HNumpyStoreType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&hfetch_HNumpyStoreType) < 0)
-        return;
+        return IMPORT_ERROR;
 
     Py_INCREF(&hfetch_HNumpyStoreType);
 
     hfetch_HIterType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&hfetch_HIterType) < 0)
-        return;
+        return IMPORT_ERROR;
 
     Py_INCREF(&hfetch_HIterType);
 
 
     hfetch_HWriterType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&hfetch_HWriterType) < 0)
-        return;
+        return IMPORT_ERROR;
 
     Py_INCREF(&hfetch_HWriterType);
 
 
     hfetch_HCacheType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&hfetch_HCacheType) < 0)
-        return;
+        return IMPORT_ERROR;
 
     Py_INCREF(&hfetch_HCacheType);
 
 
-    PyObject *m = Py_InitModule3("hfetch", module_methods, "c++ bindings for hecuba cache & prefetch");
+
+    PyObject *m = PyModule_Create(&hfetch_module_info);
     f = m->ob_type->tp_dealloc;
     m->ob_type->tp_dealloc = module_dealloc;
 
@@ -1317,6 +1337,6 @@ inithfetch(void) {
     if (_import_array() < 0) {
         PyErr_Print();
         PyErr_SetString(PyExc_ImportError, "numpy.core.multiarray failed to import");
-        NUMPY_IMPORT_ARRAY_RETVAL;
     }
+    return m;
 }

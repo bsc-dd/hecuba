@@ -51,12 +51,27 @@ class myobj2(StorageObj):
     @ClassField attr2 str
     '''
 
+class DictWithTuples(StorageDict):
+    '''
+    @TypeSpec dict<<key:int>, val:tuple<int,int>>
+    '''
+
+class DictWithTuples2(StorageDict):
+    '''
+    @TypeSpec dict<<key0:tuple<int,int>, key1:int>, val:str>
+    '''
+
+class DictWithTuples3(StorageDict):
+    '''
+    @TypeSpec dict<<key:int>, val0:int, val1:tuple<long,int>, val2:str, val3:tuple<str,float>>
+    '''
+
 
 class StorageDictTest(unittest.TestCase):
     def test_init_empty(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab1")
         tablename = "ksp.tab1"
-        tokens = [(1l, 2l), (2l, 3l), (3l, 4l)]
+        tokens = [(1, 2), (2, 3), (3, 4)]
         nopars = StorageDict(tablename,
                              [('position', 'int')],
                              [('value', 'int')],
@@ -73,6 +88,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(nopars.__class__.__name__, 'StorageDict')
 
         rebuild = StorageDict.build_remotely(res._asdict())
+        self.assertEqual(rebuild._built_remotely, True)
         self.assertEqual('tab1', rebuild._table)
         self.assertEqual("ksp", rebuild._ksp)
         self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, tablename), rebuild._storage_id)
@@ -82,7 +98,7 @@ class StorageDictTest(unittest.TestCase):
     def test_init_empty_def_keyspace(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab1")
         tablename = "tab1"
-        tokens = [(1l, 2l), (2l, 3l), (3l, 4l)]
+        tokens = [(1, 2), (2, 3), (3, 4)]
         nopars = StorageDict(tablename,
                              [('position', 'int')],
                              [('value', 'int')],
@@ -99,6 +115,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(nopars.__class__.__name__, 'StorageDict')
 
         rebuild = StorageDict.build_remotely(res._asdict())
+        self.assertEqual(rebuild._built_remotely, True)
         self.assertEqual('tab1', rebuild._table)
         self.assertEqual(config.execution_name, rebuild._ksp)
         self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename), rebuild._storage_id)
@@ -108,7 +125,7 @@ class StorageDictTest(unittest.TestCase):
     def test_simple_insertions(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab10")
         tablename = "tab10"
-        tokens = [(1l, 2l), (2l, 3l), (3l, 4l)]
+        tokens = [(1, 2), (2, 3), (3, 4)]
         pd = StorageDict(tablename,
                          [('position', 'int')],
                          [('value', 'text')],
@@ -133,7 +150,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEquals(pd.__repr__(), "{0: 'a'}")
 
         pd[1] = 'b'
-        self.assertEquals(pd.__repr__(), "{0: 'a', 1: 'b'}")
+        self.assertEquals(pd.__repr__(), "{1: 'b', 0: 'a'}")
 
         for i in range(1100):
             pd[i] = str(i)
@@ -225,16 +242,16 @@ class StorageDictTest(unittest.TestCase):
         pd = StorageDict("mydict",
                          [('position1', 'int'), ('position2', 'text')],
                          [('value1', 'text'), ('value2', 'int')])
-        pd[0, 'pos1'] = 'bla', 1
+        pd[0, 'pos1'] = ['bla', 1]
         self.assertEquals(pd[0, 'pos1'], ('bla', 1))
 
         def set_wrong_val_1():
-            pd[0, 'pos1'] = 1, 'bla'
+            pd[0, 'pos1'] = [1, 'bla']
 
         self.assertRaises(TypeError, set_wrong_val_1)
 
         def set_wrong_val_2():
-            pd['pos1', 0] = 'bla', 1
+            pd['pos1', 0] = ['bla', 1]
 
         self.assertRaises(TypeError, set_wrong_val_2)
 
@@ -258,18 +275,18 @@ class StorageDictTest(unittest.TestCase):
         pd = StorageDict("tab_a2",
                          [('position1', 'int'), ('position2', 'text')],
                          [('value1', 'text'), ('value2', 'int')])
-        pd[0, 'pos1'] = 'bla', 1
-        for result in pd.itervalues():
+        pd[0, 'pos1'] = ['bla', 1]
+        for result in pd.values():
             self.assertEquals(result.value1, 'bla')
             self.assertEquals(result.value2, 1)
 
         def set_wrong_val():
-            pd[0, 'pos1'] = 'bla', 'bla1'
+            pd[0, 'pos1'] = ['bla', 'bla1']
 
         self.assertRaises(TypeError, set_wrong_val)
 
         def set_wrong_key():
-            pd['bla', 'pos1'] = 'bla', 1
+            pd['bla', 'pos1'] = ['bla', 1]
 
         self.assertRaises(TypeError, set_wrong_key)
 
@@ -320,7 +337,7 @@ class StorageDictTest(unittest.TestCase):
         count, = config.session.execute('SELECT count(*) FROM my_app.wordsso_words')[0]
         self.assertEqual(0, count)
 
-    def test_simple_iteritems_test(self):
+    def test_simple_items_test(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a1")
 
         pd = StorageDict("tab_a1",
@@ -339,13 +356,13 @@ class StorageDictTest(unittest.TestCase):
                          [('value', 'text')])
         count = 0
         res = {}
-        for key, val in pd.iteritems():
+        for key, val in pd.items():
             res[key] = val
             count += 1
         self.assertEqual(count, 100)
         self.assertEqual(what_should_be, res)
 
-    def test_simple_itervalues_test(self):
+    def test_simple_values_test(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a2")
         tablename = "tab_a2"
         pd = StorageDict(tablename,
@@ -366,13 +383,13 @@ class StorageDictTest(unittest.TestCase):
                          [('value', 'text')])
         count = 0
         res = set()
-        for val in pd.itervalues():
+        for val in pd.values():
             res.add(val)
             count += 1
         self.assertEqual(count, 100)
         self.assertEqual(what_should_be, res)
 
-    def test_simple_iterkeys_test(self):
+    def test_simple_keys_test(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a3")
         tablename = "tab_a3"
         pd = StorageDict(tablename,
@@ -391,7 +408,7 @@ class StorageDictTest(unittest.TestCase):
                          [('value', 'text')])
         count = 0
         res = set()
-        for val in pd.iterkeys():
+        for val in pd.keys():
             res.add(val)
             count += 1
         self.assertEqual(count, 100)
@@ -466,7 +483,7 @@ class StorageDictTest(unittest.TestCase):
 
         self.assertRaises(KeyError, del_val)
 
-    def test_composed_iteritems_test(self):
+    def test_composed_items_test(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab12")
         tablename = "tab12"
         pd = StorageDict(tablename,
@@ -475,8 +492,8 @@ class StorageDictTest(unittest.TestCase):
 
         what_should_be = {}
         for i in range(100):
-            pd[i, i + 100] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
-            what_should_be[i, i + 100] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
+            pd[i, i + 100] = ['ciao' + str(i), i * 0.1, i * 0.2, i * 0.3]
+            what_should_be[i, i + 100] = ['ciao' + str(i), i * 0.1, i * 0.2, i * 0.3]
 
         del pd
 
@@ -487,7 +504,7 @@ class StorageDictTest(unittest.TestCase):
                          [('value', 'text'), ('x', 'double'), ('y', 'double'), ('z', 'double')])
         count = 0
         res = {}
-        for key, val in pd.iteritems():
+        for key, val in pd.items():
             res[key] = val
             count += 1
         self.assertEqual(count, 100)
@@ -500,7 +517,7 @@ class StorageDictTest(unittest.TestCase):
             self.assertAlmostEquals(a[2], b.y, delta=delta)
             self.assertAlmostEquals(a[3], b.z, delta=delta)
 
-    def test_composed_key_return_list_iteritems_test(self):
+    def test_composed_key_return_list_items_test(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab13")
         tablename = "tab13"
         pd = StorageDict(tablename,
@@ -509,8 +526,8 @@ class StorageDictTest(unittest.TestCase):
 
         what_should_be = {}
         for i in range(100):
-            pd[i, i + 100.0] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
-            what_should_be[i, i + 100.0] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
+            pd[i, i + 100.0] = ['ciao' + str(i), i * 0.1, i * 0.2, i * 0.3]
+            what_should_be[i, i + 100.0] = ['ciao' + str(i), i * 0.1, i * 0.2, i * 0.3]
 
         del pd
 
@@ -521,16 +538,16 @@ class StorageDictTest(unittest.TestCase):
                          [('time', 'double'), ('value', 'text'), ('x', 'double'), ('y', 'double'), ('z', 'double')])
         count = 0
         res = {}
-        for key, val in pd.iteritems():
+        for key, val in pd.items():
             self.assertTrue(isinstance(key, int))
             self.assertTrue(isinstance(val[0], float))
             res[key] = val
             count += 1
         self.assertEqual(count, 100)
         # casting to avoid 1.0000001 float python problem
-        data = set([(key, int(val.time), val.value, int(val.x), int(val.y), int(val.z)) for key, val in pd.iteritems()])
+        data = set([(key, int(val.time), val.value, int(val.x), int(val.y), int(val.z)) for key, val in pd.items()])
         data2 = set([(key[0], int(key[1]), val[0], int(val[1]), int(val[2]), int(val[3])) for key, val in
-                     what_should_be.iteritems()])
+                     what_should_be.items()])
         self.assertEqual(data, data2)
 
     def test_storagedict_newinterface_localmemory(self):
@@ -653,7 +670,7 @@ class StorageDictTest(unittest.TestCase):
         # int,text - int
         nitems = 100
         # write nitems to the dict
-        for id in xrange(0, nitems):
+        for id in range(0, nitems):
             text_id = 'someText'
             # force some clash on second keys
             if id % 2 == 0:
@@ -662,7 +679,7 @@ class StorageDictTest(unittest.TestCase):
 
         del my_dict  # force sync
         my_dict = MyStorageDict2('test_keys')
-        total_items = my_dict.items()
+        total_items = list(my_dict.items())
 
         self.assertEqual(len(total_items), nitems)
 
@@ -670,7 +687,7 @@ class StorageDictTest(unittest.TestCase):
 
         my_second_dict = MyStorageDict2()
 
-        for id in xrange(nitems, 2 * nitems):
+        for id in range(nitems, 2 * nitems):
             text_id = 'someText'
             # force some clash on second keys
             if id % 2 == 0:
@@ -682,13 +699,13 @@ class StorageDictTest(unittest.TestCase):
         my_second_dict = MyStorageDict2()
         my_second_dict.make_persistent('test_keys')
 
-        total_items = my_second_dict.items()
+        total_items = list(my_second_dict.items())
         self.assertEqual(len(total_items), 2 * nitems)
         del my_dict
         del my_second_dict
 
         my_third_dict = MyStorageDict2('test_keys')
-        total_items = my_third_dict.items()
+        total_items = list(my_third_dict.items())
         self.assertEqual(len(total_items), 2 * nitems)
 
         del my_third_dict
@@ -700,7 +717,7 @@ class StorageDictTest(unittest.TestCase):
         # int,text - int
         nitems = 100
         # write nitems to the dict
-        for id in xrange(0, nitems):
+        for id in range(0, nitems):
             text_id = 'someText'
             # force some clash on second keys
             if id % 2 == 0:
@@ -711,13 +728,13 @@ class StorageDictTest(unittest.TestCase):
         my_dict = MyStorageDict2('test_values')
         total_items = my_dict.items()
 
-        self.assertEqual(len(total_items), nitems)
+        self.assertEqual(len(list(total_items)), nitems)
 
         # del my_dict
 
         my_second_dict = MyStorageDict2()
 
-        for id in xrange(nitems, 2 * nitems):
+        for id in range(nitems, 2 * nitems):
             text_id = 'someText'
             # force some clash on second keys
             if id % 2 == 0:
@@ -729,13 +746,13 @@ class StorageDictTest(unittest.TestCase):
         my_second_dict = MyStorageDict2()
         my_second_dict.make_persistent('test_values')
 
-        total_items = my_second_dict.items()
+        total_items = list(my_second_dict.items())
         self.assertEqual(len(total_items), 2 * nitems)
         del my_dict
         del my_second_dict
 
         my_third_dict = MyStorageDict2('test_values')
-        total_items = my_third_dict.items()
+        total_items = list(my_third_dict.items())
         self.assertEqual(len(total_items), 2 * nitems)
 
         del my_third_dict
@@ -747,7 +764,7 @@ class StorageDictTest(unittest.TestCase):
         # int,text - int
         nitems = 100
         # write nitems to the dict
-        for id in xrange(0, nitems):
+        for id in range(0, nitems):
             text_id = 'someText'
             # force some clash on second keys
             if id % 2 == 0:
@@ -756,7 +773,7 @@ class StorageDictTest(unittest.TestCase):
 
         del my_dict  # force sync
         my_dict = MyStorageDict2('test_items')
-        total_items = my_dict.items()
+        total_items = list(my_dict.items())
 
         self.assertEqual(len(total_items), nitems)
 
@@ -764,7 +781,7 @@ class StorageDictTest(unittest.TestCase):
 
         my_second_dict = MyStorageDict2()
 
-        for id in xrange(nitems, 2 * nitems):
+        for id in range(nitems, 2 * nitems):
             text_id = 'someText'
             # force some clash on second keys
             if id % 2 == 0:
@@ -776,13 +793,13 @@ class StorageDictTest(unittest.TestCase):
         my_second_dict = MyStorageDict2()
         my_second_dict.make_persistent('test_items')
 
-        total_items = my_second_dict.items()
+        total_items = list(my_second_dict.items())
         self.assertEqual(len(total_items), 2 * nitems)
         del my_dict
         del my_second_dict
 
         my_third_dict = MyStorageDict2('test_items')
-        total_items = my_third_dict.items()
+        total_items = list(my_third_dict.items())
         self.assertEqual(len(total_items), 2 * nitems)
 
         del my_third_dict
@@ -797,14 +814,14 @@ class StorageDictTest(unittest.TestCase):
         # int,text - int
         nitems = 5000
         # write nitems to the dict
-        for id in xrange(0, nitems):
+        for id in range(0, nitems):
             text_id = 'someText'
             # force some clash on second keys
             if id % 2 == 0:
                 text_id = 'someText' + str(id)
             my_dict[(id, text_id)] = id
 
-        total_items = my_dict.items()
+        total_items = list(my_dict.items())
 
         self.assertEqual(len(total_items), nitems)
         del my_dict
@@ -829,7 +846,7 @@ class StorageDictTest(unittest.TestCase):
         my_storageobj.mona = first_storagedict
 
         self.assertTrue(my_storageobj.mona._is_persistent)
-        nitems = my_storageobj.mona.items()
+        nitems = list(my_storageobj.mona.items())
         self.assertEqual(len(nitems), 0)
         # it was assigned to a persistent storage obj, it should be persistent
         self.assertTrue(first_storagedict._is_persistent)
@@ -839,16 +856,18 @@ class StorageDictTest(unittest.TestCase):
         # store the second non persistent dict into the StorageObj attribute
         my_storageobj.mona = my_storagedict
         # contents should not be merged, the contents should be the same as in the last storage_dict
-        elements = my_storageobj.mona.items()
+        elements = list(my_storageobj.mona.items())
         self.assertEqual(len(elements), 1)
         my_storagedict = MyStorageDictA('second_name')
         last_key = 'some_key'
         last_value = 123
+
         my_storagedict[last_key] = last_value
         # my_storageobj.mona
         my_storageobj.mona = my_storagedict
-        self.assertFalse(my_storageobj.mona.has_key(last_key))
-        last_items = my_storageobj.mona.items()
+        self.assertTrue(last_key in my_storageobj.mona)
+
+        last_items = list(my_storageobj.mona.items())
         self.assertEqual(len(last_items), 1)
         self.assertEqual(my_storagedict[last_key], last_value)
 
@@ -869,6 +888,157 @@ class StorageDictTest(unittest.TestCase):
             d.make_persistent("dict")
         except Exception as ex:
             self.fail("Raised exception unexpectedly.\n" + str(ex))
+
+    def test_int_tuples(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples")
+        d = DictWithTuples("my_app.dictwithtuples")
+
+        what_should_be = dict()
+        for i in range(0, 10):
+            what_should_be[i] = (i, i + 10)
+            d[i] = (i, i + 10)
+
+        time.sleep(1)
+        for i in range(0, 10):
+            self.assertEqual(d[i], (i, i + 10))
+
+        self.assertEqual(len(list(d.keys())), 10)
+
+        res = dict()
+        count = 0
+        for key, item in d.items():
+            res[key] = item
+            count += 1
+
+        self.assertEqual(count, len(what_should_be))
+        self.assertEqual(what_should_be, res)
+
+    def test_values_tuples(self):
+        # @TypeSpec dict<<key:int>, val0:int, val1:tuple<long,int>, val2:str, val3:tuple<str,float>>
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples3")
+        d = DictWithTuples3("my_app.dictwithtuples3")
+
+        what_should_be = set()
+        for i in range(0, 20):
+            what_should_be.add((i, (5500000000000000, i + 10), "hola", ("adios", (i + 20.5))))
+            d[i] = [i, (5500000000000000, i + 10), "hola", ("adios", (i + 20.5))]
+
+        time.sleep(1)
+        res = set()
+        count = 0
+        for item in d.values():
+            res.add(tuple(item))
+            count += 1
+
+        self.assertEqual(count, len(what_should_be))
+        self.assertEqual(what_should_be, res)
+        self.assertEqual(what_should_be, res)
+
+    def test_tuples_in_key(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples2")
+        d = DictWithTuples2("my_app.dictwithtuples2")
+
+        for i in range(0, 10):
+            d[(i, i), i+1] = str(i)
+
+        time.sleep(1)
+        for i in range(0, 10):
+            self.assertEqual(d[(i, i), i+1], str(i))
+
+        self.assertEqual(len(list(d.keys())), 10)
+
+    def test_keys_tuples(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples2")
+        d = DictWithTuples2("my_app.dictwithtuples2")
+
+        what_should_be = set()
+        for i in range(0, 10):
+            what_should_be.add(((i, i), i+1))
+            d[(i, i), i+1] = str(i)
+
+        time.sleep(1)
+
+        res = set()
+        count = 0
+        for key in d.keys():
+            res.add(tuple(key))
+            count += 1
+
+        self.assertEqual(count, len(what_should_be))
+        self.assertEqual(what_should_be, res)
+
+    def test_multiple_tuples(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictmultipletuples")
+        d = DictWithTuples3("my_app.dictmultipletuples")
+
+        what_should_be = dict()
+        for i in range(0, 10):
+            what_should_be[i] = [i, (5500000000000000, i + 10), "hola", ("adios", (i + 20.5))]
+            d[i] = [i, (5500000000000000, i + 10), "hola", ("adios", (i + 20.5))]
+
+        time.sleep(2)
+        for i in range(0, 10):
+            self.assertEqual(list(d[i]), [i, (5500000000000000, i + 10), "hola", ("adios", (i + 20.5))])
+        self.assertEqual(len(list(d.keys())), 10)
+
+        res = dict()
+        count = 0
+        for key, item in d.items():
+            res[key] = list(item)
+            count += 1
+
+        self.assertEqual(count, len(what_should_be))
+        self.assertEqual(what_should_be, res)
+
+    def test_int_tuples_null_values(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples")
+        d = DictWithTuples("my_app.dictwithtuples")
+
+        for i in range(0, 10):
+            if i % 2 == 0:
+                d[i] = (None, i+10)
+            else:
+                d[i] = (i, i+10)
+
+        d = DictWithTuples("my_app.dictwithtuples")
+        for i in range(0, 10):
+            if i % 2 == 0:
+                self.assertEqual(d[i], (None, i + 10))
+            else:
+                self.assertEqual(d[i], (i, i + 10))
+
+    def test_multiple_tuples_NULL(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictmultipletuples")
+        d = DictWithTuples3("my_app.dictmultipletuples")
+
+        what_should_be = dict()
+        for i in range(0, 10):
+            if i % 2 == 0:
+                what_should_be[i] = [i, (5500000000000000, i + 10), "hola", ("adios", (i + 20.5))]
+                d[i] = [i, (5500000000000000, i + 10), "hola", ("adios", (i + 20.5))]
+            else:
+                what_should_be[i] = [i, (5500000000000000, None), "hola", (None, (i + 20.5))]
+                d[i] = [i, (5500000000000000, None), "hola", (None, (i + 20.5))]
+
+        d = DictWithTuples3("my_app.dictmultipletuples")
+        for i in range(0, 10):
+            if i % 2 == 0:
+                self.assertEqual(list(d[i]), [i, (5500000000000000, i + 10), "hola", ("adios", (i + 20.5))])
+            else:
+                self.assertEqual(list(d[i]), [i, (5500000000000000, None), "hola", (None, (i + 20.5))])
+
+
+        self.assertEqual(len(list(d.keys())), 10)
+
+        res = dict()
+        count = 0
+        for key, item in d.items():
+            res[key] = list(item)
+            count += 1
+
+        self.assertEqual(count, len(what_should_be))
+        self.assertEqual(what_should_be, res)
+
 
 
 if __name__ == '__main__':

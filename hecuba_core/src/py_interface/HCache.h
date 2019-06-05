@@ -1,7 +1,8 @@
 #ifndef PREFETCHER_PREFETCHER_IMP_H
 #define PREFETCHER_PREFETCHER_IMP_H
 
-#include <python2.7/Python.h>
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define PY_ARRAY_UNIQUE_SYMBOL cool_ARRAY_API

@@ -9,7 +9,7 @@ TupleRowFactory::TupleRowFactory(std::shared_ptr<const std::vector<ColumnMeta> >
     this->metadata = row_info;
     this->total_bytes = 0;
     if (row_info->end() != row_info->begin()) {
-        std::vector<ColumnMeta>::const_iterator last_element  = --row_info->end();
+        std::vector<ColumnMeta>::const_iterator last_element = --row_info->end();
         total_bytes = last_element->position + last_element->size;
     }
 }
@@ -38,12 +38,12 @@ TupleRow *TupleRowFactory::make_tuple(const CassRow *row) {
     if (!row) return NULL;
     char *buffer = nullptr;
 
-    if (total_bytes>0) buffer = (char *) malloc(total_bytes);
+    if (total_bytes > 0) buffer = (char *) malloc(total_bytes);
 
     TupleRow *new_tuple = new TupleRow(metadata, total_bytes, buffer);
 
     CassIterator *it = cass_iterator_from_row(row);
-    for (uint16_t i = 0; cass_iterator_next(it) && i<metadata->size(); ++i) {
+    for (uint16_t i = 0; cass_iterator_next(it) && i < metadata->size(); ++i) {
         if (cass_to_c(cass_iterator_get_column(it), buffer + metadata->at(i).position, i) == -1) {
             new_tuple->setNull(i);
         }
@@ -131,11 +131,6 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             if (rc == CASS_ERROR_LIB_NULL_VALUE) return -1;
             return 0;
         }
-        case CASS_VALUE_TYPE_DECIMAL: {
-            //TODO
-            //decimal.Decimal
-            break;
-        }
         case CASS_VALUE_TYPE_DOUBLE: {
             CassError rc = cass_value_get_double(lhs, reinterpret_cast<double *>(data));
             CHECK_CASS("TupleRowFactory: Cassandra to C parse double unsuccessful, column:" + std::to_string(col));
@@ -154,10 +149,6 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             if (rc == CASS_ERROR_LIB_NULL_VALUE) return -1;
             return 0;
         }
-        case CASS_VALUE_TYPE_TIMESTAMP: {
-            //TODO
-            break;
-        }
         case CASS_VALUE_TYPE_UUID: {
             CassUuid uuid;
             CassError rc = cass_value_get_uuid(lhs, &uuid);
@@ -172,22 +163,6 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             memcpy(data, &permanent, sizeof(char *));
             return 0;
         }
-        case CASS_VALUE_TYPE_TIMEUUID: {
-            //TODO
-            break;
-        }
-        case CASS_VALUE_TYPE_INET: {
-            //TODO
-            break;
-        }
-        case CASS_VALUE_TYPE_DATE: {
-            //TODO
-            break;
-        }
-        case CASS_VALUE_TYPE_TIME: {
-            //TODO
-            break;
-        }
         case CASS_VALUE_TYPE_SMALL_INT: {
             CassError rc = cass_value_get_int16(lhs, reinterpret_cast<int16_t * >(data));
             CHECK_CASS("TupleRowFactory: Cassandra to C parse int16 unsuccessful, column:" + std::to_string(col));
@@ -198,58 +173,200 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             CHECK_CASS("TupleRowFactory: Cassandra to C parse int16 unsuccessful, column:" + std::to_string(col));
             if (rc == CASS_ERROR_LIB_NULL_VALUE) return -1;
         }
-        case CASS_VALUE_TYPE_LIST: {
-            //TODO
-            break;
-        }
-        case CASS_VALUE_TYPE_MAP: {
-            //TODO
-            break;
-        }
-        case CASS_VALUE_TYPE_SET: {
-            //TODO
-            break;
-        }
         case CASS_VALUE_TYPE_TUPLE: {
-            //TODO
-            break;
+            if (metadata->at(col).pointer->empty())
+                throw ModuleException("TupleRowFactory: Cassandra to C parse tuple unsuccessful, tuple is empty");
+
+            TupleRowFactory TFACT = TupleRowFactory(metadata->at(col).pointer);
+
+            void *tuple_data = malloc(TFACT.get_nbytes());
+
+            TupleRow **ptr = (TupleRow **) data;
+            *ptr = TFACT.make_tuple(tuple_data);
+
+            CassIterator *tuple_iterator = cass_iterator_from_tuple(lhs);
+            if (!tuple_iterator)
+                throw ModuleException(
+                        "TupleRowFactory: Cassandra to C parse tuple unsuccessful, data type is not tuple");
+
+            /* Iterate over the tuple fields */
+            uint32_t j = 0;
+            const CassValue *value;
+            char *pos_to_copy;
+            while (cass_iterator_next(tuple_iterator)) {
+                value = cass_iterator_get_value(tuple_iterator);
+                pos_to_copy = (char *) tuple_data + metadata->at(col).pointer->at(j).position;
+                if (TFACT.cass_to_c(value, pos_to_copy, j) < 0) {
+                    TupleRow *inner_data = *ptr;
+                    inner_data->setNull(j);
+                }
+                ++j;
+            }
+            /* The tuple iterator needs to be freed */
+            cass_iterator_free(tuple_iterator);
+            return 0;
         }
-        case CASS_VALUE_TYPE_UDT: {
-            throw ModuleException("UDT not supported");
-            //TODO REWRITE -> pass this to binary
-        }
+        case CASS_VALUE_TYPE_DECIMAL:
+        case CASS_VALUE_TYPE_TIMESTAMP:
+        case CASS_VALUE_TYPE_TIMEUUID:
+        case CASS_VALUE_TYPE_INET:
+        case CASS_VALUE_TYPE_DATE:
+        case CASS_VALUE_TYPE_TIME:
+        case CASS_VALUE_TYPE_LIST:
+        case CASS_VALUE_TYPE_MAP:
+        case CASS_VALUE_TYPE_SET:
+        case CASS_VALUE_TYPE_UDT:
         case CASS_VALUE_TYPE_CUSTOM:
         case CASS_VALUE_TYPE_UNKNOWN:
         default:
-            //TODO
-            break;
+            throw ModuleException("Default behaviour not supported");
     }
-    return 0;
+}
+
+void
+TupleRowFactory::bind(CassTuple *tuple, const TupleRow *row) const {
+
+    if (!row || !tuple)
+        throw ModuleException("Tuple bind: Null tuple received");
+
+    if (metadata->size() != row->n_elem())
+        throw ModuleException("Tuple bind: Found " + std::to_string(row->n_elem()) + ", expected " +
+                              std::to_string(metadata->size()));
+
+    for (uint16_t bind_pos = 0; bind_pos < row->n_elem(); ++bind_pos) {
+        const void *element_i = row->get_element(bind_pos);
+        if (element_i != nullptr && !row->isNull(bind_pos)) {
+            switch (metadata->at(bind_pos).type) {
+                case CASS_VALUE_TYPE_VARCHAR:
+                case CASS_VALUE_TYPE_TEXT:
+                case CASS_VALUE_TYPE_ASCII: {
+                    int64_t *addr = (int64_t *) element_i;
+                    const char *d = reinterpret_cast<char *>(*addr);
+                    CassError rc = cass_tuple_set_string(tuple, (size_t) bind_pos, d);
+                    CHECK_CASS("TupleRowFactory: Cassandra unsuccessful binding Varchar/Text/ASCII to the tuple");
+                    break;
+                }
+                case CASS_VALUE_TYPE_VARINT:
+                case CASS_VALUE_TYPE_BIGINT: {
+                    int64_t *value = (int64_t *) element_i;
+                    CassError rc = cass_tuple_set_int64(tuple, (size_t) bind_pos, *value);
+                    CHECK_CASS("TupleRowFactory: Cassandra unsuccessful binding Varint/Bigint to the tuple");
+                    break;
+
+                }
+                case CASS_VALUE_TYPE_BLOB: {
+                    int64_t *value = (int64_t *) element_i;
+                    CassError rc = cass_tuple_set_int64(tuple, (size_t) bind_pos, *value);
+                    CHECK_CASS("TupleRowFactory: Cassandra unsuccessful binding Blob to the tuple");
+                    break;
+                }
+                case CASS_VALUE_TYPE_BOOLEAN: {
+                    cass_bool_t *value = (cass_bool_t *) element_i;
+                    CassError rc = cass_tuple_set_int64(tuple, (size_t) bind_pos, *value);
+                    CHECK_CASS("TupleRowFactory: Cassandra unsuccessful binding Boolean to tuple");
+                    break;
+                }
+                    //TODO parsed as uint32 or uint64 on different methods
+                case CASS_VALUE_TYPE_COUNTER: {
+                    int64_t *value = (int64_t *) element_i;
+                    CassError rc = cass_tuple_set_int64(tuple, (size_t) bind_pos, *value);
+                    CHECK_CASS("TupleRowFactory: Cassandra unsuccessful binding Counter to the tuple");
+                    break;
+                }
+                case CASS_VALUE_TYPE_DOUBLE: {
+                    double_t *value = (double_t *) element_i;
+                    CassError rc = cass_tuple_set_double(tuple, (size_t) bind_pos, *value);
+                    CHECK_CASS("TupleRowFactory: Cassandra unsuccessful binding Double to the tuple");
+                    break;
+                }
+                case CASS_VALUE_TYPE_FLOAT: {
+                    float_t *value = (float_t *) element_i;
+                    CassError rc = cass_tuple_set_float(tuple, (size_t) bind_pos, *value);
+                    CHECK_CASS("TupleRowFactory: Cassandra unsuccessful binding Float to the tuple");
+                    break;
+                }
+                case CASS_VALUE_TYPE_INT: {
+                    int32_t *value = (int32_t *) element_i;
+                    CassError rc = cass_tuple_set_int32(tuple, (size_t) bind_pos, *value);
+                    CHECK_CASS("TupleRowFactory: Cassandra unsuccessful binding Int to the tuple");
+                    break;
+                }
+                case CASS_VALUE_TYPE_UUID: {
+                    const uint64_t **uuid = (const uint64_t **) element_i;
+
+                    const uint64_t *time_and_version = *uuid;
+                    const uint64_t *clock_seq_and_node = *uuid + 1;
+
+                    CassUuid cass_uuid = {*time_and_version, *clock_seq_and_node};
+                    CassError rc = cass_tuple_set_uuid(tuple, (size_t) bind_pos, cass_uuid);
+                    CHECK_CASS("TupleRowFactory: Cassandra unsuccessful binding Uuid to the tuple");
+                    break;
+                }
+                case CASS_VALUE_TYPE_SMALL_INT: {
+                    int16_t *value = (int16_t *) element_i;
+                    CassError rc = cass_tuple_set_int16(tuple, (size_t) bind_pos, *value);
+                    CHECK_CASS("TupleRowFactory: Cassandra unsuccessful binding SmallInt to the tuple");
+                    break;
+                }
+                case CASS_VALUE_TYPE_TINY_INT: {
+                    int8_t *value = (int8_t *) element_i;
+                    CassError rc = cass_tuple_set_int8(tuple, (size_t) bind_pos, *value);
+                    CHECK_CASS("TupleRowFactory: Cassandra unsuccessful binding TinyInt to the tuple");
+                    break;
+                }
+                case CASS_VALUE_TYPE_TUPLE: {
+                    TupleRow **ptr = (TupleRow **) element_i;
+                    const TupleRow *inner_data = *ptr;
+                    TupleRowFactory TFACT = TupleRowFactory(metadata->at(bind_pos).pointer);
+                    unsigned long n_types = metadata->at(bind_pos).pointer->size();
+
+                    CassTuple *new_tuple = cass_tuple_new(n_types);
+                    TFACT.bind(new_tuple, inner_data);
+                    CassError rc = cass_tuple_set_tuple(tuple, (size_t) bind_pos, new_tuple);
+                    CHECK_CASS("TupleRowFactory: Cassandra unsuccessful binding a new Tuple to the existing tuple");
+                    break;
+                }
+                case CASS_VALUE_TYPE_DECIMAL:
+                case CASS_VALUE_TYPE_TIMESTAMP:
+                case CASS_VALUE_TYPE_TIMEUUID:
+                case CASS_VALUE_TYPE_INET:
+                case CASS_VALUE_TYPE_DATE:
+                case CASS_VALUE_TYPE_TIME:
+                case CASS_VALUE_TYPE_LIST:
+                case CASS_VALUE_TYPE_MAP:
+                case CASS_VALUE_TYPE_SET:
+                case CASS_VALUE_TYPE_UDT:
+                case CASS_VALUE_TYPE_CUSTOM:
+                case CASS_VALUE_TYPE_UNKNOWN:
+                default:
+                    throw ModuleException("Default behaviour not supported");
+            }
+        } else {
+            //Element is a nullptr
+            CassError rc = cass_tuple_set_null(tuple, bind_pos);
+            CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [Null value], column:" +
+                       localMeta->at(bind_pos).info[0]);
+        }
+    }
 }
 
 
-/***
- * Binds the tuple row data to the statement, using the offset to compute the position inside the query where the element needs to be bind
- * @param statement contains the query with elements to be binded
- * @param row data to use to bind in the statement
- * @param offset starting position inside the query from which the elements need to be bind
- */
-void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t offset) const {
+void
+TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t offset) const {
 
-    const std::vector<ColumnMeta> *localMeta = metadata.get();
-    if (!localMeta)
-        throw ModuleException("Tuple row, tuple_as_py: Null metadata");
+
+    if (!row || !statement)
+        throw ModuleException("Statement bind: Null tuple row or statement received");
+
+    if (metadata->size() != row->n_elem())
+        throw ModuleException("Statement bind: Found " + std::to_string(row->n_elem()) + ", expected " +
+                              std::to_string(metadata->size()));
 
     for (uint16_t i = 0; i < row->n_elem(); ++i) {
+        uint16_t bind_pos = offset + i;
         const void *element_i = row->get_element(i);
-
-        uint32_t bind_pos = i + offset;
-        if (i >= localMeta->size())
-            throw ModuleException(
-                    "TupleRowFactory: Binding element on pos " + std::to_string(bind_pos) + " from a max " +
-                    std::to_string(localMeta->size() + offset));
-        if (element_i != nullptr) {
-            switch (localMeta->at(i).type) {
+        if (element_i != nullptr && !row->isNull(i)) {
+            switch (metadata->at(i).type) {
                 case CASS_VALUE_TYPE_VARCHAR:
                 case CASS_VALUE_TYPE_TEXT:
                 case CASS_VALUE_TYPE_ASCII: {
@@ -257,7 +374,7 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                     const char *d = reinterpret_cast<char *>(*addr);
                     CassError rc = cass_statement_bind_string(statement, bind_pos, d);
                     CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [text], column:" +
-                               localMeta->at(bind_pos).info[0]);
+                               metadata->at(i).info[0]);
                     break;
                 }
                 case CASS_VALUE_TYPE_VARINT:
@@ -266,7 +383,7 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                     CassError rc = cass_statement_bind_int64(statement, bind_pos,
                                                              *data);//L means long long, K unsigned long long
                     CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [bigint/varint], column:" +
-                               localMeta->at(bind_pos).info[0]);
+                               metadata->at(i).info[0]);
                     break;
                 }
                 case CASS_VALUE_TYPE_BLOB: {
@@ -280,10 +397,11 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                 case CASS_VALUE_TYPE_BOOLEAN: {
                     cass_bool_t b = cass_false;
                     const bool *bindbool = static_cast<const bool *>(element_i);
+
                     if (*bindbool) b = cass_true;
                     CassError rc = cass_statement_bind_bool(statement, bind_pos, b);
                     CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [bool], column:" +
-                               localMeta->at(bind_pos).info[0]);
+                               metadata->at(i).info[0]);
                     break;
                 }
                     //TODO parsed as uint32 or uint64 on different methods
@@ -292,37 +410,34 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                     CassError rc = cass_statement_bind_int64(statement, bind_pos,
                                                              *data);//L means long long, K unsigned long long
                     CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [counter as uint64], column:" +
-                               localMeta->at(bind_pos).info[0]);
-                    break;
-                }
-                case CASS_VALUE_TYPE_DECIMAL: {
-                    //decimal.Decimal
-                    //TODO
+                               metadata->at(i).info[0]);
+
                     break;
                 }
                 case CASS_VALUE_TYPE_DOUBLE: {
                     const double *data = static_cast<const double *>(element_i);
                     CassError rc = cass_statement_bind_double(statement, bind_pos, *data);
                     CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [double], column:" +
-                               localMeta->at(bind_pos).info[0]);
+                               metadata->at(i).info[0]);
+
                     break;
                 }
                 case CASS_VALUE_TYPE_FLOAT: {
                     const float *data = static_cast<const float *>(element_i);
+
                     CassError rc = cass_statement_bind_float(statement, bind_pos, *data);
                     CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [float], column:" +
-                               localMeta->at(bind_pos).info[0]);
+                               metadata->at(i).info[0]);
+
                     break;
                 }
                 case CASS_VALUE_TYPE_INT: {
                     const int32_t *data = static_cast<const int32_t *>(element_i);
+
                     CassError rc = cass_statement_bind_int32(statement, bind_pos, *data);
                     CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [int32], column:" +
-                               localMeta->at(bind_pos).info[0]);
-                    break;
-                }
-                case CASS_VALUE_TYPE_TIMESTAMP: {
-                    //TODO
+                               metadata->at(i).info[0]);
+
                     break;
                 }
                 case CASS_VALUE_TYPE_UUID: {
@@ -332,72 +447,61 @@ void TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int1
                     const uint64_t *clock_seq_and_node = *uuid + 1;
 
                     CassUuid cass_uuid = {*time_and_version, *clock_seq_and_node};
+
                     CassError rc = cass_statement_bind_uuid(statement, bind_pos, cass_uuid);
                     CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UUID], column:" +
-                               metadata->at(bind_pos).info[0]);
-                    break;
-                }
-                case CASS_VALUE_TYPE_TIMEUUID: {
-                    //TODO
-                    break;
-                }
-                case CASS_VALUE_TYPE_INET: {
-                    //TODO
-                    break;
-                }
-                case CASS_VALUE_TYPE_DATE: {
+                               metadata->at(i).info[0]);
 
-                    break;
-                }
-                case CASS_VALUE_TYPE_TIME: {
-                    //TODO
                     break;
                 }
                 case CASS_VALUE_TYPE_SMALL_INT: {
                     const int16_t *data = static_cast<const int16_t *>(element_i);
                     CassError rc = cass_statement_bind_int16(statement, bind_pos, *data);
-                    CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [small int as int16], column:" +
-                               localMeta->at(bind_pos).info[0]);
+                    CHECK_CASS(
+                            "TupleRowFactory: Cassandra binding query unsuccessful [small int as int16], column:" +
+                            metadata->at(i).info[0]);
+
                     break;
                 }
                 case CASS_VALUE_TYPE_TINY_INT: {
                     const int8_t *data = static_cast<const int8_t *>(element_i);
                     CassError rc = cass_statement_bind_int8(statement, bind_pos, *data);
                     CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [tiny int as int8], column:" +
-                               localMeta->at(bind_pos).info[0]);
-                    break;
-                }
-                case CASS_VALUE_TYPE_LIST: {
-                    //TODO
-                    break;
-                }
-                case CASS_VALUE_TYPE_MAP: {
-                    //TODO
-                    break;
-                }
-                case CASS_VALUE_TYPE_SET: {
-                    //TODO
+                               metadata->at(i).info[0]);
+
                     break;
                 }
                 case CASS_VALUE_TYPE_TUPLE: {
-                    //TODO
+                    TupleRow **ptr = (TupleRow **) element_i;
+                    const TupleRow *inner_data = *ptr;
+                    TupleRowFactory TFACT = TupleRowFactory(metadata->at(i).pointer);
+                    unsigned long n_types = metadata->at(i).pointer->size();
+                    CassTuple *tuple = cass_tuple_new(n_types);
+                    TFACT.bind(tuple, inner_data);
+                    cass_statement_bind_tuple(statement, bind_pos, tuple);
+                    cass_tuple_free(tuple);
                     break;
                 }
-                case CASS_VALUE_TYPE_UDT: {
-                    throw ModuleException("User defined types not supported");
-                }
+                case CASS_VALUE_TYPE_DECIMAL:
+                case CASS_VALUE_TYPE_TIMESTAMP:
+                case CASS_VALUE_TYPE_TIMEUUID:
+                case CASS_VALUE_TYPE_INET:
+                case CASS_VALUE_TYPE_DATE:
+                case CASS_VALUE_TYPE_TIME:
+                case CASS_VALUE_TYPE_LIST:
+                case CASS_VALUE_TYPE_MAP:
+                case CASS_VALUE_TYPE_SET:
+                case CASS_VALUE_TYPE_UDT:
                 case CASS_VALUE_TYPE_CUSTOM:
                 case CASS_VALUE_TYPE_UNKNOWN:
                 default:
-                    //TODO
-                    break;
+                    throw ModuleException("Default behaviour not supported");
             }
         } else {
             //Element is a nullptr
             CassError rc = cass_statement_bind_null(statement, bind_pos);
             CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [Null value], column:" +
-                       localMeta->at(bind_pos).info[0]);
+                       metadata->at(i).info[0]);
         }
-        //else: key was nullptr and we don't bind anything
     }
 }

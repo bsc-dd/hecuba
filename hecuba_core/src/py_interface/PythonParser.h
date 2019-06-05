@@ -1,7 +1,7 @@
 #ifndef PYTHON_PARSER_H
 #define PYTHON_PARSER_H
 
-#include <python2.7/Python.h>
+#include <Python.h>
 
 #include <string>
 #include <iostream>

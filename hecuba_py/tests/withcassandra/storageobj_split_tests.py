@@ -12,7 +12,7 @@ class TestSimple(StorageObj):
 
 
 class StorageObjSplitTest(unittest.TestCase):
-    def test_simple_iterkeys_split_test(self):
+    def test_simple_keys_split_test(self):
         tablename = "tab30"
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + "_words")
@@ -35,15 +35,15 @@ class StorageObjSplitTest(unittest.TestCase):
         splits = 0
         for partition in pd.split():
             splits += 1
-            for val in partition.iterkeys():
+            for val in partition.keys():
                 res.add(val)
                 count += 1
         del pd
-        self.assertTrue(splits >= config.number_of_partitions)
+        self.assertTrue(splits >= config.splits_per_node * 2)
         self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
-    def test_build_remotely_iterkeys_split_test(self):
+    def test_build_remotely_keys_split_test(self):
         tablename = 'tab30'
         config.session.execute('DROP TABLE IF EXISTS my_app.' + tablename)
         config.session.execute('DROP TABLE IF EXISTS my_app.' + tablename + '_words')
@@ -70,15 +70,15 @@ class StorageObjSplitTest(unittest.TestCase):
             from storage.api import getByID
             rebuild = getByID(id)
             splits += 1
-            for val in rebuild.iterkeys():
+            for val in rebuild.keys():
                 res.add(val)
                 count += 1
         del pd
-        self.assertTrue(splits >= config.number_of_partitions)
+        self.assertTrue(splits >= config.splits_per_node * 2)
         self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
-    def test_simple_iterkeys_split_fromSO_test(self):
+    def test_simple_keys_split_fromSO_test(self):
         tablename = "tab31"
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + "_words")
@@ -99,15 +99,15 @@ class StorageObjSplitTest(unittest.TestCase):
         splits = 0
         for partition in sto.split():
             splits += 1
-            for val in partition.words.iterkeys():
+            for val in partition.words.keys():
                 res.add(val)
                 count += 1
         del sto
-        self.assertTrue(splits >= config.number_of_partitions)
+        self.assertTrue(splits >= config.splits_per_node * 2)
         self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
-    def test_build_remotely_iterkeys_split_fromSO_test(self):
+    def test_build_remotely_keys_split_fromSO_test(self):
         tablename = "tab32"
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + "_words")
@@ -131,11 +131,11 @@ class StorageObjSplitTest(unittest.TestCase):
             id = partition.getID()
             from storage.api import getByID
             rebuild = getByID(id)
-            for val in rebuild.words.iterkeys():
+            for val in rebuild.words.keys():
                 res.add(val)
                 count += 1
         del sto
-        self.assertTrue(splits >= config.number_of_partitions)
+        self.assertTrue(splits >= config.splits_per_node * 2)
         self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
@@ -147,7 +147,7 @@ class StorageObjSplitTest(unittest.TestCase):
         pd = sto.words
 
         ids = len(set(map(lambda x: x._storage_id, pd.split())))
-        self.assertTrue(ids >= config.number_of_partitions)
+        self.assertTrue(ids >= config.splits_per_node * 2)
 
 
 if __name__ == '__main__':

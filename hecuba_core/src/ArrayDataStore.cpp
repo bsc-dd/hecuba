@@ -205,26 +205,6 @@ ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
  */
 void *ArrayDataStore::read(const uint64_t *storage_id, ArrayMetadata *metadata) const {
 
-
-    std::vector<std::map<std::string, std::string> > keysnames = {
-            {{"name", "storage_id"}},
-            {{"name", "cluster_id"}}
-    };
-    std::vector<std::map<std::string, std::string> > colsnames = {
-            {{"name", "block_id"}},
-            {{"name", "payload"}}
-    };
-
-    std::map<std::string, std::string> config;
-    config["cache_size"] = "0";
-    config["writer_par"] = "1";
-    config["writer_buffer"] = "0";
-
-    const TableMetadata *metas = this->read_cache->get_metadata();
-
-    /*CacheTable *read_cache = this->storage->make_cache(metas->get_table_name(), metas->get_keyspace(), keysnames, colsnames,
-                                                  config);
-*/
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
 
@@ -274,6 +254,8 @@ void *ArrayDataStore::read(const uint64_t *storage_id, ArrayMetadata *metadata) 
     void *data = partitions_it->merge_partitions(metadata, all_partitions);
 
     for (const TupleRow *item:all_results) delete (item);
+
+    delete(partitions_it);
 
     return data;
 }

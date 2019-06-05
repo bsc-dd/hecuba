@@ -27,7 +27,7 @@ class ExampleStoragedictClassInitMultiVal(StorageDict):
 
     def __init__(self, **kwargs):
         super(ExampleStoragedictClassInitMultiVal, self).__init__(**kwargs)
-        self.update({(0, 1): ('first position', 'second_position', 1000)})
+        self.update({(0, 1): ['first position', 'second_position', 1000]})
 
 
 class ExampleStoragedictClassNames(StorageDict):
@@ -53,7 +53,7 @@ class ExampleStoragedictClassInitMultiValNames(StorageDict):
 
     def __init__(self, **kwargs):
         super(ExampleStoragedictClassInitMultiValNames, self).__init__(**kwargs)
-        self.update({(0, 1): ('first position', 'second_position', 1000)})
+        self.update({(0, 1): ['first position', 'second_position', 1000]})
 
 
 class ExampleStorageObjClass(StorageObj):

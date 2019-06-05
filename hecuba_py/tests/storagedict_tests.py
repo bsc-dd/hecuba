@@ -5,8 +5,6 @@ from hecuba.hdict import StorageDict
 
 
 class StorageDict_Tests(unittest.TestCase):
-    def setUp(self):
-        Config.reset(mock_cassandra=True)
 
     def test_init(self):
         pass

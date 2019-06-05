@@ -3,7 +3,7 @@
 
 #include "../ArrayDataStore.h"
 
-#include <python2.7/Python.h>
+#include <Python.h>
 #include <climits>
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
@@ -11,7 +11,6 @@
 #define PY_ARRAY_UNIQUE_SYMBOL cool_ARRAY_API
 
 #include "numpy/arrayobject.h"
-
 
 /***
  * Responsible to store a numpy to the keyspace.table_numpies, associating an attribute_name and a storage_id(uuid)

@@ -161,24 +161,6 @@ else ()
 endif ()
 
 
-if (NOT POCO)
-    message("Downloading Poco Libs")
-    unset(POCO) #to avoid name clash
-    ExternalProject_Add(
-            POCO
-            DOWNLOAD_DIR ${CMAKE_CURRENT_LIST_DIR}/dependencies
-            URL https://pocoproject.org/releases/poco-1.7.7/poco-1.7.7.tar.gz
-            URL_HASH SHA1=bdac2ff5cb2bea078cc71f1d85704bbeba7e14c9
-            CMAKE_ARGS ${CMAKE_SUBPROJECT_FLAGS} -DCMAKE_INSTALL_PREFIX=${PROJECT_BINARY_DIR} -DENABLE_CPPUNIT=OFF -DENABLE_XML=OFF -DENABLE_JSON=OFF -DENABLE_MONGODB=OFF -DENABLE_PDF=OFF -DENABLE_UTIL=OFF -DENABLE_NET=OFF -DENABLE_NETSSL=OFF -DENABLE_NETSSL_WIN=OFF -DENABLE_CRYPTO=OFF -DENABLE_DATA=OFF -DENABLE_DATA_SQLITE=OFF -DENABLE_DATA_MYSQL=OFF -DENABLE_DATA_POSTGRESQL=OFF -DENABLE_DATA_ODBC=OFF -DENABLE_SEVENZIP=OFF -DENABLE_ZIP=OFF -DENABLE_APACHECONNECTOR=OFF -DENABLE_CPPPARSER=OFF -DENABLE_POCODOC=OFF -DENABLE_PAGECOMPILER=OFF -DENABLE_PAGECOMPILER_FILE2PAGE=OFF -DENABLE_REDIS=OFF -DENABLE_TESTS=OFF -DENABLE_SAMPLES=OFF -DENABLE_MSVC_MP=OFF
-    )
-    add_dependencies(hfetch POCO)
-    target_link_libraries(hfetch ${PROJECT_BINARY_DIR}/lib/libPocoFoundation.so)
-else ()
-    message(STATUS "Using system's POCO: " ${POCO})
-    set(ALL_LIBS ${ALL_LIBS} ${POCO})
-endif ()
-
-
 if (NOT CASS)
     message("Downloading C++ Cassandra Driver")
     unset(CASS) #to avoid name clash
@@ -253,11 +235,48 @@ if (DEFINED ENV{GTEST_ROOT})
             include_directories(${GTEST_INCLUDE_DIRS})
 
             enable_testing()
+
             add_executable(hfetch_test tests/runtests.cpp)
             set_target_properties(hfetch_test
                     PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
             target_link_libraries(hfetch_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch)
             add_test(test hfetch_test)
+
+            add_executable(cache_imp_test tests/cache_tests.cpp)
+            set_target_properties(cache_imp_test
+                    PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
+            target_link_libraries(cache_imp_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch)
+            add_test(test cache_imp_test)
+
+            find_package(PythonLibs 3 REQUIRED)
+                
+            # Pass newly defined variables to CMake project
+            include_directories(${Python3_NumPy_INCLUDE_DIRS})
+            include_directories(${Python3_INCLUDE_DIRS})
+            set(ALL_LIBS ${ALL_LIBS} ${Python3_LIBRARIES})
+
+
+            file(GLOB COREPY_H_FILES ${CORE_SRC_DIR}/py_interface/*.h)
+            file(GLOB COREPY_SRC_FILES ${CORE_SRC_DIR}/py_interface/*.cpp)
+            set(PY_H_FILES ${COREPY_H_FILES})
+            set(PY_SRC_FILES ${COREPY_SRC_FILES})
+
+            #set(PY_SRC_FILES py_interface/HCache.cpp PythonParser.cpp UnitParser.cpp NumpyStorage.cpp)
+            #set(PY_H_FILES HCache.h PythonParser.h UnitParser.h NumpyStorage.h)
+            add_library(pyinterface SHARED ${PY_SRC_FILES} ${PY_H_FILES})
+            set_target_properties(pyinterface
+                    PROPERTIES PREFIX ""
+                    INSTALL_RPATH "$ORIGIN/"
+                    BUILD_WITH_INSTALL_RPATH 1)
+            target_link_libraries(pyinterface ${ALL_LIBS})
+
+
+            add_executable(py_hfetch_test tests/pytests.cpp)
+            set_target_properties(py_hfetch_test
+                    PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
+            target_link_libraries(py_hfetch_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch pyinterface)
+            add_test(test py_hfetch_test)
+
         else ()
             message(STATUS "If GTest is installed, point the environment var GTEST_ROOT to its root (/home/user/local)")
         endif (GTest_FOUND)

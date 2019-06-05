@@ -8,7 +8,6 @@ class StorageDictTest(unittest.TestCase):
 
     @staticmethod
     def setUpClass():
-        config.reset(mock_cassandra=False)
         config.session.execute(
             "CREATE KEYSPACE IF NOT EXISTS ksp WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};")
 
@@ -69,7 +68,7 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute("CREATE TABLE ksp.tb1(pk1 int, name text,age int,PRIMARY KEY(pk1))")
         pd = StorageDict('ksp.tb1', [('pk1', 'int')], [('name', 'text'), ('age', 'int')])
         for i in range(100):
-            pd[i] = ('ciao' + str(i), i)
+            pd[i] = ['ciao' + str(i), i]
         del pd  # To force hfetch to flush data
         count, = config.session.execute("SELECT count(*) FROM ksp.tb1")[0]
 

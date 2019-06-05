@@ -1,7 +1,7 @@
 #ifndef HFETCH_UNITPARSER_H
 #define HFETCH_UNITPARSER_H
 
-#include <python2.7/Python.h>
+#include <Python.h>
 
 #include <cassert>
 #include <cstring>
@@ -56,10 +56,11 @@ public:
 
     void error_parsing(std::string type, PyObject *obj) const {
         std::string error_message;
-        char *l_temp;
-        Py_ssize_t l_size;
         PyObject *repr = PyObject_Str(obj);
-        if (PyString_AsStringAndSize(repr, &l_temp, &l_size) < 0) {
+        Py_ssize_t l_size;
+        const char *l_temp = PyUnicode_AsUTF8AndSize(repr, &l_size);
+
+        if (l_temp != nullptr) {
             error_message = "Parse from python to c, found sth that can't be represented nor parsed";
         } else
             error_message = "Parse from python to c, expected data type " + type +
@@ -161,6 +162,21 @@ public:
     virtual int16_t py_to_c(PyObject *text, void *payload) const;
 
     virtual PyObject *c_to_py(const void *payload) const;
+};
+
+class TupleParser : public UnitParser {
+
+public:
+
+    TupleParser(const ColumnMeta &CM);
+
+    virtual int16_t py_to_c(PyObject *text, void *payload) const;
+
+    virtual PyObject *c_to_py(const void *payload) const;
+
+private:
+    ColumnMeta col_meta;
+
 };
 
 

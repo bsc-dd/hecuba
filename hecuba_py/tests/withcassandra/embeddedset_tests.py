@@ -1,9 +1,8 @@
 import time
-import os
 import unittest
 
-from hecuba import config
 from hecuba import StorageDict
+from hecuba import config
 
 
 class DictSet(StorageDict):
@@ -11,15 +10,18 @@ class DictSet(StorageDict):
     @TypeSpec dict<<k1:str, k2:int>, s1:set<int, int>>
     '''
 
+
 class DictSet2(StorageDict):
     '''
     @TypeSpec dict<<k1:str, k2:int>, s1:set<str>>
     '''
 
+
 class DictSet3(StorageDict):
     '''
     @TypeSpec dict<<k1:str, k2:int>, s1:set<int>>
     '''
+
 
 class DictSet4(StorageDict):
     '''
@@ -368,7 +370,7 @@ class EmbeddedSetTest(unittest.TestCase):
         self.assertTrue(("1", 1) in l)
         self.assertEqual(4, len(l))
 
-    def testIterItems(self):
+    def testItems(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
         d1 = DictSet3("pruebas0.dictset1")
 
@@ -409,7 +411,7 @@ class EmbeddedSetTest(unittest.TestCase):
         self.assertTrue({8, 7, 6, 5} in l)
         self.assertTrue({4, 3, 2, 1} in l)
 
-    def testIterItemsWithTuples(self):
+    def testItemsWithTuples(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
         d1 = DictSet("pruebas0.dictset1")
 
@@ -588,6 +590,7 @@ class EmbeddedSetTest(unittest.TestCase):
         self.assertEqual(res.name, 'pruebas0.dictset1')
 
         rebuild = StorageDict.build_remotely(res._asdict())
+        self.assertEqual(rebuild._built_remotely, True)
         self.assertEqual('dictset1', rebuild._table)
         self.assertEqual('pruebas0', rebuild._ksp)
         self.assertEqual(res.storage_id, rebuild._storage_id)

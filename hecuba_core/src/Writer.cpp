@@ -9,7 +9,14 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
 
     int32_t buff_size = default_writer_buff;
     int32_t max_callbacks = default_writer_callbacks;
+    this->disable_timestamps = false;
 
+    if (config.find("timestamped_writes") != config.end()) {
+        std::string check_timestamps = config["timestamped_writes"];
+        std::transform(check_timestamps.begin(), check_timestamps.end(), check_timestamps.begin(), ::tolower);
+        if (check_timestamps == "false" || check_timestamps == "no")
+            disable_timestamps = true;
+    }
 
     if (config.find("writer_par") != config.end()) {
         std::string max_callbacks_str = config["writer_par"];
@@ -51,6 +58,7 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
     this->max_calls = (uint32_t) max_callbacks;
     this->ncallbacks = 0;
     this->error_count = 0;
+    this->timestamp_gen = TimestampGenerator();
 }
 
 
@@ -62,6 +70,11 @@ Writer::~Writer() {
     }
     delete (this->k_factory);
     delete (this->v_factory);
+}
+
+
+void Writer::set_timestamp_gen(TimestampGenerator &time_gen) {
+    this->timestamp_gen = time_gen;
 }
 
 
@@ -94,7 +107,6 @@ void Writer::callback(CassFuture *future, void *ptr) {
         W->call_async();
     }
     free(data);
-
 }
 
 
@@ -119,7 +131,7 @@ void Writer::set_error_occurred(std::string error, const void *keys_p, const voi
     this->k_factory->bind(statement, keys, 0);
     this->v_factory->bind(statement, values, this->k_factory->n_elements());
 
-
+    if (!this->disable_timestamps) cass_statement_set_timestamp(statement, keys->get_timestamp());
     CassFuture *query_future = cass_session_execute(session, statement);
 
     cass_statement_free(statement);
@@ -134,7 +146,10 @@ void Writer::set_error_occurred(std::string error, const void *keys_p, const voi
 
 
 void Writer::write_to_cassandra(const TupleRow *keys, const TupleRow *values) {
-    std::pair<const TupleRow *, const TupleRow *> item = std::make_pair(new TupleRow(keys), new TupleRow(values));
+    TupleRow *queued_keys = new TupleRow(keys);
+    if (!disable_timestamps) queued_keys->set_timestamp(timestamp_gen.next()); // Set write time
+
+    std::pair<const TupleRow *, const TupleRow *> item = std::make_pair(queued_keys, new TupleRow(values));
     data.push(item);
     if (ncallbacks < max_calls) {
         ncallbacks++;
@@ -161,10 +176,12 @@ void Writer::call_async() {
 
     CassStatement *statement = cass_prepared_bind(prepared_query);
 
-
     this->k_factory->bind(statement, item.first, 0);
     this->v_factory->bind(statement, item.second, this->k_factory->n_elements());
 
+    if (!this->disable_timestamps) {
+        cass_statement_set_timestamp(statement, item.first->get_timestamp());
+    }
 
     CassFuture *query_future = cass_session_execute(session, statement);
     cass_statement_free(statement);

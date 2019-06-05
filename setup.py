@@ -1,14 +1,10 @@
 #!/usr/bin/env python
-from __future__ import print_function
-
+from setuptools import setup, find_packages, Extension
 import os
 import subprocess
 import sys
 import glob
 import numpy
-
-import setuptools.command.build_py
-from setuptools import setup, find_packages, Extension
 
 
 def package_files(directory):
@@ -26,7 +22,7 @@ def cmake_build():
             raise EnvironmentError("error calling cmake")
     except OSError as e:
         if e.errno == os.errno.ENOENT:
-        # CMake not found error.
+            # CMake not found error.
             raise OSError(os.errno.ENOENT, os.strerror(os.errno.ENOENT), 'cmake')
         else:
             # Different error
@@ -35,20 +31,22 @@ def cmake_build():
     if subprocess.call(["make", "-j4", "-C", "./build"]) != 0:
         raise EnvironmentError("error calling make build")
 
+
 #    if subprocess.call(["make", "-j4", "-C", "./build", "install"]) != 0:
 #        raise EnvironmentError("error calling make install")
 
 
 extensions = [
     Extension(
-        "hecuba.hfetch",
-        sources = glob.glob("hecuba_core/src/py_interface/*.cpp"),
-        include_dirs=['hecuba_core/src/','build/include',numpy.get_include()],
-        libraries=['hfetch','cassandra'],
-        library_dirs=['build/lib','build/lib64'],
-        extra_link_args = ['-Wl,-rpath=$ORIGIN/..']
-        ),
+        "hfetch",
+        sources=glob.glob("hecuba_core/src/py_interface/*.cpp"),
+        include_dirs=['hecuba_core/src/', 'build/include', numpy.get_include()],
+        libraries=['hfetch', 'cassandra'],
+        library_dirs=['build/lib', 'build/lib64'],
+        extra_link_args=['-Wl,-rpath=$ORIGIN']
+    ),
 ]
+
 
 def setup_packages():
     # We first build C++ libraries
@@ -64,11 +62,10 @@ def setup_packages():
 
     # compute which libraries were built
     metadata = dict(name="Hecuba",
-                    version="0.1",
-                    package_dir = {'hecuba': 'hecuba_py/src','storage':'storageAPI/storage'},
+                    version="0.1.3",
+                    package_dir={'hecuba': 'hecuba_py/hecuba', 'storage': 'storageAPI/storage'},
                     packages=['hecuba', 'storage'],  # find_packages(),
-
-                    # install_requires=['nose', 'cassandra-driver', 'mock'],
+                    install_requires=['cassandra-driver>=3.7.1', 'numpy>=1.16'],
                     zip_safe=False,
                     data_files=[('', extra_files)],
 
@@ -77,13 +74,13 @@ def setup_packages():
                     keywords="key-value, scientific computing",
                     description='Hecuba',
                     author='Guillem Alomar, Yolanda Becerra, Cesare Cugnasco, Pol Santamaria',
-                    author_email='{yolanda.becerra,cesare.cugnasco,pol.santamaria}@bsc.es',
+                    author_email='yolanda.becerra@bsc.es,cesare.cugnasco@bsc.es,pol.santamaria@bsc.es',
                     url='https://www.bsc.es',
                     long_description='''Hecuba.''',
                     #   test_suite='nose.collector',
                     #    tests_require=['nose'],
-                    ext_modules = extensions
-                    
+                    ext_modules=extensions
+
                     )
 
     setup(**metadata)
