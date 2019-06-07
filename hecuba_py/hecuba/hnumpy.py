@@ -34,8 +34,12 @@ class StorageNumpy(np.ndarray, IStorage):
     def __new__(cls, input_array=None, storage_id=None, name=None, built_remotely=False, **kwargs):
 
         if input_array is None and name and storage_id is not None:
-            result = cls.load_array(storage_id, name)
+            #result = cls.load_array(storage_id, name)
+            result = cls.get_numpy_array(storage_id, name)
+            # call get_item and retrieve the result
+            res = cls.__getitem__(result, [(1, 2), (3, 4)])
             input_array = result[0]
+            input_array = res
             obj = np.asarray(input_array).view(cls)
             obj._is_persistent = True
             (obj._ksp, obj._table) = _extract_ks_tab(name)
@@ -110,6 +114,34 @@ class StorageNumpy(np.ndarray, IStorage):
             return [result[0], hcache, hcache_params]
         else:
             raise KeyError
+
+    @staticmethod
+    def get_numpy_array(storage_id, name):
+        '''Provides a numpy array with the number of elements obtained through storage_id'''
+
+        (ksp, table) = _extract_ks_tab(name)
+        hcache_params = (ksp, table + '_numpies',
+                         storage_id, [], ['storage_id', 'cluster_id', 'block_id'],
+                         [{'name': "payload", 'type': 'numpy'}],
+                         {'cache_size': config.max_cache_size,
+                          'writer_par': config.write_callbacks_number,
+                          'write_buffer': config.write_buffer_size,
+                          'timestamped_writes': config.timestamped_writes})
+        hcache = HNumpyStore(*hcache_params)
+        result = hcache.get_reserved_numpy([storage_id])
+        return [result, hcache, hcache_params]
+
+
+    def __getitem__(self, res, coordinates):
+        log.info("RETRIEVING NUMPY")
+        coordinates = [[coord.start, coord.stop] for coord in coordinates]
+        input_array = res[0]
+        hcache = res[1]
+        result = hcache.get_numpy_from_coordinates(input_array, coordinates)
+        return result
+
+
+
 
     def make_persistent(self, name):
         if self._is_persistent:

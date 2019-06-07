@@ -196,7 +196,70 @@ ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
     return arr_metas;
 }
 
+void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *metadata, std::vector<std::pair<int,int> > coord) const {
+    std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
+    uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
 
+    std::vector<const TupleRow *> result, all_results;
+    std::vector<Partition> all_partitions;
+
+    uint64_t *c_uuid = nullptr;
+    char *buffer = nullptr;
+    int32_t cluster_id = 0, cluster_id1 = 0, cluster_id2 = 0, offset = 0;
+    int32_t *block = nullptr;
+    int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
+
+    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata,
+                                                                                                         nullptr);
+    //Convert
+    int count;
+    for(int i = 0; i < coord.size(); ++i) {
+        cluster_id1 = std::ceil(coord[i].first / (BLOCK_SIZE * 4));
+        cluster_id2 = std::ceil(coord[i].second / (BLOCK_SIZE * 4));
+        count = 0;
+        while (count < cluster_id1) {
+            partitions_it->computeNextClusterId();
+            ++count;
+        }
+        count = 0;
+        while (count != cluster_id2) {
+            cluster_id = partitions_it->computeNextClusterId();
+            buffer = (char *) malloc(keys_size);
+            //UUID
+            c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
+            //[0] time_and_version;
+            //[1] clock_seq_and_node;
+            memcpy(buffer, &c_uuid, sizeof(uint64_t *));
+            offset = sizeof(uint64_t *);
+            //Cluster id
+            memcpy(buffer + offset, &cluster_id, sizeof(cluster_id));
+            //We fetch the data
+            result = read_cache->get_crow(new TupleRow(keys_metas, keys_size, buffer));
+            //build cluster
+            all_results.insert(all_results.end(), result.begin(), result.end());
+            for (const TupleRow *row:result) {
+                block = (int32_t *) row->get_element(0);
+                char **chunk = (char **) row->get_element(1);
+                all_partitions.emplace_back(
+                        Partition((uint32_t) cluster_id + half_int, (uint32_t) *block + half_int, *chunk));
+            }
+            ++count;
+        }
+    }
+
+    if (all_partitions.empty()) {
+        throw ModuleException("no npy found on sys");
+    }
+
+    void *data = partitions_it->merge_partitions(metadata, all_partitions);
+
+    for (const TupleRow *item:all_results) delete (item);
+
+    delete(partitions_it);
+
+    return data;
+
+}
 
 /***
  * Reads a numpy ndarray by fetching the clusters indipendently

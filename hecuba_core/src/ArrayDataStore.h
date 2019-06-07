@@ -6,8 +6,7 @@
 #include "CacheTable.h"
 
 #include <climits>
-
-
+#include <list>
 
 class ArrayDataStore {
 
@@ -27,7 +26,7 @@ public:
 
     // Overwrite the metadata of the array identified by the given storage_id
     void update_metadata(const uint64_t *storage_id, ArrayMetadata* metadata) const;
-
+    void *read_n_coord(const uint64_t *storage_id, ArrayMetadata *metadata, std::vector<std::pair<int,int> > coord) const;
 
 private:
 

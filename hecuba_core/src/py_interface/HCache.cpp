@@ -485,6 +485,39 @@ static PyObject *save_numpy(HNumpyStore *self, PyObject *args) {
     Py_RETURN_NONE;
 }
 
+static PyObject *get_reserved_numpy(HNumpyStore *self, PyObject *args) {
+    PyObject *py_keys;
+    if (!PyArg_ParseTuple(args, "O", &py_keys)) {
+        return NULL;
+    }
+
+    for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
+        if (PyList_GetItem(py_keys, key_i) == Py_None) {
+            std::string error_msg = "Keys can't be None, key_position: " + std::to_string(key_i);
+            PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+            return NULL;
+        }
+    }
+
+    // Only one uuid as a key
+    if (PyList_Size(py_keys) != 1) {
+        std::string error_msg = "Only one uuid as a key can be passed";
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    };
+
+    const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
+
+    PyObject *numpy;
+    try{
+        numpy = self->NumpyDataStore->reserve_numpy_space(storage_id);
+    }
+    catch (std::exception &e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    return numpy;
+}
 
 static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
     PyObject *py_keys;
@@ -524,6 +557,44 @@ static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
     PyList_SetItem(result_list, 0, numpy ? numpy : Py_None);
     return result_list;
 }
+
+static PyObject *get_numpy_from_coordinates(HNumpyStore *self, PyObject *args) {
+    //We need to include the numpy key in the parameters list, results -> reserved numpy
+    PyObject *coord;
+    PyObject *py_keys;
+    if (!PyArg_ParseTuple(args, "O", &py_keys)) {
+        return NULL;
+    }
+
+    for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
+        if (PyList_GetItem(py_keys, key_i) == Py_None) {
+            std::string error_msg = "Keys can't be None, key_position: " + std::to_string(key_i);
+            PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+            return NULL;
+        }
+    }
+    if (!PyArg_ParseTuple(args, "O!", &PyList_Type, &coord)) {
+        PyErr_SetString(PyExc_TypeError, "Parameter must be a list");
+        return NULL;
+    }
+
+    const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
+
+    PyObject *reserved_array; //We need to include the reserved array in the parameters of the function, not here
+    try{
+        reserved_array = self->NumpyDataStore->coord_list_to_numpy(storage_id, coord); //i suppose we need storageid as the identifier of the data
+    }
+    catch (std::exception &e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+
+    PyObject *result_list = PyList_New(1);
+    PyList_SetItem(result_list, 0, reserved_array ? reserved_array : Py_None);
+    return result_list;
+}
+
+
 
 
 static void hnumpy_store_dealloc(HNumpyStore *self) {
@@ -649,6 +720,8 @@ static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) 
 static PyMethodDef hnumpy_store_type_methods[] = {
         {"get_numpy",  (PyCFunction) get_numpy,  METH_VARARGS, NULL},
         {"save_numpy", (PyCFunction) save_numpy, METH_VARARGS, NULL},
+        {"get_reserved_numpy", (PyCFunction) get_reserved_numpy, METH_VARARGS, NULL},
+        {"get_numpy_from_coordinates", (PyCFunction) get_numpy_from_coordinates, METH_VARARGS, NULL},
         {NULL, NULL, 0,                                        NULL}
 };
 

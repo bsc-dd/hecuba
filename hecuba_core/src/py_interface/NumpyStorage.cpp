@@ -25,6 +25,71 @@ void NumpyStorage::store_numpy(const uint64_t *storage_id, PyArrayObject *numpy)
     delete (np_metas);
 }
 
+PyObject *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject *coord) {
+    ArrayMetadata *np_metas = this->read_metadata(storage_id);
+    npy_intp *dims = new npy_intp[np_metas->dims.size()];
+
+    std::vector<std::pair<int,int> > crd;
+    PyObject *coord_list;
+    unsigned int coo1, coo2;
+    for(int i = 0; i < PyList_Size(coord); ++i) {
+        if (!PyArg_ParseTuple(PyList_GetItem(coord, i), "O!", &PyList_Type, &coord_list) &&
+            PyList_Size(coord_list) > 2) {
+            PyErr_SetString(PyExc_TypeError, "parameter must be a list.");
+            return NULL;
+        }
+
+        if (!PyArg_ParseTuple(PyList_GetItem(coord_list, 0), "i", &coo1) ||
+            !PyArg_ParseTuple(PyList_GetItem(coord_list, 1), "i", &coo2)) {
+            PyErr_SetString(PyExc_TypeError, "parameter must be a list.");
+            return NULL;
+        }
+        crd[i] = std::make_pair(coo1,coo2);
+    }
+
+    void *data = this->read_n_coord(storage_id, np_metas, crd);
+
+    for (uint32_t i = 0; i < np_metas->dims.size(); ++i) {
+        dims[i] = np_metas->dims[i];
+    }
+
+    PyObject * result;
+    try {
+        result = PyArray_SimpleNewFromData((int32_t) np_metas->dims.size(), dims, np_metas->inner_type, data);
+
+        PyArrayObject *converted_array;
+        PyArray_OutputConverter(result, &converted_array);
+        PyArray_ENABLEFLAGS(converted_array, NPY_ARRAY_OWNDATA);
+    }
+    catch (std::exception e) {
+        if (PyErr_Occurred()) PyErr_Print();
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    return result;
+}
+
+PyObject *NumpyStorage::reserve_numpy_space(const uint64_t *storage_id) {
+    ArrayMetadata *np_metas = this->read_metadata(storage_id);
+    npy_intp *dims = new npy_intp[np_metas->dims.size()];
+    for (uint32_t i = 0; i < np_metas->dims.size(); ++i) {
+        dims[i] = np_metas->dims[i];
+    }
+    PyObject *resulting_array;
+    try {
+        resulting_array = PyArray_SimpleNew((int32_t) np_metas->dims.size(), dims, np_metas->inner_type);
+        PyArrayObject *converted_array;
+        PyArray_OutputConverter(resulting_array, &converted_array);
+        PyArray_ENABLEFLAGS(converted_array, NPY_ARRAY_OWNDATA);
+    }
+    catch (std::exception e) {
+        if (PyErr_Occurred()) PyErr_Print();
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    delete (np_metas);
+    return resulting_array;
+}
 
 /***
  * Reads a numpy ndarray by fetching the clusters indipendently
