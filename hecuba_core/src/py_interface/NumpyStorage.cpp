@@ -28,35 +28,23 @@ void NumpyStorage::store_numpy(const uint64_t *storage_id, PyArrayObject *numpy)
 PyObject *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject *coord) {
     ArrayMetadata *np_metas = this->read_metadata(storage_id);
     npy_intp *dims = new npy_intp[np_metas->dims.size()];
-
     std::vector<std::pair<int,int> > crd;
-    PyObject *coord_list;
-    unsigned int coo1, coo2;
-    for(int i = 0; i < PyList_Size(coord); ++i) {
-        if (!PyArg_ParseTuple(PyList_GetItem(coord, i), "O!", &PyList_Type, &coord_list) &&
-            PyList_Size(coord_list) > 2) {
-            PyErr_SetString(PyExc_TypeError, "parameter must be a list.");
-            return NULL;
+    if (PyList_Check(coord)) {
+        for (Py_ssize_t i = 0; i < PyList_Size(coord); i++) {
+            PyObject *value = PyList_GetItem(coord, i);
+            for (Py_ssize_t j = 0; j < PyList_Size(value); j = j + 2) {
+                crd.push_back(std::make_pair(PyLong_AsLong(PyList_GetItem(value, j)), PyLong_AsLong(PyList_GetItem(value, j+1))));
+            }
         }
-
-        if (!PyArg_ParseTuple(PyList_GetItem(coord_list, 0), "i", &coo1) ||
-            !PyArg_ParseTuple(PyList_GetItem(coord_list, 1), "i", &coo2)) {
-            PyErr_SetString(PyExc_TypeError, "parameter must be a list.");
-            return NULL;
-        }
-        crd[i] = std::make_pair(coo1,coo2);
     }
-
-    void *data = this->read_n_coord(storage_id, np_metas, crd);
-
+    else PyErr_SetString(PyExc_TypeError, "coord is not a PyList");
+    void *numpy_data = this->read_n_coord(storage_id, np_metas, crd);
     for (uint32_t i = 0; i < np_metas->dims.size(); ++i) {
         dims[i] = np_metas->dims[i];
     }
-
     PyObject * result;
     try {
-        result = PyArray_SimpleNewFromData((int32_t) np_metas->dims.size(), dims, np_metas->inner_type, data);
-
+        result = PyArray_SimpleNewFromData((int32_t) np_metas->dims.size(), dims, np_metas->inner_type, numpy_data);
         PyArrayObject *converted_array;
         PyArray_OutputConverter(result, &converted_array);
         PyArray_ENABLEFLAGS(converted_array, NPY_ARRAY_OWNDATA);

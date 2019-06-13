@@ -490,7 +490,7 @@ static PyObject *get_reserved_numpy(HNumpyStore *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, "O", &py_keys)) {
         return NULL;
     }
-
+    std::cout << "size of aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa " << PyList_Size(py_keys);
     for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
         if (PyList_GetItem(py_keys, key_i) == Py_None) {
             std::string error_msg = "Keys can't be None, key_position: " + std::to_string(key_i);
@@ -560,11 +560,26 @@ static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
 
 static PyObject *get_numpy_from_coordinates(HNumpyStore *self, PyObject *args) {
     //We need to include the numpy key in the parameters list, results -> reserved numpy
-    PyObject *coord;
-    PyObject *py_keys;
-    if (!PyArg_ParseTuple(args, "O", &py_keys)) {
+
+    PyObject *py_keys, *py_store, *py_coord;
+    if (!PyArg_ParseTuple(args, "OOO", &py_keys, &py_coord, &py_store)) {
         return NULL;
     }
+
+    // Only one uuid as a key
+    if (PyList_Size(py_keys) != 1) {
+        std::string error_msg = "Only one uuid as a key can be passed";
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    };
+
+    // Only one numpy as a value
+    if (PyList_Size(py_store) != 1) {
+        std::string error_msg = "Only one numpy can be saved at once";
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    };
+
 
     for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
         if (PyList_GetItem(py_keys, key_i) == Py_None) {
@@ -573,29 +588,20 @@ static PyObject *get_numpy_from_coordinates(HNumpyStore *self, PyObject *args) {
             return NULL;
         }
     }
-    if (!PyArg_ParseTuple(args, "O!", &PyList_Type, &coord)) {
-        PyErr_SetString(PyExc_TypeError, "Parameter must be a list");
-        return NULL;
-    }
 
     const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
-
-    PyObject *reserved_array; //We need to include the reserved array in the parameters of the function, not here
+    std::cout << "COORD LIST TO NUMPY" << std::endl;
     try{
-        reserved_array = self->NumpyDataStore->coord_list_to_numpy(storage_id, coord); //i suppose we need storageid as the identifier of the data
+        py_store = self->NumpyDataStore->coord_list_to_numpy(storage_id, py_coord); //i suppose we need storageid as the identifier of the data
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
-
     PyObject *result_list = PyList_New(1);
-    PyList_SetItem(result_list, 0, reserved_array ? reserved_array : Py_None);
+    PyList_SetItem(result_list, 0, py_store ? py_store : Py_None);
     return result_list;
 }
-
-
-
 
 static void hnumpy_store_dealloc(HNumpyStore *self) {
     delete(self->NumpyDataStore);

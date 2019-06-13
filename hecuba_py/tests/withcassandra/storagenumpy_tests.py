@@ -1,9 +1,14 @@
 import unittest
 
-from hecuba import config, StorageNumpy
+from hecuba import config, StorageNumpy, StorageObj
 import uuid
 import numpy as np
 
+class TestStorageObjNumpy(StorageObj):
+    '''
+       @ClassField mynumpy numpy.ndarray
+    '''
+    pass
 
 class StorageNumpyTest(unittest.TestCase):
     table = 'numpy_test'
@@ -33,6 +38,26 @@ class StorageNumpyTest(unittest.TestCase):
         for typecode in np.typecodes['UnsignedInteger']:
             typed_array = StorageNumpy(base_array.astype(typecode), storage_id, tablename)
             self.assertTrue(np.array_equal(typed_array, base_array.astype(typecode)))
+
+    def test_numpy_reserved(self):
+        sizea, sizeb = (100, 100)
+        no = TestStorageObjNumpy("my_app.numpy_test_%d_%d" % (sizea, sizeb))
+        a = np.ones((sizea, sizeb))
+        base_array = np.arange(40000)
+        no.mynumpy = base_array
+
+
+        tablename = 'my_app.numpy_test_100_100'
+
+        for typecode in np.typecodes['Integer']:
+            if typecode == 'p':
+                # TODO For now skip arrays made of pointers
+                pass
+            storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, tablename)
+            typed_array = StorageNumpy(base_array.astype(typecode), storage_id, tablename)
+
+        a = None
+
 
     def test_types_persistence(self):
         base_array = np.arange(256)

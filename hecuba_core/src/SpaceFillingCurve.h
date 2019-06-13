@@ -61,6 +61,8 @@ public:
 
         virtual int32_t computeNextClusterId() = 0;
 
+        virtual void simpleNextClusterId() = 0;
+
         virtual void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks) = 0;
 
     };
@@ -81,6 +83,8 @@ protected:
         Partition getNextPartition();
 
         int32_t computeNextClusterId();
+
+        void simpleNextClusterId();
 
         bool isDone() { return done; };
 
@@ -105,6 +109,8 @@ public:
     Partition getNextPartition();
 
     int32_t computeNextClusterId();
+
+    void simpleNextClusterId();
 
     bool isDone() {
         if (block_counter >= nblocks) done = true;

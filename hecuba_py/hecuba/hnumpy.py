@@ -34,11 +34,10 @@ class StorageNumpy(np.ndarray, IStorage):
     def __new__(cls, input_array=None, storage_id=None, name=None, built_remotely=False, **kwargs):
 
         if input_array is None and name and storage_id is not None:
-            #result = cls.load_array(storage_id, name)
+            # result = cls.load_array(storage_id, name)
             result = cls.get_numpy_array(storage_id, name)
             # call get_item and retrieve the result
-            res = cls.__getitem__(result, [(1, 2), (3, 4)])
-            input_array = result[0]
+            res = cls.getitem([slice(1, 20002, None), slice(20003,20004,None)], result, storage_id )
             input_array = res
             obj = np.asarray(input_array).view(cls)
             obj._is_persistent = True
@@ -131,16 +130,18 @@ class StorageNumpy(np.ndarray, IStorage):
         result = hcache.get_reserved_numpy([storage_id])
         return [result, hcache, hcache_params]
 
-
-    def __getitem__(self, res, coordinates):
+    @staticmethod
+    def getitem(coordinates, res, storage_id):
         log.info("RETRIEVING NUMPY")
+
         coordinates = [[coord.start, coord.stop] for coord in coordinates]
+        print(coordinates)
         input_array = res[0]
         hcache = res[1]
-        result = hcache.get_numpy_from_coordinates(input_array, coordinates)
+        print([storage_id])
+        result = hcache.get_numpy_from_coordinates([storage_id], coordinates, [input_array])
+
         return result
-
-
 
 
     def make_persistent(self, name):
