@@ -40,20 +40,28 @@ class StorageNumpyTest(unittest.TestCase):
             self.assertTrue(np.array_equal(typed_array, base_array.astype(typecode)))
 
     def test_numpy_reserved(self):
+
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_40000;")
         size = 40000
         no = TestStorageObjNumpy("my_app.numpy_test_%d" % size)
         base_array = np.arange(40000)
         no.mynumpy = base_array
         tablename = "my_app.numpy_test_%d" % size
-        typed_array = None
-        for typecode in np.typecodes['Integer']:
-            if typecode == 'p':
-                # TODO For now skip arrays made of pointers
-                pass
-            storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, tablename)
-            coord = [slice(20000, 21000, None), slice(22000, 35001, None)]
-            typed_array = StorageNumpy(base_array.astype(typecode), storage_id, tablename, coord, False)
-        a = None
+
+        myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % size)
+        chunk = myobj2.mynumpy[slice(20000, 21000, None)]
+         #, slice(22000, 35001, None)]
+
+
+        #typed_array = None
+        #for typecode in np.typecodes['Integer']:
+            # if typecode == 'p':
+            #     # TODO For now skip arrays made of pointers
+            #     pass
+            # storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, tablename)
+            # coord = [slice(20000, 21000, None), slice(22000, 35001, None)]
+            # typed_array = StorageNumpy(base_array.astype(typecode), storage_id, tablename, coordinates=coord)
+        
 
     def test_types_persistence(self):
         base_array = np.arange(256)

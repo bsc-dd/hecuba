@@ -32,7 +32,7 @@ class StorageNumpy(np.ndarray, IStorage):
     args_names = ["storage_id", "class_name", "name", "shape", "dtype", "block_id", "coordinates", "built_remotely"]
     args = namedtuple('StorageNumpyArgs', args_names)
 
-    def __new__(cls, input_array=None, storage_id=None, name=None, coordinates=None, built_remotely=False, **kwargs):
+    def __new__(cls, input_array=None, storage_id=None, name=None, built_remotely=False, **kwargs):
 
         if input_array is None and name and storage_id is not None:
 
@@ -43,8 +43,6 @@ class StorageNumpy(np.ndarray, IStorage):
             obj._hcache_params = result[2]
             obj._storage_id = storage_id
             # call get_item and retrieve the result
-            res = obj.__getitem__([slice(20000,21000,None), slice(22000, 35001, None)])
-            obj._input_array = res
             obj._is_persistent = True
             (obj._ksp, obj._table) = _extract_ks_tab(name)
             obj._storage_id = storage_id
@@ -135,9 +133,12 @@ class StorageNumpy(np.ndarray, IStorage):
 
     def __getitem__(self, key):
         log.info("RETRIEVING NUMPY")
-        coordinates = [[coord.start, coord.stop] for coord in key]
-        result = self._hcache.get_numpy_from_coordinates([self._storage_id], coordinates, [self._input_array])
-        return result
+        if isinstance(key, slice):
+            coordinates = [[key.start, key.stop]]
+        else:
+            coordinates = [[coord.start, coord.stop] for coord in key]
+        self._hcache.get_numpy_from_coordinates([self._storage_id], coordinates, [self.view(np.ndarray)])
+        return super(StorageNumpy, self).__getitem__(key)
 
 
     @staticmethod
