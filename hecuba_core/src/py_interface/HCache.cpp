@@ -490,7 +490,6 @@ static PyObject *get_reserved_numpy(HNumpyStore *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, "O", &py_keys)) {
         return NULL;
     }
-    std::cout << "size of aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa " << PyList_Size(py_keys);
     for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
         if (PyList_GetItem(py_keys, key_i) == Py_None) {
             std::string error_msg = "Keys can't be None, key_position: " + std::to_string(key_i);

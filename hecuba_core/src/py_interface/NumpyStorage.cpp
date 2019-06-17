@@ -38,6 +38,7 @@ PyObject *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject
         }
     }
     else PyErr_SetString(PyExc_TypeError, "coord is not a PyList");
+    std::cout << "TAMAÑO DATOS META: " << np_metas->elem_size << std::endl;
     void *numpy_data = this->read_n_coord(storage_id, np_metas, crd);
     for (uint32_t i = 0; i < np_metas->dims.size(); ++i) {
         dims[i] = np_metas->dims[i];

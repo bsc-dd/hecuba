@@ -18,8 +18,9 @@ class StorageNumpy(np.ndarray, IStorage):
     _storage_id = None
     _build_args = None
     _class_name = None
+    _coordinates = None
+    _input_array = None
     _hcache_params = None
-    _hcache = None
     _is_persistent = False
     _ksp = ""
     _table = ""
@@ -28,22 +29,24 @@ class StorageNumpy(np.ndarray, IStorage):
                                                   '(storage_id, class_name, name, numpy_meta)'
                                                   'VALUES (?,?,?,?)')
 
-    args_names = ["storage_id", "class_name", "name", "shape", "dtype", "block_id", "built_remotely"]
+    args_names = ["storage_id", "class_name", "name", "shape", "dtype", "block_id", "coordinates", "built_remotely"]
     args = namedtuple('StorageNumpyArgs', args_names)
 
-    def __new__(cls, input_array=None, storage_id=None, name=None, built_remotely=False, **kwargs):
+    def __new__(cls, input_array=None, storage_id=None, name=None, coordinates=None, built_remotely=False, **kwargs):
 
         if input_array is None and name and storage_id is not None:
+
             # result = cls.load_array(storage_id, name)
             result = cls.get_numpy_array(storage_id, name)
-            # call get_item and retrieve the result
-            res = cls.getitem([slice(1, 20002, None), slice(20003,20004,None)], result, storage_id )
-            input_array = res
-            obj = np.asarray(input_array).view(cls)
-            obj._is_persistent = True
-            (obj._ksp, obj._table) = _extract_ks_tab(name)
+            obj = np.asarray(result[0]).view(cls)
             obj._hcache = result[1]
             obj._hcache_params = result[2]
+            obj._storage_id = storage_id
+            # call get_item and retrieve the result
+            res = obj.__getitem__([slice(20000,21000,None), slice(22000, 35001, None)])
+            obj._input_array = res
+            obj._is_persistent = True
+            (obj._ksp, obj._table) = _extract_ks_tab(name)
             obj._storage_id = storage_id
         elif not name and storage_id is not None:
             raise RuntimeError("hnumpy received storage id but not a name")
@@ -130,17 +133,22 @@ class StorageNumpy(np.ndarray, IStorage):
         result = hcache.get_reserved_numpy([storage_id])
         return [result, hcache, hcache_params]
 
+    def __getitem__(self, key):
+        log.info("RETRIEVING NUMPY")
+        coordinates = [[coord.start, coord.stop] for coord in key]
+        result = self._hcache.get_numpy_from_coordinates([self._storage_id], coordinates, [self._input_array])
+        return result
+
+
     @staticmethod
     def getitem(coordinates, res, storage_id):
         log.info("RETRIEVING NUMPY")
-
         coordinates = [[coord.start, coord.stop] for coord in coordinates]
         print(coordinates)
         input_array = res[0]
         hcache = res[1]
         print([storage_id])
         result = hcache.get_numpy_from_coordinates([storage_id], coordinates, [input_array])
-
         return result
 
 
@@ -155,7 +163,7 @@ class StorageNumpy(np.ndarray, IStorage):
             self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table + '_numpies')
 
         self._build_args = self.args(self._storage_id, self._class_name, self._ksp + '.' + self._table,
-                                     self.shape, self.dtype.num, self._block_id, self._built_remotely)
+                                     self.shape, self.dtype.num, self._block_id, self._coordinates, self._built_remotely)
 
         if not self._built_remotely:
             log.info("PERSISTING DATA INTO %s %s", self._ksp, self._table)

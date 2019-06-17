@@ -83,7 +83,6 @@ ZorderCurveGenerator::ZorderCurveGenerator(const ArrayMetadata *metas, void *dat
 
     //Compute the final block size
     block_size = (uint64_t) pow(row_elements, ndims) * metas->elem_size;
-
     //Compute the number of blocks
     nblocks = 1;
     blocks_dim = std::vector<uint32_t>(ndims);
@@ -276,6 +275,8 @@ void ZorderCurveGenerator::simpleNextClusterId() {
 
 
 int32_t ZorderCurveGenerator::computeNextClusterId() {
+
+
     if (done || block_counter == nblocks) {
         done = true;
         return CLUSTER_END_FLAG;
@@ -283,6 +284,7 @@ int32_t ZorderCurveGenerator::computeNextClusterId() {
 
     std::vector<uint32_t> block_ccs = getIndexes(block_counter, blocks_dim);
     uint64_t zorder_id = computeZorder(block_ccs);
+    //++block_counter;
     
     // Every cluster is made of 2^CLUSTER_SIZE blocks, we can skip these blocks
     simpleNextClusterId();

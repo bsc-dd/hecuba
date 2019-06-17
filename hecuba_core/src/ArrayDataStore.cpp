@@ -220,19 +220,20 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
     //Convert
     int count = 0;
     for(int i = 0; i < coord.size(); ++i) {
-        double ci1 = (double) coord[i].first / (double) (BLOCK_SIZE * CLUSTER_SIZE* CLUSTER_SIZE);
-        double ci2 = (double) coord[i].second / (double) (BLOCK_SIZE *CLUSTER_SIZE* CLUSTER_SIZE);
+        double ci1 = (double) coord[i].first / (double) (BLOCK_SIZE * CLUSTER_SIZE * CLUSTER_SIZE);
+        double ci2 = (double) coord[i].second / (double) (BLOCK_SIZE * CLUSTER_SIZE * CLUSTER_SIZE);
         cluster_id1 = std::floor(ci1);
         cluster_id2 = std::floor(ci2);
-        std::cout << "cluster_id1: " <<  cluster_id1 << " " << "cluster_id2: " << cluster_id2;
         while (count < cluster_id1) { //lets suppose the vector of coords is sorted
             partitions_it->simpleNextClusterId();
             ++count;
             std::cout << "NEXT CLUSTER: " << count << std::endl;
         }
+        std::cout << "---CLUSTER 2: " << cluster_id2 << std::endl;
+        std::cout << "---COUNT: " << count << std::endl;
         while (count <= cluster_id2) { //get data until coord1 == coord2 <= [coord1, coord2]
             cluster_id = partitions_it->computeNextClusterId();
-            std::cout << "Cluster id: " << cluster_id;
+            std::cout << "Cluster id: " << cluster_id << std::endl;
             buffer = (char *) malloc(keys_size);
             //UUID
             c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
@@ -244,19 +245,16 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
             memcpy(buffer + offset, &cluster_id, sizeof(cluster_id));
             //We fetch the data
             result = read_cache->get_crow(new TupleRow(keys_metas, keys_size, buffer));
-            std::cout << "la mida es: " << result.size() << std::endl;
             //build cluster
             all_results.insert(all_results.end(), result.begin(), result.end());
             for (const TupleRow *row:result) {
                 block = (int32_t *) row->get_element(0);
-                std::cout << "el bloque: " << (int32_t *) *block << std::endl;
                 char **chunk = (char **) row->get_element(1);
-                std::cout << "chunk: " << *chunk << std::endl;
                 all_partitions.emplace_back(
                         Partition((uint32_t) cluster_id + half_int, (uint32_t) *block + half_int, *chunk));
             }
 
-            ++count;
+            ++count; //we are sure we will not take again the nth cluster
         }
     }
 
@@ -296,6 +294,7 @@ void *ArrayDataStore::read(const uint64_t *storage_id, ArrayMetadata *metadata) 
 
     SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata,
                                                                                                        nullptr);
+
 
     while (!partitions_it->isDone()) {
         cluster_id = partitions_it->computeNextClusterId();
