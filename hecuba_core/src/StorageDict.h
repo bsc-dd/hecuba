@@ -4,6 +4,8 @@
 
 #include <map>
 #include <iostream>
+#include <type_traits>
+
 #include "ClusterConfig.h"
 #include "TableMetadata.h"
 #include "TupleRow.h"
@@ -19,7 +21,13 @@ public:
     typedef typename std::map<K, Bucket<K, V> >::iterator iterator;
     typedef typename std::map<K, Bucket<K, V> >::const_iterator const_iterator;
 
-    StorageDict(std::initializer_list<std::pair<K, V>> l) {
+
+    StorageDict() {
+        this->cluster = nullptr;
+    }
+
+
+    StorageDict(std::initializer_list<std::pair<K, V>> l) : StorageDict(){
         for (const value_type *element = l.begin(); element != l.end(); ++element) {
             this->mymap[element->first] = Bucket<K, V>(this, element->first, element->second);
         };
@@ -29,14 +37,11 @@ public:
         this->cluster = config;
     }
 
-    StorageDict() {
-        this->cluster = nullptr;
-    }
 
     ~StorageDict() {
         if (H) delete (H);
-        if (KeyFactory) delete (KeyFactory);
-        if (ValueFactory) delete (ValueFactory);
+        //if (KeyFactory) delete (KeyFactory);
+        //if (ValueFactory) delete (ValueFactory);
     }
 
 
@@ -85,16 +90,16 @@ public:
 
     void make_persistent(std::string &name) {
         if (!cluster) throw ModuleException("StorageInterface not connected to any node");
+        //is_same<int, int>::value
+        create_table(name);
+
         std::vector<std::map<std::string, std::string>> keys_names = {{{"name", "key"}}};;
         std::vector<std::map<std::string, std::string>> columns_names = {{{"name", "value"}}};
-        TableMetadata *table_meta = new TableMetadata(name.c_str(), "my_app", keys_names, columns_names,
+        TableMetadata *table_meta = new TableMetadata(name.c_str(), "test", keys_names, columns_names,
                                                       cluster->get_session());
         std::map<std::string, std::string> config = {};
 
         H = new CacheTable(table_meta, cluster->get_session(), config);
-        KeyFactory = new TupleRowFactory(table_meta->get_keys());
-        ValueFactory = new TupleRowFactory(table_meta->get_values());
-
 
         this->store_data();
 
@@ -106,9 +111,8 @@ public:
         if (H) {
             K *k = new K(b->getKey());
             V *v = new V(b->getValue());
-            TupleRow *key = KeyFactory->make_tuple(k);
-            TupleRow *value = ValueFactory->make_tuple(v);
-            H->put_crow(key, value);
+            H->put_crow(k, v);
+
         }
     }
 
@@ -118,11 +122,26 @@ private:
         for (const_iterator it = mymap.begin(); it != mymap.end(); ++it) {
             K *k = new K(it->first);
             V *v = new V(it->second.getValue());
-            TupleRow *key = KeyFactory->make_tuple(k);
-            TupleRow *value = ValueFactory->make_tuple(v);
-            H->put_crow(key, value);
+            H->put_crow(k, v);
         }
     }
+
+    void create_table(std::string name) {
+        std::string key = "key "+get_type<K>();
+        std::string value = "value "+get_type<V>();
+        if (name.find('.',0)==std::string::npos) name="my_app."+name;
+        std::cout << "CREATE TABLE "+ name +" IF NOT EXISTS " +key+","+value+" PRIMARY KEY(key);" << std::endl;
+    }
+
+
+    template <class T> std::string get_type() {
+        if (std::is_same<T, int32_t >::value) return "int";
+        else if ((std::is_same<T, int64_t >::value)) return "bigint";
+        else if ((std::is_same<T, double >::value)) return "double";
+        else if (std::is_same<T, std::string>::value || std::is_same<T, char*>::value) return "text";
+        else throw ModuleException("Data type not supported yet");
+    }
+
 
     CacheTable *H = nullptr;
     TupleRowFactory *KeyFactory = nullptr;

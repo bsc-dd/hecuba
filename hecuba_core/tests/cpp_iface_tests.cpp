@@ -1,7 +1,7 @@
 #include <iostream>
 #include <cassandra.h>
 #include "gtest/gtest.h"
-#include "../StorageDict.h"
+#include "../src/StorageDict.h"
 
 
 using namespace std;
@@ -52,6 +52,11 @@ void setupcassandra() {
     fireandforget(
             "CREATE TABLE test.particle( partid int,time float,x float,y float,z float,ciao text,PRIMARY KEY(partid,time));",
             test_session);
+
+    fireandforget("CREATE TABLE test.iface( key int, value double, PRIMARY KEY(key));", test_session);
+
+
+
     CassFuture *prepare_future
             = cass_session_prepare(test_session,
                                    "INSERT INTO test.particle(partid , time , x, y , z,ciao ) VALUES (?, ?, ?, ?, ?,?)");
@@ -94,7 +99,7 @@ void setupcassandra() {
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     std::cout << "SETTING UP CASSANDRA" << std::endl;
-    //setupcassandra();
+    setupcassandra();
     std::cout << "DONE, CASSANDRA IS UP" << std::endl;
     return RUN_ALL_TESTS();
 
@@ -244,6 +249,33 @@ TEST(TestingCPPIface, StorageDict_use_case_1) {
 
     SD[a] = sentence;
     EXPECT_EQ(SD[a], sentence);
+    delete(config);
+}
+
+
+
+TEST(TestingCPPIface, StorageDict_use_case_2) {
+    std::string nodeX = "127.0.0.1";
+
+    //Configure Cassandra
+    ClusterConfig *config = new ClusterConfig(9042, nodeX);
+
+    //Use a non persistent dict
+    int nelem = 1000;
+    std::string sentence = "Hello, World!";
+
+    StorageDict<int, double> *SD = new StorageDict<int, double >(config);
+
+    std::string name_to_persist = "iface";
+    SD->make_persistent(name_to_persist);
+
+
+    for (int i = 0; i<nelem; ++i) {
+        (*SD)[i] = i;
+    }
+
+
+    delete(SD);
     delete(config);
 }
 
