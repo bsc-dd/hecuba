@@ -25,21 +25,30 @@ void NumpyStorage::store_numpy(const uint64_t *storage_id, PyArrayObject *numpy)
     delete (np_metas);
 }
 
-PyObject *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject *coord) {
+PyObject *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject *coord, char *save) {
     ArrayMetadata *np_metas = this->read_metadata(storage_id);
     npy_intp *dims = new npy_intp[np_metas->dims.size()];
-    std::vector<std::pair<int,int> > crd;
+    std::map<uint32_t, std::vector<uint32_t> > crd;
+    std::vector<uint32_t> crd_inner(PyList_Size(PyList_GetItem(coord, 0)));
+    uint32_t ndims = (uint32_t) np_metas->dims.size();
+    //Compute the best fitting block
+    //Make the block size multiple of the element size
+    uint64_t block_size = BLOCK_SIZE - (BLOCK_SIZE % np_metas->elem_size);
+    //Compute the max number of elements per dimension as the ndims root of the block size
+    uint32_t row_elements = (uint32_t) std::floor(pow(block_size / np_metas->elem_size, (1.0 / ndims)));
+    //std::vector<std::vector<int> > crd(PyList_Size(coord),std::vector<int>(PyList_Size(PyList_GetItem(coord, 0))));
     if (PyList_Check(coord)) {
         for (Py_ssize_t i = 0; i < PyList_Size(coord); i++) {
             PyObject *value = PyList_GetItem(coord, i);
-            for (Py_ssize_t j = 0; j < PyList_Size(value); j = j + 2) {
-                crd.push_back(std::make_pair(PyLong_AsLong(PyList_GetItem(value, j)), PyLong_AsLong(PyList_GetItem(value, j+1))));
+            for (Py_ssize_t j = 0; j < PyList_Size(value); j++) {
+                crd_inner[j] = PyLong_AsLong(PyList_GetItem(value, j))/row_elements;
             }
+            crd[i] = crd_inner;
         }
     }
     else PyErr_SetString(PyExc_TypeError, "coord is not a PyList");
     std::cout << "TAMAÑO DATOS META: " << np_metas->elem_size << std::endl;
-    void *numpy_data = this->read_n_coord(storage_id, np_metas, crd);
+    void *numpy_data = this->read_n_coord(storage_id, np_metas, crd, save);
     for (uint32_t i = 0; i < np_metas->dims.size(); ++i) {
         dims[i] = np_metas->dims[i];
     }

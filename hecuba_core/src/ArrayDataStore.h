@@ -26,7 +26,7 @@ public:
 
     // Overwrite the metadata of the array identified by the given storage_id
     void update_metadata(const uint64_t *storage_id, ArrayMetadata* metadata) const;
-    void *read_n_coord(const uint64_t *storage_id, ArrayMetadata *metadata, std::vector<std::pair<int,int> > coord) const;
+    void *read_n_coord(const uint64_t *storage_id, ArrayMetadata *metadata, std::map<uint32_t, std::vector<uint32_t> > crd, char* save) const;
 
 private:
 

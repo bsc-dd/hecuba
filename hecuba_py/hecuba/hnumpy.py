@@ -133,13 +133,21 @@ class StorageNumpy(np.ndarray, IStorage):
 
     def __getitem__(self, key):
         log.info("RETRIEVING NUMPY")
-        if isinstance(key, slice):
-            coordinates = [[key.start, key.stop]]
-        else:
-            coordinates = [[coord.start, coord.stop] for coord in key]
-        self._hcache.get_numpy_from_coordinates([self._storage_id], coordinates, [self.view(np.ndarray)])
-        return super(StorageNumpy, self).__getitem__(key)
+        #if isinstance(key, slice):
+        #    coordinates = [[key.start, key.stop]]
+        #else:
+        #    coordinates = [[coord.start, coord.stop] for coord in key]
+        key = self.get_coords_n_dim(key[0], key[1])
+        print(key)
+        return self._hcache.get_numpy_from_coordinates([self._storage_id], key, [self.view(np.ndarray)])
+        #return super(StorageNumpy, self.array).__getitem__(key)
 
+    def get_coords_n_dim(self, start, stop):
+        stop = stop + 1
+        ndims = len(start)
+        ranges = [np.arange(start[i], stop[i]) for i in range(ndims)] #get ranges for each dimension
+        rang = np.hstack((np.meshgrid(*ranges))).swapaxes(0, 1).reshape(ndims, -1).T #combine all ranges and stack them as N x ndims array
+        return rang.tolist()
 
     @staticmethod
     def getitem(coordinates, res, storage_id):

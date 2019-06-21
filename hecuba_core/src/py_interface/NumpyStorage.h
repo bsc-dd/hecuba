@@ -29,7 +29,7 @@ public:
 
     PyObject *read_numpy(const uint64_t *storage_id);
     PyObject *reserve_numpy_space(const uint64_t *storage_id);
-    PyObject *coord_list_to_numpy(const uint64_t *storage_id, PyObject * coord);
+    PyObject *coord_list_to_numpy(const uint64_t *storage_id, PyObject * coord, char* save);
 
 private:
 

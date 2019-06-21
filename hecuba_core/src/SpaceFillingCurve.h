@@ -63,7 +63,7 @@ public:
 
         virtual void simpleNextClusterId() = 0;
 
-        virtual void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks) = 0;
+        virtual void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks, char* data) = 0;
 
     };
 
@@ -88,7 +88,7 @@ protected:
 
         bool isDone() { return done; };
 
-        void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks);
+        void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks, char * data);
 
     protected:
         bool done;
@@ -125,7 +125,7 @@ public:
 
     uint64_t getIdFromIndexes(const std::vector<uint32_t> &dims, const std::vector<uint32_t> &indexes);
 
-    void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks);
+    void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks, char* data);
 
 private:
     bool done;

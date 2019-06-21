@@ -579,7 +579,13 @@ static PyObject *get_numpy_from_coordinates(HNumpyStore *self, PyObject *args) {
         return NULL;
     };
 
+    PyObject_Print(py_store, stdout, Py_PRINT_RAW);
 
+    char* save = 0;
+    if (!(py_store, "s", &save)) {
+        Py_DECREF(py_store);
+        return NULL;
+    }
     for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
         if (PyList_GetItem(py_keys, key_i) == Py_None) {
             std::string error_msg = "Keys can't be None, key_position: " + std::to_string(key_i);
@@ -587,19 +593,21 @@ static PyObject *get_numpy_from_coordinates(HNumpyStore *self, PyObject *args) {
             return NULL;
         }
     }
-
+    std::cout << "parse--uuid" << std::endl;
     const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
     std::cout << "COORD LIST TO NUMPY" << std::endl;
+    PyObject * result;
     try{
-        py_store = self->NumpyDataStore->coord_list_to_numpy(storage_id, py_coord); //i suppose we need storageid as the identifier of the data
+        result = self->NumpyDataStore->coord_list_to_numpy(storage_id, py_coord, save);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
-    PyObject *result_list = PyList_New(1);
-    PyList_SetItem(result_list, 0, py_store ? py_store : Py_None);
-    return result_list;
+    //PyObject *result_list = PyList_New(1);
+    //PyList_SetItem(result_list, 0, result ? result : Py_None);
+    std::cout << "DEVUELVO" << std::endl;
+    return result;
 }
 
 static void hnumpy_store_dealloc(HNumpyStore *self) {
