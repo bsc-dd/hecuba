@@ -118,13 +118,10 @@ class StorageObj(IStorage):
         """
             Loads the IStorage objects into memory by creating them or retrieving from the backend.
         """
-        attrs = []
         for attribute, value_info in self._persistent_props.items():
             if value_info['type'] not in basic_types:
                 # The attribute is an IStorage object
-                attrs.append((attribute, getattr(self, attribute)))
-        for (attr_name, attr) in attrs:
-            setattr(self, attr_name, attr)
+                getattr(self, attribute)
 
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.getID() == other.getID()
@@ -307,6 +304,7 @@ class StorageObj(IStorage):
             info = {"tokens": self._build_args.tokens, "storage_id": value}
             info.update(value_info)
             info["built_remotely"] = self._built_remotely
+            info['name'] = attr_name
             value = build_remotely(info)
 
         object.__setattr__(self, attribute, value)

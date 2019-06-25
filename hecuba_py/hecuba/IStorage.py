@@ -80,6 +80,6 @@ class IStorage(metaclass=ABCMeta):
             log.debug('assigning to {} num tokens {}'.format(str(storage_id), len(token_split)))
             new_args = self._build_args._replace(tokens=token_split, storage_id=storage_id)
             args_dict = new_args._asdict()
-            args_dict["built_remotely"] = False
+            args_dict["built_remotely"] = True
             yield build_remotely(args_dict)
 
