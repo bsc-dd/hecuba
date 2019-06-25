@@ -66,6 +66,10 @@ class DictWithTuples3(StorageDict):
     @TypeSpec dict<<key:int>, val0:int, val1:tuple<long,int>, val2:str, val3:tuple<str,float>>
     '''
 
+class MultiTuples(StorageDict):
+    '''
+    @TypeSpec dict<<time:int, lat:double, lon:double, ilev:int>, m_cloudfract:tuple<float,float,float,int>, m_humidity:tuple<float,float,float,int>, m_icewater:tuple<float,float,float,int>, m_liquidwate:tuple<float,float,float,int>, m_ozone:tuple<float,float,float,int>, m_pot_vorticit:tuple<float,float,float,int>, m_rain:tuple<float,float,float,int>, m_snow:tuple<float,float,float,int>>
+    '''
 
 class StorageDictTest(unittest.TestCase):
     def test_init_empty(self):
@@ -1006,6 +1010,18 @@ class StorageDictTest(unittest.TestCase):
                 self.assertEqual(d[i], (None, i + 10))
             else:
                 self.assertEqual(d[i], (i, i + 10))
+
+    def test_multi_tuples(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.multituples")
+        d = MultiTuples("my_app.multituples")
+        what_should_be = dict()
+
+        for i in range(0, 10):
+            d[(i,i,i,i)] = [(i,i,i,i),(i,i,i,i),(i,i,i,i),(i,i,i,i),(i,i,i,i),(i,i,i,i),(i,i,i,i),(i,i,i,i)]
+            what_should_be[(i, i, i, i)] = [(i, i, i, i), (i, i, i, i), (i, i, i, i), (i, i, i, i), (i, i, i, i), (i, i, i, i),
+                               (i, i, i, i), (i, i, i, i)]
+        for i in range(0, 10):
+            self.assertEqual(list(d[(i,i,i,i)]), [(float(i),float(i),float(i),i),(float(i),float(i),float(i),i),(float(i),float(i),float(i),i),(float(i),float(i),float(i),i),(float(i),float(i),float(i),i),(float(i),float(i),float(i),i),(float(i),float(i),float(i),i),(float(i),float(i),float(i),i)])
 
     def test_multiple_tuples_NULL(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.dictmultipletuples")
