@@ -64,8 +64,11 @@ class StorageNumpy(IStorage, np.ndarray):
         obj._class_name = '%s.%s' % (cls.__module__, cls.__name__)
         return obj
 
-    def __init__(self, *args, **kwargs):
-        super(StorageNumpy, self).__init__()
+    def __init__(self, *args, input_array=None, **kwargs):
+        name = kwargs.pop("name", '')
+        if name and not name.endswith("_numpies"):
+            kwargs["name"] = name + '_numpies'
+        IStorage.__init__(self, **kwargs)
 
     # used as copy constructor
     def __array_finalize__(self, obj):
@@ -114,6 +117,9 @@ class StorageNumpy(IStorage, np.ndarray):
         if self._is_persistent:
             raise AlreadyPersistentError("This StorageNumpy is already persistent [Before:{}.{}][After:{}]",
                                          self._ksp, self._table, name)
+        if not name.endswith("_numpies"):
+            name = name + '_numpies'
+
         super().make_persistent(name)
 
         self._build_args = self.args(self.storage_id, self._class_name, self._ksp + '.' + self._table,

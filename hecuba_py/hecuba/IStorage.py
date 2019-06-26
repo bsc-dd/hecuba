@@ -26,10 +26,13 @@ class IStorage(metaclass=ABCMeta):
 
     def __init__(self, **kwargs):
         super().__init__()
-        self._ksp = ''
-        self._table = ''
-        self._is_persistent = False
-        self.__storage_id = None
+        name = kwargs.pop("name", '')
+
+        self._built_remotely = kwargs.pop("built_remotely", False)
+        self.__storage_id = kwargs.pop("storage_id", None)
+        (self._ksp, self._table) = extract_ks_tab(name)
+        self._is_persistent = False if self.__storage_id is None else True
+
 
     def __eq__(self, other):
         """
