@@ -506,10 +506,10 @@ static PyObject *get_reserved_numpy(HNumpyStore *self, PyObject *args) {
     };
 
     const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
-
     PyObject *numpy;
     try{
         numpy = self->NumpyDataStore->reserve_numpy_space(storage_id);
+        PyObject_Print(numpy, stdout, Py_PRINT_RAW);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -539,7 +539,6 @@ static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
         return NULL;
     };
 
-
     const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
 
     PyObject *numpy;
@@ -550,7 +549,7 @@ static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
-
+    PyObject_Print(numpy, stdout, Py_PRINT_RAW);
     // Wrap the numpy into a list to follow the standard format of Hecuba
     PyObject *result_list = PyList_New(1);
     PyList_SetItem(result_list, 0, numpy ? numpy : Py_None);
@@ -579,7 +578,7 @@ static PyObject *get_numpy_from_coordinates(HNumpyStore *self, PyObject *args) {
         return NULL;
     };
 
-    PyObject_Print(py_store, stdout, Py_PRINT_RAW);
+    //PyObject_Print(py_store, stdout, Py_PRINT_RAW);
 
     char* save = 0;
     if (!(py_store, "s", &save)) {
@@ -599,6 +598,7 @@ static PyObject *get_numpy_from_coordinates(HNumpyStore *self, PyObject *args) {
     PyObject * result;
     try{
         result = self->NumpyDataStore->coord_list_to_numpy(storage_id, py_coord, save);
+        //PyObject_Print(result, stdout, Py_PRINT_RAW);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());

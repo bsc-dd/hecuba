@@ -213,8 +213,18 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
     ZorderCurveGenerator *partitioner = new ZorderCurveGenerator(metadata, nullptr);
 
     SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata,
-                                                                                                       nullptr);
+                                                                                                         nullptr);
+    for(auto mapIt = begin(coord); mapIt != end(coord); ++mapIt)
+    {
+        std::cout << mapIt->first << " : ";
 
+        for(auto c : mapIt->second)
+        {
+            std::cout << c << " ";
+        }
+
+        std::cout << std::endl;
+    }
     //std::vector<uint32_t> zorder_ids(coord.size());
     for(int i = 0; i < coord.size(); ++i) {
         cluster_id = partitioner->computeZorder(coord[i]);
@@ -233,6 +243,7 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
         all_results.insert(all_results.end(), result.begin(), result.end());
         for (const TupleRow *row:result) {
             block = (int32_t *) row->get_element(0);
+            std::cout << "BLOCK ID: " << *block << std::endl;
             char **chunk = (char **) row->get_element(1);
             all_partitions.emplace_back(
                     Partition((uint32_t) cluster_id + half_int, (uint32_t) *block + half_int, *chunk));
@@ -276,7 +287,6 @@ void *ArrayDataStore::read(const uint64_t *storage_id, ArrayMetadata *metadata) 
 
     SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata,
                                                                                                        nullptr);
-
 
     while (!partitions_it->isDone()) {
         cluster_id = partitions_it->computeNextClusterId();

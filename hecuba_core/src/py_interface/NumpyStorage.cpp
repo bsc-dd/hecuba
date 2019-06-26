@@ -69,13 +69,15 @@ PyObject *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject
 
 PyObject *NumpyStorage::reserve_numpy_space(const uint64_t *storage_id) {
     ArrayMetadata *np_metas = this->read_metadata(storage_id);
+    void *data = this->read(storage_id, np_metas);
+
     npy_intp *dims = new npy_intp[np_metas->dims.size()];
     for (uint32_t i = 0; i < np_metas->dims.size(); ++i) {
         dims[i] = np_metas->dims[i];
     }
     PyObject *resulting_array;
     try {
-        resulting_array = PyArray_SimpleNew((int32_t) np_metas->dims.size(), dims, np_metas->inner_type);
+        resulting_array = PyArray_SimpleNewFromData((int32_t) np_metas->dims.size(), dims, np_metas->inner_type, data);
         PyArrayObject *converted_array;
         PyArray_OutputConverter(resulting_array, &converted_array);
         PyArray_ENABLEFLAGS(converted_array, NPY_ARRAY_OWNDATA);
@@ -86,6 +88,7 @@ PyObject *NumpyStorage::reserve_numpy_space(const uint64_t *storage_id) {
         return NULL;
     }
     delete (np_metas);
+    PyObject_Print(resulting_array, stdout, Py_PRINT_RAW);
     return resulting_array;
 }
 
