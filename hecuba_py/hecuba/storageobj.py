@@ -121,7 +121,10 @@ class StorageObj(IStorage):
         for attribute, value_info in self._persistent_props.items():
             if value_info['type'] not in basic_types:
                 # The attribute is an IStorage object
-                getattr(self, attribute)
+                try:
+                    getattr(self, attribute)
+                except AttributeError:
+                    pass
 
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.getID() == other.getID()
