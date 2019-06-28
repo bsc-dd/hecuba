@@ -212,11 +212,11 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
     ZorderCurveGenerator *partitioner = new ZorderCurveGenerator(metadata, nullptr);
 
     SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata, nullptr);
-    std::vector<uint32_t> cluster_ids;
+    std::set<uint32_t> cluster_ids;
     for(int i = 0; i < coord.size(); ++i) {
         cluster_id = (uint32_t) (partitioner->computeZorder(coord[i]) >> CLUSTER_SIZE);
-        if(std::find(cluster_ids.begin(), cluster_ids.end(), cluster_id) == cluster_ids.end()) {
-            cluster_ids.emplace_back(cluster_id);
+        if(cluster_ids.find(cluster_id) == cluster_ids.end()) {
+            cluster_ids.insert(cluster_id);
             buffer = (char *) malloc(keys_size);
             //UUID
             c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
