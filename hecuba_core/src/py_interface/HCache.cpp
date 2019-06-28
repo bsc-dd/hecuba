@@ -509,13 +509,18 @@ static PyObject *get_reserved_numpy(HNumpyStore *self, PyObject *args) {
     PyObject *numpy;
     try{
         numpy = self->NumpyDataStore->reserve_numpy_space(storage_id);
-        PyObject_Print(numpy, stdout, Py_PRINT_RAW);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
-    return numpy;
+
+
+    // Wrap the numpy into a list to follow the standard format of Hecuba
+    PyObject *result_list = PyList_New(1);
+    PyList_SetItem(result_list, 0, numpy ? numpy : Py_None);
+    PyObject_Print(result_list, stdout, Py_PRINT_RAW);
+    return result_list;
 }
 
 static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
@@ -549,7 +554,7 @@ static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
-    PyObject_Print(numpy, stdout, Py_PRINT_RAW);
+
     // Wrap the numpy into a list to follow the standard format of Hecuba
     PyObject *result_list = PyList_New(1);
     PyList_SetItem(result_list, 0, numpy ? numpy : Py_None);
@@ -578,13 +583,15 @@ static PyObject *get_numpy_from_coordinates(HNumpyStore *self, PyObject *args) {
         return NULL;
     };
 
-    //PyObject_Print(py_store, stdout, Py_PRINT_RAW);
-
-    char* save = 0;
+    char *a;
+    char* save = nullptr;
     if (!(py_store, "s", &save)) {
         Py_DECREF(py_store);
+        std::string error_msg = "Failed parsing to char*";
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
         return NULL;
     }
+
     for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
         if (PyList_GetItem(py_keys, key_i) == Py_None) {
             std::string error_msg = "Keys can't be None, key_position: " + std::to_string(key_i);
@@ -592,21 +599,17 @@ static PyObject *get_numpy_from_coordinates(HNumpyStore *self, PyObject *args) {
             return NULL;
         }
     }
-    std::cout << "parse--uuid" << std::endl;
     const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
-    std::cout << "COORD LIST TO NUMPY" << std::endl;
     PyObject * result;
     try{
         result = self->NumpyDataStore->coord_list_to_numpy(storage_id, py_coord, save);
-        //PyObject_Print(result, stdout, Py_PRINT_RAW);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
-    //PyObject *result_list = PyList_New(1);
-    //PyList_SetItem(result_list, 0, result ? result : Py_None);
-    std::cout << "DEVUELVO" << std::endl;
+    PyObject *result_list = PyList_New(1);
+    PyList_SetItem(result_list, 0, result ? result : Py_None);
     return result;
 }
 

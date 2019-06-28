@@ -199,7 +199,6 @@ ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
 void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *metadata, std::map<uint32_t, std::vector<uint32_t> > coord, char * save) const {
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
-
     std::vector<const TupleRow *> result, all_results;
     std::vector<Partition> all_partitions;
 
@@ -212,41 +211,31 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
 
     ZorderCurveGenerator *partitioner = new ZorderCurveGenerator(metadata, nullptr);
 
-    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata,
-                                                                                                         nullptr);
-    for(auto mapIt = begin(coord); mapIt != end(coord); ++mapIt)
-    {
-        std::cout << mapIt->first << " : ";
-
-        for(auto c : mapIt->second)
-        {
-            std::cout << c << " ";
-        }
-
-        std::cout << std::endl;
-    }
-    //std::vector<uint32_t> zorder_ids(coord.size());
+    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata, nullptr);
+    std::vector<uint32_t> cluster_ids;
     for(int i = 0; i < coord.size(); ++i) {
-        cluster_id = partitioner->computeZorder(coord[i]);
-        buffer = (char *) malloc(keys_size);
-        //UUID
-        c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
-        //[0] time_and_version;
-        //[1] clock_seq_and_node;
-        memcpy(buffer, &c_uuid, sizeof(uint64_t *));
-        offset = sizeof(uint64_t *);
-        //Cluster id
-        memcpy(buffer + offset, &cluster_id, sizeof(cluster_id));
-        //We fetch the data
-        result = read_cache->get_crow(new TupleRow(keys_metas, keys_size, buffer));
-        //build cluster
-        all_results.insert(all_results.end(), result.begin(), result.end());
-        for (const TupleRow *row:result) {
-            block = (int32_t *) row->get_element(0);
-            std::cout << "BLOCK ID: " << *block << std::endl;
-            char **chunk = (char **) row->get_element(1);
-            all_partitions.emplace_back(
-                    Partition((uint32_t) cluster_id + half_int, (uint32_t) *block + half_int, *chunk));
+        cluster_id = (uint32_t) (partitioner->computeZorder(coord[i]) >> CLUSTER_SIZE);
+        if(std::find(cluster_ids.begin(), cluster_ids.end(), cluster_id) == cluster_ids.end()) {
+            cluster_ids.emplace_back(cluster_id);
+            buffer = (char *) malloc(keys_size);
+            //UUID
+            c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
+            //[0] time_and_version;
+            //[1] clock_seq_and_node;
+            memcpy(buffer, &c_uuid, sizeof(uint64_t *));
+            offset = sizeof(uint64_t *);
+            //Cluster id
+            memcpy(buffer + offset, &cluster_id, sizeof(cluster_id));
+            //We fetch the data
+            result = read_cache->get_crow(new TupleRow(keys_metas, keys_size, buffer));
+            //build cluster
+            all_results.insert(all_results.end(), result.begin(), result.end());
+            for (const TupleRow *row:result) {
+                block = (int32_t *) row->get_element(0);
+                char **chunk = (char **) row->get_element(1);
+                all_partitions.emplace_back(
+                        Partition((uint32_t) cluster_id + half_int, (uint32_t) *block + half_int, *chunk));
+            }
         }
     }
 
@@ -254,7 +243,7 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
         throw ModuleException("no npy found on sys");
     }
 
-    partitions_it->merge_partitions(metadata, all_partitions, save);
+    save = (char *) partitions_it->merge_partitions(metadata, all_partitions, save);
 
     for (const TupleRow *item:all_results) delete (item);
 

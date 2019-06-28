@@ -39,16 +39,72 @@ class StorageNumpyTest(unittest.TestCase):
             typed_array = StorageNumpy(base_array.astype(typecode), storage_id, tablename)
             self.assertTrue(np.array_equal(typed_array, base_array.astype(typecode)))
 
-
-    def test_numpy_reserved(self):
-        coordinates = [slice(0,0,None), slice(0,0,None)]
-        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_40000;")
-        size = 40000
+    def test_numpy_reserved_all_cluster(self):
+        coordinates = [slice(0,60,None), slice(0,60,None)]
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_10000;")
+        size = 10000
         no = TestStorageObjNumpy("my_app.numpy_test_%d" % size)
-        no.mynumpy = np.arange(4096).reshape((64, 64)).astype("int64")
+        no.mynumpy = np.arange(40000).reshape((200, 200))
         myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % size)
-        chunk = myobj2.mynumpy[coordinates]
-        
+        chunk = myobj2.mynumpy[coordinates] # we are getting the first cluster
+        self.assertEqual(chunk[87,87],17487)
+        self.assertNotEqual(chunk[87,88], 17488)
+
+
+    def test_numpy_reserved_1cluster(self):
+        coordinates = [slice(0,40,None), slice(0,40,None)]
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_10000;")
+        size = 10000
+        no = TestStorageObjNumpy("my_app.numpy_test_%d" % size)
+        no.mynumpy = np.arange(10000).reshape((100, 100))
+        myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % size)
+        chunk = myobj2.mynumpy[coordinates] # we are getting the first cluster
+        self.assertEqual(chunk[0,43],43)
+        self.assertEqual(chunk[43,43], 4343)
+        self.assertNotEqual(chunk[0, 44], 4400)
+        self.assertNotEqual(chunk[44, 44], 4444)
+        self.assertNotEqual(chunk[45, 45], 4544)
+
+    def test_numpy_reserved_2cluster(self):
+        coordinates = [slice(0,22,None), slice(0,44,None)]
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_10000;")
+        size = 10000
+        no = TestStorageObjNumpy("my_app.numpy_test_%d" % size)
+        no.mynumpy = np.arange(10000).reshape((100, 100))
+        myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % size)
+        chunk = myobj2.mynumpy[coordinates] # we are getting the first cluster
+        self.assertEqual(chunk[0,44],44)
+        self.assertEqual(chunk[43,87], 4387)
+        self.assertNotEqual(chunk[43, 0], 43)
+        self.assertNotEqual(chunk[43, 88], 4388)
+
+    def test_numpy_reserved_3cluster(self):
+        coordinates = [slice(0,45,None), slice(0,22,None)]
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_10000;")
+        size = 10000
+        no = TestStorageObjNumpy("my_app.numpy_test_%d" % size)
+        no.mynumpy = np.arange(10000).reshape((100, 100))
+        myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % size)
+        chunk = myobj2.mynumpy[coordinates] # we are getting the first cluster
+        self.assertEqual(chunk[44, 0], 4400)
+        self.assertEqual(chunk[87,43],8743)
+        self.assertNotEqual(chunk[87, 44], 8744)
+        self.assertNotEqual(chunk[88, 44], 8844)
+
+
+    def test_numpy_reserved_4cluster(self):
+        coordinates = [slice(0,45,None), slice(0,45,None)]
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_10000;")
+        size = 10000
+        no = TestStorageObjNumpy("my_app.numpy_test_%d" % size)
+        no.mynumpy = np.arange(10000).reshape((100, 100))
+        myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % size)
+        chunk = myobj2.mynumpy[coordinates] # we are getting the first cluster
+        self.assertNotEqual(chunk[43, 43], 4443)
+        self.assertEqual(chunk[44,44],4444)
+        self.assertEqual(chunk[87,87], 8787)
+        self.assertNotEqual(chunk[88, 88], 8788)
+
 
     def test_types_persistence(self):
         base_array = np.arange(256)

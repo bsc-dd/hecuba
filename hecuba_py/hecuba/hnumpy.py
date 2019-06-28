@@ -18,9 +18,8 @@ class StorageNumpy(np.ndarray, IStorage):
     _storage_id = None
     _build_args = None
     _class_name = None
-    _coordinates = None
-    _input_array = None
     _hcache_params = None
+    _hcache = None
     _is_persistent = False
     _ksp = ""
     _table = ""
@@ -29,13 +28,12 @@ class StorageNumpy(np.ndarray, IStorage):
                                                   '(storage_id, class_name, name, numpy_meta)'
                                                   'VALUES (?,?,?,?)')
 
-    args_names = ["storage_id", "class_name", "name", "shape", "dtype", "block_id", "coordinates", "built_remotely"]
+    args_names = ["storage_id", "class_name", "name", "shape", "dtype", "block_id", "built_remotely"]
     args = namedtuple('StorageNumpyArgs', args_names)
 
     def __new__(cls, input_array=None, storage_id=None, name=None, built_remotely=False, **kwargs):
 
         if input_array is None and name and storage_id is not None:
-
             # result = cls.load_array(storage_id, name)
             result = cls.get_numpy_array(storage_id, name)
             obj = np.asarray(result[0]).view(cls)
@@ -133,32 +131,34 @@ class StorageNumpy(np.ndarray, IStorage):
 
     def __getitem__(self, key):
         log.info("RETRIEVING NUMPY")
-        if isinstance(key, slice):
-            coordinates = [[key.start, key.stop]]
-        else:
-            coordinates = [[coord.start, coord.stop] for coord in key]
-        arr = np.array(coordinates)
-        coord = [arr[:, coord] for coord in range(len(coordinates[0]))]
-        key = self.get_coords_n_dim(coord[0], coord[1])
-        print(key)
-        return self._hcache.get_numpy_from_coordinates([self._storage_id], key, [self.view(np.ndarray)])
-        #return super(StorageNumpy, self).__getitem__(key)
+        try:
+            if isinstance(key, slice):
+                coordinates = [[key.start, key.stop]]
+            else:
+                coordinates = [[coord.start, coord.stop] for coord in key]
+            arr = np.array(coordinates)
+            coord = [arr[:, coord] for coord in range(len(coordinates[0]))]
+            key = self.get_coords_n_dim(coord[0], coord[1])
+            return self._hcache.get_numpy_from_coordinates([self._storage_id], key, [self.view(np.ndarray)])
+            #return super(StorageNumpy, self).__getitem__(key)
+        except AttributeError:
+            # not a slice object (no `indices` attribute)
+            return np.array(self)[key]
 
     def get_coords_n_dim(self, start, stop):
         stop = stop + 1
         ndims = len(start)
         ranges = [np.arange(start[i], stop[i]) for i in range(ndims)]  # get ranges for each dimension
         rang = np.hstack((np.meshgrid(*ranges))).swapaxes(0, 1).reshape(ndims, -1).T  # combine all ranges and stack them as N x ndims array
+        print(rang)
         return rang.tolist()
 
     @staticmethod
     def getitem(coordinates, res, storage_id):
         log.info("RETRIEVING NUMPY")
         coordinates = [[coord.start, coord.stop] for coord in coordinates]
-        print(coordinates)
         input_array = res[0]
         hcache = res[1]
-        print([storage_id])
         result = hcache.get_numpy_from_coordinates([storage_id], coordinates, [input_array])
         return result
 
@@ -174,7 +174,7 @@ class StorageNumpy(np.ndarray, IStorage):
             self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table + '_numpies')
 
         self._build_args = self.args(self._storage_id, self._class_name, self._ksp + '.' + self._table,
-                                     self.shape, self.dtype.num, self._block_id, self._coordinates, self._built_remotely)
+                                     self.shape, self.dtype.num, self._block_id, self._built_remotely)
 
         if not self._built_remotely:
             log.info("PERSISTING DATA INTO %s %s", self._ksp, self._table)

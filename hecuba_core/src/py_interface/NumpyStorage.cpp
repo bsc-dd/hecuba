@@ -25,7 +25,7 @@ void NumpyStorage::store_numpy(const uint64_t *storage_id, PyArrayObject *numpy)
     delete (np_metas);
 }
 
-PyObject *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject *coord, char *save) {
+PyObject *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject *coord, char * save) {
     ArrayMetadata *np_metas = this->read_metadata(storage_id);
     npy_intp *dims = new npy_intp[np_metas->dims.size()];
     std::map<uint32_t, std::vector<uint32_t> > crd;
@@ -42,13 +42,13 @@ PyObject *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject
             PyObject *value = PyList_GetItem(coord, i);
             for (Py_ssize_t j = 0; j < PyList_Size(value); j++) {
                 crd_inner[j] = PyLong_AsLong(PyList_GetItem(value, j))/row_elements;
+                //auto family_iterator = families.find("Jones");
             }
             crd[i] = crd_inner;
         }
     }
     else PyErr_SetString(PyExc_TypeError, "coord is not a PyList");
-    std::cout << "TAMAÑO DATOS META: " << np_metas->elem_size << std::endl;
-    void *numpy_data = this->read_n_coord(storage_id, np_metas, crd, save);
+    void *numpy_data = this->read_n_coord(storage_id, np_metas, crd, const_cast<char*>(save));
     for (uint32_t i = 0; i < np_metas->dims.size(); ++i) {
         dims[i] = np_metas->dims[i];
     }
@@ -69,7 +69,6 @@ PyObject *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject
 
 PyObject *NumpyStorage::reserve_numpy_space(const uint64_t *storage_id) {
     ArrayMetadata *np_metas = this->read_metadata(storage_id);
-    void *data = this->read(storage_id, np_metas);
 
     npy_intp *dims = new npy_intp[np_metas->dims.size()];
     for (uint32_t i = 0; i < np_metas->dims.size(); ++i) {
@@ -77,7 +76,7 @@ PyObject *NumpyStorage::reserve_numpy_space(const uint64_t *storage_id) {
     }
     PyObject *resulting_array;
     try {
-        resulting_array = PyArray_SimpleNewFromData((int32_t) np_metas->dims.size(), dims, np_metas->inner_type, data);
+        resulting_array = PyArray_SimpleNew((int32_t) np_metas->dims.size(), dims, np_metas->inner_type);
         PyArrayObject *converted_array;
         PyArray_OutputConverter(resulting_array, &converted_array);
         PyArray_ENABLEFLAGS(converted_array, NPY_ARRAY_OWNDATA);
@@ -88,7 +87,7 @@ PyObject *NumpyStorage::reserve_numpy_space(const uint64_t *storage_id) {
         return NULL;
     }
     delete (np_metas);
-    PyObject_Print(resulting_array, stdout, Py_PRINT_RAW);
+
     return resulting_array;
 }
 
@@ -110,7 +109,6 @@ PyObject *NumpyStorage::read_numpy(const uint64_t *storage_id) {
     PyObject *resulting_array;
     try {
         resulting_array = PyArray_SimpleNewFromData((int32_t) np_metas->dims.size(), dims, np_metas->inner_type, data);
-
         PyArrayObject *converted_array;
         PyArray_OutputConverter(resulting_array, &converted_array);
         PyArray_ENABLEFLAGS(converted_array, NPY_ARRAY_OWNDATA);
