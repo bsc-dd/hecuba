@@ -48,7 +48,7 @@ PyObject *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject
         }
     }
     else PyErr_SetString(PyExc_TypeError, "coord is not a PyList");
-    void *numpy_data = this->read_n_coord(storage_id, np_metas, crd, const_cast<char*>(save));
+    void *numpy_data = this->read_n_coord(storage_id, np_metas, crd, save);
     for (uint32_t i = 0; i < np_metas->dims.size(); ++i) {
         dims[i] = np_metas->dims[i];
     }
@@ -98,8 +98,7 @@ PyObject *NumpyStorage::reserve_numpy_space(const uint64_t *storage_id) {
  */
 PyObject *NumpyStorage::read_numpy(const uint64_t *storage_id) {
     ArrayMetadata *np_metas = this->read_metadata(storage_id);
-    void *data = this->read(storage_id, np_metas);
-
+    void *data = this->read_n_coord(storage_id, np_metas, {}, nullptr);
 
     npy_intp *dims = new npy_intp[np_metas->dims.size()];
     for (uint32_t i = 0; i < np_metas->dims.size(); ++i) {

@@ -150,7 +150,6 @@ class StorageNumpy(np.ndarray, IStorage):
         ndims = len(start)
         ranges = [np.arange(start[i], stop[i]) for i in range(ndims)]  # get ranges for each dimension
         rang = np.hstack((np.meshgrid(*ranges))).swapaxes(0, 1).reshape(ndims, -1).T  # combine all ranges and stack them as N x ndims array
-        print(rang)
         return rang.tolist()
 
     @staticmethod

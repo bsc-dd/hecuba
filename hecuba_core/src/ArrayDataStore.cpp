@@ -26,7 +26,6 @@ ArrayDataStore::~ArrayDataStore() {
 };
 
 
-
 /***
  * Stores the array metadata by setting the cluster and block ids to -1. Deletes the array metadata afterwards.
  * @param storage_id UUID used as part of the key
@@ -96,7 +95,7 @@ void ArrayDataStore::update_metadata(const uint64_t *storage_id, ArrayMetadata *
  * @param np_metas ndarray characteristics
  * @param numpy to be saved into storage
  */
-void ArrayDataStore::store(const uint64_t *storage_id, ArrayMetadata* metadata, void *data) const {
+void ArrayDataStore::store(const uint64_t *storage_id, ArrayMetadata *metadata, void *data) const {
 
     SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata, data);
 
@@ -148,7 +147,7 @@ ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
     // Get metas from Cassandra
     int32_t cluster_id = -1, block_id = -1;
 
-    char *buffer = (char *) malloc(sizeof(uint64_t*)+sizeof(int32_t)*2);
+    char *buffer = (char *) malloc(sizeof(uint64_t *) + sizeof(int32_t) * 2);
     // UUID
     uint64_t *c_uuid = (uint64_t *) malloc(sizeof(uint64_t) * 2);
     c_uuid[0] = *storage_id;
@@ -192,11 +191,20 @@ ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
     arr_metas->dims = std::vector<uint32_t>(nelem);
     memcpy(arr_metas->dims.data(), payload + bytes_offset, nbytes);
 
-    for (const TupleRow* &v : results) delete(v);
+    for (const TupleRow *&v : results) delete (v);
     return arr_metas;
 }
 
-void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *metadata, std::map<uint32_t, std::vector<uint32_t> > coord, char * save) const {
+/***
+ * Reads a numpy ndarray using the parameter coord, otherwise it reads the entire numpy
+ * @param storage_id of the array to retrieve, metadata of the numpy, coord: coordinates to retrieve the numpy,
+ * save: pointer where to save the numpy
+ * @return Numpy ndarray as a Python object
+ */
+
+//TODO: we can use all the clusters id as coordinates, this way it's not necessary the 'else' (?)
+void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *metadata,
+                                   std::map<uint32_t, std::vector<uint32_t> > coord, char *save) const {
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
     std::vector<const TupleRow *> result, all_results;
@@ -208,15 +216,41 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
     int32_t *block = nullptr;
     int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
 
-
     ZorderCurveGenerator *partitioner = new ZorderCurveGenerator(metadata, nullptr);
-
-    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata, nullptr);
-    std::set<uint32_t> cluster_ids;
-    for(int i = 0; i < coord.size(); ++i) {
-        cluster_id = (uint32_t) (partitioner->computeZorder(coord[i]) >> CLUSTER_SIZE);
-        if(cluster_ids.find(cluster_id) == cluster_ids.end()) {
-            cluster_ids.insert(cluster_id);
+    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata,
+                                                                                                       nullptr);
+    if (!coord.empty()) {
+        SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata,
+                                                                                                           nullptr);
+        std::set<uint32_t> cluster_ids;
+        for (int i = 0; i < coord.size(); ++i) {
+            cluster_id = (uint32_t) (partitioner->computeZorder(coord[i]) >> CLUSTER_SIZE);
+            if (cluster_ids.find(cluster_id) == cluster_ids.end()) {
+                cluster_ids.insert(cluster_id);
+                buffer = (char *) malloc(keys_size);
+                //UUID
+                c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
+                //[0] time_and_version;
+                //[1] clock_seq_and_node;
+                memcpy(buffer, &c_uuid, sizeof(uint64_t *));
+                offset = sizeof(uint64_t *);
+                //Cluster id
+                memcpy(buffer + offset, &cluster_id, sizeof(cluster_id));
+                //We fetch the data
+                result = read_cache->get_crow(new TupleRow(keys_metas, keys_size, buffer));
+                //build cluster
+                all_results.insert(all_results.end(), result.begin(), result.end());
+                for (const TupleRow *row:result) {
+                    block = (int32_t *) row->get_element(0);
+                    char **chunk = (char **) row->get_element(1);
+                    all_partitions.emplace_back(
+                            Partition((uint32_t) cluster_id + half_int, (uint32_t) *block + half_int, *chunk));
+                }
+            }
+        }
+    } else {
+        while (!partitions_it->isDone()) {
+            cluster_id = partitions_it->computeNextClusterId();
             buffer = (char *) malloc(keys_size);
             //UUID
             c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
@@ -238,79 +272,11 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
             }
         }
     }
-
     if (all_partitions.empty()) {
         throw ModuleException("no npy found on sys");
     }
-
     save = (char *) partitions_it->merge_partitions(metadata, all_partitions, save);
-
     for (const TupleRow *item:all_results) delete (item);
-
-    delete(partitions_it);
-
+    delete (partitions_it);
     return save;
-
-}
-
-/***
- * Reads a numpy ndarray by fetching the clusters indipendently
- * @param storage_id of the array to retrieve
- * @return Numpy ndarray as a Python object
- */
-void *ArrayDataStore::read(const uint64_t *storage_id, ArrayMetadata *metadata) const {
-
-    std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
-    uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
-
-
-
-    std::vector<const TupleRow *> result, all_results;
-    std::vector<Partition> all_partitions;
-
-    uint64_t *c_uuid = nullptr;
-    char *buffer = nullptr;
-    int32_t cluster_id = 0, offset = 0;
-    int32_t *block = nullptr;
-    int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
-
-    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata,
-                                                                                                       nullptr);
-
-    while (!partitions_it->isDone()) {
-        cluster_id = partitions_it->computeNextClusterId();
-        buffer = (char *) malloc(keys_size);
-        //UUID
-        c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
-        //[0] time_and_version;
-        //[1] clock_seq_and_node;
-        memcpy(buffer, &c_uuid, sizeof(uint64_t *));
-        offset = sizeof(uint64_t *);
-        //Cluster id
-        memcpy(buffer + offset, &cluster_id, sizeof(cluster_id));
-        //We fetch the data
-        result = read_cache->get_crow(new TupleRow(keys_metas, keys_size, buffer));
-        //build cluster
-        all_results.insert(all_results.end(), result.begin(), result.end());
-        for (const TupleRow *row:result) {
-            block = (int32_t *) row->get_element(0);
-            char **chunk = (char **) row->get_element(1);
-            all_partitions.emplace_back(
-                    Partition((uint32_t) cluster_id + half_int, (uint32_t) *block + half_int, *chunk));
-        }
-    }
-
-
-
-    if (all_partitions.empty()) {
-        throw ModuleException("no npy found on sys");
-    }
-
-    void *data = partitions_it->merge_partitions(metadata, all_partitions, nullptr);
-
-    for (const TupleRow *item:all_results) delete (item);
-
-    delete(partitions_it);
-
-    return data;
 }
