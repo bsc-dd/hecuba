@@ -244,7 +244,7 @@ class StorageDict(IStorage, dict):
             kwargs: other parameters
         """
 
-        super().__init__((), name=name, **kwargs)
+        super().__init__((), name=name, storage_id=storage_id, **kwargs)
 
         log.debug("CREATED StorageDict(%s,%s)", primary_keys, columns)
 

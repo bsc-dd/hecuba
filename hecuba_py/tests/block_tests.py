@@ -19,10 +19,10 @@ class BlockTest(unittest.TestCase):
                    "columns": [('val1', 'str')], "entry_point": 'localhost', "primary_keys": [('pk1', 'int')],
                    "istorage_props": {}, "tokens": [(1, 2), (2, 3), (3, 4), (3, 5)]}
 
-        words_mock_methods = Words._create_tables, Words._load_attributes, Words._store_meta
+        words_mock_methods = Words._create_tables, Words._persist_attributes, Words._store_meta
 
         Words._create_tables = Mock(return_value=None)
-        Words._load_attributes = Mock(return_value=None)
+        Words._persist_attributes = Mock(return_value=None)
         Words._store_meta = Mock(return_value=None)
 
         from hecuba import StorageDict
@@ -32,11 +32,11 @@ class BlockTest(unittest.TestCase):
         b = build_remotely(results)
         self.assertIsInstance(b, Words)
         Words._create_tables.assert_called_once()
-        Words._load_attributes.assert_called_once()
+        Words._persist_attributes.assert_called_once()
         assert (b._ksp == "ksp1")
         assert (b._table == "tab1")
 
-        Words._create_tables, Words._load_attributes, Words._store_meta = words_mock_methods
+        Words._create_tables, Words._persist_attributes, Words._store_meta = words_mock_methods
         StorageDict.make_persistent = sdict_mock_methods
 
     def test_iter_and_get_sets(self):

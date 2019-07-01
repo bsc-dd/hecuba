@@ -151,7 +151,7 @@ class StorageObjSplitTest(unittest.TestCase):
         self.assertEqual(what_should_be, res)
 
     def test_split_with_differentstorage_ids(self):
-        tablename = "tab32"
+        tablename = "tab33"
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + "_words")
         sto = TestSimple(tablename)
