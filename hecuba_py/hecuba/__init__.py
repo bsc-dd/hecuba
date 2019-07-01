@@ -249,6 +249,7 @@ from .hfilter import hfilter
 
 if not filter == hfilter:
     import builtins
+
     builtins.python_filter = filter
     builtins.filter = hfilter
 

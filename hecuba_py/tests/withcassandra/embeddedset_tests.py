@@ -3,7 +3,8 @@ import unittest
 
 from hecuba import StorageDict
 from hecuba import config
-from hecuba.IStorage import build_remotely
+from hecuba.IStorage\
+    import build_remotely
 
 
 class DictSet(StorageDict):

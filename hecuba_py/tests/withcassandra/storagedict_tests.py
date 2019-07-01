@@ -78,7 +78,7 @@ class StorageDictTest(unittest.TestCase):
         nopars = StorageDict(tablename,
                              [('position', 'int')],
                              [('value', 'int')],
-                             tokens)
+                             tokens=tokens)
         self.assertEqual("tab1", nopars._table)
         self.assertEqual("ksp", nopars._ksp)
 
@@ -105,7 +105,7 @@ class StorageDictTest(unittest.TestCase):
         nopars = StorageDict(tablename,
                              [('position', 'int')],
                              [('value', 'int')],
-                             tokens)
+                             tokens=tokens)
         self.assertEqual("tab1", nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
 
@@ -132,7 +132,7 @@ class StorageDictTest(unittest.TestCase):
         pd = StorageDict(tablename,
                          [('position', 'int')],
                          [('value', 'text')],
-                         tokens)
+                         tokens=tokens)
 
         for i in range(100):
             pd[i] = 'ciao' + str(i)
@@ -508,8 +508,8 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab12")
         tablename = "tab12"
         pd = StorageDict(tablename,
-                         [('pid', 'int'), ('time', 'int')],
-                         [('value', 'text'), ('x', 'double'), ('y', 'double'), ('z', 'double')])
+                         primary_keys=[('pid', 'int'), ('time', 'int')],
+                         columns=[('value', 'text'), ('x', 'double'), ('y', 'double'), ('z', 'double')])
 
         what_should_be = {}
         for i in range(100):
@@ -543,8 +543,8 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab13")
         tablename = "tab13"
         pd = StorageDict(tablename,
-                         [('pid', 'int'), ('time', 'double')],
-                         [('value', 'text'), ('x', 'double'), ('y', 'double'), ('z', 'double')])
+                         primary_keys=[('pid', 'int'), ('time', 'double')],
+                         columns=[('value', 'text'), ('x', 'double'), ('y', 'double'), ('z', 'double')])
 
         what_should_be = {}
         for i in range(100):

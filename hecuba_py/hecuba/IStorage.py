@@ -2,7 +2,7 @@ import uuid
 from collections import namedtuple
 from abc import ABCMeta, abstractmethod
 from . import log
-from .tools import extract_ks_tab, build_remotely, storage_id_from_name
+from .tools import extract_ks_tab, build_remotely, storage_id_from_name, get_istorage_attrs, generate_token_ring_ranges
 
 
 class AlreadyPersistentError(RuntimeError):
@@ -10,10 +10,6 @@ class AlreadyPersistentError(RuntimeError):
 
 
 class IStorage(metaclass=ABCMeta):
-    args_names = ["storage_id"]
-    args = namedtuple("IStorage", args_names)
-    _build_args = args(storage_id="")
-
     def getID(self):
         return self.__storage_id
 
@@ -24,15 +20,19 @@ class IStorage(metaclass=ABCMeta):
 
     storage_id = property(getID, setID)
 
-    def __init__(self, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__()
+        self.storage_id = kwargs.pop("storage_id", None)
+        self._is_persistent = False
+        self._tokens = kwargs.pop("tokens", [])
+        self._ksp = ''
+        self._table = ''
         name = kwargs.pop("name", '')
-
+        if name:
+            self._ksp, self._table = extract_ks_tab(name)
+            name = self._ksp + '.' + self._table
+            self._set_name(name)
         self._built_remotely = kwargs.pop("built_remotely", False)
-        self.__storage_id = kwargs.pop("storage_id", None)
-        (self._ksp, self._table) = extract_ks_tab(name)
-        self._is_persistent = False if self.__storage_id is None else True
-
 
     def __eq__(self, other):
         """
@@ -44,18 +44,33 @@ class IStorage(metaclass=ABCMeta):
         """
         return self.__class__ == other.__class__ and self.getID() == other.getID()
 
+    def _add_persistent_methods(self):
+        vars(self)['delete_persistent'] = self._delete_persistent
+        vars(self)['stop_persistent'] = self._stop_persistent
+
     @staticmethod
     def _store_meta(storage_args):
         pass
 
     @abstractmethod
     def make_persistent(self, name):
-        vars(self)['delete_persistent'] = self._delete_persistent
-        vars(self)['stop_persistent'] = self._stop_persistent
-        (self._ksp, self._table) = extract_ks_tab(name)
+        self._ksp, self._table = extract_ks_tab(name)
+        name = self._ksp + '.' + self._table
+        self._set_name(name)
+
         if not self.storage_id:
-            self.storage_id = storage_id_from_name(self._ksp + '.' + self._table)
+            self.storage_id = storage_id_from_name(name)
+
+        # If found data, replace the constructor data
+        if not self._tokens:
+            metas = get_istorage_attrs(self.storage_id)
+            try:
+                self._tokens = metas[0].tokens
+            except IndexError:
+                self._tokens = generate_token_ring_ranges()
+
         self._is_persistent = True
+        self._add_persistent_methods()
 
     @abstractmethod
     def _stop_persistent(self):
@@ -68,6 +83,17 @@ class IStorage(metaclass=ABCMeta):
         vars(self)['_delete_persistent'] = vars(self).pop('delete_persistent')
         self.storage_id = None
         self._is_persistent = False
+
+    def _set_name(self, name):
+        if not isinstance(name, str):
+            raise TypeError("Name -{}-  should be an instance of str".format(str(name)))
+        self._name = name
+
+    def _get_name(self):
+        try:
+            return self._name
+        except AttributeError:
+            return ''
 
     def split(self):
         """
@@ -85,4 +111,3 @@ class IStorage(metaclass=ABCMeta):
             args_dict = new_args._asdict()
             args_dict["built_remotely"] = True
             yield build_remotely(args_dict)
-

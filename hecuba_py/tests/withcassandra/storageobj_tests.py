@@ -389,14 +389,15 @@ class StorageObjTest(unittest.TestCase):
         so = Test3StorageObj("t4")
         nestedSo = Test2StorageObj()
         nestedSo.name = 'caio'
+        so.myint = 123
         so.myso = nestedSo
         # Make sure the inner object has been made persistent
         self.assertTrue(nestedSo._is_persistent)
         # Delete the attribute
-        del so.myso
+        del so.myint
 
         def del_attr1():
-            my_val = so.myso
+            my_val = so.myint
 
         # Accessing deleted attr of type StorageOb should raise AttrErr
         self.assertRaises(AttributeError, del_attr1)
@@ -651,12 +652,13 @@ class StorageObjTest(unittest.TestCase):
 
         my_nested_so.make_persistent('tnsgc')
 
+        # We create the nested persistent objects only after they are accessed by the first time
         error = False
         try:
             _ = config.session.execute('SELECT * FROM my_app.tnsgc_myso2')
         except cassandra.InvalidRequest:
             error = True
-        self.assertEquals(False, error)
+        self.assertEquals(True, error)
 
         for i in range(0, 100):
             my_nested_so.myso2.test[i] = 'position' + str(i)
@@ -876,7 +878,7 @@ class StorageObjTest(unittest.TestCase):
         a = no.mynumpy
 
         final_name_so = no._ksp + '.' + no._table
-        final_name_np = no.mynumpy._ksp + '.' + no.mynumpy._table
+        final_name_np = no.mynumpy._ksp + '.' + no.mynumpy._table + '_numpies'
         self.assertEqual(initial_name_so, final_name_so)
         self.assertEqual(initial_name_np, final_name_np)
 

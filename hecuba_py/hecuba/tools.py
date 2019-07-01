@@ -53,6 +53,9 @@ def extract_ks_tab(name):
     Returns:
         a tuple containing keyspace name and table name
     """
+    if not name:
+        return "", ""
+
     sp = name.split(".")
     if len(sp) == 2:
         ksp = sp[0]
@@ -123,6 +126,12 @@ def tokens_partitions(ksp, table, tokens_ranges):
         group_size = max(len(partition) // splits_per_node, 1)
         for i in range(0, len(partition), group_size):
             yield partition[i:i + group_size]
+
+
+def generate_token_ring_ranges():
+    ring = config.cluster.metadata.token_map.ring
+    tokens = [token.value for token in ring]
+    return discrete_token_ranges(tokens)
 
 
 def discrete_token_ranges(tokens):
