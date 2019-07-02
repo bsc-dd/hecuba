@@ -3,12 +3,11 @@ import string
 import uuid
 from collections import namedtuple
 
-from . import config, log
-from .storageiter import NamedItemsIterator
 from hfetch import Hcache
 
-from .IStorage import IStorage
-from .tools import discrete_token_ranges, extract_ks_tab
+from . import config, log
+from .IStorage import IStorage, AlreadyPersistentError
+from .storageiter import NamedItemsIterator
 
 
 class QbeastMeta(object):
@@ -23,20 +22,19 @@ config.cluster.register_user_type('hecuba', 'q_meta', QbeastMeta)
 
 
 class QbeastIterator(IStorage):
-    """
-    Object used to access data from workers.
-    """
+    # """
+    # Object used to access data from workers.
+    # """
+
     args_names = ['primary_keys', 'columns', 'indexed_on', 'name', 'qbeast_meta', 'qbeast_random',
                   'storage_id', 'tokens', 'class_name', 'built_remotely']
     _building_args = namedtuple('QbeastArgs', args_names)
-    _prepared_store_meta = config.session.prepare(
-        'INSERT INTO hecuba.istorage'
-        '(primary_keys, columns, indexed_on, name, qbeast_meta,'
-        ' qbeast_random, storage_id, tokens, class_name)'
-        'VALUES (?,?,?,?,?,?,?,?,?)')
+    _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
+                                                  '(primary_keys, columns, indexed_on, name, qbeast_meta,'
+                                                  ' qbeast_random, storage_id, tokens, class_name)'
+                                                  'VALUES (?,?,?,?,?,?,?,?,?)')
     _prepared_set_qbeast_meta = config.session.prepare(
         'INSERT INTO hecuba.istorage (storage_id, qbeast_meta)VALUES (?,?)')
-    _row_namedtuple = namedtuple("row", "key,value")
 
     @staticmethod
     def _store_meta(storage_args):
@@ -58,7 +56,7 @@ class QbeastIterator(IStorage):
             raise ex
 
     def __init__(self, primary_keys, columns, indexed_on, name, qbeast_meta=None, qbeast_random=None,
-                 storage_id=None, tokens=None, built_remotely=False):
+                 storage_id=None, tokens=None, **kwargs):
         """
         Creates a new block.
         Args:
@@ -70,27 +68,29 @@ class QbeastIterator(IStorage):
             storage_id (uuid): the storage id identifier
             tokens (list): list of tokens
         """
-        log.debug("CREATED QbeastIterator(%s,%s,%s,%s)", storage_id, tokens, )
-        super().__init__()
+        super().__init__((), name=name, storage_id=storage_id, **kwargs)
 
-        (self._ksp, self._table) = extract_ks_tab(name)
-        self._indexed_on = indexed_on
+        log.debug("CREATED QbeastIterator(%s,%s,%s,%s)", storage_id, tokens, )
+
         self._qbeast_meta = qbeast_meta
+        self._primary_keys = primary_keys
+        self._columns = columns
+        self._indexed_on = indexed_on
+
         if qbeast_random is None:
             self._qbeast_random = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(5))
         else:
             self._qbeast_random = qbeast_random
-        if tokens is None:
-            log.info('using all tokens')
-            tokens = map(lambda a: a.value, config.cluster.metadata.token_map.ring)
-            self._tokens = discrete_token_ranges(tokens)
-        else:
-            self._tokens = tokens
 
         class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
 
-        key_names = [col[0] if isinstance(col, tuple) else col["name"] for col in primary_keys]
-        column_names = [col[0] if isinstance(col, tuple) else col["name"] for col in columns]
+        self._primary_keys = [{"type": key[1], "name": key[0]} if isinstance(key, tuple) else key
+                              for key in self._primary_keys]
+        self._columns = [{"type": col[1], "name": col[0]} if isinstance(col, tuple) else col
+                         for col in self._columns]
+
+        key_names = [col["name"] for col in self._primary_keys]
+        column_names = [col["name"] for col in self._columns]
         if len(key_names) > 1:
             self._key_builder = namedtuple('row', key_names)
         else:
@@ -102,13 +102,8 @@ class QbeastIterator(IStorage):
 
         self._k_size = len(primary_keys)
 
-        if storage_id is None:
-            self.storage_id = uuid.uuid4()
-        else:
-            self.storage_id = storage_id
-
-        build_keys = [(key["name"], key["type"]) if isinstance(key, dict) else key for key in primary_keys]
-        build_columns = [(col["name"], col["type"]) if isinstance(col, dict) else col for col in columns]
+        build_keys = [(key["name"], key["type"]) for key in self._primary_keys]
+        build_columns = [(col["name"], col["type"]) for col in self._columns]
 
         self._build_args = self._building_args(
             build_keys,
@@ -120,22 +115,42 @@ class QbeastIterator(IStorage):
             self.storage_id,
             self._tokens,
             class_name,
-            built_remotely)
+            self._built_remotely)
 
-        persistent_columns = [{"name": col[0], "type": col[1]} if isinstance(col, tuple) else col for col in columns]
+        if name or storage_id:
+            self.make_persistent(name)
+
+    def make_persistent(self, name):
+        if self._is_persistent:
+            raise AlreadyPersistentError("This StorageDict is already persistent [Before:{}.{}][After:{}]",
+                                         self._ksp, self._table, name)
+
+        super().make_persistent(name)
+
+        # Update local QbeastIterator metadata
+        self._build_args = self._build_args._replace(storage_id=self.storage_id, name=self._ksp + "." + self._table,
+                                                     tokens=self._tokens)
+
+        self._setup_hcache()
+
+        QbeastIterator._store_meta(self._build_args)
+
+    def _setup_hcache(self):
+        key_names = [key["name"] for key in self._primary_keys]
+        persistent_values = [{"name": col["name"]} for col in self._columns]
+
+        if self._tokens is None:
+            raise RuntimeError("Tokens for object {} are null".format(self._get_name()))
 
         self._hcache_params = (self._ksp, self._table,
                                self.storage_id,
-                               self._tokens, key_names, persistent_columns,
+                               self._tokens, key_names, persistent_values,
                                {'cache_size': config.max_cache_size,
                                 'writer_par': config.write_callbacks_number,
                                 'writer_buffer': config.write_buffer_size,
                                 'timestamped_writes': config.timestamped_writes})
         log.debug("HCACHE params %s", self._hcache_params)
         self._hcache = Hcache(*self._hcache_params)
-
-        if not built_remotely:
-            QbeastIterator._store_meta(self._build_args)
 
     def _set_qbeast_meta(self, qbeast_meta):
         self._qbeast_meta = qbeast_meta
@@ -172,3 +187,11 @@ class QbeastIterator(IStorage):
                                       self)
 
         return iterator
+
+    def _stop_persistent(self):
+        vars(self)['_stop_persistent'] = vars(self).pop('stop_persistent')
+        self.storage_id = None
+
+    def _delete_persistent(self):
+        vars(self)['_delete_persistent'] = vars(self).pop('delete_persistent')
+        self.storage_id = None
