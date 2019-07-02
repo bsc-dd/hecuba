@@ -18,11 +18,11 @@ _max_token = int(((2 ** 63) - 1))  # type: int
 _min_token = int(-2 ** 63)  # type: int
 
 _valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map', 'bigint', 'blob',
-                'tuple', 'dict', 'float', 'numpy.ndarray']
+                'tuple', 'dict', 'float', 'date', 'time', 'timestamp', 'datetime', 'numpy.ndarray']
 
 _basic_types = _valid_types[:-1]
 _hecuba_valid_types = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer' \
-                      '|counter|double)'
+                      '|counter|double|date|time|timestamp|datetime)'
 
 AT = 'int | atomicint | str | bool | decimal | float | long | double | buffer'
 
@@ -48,7 +48,11 @@ _conversions = {'atomicint': 'counter',
                 'double': 'double',
                 'StorageDict': 'dict',
                 'ndarray': 'hecuba.hnumpy.StorageNumpy',
-                'numpy.ndarray': 'hecuba.hnumpy.StorageNumpy'}
+                'numpy.ndarray': 'hecuba.hnumpy.StorageNumpy',
+                'date': 'date',
+                'time': 'time',
+                'datetime': 'timestamp',
+                'timestamp': 'timestamp'}
 
 args = namedtuple("IStorage", [])
 

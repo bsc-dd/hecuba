@@ -1,10 +1,12 @@
-import cassandra
+import time
 import unittest
+import uuid
+from datetime import date, datetime, time
+from random import randint
 
 from hecuba import config, StorageObj, StorageDict
+
 from ..app.words import Words
-import uuid
-import time
 
 
 class MyStorageDict(StorageDict):
@@ -51,25 +53,36 @@ class myobj2(StorageObj):
     @ClassField attr2 str
     '''
 
+
 class DictWithTuples(StorageDict):
     '''
     @TypeSpec dict<<key:int>, val:tuple<int,int>>
     '''
+
 
 class DictWithTuples2(StorageDict):
     '''
     @TypeSpec dict<<key0:tuple<int,int>, key1:int>, val:str>
     '''
 
+
 class DictWithTuples3(StorageDict):
     '''
     @TypeSpec dict<<key:int>, val0:int, val1:tuple<long,int>, val2:str, val3:tuple<str,float>>
     '''
 
+
 class MultiTuples(StorageDict):
     '''
     @TypeSpec dict<<time:int, lat:double, lon:double, ilev:int>, m_cloudfract:tuple<float,float,float,int>, m_humidity:tuple<float,float,float,int>, m_icewater:tuple<float,float,float,int>, m_liquidwate:tuple<float,float,float,int>, m_ozone:tuple<float,float,float,int>, m_pot_vorticit:tuple<float,float,float,int>, m_rain:tuple<float,float,float,int>, m_snow:tuple<float,float,float,int>>
     '''
+
+
+class DictWithDates(StorageDict):  # 'date', 'time', 'timestamp'
+    '''
+    @TypeSpec dict<<date1:date, date2:time, date3:timestamp>, date4:date, date5:time, date6:timestamp>
+    '''
+
 
 class StorageDictTest(unittest.TestCase):
     def test_init_empty(self):
@@ -943,11 +956,11 @@ class StorageDictTest(unittest.TestCase):
         d = DictWithTuples2("my_app.dictwithtuples2")
 
         for i in range(0, 10):
-            d[(i, i), i+1] = str(i)
+            d[(i, i), i + 1] = str(i)
 
         time.sleep(1)
         for i in range(0, 10):
-            self.assertEqual(d[(i, i), i+1], str(i))
+            self.assertEqual(d[(i, i), i + 1], str(i))
 
         self.assertEqual(len(list(d.keys())), 10)
 
@@ -957,8 +970,8 @@ class StorageDictTest(unittest.TestCase):
 
         what_should_be = set()
         for i in range(0, 10):
-            what_should_be.add(((i, i), i+1))
-            d[(i, i), i+1] = str(i)
+            what_should_be.add(((i, i), i + 1))
+            d[(i, i), i + 1] = str(i)
 
         time.sleep(1)
 
@@ -1000,9 +1013,9 @@ class StorageDictTest(unittest.TestCase):
 
         for i in range(0, 10):
             if i % 2 == 0:
-                d[i] = (None, i+10)
+                d[i] = (None, i + 10)
             else:
-                d[i] = (i, i+10)
+                d[i] = (i, i + 10)
 
         d = DictWithTuples("my_app.dictwithtuples")
         for i in range(0, 10):
@@ -1017,11 +1030,17 @@ class StorageDictTest(unittest.TestCase):
         what_should_be = dict()
 
         for i in range(0, 10):
-            d[(i,i,i,i)] = [(i,i,i,i),(i,i,i,i),(i,i,i,i),(i,i,i,i),(i,i,i,i),(i,i,i,i),(i,i,i,i),(i,i,i,i)]
-            what_should_be[(i, i, i, i)] = [(i, i, i, i), (i, i, i, i), (i, i, i, i), (i, i, i, i), (i, i, i, i), (i, i, i, i),
+            d[(i, i, i, i)] = [(i, i, i, i), (i, i, i, i), (i, i, i, i), (i, i, i, i), (i, i, i, i), (i, i, i, i),
                                (i, i, i, i), (i, i, i, i)]
+            what_should_be[(i, i, i, i)] = [(i, i, i, i), (i, i, i, i), (i, i, i, i), (i, i, i, i), (i, i, i, i),
+                                            (i, i, i, i),
+                                            (i, i, i, i), (i, i, i, i)]
         for i in range(0, 10):
-            self.assertEqual(list(d[(i,i,i,i)]), [(float(i),float(i),float(i),i),(float(i),float(i),float(i),i),(float(i),float(i),float(i),i),(float(i),float(i),float(i),i),(float(i),float(i),float(i),i),(float(i),float(i),float(i),i),(float(i),float(i),float(i),i),(float(i),float(i),float(i),i)])
+            self.assertEqual(list(d[(i, i, i, i)]),
+                             [(float(i), float(i), float(i), i), (float(i), float(i), float(i), i),
+                              (float(i), float(i), float(i), i), (float(i), float(i), float(i), i),
+                              (float(i), float(i), float(i), i), (float(i), float(i), float(i), i),
+                              (float(i), float(i), float(i), i), (float(i), float(i), float(i), i)])
 
     def test_multiple_tuples_NULL(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.dictmultipletuples")
@@ -1043,7 +1062,6 @@ class StorageDictTest(unittest.TestCase):
             else:
                 self.assertEqual(list(d[i]), [i, (5500000000000000, None), "hola", (None, (i + 20.5))])
 
-
         self.assertEqual(len(list(d.keys())), 10)
 
         res = dict()
@@ -1055,6 +1073,34 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(count, len(what_should_be))
         self.assertEqual(what_should_be, res)
 
+    def gen_random_date(self):
+        return date(year=randint(2000, 2019), month=randint(0, 12), day=randint(0, 28))
+
+    def gen_random_datetime(self):
+        return datetime(year=randint(2000, 2019), month=randint(0, 12), day=randint(0, 28),
+                        hour=randint(0, 23), minute=randint(0, 59), second=randint(0, 59))
+
+    def gen_random_time(self):
+        return time(hour=randint(0, 23), minute=randint(0, 59), second=randint(0, 59))
+
+    def test_multiple_dates(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithdates")
+        d = DictWithDates("my_app.dictwithdates")
+        what_should_be = dict()
+        for i in range(0, 50):
+            keys = [self.gen_random_date(), self.gen_random_time(), self.gen_random_datetime()]
+            cols = [self.gen_random_date(), self.gen_random_time(), self.gen_random_datetime()]
+            what_should_be[keys] = cols
+            d[keys] = cols
+
+        self.assertEqual(len(list(d.keys())), len(what_should_be.keys()))
+
+        count = 0
+        for k in what_should_be.keys():
+            count += 1
+            self.assertEqual(what_should_be[k], list(d[k]))
+
+        self.assertEqual(count, len(d))
 
 
 if __name__ == '__main__':
