@@ -6,7 +6,7 @@
 #include <cstring>
 #include <cmath>
 #include "limits.h"
-
+#include <map>
 #define BLOCK_SIZE 4096
 #define CLUSTER_SIZE 2
 #define CLUSTER_END_FLAG INT_MAX-1
@@ -70,7 +70,7 @@ public:
 
     ~SpaceFillingCurve() {};
 
-    static PartitionGenerator *make_partitions_generator(const ArrayMetadata *metas, void *data);
+    static PartitionGenerator *make_partitions_generator(const ArrayMetadata *metas, void *data, std::vector< std::vector<uint32_t> > coord);
 
 protected:
 
@@ -131,11 +131,11 @@ private:
     bool done;
     const ArrayMetadata *metas;
     void *data;
-    uint32_t ndims, row_elements;
+    uint32_t ndims, row_elements, ncoord = 0;
     uint64_t block_size, nblocks;
     std::vector<uint32_t> block_dims, blocks_dim, bound_dims;
     uint64_t block_counter;
-
+    std::map<uint32_t, std::vector<uint32_t> > coord;
 
     static void tessellate(std::vector<uint32_t> dims, std::vector<uint32_t> block_dims, uint32_t elem_size, char *data,
                            char *output_data, char *output_data_end);
@@ -144,6 +144,24 @@ private:
     copy_block_to_array(std::vector<uint32_t> dims, std::vector<uint32_t> block_dims, uint32_t elem_size, char *data,
                         char *output_data, char *output_data_end);
 
+};
+
+
+
+class ZorderCurveGeneratorFiltered : public ZorderCurveGenerator {
+public:
+
+    ZorderCurveGeneratorFiltered(const ArrayMetadata *metas, void *data, std::vector< std::vector<uint32_t> > coord) : ZorderCurveGenerator(metas, data){
+        this->coord = coord;
+    };
+
+    int32_t computeNextClusterId() override;
+
+    bool isDone() override;
+
+private:
+    std::vector< std::vector<uint32_t> > coord;
+    bool done = false;
 };
 
 #endif //HFETCH_SPACEFILLINGCURVE_H

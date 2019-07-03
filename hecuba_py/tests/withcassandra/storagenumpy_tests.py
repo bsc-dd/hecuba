@@ -47,7 +47,7 @@ class StorageNumpyTest(unittest.TestCase):
         no.mynumpy = np.arange(40000).reshape((200, 200))
         myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % size)
         chunk = myobj2.mynumpy[coordinates] # we are getting the first cluster
-        self.assertEqual(chunk[87,87],17487)
+        self.assertEqual(chunk[87,87],8787)
         self.assertNotEqual(chunk[87,88], 17488)
 
 

@@ -28,8 +28,11 @@ void NumpyStorage::store_numpy(const uint64_t *storage_id, PyArrayObject *numpy)
 PyObject *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject *coord, char * save) {
     ArrayMetadata *np_metas = this->read_metadata(storage_id);
     npy_intp *dims = new npy_intp[np_metas->dims.size()];
-    std::map<uint32_t, std::vector<uint32_t> > crd;
-    std::vector<uint32_t> crd_inner(PyList_Size(PyList_GetItem(coord, 0)));
+
+    std::vector<uint32_t> crd_inner(2);
+    std::vector< std::vector<uint32_t> > crd(PyList_Size(coord), std::vector<uint32_t>(2));;
+
+
     uint32_t ndims = (uint32_t) np_metas->dims.size();
     //Compute the best fitting block
     //Make the block size multiple of the element size
@@ -42,11 +45,11 @@ PyObject *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject
             PyObject *value = PyList_GetItem(coord, i);
             for (Py_ssize_t j = 0; j < PyList_Size(value); j++) {
                 crd_inner[j] = PyLong_AsLong(PyList_GetItem(value, j))/row_elements;
-                //auto family_iterator = families.find("Jones");
             }
             crd[i] = crd_inner;
         }
     }
+
     else PyErr_SetString(PyExc_TypeError, "coord is not a PyList");
     void *numpy_data = this->read_n_coord(storage_id, np_metas, crd, save);
     for (uint32_t i = 0; i < np_metas->dims.size(); ++i) {

@@ -131,19 +131,15 @@ class StorageNumpy(np.ndarray, IStorage):
 
     def __getitem__(self, key):
         log.info("RETRIEVING NUMPY")
-        try:
-            if isinstance(key, slice):
-                coordinates = [[key.start, key.stop]]
-            else:
-                coordinates = [[coord.start, coord.stop] for coord in key]
-            arr = np.array(coordinates)
-            coord = [arr[:, coord] for coord in range(len(coordinates[0]))]
-            key = self.get_coords_n_dim(coord[0], coord[1])
-            return self._hcache.get_numpy_from_coordinates([self._storage_id], key, [self.view(np.ndarray)])
-            #return super(StorageNumpy, self).__getitem__(key)
-        except AttributeError:
-            # not a slice object (no `indices` attribute)
-            return np.array(self)[key]
+        if isinstance(key, slice):
+            coordinates = [[key.start, key.stop]]
+        else:
+            coordinates = [[coord.start, coord.stop] for coord in key]
+        arr = np.array(coordinates)
+        coord = [arr[:, coord] for coord in range(len(coordinates[0]))]
+        keys = self.get_coords_n_dim(coord[0], coord[1])
+        return self._hcache.get_numpy_from_coordinates([self._storage_id], keys, [self.view(np.ndarray)])
+        #return super(StorageNumpy, self).__getitem__(key)
 
     def get_coords_n_dim(self, start, stop):
         stop = stop + 1

@@ -97,7 +97,7 @@ void ArrayDataStore::update_metadata(const uint64_t *storage_id, ArrayMetadata *
  */
 void ArrayDataStore::store(const uint64_t *storage_id, ArrayMetadata *metadata, void *data) const {
 
-    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata, data);
+    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner->make_partitions_generator(metadata, data, {});
 
     char *keys = nullptr;
     void *values = nullptr;
@@ -204,74 +204,41 @@ ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
 
 //TODO: we can use all the clusters id as coordinates, this way it's not necessary the 'else' (?)
 void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *metadata,
-                                   std::map<uint32_t, std::vector<uint32_t> > coord, char *save) const {
+                                   std::vector< std::vector<uint32_t> > coord, char *save) {
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
     std::vector<const TupleRow *> result, all_results;
     std::vector<Partition> all_partitions;
-
     uint64_t *c_uuid = nullptr;
     char *buffer = nullptr;
     int32_t cluster_id = 0, offset = 0;
     int32_t *block = nullptr;
     int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
-
-    ZorderCurveGenerator *partitioner = new ZorderCurveGenerator(metadata, nullptr);
-    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata,
-                                                                                                       nullptr);
-    if (!coord.empty()) {
-        SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata,
-                                                                                                           nullptr);
-        std::set<uint32_t> cluster_ids;
-        for (int i = 0; i < coord.size(); ++i) {
-            cluster_id = (uint32_t) (partitioner->computeZorder(coord[i]) >> CLUSTER_SIZE);
-            if (cluster_ids.find(cluster_id) == cluster_ids.end()) {
-                cluster_ids.insert(cluster_id);
-                buffer = (char *) malloc(keys_size);
-                //UUID
-                c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
-                //[0] time_and_version;
-                //[1] clock_seq_and_node;
-                memcpy(buffer, &c_uuid, sizeof(uint64_t *));
-                offset = sizeof(uint64_t *);
-                //Cluster id
-                memcpy(buffer + offset, &cluster_id, sizeof(cluster_id));
-                //We fetch the data
-                result = read_cache->get_crow(new TupleRow(keys_metas, keys_size, buffer));
-                //build cluster
-                all_results.insert(all_results.end(), result.begin(), result.end());
-                for (const TupleRow *row:result) {
-                    block = (int32_t *) row->get_element(0);
-                    char **chunk = (char **) row->get_element(1);
-                    all_partitions.emplace_back(
-                            Partition((uint32_t) cluster_id + half_int, (uint32_t) *block + half_int, *chunk));
-                }
-            }
-        }
-    } else {
-        while (!partitions_it->isDone()) {
-            cluster_id = partitions_it->computeNextClusterId();
-            buffer = (char *) malloc(keys_size);
-            //UUID
-            c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
-            //[0] time_and_version;
-            //[1] clock_seq_and_node;
-            memcpy(buffer, &c_uuid, sizeof(uint64_t *));
-            offset = sizeof(uint64_t *);
-            //Cluster id
-            memcpy(buffer + offset, &cluster_id, sizeof(cluster_id));
-            //We fetch the data
-            result = read_cache->get_crow(new TupleRow(keys_metas, keys_size, buffer));
-            //build cluster
-            all_results.insert(all_results.end(), result.begin(), result.end());
-            for (const TupleRow *row:result) {
-                block = (int32_t *) row->get_element(0);
-                char **chunk = (char **) row->get_element(1);
-                all_partitions.emplace_back(
-                        Partition((uint32_t) cluster_id + half_int, (uint32_t) *block + half_int, *chunk));
-            }
+    SpaceFillingCurve::PartitionGenerator *partitions_it = nullptr;
+    partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, coord);
+    while (!partitions_it->isDone()) {
+        cluster_id = partitions_it->computeNextClusterId();
+        buffer = (char *) malloc(keys_size);
+        //UUID
+        c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
+        //[0] time_and_version;
+        //[1] clock_seq_and_node;
+        memcpy(buffer, &c_uuid, sizeof(uint64_t *));
+        offset = sizeof(uint64_t *);
+        //Cluster id
+        memcpy(buffer + offset, &cluster_id, sizeof(cluster_id));
+        //We fetch the data
+        result = read_cache->get_crow(new TupleRow(keys_metas, keys_size, buffer));
+        //build cluster
+        all_results.insert(all_results.end(), result.begin(), result.end());
+        for (const TupleRow *row:result) {
+            block = (int32_t *) row->get_element(0);
+            char **chunk = (char **) row->get_element(1);
+            all_partitions.emplace_back(
+                    Partition((uint32_t) cluster_id + half_int, (uint32_t) *block + half_int, *chunk));
         }
     }
+
     if (all_partitions.empty()) {
         throw ModuleException("no npy found on sys");
     }

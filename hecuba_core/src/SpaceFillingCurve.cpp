@@ -9,8 +9,9 @@
  * @return
  */
 SpaceFillingCurve::PartitionGenerator *
-SpaceFillingCurve::make_partitions_generator(const ArrayMetadata *metas, void *data) {
+SpaceFillingCurve::make_partitions_generator(const ArrayMetadata *metas, void *data, std::vector< std::vector<uint32_t> > coord) {
     if (!metas) throw ModuleException("Array metadata not present");
+    if (metas->partition_type == ZORDER_ALGORITHM && !coord.empty()) return new ZorderCurveGeneratorFiltered(metas, data, coord);
     if (metas->partition_type == ZORDER_ALGORITHM) return new ZorderCurveGenerator(metas, data);
     return new SpaceFillingGenerator(metas, data);
 }
@@ -429,5 +430,19 @@ void *ZorderCurveGenerator::merge_partitions(const ArrayMetadata *metas, std::ve
     }
     return data;
 }
+
+int32_t ZorderCurveGeneratorFiltered::computeNextClusterId() {
+    uint32_t zorder = (uint32_t) (computeZorder(coord.front()) >> CLUSTER_SIZE);
+    coord.erase (coord.begin());
+    return zorder;
+}
+
+bool ZorderCurveGeneratorFiltered::isDone() {
+    return coord.empty();
+
+}
+
+
+
 
 
