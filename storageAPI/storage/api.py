@@ -74,15 +74,13 @@ class TaskContext(object):
 
 def getByID(objid):
     """
-    We rebuild the object from its id. The id can either be:
-    block: UUID (eg. f291f008-a520-11e6-b42e-5b582e04fd70)
-    storageobj: UUID_(version) (eg. f291f008-a520-11e6-b42e-5b582e04fd70_1)
+    We rebuild the object from its id.
 
     Args:
         objid (str):  object identifier
 
     Returns:
-         (Block| Storageobj)
+         Hecuba Object
 
     """
     """

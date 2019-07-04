@@ -9,15 +9,16 @@ class AlreadyPersistentError(RuntimeError):
 
 
 class IStorage(metaclass=ABCMeta):
-    def getID(self):
+
+    def get_id(self):
         return self.__storage_id
 
-    def setID(self, st_id):
+    def set_id(self, st_id):
         if st_id is not None and not isinstance(st_id, uuid.UUID):
             raise TypeError("Storage ID must be an instance of UUID")
         self.__storage_id = st_id
 
-    storage_id = property(getID, setID)
+    storage_id = property(get_id, set_id)
 
     def __init__(self, *args, **kwargs):
         super().__init__()
@@ -41,12 +42,7 @@ class IStorage(metaclass=ABCMeta):
         Returns:
             boolean (true - equals, false - not equals).
         """
-        return self.__class__ == other.__class__ and self.getID() == other.getID()
-
-
-    @staticmethod
-    def _store_meta(storage_args):
-        pass
+        return self.__class__ == other.__class__ and self.get_id() == other.get_id()
 
 
     @abstractmethod
@@ -100,6 +96,13 @@ class IStorage(metaclass=ABCMeta):
             return self._name
         except AttributeError:
             return ''
+
+    def getID(self):
+        """
+        Method to retrieve the storage id as string. Used by PyCOMPSs solely.
+        :return: Storage_id as str
+        """
+        return str(self.storage_id)
 
 
     def split(self):

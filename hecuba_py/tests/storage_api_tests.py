@@ -14,7 +14,7 @@ class StorageApi_Tests(unittest.TestCase):
     def class_type_test(self):
         base_dict = ApiTestSDict('test.api_sdict')
         # PyCOMPSs requires uuid of type str
-        storage_id = str(base_dict.getID())
+        storage_id = str(base_dict.get_id())
         del base_dict
 
         rebuild_dict = getByID(storage_id)

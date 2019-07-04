@@ -13,13 +13,13 @@ class StorageTests(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.so_1")
         SO = Words('so')
         b = next(SO.split())
-        new_block = getByID(b.getID())
-        self.assertEqual(b.getID(), new_block.getID())
+        new_block = getByID(b.get_id())
+        self.assertEqual(b.get_id(), new_block.get_id())
         self.assertEqual(b, new_block)
 
     def test_getByID_storage_obj(self):
         b = Words('testspace.tt')
-        new_block = getByID(b.getID())
+        new_block = getByID(b.get_id())
         self.assertEqual(b, new_block)
 
 

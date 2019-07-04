@@ -61,7 +61,7 @@ class BlockTest(unittest.TestCase):
         bl = StorageDict()
         u = uuid.uuid4()
         bl.storage_id = u
-        self.assertEquals(u, bl.getID())
+        self.assertEquals(u, bl.get_id())
         StorageDict.__init__ = old
 
 

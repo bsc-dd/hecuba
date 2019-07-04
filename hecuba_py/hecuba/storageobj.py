@@ -73,9 +73,6 @@ class StorageObj(IStorage):
             self.make_persistent(name)
         log.debug("CREATED StorageObj(%s)", self._get_name())
 
-    def __eq__(self, other):
-        return self.__class__ == other.__class__ and self.getID() == other.getID()
-
     def _persist_attributes(self):
         """
         Persist in-memory attributes to the data store
