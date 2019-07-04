@@ -64,20 +64,13 @@ class StorageObj(IStorage):
 
         super().__init__(*args, **kwargs)
 
-        self._build_args = None
+        self._build_args = self.args('', [], None, self._class_name, self._built_remotely)
 
         if storage_id and not name:
             name = get_istorage_attrs(storage_id)[0].name
 
         if name or storage_id:
             self.make_persistent(name)
-        else:
-            self._build_args = self.args('',
-                                         [],
-                                         None,
-                                         self._class_name,
-                                         self._built_remotely)
-
         log.debug("CREATED StorageObj(%s)", self._get_name())
 
     def __eq__(self, other):
