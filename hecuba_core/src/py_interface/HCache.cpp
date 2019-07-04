@@ -511,7 +511,7 @@ static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
     const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
 
     PyObject *numpy;
-    try{
+    try {
         numpy = self->NumpyDataStore->read_numpy(storage_id);
     }
     catch (std::exception &e) {
@@ -527,9 +527,7 @@ static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
 
 
 static void hnumpy_store_dealloc(HNumpyStore *self) {
-    delete(self->NumpyDataStore);
-    delete(self->cache);
-    delete(self->read_cache);
+    delete (self->NumpyDataStore);
     Py_TYPE((PyObject*) self)->tp_free((PyObject *) self);
 }
 
@@ -543,10 +541,9 @@ static PyObject *hnumpy_store_new(PyTypeObject *type, PyObject *args, PyObject *
 
 static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) {
     const char *table, *keyspace;
-    PyObject *py_tokens, *py_keys_names, *py_cols_names, *py_config, *py_storage_id;
+    PyObject *py_config;
 
-    if (!PyArg_ParseTuple(args, "ssOOOOO", &keyspace, &table, &py_storage_id, &py_tokens,
-                          &py_keys_names, &py_cols_names, &py_config)) {
+    if (!PyArg_ParseTuple(args, "ssO", &keyspace, &table, &py_config)) {
         return -1;
     };
 
@@ -576,68 +573,8 @@ static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) 
 
     /*** PARSE TABLE METADATA ***/
 
-    uint16_t tokens_size = (uint16_t) PyList_Size(py_tokens);
-    uint16_t keys_size = (uint16_t) PyList_Size(py_keys_names);
-    uint16_t cols_size = (uint16_t) PyList_Size(py_cols_names);
-
-    int64_t t_a, t_b;
-    self->token_ranges = std::vector<std::pair<int64_t, int64_t >>(tokens_size);
-    for (uint16_t i = 0; i < tokens_size; ++i) {
-        PyObject *obj_to_convert = PyList_GetItem(py_tokens, i);
-        if (!PyArg_ParseTuple(obj_to_convert, "LL", &t_a, &t_b)) return -1;
-        self->token_ranges[i] = std::make_pair(t_a, t_b);
-    }
-
-
-    std::vector<std::map<std::string, std::string>> keys_names(keys_size);
-
-    for (uint16_t i = 0; i < keys_size; ++i) {
-        PyObject *obj_to_convert = PyList_GetItem(py_keys_names, i);
-        char *str_temp;
-        if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
-            return -1;
-        }
-        keys_names[i] = {{"name", std::string(str_temp)}};
-    }
-
-    std::vector<std::map<std::string, std::string>> columns_names(cols_size);
-    for (uint16_t i = 0; i < cols_size; ++i) {
-        PyObject *obj_to_convert = PyList_GetItem(py_cols_names, i);
-
-        if (PyUnicode_Check(obj_to_convert)) {
-            char *str_temp;
-            if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
-                return -1;
-            };
-            columns_names[i] = {{"name", std::string(str_temp)}};
-        } else if (PyDict_Check(obj_to_convert)) {
-            PyObject *dict;
-            if (!PyArg_Parse(obj_to_convert, "O", &dict)) {
-                return -1;
-            };
-
-            PyObject *py_name = PyDict_GetItemString(dict, "name");
-            columns_names[i]["name"] = PyUnicode_AsUTF8(py_name);
-        } else {
-            PyErr_SetString(PyExc_TypeError, "Can't parse column names, expected String, Dict or Unicode");
-            return -1;
-        }
-    }
-
-
     try {
-        self->cache = storage->make_cache(table, keyspace, keys_names, columns_names, config);
-        std::vector<std::map<std::string, std::string>> read_keys_names(keys_names.begin(), (keys_names.end()-1));
-        std::vector<std::map<std::string, std::string>> read_columns_names = columns_names;
-
-
-        read_columns_names.insert(read_columns_names.begin(),keys_names.back());
-
-
-        self->read_cache = storage->make_cache(table, keyspace, read_keys_names, read_columns_names, config);
-
-
-        self->NumpyDataStore = new NumpyStorage(self->cache, self->read_cache, config);
+        self->NumpyDataStore = new NumpyStorage(table, keyspace, storage->get_session(), config);
     } catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return -1;

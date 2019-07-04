@@ -20,7 +20,7 @@ class NumpyStorage : public ArrayDataStore {
 
 public:
 
-    NumpyStorage(CacheTable *cache, CacheTable *read_cache,
+    NumpyStorage(const char *table, const char *keyspace, CassSession *session,
                  std::map<std::string, std::string> &config);
 
     ~NumpyStorage();
@@ -33,8 +33,6 @@ public:
 private:
 
     ArrayMetadata *get_np_metadata(PyArrayObject *numpy) const;
-
-
 
 };
 

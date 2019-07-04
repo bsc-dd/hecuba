@@ -1,8 +1,8 @@
 #include "NumpyStorage.h"
 
 
-NumpyStorage::NumpyStorage(CacheTable *cache, CacheTable *read_cache,
-                           std::map<std::string, std::string> &config) : ArrayDataStore(cache, read_cache, config) {
+NumpyStorage::NumpyStorage(const char *table, const char *keyspace, CassSession *session,
+                           std::map<std::string, std::string> &config) : ArrayDataStore(table, keyspace, session, config) {
 
 
 }
@@ -21,13 +21,12 @@ void NumpyStorage::store_numpy(const uint64_t *storage_id, PyArrayObject *numpy)
     void *data = PyArray_BYTES(numpy);
     this->store(storage_id, np_metas, data);
     this->update_metadata(storage_id, np_metas);
-
     delete (np_metas);
 }
 
 
 /***
- * Reads a numpy ndarray by fetching the clusters indipendently
+ * Reads a numpy ndarray by fetching the clusters independently
  * @param storage_id of the array to retrieve
  * @return Numpy ndarray as a Python object
  */
