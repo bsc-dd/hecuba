@@ -48,8 +48,7 @@ public:
                         config_map &config);
 
 
-    ArrayDataStore *make_array_store(const char *table, const char *keyspace,
-                                      config_map &config);
+    ArrayDataStore *make_array_store(const char *table, const char *keyspace, config_map &config);
 
     Prefetch *get_iterator(const char *table, const char *keyspace,
                            std::vector<config_map> &keys_names,

@@ -25,9 +25,8 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
 
 
 ArrayDataStore::~ArrayDataStore() {
-    delete(this->cache);
-    delete(this->read_cache);
-
+    delete (this->cache);
+    delete (this->read_cache);
 };
 
 
@@ -257,7 +256,7 @@ void *ArrayDataStore::read(const uint64_t *storage_id, ArrayMetadata *metadata) 
 
     for (const TupleRow *item:all_results) delete (item);
 
-    delete(partitions_it);
+    delete (partitions_it);
 
     return data;
 }

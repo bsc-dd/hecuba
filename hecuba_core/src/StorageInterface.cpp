@@ -107,8 +107,7 @@ Writer *StorageInterface::make_writer(const TableMetadata *table_meta,
 }
 
 
-ArrayDataStore *StorageInterface::make_array_store(const char *table, const char *keyspace,
-                                                    config_map &config) {
+ArrayDataStore *StorageInterface::make_array_store(const char *table, const char *keyspace, config_map &config) {
     return new ArrayDataStore(table, keyspace, session, config);
 }
 

@@ -2,7 +2,8 @@
 
 
 NumpyStorage::NumpyStorage(const char *table, const char *keyspace, CassSession *session,
-                           std::map<std::string, std::string> &config) : ArrayDataStore(table, keyspace, session, config) {
+                           std::map<std::string, std::string> &config) :
+        ArrayDataStore(table, keyspace, session, config) {
 
 
 }
