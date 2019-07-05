@@ -9,9 +9,11 @@
  * @return
  */
 SpaceFillingCurve::PartitionGenerator *
-SpaceFillingCurve::make_partitions_generator(const ArrayMetadata *metas, void *data, std::vector< std::vector<uint32_t> > coord) {
+SpaceFillingCurve::make_partitions_generator(const ArrayMetadata *metas, void *data,
+                                             std::vector<std::vector<uint32_t> > coord) {
     if (!metas) throw ModuleException("Array metadata not present");
-    if (metas->partition_type == ZORDER_ALGORITHM && !coord.empty()) return new ZorderCurveGeneratorFiltered(metas, data, coord);
+    if (metas->partition_type == ZORDER_ALGORITHM && !coord.empty())
+        return new ZorderCurveGeneratorFiltered(metas, data, coord);
     if (metas->partition_type == ZORDER_ALGORITHM) return new ZorderCurveGenerator(metas, data);
     return new SpaceFillingGenerator(metas, data);
 }
@@ -50,21 +52,21 @@ void SpaceFillingCurve::SpaceFillingGenerator::simpleNextClusterId() {
 }
 
 void *
-SpaceFillingCurve::SpaceFillingGenerator::merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks, char* data) {
+SpaceFillingCurve::SpaceFillingGenerator::merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks,
+                                                           void *data) {
     uint64_t arrsize = metas->elem_size;
 
     for (uint32_t dim:metas->dims) arrsize *= dim;
 
-    if (data== nullptr) {
-        data = new char[arrsize];
-
+    if (data == nullptr) {
+        data = (char *) malloc(total_size);
     }
 
     uint64_t block_size = arrsize; //metas->block_size;
     for (Partition part:chunks) {
         uint64_t *chunk_size = (uint64_t *) part.data;
         uint64_t offset = part.block_id * block_size;
-        memcpy(data + offset, ((char *) part.data) + sizeof(uint64_t *), *chunk_size);
+        memcpy(static_cast<char *>(data) + offset, ((char *) part.data) + sizeof(uint64_t *), *chunk_size);
     }
     return data;
 }
@@ -279,7 +281,6 @@ void ZorderCurveGenerator::simpleNextClusterId() {
 }
 
 
-
 int32_t ZorderCurveGenerator::computeNextClusterId() {
 
 
@@ -341,7 +342,7 @@ void ZorderCurveGenerator::copy_block_to_array(std::vector<uint32_t> dims, std::
 }
 
 
-void *ZorderCurveGenerator::merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks, char* data) {
+void *ZorderCurveGenerator::merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks, void *data) {
     uint32_t ndims = (uint32_t) metas->dims.size();
 
     //Compute the best fitting block
@@ -364,8 +365,8 @@ void *ZorderCurveGenerator::merge_partitions(const ArrayMetadata *metas, std::ve
         blocks_dim[dim] = (uint32_t) std::ceil((double) metas->dims[dim] / row_elements);
     }
 
-    if (data== nullptr) {
-        data = new char[total_size];
+    if (data == nullptr) {
+        data = (char *) malloc(total_size);
 
     }
 
@@ -391,7 +392,7 @@ void *ZorderCurveGenerator::merge_partitions(const ArrayMetadata *metas, std::ve
 
         //Number of elements to skip until the coordinates
         uint64_t offset = getIdFromIndexes(metas->dims, ccs);
-        char *output_start = data + offset * metas->elem_size;
+        char *output_start = static_cast<char *>(data) + offset * metas->elem_size;
         char *input = (char *) chunk.data;
         uint64_t *retrieved_block_size = (uint64_t *) input;
         input += +sizeof(uint64_t);
@@ -435,12 +436,12 @@ void *ZorderCurveGenerator::merge_partitions(const ArrayMetadata *metas, std::ve
 
 int32_t ZorderCurveGeneratorFiltered::computeNextClusterId() {
     uint32_t zorder = (uint32_t) (computeZorder(coord.front()) >> CLUSTER_SIZE);
-    coord.erase (coord.begin());
+    coord.erase(coord.begin());
     return zorder;
 }
 
 bool ZorderCurveGeneratorFiltered::isDone() {
-    if(coord.empty()) done = true;
+    if (coord.empty()) done = true;
     return done;
 
 }

@@ -8,6 +8,7 @@
 #include <climits>
 #include <list>
 #include <set>
+
 class ArrayDataStore {
 
 public:
@@ -17,7 +18,7 @@ public:
 
     ~ArrayDataStore();
 
-    void store(const uint64_t *storage_id, ArrayMetadata* metadata, void *data) const;
+    void store(const uint64_t *storage_id, ArrayMetadata *metadata, void *data) const;
 
     void *read(const uint64_t *storage_id, ArrayMetadata *metadata) const;
 
@@ -25,18 +26,18 @@ public:
     ArrayMetadata *read_metadata(const uint64_t *storage_id) const;
 
     // Overwrite the metadata of the array identified by the given storage_id
-    void update_metadata(const uint64_t *storage_id, ArrayMetadata* metadata) const;
-    void *read_n_coord(const uint64_t *storage_id, ArrayMetadata *metadata, std::vector< std::vector<uint32_t> > coord, char* save);
+    void update_metadata(const uint64_t *storage_id, ArrayMetadata *metadata) const;
+
+    void *read_n_coord(const uint64_t *storage_id, ArrayMetadata *metadata, std::vector<std::vector<uint32_t> > coord,
+                       void *save);
 
 private:
-
 
 
     CacheTable *cache = nullptr, *read_cache = nullptr;
 
     SpaceFillingCurve *partitioner;
 
-    
 
 };
 

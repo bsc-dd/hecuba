@@ -14,7 +14,6 @@ NumpyStorage::~NumpyStorage() {
 
 
 void NumpyStorage::store_numpy(const uint64_t *storage_id, PyArrayObject *numpy) const {
-
     ArrayMetadata *np_metas = this->get_np_metadata(numpy);
     np_metas->partition_type = ZORDER_ALGORITHM;
 
@@ -25,23 +24,20 @@ void NumpyStorage::store_numpy(const uint64_t *storage_id, PyArrayObject *numpy)
     delete (np_metas);
 }
 
-PyObject *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject *coord, char * save) {
+PyObject *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject *coord, PyArrayObject *save) {
     ArrayMetadata *np_metas = this->read_metadata(storage_id);
+    void *data = PyArray_DATA(save);
     npy_intp *dims = new npy_intp[np_metas->dims.size()];
 
     std::vector<uint32_t> crd_inner(2);
-    std::vector< std::vector<uint32_t> > crd;
+    std::vector<std::vector<uint32_t> > crd;
 
 
-    if(coord != Py_None) {
+    if (coord != Py_None) {
         crd.resize(PyList_Size(coord), std::vector<uint32_t>(2));
         uint32_t ndims = (uint32_t) np_metas->dims.size();
-        //Compute the best fitting block
-        //Make the block size multiple of the element size
         uint64_t block_size = BLOCK_SIZE - (BLOCK_SIZE % np_metas->elem_size);
-        //Compute the max number of elements per dimension as the ndims root of the block size
         uint32_t row_elements = (uint32_t) std::floor(pow(block_size / np_metas->elem_size, (1.0 / ndims)));
-        //std::vector<std::vector<int> > crd(PyList_Size(coord),std::vector<int>(PyList_Size(PyList_GetItem(coord, 0))));
         if (PyList_Check(coord)) {
             for (Py_ssize_t i = 0; i < PyList_Size(coord); i++) {
                 PyObject *value = PyList_GetItem(coord, i);
@@ -51,14 +47,12 @@ PyObject *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject
                 crd[i] = crd_inner;
             }
         }
-    }
-    //else PyErr_SetString(PyExc_TypeError, "coord is not a PyList");
-    else crd = {};
-    void *numpy_data = this->read_n_coord(storage_id, np_metas, crd, save);
+    } else crd = {};
+    void *numpy_data = this->read_n_coord(storage_id, np_metas, crd, data);
     for (uint32_t i = 0; i < np_metas->dims.size(); ++i) {
         dims[i] = np_metas->dims[i];
     }
-    PyObject * result;
+    PyObject *result;
     try {
         result = PyArray_SimpleNewFromData((int32_t) np_metas->dims.size(), dims, np_metas->inner_type, numpy_data);
         PyArrayObject *converted_array;
@@ -70,8 +64,8 @@ PyObject *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
-    delete (np_metas);
 
+    delete (np_metas);
     return result;
 }
 
@@ -95,8 +89,8 @@ PyObject *NumpyStorage::reserve_numpy_space(const uint64_t *storage_id) {
         return NULL;
     }
     delete (np_metas);
-
     return resulting_array;
+
 }
 
 /***

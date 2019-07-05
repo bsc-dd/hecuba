@@ -2,9 +2,9 @@ import uuid
 from collections import namedtuple
 
 import numpy as np
-from hecuba import config, log
 from hfetch import HNumpyStore
 
+from hecuba import config, log
 from hecuba.IStorage import IStorage, AlreadyPersistentError, _extract_ks_tab
 
 
@@ -142,13 +142,13 @@ class StorageNumpy(np.ndarray, IStorage):
         coord = [arr[:, coord] for coord in range(len(coordinates[0]))]
         keys = self.get_coords_n_dim(coord[0], coord[1])
         return self._hcache.get_numpy_from_coordinates([self._storage_id], keys, [self.view(np.ndarray)])
-        #return super(StorageNumpy, self).__getitem__(key)
 
     def get_coords_n_dim(self, start, stop):
         stop = stop + 1
         ndims = len(start)
         ranges = [np.arange(start[i], stop[i]) for i in range(ndims)]  # get ranges for each dimension
-        rang = np.hstack((np.meshgrid(*ranges))).swapaxes(0, 1).reshape(ndims, -1).T  # combine all ranges and stack them as N x ndims array
+        rang = np.hstack((np.meshgrid(*ranges))).swapaxes(0, 1).reshape(ndims,
+                                                                        -1).T  # combine all ranges and stack them as N x ndims array
         return rang.tolist()
 
     @staticmethod
@@ -159,7 +159,6 @@ class StorageNumpy(np.ndarray, IStorage):
         hcache = res[1]
         result = hcache.get_numpy_from_coordinates([storage_id], coordinates, [input_array])
         return result
-
 
     def make_persistent(self, name):
         if self._is_persistent:

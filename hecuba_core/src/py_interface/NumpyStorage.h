@@ -28,13 +28,14 @@ public:
     void store_numpy(const uint64_t *storage_id, PyArrayObject *numpy) const;
 
     PyObject *read_numpy(const uint64_t *storage_id);
+
     PyObject *reserve_numpy_space(const uint64_t *storage_id);
-    PyObject *coord_list_to_numpy(const uint64_t *storage_id, PyObject * coord,  char*  save);
+
+    PyObject *coord_list_to_numpy(const uint64_t *storage_id, PyObject *coord, PyArrayObject *save);
 
 private:
 
     ArrayMetadata *get_np_metadata(PyArrayObject *numpy) const;
-
 
 
 };

@@ -97,7 +97,8 @@ void ArrayDataStore::update_metadata(const uint64_t *storage_id, ArrayMetadata *
  */
 void ArrayDataStore::store(const uint64_t *storage_id, ArrayMetadata *metadata, void *data) const {
 
-    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner->make_partitions_generator(metadata, data, {});
+    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner->make_partitions_generator(metadata, data,
+                                                                                                        {});
 
     char *keys = nullptr;
     void *values = nullptr;
@@ -204,7 +205,9 @@ ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
 
 //TODO: we can use all the clusters id as coordinates, this way it's not necessary the 'else' (?)
 void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *metadata,
-                                   std::vector< std::vector<uint32_t> > coord, char *save) {
+                                   std::vector<std::vector<uint32_t> > coord, void *save) {
+
+
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
     std::vector<const TupleRow *> result, all_results;
@@ -215,12 +218,12 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
     int32_t *block = nullptr;
     int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
     SpaceFillingCurve::PartitionGenerator *partitions_it = nullptr;
-    partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, coord);
+    partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, save, coord);
 
     std::set<uint32_t> cluster_ids;
     while (!partitions_it->isDone()) {
         cluster_id = partitions_it->computeNextClusterId();
-        if(cluster_ids.find(cluster_id) == cluster_ids.end()) {
+        if (cluster_ids.find(cluster_id) == cluster_ids.end()) {
             cluster_ids.insert(cluster_id);
             buffer = (char *) malloc(keys_size);
             //UUID
@@ -247,7 +250,7 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
     if (all_partitions.empty()) {
         throw ModuleException("no npy found on sys");
     }
-    save = (char *) partitions_it->merge_partitions(metadata, all_partitions, save);
+    partitions_it->merge_partitions(metadata, all_partitions, save);
     for (const TupleRow *item:all_results) delete (item);
     delete (partitions_it);
     return save;

@@ -7,6 +7,7 @@
 #include <cmath>
 #include "limits.h"
 #include <map>
+
 #define BLOCK_SIZE 4096
 #define CLUSTER_SIZE 2
 #define CLUSTER_END_FLAG INT_MAX-1
@@ -63,14 +64,15 @@ public:
 
         virtual void simpleNextClusterId() = 0;
 
-        virtual void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks, char* data) = 0;
+        virtual void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks, void *data) = 0;
 
     };
 
 
     ~SpaceFillingCurve() {};
 
-    static PartitionGenerator *make_partitions_generator(const ArrayMetadata *metas, void *data, std::vector< std::vector<uint32_t> > coord);
+    static PartitionGenerator *
+    make_partitions_generator(const ArrayMetadata *metas, void *data, std::vector<std::vector<uint32_t> > coord);
 
 protected:
 
@@ -88,7 +90,7 @@ protected:
 
         bool isDone() { return done; };
 
-        void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks, char * data);
+        void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks, void *data);
 
     protected:
         bool done;
@@ -125,7 +127,7 @@ public:
 
     uint64_t getIdFromIndexes(const std::vector<uint32_t> &dims, const std::vector<uint32_t> &indexes);
 
-    void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks, char* data);
+    void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks, void *data);
 
 private:
     bool done;
@@ -147,11 +149,11 @@ private:
 };
 
 
-
 class ZorderCurveGeneratorFiltered : public ZorderCurveGenerator {
 public:
 
-    ZorderCurveGeneratorFiltered(const ArrayMetadata *metas, void *data, std::vector< std::vector<uint32_t> > coord) : ZorderCurveGenerator(metas, data){
+    ZorderCurveGeneratorFiltered(const ArrayMetadata *metas, void *data, std::vector<std::vector<uint32_t> > coord)
+            : ZorderCurveGenerator(metas, data) {
         this->coord = coord;
     };
 
@@ -160,7 +162,7 @@ public:
     bool isDone() override;
 
 private:
-    std::vector< std::vector<uint32_t> > coord;
+    std::vector<std::vector<uint32_t> > coord;
     bool done = false;
 };
 
