@@ -216,26 +216,31 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
     int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
     SpaceFillingCurve::PartitionGenerator *partitions_it = nullptr;
     partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, coord);
+
+    std::set<uint32_t> cluster_ids;
     while (!partitions_it->isDone()) {
         cluster_id = partitions_it->computeNextClusterId();
-        buffer = (char *) malloc(keys_size);
-        //UUID
-        c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
-        //[0] time_and_version;
-        //[1] clock_seq_and_node;
-        memcpy(buffer, &c_uuid, sizeof(uint64_t *));
-        offset = sizeof(uint64_t *);
-        //Cluster id
-        memcpy(buffer + offset, &cluster_id, sizeof(cluster_id));
-        //We fetch the data
-        result = read_cache->get_crow(new TupleRow(keys_metas, keys_size, buffer));
-        //build cluster
-        all_results.insert(all_results.end(), result.begin(), result.end());
-        for (const TupleRow *row:result) {
-            block = (int32_t *) row->get_element(0);
-            char **chunk = (char **) row->get_element(1);
-            all_partitions.emplace_back(
-                    Partition((uint32_t) cluster_id + half_int, (uint32_t) *block + half_int, *chunk));
+        if(cluster_ids.find(cluster_id) == cluster_ids.end()) {
+            cluster_ids.insert(cluster_id);
+            buffer = (char *) malloc(keys_size);
+            //UUID
+            c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
+            //[0] time_and_version;
+            //[1] clock_seq_and_node;
+            memcpy(buffer, &c_uuid, sizeof(uint64_t *));
+            offset = sizeof(uint64_t *);
+            //Cluster id
+            memcpy(buffer + offset, &cluster_id, sizeof(cluster_id));
+            //We fetch the data
+            result = read_cache->get_crow(new TupleRow(keys_metas, keys_size, buffer));
+            //build cluster
+            all_results.insert(all_results.end(), result.begin(), result.end());
+            for (const TupleRow *row:result) {
+                block = (int32_t *) row->get_element(0);
+                char **chunk = (char **) row->get_element(1);
+                all_partitions.emplace_back(
+                        Partition((uint32_t) cluster_id + half_int, (uint32_t) *block + half_int, *chunk));
+            }
         }
     }
 

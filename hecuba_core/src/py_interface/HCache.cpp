@@ -583,7 +583,6 @@ static PyObject *get_numpy_from_coordinates(HNumpyStore *self, PyObject *args) {
         return NULL;
     };
 
-    char *a;
     char* save = nullptr;
     if (!(py_store, "s", &save)) {
         Py_DECREF(py_store);
@@ -608,8 +607,8 @@ static PyObject *get_numpy_from_coordinates(HNumpyStore *self, PyObject *args) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
-    PyObject *result_list = PyList_New(1);
-    PyList_SetItem(result_list, 0, result ? result : Py_None);
+    //PyObject *result_list = PyList_New(1);
+    //PyList_SetItem(result_list, 0, result ? result : Py_None);
     return result;
 }
 
@@ -734,7 +733,7 @@ static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) 
 
 
 static PyMethodDef hnumpy_store_type_methods[] = {
-        {"get_numpy",  (PyCFunction) get_numpy,  METH_VARARGS, NULL},
+        //{"get_numpy",  (PyCFunction) get_numpy,  METH_VARARGS, NULL},
         {"save_numpy", (PyCFunction) save_numpy, METH_VARARGS, NULL},
         {"get_reserved_numpy", (PyCFunction) get_reserved_numpy, METH_VARARGS, NULL},
         {"get_numpy_from_coordinates", (PyCFunction) get_numpy_from_coordinates, METH_VARARGS, NULL},

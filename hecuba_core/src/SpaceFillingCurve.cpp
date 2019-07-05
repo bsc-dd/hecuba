@@ -56,7 +56,8 @@ SpaceFillingCurve::SpaceFillingGenerator::merge_partitions(const ArrayMetadata *
     for (uint32_t dim:metas->dims) arrsize *= dim;
 
     if (data== nullptr) {
-        data = (char *) malloc(arrsize);
+        data = new char[arrsize];
+
     }
 
     uint64_t block_size = arrsize; //metas->block_size;
@@ -364,7 +365,8 @@ void *ZorderCurveGenerator::merge_partitions(const ArrayMetadata *metas, std::ve
     }
 
     if (data== nullptr) {
-        data = (char *) malloc(total_size);
+        data = new char[total_size];
+
     }
 
     //Shape of the average block
@@ -438,7 +440,8 @@ int32_t ZorderCurveGeneratorFiltered::computeNextClusterId() {
 }
 
 bool ZorderCurveGeneratorFiltered::isDone() {
-    return coord.empty();
+    if(coord.empty()) done = true;
+    return done;
 
 }
 

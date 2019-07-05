@@ -131,7 +131,10 @@ class StorageNumpy(np.ndarray, IStorage):
 
     def __getitem__(self, key):
         log.info("RETRIEVING NUMPY")
-        if isinstance(key, slice):
+        if key == slice(None, None, None):
+            keys = None
+            return self._hcache.get_numpy_from_coordinates([self._storage_id], keys, [self.view(np.ndarray)])
+        elif isinstance(key, slice):
             coordinates = [[key.start, key.stop]]
         else:
             coordinates = [[coord.start, coord.stop] for coord in key]
