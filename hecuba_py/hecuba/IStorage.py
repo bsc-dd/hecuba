@@ -76,6 +76,7 @@ class IStorage(metaclass=ABCMeta):
     @abstractmethod
     def _delete_persistent(self):
         vars(self)['_delete_persistent'] = vars(self).pop('delete_persistent')
+        vars(self)['_stop_persistent'] = vars(self).pop('stop_persistent')
         self.storage_id = None
         self._is_persistent = False
 
