@@ -254,11 +254,17 @@ if (DEFINED ENV{GTEST_ROOT})
             execute_process(
                     COMMAND "${Python3_EXECUTABLE}" -c
                     "from __future__ import print_function\ntry: import numpy; print(numpy.get_include(), end='')\nexcept:pass\n"
-                    RESULT_VARIABLE Python3_NumPy_FOUND
+                    RESULT_VARIABLE _Error_code
                     OUTPUT_VARIABLE Python3_NumPy_INCLUDE_DIRS)
 
+            set(Python3_NumPy_FOUND 0)
+
+            if(NOT _Error_code)
+                set(Python3_NumPy_FOUND 1)
+            endif(NOT _Error_code)
+
             if (Python3_NumPy_FOUND)
-                message("NumPy include dirs: ${_Python3_NumPy_VERSION}")
+                message("NumPy include dirs: ${Python3_NumPy_INCLUDE_DIRS}")
                 include_directories(${Python3_INCLUDE_DIRS} ${Python3_NumPy_INCLUDE_DIRS})
                 set(ALL_LIBS ${ALL_LIBS} ${Python3_LIBRARIES})
 
