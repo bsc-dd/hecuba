@@ -101,7 +101,7 @@ TEST(TestPythonBlob, TupleRowParsing) {
 
  // store bytes
      void *data = malloc(l_size);
-     char *l_temp = PyString_AsString(bytes);
+     char *l_temp = PyUnicode_AsUTF8(bytes);
      PY_ERR_CHECK
      char *permanent = (char *) malloc(l_size + 1);
      memcpy(permanent, l_temp, l_size);
@@ -411,10 +411,10 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_TEXT) {
 
     PyObject *tuple = parser->c_to_py(external);
     PyObject *result1 = PyTuple_GetItem(tuple, 0);
-    std::string valstr = PyString_AsString(result1);
+    std::string valstr = PyUnicode_AsUTF8(result1);
     EXPECT_EQ(valstr, "text1");
     result1 = PyTuple_GetItem(tuple, 1);
-    valstr = PyString_AsString(result1);
+    valstr = PyUnicode_AsUTF8(result1);
     EXPECT_EQ(valstr, "text2");
 
 
@@ -562,7 +562,7 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_DOUBLE_AND_TEXT) {
     float res = PyFloat_AsDouble(result1);
     EXPECT_FLOAT_EQ(res, 2.00);
     result1 = PyTuple_GetItem(tuple, 1);
-    std::string valstr = PyString_AsString(result1);
+    std::string valstr = PyUnicode_AsUTF8(result1);
     EXPECT_EQ(valstr, "hola");
 
 }
@@ -612,7 +612,7 @@ TEST(TestPythonUnitParsers, ParseTuple_c_to_py_CHECK_NULL) {
     PyObject *result1 = PyTuple_GetItem(tuple, 0);
     EXPECT_EQ(result1, Py_None);
     result1 = PyTuple_GetItem(tuple, 1);
-    std::string valstr = PyString_AsString(result1);
+    std::string valstr = PyUnicode_AsUTF8(result1);
     EXPECT_EQ(valstr, "hola");
 
 }
@@ -659,7 +659,7 @@ TEST(TestPythonUnitParsers, ParseTuple_py_to_c_CHECK_NULL) {
     PyObject *result1 = PyTuple_GetItem(tuple, 0);
     EXPECT_EQ(result1, Py_None);
     result1 = PyTuple_GetItem(tuple, 1);
-    std::string valstr = PyString_AsString(result1);
+    std::string valstr = PyUnicode_AsUTF8(result1);
     EXPECT_EQ(valstr, "hola");
 
 }
