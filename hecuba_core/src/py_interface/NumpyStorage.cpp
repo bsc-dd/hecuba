@@ -78,7 +78,7 @@ PyObject *NumpyStorage::reserve_numpy_space(const uint64_t *storage_id) {
     }
     PyObject *resulting_array;
     try {
-        resulting_array = PyArray_SimpleNew((int32_t) np_metas->dims.size(), dims, np_metas->inner_type);
+        resulting_array = PyArray_ZEROS((int32_t) np_metas->dims.size(), dims, np_metas->inner_type, 0);
         PyArrayObject *converted_array;
         PyArray_OutputConverter(resulting_array, &converted_array);
         PyArray_ENABLEFLAGS(converted_array, NPY_ARRAY_OWNDATA);
