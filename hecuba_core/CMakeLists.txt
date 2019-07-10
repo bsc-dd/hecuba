@@ -23,7 +23,6 @@ ENDIF (NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
 #set(ENABLE_PRECOMPILED_HEADERS OFF) to skip headers
 
 
-
 #get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
 #foreach (dir ${dirs})
 #    message(STATUS "Dir for includes='${dir}'")
@@ -73,7 +72,6 @@ if (NOT $ENV{LD_LIBRARY_PATH} STREQUAL "")
 endif (NOT $ENV{LD_LIBRARY_PATH} STREQUAL "")
 
 
-
 # SUBPROJECTS
 
 #if the user has set custom compiler paths, forward to submodules
@@ -86,7 +84,9 @@ if (${CXX})
 endif ()
 
 
-
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+    set(CMAKE_CXX_FLAGS "-gcc --std=c++11 -pragma-optimization-level=GCC ${CMAKE_CXX_FLAGS}")
+endif ()
 
 
 #LINK DIRECTORIES discouraged, not working properly sometimes
@@ -120,10 +120,9 @@ SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
 add_library(hfetch SHARED ${SOURCE_FILES} ${HEADER_FILES})
 set_target_properties(hfetch
         PROPERTIES
-	#	PREFIX ""
+        #	PREFIX ""
         INSTALL_RPATH "$ORIGIN/"
         BUILD_WITH_INSTALL_RPATH 1)
-
 
 
 # Compile options
@@ -164,12 +163,21 @@ endif ()
 if (NOT CASS)
     message("Downloading C++ Cassandra Driver")
     unset(CASS) #to avoid name clash
+
+    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+        set(CASS_URL https://github.com/polsm91/cpp-driver/archive/2.7.1.0.tar.gz)
+        set(CASS_SHA1 814878b3750ebd379b66df239bd3aa23981044b5)
+    else ()
+        set(CASS_URL https://github.com/datastax/cpp-driver/archive/2.7.1.tar.gz)
+        set(CASS_SHA1 7a44eff7eecbb3ed95490d09cd00489c5b5ce683)
+    endif ()
+
     ExternalProject_Add(
             CASS
             DEPENDS ${LIBUV_EXTERNAL}
             DOWNLOAD_DIR ${CMAKE_CURRENT_LIST_DIR}/dependencies
-            URL https://github.com/datastax/cpp-driver/archive/2.7.1.tar.gz
-            URL_HASH SHA1=7a44eff7eecbb3ed95490d09cd00489c5b5ce683
+            URL ${CASS_URL}
+            URL_HASH SHA1=${CASS_SHA1}
             INSTALL_DIR ${PROJECT_BINARY_DIR}
             CMAKE_ARGS ${CMAKE_SUBPROJECT_FLAGS}
             -DCMAKE_INSTALL_PREFIX=${PROJECT_BINARY_DIR} -DCASS_USE_LIBSSH2=OFF -DCASS_USE_OPENSSL=OFF
@@ -221,9 +229,7 @@ else ()
 endif ()
 
 
-
 target_link_libraries(hfetch ${ALL_LIBS})
-
 
 
 if (DEFINED ENV{GTEST_ROOT})
@@ -249,7 +255,7 @@ if (DEFINED ENV{GTEST_ROOT})
             add_test(test cache_imp_test)
 
             find_package(PythonLibs 3 REQUIRED)
-                
+
             # Pass newly defined variables to CMake project
             include_directories(${Python3_NumPy_INCLUDE_DIRS})
             include_directories(${Python3_INCLUDE_DIRS})
