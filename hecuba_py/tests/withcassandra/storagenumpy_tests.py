@@ -1,7 +1,7 @@
 import unittest
 
 import numpy as np
-
+import uuid
 from hecuba import config, StorageNumpy, StorageObj
 
 
@@ -41,7 +41,7 @@ class StorageNumpyTest(unittest.TestCase):
             typed_array = StorageNumpy(base_array.astype(typecode), storage_id, tablename)
             self.assertTrue(np.array_equal(typed_array, base_array.astype(typecode)))
 
-    def test_numpy_reserved_all_cluster(self):
+    def test_numpy_reserved_all_cluster_2D(self):
         config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_10000;")
         size = 10000
         no = TestStorageObjNumpy("my_app.numpy_test_%d" % size)
@@ -49,7 +49,7 @@ class StorageNumpyTest(unittest.TestCase):
         myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % size)
         chunk = myobj2.mynumpy[:]  # we are getting the first cluster
 
-    def test_numpy_reserved_1cluster(self):
+    def test_numpy_reserved_2d_1cluster(self):
         coordinates = [slice(0, 40, None), slice(0, 40, None)]
         config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_1000;")
         size = 1000
@@ -63,7 +63,7 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertNotEqual(chunk[44, 44], 4444)
         self.assertNotEqual(chunk[45, 45], 4544)
 
-    def test_numpy_reserved_2cluster(self):
+    def test_numpy_reserved_2d_2cluster(self):
         coordinates = [slice(0, 22, None), slice(0, 44, None)]
         config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_100;")
         size = 100
@@ -76,7 +76,7 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertNotEqual(chunk[43, 0], 43)
         self.assertNotEqual(chunk[43, 88], 4388)
 
-    def test_numpy_reserved_3cluster(self):
+    def test_numpy_reserved_2d_3cluster(self):
         coordinates = [slice(0, 45, None), slice(0, 22, None)]
         config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_10;")
         size = 10
@@ -88,7 +88,7 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertEqual(chunk[87, 43], 8743)
         self.assertNotEqual(chunk[88, 44], 8844)
 
-    def test_numpy_reserved_4cluster(self):
+    def test_numpy_reserved_2d_4cluster(self):
         coordinates = [slice(0, 45, None), slice(0, 45, None)]
         config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_1;")
         size = 1
@@ -101,6 +101,45 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertEqual(chunk[87, 87], 8787)
         self.assertNotEqual(chunk[88, 88], 8788)
 
+    # def test_numpy_reserved_3d_1cluster(self):
+    #     coordinates = [slice(0, 45, None), slice(0, 45, None), slice(0, 45, None)]
+    #     config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_1;")
+    #     size = 1
+    #     no = TestStorageObjNumpy("my_app.numpy_test_%d" % size)
+    #     no.mynumpy = np.arange(27).reshape((3, 3, 3))
+    #     myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % size)
+    #     chunk = myobj2.mynumpy[:]  # we are getting the first cluster
+    #     self.assertNotEqual(chunk[5, 5, 5], 555)
+    #     #self.assertEqual(chunk[44, 44], 4444)
+    #     #self.assertEqual(chunk[87, 87], 8787)
+    #     #self.assertNotEqual(chunk[88, 88], 8788)
+
+
+    def test_types_persistence(self):
+        base_array = np.arange(256)
+        tablename = (self.ksp + '.' + self.table)
+
+        for typecode in np.typecodes['Integer']:
+            if typecode == 'p':
+                # TODO For now skip arrays made of pointers
+                pass
+            storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, tablename + typecode)
+            typed_array = StorageNumpy(base_array.astype(typecode), storage_id, tablename)
+            self.assertTrue(np.array_equal(typed_array[:], base_array.astype(typecode)))
+            typed_array = None
+            typed_array = StorageNumpy(None, storage_id, tablename)
+            self.assertTrue(np.array_equal(typed_array[:], base_array.astype(typecode)))
+
+        for typecode in np.typecodes['UnsignedInteger']:
+            if typecode == 'P':
+                # TODO For now skip arrays made of pointers
+                pass
+            storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, tablename + typecode)
+            typed_array = StorageNumpy(base_array.astype(typecode), storage_id, tablename)
+            self.assertTrue(np.array_equal(typed_array[:], base_array.astype(typecode)))
+            typed_array = None
+            typed_array = StorageNumpy(None, storage_id, tablename)
+            self.assertTrue(np.array_equal(typed_array[:], base_array.astype(typecode)))
 
 if __name__ == '__main__':
     unittest.main()

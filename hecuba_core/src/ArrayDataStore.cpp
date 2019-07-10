@@ -207,7 +207,6 @@ ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
 void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *metadata,
                                    std::vector<std::vector<uint32_t> > coord, void *save) {
 
-
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
     std::vector<const TupleRow *> result, all_results;
@@ -220,7 +219,7 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
     SpaceFillingCurve::PartitionGenerator *partitions_it = nullptr;
     partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, save, coord);
 
-    std::set<uint32_t> cluster_ids;
+    std::set<uint32_t> cluster_ids = {};
     while (!partitions_it->isDone()) {
         cluster_id = partitions_it->computeNextClusterId();
         if (cluster_ids.find(cluster_id) == cluster_ids.end()) {

@@ -29,12 +29,13 @@ PyObject *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject
     void *data = PyArray_DATA(save);
     npy_intp *dims = new npy_intp[np_metas->dims.size()];
 
-    std::vector<uint32_t> crd_inner(2);
+    std::vector<uint32_t> crd_inner;
     std::vector<std::vector<uint32_t> > crd;
 
 
     if (coord != Py_None) {
-        crd.resize(PyList_Size(coord), std::vector<uint32_t>(2));
+        crd.resize(PyList_Size(coord), std::vector<uint32_t>(PyList_Size(PyList_GetItem(coord, 0))));
+        crd_inner.resize((PyList_Size(PyList_GetItem(coord, 0))));
         uint32_t ndims = (uint32_t) np_metas->dims.size();
         uint64_t block_size = BLOCK_SIZE - (BLOCK_SIZE % np_metas->elem_size);
         uint32_t row_elements = (uint32_t) std::floor(pow(block_size / np_metas->elem_size, (1.0 / ndims)));
