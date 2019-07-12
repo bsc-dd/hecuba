@@ -55,33 +55,16 @@ class StorageNumpy(IStorage, np.ndarray):
         return obj
 
     def __init__(self, input_array=None, storage_id=None, name='', **kwargs):
-        # if name and not name.endswith("_numpies"):
-        #        name = name + '_numpies'
-
         IStorage.__init__(self, storage_id=storage_id, name=name, **kwargs)
         if input_array is not None and (name or storage_id):
             self.make_persistent(name)
 
-        '''
-        if input_array is not None and name:
-            self._build_args = self.args(self.storage_id, self._class_name, self._ksp + '.' + self._table,
-                                         self.shape, self.dtype.num, self._block_id, self._built_remotely)
-
-            self._create_tables(name)
-            self._hcache = self._create_hcache(self.storage_id, name)
-
-            if len(self.shape) != 0:
-                self._hcache.save_numpy([self.storage_id], [self])
-            StorageNumpy._store_meta(self._build_args)
-        '''
 
     # used as copy constructor
     def __array_finalize__(self, obj):
         if obj is None:
             return
-            # self.storage_id = getattr(obj, 'storage_id', None)
-            # if self.storage_id and not hasattr(self, '_hcache'):
-            #    self.make_persistent(obj.name)
+
 
     @staticmethod
     def _create_tables(name):

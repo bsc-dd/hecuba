@@ -115,7 +115,6 @@ class IStorage(metaclass=ABCMeta):
         from .tools import tokens_partitions
         try:
             tokens = self._build_args.tokens
-            #getattr(self._build_args, 'tokens', None)
         except AttributeError as ex:
             raise RuntimeError("Object {} does not have tokens".format(self._get_name()))
 
