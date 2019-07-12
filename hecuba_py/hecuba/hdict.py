@@ -465,7 +465,7 @@ class StorageDict(IStorage, dict):
             value: the data that needs to get the correct format
         """
         if issubclass(value.__class__, IStorage):
-            return [value.get_id()]
+            return [value.storage_id]
         elif isinstance(value, str) or not isinstance(value, Iterable) or isinstance(value, np.ndarray):
             return [value]
         elif isinstance(value, tuple):
@@ -474,7 +474,7 @@ class StorageDict(IStorage, dict):
             val = []
             for v in value:
                 if isinstance(v, IStorage):
-                    val.append(v.get_id())
+                    val.append(v.storage_id)
                 else:
                     val.append(v)
             return val
@@ -593,7 +593,7 @@ class StorageDict(IStorage, dict):
             for index, element in enumerate(val):
                 val[index] = self.__make_val_persistent(element, index)
         elif isinstance(val, IStorage) and not val._is_persistent:
-            val.set_id(uuid.uuid4())
+            val.storage_id = uuid.uuid4()
             attribute = self._columns[col]["name"]
             count = count_name_collision(self._ksp, self._table, attribute)
             if count == 0:

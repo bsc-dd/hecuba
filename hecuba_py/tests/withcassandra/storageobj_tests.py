@@ -518,7 +518,7 @@ class StorageObjTest(unittest.TestCase):
         my_nested_so3 = Test4bStorageObj('mynested')
         my_nested_subso = my_nested_so3.myotherso
 
-        my_other_nested = getByID(my_nested_subso.get_id())
+        my_other_nested = getByID(my_nested_subso.storage_id)
         my_other_nested.name = 'bla'
         my_other_nested.age = 5
         error = False
@@ -1051,7 +1051,7 @@ class StorageObjTest(unittest.TestCase):
         storage_obj = Test2StorageObj(sobj_name)
         storage_obj.name = attr1
         storage_obj.age = attr2
-        uuid_sobj = storage_obj.get_id()
+        uuid_sobj = storage_obj.storage_id
 
         storage_obj = None
         result_set = iter(config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(uuid_sobj)))
@@ -1081,7 +1081,7 @@ class StorageObjTest(unittest.TestCase):
         storage_obj = Test2StorageObj(sobj_name)
         storage_obj.name = attr1
         storage_obj.nonpersistent = attr2
-        uuid_sobj = storage_obj.get_id()
+        uuid_sobj = storage_obj.storage_id
 
         storage_obj = None
         result_set = iter(config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(uuid_sobj)))
@@ -1115,7 +1115,7 @@ class StorageObjTest(unittest.TestCase):
         attr2 = 23
         storage_obj = Test2StorageObj()
         storage_obj.make_persistent(sobj_name)
-        uuid_sobj = storage_obj.get_id()
+        uuid_sobj = storage_obj.storage_id
 
         storage_obj = None
         result_set = iter(config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(uuid_sobj)))
@@ -1154,7 +1154,7 @@ class StorageObjTest(unittest.TestCase):
         storage_obj.name = attr1
         storage_obj.volatile = 'Ofcourse'
         storage_obj.make_persistent(sobj_name)
-        uuid_sobj = storage_obj.get_id()
+        uuid_sobj = storage_obj.storage_id
 
         storage_obj = None
         result_set = iter(config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(uuid_sobj)))
@@ -1191,8 +1191,8 @@ class StorageObjTest(unittest.TestCase):
         external_sobj = Test4StorageObj(sobj_name)
         external_sobj.myotherso = storage_obj
 
-        uuid_sobj_internal = storage_obj.get_id()
-        uuid_sobj_external = external_sobj.get_id()
+        uuid_sobj_internal = storage_obj.storage_id
+        uuid_sobj_external = external_sobj.storage_id
 
         internal_name = external_sobj.myotherso._ksp + '.' + external_sobj.myotherso._table
         storage_obj = None
@@ -1235,8 +1235,8 @@ class StorageObjTest(unittest.TestCase):
 
         external_sobj = Test4StorageObj(sobj_name)
         # Check internal configuration is correct
-        self.assertEqual(external_sobj.get_id(), uuid_sobj_external)
-        self.assertEqual(external_sobj.myotherso.get_id(), uuid_sobj_internal)
+        self.assertEqual(external_sobj.storage_id, uuid_sobj_external)
+        self.assertEqual(external_sobj.myotherso.storage_id, uuid_sobj_internal)
         self.assertEqual(external_sobj._ksp + '.' + external_sobj._table, sobj_name)
         self.assertEqual(external_sobj.myotherso._ksp + '.' + external_sobj.myotherso._table, internal_name)
 

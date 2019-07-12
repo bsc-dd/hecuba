@@ -10,15 +10,15 @@ class AlreadyPersistentError(RuntimeError):
 
 class IStorage(metaclass=ABCMeta):
 
-    def get_id(self):
+    @property
+    def storage_id(self):
         return self.__storage_id
 
-    def set_id(self, st_id):
+    @storage_id.setter
+    def storage_id(self, st_id):
         if st_id is not None and not isinstance(st_id, uuid.UUID):
             raise TypeError("Storage ID must be an instance of UUID")
         self.__storage_id = st_id
-
-    storage_id = property(get_id, set_id)
 
     def __init__(self, *args, **kwargs):
         super().__init__()
@@ -42,7 +42,7 @@ class IStorage(metaclass=ABCMeta):
         Returns:
             boolean (true - equals, false - not equals).
         """
-        return self.__class__ == other.__class__ and self.get_id() == other.get_id()
+        return self.__class__ == other.__class__ and self.storage_id == other.storage_id
 
 
     @abstractmethod

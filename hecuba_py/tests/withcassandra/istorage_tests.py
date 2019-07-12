@@ -37,7 +37,7 @@ class IStorageTests(unittest.TestCase):
 
         base_dict.stop_persistent()
 
-        self.assertIsNone(base_dict.get_id())
+        self.assertIsNone(base_dict.storage_id)
         self.assertIsNone(base_dict.storage_id)
 
         self.assertRaises(AttributeError, check_stop_pers)
@@ -83,7 +83,7 @@ class IStorageTests(unittest.TestCase):
 
         base_dict.delete_persistent()
 
-        self.assertIsNone(base_dict.get_id())
+        self.assertIsNone(base_dict.storage_id)
         self.assertIsNone(base_dict.storage_id)
 
         self.assertRaises(AttributeError, check_del_pers)
