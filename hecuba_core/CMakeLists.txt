@@ -242,46 +242,73 @@ if (DEFINED ENV{GTEST_ROOT})
 
             enable_testing()
 
+            # Pure cpp tests
             add_executable(hfetch_test tests/runtests.cpp)
             set_target_properties(hfetch_test
                     PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
             target_link_libraries(hfetch_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch)
+            add_dependencies(hfetch_test hfetch)
+
             add_test(test hfetch_test)
 
+            # Cache tests
             add_executable(cache_imp_test tests/cache_tests.cpp)
             set_target_properties(cache_imp_test
                     PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
             target_link_libraries(cache_imp_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch)
+            add_dependencies(cache_imp_test hfetch)
             add_test(test cache_imp_test)
 
-            find_package(PythonLibs 3 REQUIRED)
 
-            # Pass newly defined variables to CMake project
-            include_directories(${Python3_NumPy_INCLUDE_DIRS})
-            include_directories(${Python3_INCLUDE_DIRS})
-            set(ALL_LIBS ${ALL_LIBS} ${Python3_LIBRARIES})
+            # Mixed Python Tests
+            find_package(Python3 COMPONENTS Interpreter Development)
+
+            # Before CMake 3.15 locating numpy had limited support
+            # See CMake commit 513e77550daaac083cb13b3df53be955a7d0b429
+            execute_process(
+                    COMMAND "${Python3_EXECUTABLE}" -c
+                    "from __future__ import print_function\ntry: import numpy; print(numpy.get_include(), end='')\nexcept:pass\n"
+                    RESULT_VARIABLE _Error_code
+                    OUTPUT_VARIABLE Python3_NumPy_INCLUDE_DIRS)
+
+            set(Python3_NumPy_FOUND 0)
+
+            if(NOT _Error_code)
+                set(Python3_NumPy_FOUND 1)
+            endif(NOT _Error_code)
+
+            if (Python3_NumPy_FOUND)
+                message("NumPy include dirs: ${Python3_NumPy_INCLUDE_DIRS}")
+                include_directories(${Python3_INCLUDE_DIRS} ${Python3_NumPy_INCLUDE_DIRS})
+                set(ALL_LIBS ${ALL_LIBS} ${Python3_LIBRARIES})
 
 
-            file(GLOB COREPY_H_FILES ${CORE_SRC_DIR}/py_interface/*.h)
-            file(GLOB COREPY_SRC_FILES ${CORE_SRC_DIR}/py_interface/*.cpp)
-            set(PY_H_FILES ${COREPY_H_FILES})
-            set(PY_SRC_FILES ${COREPY_SRC_FILES})
+                file(GLOB COREPY_H_FILES ${CORE_SRC_DIR}/py_interface/*.h)
+                file(GLOB COREPY_SRC_FILES ${CORE_SRC_DIR}/py_interface/*.cpp)
+                set(PY_H_FILES ${COREPY_H_FILES})
+                set(PY_SRC_FILES ${COREPY_SRC_FILES})
 
-            #set(PY_SRC_FILES py_interface/HCache.cpp PythonParser.cpp UnitParser.cpp NumpyStorage.cpp)
-            #set(PY_H_FILES HCache.h PythonParser.h UnitParser.h NumpyStorage.h)
-            add_library(pyinterface SHARED ${PY_SRC_FILES} ${PY_H_FILES})
-            set_target_properties(pyinterface
-                    PROPERTIES PREFIX ""
-                    INSTALL_RPATH "$ORIGIN/"
-                    BUILD_WITH_INSTALL_RPATH 1)
-            target_link_libraries(pyinterface ${ALL_LIBS})
+                #set(PY_SRC_FILES py_interface/HCache.cpp PythonParser.cpp UnitParser.cpp NumpyStorage.cpp)
+                #set(PY_H_FILES HCache.h PythonParser.h UnitParser.h NumpyStorage.h)
+                add_library(pyinterface SHARED ${PY_SRC_FILES} ${PY_H_FILES})
+                set_target_properties(pyinterface
+                        PROPERTIES PREFIX ""
+                        INSTALL_RPATH "$ORIGIN/"
+                        BUILD_WITH_INSTALL_RPATH 1)
+                add_dependencies(pyinterface hfetch)
+
+                target_link_libraries(pyinterface ${ALL_LIBS})
 
 
-            add_executable(py_hfetch_test tests/pytests.cpp)
-            set_target_properties(py_hfetch_test
-                    PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
-            target_link_libraries(py_hfetch_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch pyinterface)
-            add_test(test py_hfetch_test)
+                add_executable(py_hfetch_test tests/pytests.cpp)
+                set_target_properties(py_hfetch_test
+                        PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
+                target_link_libraries(py_hfetch_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch pyinterface)
+                add_dependencies(py_hfetch_test hfetch)
+                add_test(test py_hfetch_test)
+            else ()
+                message("SEND_ERROR NumPy not found. Not compiling Python-Cpp tests.")
+            endif (Python3_NumPy_FOUND)
 
         else ()
             message(STATUS "If GTest is installed, point the environment var GTEST_ROOT to its root (/home/user/local)")
