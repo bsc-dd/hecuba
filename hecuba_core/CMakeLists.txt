@@ -84,6 +84,11 @@ if (${CXX})
 endif ()
 
 
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+    set(CMAKE_CXX_FLAGS "-gcc --std=c++11 -pragma-optimization-level=GCC ${CMAKE_CXX_FLAGS}")
+endif ()
+
+
 #LINK DIRECTORIES discouraged, not working properly sometimes
 LINK_DIRECTORIES(${PROJECT_BINARY_DIR}/lib64 ${PROJECT_BINARY_DIR}/lib)
 message("BIN DIR ${PROJECT_BINARY_DIR}")
@@ -158,12 +163,21 @@ endif ()
 if (NOT CASS)
     message("Downloading C++ Cassandra Driver")
     unset(CASS) #to avoid name clash
+
+    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+        set(CASS_URL https://github.com/polsm91/cpp-driver/archive/2.7.1.0.tar.gz)
+        set(CASS_SHA1 814878b3750ebd379b66df239bd3aa23981044b5)
+    else ()
+        set(CASS_URL https://github.com/datastax/cpp-driver/archive/2.7.1.tar.gz)
+        set(CASS_SHA1 7a44eff7eecbb3ed95490d09cd00489c5b5ce683)
+    endif ()
+
     ExternalProject_Add(
             CASS
             DEPENDS ${LIBUV_EXTERNAL}
             DOWNLOAD_DIR ${CMAKE_CURRENT_LIST_DIR}/dependencies
-            URL https://github.com/datastax/cpp-driver/archive/2.7.1.tar.gz
-            URL_HASH SHA1=7a44eff7eecbb3ed95490d09cd00489c5b5ce683
+            URL ${CASS_URL}
+            URL_HASH SHA1=${CASS_SHA1}
             INSTALL_DIR ${PROJECT_BINARY_DIR}
             CMAKE_ARGS ${CMAKE_SUBPROJECT_FLAGS}
             -DCMAKE_INSTALL_PREFIX=${PROJECT_BINARY_DIR} -DCASS_USE_LIBSSH2=OFF -DCASS_USE_OPENSSL=OFF
