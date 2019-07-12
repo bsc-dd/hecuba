@@ -6,7 +6,7 @@ from collections import namedtuple
 from hfetch import Hcache
 
 from . import config, log
-from .IStorage import IStorage, AlreadyPersistentError
+from .IStorage import IStorage
 from .storageiter import NamedItemsIterator
 
 
@@ -121,9 +121,6 @@ class QbeastIterator(IStorage):
             self.make_persistent(name)
 
     def make_persistent(self, name):
-        if self._is_persistent:
-            raise AlreadyPersistentError("This StorageDict is already persistent [Before:{}.{}][After:{}]",
-                                         self._ksp, self._table, name)
 
         super().make_persistent(name)
 
@@ -156,11 +153,6 @@ class QbeastIterator(IStorage):
         self._qbeast_meta = qbeast_meta
         self._build_args = self._build_args._replace(qbeast_meta=qbeast_meta)
         config.session.execute(QbeastIterator._prepared_set_qbeast_meta, [self.storage_id, qbeast_meta])
-
-    def __eq__(self, other):
-        return self.storage_id == other.storage_id and \
-               self._tokens == other.token_ranges \
-               and self._table == other.table_name and self._ksp == other.keyspace
 
     def __len__(self):
         return len([row for row in self.__iter__()])

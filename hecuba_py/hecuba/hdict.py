@@ -9,7 +9,7 @@ from .storageiter import NamedItemsIterator, NamedIterator
 from .hnumpy import StorageNumpy
 from hfetch import Hcache
 
-from .IStorage import IStorage, AlreadyPersistentError
+from .IStorage import IStorage
 from .tools import get_istorage_attrs, count_name_collision, build_remotely, basic_types
 
 
@@ -323,17 +323,6 @@ class StorageDict(IStorage, dict):
         if name or storage_id:
             self.make_persistent(name)
 
-    def __eq__(self, other):
-        """
-        Method to compare a StorageDict with another one.
-        Args:
-            other: StorageDict to be compared with.
-        Returns:
-            boolean (true - equals, false - not equals).
-        """
-        return self.storage_id == other.storage_id and self._tokens == other.token_ranges and \
-               self._table == other._table and self._ksp == other._ksp
-
     @classmethod
     def _parse_comments(self, comments):
         parser = Parser("TypeSpec")
@@ -496,9 +485,6 @@ class StorageDict(IStorage, dict):
         Args:
             name:
         """
-        if self._is_persistent:
-            raise AlreadyPersistentError("This StorageDict is already persistent [Before:{}.{}][After:{}]",
-                                         self._ksp, self._table, name)
 
         super().make_persistent(name)
 

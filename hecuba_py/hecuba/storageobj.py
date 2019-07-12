@@ -4,7 +4,7 @@ import numpy as np
 from . import config, log, Parser
 
 from .hnumpy import StorageNumpy
-from .IStorage import IStorage, AlreadyPersistentError
+from .IStorage import IStorage
 
 from .tools import count_name_collision, get_istorage_attrs, build_remotely, storage_id_from_name, basic_types, \
     valid_types
@@ -130,10 +130,6 @@ class StorageObj(IStorage):
             Args:
                 name (string): name with which the table in the DB will be created
         """
-        if self._is_persistent:
-            raise AlreadyPersistentError("This StorageObj is already persistent [Before:{}.{}][After:{}]",
-                                         self._ksp, self._table, name)
-
         super().make_persistent(name)
 
         # Arguments used to build objects remotely

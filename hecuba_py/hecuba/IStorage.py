@@ -47,6 +47,10 @@ class IStorage(metaclass=ABCMeta):
 
     @abstractmethod
     def make_persistent(self, name):
+        if self._is_persistent:
+            raise AlreadyPersistentError("This StorageDict is already persistent [Before:{}.{}][After:{}]",
+                                         self._ksp, self._table, name)
+
         self._ksp, self._table = extract_ks_tab(name)
         name = self._ksp + '.' + self._table
         self._set_name(name)

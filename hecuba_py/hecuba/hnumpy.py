@@ -4,7 +4,7 @@ import numpy as np
 from . import config, log
 from hfetch import HNumpyStore
 
-from .IStorage import IStorage, AlreadyPersistentError
+from .IStorage import IStorage
 from .tools import extract_ks_tab, get_istorage_attrs
 
 
@@ -120,9 +120,6 @@ class StorageNumpy(IStorage, np.ndarray):
             raise KeyError
 
     def make_persistent(self, name):
-        if self._is_persistent:
-            raise AlreadyPersistentError("This StorageNumpy is already persistent [Before:{}.{}][After:{}]",
-                                         self._ksp, self._table, name)
         if not name.endswith("_numpies"):
             name = name + '_numpies'
 
