@@ -808,7 +808,7 @@ class StorageObjTest(unittest.TestCase):
         my_so.make_persistent('mynewso')
         import time
         time.sleep(2)
-        self.assertTrue(np.array_equal(mynumpydict, my_so.mynumpydict[0][:]))
+        self.assertTrue(np.array_equal(mynumpydict, my_so.mynumpydict[0]))
 
     def test_numpy_operations(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
@@ -837,15 +837,15 @@ class StorageObjTest(unittest.TestCase):
         my_so.make_persistent('mynewso')
         import time
         time.sleep(2)
-        self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy[:]))
+        self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
         base_numpy += 1
         my_so.mynumpy += 1
         self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
 
         reloaded_so = TestStorageObjNumpy('mynewso')
-        self.assertTrue(np.array_equal(base_numpy, reloaded_so.mynumpy[:]))
-        self.assertEqual(np.average(base_numpy), np.average(reloaded_so.mynumpy[:]))
-        self.assertEqual(np.mean(base_numpy), np.mean(reloaded_so.mynumpy[:]))
+        self.assertTrue(np.array_equal(base_numpy, reloaded_so.mynumpy))
+        self.assertEqual(np.average(base_numpy), np.average(reloaded_so.mynumpy))
+        self.assertEqual(np.mean(base_numpy), np.mean(reloaded_so.mynumpy))
 
     def test_numpy_reloading(self):
         sizea, sizeb = (1000, 1000)
@@ -854,7 +854,7 @@ class StorageObjTest(unittest.TestCase):
         no.mynumpy = a
         del no
         no = TestStorageObjNumpy("my_app.numpy_test_%d_%d" % (sizea, sizeb))
-        a = no.mynumpy[:]
+        a = no.mynumpy
         self.assertEqual(np.shape(a), (sizea, sizeb))
         self.assertEqual(np.sum(a), sizea * sizeb)
 

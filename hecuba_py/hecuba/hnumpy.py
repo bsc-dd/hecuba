@@ -37,6 +37,7 @@ class StorageNumpy(np.ndarray, IStorage):
             # result = cls.load_array(storage_id, name)
             result = cls.get_numpy_array(storage_id, name)
             obj = np.asarray(result[0]).view(cls)
+            obj._name = name
             obj._hcache = result[1]
             obj._hcache_params = result[2]
             obj._storage_id = storage_id
@@ -65,6 +66,9 @@ class StorageNumpy(np.ndarray, IStorage):
         if obj is None:
             return
         self._storage_id = getattr(obj, '_storage_id', None)
+
+    def __array_wrap__(self, out_arr, context=None):
+        return super(StorageNumpy, self).__array_wrap__(self, out_arr, context)
 
     @staticmethod
     def build_remotely(new_args):
@@ -97,23 +101,6 @@ class StorageNumpy(np.ndarray, IStorage):
             raise ex
 
     @staticmethod
-    def load_array(storage_id, name):
-        (ksp, table) = _extract_ks_tab(name)
-        hcache_params = (ksp, table + '_numpies',
-                         storage_id, [], ['storage_id', 'cluster_id', 'block_id'],
-                         [{'name': "payload", 'type': 'numpy'}],
-                         {'cache_size': config.max_cache_size,
-                          'writer_par': config.write_callbacks_number,
-                          'write_buffer': config.write_buffer_size,
-                          'timestamped_writes': config.timestamped_writes})
-        hcache = HNumpyStore(*hcache_params)
-        result = hcache.get_numpy([storage_id])
-        if len(result) == 1:
-            return [result[0], hcache, hcache_params]
-        else:
-            raise KeyError
-
-    @staticmethod
     def get_numpy_array(storage_id, name):
         '''Provides a numpy array with the number of elements obtained through storage_id'''
 
@@ -127,13 +114,14 @@ class StorageNumpy(np.ndarray, IStorage):
                           'timestamped_writes': config.timestamped_writes})
         hcache = HNumpyStore(*hcache_params)
         result = hcache.get_reserved_numpy([storage_id])
-        return [result, hcache, hcache_params]
+        return [result[0], hcache, hcache_params]
 
     def __getitem__(self, key):
         log.info("RETRIEVING NUMPY")
         if key == slice(None, None, None):
             keys = None
-            return self._hcache.get_numpy_from_coordinates([self._storage_id], keys, [self.view(np.ndarray)])
+            self._hcache.get_numpy_from_coordinates([self._storage_id], keys, [self.view(np.ndarray)])
+            return super(StorageNumpy, self).__getitem__(key)
         elif isinstance(key, slice):
             coordinates = [[key.start, key.stop]]
         else:
@@ -141,7 +129,8 @@ class StorageNumpy(np.ndarray, IStorage):
         arr = np.array(coordinates)
         coord = [arr[:, coord] for coord in range(len(coordinates[0]))]
         keys = self.get_coords_n_dim(coord[0], coord[1])
-        return self._hcache.get_numpy_from_coordinates([self._storage_id], keys, [self.view(np.ndarray)])
+        self._hcache.get_numpy_from_coordinates([self._storage_id], keys, [self.view(np.ndarray)])
+        return super(StorageNumpy, self).__getitem__(key)
 
     def get_coords_n_dim(self, start, stop):
         stop = stop + 1
@@ -150,15 +139,6 @@ class StorageNumpy(np.ndarray, IStorage):
         rang = np.hstack((np.meshgrid(*ranges))).swapaxes(0, 1).reshape(ndims,
                                                                         -1).T  # combine all ranges and stack them as N x ndims array
         return rang.tolist()
-
-    @staticmethod
-    def getitem(coordinates, res, storage_id):
-        log.info("RETRIEVING NUMPY")
-        coordinates = [[coord.start, coord.stop] for coord in coordinates]
-        input_array = res[0]
-        hcache = res[1]
-        result = hcache.get_numpy_from_coordinates([storage_id], coordinates, [input_array])
-        return result
 
     def make_persistent(self, name):
         if self._is_persistent:
@@ -235,7 +215,7 @@ class StorageNumpy(np.ndarray, IStorage):
             kwargs['out'] = tuple(out_args)
         else:
             outputs = (None,) * ufunc.nout
-
+        self._hcache.get_numpy([self._storage_id], [self.view(np.ndarray)])
         results = super(StorageNumpy, self).__array_ufunc__(ufunc, method,
                                                             *args, **kwargs)
         if results is NotImplemented:

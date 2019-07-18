@@ -59,7 +59,7 @@ SpaceFillingCurve::SpaceFillingGenerator::merge_partitions(const ArrayMetadata *
     for (uint32_t dim:metas->dims) arrsize *= dim;
 
     if (data == nullptr) {
-        data = (char *) malloc(total_size);
+        data = malloc(arrsize);
     }
 
     uint64_t block_size = arrsize; //metas->block_size;
@@ -366,7 +366,7 @@ void *ZorderCurveGenerator::merge_partitions(const ArrayMetadata *metas, std::ve
     }
 
     if (data == nullptr) {
-        data = (char *) malloc(total_size);
+        data = malloc(total_size);
 
     }
 

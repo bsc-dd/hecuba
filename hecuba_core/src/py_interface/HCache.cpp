@@ -523,8 +523,8 @@ static PyObject *get_reserved_numpy(HNumpyStore *self, PyObject *args) {
 }
 
 static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
-    PyObject *py_keys;
-    if (!PyArg_ParseTuple(args, "O", &py_keys)) {
+    PyObject *py_keys, *py_store;
+    if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_store)) {
         return NULL;
     }
 
@@ -543,11 +543,24 @@ static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
         return NULL;
     };
 
-    const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
+    PyObject *numpy = PyList_GetItem(py_store, 0);
+    if (numpy == Py_None) {
+        std::string error_msg = "The numpy can't be None";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
 
-    PyObject *numpy;
+    // Transform the object to the numpy ndarray
+    PyArrayObject *numpy_arr;
+    if (!PyArray_OutputConverter(numpy, &numpy_arr)) {
+        std::string error_msg = "Can't convert the given numpy to a numpy ndarray";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
     try {
-        numpy = self->NumpyDataStore->read_numpy(storage_id);
+        self->NumpyDataStore->read_numpy(storage_id, numpy_arr);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -555,9 +568,7 @@ static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
     }
 
     // Wrap the numpy into a list to follow the standard format of Hecuba
-    PyObject *result_list = PyList_New(1);
-    PyList_SetItem(result_list, 0, numpy ? numpy : Py_None);
-    return result_list;
+    Py_RETURN_NONE;
 }
 
 static PyObject *get_numpy_from_coordinates(HNumpyStore *self, PyObject *args) {
@@ -590,17 +601,29 @@ static PyObject *get_numpy_from_coordinates(HNumpyStore *self, PyObject *args) {
         }
     }
 
-    PyArrayObject *numpy_array = (PyArrayObject *) PyArray_FROM_OTF(py_store, NPY_NOTYPE, NPY_ARRAY_IN_ARRAY);
+    PyObject *numpy = PyList_GetItem(py_store, 0);
+    if (numpy == Py_None) {
+        std::string error_msg = "The numpy can't be None";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    // Transform the object to the numpy ndarray
+    PyArrayObject *numpy_arr;
+    if (!PyArray_OutputConverter(numpy, &numpy_arr)) {
+        std::string error_msg = "Can't convert the given numpy to a numpy ndarray";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
     const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
-    PyObject *result;
     try {
-        result = self->NumpyDataStore->coord_list_to_numpy(storage_id, py_coord, numpy_array);
+        self->NumpyDataStore->coord_list_to_numpy(storage_id, py_coord, numpy_arr);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
-    return result;
+    Py_RETURN_NONE;
 }
 
 static void hnumpy_store_dealloc(HNumpyStore *self) {
@@ -647,7 +670,6 @@ static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) 
                 int32_t c_val = (int32_t) PyLong_AsLong(value);
                 config[conf_key] = std::to_string(c_val);
             }
-
         }
     }
 

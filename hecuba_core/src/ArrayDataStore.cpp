@@ -2,7 +2,7 @@
 
 
 ArrayDataStore::ArrayDataStore(CacheTable *cache, CacheTable *read_cache,
-                               std::map<std::string, std::string> &config) {
+                               std::map<std::string, std::string> &config, std::set<uint32_t> cluster_ids) {
 
     //this->storage = storage;
 /*
@@ -17,6 +17,7 @@ ArrayDataStore::ArrayDataStore(CacheTable *cache, CacheTable *read_cache,
 
     this->cache = cache;
     this->read_cache = read_cache;
+    this->cluster_ids = cluster_ids;
     //this->storage->make_cache(table_meta, config);
 }
 
@@ -203,7 +204,6 @@ ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
  * @return Numpy ndarray as a Python object
  */
 
-//TODO: we can use all the clusters id as coordinates, this way it's not necessary the 'else' (?)
 void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *metadata,
                                    std::vector<std::vector<uint32_t> > coord, void *save) {
 
@@ -217,13 +217,14 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
     int32_t *block = nullptr;
     int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
     SpaceFillingCurve::PartitionGenerator *partitions_it = nullptr;
-    partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, save, coord);
+    partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, coord);
 
-    std::set<uint32_t> cluster_ids = {};
+
+    //std::set<uint32_t> cluster_ids = {};
     while (!partitions_it->isDone()) {
         cluster_id = partitions_it->computeNextClusterId();
         if (cluster_ids.find(cluster_id) == cluster_ids.end()) {
-            cluster_ids.insert(cluster_id);
+            //cluster_ids.insert(cluster_id);
             buffer = (char *) malloc(keys_size);
             //UUID
             c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
@@ -252,5 +253,4 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
     partitions_it->merge_partitions(metadata, all_partitions, save);
     for (const TupleRow *item:all_results) delete (item);
     delete (partitions_it);
-    return save;
 }
