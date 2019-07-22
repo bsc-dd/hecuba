@@ -1098,24 +1098,10 @@ class StorageDictTest(unittest.TestCase):
             what_should_be[keys] = [cols]
             d[keys] = [cols]
 
-        self.assertEqual(len(list(d.keys())), len(what_should_be.keys()))
-
-        count = 0
-        for k in what_should_be.keys():
-            count += 1
-            self.assertEqual(what_should_be[k], list(d[k]))
-
-        self.assertEqual(count, len(d))
-
-    def test_multiple_dates(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithdates")
+        del d
+        import gc
+        gc.collect()
         d = DictWithDates("my_app.dictwithdates")
-        what_should_be = dict()
-        for i in range(0, 50):
-            keys = self.gen_random_date()
-            cols = self.gen_random_date()
-            what_should_be[keys] = [cols]
-            d[keys] = [cols]
 
         self.assertEqual(len(list(d.keys())), len(what_should_be.keys()))
 
@@ -1130,11 +1116,18 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtimes")
         d = DictWithTimes("my_app.dictwithtimes")
         what_should_be = dict()
-        for i in range(0, 1):
+        for i in range(0, 50):
             keys = self.gen_random_time()
             cols = self.gen_random_time()
             what_should_be[keys] = [cols]
             d[keys] = [cols]
+
+        #del d
+        #import gc
+        #gc.collect()
+        #d = DictWithTimes("my_app.dictwithtimes")
+
+        #Not works, the d hour differs from the real one
 
         self.assertEqual(len(list(d.keys())), len(what_should_be.keys()))
 
