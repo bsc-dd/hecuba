@@ -1129,6 +1129,8 @@ class StorageDictTest(unittest.TestCase):
 
         #Not works, the d hour differs from the real one
 
+        user_time.sleep(1)  #For now it will be used
+
         self.assertEqual(len(list(d.keys())), len(what_should_be.keys()))
 
         count = 0

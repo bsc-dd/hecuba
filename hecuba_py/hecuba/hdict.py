@@ -580,8 +580,6 @@ class StorageDict(dict, IStorage):
                     info = {"name": table_name, "tokens": self._build_args.tokens, "storage_id": uuid.UUID(element),
                             "class_name": col_type}
                     element = IStorage.build_remotely(info)
-                #elif col_type == 'date':
-                #   element=datetime.fromepoch(element)
                 final_results.append(element)
 
             if self._column_builder is not None:

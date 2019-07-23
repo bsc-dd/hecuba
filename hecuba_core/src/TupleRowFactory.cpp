@@ -1,4 +1,3 @@
-#include <ctime>
 #include "TupleRowFactory.h"
 
 /***
@@ -212,9 +211,8 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             CassError rc = cass_value_get_uint32(lhs, &year_month_day);
             CHECK_CASS("TupleRowFactory: Cassandra to C parse uint32 unsuccessful, column:" + std::to_string(col));
             if (rc == CASS_ERROR_LIB_NULL_VALUE) return -1;
-            time_t time = (time_t) cass_date_time_to_epoch(year_month_day, 0);
-            int64_t _time = *((int64_t *) &time);
-            memcpy(data, &_time, sizeof(int64_t *));
+            int64_t time = (int64_t) cass_date_time_to_epoch(year_month_day, 0);
+            memcpy(data, &time, sizeof(int64_t *));
             return 0;
         }
         case CASS_VALUE_TYPE_TIME: {
@@ -222,9 +220,8 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             CassError rc = cass_value_get_int64(lhs, &time_of_day);
             CHECK_CASS("TupleRowFactory: Cassandra to C parse int64 unsuccessful, column:" + std::to_string(col));
             if (rc == CASS_ERROR_LIB_NULL_VALUE) return -1;
-            time_t time = (time_t) cass_date_time_to_epoch(0, time_of_day);
-            int64_t _time = *((int64_t *) &time);
-            memcpy(data, &_time, sizeof(int64_t *));
+            int64_t time = (int64_t) cass_date_time_to_epoch(0, time_of_day);
+            memcpy(data, &time, sizeof(int64_t *));
             return 0;
         }
         case CASS_VALUE_TYPE_DECIMAL:

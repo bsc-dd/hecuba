@@ -215,7 +215,6 @@ DateParser::DateParser(const ColumnMeta &CM) : UnitParser(CM) {
 }
 
 int16_t DateParser::py_to_c(PyObject *obj, void *payload) const {
-    PyDateTime_IMPORT;
     if (obj == Py_None) return -1;
     if (PyDate_CheckExact(obj)) {
         time_t time_now;
@@ -226,8 +225,8 @@ int16_t DateParser::py_to_c(PyObject *obj, void *payload) const {
         timeinfo->tm_mon = PyDateTime_GET_MONTH(obj) - 1;
         timeinfo->tm_mday = PyDateTime_GET_DAY(obj);
         time_t time = mktime(timeinfo);
-        int64_t _date = *((int64_t *) &time);
-        memcpy(payload, &_date, sizeof(int64_t *));
+        int64_t date = *((int64_t *) &time);
+        memcpy(payload, &date, sizeof(int64_t *));
         return 0;
     }
     error_parsing("PyDateTime_DateType", obj);
@@ -238,8 +237,8 @@ PyObject *DateParser::c_to_py(const void *payload) const {
     if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to int, found NULL");
     time_t time = *((time_t *) payload);
     std::tm *now = std::localtime(&time);
-    PyObject *_time = PyDate_FromDate(now->tm_year + 1900, now->tm_mon + 1, now->tm_mday);
-    return _time;
+    PyObject *date_py = PyDate_FromDate(now->tm_year + 1900, now->tm_mon + 1, now->tm_mday);
+    return date_py;
 }
 
 /***Time parser ***/
@@ -261,8 +260,8 @@ int16_t TimeParser::py_to_c(PyObject *obj, void *payload) const {
         timeinfo->tm_min = PyDateTime_TIME_GET_MINUTE(obj);
         timeinfo->tm_sec = PyDateTime_TIME_GET_SECOND(obj);
         time_t time = mktime(timeinfo);
-        int64_t _date = *((int64_t *) &time);
-        memcpy(payload, &_date, sizeof(int64_t *));
+        int64_t date = *((int64_t *) &time);
+        memcpy(payload, &date, sizeof(int64_t *));
         return 0;
     }
     error_parsing("PyDateTime_DateType", obj);
@@ -273,8 +272,8 @@ PyObject *TimeParser::c_to_py(const void *payload) const {
     if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to int, found NULL");
     time_t time = *((time_t *) payload);
     std::tm *now = std::localtime(&time);
-    PyObject *_time = PyTime_FromTime(now->tm_hour, now->tm_min, now->tm_sec, 0);
-    return _time;
+    PyObject *time_py = PyTime_FromTime(now->tm_hour, now->tm_min, now->tm_sec, 0);
+    return time_py;
 }
 
 /***Bytes parser ***/

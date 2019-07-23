@@ -16,6 +16,7 @@ throw ModuleException(error + ". " + msg);};\
 #include <stdexcept>
 #include <memory>
 #include <stdlib.h>
+#include <ctime>
 
 #include "TableMetadata.h"
 #include "ModuleException.h"
