@@ -1098,10 +1098,7 @@ class StorageDictTest(unittest.TestCase):
             what_should_be[keys] = [cols]
             d[keys] = [cols]
 
-        del d
-        import gc
-        gc.collect()
-        d = DictWithDates("my_app.dictwithdates")
+        user_time.sleep(2)
 
         self.assertEqual(len(list(d.keys())), len(what_should_be.keys()))
 
@@ -1129,7 +1126,7 @@ class StorageDictTest(unittest.TestCase):
 
         #Not works, the d hour differs from the real one
 
-        user_time.sleep(1)  #For now it will be used
+        user_time.sleep(2)  #For now it will be used
 
         self.assertEqual(len(list(d.keys())), len(what_should_be.keys()))
 

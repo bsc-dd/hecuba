@@ -217,14 +217,11 @@ DateParser::DateParser(const ColumnMeta &CM) : UnitParser(CM) {
 int16_t DateParser::py_to_c(PyObject *obj, void *payload) const {
     if (obj == Py_None) return -1;
     if (PyDate_CheckExact(obj)) {
-        time_t time_now;
-        struct tm *timeinfo;
-        time(&time_now);
-        timeinfo = localtime(&time_now);
-        timeinfo->tm_year = PyDateTime_GET_YEAR(obj) - 1900;
-        timeinfo->tm_mon = PyDateTime_GET_MONTH(obj) - 1;
-        timeinfo->tm_mday = PyDateTime_GET_DAY(obj);
-        time_t time = mktime(timeinfo);
+        struct tm timeinfo = {0};
+        timeinfo.tm_year = PyDateTime_GET_YEAR(obj) - 1900;
+        timeinfo.tm_mon = PyDateTime_GET_MONTH(obj) - 1;
+        timeinfo.tm_mday = PyDateTime_GET_DAY(obj);
+        time_t time = mktime(&timeinfo);
         int64_t date = *((int64_t *) &time);
         memcpy(payload, &date, sizeof(int64_t *));
         return 0;
@@ -252,14 +249,11 @@ TimeParser::TimeParser(const ColumnMeta &CM) : UnitParser(CM) {
 int16_t TimeParser::py_to_c(PyObject *obj, void *payload) const {
     if (obj == Py_None) return -1;
     if (PyTime_CheckExact(obj)) {
-        time_t time_now;
-        struct tm *timeinfo;
-        time(&time_now);
-        timeinfo = localtime(&time_now);
-        timeinfo->tm_hour = PyDateTime_TIME_GET_HOUR(obj);
-        timeinfo->tm_min = PyDateTime_TIME_GET_MINUTE(obj);
-        timeinfo->tm_sec = PyDateTime_TIME_GET_SECOND(obj);
-        time_t time = mktime(timeinfo);
+        struct tm timeinfo = {0};
+        timeinfo.tm_hour= PyDateTime_TIME_GET_HOUR(obj);
+        timeinfo.tm_min = PyDateTime_TIME_GET_MINUTE(obj);
+        timeinfo.tm_sec = PyDateTime_TIME_GET_SECOND(obj);
+        time_t time = mktime(&timeinfo);
         int64_t date = *((int64_t *) &time);
         memcpy(payload, &date, sizeof(int64_t *));
         return 0;
