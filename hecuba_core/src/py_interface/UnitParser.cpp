@@ -220,7 +220,7 @@ int16_t DateParser::py_to_c(PyObject *obj, void *payload) const {
         time_t time_now;
         struct tm *timeinfo;
         time(&time_now);
-        timeinfo = localtime(&time_now);
+        timeinfo = gmtime(&time_now);
         timeinfo->tm_year = PyDateTime_GET_YEAR(obj) - 1900;
         timeinfo->tm_mon = PyDateTime_GET_MONTH(obj) - 1;
         timeinfo->tm_mday = PyDateTime_GET_DAY(obj);
@@ -235,8 +235,8 @@ int16_t DateParser::py_to_c(PyObject *obj, void *payload) const {
 
 PyObject *DateParser::c_to_py(const void *payload) const {
     if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to int, found NULL");
-    time_t time = *((time_t *) payload);
-    std::tm *now = std::localtime(&time);
+    time_t *time = (time_t *) payload;
+    std::tm *now = std::gmtime(time);
     PyObject *date_py = PyDate_FromDate(now->tm_year + 1900, now->tm_mon + 1, now->tm_mday);
     return date_py;
 }
@@ -264,8 +264,8 @@ int16_t TimeParser::py_to_c(PyObject *obj, void *payload) const {
 
 PyObject *TimeParser::c_to_py(const void *payload) const {
     if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to int, found NULL");
-    time_t time = *((time_t *) payload);
-    std::tm *now = std::gmtime(&time);
+    time_t *time = (time_t *) payload;
+    std::tm *now = std::gmtime(time);
     PyObject *time_py = PyTime_FromTime(now->tm_hour, now->tm_min, now->tm_sec, 0);
     return time_py;
 }
