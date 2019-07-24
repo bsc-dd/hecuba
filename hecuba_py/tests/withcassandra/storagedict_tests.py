@@ -1092,7 +1092,7 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.dictwithdates")
         d = DictWithDates("my_app.dictwithdates")
         what_should_be = dict()
-        for i in range(0, 1):
+        for i in range(0, 50):
             keys = self.gen_random_date()
             cols = self.gen_random_date()
             what_should_be[keys] = [cols]
@@ -1116,7 +1116,7 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtimes")
         d = DictWithTimes("my_app.dictwithtimes")
         what_should_be = dict()
-        for i in range(0, 3):
+        for i in range(0, 50):
             keys = self.gen_random_time()
             cols = self.gen_random_time()
             what_should_be[keys] = [cols]

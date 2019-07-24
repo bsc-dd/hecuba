@@ -252,13 +252,9 @@ TimeParser::TimeParser(const ColumnMeta &CM) : UnitParser(CM) {
 int16_t TimeParser::py_to_c(PyObject *obj, void *payload) const {
     if (obj == Py_None) return -1;
     if (PyTime_CheckExact(obj)) {
-        struct tm timeinfo;
-        timeinfo = {0};
-        timeinfo.tm_hour = PyDateTime_TIME_GET_HOUR(obj);
-        timeinfo.tm_min = PyDateTime_TIME_GET_MINUTE(obj);
-        timeinfo.tm_sec = PyDateTime_TIME_GET_SECOND(obj);
-        time_t time = mktime(&timeinfo);
-        int64_t date = *((int64_t *) &time);
+        int64_t date = static_cast<int64_t>(PyDateTime_TIME_GET_HOUR(obj)) * 3600 +
+        static_cast<int64_t>(PyDateTime_TIME_GET_MINUTE(obj)) * 60 +
+        static_cast<int64_t>(PyDateTime_TIME_GET_SECOND(obj));
         memcpy(payload, &date, sizeof(int64_t *));
         return 0;
     }
@@ -269,7 +265,7 @@ int16_t TimeParser::py_to_c(PyObject *obj, void *payload) const {
 PyObject *TimeParser::c_to_py(const void *payload) const {
     if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to int, found NULL");
     time_t time = *((time_t *) payload);
-    std::tm *now = std::localtime(&time);
+    std::tm *now = std::gmtime(&time);
     PyObject *time_py = PyTime_FromTime(now->tm_hour, now->tm_min, now->tm_sec, 0);
     return time_py;
 }
