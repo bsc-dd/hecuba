@@ -129,10 +129,10 @@ class StorageNumpyTest(unittest.TestCase):
                 pass
             storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, tablename + typecode)
             typed_array = StorageNumpy(base_array.astype(typecode), storage_id, tablename)
-            self.assertTrue(np.array_equal(typed_array, base_array.astype(typecode)))
+            self.assertTrue(np.allclose(typed_array, base_array.astype(typecode)))
             typed_array = None
             typed_array = StorageNumpy(None, storage_id, tablename)
-            self.assertTrue(np.array_equal(typed_array, base_array.astype(typecode)))
+            self.assertTrue(np.allclose(typed_array, base_array.astype(typecode)))
 
         for typecode in np.typecodes['UnsignedInteger']:
             if typecode == 'P':
@@ -140,10 +140,10 @@ class StorageNumpyTest(unittest.TestCase):
                 pass
             storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, tablename + typecode)
             typed_array = StorageNumpy(base_array.astype(typecode), storage_id, tablename)
-            self.assertTrue(np.array_equal(typed_array, base_array.astype(typecode)))
+            self.assertTrue(np.allclose(typed_array, base_array.astype(typecode)))
             typed_array = None
             typed_array = StorageNumpy(None, storage_id, tablename)
-            self.assertTrue(np.array_equal(typed_array, base_array.astype(typecode).all()))
+            self.assertTrue(np.allclose(typed_array, base_array.astype(typecode)))
 
 if __name__ == '__main__':
     unittest.main()

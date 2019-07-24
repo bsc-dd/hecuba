@@ -215,7 +215,9 @@ class StorageNumpy(np.ndarray, IStorage):
             kwargs['out'] = tuple(out_args)
         else:
             outputs = (None,) * ufunc.nout
+
         self._hcache.get_numpy([self._storage_id], [self.view(np.ndarray)])
+
         results = super(StorageNumpy, self).__array_ufunc__(ufunc, method,
                                                             *args, **kwargs)
         if results is NotImplemented:

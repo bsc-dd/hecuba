@@ -843,7 +843,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
 
         reloaded_so = TestStorageObjNumpy('mynewso')
-        self.assertTrue(np.array_equal(base_numpy, reloaded_so.mynumpy))
+        self.assertTrue(np.allclose(reloaded_so.mynumpy, base_numpy))
         self.assertEqual(np.average(base_numpy), np.average(reloaded_so.mynumpy))
         self.assertEqual(np.mean(base_numpy), np.mean(reloaded_so.mynumpy))
 
