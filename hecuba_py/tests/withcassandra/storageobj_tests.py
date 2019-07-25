@@ -808,7 +808,7 @@ class StorageObjTest(unittest.TestCase):
         my_so.make_persistent('mynewso')
         import time
         time.sleep(2)
-        self.assertTrue(np.array_equal(mynumpydict, my_so.mynumpydict[0]))
+        self.assertTrue(np.allclose(mynumpydict, my_so.mynumpydict[0]))
 
     def test_numpy_operations(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
