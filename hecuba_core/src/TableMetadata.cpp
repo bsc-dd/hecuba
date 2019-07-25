@@ -40,9 +40,7 @@ uint16_t TableMetadata::compute_size_of(const ColumnMeta &CM) const {
             return sizeof(int32_t);
         }
         case CASS_VALUE_TYPE_TIMESTAMP: {
-            //TODO
-            std::cerr << "Timestamp data type supported yet" << std::endl;
-            break;
+            return sizeof(int64_t);
         }
         case CASS_VALUE_TYPE_UUID: {
             return sizeof(uint64_t *);

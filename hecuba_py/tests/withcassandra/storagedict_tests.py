@@ -88,6 +88,10 @@ class DictWithTimes(StorageDict):
     @TypeSpec dict<<date1:time>, date4:time>
     '''
 
+class DictWithDateTimes(StorageDict):
+    '''
+    @TypeSpec dict<<date1:datetime>, date4:datetime>
+    '''
 
 class StorageDictTest(unittest.TestCase):
     def test_init_empty(self):
@@ -1092,9 +1096,10 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.dictwithdates")
         d = DictWithDates("my_app.dictwithdates")
         what_should_be = dict()
-        for i in range(0, 50):
+        for i in range(0, 1):
             keys = self.gen_random_date()
             cols = self.gen_random_date()
+            print(cols)
             what_should_be[keys] = [cols]
             d[keys] = [cols]
 
@@ -1137,6 +1142,27 @@ class StorageDictTest(unittest.TestCase):
 
         self.assertEqual(count, len(list(d)))
 
+    def test_datetimes(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithdatetimes")
+        d = DictWithDateTimes("my_app.dictwithdatetimes")
+        what_should_be = dict()
+        for i in range(0, 50):
+            keys = self.gen_random_datetime()
+            cols = self.gen_random_datetime()
+            what_should_be[keys] = [cols]
+            d[keys] = [cols]
+
+        del d
+        import gc
+        gc.collect()
+
+        d = DictWithTimes("my_app.dictwithdatetimes")
+        self.assertEqual(len(list(d.keys())), len(what_should_be.keys()))
+        count = 0
+        for k in what_should_be.keys():
+            count += 1
+            self.assertEqual(what_should_be[k], [d[k]])
+            self.assertEqual(count, len(list(d)))
 
 if __name__ == '__main__':
     unittest.main()
