@@ -305,7 +305,7 @@ class StorageObjTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.Words_words")
         config.session.execute("DROP TABLE IF EXISTS my_app.Words")
         so = Words()
-        so.make_persistent("wordsso")
+        so.make_persistent("my_app.wordsso")
         so.ciao = "an attribute"
         so.another = 123
         config.batch_size = 1
@@ -318,7 +318,7 @@ class StorageObjTest(unittest.TestCase):
         count, = config.session.execute('SELECT count(*) FROM my_app.Words_words')[0]
         self.assertEqual(10, count)
         so = Words()
-        so.make_persistent("wordsso")
+        so.make_persistent("my_app.wordsso")
         so.delete_persistent()
 
         count, = config.session.execute('SELECT count(*) FROM my_app.Words_words')[0]
@@ -349,7 +349,7 @@ class StorageObjTest(unittest.TestCase):
     def test_modify_simple_attributes(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.Test2StorageObj")
         so = Test2StorageObj()
-        so.make_persistent("t2")
+        so.make_persistent("my_app.t2")
         so.name = 'caio'
         so.age = 1000
         count, = config.session.execute("SELECT COUNT(*) FROM my_app.Test2StorageObj")[0]
@@ -615,7 +615,7 @@ class StorageObjTest(unittest.TestCase):
             error = True
         self.assertEquals(True, error)
 
-        my_nested_so.make_persistent('mynewso')
+        my_nested_so.make_persistent('my_app.mynewso')
 
         error = False
         try:
@@ -662,7 +662,7 @@ class StorageObjTest(unittest.TestCase):
             error = True
         self.assertEquals(True, error)
 
-        my_nested_so.make_persistent('tnsgc5')
+        my_nested_so.make_persistent('my_app.tnsgc5')
 
         error = False
         try:
@@ -837,20 +837,18 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(np.mean(base_numpy), np.mean(my_so.mynumpy))
 
     def test_numpy_ops_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.TestStorageObjNumpy")
+        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy")
         config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy_numpies")
         my_so = TestStorageObjNumpy()
         base_numpy = np.arange(2048)
         my_so.mynumpy = np.arange(2048)
-        my_so.make_persistent('mynewso2')
-        import time
-        time.sleep(2)
+        my_so.make_persistent('my_app.mynewso2')
         self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
         base_numpy += 1
         my_so.mynumpy += 1
         self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
 
-        reloaded_so = TestStorageObjNumpy('mynewso2')
+        reloaded_so = TestStorageObjNumpy('my_app.mynewso2')
         self.assertTrue(np.array_equal(base_numpy, reloaded_so.mynumpy))
         self.assertEqual(np.average(base_numpy), np.average(reloaded_so.mynumpy))
         self.assertEqual(np.mean(base_numpy), np.mean(reloaded_so.mynumpy))
