@@ -1,5 +1,4 @@
 import uuid
-from abc import ABCMeta, abstractmethod
 from . import log
 from .tools import extract_ks_tab, build_remotely, storage_id_from_name, get_istorage_attrs, generate_token_ring_ranges
 
