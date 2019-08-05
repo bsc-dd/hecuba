@@ -345,7 +345,7 @@ class StorageDictTest(unittest.TestCase):
         def delete_already_deleted():
             so.words.delete_persistent()
 
-        self.assertRaises(AttributeError, delete_already_deleted)
+        self.assertRaises(RuntimeError, delete_already_deleted)
 
         count, = config.session.execute('SELECT count(*) FROM my_app.wordsso_words')[0]
         self.assertEqual(0, count)
