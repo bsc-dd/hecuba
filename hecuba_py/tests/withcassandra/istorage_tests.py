@@ -28,7 +28,7 @@ class IStorageTests(unittest.TestCase):
             assert (isinstance(base_dict, IStorage))
             base_dict.stop_persistent()
 
-        self.assertRaises(AttributeError, check_stop_pers)
+        self.assertRaises(RuntimeError, check_stop_pers)
         # PyCOMPSs requires uuid of type str
 
         base_dict.make_persistent(name)
@@ -40,7 +40,7 @@ class IStorageTests(unittest.TestCase):
         self.assertIsNone(base_dict.storage_id)
         self.assertIsNone(base_dict.storage_id)
 
-        self.assertRaises(AttributeError, check_stop_pers)
+        self.assertRaises(RuntimeError, check_stop_pers)
 
         base_dict.make_persistent(name)
 
@@ -48,7 +48,7 @@ class IStorageTests(unittest.TestCase):
 
         base_dict.stop_persistent()
 
-        self.assertRaises(AttributeError, check_stop_pers)
+        self.assertRaises(RuntimeError, check_stop_pers)
 
         external_dict = PersistentDict(name)
         self.assertEqual(external_dict[key], value)
@@ -74,7 +74,7 @@ class IStorageTests(unittest.TestCase):
             assert (isinstance(base_dict, IStorage))
             base_dict.delete_persistent()
 
-        self.assertRaises(AttributeError, check_del_pers)
+        self.assertRaises(RuntimeError, check_del_pers)
         # PyCOMPSs requires uuid of type str
 
         base_dict.make_persistent(name)
@@ -86,8 +86,8 @@ class IStorageTests(unittest.TestCase):
         self.assertIsNone(base_dict.storage_id)
         self.assertIsNone(base_dict.storage_id)
 
-        self.assertRaises(AttributeError, check_del_pers)
-        self.assertRaises(AttributeError, check_stop_pers)
+        self.assertRaises(RuntimeError, check_del_pers)
+        self.assertRaises(RuntimeError, check_stop_pers)
 
         base_dict.make_persistent(name)
 
@@ -98,8 +98,8 @@ class IStorageTests(unittest.TestCase):
 
         base_dict.delete_persistent()
 
-        self.assertRaises(AttributeError, check_del_pers)
-        self.assertRaises(AttributeError, check_stop_pers)
+        self.assertRaises(RuntimeError, check_del_pers)
+        self.assertRaises(RuntimeError, check_stop_pers)
 
         external_dict = PersistentDict(name)
 

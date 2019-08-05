@@ -8,7 +8,7 @@ class AlreadyPersistentError(RuntimeError):
     pass
 
 
-class IStorage(metaclass=ABCMeta):
+class IStorage(object):
 
     @property
     def storage_id(self):
@@ -22,10 +22,11 @@ class IStorage(metaclass=ABCMeta):
 
     def __init__(self, *args, **kwargs):
         super().__init__()
-        self._ksp = ''
-        self._table = ''
-        if "name" in kwargs:
-            self._ksp, self._table = extract_ks_tab(kwargs.pop("name", ''))
+        self._ksp = None
+        self._table = None
+        given_name = kwargs.pop("name", None)
+        if given_name:
+            self._ksp, self._table = extract_ks_tab(given_name)
             name = self._ksp + '.' + self._table
             self._set_name(name)
 
@@ -44,11 +45,9 @@ class IStorage(metaclass=ABCMeta):
         """
         return self.__class__ == other.__class__ and self.storage_id == other.storage_id
 
-
-    @abstractmethod
     def make_persistent(self, name):
         if self._is_persistent:
-            raise AlreadyPersistentError("This StorageDict is already persistent [Before:{}.{}][After:{}]",
+            raise AlreadyPersistentError("This Object is already persistent [Before:{}.{}][After:{}]",
                                          self._ksp, self._table, name)
 
         self._ksp, self._table = extract_ks_tab(name)
@@ -66,35 +65,40 @@ class IStorage(metaclass=ABCMeta):
             except IndexError:
                 self._tokens = generate_token_ring_ranges()
 
+        self._make_persistent(name)
         self._is_persistent = True
-        self._add_persistent_methods()
 
+    def stop_persistent(self):
+        if not self._is_persistent:
+            raise RuntimeError("This Object is not persistent")
 
-    @abstractmethod
+        self._stop_persistent()
+
+        self.storage_id = None
+        self._is_persistent = False
+
+    def delete_persistent(self):
+        if not self._is_persistent:
+            raise RuntimeError("This Object is not persistent")
+
+        self._delete_persistent()
+
+        self.storage_id = None
+        self._is_persistent = False
+
+    def _make_persistent(self, name):
+        pass
+
     def _stop_persistent(self):
-        vars(self)['_stop_persistent'] = vars(self).pop('stop_persistent')
-        self.storage_id = None
-        self._is_persistent = False
+        pass
 
-
-    @abstractmethod
     def _delete_persistent(self):
-        vars(self)['_delete_persistent'] = vars(self).pop('delete_persistent')
-        vars(self)['_stop_persistent'] = vars(self).pop('stop_persistent')
-        self.storage_id = None
-        self._is_persistent = False
-
-
-    def _add_persistent_methods(self):
-        vars(self)['delete_persistent'] = self._delete_persistent
-        vars(self)['stop_persistent'] = self._stop_persistent
-
+        pass
 
     def _set_name(self, name):
         if not isinstance(name, str):
             raise TypeError("Name -{}-  should be an instance of str".format(str(name)))
         self._name = name
-
 
     def _get_name(self):
         try:
@@ -108,7 +112,6 @@ class IStorage(metaclass=ABCMeta):
         :return: Storage_id as str
         """
         return str(self.storage_id)
-
 
     def split(self):
         """

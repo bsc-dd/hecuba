@@ -54,7 +54,7 @@ def extract_ks_tab(name):
         a tuple containing keyspace name and table name
     """
     if not name:
-        return "", ""
+        return None, None
 
     sp = name.split(".")
     if len(sp) == 2:

@@ -35,8 +35,8 @@ class StorageNumpy(IStorage, np.ndarray):
             obj = np.asarray(input_array).view(cls)
             (obj._ksp, obj._table) = extract_ks_tab(name)
             obj._hcache = result[1]
-            obj.storage_id = storage_id
-            obj._is_persistent = True
+            # obj.storage_id = storage_id
+            # obj._is_persistent = True
         elif not name and storage_id is not None:
             raise RuntimeError("hnumpy received storage id but not a name")
         elif (input_array is not None and name and storage_id is not None) \
@@ -58,7 +58,6 @@ class StorageNumpy(IStorage, np.ndarray):
         IStorage.__init__(self, storage_id=storage_id, name=name, **kwargs)
         if input_array is not None and (name or storage_id):
             self.make_persistent(name)
-
 
     # used as copy constructor
     def __array_finalize__(self, obj):
@@ -119,11 +118,9 @@ class StorageNumpy(IStorage, np.ndarray):
         else:
             raise KeyError
 
-    def make_persistent(self, name):
+    def _make_persistent(self, name):
         if not name.endswith("_numpies"):
             name = name + '_numpies'
-
-        super().make_persistent(name)
 
         self._build_args = self.args(self.storage_id, self._class_name, self._ksp + '.' + self._table,
                                      self.shape, self.dtype.num, self._block_id, self._built_remotely)
@@ -131,20 +128,20 @@ class StorageNumpy(IStorage, np.ndarray):
         if not self._built_remotely:
             self._create_tables(name)
 
-        self._hcache = self._create_hcache(self.storage_id, name)
+        if not getattr(self, '_hcache', None):
+            self._hcache = self._create_hcache(self.storage_id, name)
 
         if len(self.shape) != 0:
             self._hcache.save_numpy([self.storage_id], [self])
         StorageNumpy._store_meta(self._build_args)
 
     def _stop_persistent(self):
-        super().stop_persistent()
+        pass
 
     def _delete_persistent(self):
         """
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
-        super().delete_persistent()
         query = "DELETE FROM %s.%s WHERE storage_id = %s;" % (self._ksp, self._table, self.storage_id)
         query2 = "DELETE FROM hecuba.istorage WHERE storage_id = %s;" % self.storage_id
         log.debug("DELETE PERSISTENT: %s", query)

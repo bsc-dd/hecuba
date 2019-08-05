@@ -477,7 +477,7 @@ class StorageDict(IStorage, dict):
         """
         return self.keys()
 
-    def make_persistent(self, name):
+    def _make_persistent(self, name):
         """
         Method to transform a StorageDict into a persistent object.
         This will make it use a persistent DB as the main location
@@ -485,9 +485,6 @@ class StorageDict(IStorage, dict):
         Args:
             name:
         """
-
-        super().make_persistent(name)
-
         # Update local StorageDict metadata
         self._build_args = self._build_args._replace(storage_id=self.storage_id, name=self._ksp + "." + self._table,
                                                      tokens=self._tokens)
@@ -507,7 +504,6 @@ class StorageDict(IStorage, dict):
         """
         log.debug('STOP PERSISTENCE: %s', self._table)
         self._hcache = None
-        super()._stop_persistent()
 
     def _delete_persistent(self):
         """
@@ -516,7 +512,6 @@ class StorageDict(IStorage, dict):
         log.debug('DELETE PERSISTENT: %s', self._table)
         query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
         config.session.execute(query)
-        super()._delete_persistent()
 
     def __delitem__(self, key):
         """

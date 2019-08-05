@@ -22,9 +22,9 @@ config.cluster.register_user_type('hecuba', 'q_meta', QbeastMeta)
 
 
 class QbeastIterator(IStorage):
-    # """
-    # Object used to access data from workers.
-    # """
+    """
+    Object used to access data from workers.
+    """
 
     args_names = ['primary_keys', 'columns', 'indexed_on', 'name', 'qbeast_meta', 'qbeast_random',
                   'storage_id', 'tokens', 'class_name', 'built_remotely']
@@ -33,8 +33,8 @@ class QbeastIterator(IStorage):
                                                   '(primary_keys, columns, indexed_on, name, qbeast_meta,'
                                                   ' qbeast_random, storage_id, tokens, class_name)'
                                                   'VALUES (?,?,?,?,?,?,?,?,?)')
-    _prepared_set_qbeast_meta = config.session.prepare(
-        'INSERT INTO hecuba.istorage (storage_id, qbeast_meta)VALUES (?,?)')
+    _prepared_set_qbeast_meta = config.session.prepare('INSERT INTO hecuba.istorage (storage_id, qbeast_meta) '
+                                                       'VALUES (?,?)')
 
     @staticmethod
     def _store_meta(storage_args):
@@ -120,10 +120,7 @@ class QbeastIterator(IStorage):
         if name or storage_id:
             self.make_persistent(name)
 
-    def make_persistent(self, name):
-
-        super().make_persistent(name)
-
+    def _make_persistent(self, name):
         # Update local QbeastIterator metadata
         self._build_args = self._build_args._replace(storage_id=self.storage_id, name=self._ksp + "." + self._table,
                                                      tokens=self._tokens)
@@ -172,18 +169,4 @@ class QbeastIterator(IStorage):
         else:
             hiter = self._hcache.iteritems(config.prefetch_size)
 
-        iterator = NamedItemsIterator(self._key_builder,
-                                      self._column_builder,
-                                      self._k_size,
-                                      hiter,
-                                      self)
-
-        return iterator
-
-    def _stop_persistent(self):
-        vars(self)['_stop_persistent'] = vars(self).pop('stop_persistent')
-        self.storage_id = None
-
-    def _delete_persistent(self):
-        vars(self)['_delete_persistent'] = vars(self).pop('delete_persistent')
-        self.storage_id = None
+        return NamedItemsIterator(self._key_builder, self._column_builder, self._k_size, hiter, self)

@@ -79,7 +79,7 @@ class StorageObj(IStorage):
         """
         for attribute in self._persistent_props.keys():
             try:
-                val = object.__getattribute__(self, attribute)
+                val = super().__getattribute__(attribute)
                 setattr(self, attribute, val)
             except AttributeError:
                 pass
@@ -120,7 +120,7 @@ class StorageObj(IStorage):
             log.error("Unable to execute %s", query_simple)
             raise ir
 
-    def make_persistent(self, name):
+    def _make_persistent(self, name):
         """
             Once a StorageObj has been created, it can be made persistent. This function retrieves the information about
             the Object class schema, and creates a Cassandra table with those parameters, where information will be
@@ -130,8 +130,6 @@ class StorageObj(IStorage):
             Args:
                 name (string): name with which the table in the DB will be created
         """
-        super().make_persistent(name)
-
         # Arguments used to build objects remotely
         self._build_args = self.args(self._get_name(),
                                      self._tokens,
@@ -160,7 +158,6 @@ class StorageObj(IStorage):
             if isinstance(attr, IStorage):
                 attr.stop_persistent()
 
-        super()._stop_persistent()
 
     def _delete_persistent(self):
         """
@@ -176,7 +173,6 @@ class StorageObj(IStorage):
         query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
         config.session.execute(query)
 
-        super()._delete_persistent()
 
     def __getattr__(self, attribute):
         """
@@ -189,13 +185,13 @@ class StorageObj(IStorage):
                 value: obtained value
         """
         if attribute.startswith('_') or attribute not in self._persistent_attrs:
-            return object.__getattribute__(self, attribute)
+            return super().__getattribute__(attribute)
 
         if not self.storage_id:
             if self._persistent_props[attribute]["type"] not in basic_types:
                 value = self._build_is_attribute(attribute, persistence_name='', storage_id=None)
-                object.__setattr__(self, attribute, value)
-            return object.__getattribute__(self, attribute)
+                super().__setattr__(attribute, value)
+            return super().__getattribute__(attribute)
 
         '''
         StorageObj is persistent.
@@ -204,7 +200,7 @@ class StorageObj(IStorage):
         which is the expected behaviour. Therefore, is safe to store in-memory the Hecuba objects.
         '''
         try:
-            return object.__getattribute__(self, attribute)
+            return super().__getattribute__(attribute)
         except AttributeError as ex:
             # Not present in memory, we will need to rebuild it
             pass
@@ -244,7 +240,7 @@ class StorageObj(IStorage):
 
             value = self._build_is_attribute(attribute, persistence_name=attr_name, storage_id=value)
 
-        object.__setattr__(self, attribute, value)
+        super().__setattr__(attribute, value)
         return value
 
     def __setattr__(self, attribute, value):
@@ -257,7 +253,7 @@ class StorageObj(IStorage):
                 value: value that we want to save
         """
         if attribute[0] is '_' or attribute not in self._persistent_attrs:
-            object.__setattr__(self, attribute, value)
+            super().__setattr__(attribute, value)
             return
 
         # Transform numpy.ndarrays and python dicts to StorageNumpy and StorageDicts
@@ -296,16 +292,17 @@ class StorageObj(IStorage):
             config.session.execute(query, values)
 
         # We store all the attributes in memory
-        object.__setattr__(self, attribute, value)
+        super().__setattr__(attribute, value)
 
-    def __delattr__(self, item):
+    def __delattr__(self, name):
         """
         Method that deletes a given attribute from a StorageObj
         Args:
             item: the name of the attribute to be deleted
         """
-        if self.storage_id and item in self._persistent_attrs:
+        super().__delattr__(name)
+        
+        if self.storage_id and name in self._persistent_attrs:
             query = "UPDATE %s.%s SET %s = null WHERE storage_id = %s" % (
-                self._ksp, self._table, item, self.storage_id)
+                self._ksp, self._table, name, self.storage_id)
             config.session.execute(query)
-        object.__delattr__(self, item)
