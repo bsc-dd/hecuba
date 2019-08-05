@@ -144,7 +144,7 @@ class TutorialTest(unittest.TestCase):
         my_example_class.make_persistent(tablename)
 
     def test_init_storageobjnames_test(self):
-        tablename = 'examplestorageobjclass1'
+        tablename = 'test2.examplestorageobjclass1'
         config.session.execute("DROP TABLE IF EXISTS my_app.ExampleStorageObjClassNames")
         config.session.execute("DROP TABLE IF EXISTS my_app.ExampleStorageObjClassNames" + '_my_dict')
         my_example_class = ExampleStorageObjClassNames()
