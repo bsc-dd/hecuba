@@ -168,7 +168,7 @@ class StorageObj(IStorage):
                                          self._ksp, self._table, name)
 
         self._name = ".".join(_extract_ks_tab(name))
-        self._ksp, self._table = name.split('.')[0], self._class_name.split('.')[-1]
+        self._ksp, self._table = self._name.split('.')[0], self._class_name.split('.')[-1]
 
         if not self._storage_id:
             # Rebuild storage id
