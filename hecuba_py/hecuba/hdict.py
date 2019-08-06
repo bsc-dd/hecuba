@@ -3,7 +3,7 @@ from . import log, Parser
 from .storageiter import StorageIter
 
 from .IStorage import IStorage, AlreadyPersistentError
-from .tools import build_remotely, basic_types, storage_id_from_name
+from .tools import build_remotely, storage_id_from_name, update_type
 import storage
 
 
@@ -23,9 +23,12 @@ class StorageDict(IStorage, dict):
             kwargs: arguments for base constructor
         """
 
-        if not cls.DataModelId:
-            cls._persistent_props = Parser("TypeSpec").parse_comments(cls.__doc__)
-            cls.DataModelId = storage.StorageAPI.add_data_model(cls._persistent_props)
+        if not cls._data_model_id:
+            persistent_props = Parser("TypeSpec").parse_comments(cls.__doc__)
+            keys = {k: update_type(v) for k, v in persistent_props['primary_keys']}
+            cols = {k: update_type(v) for k, v in persistent_props['columns']}
+            cls._data_model_def = {"type": cls.__name__, 'keys': keys, 'cols': cols}
+            cls._data_model_id = storage.StorageAPI.add_data_model(cls._data_model_def)
 
         toret = super(StorageDict, cls).__new__(cls, kwargs)
         storage_id = kwargs.get('storage_id', None)
@@ -37,7 +40,7 @@ class StorageDict(IStorage, dict):
             toret.setID(storage_id)
             toret.set_name(name)
             toret._is_persistent = True
-            storage.StorageAPI.register_persistent_object(cls.DataModelId, toret)
+            storage.StorageAPI.register_persistent_object(cls._data_model_id, toret)
         return toret
 
     def __init__(self, *args, **kwargs):
@@ -62,8 +65,8 @@ class StorageDict(IStorage, dict):
         Returns:
           list: a list of keys
         """
-        iter_cols = self._persistent_props.get('primary_keys', None)
-        iter_model = {"type": "StorageIter", "name": self.get_name(), "columns": iter_cols}
+        iter_cols = self._data_model_def.get('keys', None)
+        iter_model = {"type": "StorageIter", "name": self.get_name(), "cols": iter_cols}
         if self.storage_id:
             return StorageIter(storage_id=self.storage_id, data_model=iter_model, name=self.get_name())
 
@@ -76,8 +79,8 @@ class StorageDict(IStorage, dict):
           list: a list of values
         """
 
-        iter_cols = self._persistent_props.get('columns', None)
-        iter_model = {"type": "StorageIter", "name": self.get_name(), "columns": iter_cols}
+        iter_cols = self._data_model_def.get('cols', None)
+        iter_model = {"type": "StorageIter", "name": self.get_name(), "cols": iter_cols}
         if self.storage_id:
             return StorageIter(storage_id=self.storage_id, data_model=iter_model, name=self.get_name())
 
@@ -90,7 +93,7 @@ class StorageDict(IStorage, dict):
           list: a list of key-value pairs
         """
         if self.storage_id:
-            return StorageIter(storage_id=self.storage_id, data_model=self._persistent_props)
+            return StorageIter(storage_id=self.storage_id, data_model=self._data_model_def)
 
         return dict.items(self)
 
@@ -99,7 +102,7 @@ class StorageDict(IStorage, dict):
         Method that overloads the python dict basic iteration, which returns
         an iterator over the dictionary keys.
         """
-        return self.keys()
+        return self.keys
 
     def make_persistent(self, name):
         """
@@ -115,7 +118,7 @@ class StorageDict(IStorage, dict):
         # Update local StorageDict metadata
         super().make_persistent(name)
 
-        storage.StorageAPI.register_persistent_object(self.__class__.DataModelId, self)
+        storage.StorageAPI.register_persistent_object(self.__class__._data_model_id, self)
 
         keys = []
         values = []
@@ -190,8 +193,8 @@ class StorageDict(IStorage, dict):
         final_results = []
 
         for i, element in enumerate(persistent_result):
-            col_type = self.__class__._persistent_props['columns'][i]
-            if col_type not in basic_types:
+            col_type = self.__class__._data_model_def['cols'][i]
+            if issubclass(col_type, IStorage):
                 # element is not a built-in type
                 table_name = self.storage_id + '_' + str(key)
                 info = {"name": table_name, "storage_id": element, "class_name": col_type}
@@ -213,12 +216,13 @@ class StorageDict(IStorage, dict):
         if not isinstance(val, list):
             val = [val]
 
-        val = [self._persistent_props[i](v) if isinstance(v, (np.ndarray, dict)) else v for i, v in enumerate(val)]
+        keys = [def_type(val[i]) for i, def_type in enumerate(self._data_model_def['keys'].values())]
+        vals = [def_type(val[i]) for i, def_type in enumerate(self._data_model_def['cols'].values())]
 
         if not self._is_persistent:
-            dict.__setitem__(self, key, val)
+            dict.__setitem__(self, keys, vals)
         else:
-            storage.StorageAPI.put_records(self.storage_id, [key], [val])
+            storage.StorageAPI.put_records(self.storage_id, [keys], [vals])
 
     def __repr__(self):
         """

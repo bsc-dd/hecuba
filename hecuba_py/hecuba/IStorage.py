@@ -12,8 +12,8 @@ class IStorage(object):
     args = namedtuple("IStorage", args_names)
     _build_args = args(storage_id="")
 
-    _persistent_props = None
-    DataModelId = None
+    _data_model_def = None
+    _data_model_id = None
 
     def getID(self):
         return self.__storage_id

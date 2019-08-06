@@ -2,10 +2,6 @@ from hecuba import log
 from hfetch import Hcache
 from . import config
 
-
-
-
-
 """
  Cassandra related methods
 """
@@ -147,7 +143,7 @@ class CqlCOMM(object):
 
     @staticmethod
     def register_data_model(data_model_id, definition):
-        #extract keys, values and so on
+        # extract keys, values and so on
         pass
 
     @staticmethod
@@ -165,16 +161,23 @@ class CqlCOMM(object):
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (ksp, config.replication)
         config.session.execute(query_keyspace)
 
-        if "primary_keys" in definition:
+        if len(definition["keys"]) != 0:
 
-            primary_keys = definition['primary_keys']
-            columns = definition['columns']
+            primary_keys = definition['keys']
+            columns = definition['cols']
+            all_keys = ",".join("%s %s" % (k, v.__name__) for k, v in primary_keys.items())
+
+            all_cols = ",".join("%s %s" % (k, v.__name__) for k, v in columns.items())
+
+            total_cols = all_keys
+            if all_cols:
+                total_cols = all_keys + ',' + all_cols
 
             query_table = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" \
                           % (ksp,
                              table,
-                             ",".join("%s %s" % (tup[0], str(tup[1])) for tup in primary_keys + columns),
-                             str.join(',', list(zip(*primary_keys))[0]))
+                             total_cols,
+                             str.join(',', primary_keys.keys()))
             try:
                 log.debug('MAKE PERSISTENCE: %s', query_table)
                 config.session.execute(query_table)
@@ -185,31 +188,27 @@ class CqlCOMM(object):
         else:
             query_simple = 'CREATE TABLE IF NOT EXISTS ' + ksp + '.' + table + \
                            '( storage_id uuid PRIMARY KEY, '
-            for key, entry in definition.items():
-                query_simple += str(key) + ' ' + entry['type'].__name__ + ', '
+            for key, entry in definition["cols"].items():
+                query_simple += str(key) + ' ' + entry.__name__ + ', '
             try:
                 config.session.execute(query_simple[:-2] + ' )')
             except Exception as ir:
                 log.error("Unable to execute %s", query_simple)
                 raise ir
 
-
     @staticmethod
     def create_hcache(object_id, name, definition):
         ksp, table = extract_ksp_table(name)
 
-        if "primary_keys" in definition:
-            keys = [t[0] for t in definition["primary_keys"]]
-            columns = [{"name":t[0], "type": str(t[1])} for t in definition["columns"]]
-        else:
-            keys = ["storage_id"]
-            columns = list(definition.keys())
+        keys = ["storage_id"]
+        columns = [k for k in definition["cols"].keys()]
 
-        hcache_params = (ksp, table, object_id, [(-2**63, 2**63-1)], keys, columns,
+        if len(definition["keys"]) != 0:
+            keys = [k for k in definition["keys"].keys()]
+
+        hcache_params = (ksp, table, object_id, [(-2 ** 63, 2 ** 63 - 1)], keys, columns,
                          {'cache_size': config.max_cache_size,
                           'writer_par': config.write_callbacks_number,
                           'writer_buffer': config.write_buffer_size,
                           'timestamped_writes': config.timestamped_writes})
         return Hcache(*hcache_params)
-
-

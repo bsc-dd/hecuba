@@ -7,6 +7,7 @@ from hecuba.IStorage import IStorage
 Mockup on how the Cassandra implementation of the interface could work.
 """
 
+
 class CQLIface(StorageIface):
     data_models_cache = {}
     object_to_data_model = {}
@@ -30,12 +31,11 @@ class CQLIface(StorageIface):
 
         object_id = pyobject.getID()
 
-        #CQLIface.cache[object_id] = (datamodel_id, pyobject)
+        # CQLIface.cache[object_id] = (datamodel_id, pyobject)
 
         CqlCOMM.register_istorage(object_id, pyobject.get_name(), self.data_models_cache[datamodel_id])
         dm = self.data_models_cache[datamodel_id]
         self.object_to_data_model[object_id] = datamodel_id
-
 
         if "primary_keys" in dm.keys():
             CqlCOMM.create_table(object_id, pyobject.get_name(), dm)
@@ -79,7 +79,7 @@ class CQLIface(StorageIface):
             CqlCOMM.delete_data(object_id)
         except KeyError:
             return False
-        
+
         return True
 
     def add_index(self, datamodel_id):
@@ -93,7 +93,7 @@ class CQLIface(StorageIface):
         persistent_res = self.hcache_by_id[object_id].get_row([object_id])
 
         for key in key_list:
-            results.append(persistent_res[list(dm.keys()).index(key)])
+            results.append(persistent_res[list(dm['cols'].keys()).index(key)])
 
         if not key_list:
             results = persistent_res
@@ -109,17 +109,16 @@ class CQLIface(StorageIface):
         toinsert = []
         dm = self.data_models_cache[self.object_to_data_model[object_id]]
 
-        if "primary_keys" in dm.keys():
+        if dm["keys"]:
             for key, value in zip(key_list, value_list):
-                self.hcache_by_id[object_id].put_row([key], value)
+                self.hcache_by_id[object_id].put_row(key, value)
 
         else:
-            for key in dm.keys():
+            for key in dm['cols'].keys():
                 if key not in key_list:
                     toinsert.append(None)
                 else:
                     toinsert.append(value_list[key_list.index(key)])
-
 
             self.hcache_by_id[object_id].put_row([object_id], toinsert)
 

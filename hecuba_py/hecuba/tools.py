@@ -1,10 +1,5 @@
 import uuid
 
-valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map', 'bigint', 'blob',
-               'tuple', 'dict', 'float', 'numpy.ndarray']
-
-basic_types = valid_types[:-1]
-
 
 def storage_id_from_name(name):
     return uuid.uuid3(uuid.NAMESPACE_DNS, name)
@@ -89,3 +84,11 @@ def import_class(module_path):
 
     imported_class = getattr(mod, class_name)
     return imported_class
+
+
+def update_type(d):
+    from .IStorage import IStorage
+    res = import_class(d)
+    if issubclass(res, IStorage):
+        res = uuid.UUID
+    return res

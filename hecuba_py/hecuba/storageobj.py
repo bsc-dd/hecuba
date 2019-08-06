@@ -3,7 +3,7 @@ from . import log, Parser
 
 from .hnumpy import StorageNumpy
 from .IStorage import IStorage, AlreadyPersistentError
-from .tools import build_remotely, basic_types, storage_id_from_name, import_class
+from .tools import build_remotely, storage_id_from_name, update_type
 
 import storage
 
@@ -16,20 +16,12 @@ class StorageObj(IStorage):
     """
 
     def __new__(cls, name='', *args, **kwargs):
-        if not cls.DataModelId:
-            cls._persistent_props = Parser("ClassField").parse_comments(cls.__doc__)
-
-            def update_type(d):
-                import copy
-                d_ret = copy.deepcopy(d)
-                if d_ret["type"] not in basic_types:
-                    d_ret["type"] = import_class("uuid.UUID")
-                else:
-                    d_ret["type"] = import_class(d_ret["type"])
-                return d_ret
-
-            dm = {k: update_type(v) for k, v in cls._persistent_props.items()}
-            cls.DataModelId = storage.StorageAPI.add_data_model(dm)
+        if not cls._data_model_id:
+            persistent_props = Parser("ClassField").parse_comments(cls.__doc__)
+            cols = {k: update_type(v['type']) for k, v in persistent_props.items()}
+            keys = {}
+            cls._data_model_def = {"type": cls.__name__, 'keys': keys, 'cols': cols}
+            cls._data_model_id = storage.StorageAPI.add_data_model(cls._data_model_def)
 
         toret = super(StorageObj, cls).__new__(cls)
         storage_id = kwargs.get('storage_id', None)
@@ -40,7 +32,7 @@ class StorageObj(IStorage):
             toret.setID(storage_id)
             toret.set_name(name)
             toret._is_persistent = True
-            storage.StorageAPI.register_persistent_object(cls.DataModelId, toret)
+            storage.StorageAPI.register_persistent_object(cls._data_model_id, toret)
         return toret
 
     def __init__(self, *args, **kwargs):
@@ -73,12 +65,12 @@ class StorageObj(IStorage):
 
         super().make_persistent(name)
 
-        storage.StorageAPI.register_persistent_object(self.__class__.DataModelId, self)
-        # defined_attrs = [attr for attr in self._persistent_props.keys() if attr in list(set(dir(self)))]
+        storage.StorageAPI.register_persistent_object(self.__class__._data_model_id, self)
+        # defined_attrs = [attr for attr in self._data_model_def.keys() if attr in list(set(dir(self)))]
 
         attrs = []
         values = []
-        for obj_name, obj_info in self._persistent_props.items():
+        for obj_name, obj_type in self._data_model_def["cols"].items():
             try:
                 pd = object.__getattribute__(self, obj_name)
                 attrs.append(obj_name)
@@ -100,7 +92,7 @@ class StorageObj(IStorage):
             The StorageObj stops being persistent, but keeps the information already stored in Cassandra
         """
         log.debug("STOP PERSISTENT")
-        for obj_name in self._persistent_props.keys():
+        for obj_name in self._data_model_def.keys():
             attr = getattr(self, obj_name, None)
             if isinstance(attr, IStorage):
                 attr.stop_persistent()
@@ -112,7 +104,7 @@ class StorageObj(IStorage):
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
         log.debug('DELETE PERSISTENT')
-        for obj_name in self._persistent_props.keys():
+        for obj_name in self._data_model_def.keys():
             attr = getattr(self, obj_name, None)
             if isinstance(attr, IStorage):
                 attr.delete_persistent()
@@ -134,20 +126,18 @@ class StorageObj(IStorage):
         try:
             return object.__getattribute__(self, attribute)
         except AttributeError as ex:
-            if attribute.startswith('_') or attribute not in self._persistent_props.keys():
+            if attribute.startswith('_') or attribute not in self._data_model_def['cols'].keys():
                 raise ex
 
-        value_info = self._persistent_props[attribute]
-        is_istorage_attr = value_info['type'] not in basic_types
+        value_info = self._data_model_def['cols'][attribute]
+        is_istorage_attr = issubclass(value_info, IStorage)
 
         if not self.storage_id:
             if not is_istorage_attr:
                 raise AttributeError
             else:
                 # We build the object, because Hecuba allows accessing attributes without previous initialization
-                info = {"name": '', "storage_id": None}
-                info.update(value_info)
-                info["built_remotely"] = self._built_remotely
+                info = {"name": '', "storage_id": None, 'type': value_info, 'built_remotely': self._built_remotely}
                 value = build_remotely(info)
                 object.__setattr__(self, attribute, value)
                 return value
@@ -166,10 +156,8 @@ class StorageObj(IStorage):
         value = attrs[0]
 
         if is_istorage_attr:
-            # If IStorage type, then we rebuild
-            attr_name = self.storage_id + '_' + attribute
             # Build the IStorage obj
-            info = {"name": attr_name, "storage_id": value}
+            info = {"name": self.get_name() + '_' + attribute, "storage_id": value}
             info.update(value_info)
             value = build_remotely(info)
 
@@ -185,7 +173,7 @@ class StorageObj(IStorage):
                 attribute: name of the value that we want to set
                 value: value that we want to save
         """
-        if attribute[0] is '_' or attribute not in self._persistent_props.keys():
+        if attribute[0] is '_' or attribute not in self._data_model_def.keys():
             object.__setattr__(self, attribute, value)
             return
 
@@ -194,7 +182,7 @@ class StorageObj(IStorage):
             if isinstance(value, np.ndarray):
                 value = StorageNumpy(value)
             elif isinstance(value, dict):
-                per_dict = self._persistent_props[attribute]
+                per_dict = self._data_model_def[attribute]
                 info = {"name": '', "storage_id": None, "built_remotely": self._built_remotely}
                 info.update(per_dict)
                 new_value = build_remotely(info)
@@ -223,6 +211,6 @@ class StorageObj(IStorage):
         Args:
             item: the name of the attribute to be deleted
         """
-        if self.storage_id and item in self._persistent_props.keys():
-            storage.StorageAPI.put_records(self.storage_id, self._persistent_props.keys(), [])
+        if self.storage_id and item in self._data_model_def.keys():
+            storage.StorageAPI.put_records(self.storage_id, self._data_model_def.keys(), [])
         object.__delattr__(self, item)
