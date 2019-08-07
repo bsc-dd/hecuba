@@ -130,10 +130,9 @@ class StorageObj(IStorage):
                 raise ex
 
         value_info = self._data_model_def['cols'][attribute]
-        is_istorage_attr = issubclass(value_info, IStorage)
 
         if not self.storage_id:
-            if not is_istorage_attr:
+            if not issubclass(value_info, IStorage):
                 raise AttributeError
             else:
                 # We build the object, because Hecuba allows accessing attributes without previous initialization
@@ -153,9 +152,9 @@ class StorageObj(IStorage):
 
         if not attrs:
             raise AttributeError('Value not found for {}'.format(attribute))
-        value = attrs[0]
+        value = attrs[list(self._data_model_def['cols']).index(attribute)]
 
-        if is_istorage_attr:
+        if issubclass(value_info, IStorage):
             # Build the IStorage obj
             info = {"name": self.get_name() + '_' + attribute, "storage_id": value}
             info.update(value_info)
@@ -195,8 +194,8 @@ class StorageObj(IStorage):
                 if not value.storage_id:
                     attr_name = self._name + '_' + attribute
                     attr_id = storage_id_from_name(attr_name)
-                    storage.StorageAPI.put_records(self.storage_id, [attribute], [attr_id])
                     value.make_persistent(attr_name)
+                    storage.StorageAPI.put_records(self.storage_id, [attribute], [attr_id])
                 else:
                     storage.StorageAPI.put_records(self.storage_id, [attribute], [value.storage_id])
             else:

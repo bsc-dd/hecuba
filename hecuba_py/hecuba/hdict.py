@@ -1,4 +1,3 @@
-import numpy as np
 from . import log, Parser
 from .storageiter import StorageIter
 
@@ -185,6 +184,9 @@ class StorageDict(IStorage, dict):
 
         if not self.storage_id:
             return dict.__getitem__(self, key)
+
+        if not isinstance(key, list):
+            key = [key]
 
         # Returns always a list with a single entry for the key
         persistent_result = storage.StorageAPI.get_records(self.storage_id, [key])

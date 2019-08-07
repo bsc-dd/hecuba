@@ -1,6 +1,7 @@
 from hecuba import log
 from hfetch import Hcache
 from . import config
+import uuid
 
 """
  Cassandra related methods
@@ -161,54 +162,68 @@ class CqlCOMM(object):
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (ksp, config.replication)
         config.session.execute(query_keyspace)
 
-        if len(definition["keys"]) != 0:
+        primary_keys = definition['keys']
+        columns = definition['cols']
 
-            primary_keys = definition['keys']
-            columns = definition['cols']
-            all_keys = ",".join("%s %s" % (k, v.__name__) for k, v in primary_keys.items())
+        if not primary_keys:
+            primary_keys = {"storage_id": uuid.UUID}
 
-            all_cols = ",".join("%s %s" % (k, v.__name__) for k, v in columns.items())
+        all_keys = ",".join("%s %s" % (k, v.__name__) for k, v in primary_keys.items())
 
-            total_cols = all_keys
-            if all_cols:
-                total_cols = all_keys + ',' + all_cols
+        all_cols = ",".join("%s %s" % (k, v.__name__) for k, v in columns.items())
 
-            query_table = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" \
-                          % (ksp,
-                             table,
-                             total_cols,
-                             str.join(',', primary_keys.keys()))
-            try:
-                log.debug('MAKE PERSISTENCE: %s', query_table)
-                config.session.execute(query_table)
-            except Exception as ex:
-                log.warn("Error creating the StorageDict table: %s %s", query_table, ex)
-                raise ex
-
+        if all_cols:
+            total_cols = all_keys + ',' + all_cols
         else:
-            query_simple = 'CREATE TABLE IF NOT EXISTS ' + ksp + '.' + table + \
-                           '( storage_id uuid PRIMARY KEY, '
-            for key, entry in definition["cols"].items():
-                query_simple += str(key) + ' ' + entry.__name__ + ', '
-            try:
-                config.session.execute(query_simple[:-2] + ' )')
-            except Exception as ir:
-                log.error("Unable to execute %s", query_simple)
-                raise ir
+            total_cols = all_keys
+
+        query_table = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" \
+                      % (ksp,
+                         table,
+                         total_cols,
+                         str.join(',', primary_keys.keys()))
+        try:
+            log.debug('MAKE PERSISTENCE: %s', query_table)
+            config.session.execute(query_table)
+        except Exception as ex:
+            log.warn("Error creating the StorageDict table: %s %s", query_table, ex)
+            raise ex
+
 
     @staticmethod
     def create_hcache(object_id, name, definition):
         ksp, table = extract_ksp_table(name)
 
-        keys = ["storage_id"]
-        columns = [k for k in definition["cols"].keys()]
-
-        if len(definition["keys"]) != 0:
+        if definition["keys"]:
             keys = [k for k in definition["keys"].keys()]
+            columns = [k for k in definition["cols"].keys()]
 
-        hcache_params = (ksp, table, object_id, [(-2 ** 63, 2 ** 63 - 1)], keys, columns,
-                         {'cache_size': config.max_cache_size,
-                          'writer_par': config.write_callbacks_number,
-                          'writer_buffer': config.write_buffer_size,
-                          'timestamped_writes': config.timestamped_writes})
-        return Hcache(*hcache_params)
+            hcache_params = (ksp, table, object_id, [(-2 ** 63, 2 ** 63 - 1)], keys, columns,
+                             {'cache_size': config.max_cache_size,
+                              'writer_par': config.write_callbacks_number,
+                              'writer_buffer': config.write_buffer_size,
+                              'timestamped_writes': config.timestamped_writes})
+            return Hcache(*hcache_params)
+
+        else:
+
+            class HcacheWrapper(object):
+                def __init__(self, attributes, object_id, ksp, table):
+                    self.internal_caches = {}
+                    self.object_id = object_id
+                    for attr in attributes:
+                        hc = Hcache(ksp, table, object_id, [(-2 ** 63, 2 ** 63 - 1)], ["storage_id"], [attr],
+                                    {'cache_size': config.max_cache_size,
+                                     'writer_par': config.write_callbacks_number,
+                                     'writer_buffer': config.write_buffer_size,
+                                     'timestamped_writes': config.timestamped_writes})
+
+                        self.internal_caches[attr] = hc
+
+                def get_row(self, attr):
+                    return self.internal_caches[attr].get_row([self.object_id])[0]
+
+                def put_row(self, attr, val):
+                    self.internal_caches[attr].put_row([self.object_id], [val])
+
+            return HcacheWrapper(definition["cols"].keys(), object_id, ksp, table)

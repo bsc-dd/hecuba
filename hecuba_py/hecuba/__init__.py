@@ -24,6 +24,6 @@ from .parser import Parser
 from .storageobj import StorageObj
 from .hdict import StorageDict
 from .hnumpy import StorageNumpy
+from .storageiter import StorageIter
 
-
-__all__ = ['StorageObj', 'StorageDict', 'StorageNumpy', 'Parser']
+__all__ = ['StorageObj', 'StorageDict', 'StorageNumpy', 'Parser', 'StorageIter']
