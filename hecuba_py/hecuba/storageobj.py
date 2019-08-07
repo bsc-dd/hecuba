@@ -68,8 +68,9 @@ class StorageObj(IStorage):
 
         if self._is_persistent:
             if name:
-                self._name = ".".join(_extract_ks_tab(name))
-                self._ksp, self._table = self._name.split('.')[0], self._class_name.split('.')[-1]
+                self._ksp, self._table = _extract_ks_tab(name)
+                self._name = self._ksp + '.' + self._table
+                self._table = self.__class__.__name__
 
             if not storage_id:
                 # Rebuild storage id
@@ -172,7 +173,7 @@ class StorageObj(IStorage):
 
         if not self._storage_id:
             # Rebuild storage id
-            self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, name)
+            self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._name)
             self._build_args = self._build_args._replace(name=self._name,
                                                          storage_id=self._storage_id)
 
