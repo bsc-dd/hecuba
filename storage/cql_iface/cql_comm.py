@@ -2,6 +2,7 @@ from hecuba import log
 from hfetch import Hcache
 from . import config
 import uuid
+from hecuba.parser import _conversions
 
 """
  Cassandra related methods
@@ -26,7 +27,7 @@ def extract_ksp_table(name):
 
     try:
         ksp = name[:name.index('.')]
-        table = name[len(ksp):]
+        table = name[len(ksp) + 1:]
     except ValueError as ex:
         ksp = config.execution_name
         table = name
@@ -151,9 +152,9 @@ class CqlCOMM(object):
     def delete_data(object_id):
         res = config.execute(CqlCOMM.istorage_read_entry, [object_id])
         if res:
-            res = res.current_row()
+            res = res.one()
         config.execute(CqlCOMM.istorage_remove_entry, [object_id])
-        # Use res to delete the appropriate data, maybe async
+        # TODO Use res to delete the appropriate data, maybe async
 
     @staticmethod
     def create_table(object_id, name, definition):
@@ -168,9 +169,9 @@ class CqlCOMM(object):
         if not primary_keys:
             primary_keys = {"storage_id": uuid.UUID}
 
-        all_keys = ",".join("%s %s" % (k, v.__name__) for k, v in primary_keys.items())
+        all_keys = ",".join("%s %s" % (k, _conversions[v.__name__]) for k, v in primary_keys.items())
 
-        all_cols = ",".join("%s %s" % (k, v.__name__) for k, v in columns.items())
+        all_cols = ",".join("%s %s" % (k, _conversions[v.__name__]) for k, v in columns.items())
 
         if all_cols:
             total_cols = all_keys + ',' + all_cols
@@ -188,7 +189,6 @@ class CqlCOMM(object):
         except Exception as ex:
             log.warn("Error creating the StorageDict table: %s %s", query_table, ex)
             raise ex
-
 
     @staticmethod
     def create_hcache(object_id, name, definition):

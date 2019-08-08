@@ -3,6 +3,7 @@ from .cql_comm import CqlCOMM
 import uuid
 from hecuba.IStorage import IStorage
 from hecuba.storageiter import StorageIter
+
 """
 Mockup on how the Cassandra implementation of the interface could work.
 """
@@ -26,7 +27,9 @@ class CQLIface(StorageIface):
 
     def add_data_model(self, definition):
         # datamodel_id
-        data_model_id = hash(str(definition))
+        dm = list(definition.items())
+        dm.sort()
+        data_model_id = hash(str(dm))
         self.data_models_cache[data_model_id] = definition
         CqlCOMM.register_data_model(data_model_id, definition)
         return data_model_id
@@ -40,7 +43,7 @@ class CQLIface(StorageIface):
         # CQLIface.cache[object_id] = (datamodel_id, pyobject)
         object_name = pyobject.get_name()
 
-        CqlCOMM.register_istorage(object_id, object_name,  data_model)
+        CqlCOMM.register_istorage(object_id, object_name, data_model)
 
         self.object_to_data_model[object_id] = datamodel_id
 
@@ -92,6 +95,7 @@ class CQLIface(StorageIface):
 
         return results
         '''
+
     def put_records(self, object_id, key_list, value_list):
 
         if not key_list:
