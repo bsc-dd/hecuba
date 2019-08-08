@@ -12,8 +12,8 @@ from hecuba.IStorage import IStorage, AlreadyPersistentError, _discrete_token_ra
 class StorageObj(IStorage):
     args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name", "built_remotely"]
     args = namedtuple('StorageObjArgs', args_names)
-    _prepared_store_meta = config.session.prepare('INSERT INTO hecuba' +
-                                                  '.istorage (storage_id, class_name, name, tokens,istorage_props) '
+    _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
+                                                  '(storage_id, class_name, name, tokens, istorage_props) '
                                                   ' VALUES (?,?,?,?,?)')
 
     """
@@ -83,8 +83,9 @@ class StorageObj(IStorage):
             if len(metas) != 0:
                 tokens = metas[0].tokens
                 istorage_props = metas[0].istorage_props
-                self._name = metas[0].name
-                self._ksp, self._table = self._name.split('.')[0], metas[0].class_name.split('.')[-1]
+                self._ksp, self._table = _extract_ks_tab(metas[0].name)
+                self._name = self._ksp + '.' + self._table
+                self._table = self.__class__.__name__
 
         if tokens is None:
             # log.info('using all tokens')
@@ -168,8 +169,9 @@ class StorageObj(IStorage):
             raise AlreadyPersistentError("This StorageObj is already persistent [Before:{}.{}][After:{}]",
                                          self._ksp, self._table, name)
 
-        self._name = ".".join(_extract_ks_tab(name))
-        self._ksp, self._table = self._name.split('.')[0], self._class_name.split('.')[-1]
+        self._ksp, self._table = _extract_ks_tab(name)
+        self._name = self._ksp + '.' + self._table
+        self._table = self.__class__.__name__
 
         if not self._storage_id:
             # Rebuild storage id
@@ -183,8 +185,9 @@ class StorageObj(IStorage):
         # If metadata was found, replace the private attrs
         if len(metas) != 0:
             # Persisted another
-            self._name = metas[0].name
-            self._ksp, self._table = self._name.split('.')[0], metas[0].class_name.split('.')[-1]
+            self._ksp, self._table = _extract_ks_tab(metas[0].name)
+            self._name = self._ksp + '.' + self._table
+            self._table = self.__class__.__name__
             self._tokens = metas[0].tokens
             self._istorage_props = metas[0].istorage_props
             # Create the interface with the backend to store the object
