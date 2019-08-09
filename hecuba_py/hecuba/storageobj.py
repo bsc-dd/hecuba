@@ -3,8 +3,8 @@ from . import log, Parser
 
 from .hnumpy import StorageNumpy
 from .IStorage import IStorage, AlreadyPersistentError
-from .tools import build_remotely, storage_id_from_name, update_type
-
+from .tools import storage_id_from_name, update_type
+import uuid
 import storage
 
 
@@ -17,11 +17,18 @@ class StorageObj(IStorage):
 
     def __new__(cls, name='', *args, **kwargs):
         if not cls._data_model_id:
-            persistent_props = Parser("ClassField").parse_comments(cls.__doc__)
-            cols = {k: update_type(v['type']) for k, v in persistent_props.items()}
+            # User data model
             keys = {}
-            cls._data_model_def = {"type": cls.__name__, 'keys': keys, 'cols': cols}
-            cls._data_model_id = storage.StorageAPI.add_data_model(cls._data_model_def)
+            try:
+                cls._data_model_def = kwargs['data_model']
+            except KeyError:
+                persistent_props = Parser("ClassField").parse_comments(cls.__doc__)
+                cols = {k: update_type(v['type']) for k, v in persistent_props.items()}
+                cls._data_model_def = {"type": cls.__name__, 'keys': keys, 'cols': cols}
+
+            # Storage data model
+            cols = {k: uuid.UUID if issubclass(v, IStorage) else v for k, v in cls._data_model_def["cols"].items()}
+            cls._data_model_id = storage.StorageAPI.add_data_model({"type": cls.__name__, 'keys': keys, 'cols': cols})
 
         toret = super(StorageObj, cls).__new__(cls)
         storage_id = kwargs.get('storage_id', None)
@@ -136,32 +143,23 @@ class StorageObj(IStorage):
                 raise AttributeError
             else:
                 # We build the object, because Hecuba allows accessing attributes without previous initialization
-                info = {"name": '', "storage_id": None, 'type': value_info, 'built_remotely': self._built_remotely}
-                value = build_remotely(info)
+                value = value_info(data_model=self._data_model_def["cols"][attribute], build_remotely=True)
                 object.__setattr__(self, attribute, value)
                 return value
 
-        '''
-        StorageObj is persistent.
-        If the attribute is not a built-in object, we might have it in memory. 
-        Since python works using references any modification from another reference will affect this attribute,
-        which is the expected behaviour. Therefore, is safe to store in-memory the Hecuba objects.
-        '''
+        assert self._is_persistent
 
-        attrs = storage.StorageAPI.get_records(self.storage_id, [attribute])
-
-        if not attrs:
-            raise AttributeError('Value not found for {}'.format(attribute))
-        value = attrs[list(self._data_model_def['cols']).index(attribute)]
+        attr = storage.StorageAPI.get_records(self.storage_id, [attribute])[0]
 
         if issubclass(value_info, IStorage):
             # Build the IStorage obj
-            info = {"name": self.get_name() + '_' + attribute, "storage_id": value}
-            info.update(value_info)
-            value = build_remotely(info)
+            attr = value_info(name=self.get_name() + '_' + attribute, storage_id=attr,
+                              data_model=self._data_model_def["cols"][attribute], build_remotely=True)
+        elif not attr:
+            raise AttributeError('Value not found for {}'.format(attribute))
 
-        object.__setattr__(self, attribute, value)
-        return value
+        object.__setattr__(self, attribute, attr)
+        return attr
 
     def __setattr__(self, attribute, value):
         """
@@ -181,12 +179,8 @@ class StorageObj(IStorage):
             if isinstance(value, np.ndarray):
                 value = StorageNumpy(value)
             elif isinstance(value, dict):
-                per_dict = self._data_model_def[attribute]
-                info = {"name": '', "storage_id": None, "built_remotely": self._built_remotely}
-                info.update(per_dict)
-                new_value = build_remotely(info)
-                new_value.update(value)
-                value = new_value
+                obj_class = self._data_model_def[attribute]["type"]
+                value = obj_class(data_model=self._data_model_def["cols"][attribute], build_remotely=False)
 
         if self.storage_id:
             # Write attribute to the storage

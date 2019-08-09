@@ -2,7 +2,7 @@ from hecuba import log
 from hfetch import Hcache
 from . import config
 import uuid
-from hecuba.parser import _conversions
+import numpy
 
 """
  Cassandra related methods
@@ -14,6 +14,21 @@ _max_token = int(((2 ** 63) - 1))  # type: int
 _min_token = int(-2 ** 63)  # type: int
 
 _select_istorage_meta = config.session.prepare("SELECT * FROM hecuba.istorage WHERE storage_id = ?")
+
+# User class to Cassandra data type
+_hecuba2cassandra_typemap = {str: 'text',
+                             bool: 'boolean',
+                             float: 'float',
+                             int: 'int',
+                             tuple: 'tuple',
+                             list: 'list',
+                             set: 'set',
+                             dict: 'map',
+                             bytearray: 'blob',
+                             bytes: 'blob',
+                             'double': 'double',
+                             numpy.ndarray: 'hecuba.hnumpy.StorageNumpy',
+                             uuid.UUID: 'uuid'}
 
 
 def extract_ksp_table(name):
@@ -169,9 +184,9 @@ class CqlCOMM(object):
         if not primary_keys:
             primary_keys = {"storage_id": uuid.UUID}
 
-        all_keys = ",".join("%s %s" % (k, _conversions[v.__name__]) for k, v in primary_keys.items())
+        all_keys = ",".join("%s %s" % (k, _hecuba2cassandra_typemap[v]) for k, v in primary_keys.items())
 
-        all_cols = ",".join("%s %s" % (k, _conversions[v.__name__]) for k, v in columns.items())
+        all_cols = ",".join("%s %s" % (k, _hecuba2cassandra_typemap[v]) for k, v in columns.items())
 
         if all_cols:
             total_cols = all_keys + ',' + all_cols

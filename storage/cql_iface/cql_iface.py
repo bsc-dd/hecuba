@@ -77,7 +77,10 @@ class CQLIface(StorageIface):
         results = []
         hcache = self.hcache_by_id[object_id]
         for key in key_list:
-            results.append(hcache.get_row(key))
+            try:
+                results.append(hcache.get_row(key))
+            except Exception:
+                results.append([])
 
         return results
 

@@ -46,19 +46,7 @@ def build_remotely(args):
     if obj_type is None:
         raise TypeError("Trying to build an IStorage obj without giving the type")
 
-    # Import the class defined by obj_type
-    cname, module = process_path(obj_type)
-
-    '''
-    if obj_type == str(StorageNumpy.__class__):
-        return StorageNumpy(name=args["name"], storage_id=args["storage_id"])
-    '''
-    try:
-        mod = __import__(module, globals(), locals(), [cname], 0)
-    except ValueError:
-        raise ValueError("Can't import class {} from module {}".format(cname, module))
-
-    imported_class = getattr(mod, cname)
+    imported_class = obj_type
 
     args = {k: v for k, v in args.items() if k in imported_class.args_names}
     args.pop('class_name', None)
@@ -87,8 +75,7 @@ def import_class(module_path):
 
 
 def update_type(d):
-    from .IStorage import IStorage
+    if d == 'text':
+        return str
     res = import_class(d)
-    if issubclass(res, IStorage):
-        res = uuid.UUID
     return res

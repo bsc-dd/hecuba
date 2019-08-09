@@ -4,6 +4,7 @@ from .storageiter import StorageIter
 from .IStorage import IStorage, AlreadyPersistentError
 from .tools import build_remotely, storage_id_from_name, update_type
 import storage
+import uuid
 
 
 class StorageDict(IStorage, dict):
@@ -21,13 +22,22 @@ class StorageDict(IStorage, dict):
             args: arguments for base constructor
             kwargs: arguments for base constructor
         """
-
         if not cls._data_model_id:
-            persistent_props = Parser("TypeSpec").parse_comments(cls.__doc__)
-            keys = {k: update_type(v) for k, v in persistent_props['primary_keys']}
-            cols = {k: update_type(v) for k, v in persistent_props['columns']}
-            cls._data_model_def = {"type": cls.__name__, 'keys': keys, 'cols': cols}
-            cls._data_model_id = storage.StorageAPI.add_data_model(cls._data_model_def)
+            # User data model
+            keys = {}
+            try:
+                cls._data_model_def = kwargs['data_model']
+            except KeyError:
+                persistent_props = Parser("TypeSpec").parse_comments(cls.__doc__)
+                keys = {k: update_type(v) for k, v in persistent_props['primary_keys']}
+                cols = {k: update_type(v) for k, v in persistent_props['columns']}
+                cls._data_model_def = {"type": cls.__name__, 'keys': keys, 'cols': cols}
+
+            # Storage data model
+            keys = {k: uuid.UUID if issubclass(v, IStorage) else v for k, v in cls._data_model_def["keys"].items()}
+            cols = {k: uuid.UUID if issubclass(v, IStorage) else v for k, v in cls._data_model_def["cols"].items()}
+
+            cls._data_model_id = storage.StorageAPI.add_data_model({"type": cls.__name__, 'keys': keys, 'cols': cols})
 
         toret = super(StorageDict, cls).__new__(cls, kwargs)
         storage_id = kwargs.get('storage_id', None)
