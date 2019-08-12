@@ -1,49 +1,95 @@
-from collections import namedtuple
+import uuid
 
 
-class NamedIterator:
-    # Class that allows to iterate over the keys or the values of a dict
-    def __init__(self, hiterator, builder, father):
-        self.hiterator = hiterator
-        self.builder = builder
-        self._storage_father = father
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        n = self.hiterator.get_next()
-        if self.builder is not None:
-            if self._storage_father._get_set_types() is not None:
-                nkeys = len(n) - len(self._storage_father._get_set_types())
-                n = n[:nkeys]
-            return self.builder(*n)
-        else:
-            return n[0]
+def storage_id_from_name(name):
+    return uuid.uuid3(uuid.NAMESPACE_DNS, name)
 
 
-class NamedItemsIterator:
-    # Class that allows to iterate over the keys and the values of a dict
-    builder = namedtuple('row', 'key, value')
+def process_path(module_path):
+    """
+    Method to obtain module and class_name from a module path
+    Args:
+        module_path(String): path in the format module.class_name
+    Returns:
+        tuple containing class_name and module
+    """
 
-    def __init__(self, key_builder, column_builder, k_size, hiterator, father):
-        self.key_builder = key_builder
-        self.k_size = k_size
-        self.column_builder = column_builder
-        self.hiterator = hiterator
-        self._storage_father = father
+    if module_path == 'numpy.ndarray':
+        return 'StorageNumpy', 'hecuba.hnumpy'
+    if module_path == 'StorageDict':
+        return 'StorageDict', 'hecuba.hdict'
 
-    def __iter__(self):
-        return self
+    res = module_path.split('.')
+    if len(res) == 1:
+        mod = "builtins"
+        class_name = module_path
+    else:
+        mod = res[0]
+        class_name = module_path[len(mod) + 1:]
 
-    def __next__(self):
-        n = self.hiterator.get_next()
-        if self.key_builder is None:
-            k = n[0]
-        else:
-            k = self.key_builder(*n[0:self.k_size])
-        if self.column_builder is None:
-            v = n[self.k_size]
-        else:
-            v = self.column_builder(*n[self.k_size:])
-        return self.builder(k, v)
+    return class_name, mod
+
+
+def build_remotely(args):
+    """
+    Takes the information which consists of at least the type,
+    :raises TypeError if the object class doesn't subclass IStorage
+    :param obj_info: Contains the information to be used to create the IStorage obj
+    :return: An IStorage object
+    """
+    if "built_remotely" not in args.keys():
+        built_remotely = True
+    else:
+        built_remotely = args["built_remotely"]
+
+    obj_type = args.get('class_name', args.get('type', None))
+    if obj_type is None:
+        raise TypeError("Trying to build an IStorage obj without giving the type")
+
+    imported_class = obj_type
+
+    args = {k: v for k, v in args.items() if k in imported_class.args_names}
+    args.pop('class_name', None)
+    args["built_remotely"] = built_remotely
+
+    return imported_class(**args)
+
+
+def import_class(module_path):
+    """
+    Method to obtain module and class_name from a module path
+    Args:
+        module_path(String): path in the format module.class_name
+    Returns:
+        tuple containing class_name and module
+    """
+    class_name, mod = process_path(module_path)
+
+    try:
+        mod = __import__(mod, globals(), locals(), [class_name], 0)
+    except ValueError:
+        raise ValueError("Can't import class {} from module {}".format(class_name, mod))
+
+    imported_class = getattr(mod, class_name)
+    return imported_class
+
+
+def build_data_model(description):
+    res = {}
+    for k, v in description.items():
+        dt = update_type(v["type"])
+        try:
+            keys = build_data_model(v["primary_keys"])
+            values = build_data_model(v["columns"])
+            res[k] = {"keys": keys, "cols": values, "type": dt}
+        except KeyError:
+            res[k] = dt
+    return res
+    # {k: update_type(v['type']) for k, v in persistent_props.items()}
+
+
+def update_type(d):
+    if d == 'text':
+        return str
+    res = import_class(d)
+    return res

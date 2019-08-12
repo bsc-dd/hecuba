@@ -1,7 +1,31 @@
 import re
 from itertools import count
 
-from hecuba.IStorage import _conversions, process_path
+from .tools import process_path
+
+# User definitions to python types conversions
+_conversions = {'atomicint': 'counter',
+                'str': 'str',
+                'text': 'str',
+                'boolean': 'bool',
+                'decimal': 'decimal',
+                'float': 'float',
+                'int': 'int',
+                'tuple': 'tuple',
+                'list': 'list',
+                'generator': 'list',
+                'frozenset': 'frozenset',
+                'set': 'set',
+                'dict': 'dict',
+                'long': 'int',
+                'buffer': 'buffer',
+                'bytearray': 'bytearray',
+                'counter': 'counter',
+                'double': 'float',
+                'StorageDict': 'dict',
+                'ndarray': 'hecuba.StorageNumpy',
+                'numpy.ndarray': 'hecuba.StorageNumpy',
+                'UUID': 'uuid'}
 
 
 class Parser(object):
@@ -231,7 +255,7 @@ class Parser(object):
         if line.count('<') == 1:  # is tuple, set, list
             aux = self._parse_set_tuple_list(line, this)
         elif line.count('<') == 0 and line.count('Index_on') == 0 and line.count('.') == 0 or (
-                    line.count('numpy.ndarray') and line.count('dict') == 0):  # is simple type
+                line.count('numpy.ndarray') and line.count('dict') == 0):  # is simple type
             aux = self._parse_simple(line, this)
         elif line.count('Index_on') == 1:
             aux = self._parse_index(line, this)
@@ -270,7 +294,7 @@ class Parser(object):
         line = line[0:pos].replace('*', ' ') + line[pos:].replace("*", '')
         return line
 
-    def _parse_comments(self, comments):
+    def parse_comments(self, comments):
         '''Def: Parses the comments param to a ClassField or TypeSpec type and checks if the comments are in the correct
                 format.
                 Returns: an structure with all the parsed comments.'''

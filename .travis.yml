@@ -42,6 +42,7 @@ addons:
 script:
   - nosetests --with-coverage -v -s hecuba_py/tests/*.py
   - nosetests --with-coverage -v -s hecuba_py/tests/withcassandra
+  - nosetests --with-coverage -v -s storage/cql_iface/tests/api_tests.py
 
 jobs:
   include:
