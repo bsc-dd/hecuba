@@ -6,9 +6,4 @@ def select_storage_api():
     return CQLIface()
 
 
-global StorageAPI
 StorageAPI = select_storage_api()
-
-from .pycompss_api import api
-
-__all__ = ["api"]

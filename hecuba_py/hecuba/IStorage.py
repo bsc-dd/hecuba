@@ -7,6 +7,13 @@ class AlreadyPersistentError(RuntimeError):
     pass
 
 
+class DataModelNode(object):
+    def __init__(self, name=None, class_name=None, args=None):
+        self.name = name
+        self.class_name = class_name
+        self.args = args
+
+
 class IStorage(object):
     args_names = ["storage_id"]
     args = namedtuple("IStorage", args_names)

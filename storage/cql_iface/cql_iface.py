@@ -1,6 +1,7 @@
 from ..storage_iface import StorageIface
 from .cql_comm import CqlCOMM
 import uuid
+import numpy
 from hecuba.IStorage import IStorage
 from hecuba.storageiter import StorageIter
 

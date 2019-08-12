@@ -80,17 +80,17 @@ class StorageObj(IStorage):
         for obj_name, obj_type in self._data_model_def["cols"].items():
             try:
                 pd = object.__getattribute__(self, obj_name)
-                attrs.append(obj_name)
-                if isinstance(pd, IStorage):
-                    if not pd._is_persistent:
-                        sd_name = name + "_" + obj_name
-                        pd.make_persistent(sd_name)
-                    values.append(pd.getID())
-                else:
-                    values.append(pd)
             except AttributeError:
                 # Attribute unset, no action needed
-                pass
+                continue
+            attrs.append(obj_name)
+            if isinstance(pd, IStorage):
+                if not pd._is_persistent:
+                    sd_name = name + "_" + obj_name
+                    pd.make_persistent(sd_name)
+                values.append(pd.getID())
+            else:
+                values.append(pd)
 
         storage.StorageAPI.put_records(self.storage_id, attrs, values)
 
@@ -170,7 +170,7 @@ class StorageObj(IStorage):
                 attribute: name of the value that we want to set
                 value: value that we want to save
         """
-        if attribute[0] is '_' or attribute not in self._data_model_def.keys():
+        if attribute[0] is '_' or attribute not in self._data_model_def["cols"].keys():
             object.__setattr__(self, attribute, value)
             return
 
@@ -179,7 +179,7 @@ class StorageObj(IStorage):
             if isinstance(value, np.ndarray):
                 value = StorageNumpy(value)
             elif isinstance(value, dict):
-                obj_class = self._data_model_def[attribute]["type"]
+                obj_class = self._data_model_defDataModelId["cols"][attribute]["type"]
                 value = obj_class(data_model=self._data_model_def["cols"][attribute], build_remotely=False)
 
         if self.storage_id:
@@ -204,6 +204,6 @@ class StorageObj(IStorage):
         Args:
             item: the name of the attribute to be deleted
         """
-        if self.storage_id and item in self._data_model_def.keys():
-            storage.StorageAPI.put_records(self.storage_id, self._data_model_def.keys(), [])
+        if self.storage_id and item in self._data_model_def["cols"].keys():
+            storage.StorageAPI.put_records(self.storage_id, [item], [])
         object.__delattr__(self, item)

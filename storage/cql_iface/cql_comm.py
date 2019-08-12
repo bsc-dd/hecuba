@@ -1,5 +1,5 @@
 from hecuba import log
-from hfetch import Hcache
+from hfetch import Hcache, HNumpyStore
 from . import config
 import uuid
 import numpy
@@ -184,6 +184,10 @@ class CqlCOMM(object):
         if not primary_keys:
             primary_keys = {"storage_id": uuid.UUID}
 
+        pks = str.join(',', primary_keys.keys())
+        if definition["type"] is numpy.ndarray:
+            pks = "(storage_id, cluster_id),block_id"
+
         all_keys = ",".join("%s %s" % (k, _hecuba2cassandra_typemap[v]) for k, v in primary_keys.items())
 
         all_cols = ",".join("%s %s" % (k, _hecuba2cassandra_typemap[v]) for k, v in columns.items())
@@ -197,7 +201,7 @@ class CqlCOMM(object):
                       % (ksp,
                          table,
                          total_cols,
-                         str.join(',', primary_keys.keys()))
+                         pks)
         try:
             log.debug('MAKE PERSISTENCE: %s', query_table)
             config.session.execute(query_table)
@@ -209,7 +213,17 @@ class CqlCOMM(object):
     def create_hcache(object_id, name, definition):
         ksp, table = extract_ksp_table(name)
 
-        if definition["keys"]:
+        if definition["type"] is numpy.ndarray:
+
+            keys = [k for k in definition["keys"].keys()]
+            columns = [k for k in definition["cols"].keys()]
+            hcache_params = (ksp, table, object_id, [(-2 ** 63, 2 ** 63 - 1)], keys, columns,
+                             {'cache_size': config.max_cache_size,
+                              'writer_par': config.write_callbacks_number,
+                              'writer_buffer': config.write_buffer_size,
+                              'timestamped_writes': config.timestamped_writes})
+            return HNumpyStore(*hcache_params)
+        elif definition["keys"]:
             keys = [k for k in definition["keys"].keys()]
             columns = [k for k in definition["cols"].keys()]
 

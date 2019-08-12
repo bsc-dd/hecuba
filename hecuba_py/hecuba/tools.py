@@ -74,6 +74,20 @@ def import_class(module_path):
     return imported_class
 
 
+def build_data_model(description):
+    res = {}
+    for k, v in description.items():
+        dt = update_type(v["type"])
+        try:
+            keys = build_data_model(v["primary_keys"])
+            values = build_data_model(v["columns"])
+            res[k] = {"keys": keys, "cols": values, "type": dt}
+        except KeyError:
+            res[k] = dt
+    return res
+    # {k: update_type(v['type']) for k, v in persistent_props.items()}
+
+
 def update_type(d):
     if d == 'text':
         return str

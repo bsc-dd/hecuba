@@ -636,8 +636,8 @@ static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) 
 
 
 static PyMethodDef hnumpy_store_type_methods[] = {
-        {"get_numpy",  (PyCFunction) get_numpy,  METH_VARARGS, NULL},
-        {"save_numpy", (PyCFunction) save_numpy, METH_VARARGS, NULL},
+        {"get_row",  (PyCFunction) get_numpy,  METH_VARARGS, NULL},
+        {"put_row", (PyCFunction) save_numpy, METH_VARARGS, NULL},
         {NULL, NULL, 0,                                        NULL}
 };
 

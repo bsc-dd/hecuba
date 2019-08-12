@@ -1,5 +1,6 @@
 from collections import namedtuple
 import numpy as np
+import uuid
 
 from .IStorage import IStorage, AlreadyPersistentError
 
@@ -93,12 +94,15 @@ class StorageNumpy(IStorage, np.ndarray):
         self._build_args = self.args(self.storage_id, self._class_name, self._name,
                                      self.shape, self.dtype.num, self._block_id, False)
 
-        if self.DataModelId is None:
-            data_model = {"type": type(self.view(np.ndarray))}
-            self.DataModelId = storage.StorageAPI.add_data_model(data_model)
+        if self._data_model_id is None:
+            data_model = {"type": type(self.view(np.ndarray)),
+                          "keys": {"storage_id": uuid.UUID, "cluster_id": int, "block_id": int},
+                          "cols": {"payload": bytearray}}
+            self._data_model_id = storage.StorageAPI.add_data_model(data_model)
 
-        storage.StorageAPI.register_persistent_object(datamodel_id=self.DataModelId, pyobject=self)
-        storage.StorageAPI.put_records(self.storage_id, [slice(0, self.shape[0], None)], [self.view(np.ndarray)])
+        storage.StorageAPI.register_persistent_object(datamodel_id=self._data_model_id, pyobject=self)
+        # storage.StorageAPI.put_records(self.storage_id, [slice(None, None)], [self.view(np.ndarray)])
+        storage.StorageAPI.put_records(self.storage_id, [[self.storage_id]], [[self.view(np.ndarray)]])
 
     def split(self):
         storage.StorageAPI.split(self.storage_id)
