@@ -441,7 +441,7 @@ class StorageDict(IStorage, dict):
         if isinstance(key, Iterable) and len(key) == len(self._primary_keys):
             return list(key)
         elif self._has_embedded_set and isinstance(key, Iterable) and len(key) == (
-                    len(self._primary_keys) + len(self._get_set_types())):
+                len(self._primary_keys) + len(self._get_set_types())):
             return list(key)
         else:
             raise Exception('wrong primary key')
@@ -477,7 +477,7 @@ class StorageDict(IStorage, dict):
         """
         return self.keys()
 
-    def _make_persistent(self, name):
+    def make_persistent(self, name):
         """
         Method to transform a StorageDict into a persistent object.
         This will make it use a persistent DB as the main location
@@ -485,6 +485,7 @@ class StorageDict(IStorage, dict):
         Args:
             name:
         """
+        super().make_persistent(name)
         # Update local StorageDict metadata
         self._build_args = self._build_args._replace(storage_id=self.storage_id, name=self._ksp + "." + self._table,
                                                      tokens=self._tokens)
@@ -498,20 +499,22 @@ class StorageDict(IStorage, dict):
 
         StorageDict._store_meta(self._build_args)
 
-    def _stop_persistent(self):
+    def stop_persistent(self):
         """
         Method to turn a StorageDict into non-persistent.
         """
         log.debug('STOP PERSISTENCE: %s', self._table)
         self._hcache = None
+        super().stop_persistent()
 
-    def _delete_persistent(self):
+    def delete_persistent(self):
         """
         Method to empty all data assigned to a StorageDict.
         """
         log.debug('DELETE PERSISTENT: %s', self._table)
         query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
         config.session.execute(query)
+        super().delete_persistent()
 
     def __delitem__(self, key):
         """

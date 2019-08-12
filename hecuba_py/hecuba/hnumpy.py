@@ -64,7 +64,6 @@ class StorageNumpy(IStorage, np.ndarray):
         if obj is None:
             return
 
-
     @staticmethod
     def _create_tables(name):
         (ksp, table) = extract_ks_tab(name)
@@ -118,7 +117,8 @@ class StorageNumpy(IStorage, np.ndarray):
         else:
             raise KeyError
 
-    def _make_persistent(self, name):
+    def make_persistent(self, name):
+        super().make_persistent(name)
         if not name.endswith("_numpies"):
             name = name + '_numpies'
             self._table = self._table + '_numpies'
@@ -136,13 +136,14 @@ class StorageNumpy(IStorage, np.ndarray):
             self._hcache.save_numpy([self.storage_id], [self])
         StorageNumpy._store_meta(self._build_args)
 
-    def _stop_persistent(self):
-        pass
+    def stop_persistent(self):
+        super().stop_persistent()
 
-    def _delete_persistent(self):
+    def delete_persistent(self):
         """
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
+        super().delete_persistent()
         query = "DELETE FROM %s.%s WHERE storage_id = %s;" % (self._ksp, self._table, self.storage_id)
         query2 = "DELETE FROM hecuba.istorage WHERE storage_id = %s;" % self.storage_id
         log.debug("DELETE PERSISTENT: %s", query)

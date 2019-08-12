@@ -64,14 +64,11 @@ class IStorage(object):
             except IndexError:
                 self._tokens = generate_token_ring_ranges()
 
-        self._make_persistent(name)
         self._is_persistent = True
 
     def stop_persistent(self):
         if not self._is_persistent:
             raise RuntimeError("This Object is not persistent")
-
-        self._stop_persistent()
 
         self.storage_id = None
         self._is_persistent = False
@@ -80,19 +77,8 @@ class IStorage(object):
         if not self._is_persistent:
             raise RuntimeError("This Object is not persistent")
 
-        self._delete_persistent()
-
         self.storage_id = None
         self._is_persistent = False
-
-    def _make_persistent(self, name):
-        pass
-
-    def _stop_persistent(self):
-        pass
-
-    def _delete_persistent(self):
-        pass
 
     def _set_name(self, name):
         if not isinstance(name, str):

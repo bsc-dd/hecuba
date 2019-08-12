@@ -120,7 +120,7 @@ class StorageObj(IStorage):
             log.error("Unable to execute %s", query_simple)
             raise ir
 
-    def _make_persistent(self, name):
+    def make_persistent(self, name):
         """
             Once a StorageObj has been created, it can be made persistent. This function retrieves the information about
             the Object class schema, and creates a Cassandra table with those parameters, where information will be
@@ -130,6 +130,7 @@ class StorageObj(IStorage):
             Args:
                 name (string): name with which the table in the DB will be created
         """
+        super().make_persistent(name)
         # Arguments used to build objects remotely
         self._build_args = self.args(self._get_name(),
                                      self._tokens,
@@ -147,24 +148,27 @@ class StorageObj(IStorage):
 
         StorageObj._store_meta(self._build_args)
 
-    def _stop_persistent(self):
+    def stop_persistent(self):
         """
             The StorageObj stops being persistent, but keeps the information already stored in Cassandra
         """
         log.debug("STOP PERSISTENT")
-
         for obj_name in self._persistent_attrs:
-            attr = getattr(self, obj_name, None)
+            try:
+                attr = object.__getattribute__(self, obj_name)
+            except AttributeError:
+                attr = None
+
             if isinstance(attr, IStorage):
                 attr.stop_persistent()
 
+        super().stop_persistent()
 
-    def _delete_persistent(self):
+    def delete_persistent(self):
         """
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
         log.debug("DELETE PERSISTENT: %s", self._table)
-
         for obj_name in self._persistent_attrs:
             attr = getattr(self, obj_name, None)
             if isinstance(attr, IStorage):
@@ -173,6 +177,7 @@ class StorageObj(IStorage):
         query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
         config.session.execute(query)
 
+        super().delete_persistent()
 
     def __getattr__(self, attribute):
         """
@@ -301,7 +306,7 @@ class StorageObj(IStorage):
             item: the name of the attribute to be deleted
         """
         super().__delattr__(name)
-        
+
         if self.storage_id and name in self._persistent_attrs:
             query = "UPDATE %s.%s SET %s = null WHERE storage_id = %s" % (
                 self._ksp, self._table, name, self.storage_id)

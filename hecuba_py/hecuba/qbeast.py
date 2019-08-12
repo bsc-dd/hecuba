@@ -120,8 +120,9 @@ class QbeastIterator(IStorage):
         if name or storage_id:
             self.make_persistent(name)
 
-    def _make_persistent(self, name):
+    def make_persistent(self, name):
         # Update local QbeastIterator metadata
+        super().make_persistent(name)
         self._build_args = self._build_args._replace(storage_id=self.storage_id, name=self._ksp + "." + self._table,
                                                      tokens=self._tokens)
 
