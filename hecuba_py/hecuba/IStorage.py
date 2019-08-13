@@ -70,14 +70,12 @@ class IStorage(object):
         if not self._is_persistent:
             raise RuntimeError("This Object is not persistent")
 
-        self.storage_id = None
         self._is_persistent = False
 
     def delete_persistent(self):
         if not self._is_persistent:
             raise RuntimeError("This Object is not persistent")
 
-        self.storage_id = None
         self._is_persistent = False
 
     def _set_name(self, name):

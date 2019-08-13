@@ -139,6 +139,8 @@ class StorageNumpy(IStorage, np.ndarray):
     def stop_persistent(self):
         super().stop_persistent()
 
+        self.storage_id = None
+
     def delete_persistent(self):
         """
             Deletes the Cassandra table where the persistent StorageObj stores data
@@ -149,6 +151,7 @@ class StorageNumpy(IStorage, np.ndarray):
         log.debug("DELETE PERSISTENT: %s", query)
         config.session.execute(query)
         config.session.execute(query2)
+        self.storage_id = None
 
     def __iter__(self):
         return iter(self.view(np.ndarray))

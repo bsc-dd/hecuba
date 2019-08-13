@@ -503,18 +503,20 @@ class StorageDict(IStorage, dict):
         """
         Method to turn a StorageDict into non-persistent.
         """
+        super().stop_persistent()
         log.debug('STOP PERSISTENCE: %s', self._table)
         self._hcache = None
-        super().stop_persistent()
+        self.storage_id = None
 
     def delete_persistent(self):
         """
         Method to empty all data assigned to a StorageDict.
         """
+        super().delete_persistent()
         log.debug('DELETE PERSISTENT: %s', self._table)
         query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
         config.session.execute(query)
-        super().delete_persistent()
+        self.storage_id = None
 
     def __delitem__(self, key):
         """
