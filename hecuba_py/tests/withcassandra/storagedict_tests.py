@@ -1162,7 +1162,8 @@ class StorageDictTest(unittest.TestCase):
         for k in what_should_be.keys():
             count += 1
             self.assertEqual(what_should_be[k], [d[k]])
-            self.assertEqual(count, len(list(d)))
+
+        self.assertEqual(count, len(list(d)))
 
 if __name__ == '__main__':
     unittest.main()
