@@ -204,6 +204,8 @@ public:
     virtual int16_t py_to_c(PyObject *obj, void *payload) const;
 
     virtual PyObject *c_to_py(const void *payload) const;
+
+    int64_t time_from_timezone(struct tm * timeinfo) const;
 };
 
 #endif //HFETCH_UNITPARSER_H

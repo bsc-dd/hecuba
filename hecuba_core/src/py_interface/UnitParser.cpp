@@ -1,5 +1,5 @@
 #include "UnitParser.h"
-
+#include <iomanip>
 int16_t UnitParser::py_to_c(PyObject *element, void *payload) const {
     throw ModuleException("Not implemented");
 }
@@ -208,6 +208,23 @@ PyObject *TextParser::c_to_py(const void *payload) const {
 
 /***Timestamp parser ***/
 
+int64_t TimestampParser::time_from_timezone(struct tm * timeinfo) const {
+    time_t time_in_timezone;
+    char *tz;
+    tz = getenv("TZ");
+    setenv("TZ", "", 1);
+    tzset(); // initializes tzname variable from TZ env var, this way we detect the timezone where we are ("")
+    time_in_timezone = mktime(timeinfo);
+    if (tz)
+        setenv("TZ", tz, 1);
+    else
+        unsetenv("TZ"); // UTC will be used
+    tzset();
+    auto diff = std::chrono::system_clock::from_time_t(time_in_timezone).time_since_epoch();
+    int64_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(diff).count();
+    return ms;
+}
+
 TimestampParser::TimestampParser(const ColumnMeta &CM) : UnitParser(CM) {
     if (CM.size != sizeof(int64_t *))
         throw ModuleException("Bad size allocated for a timestamp");
@@ -218,9 +235,8 @@ int16_t TimestampParser::py_to_c(PyObject *obj, void *payload) const {
     if (obj == Py_None) return -1;
     if (PyDateTime_CheckExact(obj)) {
         time_t time_now;
-        struct tm *timeinfo;
         time(&time_now);
-        timeinfo = gmtime(&time_now); // gmt+0
+        struct tm *timeinfo = gmtime(&time_now); // gmt+0
         timeinfo->tm_sec = PyDateTime_DATE_GET_SECOND(obj);
         timeinfo->tm_min = PyDateTime_DATE_GET_MINUTE(obj);
         timeinfo->tm_hour = PyDateTime_DATE_GET_HOUR(obj);
@@ -228,19 +244,18 @@ int16_t TimestampParser::py_to_c(PyObject *obj, void *payload) const {
         timeinfo->tm_mon = PyDateTime_GET_MONTH(obj) - 1;
         timeinfo->tm_mday = PyDateTime_GET_DAY(obj);
 
-        time_t time_in_timezone;
-        char *tz;
-        tz = getenv("TZ");
-        setenv("TZ", "", 1);
-        tzset(); // initializes tzname variable from TZ env var, this way we detect the timezone where we are ("")
-        time_in_timezone = mktime(timeinfo);
-        if (tz)
-            setenv("TZ", tz, 1);
-        else
-            unsetenv("TZ"); // UTC will be used
-        tzset();
-        auto diff = std::chrono::system_clock::from_time_t(time_in_timezone).time_since_epoch();
-        int64_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(diff).count();
+        int64_t ms = time_from_timezone(timeinfo);
+        memcpy(payload, &ms, sizeof(int64_t *));
+        return 0;
+    }
+    else {
+        if (!PyFloat_Check(obj) && !PyLong_Check(obj)) error_parsing("PyDouble", obj);
+        double t;
+        if (!PyArg_Parse(obj, Py_DOUBLE, &t)) error_parsing("PyDouble as Double", obj);
+        time_t time = (time_t)t;
+        struct tm * timeinfo = localtime(&time);
+
+        int64_t ms = time_from_timezone(timeinfo);
         memcpy(payload, &ms, sizeof(int64_t *));
         return 0;
     }

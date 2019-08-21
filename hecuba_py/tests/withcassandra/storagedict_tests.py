@@ -7,7 +7,6 @@ from random import randint
 from hecuba import config, StorageObj, StorageDict
 from ..app.words import Words
 
-
 class MyStorageDict(StorageDict):
     '''
     @TypeSpec dict<<position:int>, val:int>
@@ -91,6 +90,11 @@ class DictWithTimes(StorageDict):
 class DictWithDateTimes(StorageDict):
     '''
     @TypeSpec dict<<date1:datetime>, date4:datetime>
+    '''
+
+class DictWithDateTimes2(StorageDict):
+    '''
+    @TypeSpec dict<<k:int>, v:timestamp>
     '''
 
 class StorageDictTest(unittest.TestCase):
@@ -1164,6 +1168,13 @@ class StorageDictTest(unittest.TestCase):
             self.assertEqual(what_should_be[k], [d[k]])
 
         self.assertEqual(count, len(list(d)))
+
+    def test_datetimes2(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithdatetimes")
+        d = DictWithDateTimes2("my_app.dictwithdatetimes")
+        dt = datetime.fromtimestamp(1545733000)
+        d[0] = dt.timestamp()
+        self.assertEqual(dt, d[0])
 
 if __name__ == '__main__':
     unittest.main()
