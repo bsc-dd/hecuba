@@ -307,6 +307,17 @@ class StorageObj(IStorage):
         object.__setattr__(self, attribute, value)
         return value
 
+    @staticmethod
+    def _make_value(value):
+        """
+        Method used to pass the value data to the StorageObject cache in a proper way.
+        Args:
+            value: the data that needs to get the correct format
+        """
+        if value.is_integer():  # for timestamps
+            value = int(value)
+        return value
+
     def __setattr__(self, attribute, value):
         """
             Given a key and its value, this function saves it (depending on if it's persistent or not):
@@ -332,6 +343,8 @@ class StorageObj(IStorage):
                 new_value = IStorage.build_remotely(info)
                 new_value.update(value)
                 value = new_value
+            else:
+                value = self._make_value(value)
 
         if self._is_persistent:
             # Write attribute to the storage

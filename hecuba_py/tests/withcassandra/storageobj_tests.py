@@ -10,7 +10,7 @@ from hecuba.storageobj import StorageObj
 from storage.api import getByID
 
 from ..app.words import Words
-
+from datetime import date, datetime, time
 
 class Result(StorageObj):
     '''
@@ -138,6 +138,10 @@ class mixObj(StorageObj):
     @ClassField inttupleField tuple<int,int>
     '''
 
+class TestTimestamp(StorageObj):
+    '''
+    @ClassField attr timestamp
+    '''
 
 class StorageObjTest(unittest.TestCase):
     def test_build_remotely(self):
@@ -1236,6 +1240,13 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(external_sobj.myotherso.name, name_attr)
         self.assertEqual(external_sobj.myotherso.age, age_attr)
 
+    def test_timestamp(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.timestampAttrib")
+        d = TestTimestamp("my_app.timestampAttrib")
+        timestamp = 1545733000
+        dt = datetime.fromtimestamp(timestamp)
+        d.attr = dt.timestamp()
+        self.assertEqual(d.attr, timestamp)
 
 if __name__ == '__main__':
     unittest.main()
