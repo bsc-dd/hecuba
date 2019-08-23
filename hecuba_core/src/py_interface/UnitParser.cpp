@@ -210,18 +210,23 @@ PyObject *TextParser::c_to_py(const void *payload) const {
 
 int64_t TimestampParser::time_from_timezone(struct tm * timeinfo) const {
     time_t time_in_timezone;
-    char *tz;
-    tz = getenv("TZ");
-    setenv("TZ", "", 1);
-    tzset(); // initializes tzname variable from TZ env var, this way we detect the timezone where we are ("")
+
     time_in_timezone = mktime(timeinfo);
-    if (tz)
-        setenv("TZ", tz, 1);
-    else
-        unsetenv("TZ"); // UTC will be used
-    tzset();
+
     auto diff = std::chrono::system_clock::from_time_t(time_in_timezone).time_since_epoch();
     int64_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(diff).count();
+
+    static constexpr time_t const NULL_TIME = -1;
+    time_t when = NULL_TIME;
+    if (when == NULL_TIME)
+        when = std::time(nullptr);
+    auto const tm = *std::localtime(&when);
+    std::ostringstream os;
+    os << std::put_time(&tm, "%z");
+    std::string s = os.str();
+    int h = std::stoi(s.substr(0,3), nullptr, 10);
+    int m = std::stoi(s[0]+s.substr(3), nullptr, 10);
+    ms = ms + (h * 3600 + m * 60)*1000;
     return ms;
 }
 
@@ -236,25 +241,24 @@ int16_t TimestampParser::py_to_c(PyObject *obj, void *payload) const {
     if (PyDateTime_CheckExact(obj)) {
         time_t time_now;
         time(&time_now);
-        struct tm *timeinfo = gmtime(&time_now); // gmt+0
+        struct tm *timeinfo = localtime(&time_now);
         timeinfo->tm_sec = PyDateTime_DATE_GET_SECOND(obj);
         timeinfo->tm_min = PyDateTime_DATE_GET_MINUTE(obj);
         timeinfo->tm_hour = PyDateTime_DATE_GET_HOUR(obj);
         timeinfo->tm_year = PyDateTime_GET_YEAR(obj) - 1900;
         timeinfo->tm_mon = PyDateTime_GET_MONTH(obj) - 1;
         timeinfo->tm_mday = PyDateTime_GET_DAY(obj);
-
         int64_t ms = time_from_timezone(timeinfo);
         memcpy(payload, &ms, sizeof(int64_t *));
         return 0;
     }
     else {
+
         if (!PyFloat_Check(obj) && !PyLong_Check(obj)) error_parsing("PyDouble", obj);
         double t;
         if (!PyArg_Parse(obj, Py_DOUBLE, &t)) error_parsing("PyDouble as Double", obj);
         time_t time = (time_t)t;
-        struct tm * timeinfo = localtime(&time);
-
+        struct tm * timeinfo = gmtime(&time);
         int64_t ms = time_from_timezone(timeinfo);
         memcpy(payload, &ms, sizeof(int64_t *));
         return 0;
@@ -267,8 +271,7 @@ PyObject *TimestampParser::c_to_py(const void *payload) const {
     if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to int, found NULL");
     time_t time =  ((*(time_t *) payload)/1000); // we convert from ms to sec (UNIX time)
     struct tm * timeinfo = gmtime(&time); // gmt+0
-    std::tm *now = std::gmtime(&time);
-    PyObject *timestamp_py = PyDateTime_FromDateAndTime(now->tm_year + 1900, now->tm_mon + 1, now->tm_mday, now->tm_hour, now->tm_min, now->tm_sec, 0);
+    PyObject *timestamp_py = PyDateTime_FromDateAndTime(timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday, timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec, 0);
     return timestamp_py;
 }
 

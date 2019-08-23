@@ -1,4 +1,4 @@
-import time
+import time as user_time
 import unittest
 import uuid
 
@@ -288,7 +288,7 @@ class StorageObjTest(unittest.TestCase):
 
         nopars2 = Test6StorageObj("hecuba_test.nonames")
         nopars2.test3[0] = ['1', '2']
-        time.sleep(2)
+        user_time.sleep(2)
         result = config.session.execute("SELECT val0, val1 FROM hecuba_test.nonames_test3 WHERE key0 = 0")
 
         rval0 = None
@@ -662,7 +662,7 @@ class StorageObjTest(unittest.TestCase):
 
         for i in range(0, 100):
             my_nested_so.myso2.test[i] = 'position' + str(i)
-        time.sleep(5)
+        user_time.sleep(5)
         count, = config.session.execute("SELECT COUNT(*) FROM my_app.tnsgc_myso2_test")[0]
         self.assertEquals(100, count)
 
@@ -770,7 +770,7 @@ class StorageObjTest(unittest.TestCase):
         mynumpy = np.random.rand(3, 2)
         my_so.mynumpy = mynumpy
         import time
-        time.sleep(2)
+        user_time.sleep(2)
         self.assertTrue(np.array_equal(mynumpy, my_so.mynumpy))
 
     def test_numpy_topersistent(self):
@@ -811,7 +811,7 @@ class StorageObjTest(unittest.TestCase):
         my_so.mynumpydict[0] = mynumpydict
         my_so.make_persistent('mynewso')
         import time
-        time.sleep(2)
+        user_time.sleep(2)
         self.assertTrue(np.array_equal(mynumpydict, my_so.mynumpydict[0]))
 
     def test_numpy_operations(self):
@@ -823,7 +823,7 @@ class StorageObjTest(unittest.TestCase):
         my_so.mynumpy = np.arange(2048)
         my_so.make_persistent('mynewso')
         import time
-        time.sleep(2)
+        user_time.sleep(2)
         self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
         base_numpy += 1
         my_so.mynumpy += 1
@@ -840,7 +840,7 @@ class StorageObjTest(unittest.TestCase):
         my_so.mynumpy = np.arange(2048)
         my_so.make_persistent('mynewso')
         import time
-        time.sleep(2)
+        user_time.sleep(2)
         self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
         base_numpy += 1
         my_so.mynumpy += 1

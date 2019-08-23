@@ -343,8 +343,12 @@ class StorageObj(IStorage):
                 new_value = IStorage.build_remotely(info)
                 new_value.update(value)
                 value = new_value
-            else:
-                value = self._make_value(value)
+            elif isinstance(value, float):
+                try:
+                    value = self._make_value(value)
+                except AttributeError:
+                    pass
+
 
         if self._is_persistent:
             # Write attribute to the storage

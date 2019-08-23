@@ -13,6 +13,9 @@
 #include <memory>
 #include <stdlib.h>
 #include <datetime.h>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 
 #include "../TupleRow.h"
 #include "../ModuleException.h"
