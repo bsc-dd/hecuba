@@ -216,12 +216,9 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             return 0;
         }
         case CASS_VALUE_TYPE_TIME: {
-            cass_int64_t time_of_day;
-            CassError rc = cass_value_get_int64(lhs, &time_of_day);
+            CassError rc = cass_value_get_int64(lhs, reinterpret_cast<int64_t * >(data));
             CHECK_CASS("TupleRowFactory: Cassandra to C parse int64 unsuccessful, column:" + std::to_string(col));
             if (rc == CASS_ERROR_LIB_NULL_VALUE) return -1;
-            int64_t time = (int64_t) cass_date_time_to_epoch(0, time_of_day);
-            memcpy(data, &time, sizeof(int64_t *));
             return 0;
         }
         case CASS_VALUE_TYPE_TIMESTAMP: {
@@ -357,9 +354,8 @@ TupleRowFactory::bind(CassTuple *tuple, const TupleRow *row) const {
                     break;
                 }
                 case CASS_VALUE_TYPE_TIME: {
-                    const time_t time = *((time_t *) element_i);
-                    cass_int64_t time_of_day = cass_time_from_epoch(time);
-                    CassError rc = cass_tuple_set_int64(tuple, (size_t) bind_pos, time_of_day);
+                    int64_t time = *((int64_t *) element_i);
+                    CassError rc = cass_tuple_set_int64(tuple, (size_t) bind_pos, time);
                     CHECK_CASS("TupleRowFactory: Cassandra unsuccessful binding int64 to the tuple");
                     break;
                 }
@@ -530,9 +526,8 @@ TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t o
                     break;
                 }
                 case CASS_VALUE_TYPE_TIME: {
-                    const time_t time = *((time_t *) element_i);
-                    cass_int64_t time_of_day = cass_time_from_epoch(time);
-                    CassError rc = cass_statement_bind_int64(statement, bind_pos, time_of_day);
+                    int64_t time = *((int64_t *) element_i);
+                    CassError rc = cass_statement_bind_int64(statement, bind_pos, time);
                     CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [time as int64], column:" +
                                metadata->at(i).info.begin()->second);
                     break;

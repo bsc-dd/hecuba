@@ -1094,7 +1094,7 @@ class StorageDictTest(unittest.TestCase):
                         hour=randint(0, 23), minute=randint(0, 59), second=randint(0, 59))
 
     def gen_random_time(self):
-        return time(hour=randint(0, 23), minute=randint(0, 59), second=randint(0, 59))
+        return time(hour=randint(0, 23), minute=randint(0, 59), second=randint(0, 59), microsecond=randint(0, 59))
 
     def test_multiple_dates(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.dictwithdates")
