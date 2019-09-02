@@ -8,11 +8,12 @@ from hecuba.hnumpy import StorageNumpy
 from hecuba.IStorage import IStorage, AlreadyPersistentError, _discrete_token_ranges, _basic_types, _valid_types, \
     _extract_ks_tab
 
+
 class StorageObj(IStorage):
     args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name", "built_remotely"]
     args = namedtuple('StorageObjArgs', args_names)
-    _prepared_store_meta = config.session.prepare('INSERT INTO hecuba' +
-                                                  '.istorage (storage_id, class_name, name, tokens,istorage_props) '
+    _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
+                                                  '(storage_id, class_name, name, tokens, istorage_props) '
                                                   ' VALUES (?,?,?,?,?)')
 
     """
@@ -63,15 +64,17 @@ class StorageObj(IStorage):
         self._persistent_props = StorageObj._parse_comments(self.__doc__)
         self._persistent_attrs = self._persistent_props.keys()
         self._class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
+        self._name = name
 
         if self._is_persistent:
             if name:
                 self._ksp, self._table = _extract_ks_tab(name)
-                name = self._ksp + '.' + self._table
+                self._name = self._ksp + '.' + self._table
+                self._table = self.__class__.__name__
 
             if not storage_id:
                 # Rebuild storage id
-                storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, name)
+                storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._name)
 
             # Retrieve from hecuba istorage the data
             metas = self._get_istorage_attrs(storage_id)
@@ -80,8 +83,9 @@ class StorageObj(IStorage):
             if len(metas) != 0:
                 tokens = metas[0].tokens
                 istorage_props = metas[0].istorage_props
-                name = metas[0].name
-                self._ksp, self._table = _extract_ks_tab(name)
+                self._ksp, self._table = _extract_ks_tab(metas[0].name)
+                self._name = self._ksp + '.' + self._table
+                self._table = self.__class__.__name__
 
         if tokens is None:
             # log.info('using all tokens')
@@ -93,7 +97,7 @@ class StorageObj(IStorage):
         self._istorage_props = istorage_props
 
         # Arguments used to build objects remotely
-        self._build_args = self.args(name,
+        self._build_args = self.args(self._name,
                                      self._tokens,
                                      self._storage_id,
                                      self._istorage_props,
@@ -165,12 +169,14 @@ class StorageObj(IStorage):
             raise AlreadyPersistentError("This StorageObj is already persistent [Before:{}.{}][After:{}]",
                                          self._ksp, self._table, name)
 
-        (self._ksp, self._table) = _extract_ks_tab(name)
+        self._ksp, self._table = _extract_ks_tab(name)
+        self._name = self._ksp + '.' + self._table
+        self._table = self.__class__.__name__
 
         if not self._storage_id:
             # Rebuild storage id
-            self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table)
-            self._build_args = self._build_args._replace(name=self._ksp + '.' + self._table,
+            self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._name)
+            self._build_args = self._build_args._replace(name=self._name,
                                                          storage_id=self._storage_id)
 
         # Retrieve from hecuba istorage the data
@@ -179,7 +185,9 @@ class StorageObj(IStorage):
         # If metadata was found, replace the private attrs
         if len(metas) != 0:
             # Persisted another
-            name = metas[0].name
+            self._ksp, self._table = _extract_ks_tab(metas[0].name)
+            self._name = self._ksp + '.' + self._table
+            self._table = self.__class__.__name__
             self._tokens = metas[0].tokens
             self._istorage_props = metas[0].istorage_props
             # Create the interface with the backend to store the object
@@ -187,7 +195,7 @@ class StorageObj(IStorage):
 
         self._is_persistent = True
         if self._build_args.storage_id is None:
-            self._build_args = self._build_args._replace(name=self._ksp + '.' + self._table,
+            self._build_args = self._build_args._replace(name=self._name,
                                                          storage_id=self._storage_id)
         self._store_meta(self._build_args)
 
