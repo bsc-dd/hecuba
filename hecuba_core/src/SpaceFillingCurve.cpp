@@ -10,7 +10,7 @@
  */
 SpaceFillingCurve::PartitionGenerator *
 SpaceFillingCurve::make_partitions_generator(const ArrayMetadata *metas, void *data,
-                                             std::vector<std::vector<uint32_t> > coord) {
+                                             std::list<std::vector<uint32_t> > coord) {
     if (!metas) throw ModuleException("Array metadata not present");
     if (metas->partition_type == ZORDER_ALGORITHM && !coord.empty())
         return new ZorderCurveGeneratorFiltered(metas, data, coord);

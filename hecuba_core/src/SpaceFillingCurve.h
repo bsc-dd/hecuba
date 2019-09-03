@@ -7,6 +7,7 @@
 #include <cmath>
 #include "limits.h"
 #include <map>
+#include <list>
 
 #define BLOCK_SIZE 4096
 #define CLUSTER_SIZE 2
@@ -72,7 +73,7 @@ public:
     ~SpaceFillingCurve() {};
 
     static PartitionGenerator *
-    make_partitions_generator(const ArrayMetadata *metas, void *data, std::vector<std::vector<uint32_t> > coord);
+    make_partitions_generator(const ArrayMetadata *metas, void *data, std::list<std::vector<uint32_t> > coord);
 
 protected:
 
@@ -152,7 +153,7 @@ private:
 class ZorderCurveGeneratorFiltered : public ZorderCurveGenerator {
 public:
 
-    ZorderCurveGeneratorFiltered(const ArrayMetadata *metas, void *data, std::vector<std::vector<uint32_t> > coord)
+    ZorderCurveGeneratorFiltered(const ArrayMetadata *metas, void *data, std::list<std::vector<uint32_t> > coord)
             : ZorderCurveGenerator(metas, data) {
         this->coord = coord;
     };
@@ -162,7 +163,7 @@ public:
     bool isDone() override;
 
 private:
-    std::vector<std::vector<uint32_t> > coord;
+    std::list<std::vector<uint32_t> > coord;
     bool done = false;
 };
 

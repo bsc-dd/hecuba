@@ -83,7 +83,7 @@ class StorageNumpyTest(unittest.TestCase):
         myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % size)
         chunk = myobj2.mynumpy[coordinates]  # we are getting the first cluster
         result = chunk.view(np.ndarray)
-        self.assertEqual(result[44, 0], 4400)
+        self.assertEqual(result[43, 0], 4300)
 
     def test_numpy_reserved_2d_4cluster(self):
         coordinates = [slice(0, 45, None), slice(0, 45, None)]
@@ -94,8 +94,8 @@ class StorageNumpyTest(unittest.TestCase):
         myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % size)
         chunk = myobj2.mynumpy[coordinates]# we are getting the first cluster
         result = chunk.view(np.ndarray)
-        self.assertNotEqual(result[43, 43], 4443)
-        self.assertEqual(result[44, 44], 4444)
+        self.assertEqual(result[43, 43], 4343)
+        self.assertEqual(result[44, 44], 0)
 
     def test_numpy_reserved_3d_1cluster(self):
         coordinates = [slice(0, 45, None), slice(0, 45, None), slice(0, 45, None)]
@@ -117,7 +117,7 @@ class StorageNumpyTest(unittest.TestCase):
         myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % size)
         chunk = myobj2.mynumpy[coordinates]  # we are getting the first cluster
         result = chunk.view(np.ndarray)
-        self.assertEqual(result[5, 5, 5, 5], 5555)
+        self.assertEqual(result[3, 3, 3, 3], 3333)
 
     def test_types_persistence(self):
         base_array = np.arange(256)

@@ -506,19 +506,18 @@ static PyObject *get_reserved_numpy(HNumpyStore *self, PyObject *args) {
     };
 
     const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
-    PyObject *numpy;
+    PyObject *res, *obj;
     try {
-        numpy = self->NumpyDataStore->reserve_numpy_space(storage_id);
+        res = self->NumpyDataStore->reserve_numpy_space(storage_id);
+        obj = self->NumpyDataStore->get_row_elements(storage_id);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
-
-
-    // Wrap the numpy into a list to follow the standard format of Hecuba
-    PyObject *result_list = PyList_New(1);
-    PyList_SetItem(result_list, 0, numpy ? numpy : Py_None);
+    PyObject *result_list = PyList_New(2);
+    PyList_SetItem(result_list, 0, res ? res : Py_None);
+    PyList_SetItem(result_list, 1, obj ? obj : Py_None);
     return result_list;
 }
 

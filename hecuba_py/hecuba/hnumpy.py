@@ -1,5 +1,6 @@
 import uuid
 from collections import namedtuple
+import itertools as it
 
 import numpy as np
 from hfetch import HNumpyStore
@@ -38,9 +39,10 @@ class StorageNumpy(np.ndarray, IStorage):
             result = cls.get_numpy_array(storage_id, name)
             obj = np.asarray(result[0]).view(cls)
             obj._name = name
-            obj._hcache = result[1]
-            obj._hcache_params = result[2]
+            obj._hcache = result[2]
+            obj._hcache_params = result[3]
             obj._storage_id = storage_id
+            obj._row_elem = result[1]
             # call get_item and retrieve the result
             obj._is_persistent = True
             (obj._ksp, obj._table) = _extract_ks_tab(name)
@@ -114,7 +116,7 @@ class StorageNumpy(np.ndarray, IStorage):
                           'timestamped_writes': config.timestamped_writes})
         hcache = HNumpyStore(*hcache_params)
         result = hcache.get_reserved_numpy([storage_id])
-        return [result[0], hcache, hcache_params]
+        return [result[0], result[1], hcache, hcache_params]
 
     def __getitem__(self, key):
         log.info("RETRIEVING NUMPY")
@@ -127,18 +129,10 @@ class StorageNumpy(np.ndarray, IStorage):
         else:
             coordinates = [[coord.start, coord.stop] for coord in key]
         arr = np.array(coordinates)
-        coord = [arr[:, coord] for coord in range(len(coordinates[0]))]
-        keys = self.get_coords_n_dim(coord[0], coord[1])
+        coord = [arr[:, coord] // self._row_elem for coord in range(len(coordinates[0]))] #coords divided by number of elem in a row
+        keys = list([coord for coord in it.product(*(range(*r) for r in zip(coord[0], coord[1])))])
         self._hcache.get_numpy_from_coordinates([self._storage_id], keys, [self.view(np.ndarray)])
         return super(StorageNumpy, self).__getitem__(key)
-
-    def get_coords_n_dim(self, start, stop):
-        stop = stop + 1
-        ndims = len(start)
-        ranges = [np.arange(start[i], stop[i]) for i in range(ndims)]  # get ranges for each dimension
-        rang = np.hstack((np.meshgrid(*ranges))).swapaxes(0, 1).reshape(ndims,
-                                                                        -1).T  # combine all ranges and stack them as N x ndims array
-        return rang.tolist()
 
     def make_persistent(self, name):
         if self._is_persistent:

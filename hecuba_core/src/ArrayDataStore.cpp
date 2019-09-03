@@ -205,45 +205,52 @@ ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
  */
 
 void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *metadata,
-                                   std::vector<std::vector<uint32_t> > coord, void *save) {
-
+                                   std::list<std::vector<uint32_t> > coord, void *save) {
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
     std::vector<const TupleRow *> result, all_results;
     std::vector<Partition> all_partitions;
     uint64_t *c_uuid = nullptr;
     char *buffer = nullptr;
-    int32_t cluster_id = 0, offset = 0;
+    int32_t offset = 0;
     int32_t *block = nullptr;
     int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
     SpaceFillingCurve::PartitionGenerator *partitions_it = nullptr;
-    partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, coord);
+    partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, std::move(coord));
 
+    std::set<int32_t> clusters = {};
+    uint32_t elem_cluster =  BLOCK_SIZE * ((unsigned)CLUSTER_SIZE << 1u);
+    int32_t last_cluster_id = -(elem_cluster - BLOCK_SIZE + 1);
 
-    //std::set<uint32_t> cluster_ids = {};
     while (!partitions_it->isDone()) {
-        cluster_id = partitions_it->computeNextClusterId();
-        if (cluster_ids.find(cluster_id) == cluster_ids.end()) {
-            //cluster_ids.insert(cluster_id);
-            buffer = (char *) malloc(keys_size);
-            //UUID
-            c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
-            //[0] time_and_version;
-            //[1] clock_seq_and_node;
-            memcpy(buffer, &c_uuid, sizeof(uint64_t *));
-            offset = sizeof(uint64_t *);
-            //Cluster id
-            memcpy(buffer + offset, &cluster_id, sizeof(cluster_id));
-            //We fetch the data
-            result = read_cache->get_crow(new TupleRow(keys_metas, keys_size, buffer));
-            //build cluster
-            all_results.insert(all_results.end(), result.begin(), result.end());
-            for (const TupleRow *row:result) {
-                block = (int32_t *) row->get_element(0);
-                char **chunk = (char **) row->get_element(1);
-                all_partitions.emplace_back(
-                        Partition((uint32_t) cluster_id + half_int, (uint32_t) *block + half_int, *chunk));
-            }
+        clusters.insert(partitions_it->computeNextClusterId());
+    }
+    std::set<int32_t, std::less<int32_t>, std::allocator<int32_t>>::iterator it = clusters.begin(), itup;
+    while (it != clusters.end()){
+        itup = clusters.upper_bound(last_cluster_id + elem_cluster - BLOCK_SIZE);
+        if(itup != clusters.end()) {
+            last_cluster_id = *itup;
+            it = itup;
+        }
+        else break;
+        buffer = (char *) malloc(keys_size);
+        //UUID
+        c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
+        //[0] time_and_version;
+        //[1] clock_seq_and_node;
+        memcpy(buffer, &c_uuid, sizeof(uint64_t *));
+        offset = sizeof(uint64_t *);
+        //Cluster id
+        memcpy(buffer + offset, &last_cluster_id, sizeof(last_cluster_id));
+        //We fetch the data
+        result = read_cache->get_crow(new TupleRow(keys_metas, keys_size, buffer));
+        //build cluster
+        all_results.insert(all_results.end(), result.begin(), result.end());
+        for (const TupleRow *row:result) {
+            block = (int32_t *) row->get_element(0);
+            char **chunk = (char **) row->get_element(1);
+            all_partitions.emplace_back(
+                    Partition((uint32_t) last_cluster_id + half_int, (uint32_t) *block + half_int, *chunk));
         }
     }
 
@@ -253,4 +260,5 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
     partitions_it->merge_partitions(metadata, all_partitions, save);
     for (const TupleRow *item:all_results) delete (item);
     delete (partitions_it);
+
 }

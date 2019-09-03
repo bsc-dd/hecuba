@@ -28,23 +28,18 @@ void *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject *co
     ArrayMetadata *np_metas = this->get_np_metadata(save);
     np_metas->partition_type = ZORDER_ALGORITHM;
     void *data = PyArray_DATA(save);
-
     std::vector<uint32_t> crd_inner = {};
-    std::vector<std::vector<uint32_t> > crd = {};
-
+    std::list<std::vector<uint32_t> > crd = {};
     if (coord != Py_None) {
-        crd_inner.resize((PyList_Size(PyList_GetItem(coord, 0))));
-        uint32_t ndims = (uint32_t) np_metas->dims.size();
-        uint64_t block_size = BLOCK_SIZE - (BLOCK_SIZE % np_metas->elem_size);
-        uint32_t row_elements = (uint32_t) std::floor(pow(block_size / np_metas->elem_size, (1.0 / ndims)));
+        crd_inner.resize((PyTuple_Size(PyList_GetItem(coord, 0))));
         if (PyList_Check(coord)) {
             PyObject *value = nullptr;
             for (Py_ssize_t i = 0; i < PyList_Size(coord); i++) {
                 value = PyList_GetItem(coord, i);
-                for (Py_ssize_t j = 0; j < PyList_Size(value); j++) {
-                    crd_inner[j] = PyLong_AsLong(PyList_GetItem(value, j)) / row_elements;
+                for (Py_ssize_t j = 0; j < PyTuple_Size(value); j++) {
+                    crd_inner[j] = (PyLong_AsLong(PyTuple_GetItem(value, j)));
                 }
-                if (std::binary_search(crd.begin(), crd.end(), crd_inner)) crd.push_back(crd_inner);
+                crd.push_back(crd_inner);
             }
         }
     }
@@ -55,7 +50,6 @@ void *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject *co
 
 PyObject *NumpyStorage::reserve_numpy_space(const uint64_t *storage_id) {
     ArrayMetadata *np_metas = this->read_metadata(storage_id);
-
     npy_intp *dims = new npy_intp[np_metas->dims.size()];
     for (uint32_t i = 0; i < np_metas->dims.size(); ++i) {
         dims[i] = np_metas->dims[i];
@@ -72,9 +66,18 @@ PyObject *NumpyStorage::reserve_numpy_space(const uint64_t *storage_id) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
-    delete (np_metas);
-    return resulting_array;
 
+    delete (np_metas);
+
+    return resulting_array;
+}
+
+PyObject *NumpyStorage::get_row_elements(const uint64_t *storage_id) {
+    ArrayMetadata *np_metas = this->read_metadata(storage_id);
+    uint32_t ndims = (uint32_t) np_metas->dims.size();
+    uint64_t block_size = BLOCK_SIZE - (BLOCK_SIZE % np_metas->elem_size);
+    uint32_t row_elements = (uint32_t) std::floor(pow(block_size / np_metas->elem_size, (1.0 / ndims)));
+    return Py_BuildValue("i",row_elements);
 }
 
 /***

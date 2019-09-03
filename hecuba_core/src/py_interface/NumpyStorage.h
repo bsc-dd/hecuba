@@ -31,6 +31,8 @@ public:
 
     PyObject *reserve_numpy_space(const uint64_t *storage_id);
 
+    PyObject *get_row_elements(const uint64_t *storage_id);
+
     void *coord_list_to_numpy(const uint64_t *storage_id, PyObject *coord, PyArrayObject *save);
 
 private:
