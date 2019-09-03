@@ -8,7 +8,6 @@
 #include <climits>
 #include <list>
 #include <set>
-#include <unordered_set>
 
 class ArrayDataStore {
 
@@ -31,6 +30,8 @@ public:
 
     void *read_n_coord(const uint64_t *storage_id, ArrayMetadata *metadata, std::list<std::vector<uint32_t> > crd,
                        void *save);
+
+    std::set<int32_t> get_clusters_id(std::set<int32_t> &clusters);
 
 private:
 
