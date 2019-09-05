@@ -208,28 +208,6 @@ PyObject *TextParser::c_to_py(const void *payload) const {
 
 /***Timestamp parser ***/
 
-int64_t TimestampParser::time_from_timezone(struct tm * timeinfo) const {
-    time_t time_in_timezone;
-
-    time_in_timezone = mktime(timeinfo);
-
-    auto diff = std::chrono::system_clock::from_time_t(time_in_timezone).time_since_epoch();
-    int64_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(diff).count();
-
-    static constexpr time_t const NULL_TIME = -1;
-    time_t when = NULL_TIME;
-    if (when == NULL_TIME)
-        when = std::time(nullptr);
-    auto const tm = *std::localtime(&when);
-    std::ostringstream os;
-    os << std::put_time(&tm, "%z"); //timezone
-    std::string s = os.str();
-    int h = std::stoi(s.substr(0,3), nullptr, 10);
-    int m = std::stoi(s[0]+s.substr(3), nullptr, 10);
-    ms = ms + (h * 3600 + m * 60)*1000;
-    return ms;
-}
-
 TimestampParser::TimestampParser(const ColumnMeta &CM) : UnitParser(CM) {
     if (CM.size != sizeof(int64_t *))
         throw ModuleException("Bad size allocated for a timestamp");
@@ -241,14 +219,18 @@ int16_t TimestampParser::py_to_c(PyObject *obj, void *payload) const {
     if (PyDateTime_CheckExact(obj)) {
         time_t time_now;
         time(&time_now);
-        struct tm *timeinfo = localtime(&time_now); //express datetime to the current timezone (tzset)
-        timeinfo->tm_sec = PyDateTime_DATE_GET_SECOND(obj);
-        timeinfo->tm_min = PyDateTime_DATE_GET_MINUTE(obj);
-        timeinfo->tm_hour = PyDateTime_DATE_GET_HOUR(obj);
-        timeinfo->tm_year = PyDateTime_GET_YEAR(obj) - 1900;
-        timeinfo->tm_mon = PyDateTime_GET_MONTH(obj) - 1;
-        timeinfo->tm_mday = PyDateTime_GET_DAY(obj);
-        int64_t ms = time_from_timezone(timeinfo);
+        struct tm timeinfo = {0}; //express datetime to the current timezone (tzset)
+        timeinfo.tm_sec = PyDateTime_DATE_GET_SECOND(obj);
+        timeinfo.tm_min = PyDateTime_DATE_GET_MINUTE(obj);
+        timeinfo.tm_hour = PyDateTime_DATE_GET_HOUR(obj);
+        timeinfo.tm_year = PyDateTime_GET_YEAR(obj) - 1900;
+        timeinfo.tm_mon = PyDateTime_GET_MONTH(obj) - 1;
+        timeinfo.tm_mday = PyDateTime_GET_DAY(obj);
+        time_t time = mktime(&timeinfo);
+        auto diff = std::chrono::system_clock::from_time_t(time).time_since_epoch();
+        std::time_t time_epoch = 0;
+        time_t timezone = -1 * std::mktime(std::gmtime(&time_epoch));
+        int64_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(diff).count() + (timezone * 1000);
         memcpy(payload, &ms, sizeof(int64_t *));
         return 0;
     }
@@ -257,8 +239,10 @@ int16_t TimestampParser::py_to_c(PyObject *obj, void *payload) const {
         double t;
         if (!PyArg_Parse(obj, Py_DOUBLE, &t)) error_parsing("PyDouble as Double", obj);
         time_t time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::time_point(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::duration<double>(t))));
-        struct tm * timeinfo = gmtime(&time); // gmt+0
-        int64_t ms = time_from_timezone(timeinfo);
+        auto diff = std::chrono::system_clock::from_time_t(time).time_since_epoch();
+        std::time_t time_epoch = 0;
+        time_t timezone = -1 * std::mktime(std::gmtime(&time_epoch));
+        int64_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(diff).count() + (timezone * 1000);
         memcpy(payload, &ms, sizeof(int64_t *));
         return 0;
     }
@@ -285,16 +269,14 @@ DateParser::DateParser(const ColumnMeta &CM) : UnitParser(CM) {
 int16_t DateParser::py_to_c(PyObject *obj, void *payload) const {
     if (obj == Py_None) return -1;
     if (PyDate_CheckExact(obj)) {
-        time_t time_now;
-        struct tm *timeinfo;
-        time(&time_now);
-        timeinfo = gmtime(&time_now);
-        timeinfo->tm_year = PyDateTime_GET_YEAR(obj) - 1900;
-        timeinfo->tm_mon = PyDateTime_GET_MONTH(obj) - 1;
-        timeinfo->tm_mday = PyDateTime_GET_DAY(obj);
-        time_t time = mktime(timeinfo);
-        int64_t date = *(reinterpret_cast<int64_t *>(&time));
-        memcpy(payload, &date, sizeof(int64_t *));
+        struct tm timeinfo = {0}; //express datetime to the current timezone (tzset)
+        timeinfo.tm_year = PyDateTime_GET_YEAR(obj) - 1900;
+        timeinfo.tm_mon = PyDateTime_GET_MONTH(obj) - 1;
+        timeinfo.tm_mday = PyDateTime_GET_DAY(obj);
+        std::time_t time_epoch = 0;
+        time_t timezone = -1 * std::mktime(std::gmtime(&time_epoch));
+        time_t time = mktime(&timeinfo) + timezone;
+        memcpy(payload, &time, sizeof(uint32_t *));
         return 0;
     }
     error_parsing("PyDateTime_DateType", obj);
