@@ -227,6 +227,7 @@ int16_t TimestampParser::py_to_c(PyObject *obj, void *payload) const {
         timeinfo.tm_mon = PyDateTime_GET_MONTH(obj) - 1;
         timeinfo.tm_mday = PyDateTime_GET_DAY(obj);
         time_t time = mktime(&timeinfo);
+        if(time == -1) throw ModuleException("Calendar time cannot be represented");
         auto diff = std::chrono::system_clock::from_time_t(time).time_since_epoch();
         std::time_t time_epoch = 0;
         time_t timezone = -1 * std::mktime(std::gmtime(&time_epoch));
@@ -274,8 +275,10 @@ int16_t DateParser::py_to_c(PyObject *obj, void *payload) const {
         timeinfo.tm_mon = PyDateTime_GET_MONTH(obj) - 1;
         timeinfo.tm_mday = PyDateTime_GET_DAY(obj);
         std::time_t time_epoch = 0;
+        time_t time = mktime(&timeinfo);
+        if(time == -1) throw ModuleException("Calendar time cannot be represented");
         time_t timezone = -1 * std::mktime(std::gmtime(&time_epoch));
-        time_t time = mktime(&timeinfo) + timezone;
+        time += timezone;
         memcpy(payload, &time, sizeof(uint32_t *));
         return 0;
     }
