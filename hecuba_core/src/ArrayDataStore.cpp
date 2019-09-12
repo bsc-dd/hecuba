@@ -225,6 +225,7 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
         clusters.insert(partitions_it->computeNextClusterId());
     }
 
+
     std::set<int32_t>::iterator it = clusters.begin();
     for (; it != clusters.end(); ++it ){
         buffer = (char *) malloc(keys_size);
