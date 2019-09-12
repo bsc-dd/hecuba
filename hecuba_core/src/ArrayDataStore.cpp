@@ -216,7 +216,6 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
     int32_t *block = nullptr;
     int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
     SpaceFillingCurve::PartitionGenerator *partitions_it = nullptr;
-    uint32_t coord_size = coord.size();
     partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, std::move(coord));
 
     std::set<int32_t> clusters = {};
@@ -224,7 +223,6 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
     while (!partitions_it->isDone()) {
         clusters.insert(partitions_it->computeNextClusterId());
     }
-
 
     std::set<int32_t>::iterator it = clusters.begin();
     for (; it != clusters.end(); ++it ){
@@ -254,6 +252,7 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
     }
     partitions_it->merge_partitions(metadata, all_partitions, save);
     for (const TupleRow *item:all_results) delete (item);
+
     delete (partitions_it);
 
 }
