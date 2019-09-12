@@ -95,7 +95,7 @@ class StorageNumpyTest(unittest.TestCase):
         chunk = myobj2.mynumpy[coordinates]# we are getting the first cluster
         result = chunk.view(np.ndarray)
         self.assertEqual(result[43, 43], 4343)
-        self.assertEqual(result[44, 44], 0)
+        self.assertEqual(result[44, 44], 4444)
 
     def test_numpy_reserved_3d_1cluster(self):
         coordinates = [slice(0, 45, None), slice(0, 45, None), slice(0, 45, None)]

@@ -1,6 +1,6 @@
+import itertools as it
 import uuid
 from collections import namedtuple
-import itertools as it
 
 import numpy as np
 from hfetch import HNumpyStore
@@ -129,8 +129,8 @@ class StorageNumpy(np.ndarray, IStorage):
         else:
             coordinates = [[coord.start, coord.stop] for coord in key]
         arr = np.array(coordinates)
-        coord = [arr[:, coord] // self._row_elem for coord in range(len(coordinates[0]))] #coords divided by number of elem in a row
-        keys = list([coord for coord in it.product(*(range(*r) for r in zip(coord[0], coord[1])))])
+        coord = [(arr[:, coord] // self._row_elem) for coord in range(len(coordinates[0]))]
+        keys = list([coord for coord in it.product(*(range(*r) for r in zip(coord[0], coord[1]+1)))])
         self._hcache.get_numpy_from_coordinates([self._storage_id], keys, [self.view(np.ndarray)])
         return super(StorageNumpy, self).__getitem__(key)
 

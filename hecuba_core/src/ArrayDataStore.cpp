@@ -216,23 +216,17 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
     int32_t *block = nullptr;
     int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
     SpaceFillingCurve::PartitionGenerator *partitions_it = nullptr;
+    uint32_t coord_size = coord.size();
     partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, std::move(coord));
 
     std::set<int32_t> clusters = {};
-    uint32_t elem_cluster =  BLOCK_SIZE * ((unsigned)CLUSTER_SIZE << 1u);
-    int32_t last_cluster_id = -(elem_cluster - BLOCK_SIZE + 1);
 
     while (!partitions_it->isDone()) {
         clusters.insert(partitions_it->computeNextClusterId());
     }
-    std::set<int32_t, std::less<int32_t>, std::allocator<int32_t>>::iterator it = clusters.begin(), itup;
-    while (it != clusters.end()){
-        itup = clusters.upper_bound(last_cluster_id + elem_cluster - BLOCK_SIZE);
-        if(itup != clusters.end()) {
-            last_cluster_id = *itup;
-            it = itup;
-        }
-        else break;
+
+    std::set<int32_t>::iterator it = clusters.begin();
+    for (; it != clusters.end(); ++it ){
         buffer = (char *) malloc(keys_size);
         //UUID
         c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
@@ -241,7 +235,7 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
         memcpy(buffer, &c_uuid, sizeof(uint64_t *));
         offset = sizeof(uint64_t *);
         //Cluster id
-        memcpy(buffer + offset, &last_cluster_id, sizeof(last_cluster_id));
+        memcpy(buffer + offset, &(*it), sizeof(*it));
         //We fetch the data
         result = read_cache->get_crow(new TupleRow(keys_metas, keys_size, buffer));
         //build cluster
@@ -250,7 +244,7 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
             block = (int32_t *) row->get_element(0);
             char **chunk = (char **) row->get_element(1);
             all_partitions.emplace_back(
-                    Partition((uint32_t) last_cluster_id + half_int, (uint32_t) *block + half_int, *chunk));
+                    Partition((uint32_t) *it + half_int, (uint32_t) *block + half_int, *chunk));
         }
     }
 
