@@ -435,7 +435,6 @@ void *ZorderCurveGenerator::merge_partitions(const ArrayMetadata *metas, std::ve
 }
 
 int32_t ZorderCurveGeneratorFiltered::computeNextClusterId() {
-    std::cout << computeZorder(coord.front() )<< std::endl;
     uint32_t zorder = (uint32_t) (computeZorder(coord.front()) >> CLUSTER_SIZE);
     coord.erase(coord.begin());
     return zorder;
