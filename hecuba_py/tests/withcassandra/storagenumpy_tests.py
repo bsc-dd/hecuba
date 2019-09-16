@@ -16,6 +16,8 @@ class StorageNumpyTest(unittest.TestCase):
     table = 'numpy_test'
     ksp = 'my_app'
 
+    #READ NUMPY
+
     def test_init_empty(self):
         tablename = None
 
@@ -66,7 +68,7 @@ class StorageNumpyTest(unittest.TestCase):
 
     def test_numpy_reserved_2d_2cluster(self):
         coordinates = [slice(0, 22, None), slice(0, 44, None)]
-        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_10;")
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_2;")
         num = 2
         no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
         no.mynumpy = np.arange(10000).reshape((100, 100))
@@ -79,7 +81,7 @@ class StorageNumpyTest(unittest.TestCase):
 
     def test_numpy_reserved_2d_3cluster(self):
         coordinates = [slice(0, 45, None), slice(0, 22, None)]
-        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_100;")
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_3;")
         num = 3
         no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
         no.mynumpy = np.arange(10000).reshape((100, 100))
@@ -92,7 +94,7 @@ class StorageNumpyTest(unittest.TestCase):
 
     def test_numpy_reserved_2d_4cluster(self):
         coordinates = [slice(0, 45, None), slice(0, 45, None)]
-        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_1000;")
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_4;")
         num = 4
         no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
         no.mynumpy = np.arange(10000).reshape((100, 100))
@@ -105,7 +107,7 @@ class StorageNumpyTest(unittest.TestCase):
 
     def test_numpy_reserved_3d_1cluster(self):
         coordinates = [slice(0, 45, None), slice(0, 45, None), slice(0, 45, None)]
-        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_10000;")
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_5;")
         num = 5
         no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
         no.mynumpy = np.arange(1000).reshape((10, 10, 10))
@@ -118,7 +120,7 @@ class StorageNumpyTest(unittest.TestCase):
 
     def test_numpy_reserved_4d_1cluster(self):
         coordinates = [slice(0, 45, None), slice(0, 45, None), slice(0, 45, None), slice(0, 45, None)]
-        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_100000;")
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_6;")
         num = 6
         no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
         no.mynumpy = np.arange(10000).reshape((10, 10, 10, 10))
@@ -154,6 +156,49 @@ class StorageNumpyTest(unittest.TestCase):
             typed_array = None
             typed_array = StorageNumpy(None, storage_id, tablename)
             self.assertTrue(np.allclose(typed_array, base_array.astype(typecode)))
+
+    #WRITE NUMPY
+
+    def test_write_1value_all_numpy(self):
+        coordinates = [slice(0, 45, None), slice(0, 45, None)]
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_7;")
+        num = 7
+        no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        no.mynumpy = np.arange(10000).reshape((100, 100))
+        myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        chunk = myobj2.mynumpy[coordinates]  # we are getting the first cluster
+        chunk[:] = 1
+        test_numpy = np.arange(10000).reshape((100, 100))[coordinates[0], coordinates[1]]
+        test_numpy[:] = 1
+        self.assertTrue(np.allclose(chunk, test_numpy))
+
+    def test_write_1value_all_numpy_n_coord(self):
+        coordinates = [slice(0, 45, None), slice(0, 45, None)]
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_8;")
+        num = 8
+        no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        no.mynumpy = np.arange(10000).reshape((100, 100))
+        myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        chunk = myobj2.mynumpy[coordinates]  # we are getting the first cluster
+        set_coord = [slice(0, 10, None), slice(0, 10, None)]
+        chunk[set_coord] = 1
+        test_numpy = np.arange(10000).reshape((100, 100))[coordinates[0], coordinates[1]]
+        test_numpy[set_coord] = 1
+        self.assertTrue(np.allclose(chunk, test_numpy))
+
+    def test_write_nvalue_all_numpy_n_coord(self):
+        coordinates = [slice(0, 45, None), slice(0, 45, None)]
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_9;")
+        num = 9
+        no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        no.mynumpy = np.arange(10000).reshape((100, 100))
+        myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        chunk = myobj2.mynumpy[coordinates]  # we are getting the first cluster
+        set_coord = [slice(0, 10, None), slice(0, 10, None)]
+        chunk[set_coord] = np.arange(100).reshape((10, 10))
+        test_numpy = np.arange(10000).reshape((100, 100))[coordinates[0], coordinates[1]]
+        test_numpy[set_coord] = np.arange(100).reshape((10, 10))
+        self.assertTrue(np.allclose(chunk, test_numpy))
 
 if __name__ == '__main__':
     unittest.main()
