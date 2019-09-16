@@ -1,6 +1,6 @@
-import itertools as it
 import uuid
 from collections import namedtuple
+import itertools as it
 
 import numpy as np
 from hfetch import HNumpyStore
@@ -25,6 +25,9 @@ class StorageNumpy(np.ndarray, IStorage):
     _ksp = ""
     _table = ""
     _block_id = None
+    _loaded_coordinates = None
+    _row_elem = None
+    _name = ""
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
                                                   '(storage_id, class_name, name, numpy_meta)'
                                                   'VALUES (?,?,?,?)')
@@ -68,6 +71,9 @@ class StorageNumpy(np.ndarray, IStorage):
         if obj is None:
             return
         self._storage_id = getattr(obj, '_storage_id', None)
+        self._hcache = getattr(obj, '_hcache', None)
+        self._row_elem = getattr(obj, '_row_elem', None)
+        self._loaded_coordinates = getattr(obj, '_loaded_coordinates', None)
 
     def __array_wrap__(self, out_arr, context=None):
         return super(StorageNumpy, self).__array_wrap__(self, out_arr, context)
@@ -118,21 +124,35 @@ class StorageNumpy(np.ndarray, IStorage):
         result = hcache.get_reserved_numpy([storage_id])
         return [result[0], result[1], hcache, hcache_params]
 
-    def __getitem__(self, key):
-        log.info("RETRIEVING NUMPY")
-        if key == slice(None, None, None):
-            keys = None
-            self._hcache.get_numpy_from_coordinates([self._storage_id], keys, [self.view(np.ndarray)])
-            return super(StorageNumpy, self).__getitem__(key)
-        elif isinstance(key, slice):
-            coordinates = [[key.start, key.stop]]
-        else:
-            coordinates = [[coord.start, coord.stop] for coord in key]
-        arr = np.array(coordinates)
-        coord = [(arr[:, coord] // self._row_elem) for coord in range(len(coordinates[0]))]
+    def generate_coordinates(self, coordinates):
+        coord = [coordinates[:, coord] // self._row_elem for coord in
+                 range(len(coordinates[0]))]  # coords divided by number of elem in a row
         keys = list([coord for coord in it.product(*(range(*r) for r in zip(coord[0], coord[1]+1)))])
-        self._hcache.get_numpy_from_coordinates([self._storage_id], keys, [self.view(np.ndarray)])
-        return super(StorageNumpy, self).__getitem__(key)
+        return keys
+
+    def format_coords_and_generate(self, coord):
+        if coord == slice(None, None, None):
+            return None
+        elif isinstance(coord, slice):
+            coordinates = np.array([coord.start, coord.stop])
+        else:
+            coordinates = np.array([[coord.start, coord.stop] for coord in coord])
+        return self.generate_coordinates(coordinates)
+
+    def __getitem__(self, sliced_coord):
+        log.info("RETRIEVING NUMPY")
+        #coordinates is the union between the loaded coordiantes and the new ones
+        coordinates = list(set(it.chain.from_iterable((self._loaded_coordinates or [], self.format_coords_and_generate(sliced_coord)))))
+        if len(coordinates) != len(self._loaded_coordinates or []):
+            self._hcache.get_numpy_from_coordinates([self._storage_id], coordinates, [self.view(np.ndarray)])
+            self._loaded_coordinates = coordinates
+        return super(StorageNumpy, self).__getitem__(sliced_coord)
+
+    def __setitem__(self, sliced_coord, values):
+        log.info("WRITTING NUMPY")
+        numpy = self.view(np.ndarray)
+        numpy[sliced_coord] = values
+        return super(StorageNumpy, self).__setitem__(sliced_coord, values)
 
     def make_persistent(self, name):
         if self._is_persistent:
