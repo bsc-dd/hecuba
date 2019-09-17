@@ -216,7 +216,6 @@ void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *me
     int32_t *block = nullptr;
     int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
     SpaceFillingCurve::PartitionGenerator *partitions_it = nullptr;
-    uint32_t coord_size = coord.size();
     partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, std::move(coord));
 
     std::set<int32_t> clusters = {};
