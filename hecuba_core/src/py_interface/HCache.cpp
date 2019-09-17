@@ -570,6 +570,42 @@ static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
     Py_RETURN_NONE;
 }
 
+static PyObject *set_numpy(HNumpyStore *self, PyObject *args) {
+    //self._hcache.set_numpy(numpy, [self.view(np.ndarray)])
+
+    PyObject *py_numpy, *py_store;
+    if (!PyArg_ParseTuple(args, "OO", &py_numpy, &py_store)) {
+        return NULL;
+    }
+
+    // Only one numpy as a value
+    if (PyList_Size(py_store) != 1) {
+        std::string error_msg = "Only one numpy can be saved at once";
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    };
+
+    PyObject *numpy = PyList_GetItem(py_store, 0);
+    if (numpy == Py_None) {
+        std::string error_msg = "The numpy can't be None";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    // Transform the object to the numpy ndarray
+    PyArrayObject *numpy_arr;
+    if (!PyArray_OutputConverter(numpy, &numpy_arr)) {
+        std::string error_msg = "Can't convert the given numpy to a numpy ndarray";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    memmove(numpy_arr, py_numpy, sizeof(py_numpy));
+
+    Py_RETURN_NONE;
+}
+
+
 static PyObject *get_numpy_from_coordinates(HNumpyStore *self, PyObject *args) {
     //We need to include the numpy key in the parameters list, results -> reserved numpy
 
@@ -749,7 +785,8 @@ static PyMethodDef hnumpy_store_type_methods[] = {
         {"save_numpy",                 (PyCFunction) save_numpy,                 METH_VARARGS, NULL},
         {"get_reserved_numpy",         (PyCFunction) get_reserved_numpy,         METH_VARARGS, NULL},
         {"get_numpy_from_coordinates", (PyCFunction) get_numpy_from_coordinates, METH_VARARGS, NULL},
-        {NULL, NULL,                                                             0,            NULL}
+        {"set_numpy",                  (PyCFunction) set_numpy,                  METH_VARARGS, NULL},
+        {NULL,                         NULL,                                     0,            NULL}
 };
 
 

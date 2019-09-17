@@ -30,7 +30,7 @@ void *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject *co
     void *data = PyArray_DATA(save);
     std::vector<uint32_t> crd_inner = {};
     std::list<std::vector<uint32_t> > crd = {};
-    if (coord != Py_None) {
+    if (PyList_Size(coord) > 0) {
         crd_inner.resize((PyTuple_Size(PyList_GetItem(coord, 0))));
         if (PyList_Check(coord)) {
             PyObject *value = nullptr;
