@@ -145,7 +145,9 @@ class StorageNumpy(np.ndarray, IStorage):
         #coordinates is the union between the loaded coordiantes and the new ones
         coordinates = list(set(it.chain.from_iterable((self._loaded_coordinates or [], self.format_coords_and_generate(sliced_coord) or []))))
         if (len(coordinates or []) != len(self._loaded_coordinates or []) and not self._full_loaded) or (not self._full_loaded and not coordinates):
-            if not coordinates: self._full_loaded = 1
+            if not coordinates:
+                self._full_loaded = 1
+                coordinates = None
             self._hcache.get_numpy_from_coordinates([self._storage_id], coordinates, [self.view(np.ndarray)])
             self._loaded_coordinates = coordinates
         return super(StorageNumpy, self).__getitem__(sliced_coord)
@@ -154,7 +156,9 @@ class StorageNumpy(np.ndarray, IStorage):
         log.info("WRITTING NUMPY")
         numpy = self.view(np.ndarray)
         numpy[sliced_coord] = values
-        self._hcache.set_numpy([self._storage_id], [numpy], [self.view(np.ndarray)])
+        coordinates = list(set(it.chain.from_iterable(
+            (self._loaded_coordinates or [], self.format_coords_and_generate(sliced_coord) or []))))
+        self._hcache.set_numpy([self._storage_id], [numpy], [self.view(np.ndarray)], coordinates)
         return super(StorageNumpy, self)
 
     def make_persistent(self, name):

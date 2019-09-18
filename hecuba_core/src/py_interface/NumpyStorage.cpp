@@ -13,14 +13,41 @@ NumpyStorage::~NumpyStorage() {
 };
 
 
+std::list<std::vector<uint32_t> > NumpyStorage::generate_coords(PyObject * coord) const {
+    std::vector<uint32_t> crd_inner = {};
+    std::list<std::vector<uint32_t> > crd = {};
+    crd_inner.resize((PyTuple_Size(PyList_GetItem(coord, 0))));
+    if (PyList_Check(coord)) {
+        PyObject *value = nullptr;
+        for (Py_ssize_t i = 0; i < PyList_Size(coord); i++) {
+            value = PyList_GetItem(coord, i);
+            for (Py_ssize_t j = 0; j < PyTuple_Size(value); j++) {
+                crd_inner[j] = (PyLong_AsLong(PyTuple_GetItem(value, j)));
+            }
+            crd.push_back(crd_inner);
+        }
+    }
+    return crd;
+}
+
+void NumpyStorage::store_numpy_after_set(const uint64_t *storage_id, PyArrayObject *numpy, PyObject *coord) const {
+    ArrayMetadata *np_metas = this->get_np_metadata(numpy);
+    np_metas->partition_type = ZORDER_ALGORITHM;
+    void *data = PyArray_DATA(numpy);
+    std::list<std::vector<uint32_t> > crd = {};
+    if (coord != Py_None) crd = generate_coords(coord);
+    this->store_numpy_to_cas(storage_id, np_metas, data, crd);
+    this->update_metadata(storage_id, np_metas);
+    delete (np_metas);
+}
+
+
 void NumpyStorage::store_numpy(const uint64_t *storage_id, PyArrayObject *numpy) const {
     ArrayMetadata *np_metas = this->get_np_metadata(numpy);
     np_metas->partition_type = ZORDER_ALGORITHM;
-
     void *data = PyArray_BYTES(numpy);
     this->store(storage_id, np_metas, data);
     this->update_metadata(storage_id, np_metas);
-
     delete (np_metas);
 }
 
@@ -28,21 +55,8 @@ void *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject *co
     ArrayMetadata *np_metas = this->get_np_metadata(save);
     np_metas->partition_type = ZORDER_ALGORITHM;
     void *data = PyArray_DATA(save);
-    std::vector<uint32_t> crd_inner = {};
     std::list<std::vector<uint32_t> > crd = {};
-    if (PyList_Size(coord) > 0) {
-        crd_inner.resize((PyTuple_Size(PyList_GetItem(coord, 0))));
-        if (PyList_Check(coord)) {
-            PyObject *value = nullptr;
-            for (Py_ssize_t i = 0; i < PyList_Size(coord); i++) {
-                value = PyList_GetItem(coord, i);
-                for (Py_ssize_t j = 0; j < PyTuple_Size(value); j++) {
-                    crd_inner[j] = (PyLong_AsLong(PyTuple_GetItem(value, j)));
-                }
-                crd.push_back(crd_inner);
-            }
-        }
-    }
+    if (coord != Py_None) crd = generate_coords(coord);
     this->read_n_coord(storage_id, np_metas, crd, data);
     this->update_metadata(storage_id, np_metas);
     delete (np_metas);

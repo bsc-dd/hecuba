@@ -573,8 +573,8 @@ static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
 static PyObject *set_numpy(HNumpyStore *self, PyObject *args) {
     //self._hcache.set_numpy(numpy, [self.view(np.ndarray)])
 
-    PyObject *py_keys, *py_numpy, *py_store;
-    if (!PyArg_ParseTuple(args, "OOO", &py_keys, &py_numpy, &py_store)) {
+    PyObject *py_keys, *py_numpy, *py_store, *py_coord;
+    if (!PyArg_ParseTuple(args, "OOOO", &py_keys, &py_numpy, &py_store, &py_coord)) {
         return NULL;
     }
 
@@ -635,7 +635,7 @@ static PyObject *set_numpy(HNumpyStore *self, PyObject *args) {
     const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
 
     try {
-        self->NumpyDataStore->store_numpy(storage_id, numpy_arr_v);
+        self->NumpyDataStore->store_numpy_after_set(storage_id, numpy_arr_v, py_coord);
         memmove(numpy_arr_s, py_numpy, sizeof(py_numpy));
     }
     catch (std::exception &e) {

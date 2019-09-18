@@ -19,7 +19,7 @@ public:
     ~ArrayDataStore();
 
     void store(const uint64_t *storage_id, ArrayMetadata *metadata, void *data) const;
-
+    void store_numpy_to_cas(const uint64_t *storage_id, ArrayMetadata *metadata, void *data, std::list<std::vector<uint32_t> > coord) const;
     void *read(const uint64_t *storage_id, ArrayMetadata *metadata) const;
 
     // Returns the metadata of the array identified by the storage_id
