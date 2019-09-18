@@ -154,7 +154,7 @@ class StorageNumpy(np.ndarray, IStorage):
         log.info("WRITTING NUMPY")
         numpy = self.view(np.ndarray)
         numpy[sliced_coord] = values
-        self._hcache.set_numpy(numpy, [self.view(np.ndarray)])
+        self._hcache.set_numpy([self._storage_id], [numpy], [self.view(np.ndarray)])
         return super(StorageNumpy, self)
 
     def make_persistent(self, name):

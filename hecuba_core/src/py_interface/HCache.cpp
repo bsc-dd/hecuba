@@ -573,34 +573,75 @@ static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
 static PyObject *set_numpy(HNumpyStore *self, PyObject *args) {
     //self._hcache.set_numpy(numpy, [self.view(np.ndarray)])
 
-    PyObject *py_numpy, *py_store;
-    if (!PyArg_ParseTuple(args, "OO", &py_numpy, &py_store)) {
+    PyObject *py_keys, *py_numpy, *py_store;
+    if (!PyArg_ParseTuple(args, "OOO", &py_keys, &py_numpy, &py_store)) {
         return NULL;
     }
 
-    // Only one numpy as a value
-    if (PyList_Size(py_store) != 1) {
+    for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
+        if (PyList_GetItem(py_keys, key_i) == Py_None) {
+            std::string error_msg = "Keys can't be None, key_position: " + std::to_string(key_i);
+            PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+            return NULL;
+        }
+    }
+
+    if (PyList_Size(py_keys) != 1) {
+        std::string error_msg = "Only one uuid as a key can be passed";
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    };
+
+    if (PyList_Size(py_numpy) != 1) {
         std::string error_msg = "Only one numpy can be saved at once";
         PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
         return NULL;
     };
 
-    PyObject *numpy = PyList_GetItem(py_store, 0);
+    if (PyList_Size(py_store) != 1) {
+        std::string error_msg = "Only one numpy as a storage";
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    };
+
+    PyObject *numpy = PyList_GetItem(py_numpy, 0);
     if (numpy == Py_None) {
         std::string error_msg = "The numpy can't be None";
         PyErr_SetString(PyExc_TypeError, error_msg.c_str());
         return NULL;
     }
 
-    // Transform the object to the numpy ndarray
-    PyArrayObject *numpy_arr;
-    if (!PyArray_OutputConverter(numpy, &numpy_arr)) {
+    PyObject *store = PyList_GetItem(py_store, 0);
+    if (store == Py_None) {
+        std::string error_msg = "The numpy can't be None";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    PyArrayObject *numpy_arr_v;
+    if (!PyArray_OutputConverter(numpy, &numpy_arr_v)) {
         std::string error_msg = "Can't convert the given numpy to a numpy ndarray";
         PyErr_SetString(PyExc_TypeError, error_msg.c_str());
         return NULL;
     }
 
-    memmove(numpy_arr, py_numpy, sizeof(py_numpy));
+    PyArrayObject *numpy_arr_s;
+    if (!PyArray_OutputConverter(store, &numpy_arr_s)) {
+        std::string error_msg = "Can't convert the given numpy to a numpy ndarray";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
+
+    try {
+        self->NumpyDataStore->store_numpy(storage_id, numpy_arr_v);
+        memmove(numpy_arr_s, py_numpy, sizeof(py_numpy));
+    }
+    catch (std::exception &e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
 
     Py_RETURN_NONE;
 }
