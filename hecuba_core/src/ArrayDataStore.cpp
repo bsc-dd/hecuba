@@ -92,8 +92,6 @@ void ArrayDataStore::update_metadata(const uint64_t *storage_id, ArrayMetadata *
 
 void ArrayDataStore::store_numpy_to_cas(const uint64_t *storage_id, ArrayMetadata *metadata, void *data, std::list<std::vector<uint32_t> > coord) const {
 
-
-    coord = {};
     char *keys = nullptr;
     void *values = nullptr;
     uint32_t offset = 0, keys_size = sizeof(uint64_t *) + sizeof(int32_t) * 2;
@@ -101,19 +99,28 @@ void ArrayDataStore::store_numpy_to_cas(const uint64_t *storage_id, ArrayMetadat
     uint32_t half_int = 0;//(uint32_t)-1 >> (sizeof(uint32_t)*CHAR_BIT/2); //TODO be done properly
     int32_t cluster_id, block_id;
 
-    SpaceFillingCurve::PartitionGenerator *partitions_it = nullptr;
-    partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, data, std::move(coord));
+    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner->make_partitions_generator(metadata, data,
+                                                                                                        {});
 
     std::set<int32_t> clusters = {};
+    std::list<Partition> partitions = {};
 
-    while (!partitions_it->isDone()) {
-        clusters.insert(partitions_it->computeNextClusterId());
+    if(!coord.empty()) {
+        while (!partitions_it->isDone()) clusters.insert(partitions_it->computeNextClusterId());
+        uint64_t count = 0;
+        for( auto it_clusters = clusters.begin(); it_clusters!=clusters.end(); ++it_clusters) {
+            while(count != *it_clusters) {
+                partitions_it->getNextPartition();
+                ++count;
+            }
+            ++count;
+            partitions.push_back(partitions_it->getNextPartition());
+        }
     }
+    else while (!partitions_it->isDone()) partitions.push_back(partitions_it->getNextPartition());
 
-
-    std::set<int32_t>::iterator it = clusters.begin();
-    for (; it != clusters.end(); ++it ){
-        Partition part = partitions_it->getNextPartition();
+    for (auto it = partitions.begin(); it != partitions.end() ; ++it){
+        auto part = *it;
         keys = (char *) malloc(keys_size);
         //UUID
         c_uuid = (uint64_t *) malloc(sizeof(uint64_t) * 2);//new uint64_t[2];
