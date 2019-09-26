@@ -28,6 +28,11 @@ struct Partition {
     uint32_t cluster_id;
     uint32_t block_id;
     void *data;
+
+public:
+
+    bool operator< (const Partition& part) const{ return cluster_id < part.cluster_id;};
+
 };
 
 //TODO Inherit from CassUserType, pass the user type directly
