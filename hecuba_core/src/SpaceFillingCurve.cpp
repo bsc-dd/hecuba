@@ -47,10 +47,6 @@ int32_t SpaceFillingCurve::SpaceFillingGenerator::computeNextClusterId() {
     return CLUSTER_END_FLAG;
 }
 
-void SpaceFillingCurve::SpaceFillingGenerator::simpleNextClusterId() {
-    computeNextClusterId();
-}
-
 void *
 SpaceFillingCurve::SpaceFillingGenerator::merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks,
                                                            void *data) {
@@ -276,11 +272,6 @@ Partition ZorderCurveGenerator::getNextPartition() {
     return {cluster_id, block_id, output_data - sizeof(uint64_t)};
 }
 
-void ZorderCurveGenerator::simpleNextClusterId() {
-    block_counter += CLUSTER_SIZE << 1;
-}
-
-
 int32_t ZorderCurveGenerator::computeNextClusterId() {
 
 
@@ -291,9 +282,8 @@ int32_t ZorderCurveGenerator::computeNextClusterId() {
 
     std::vector<uint32_t> block_ccs = getIndexes(block_counter, blocks_dim);
     uint64_t zorder_id = computeZorder(block_ccs);
-
     // Every cluster is made of 2^CLUSTER_SIZE blocks, we can skip these blocks
-    simpleNextClusterId();
+    ++block_counter;
     if (block_counter == nblocks) done = true;
     //Block parameters
     return (uint32_t) (zorder_id >> CLUSTER_SIZE);
