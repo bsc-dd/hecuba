@@ -459,7 +459,7 @@ TEST(TestMakePartitions, 3DZorder_Medium) {
 
 //Test to analyze the partitioning of a big 3D array, approx 256MB
 TEST(TestMakePartitions, 3DZorder_Big) {
-    std::vector<uint32_t> ccs = {512, 256, 512};
+    std::vector<uint32_t> ccs = {512, 512, 512};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
     arr_metas->inner_type = CASS_VALUE_TYPE_INT;
