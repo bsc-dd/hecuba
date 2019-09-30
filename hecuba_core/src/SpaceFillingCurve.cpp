@@ -276,7 +276,7 @@ int32_t ZorderCurveGenerator::computeNextClusterId() {
     uint64_t zorder_id = computeZorder(block_ccs);
     
     // Every cluster is made of 2^CLUSTER_SIZE blocks, we can skip these blocks
-    block_counter += CLUSTER_SIZE << 1;
+    block_counter++;
     if (block_counter == nblocks) done = true;
     //Block parameters
     return (uint32_t) (zorder_id >> CLUSTER_SIZE);
@@ -382,6 +382,7 @@ void *ZorderCurveGenerator::merge_partitions(const ArrayMetadata *metas, std::ve
 
         if (!bound) {
 
+            if (*retrieved_block_size != block_size)
             if (*retrieved_block_size != block_size)
                 throw ModuleException("Sth went wrong deciding "
                                       "the size of blocks while merging them into an array");
