@@ -59,7 +59,21 @@ class StorageNumpyTest(unittest.TestCase):
             typed_array = None
             typed_array = StorageNumpy(None, storage_id, tablename)
             self.assertTrue(np.array_equal(typed_array, base_array.astype(typecode)))
+            
+    def test_read_all(self):
+            nelem = 2 ** 21
+            elem_dim = 2 ** 7
 
+            storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, "first_test")
+            base_array = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim))
+            casted = StorageNumpy(input_array=base_array, name="testing_arrays.first_test", storage_id=storage_id)
+            import gc
+            del casted
+            gc.collect()
+            test_numpy = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim))
+            casted = StorageNumpy(name="testing_arrays.first_test", storage_id=storage_id)
+            chunk = casted[slice(None,None,None)]
+            self.assertTrue(np.allclose(chunk.view(np.ndarray), test_numpy))
 
 if __name__ == '__main__':
     unittest.main()
