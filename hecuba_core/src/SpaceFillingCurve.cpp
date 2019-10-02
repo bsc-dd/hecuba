@@ -383,7 +383,6 @@ void *ZorderCurveGenerator::merge_partitions(const ArrayMetadata *metas, std::ve
         if (!bound) {
 
             if (*retrieved_block_size != block_size)
-            if (*retrieved_block_size != block_size)
                 throw ModuleException("Sth went wrong deciding "
                                       "the size of blocks while merging them into an array");
 
