@@ -133,6 +133,35 @@ class StorageNumpyTest(unittest.TestCase):
         test_numpy = test_numpy[coordinates]
         self.assertTrue(np.allclose(result, test_numpy))
 
+    def test_numpy_reserved_5d_1cluster(self):
+        coordinates = [slice(0, 5, None), slice(0, 5, None), slice(0, 5, None), slice(0, 5, None), slice(0, 5, None)]
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_13;")
+        num = 13
+        no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        no.mynumpy = np.arange(100000).reshape((10, 10, 10, 10, 10))
+        myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        chunk = myobj2.mynumpy[coordinates]
+        result = chunk.view(np.ndarray)
+        test_numpy = np.arange(100000).reshape((10, 10, 10, 10, 10))
+        test_numpy = test_numpy[coordinates]
+        self.assertTrue(np.allclose(result, test_numpy))
+
+    def test_numpy_reserved_5d_read_all(self):
+        config.session.execute("DROP TABLE IF EXISTS testing_arrays.first_test;")
+        nelem = 100000
+        elem_dim = 10
+
+        storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, "first_test")
+        base_array = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim, elem_dim, elem_dim))
+        casted = StorageNumpy(input_array=base_array, name="testing_arrays.first_test", storage_id=storage_id)
+        import gc
+        del casted
+        gc.collect()
+        test_numpy = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim, elem_dim, elem_dim))
+        casted = StorageNumpy(name="testing_arrays.first_test", storage_id=storage_id)
+        chunk = casted[slice(None, None, None)]
+        self.assertTrue(np.allclose(chunk.view(np.ndarray), test_numpy))
+
     def test_types_persistence(self):
         base_array = np.arange(256)
         tablename = self.ksp + '.' + self.table
@@ -249,19 +278,21 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertTrue(np.allclose(chunk.view(np.ndarray), test_numpy))
 
     def test_read_all(self):
-            nelem = 2 ** 21
-            elem_dim = 2 ** 7
+        config.session.execute("DROP TABLE IF EXISTS testing_arrays.first_test;")
+        nelem = 2 ** 21
+        elem_dim = 2 ** 7
 
-            storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, "first_test")
-            base_array = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim))
-            casted = StorageNumpy(input_array=base_array, name="testing_arrays.first_test", storage_id=storage_id)
-            import gc
-            del casted
-            gc.collect()
-            test_numpy = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim))
-            casted = StorageNumpy(name="testing_arrays.first_test", storage_id=storage_id)
-            chunk = casted[slice(None,None,None)]
-            self.assertTrue(np.allclose(chunk.view(np.ndarray), test_numpy))
+        storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, "first_test")
+        base_array = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim))
+        casted = StorageNumpy(input_array=base_array, name="testing_arrays.first_test", storage_id=storage_id)
+        import gc
+        del casted
+        gc.collect()
+        test_numpy = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim))
+        casted = StorageNumpy(name="testing_arrays.first_test", storage_id=storage_id)
+        chunk = casted[slice(None, None, None)]
+        self.assertTrue(np.allclose(chunk.view(np.ndarray), test_numpy))
+
 
 if __name__ == '__main__':
     unittest.main()
