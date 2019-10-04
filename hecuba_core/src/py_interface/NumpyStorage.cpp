@@ -45,7 +45,7 @@ void NumpyStorage::store_numpy_after_set(const uint64_t *storage_id, PyArrayObje
 void NumpyStorage::store_numpy(const uint64_t *storage_id, PyArrayObject *numpy) const {
     ArrayMetadata *np_metas = this->get_np_metadata(numpy);
     np_metas->partition_type = ZORDER_ALGORITHM;
-    void *data = PyArray_BYTES(numpy);
+    void *data = PyArray_DATA(numpy);
     this->store(storage_id, np_metas, data);
     this->update_metadata(storage_id, np_metas);
     delete (np_metas);
