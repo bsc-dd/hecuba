@@ -2,7 +2,7 @@
 
 
 NumpyStorage::NumpyStorage(CacheTable *cache, CacheTable *read_cache,
-                           std::map<std::string, std::string> &config) : ArrayDataStore(cache, read_cache, config, {}) {
+                           std::map<std::string, std::string> &config) : ArrayDataStore(cache, read_cache, config) {
 
 
 }

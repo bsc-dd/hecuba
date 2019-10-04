@@ -2,7 +2,7 @@
 
 
 ArrayDataStore::ArrayDataStore(CacheTable *cache, CacheTable *read_cache,
-                               std::map<std::string, std::string> &config, std::set<uint32_t> cluster_ids) {
+                               std::map<std::string, std::string> &config) {
 
     //this->storage = storage;
 /*
@@ -17,7 +17,6 @@ ArrayDataStore::ArrayDataStore(CacheTable *cache, CacheTable *read_cache,
 
     this->cache = cache;
     this->read_cache = read_cache;
-    this->cluster_ids = cluster_ids;
     //this->storage->make_cache(table_meta, config);
 }
 

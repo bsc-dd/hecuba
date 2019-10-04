@@ -14,7 +14,7 @@ class ArrayDataStore {
 public:
 
     ArrayDataStore(CacheTable *cache, CacheTable *read_cache,
-                   std::map<std::string, std::string> &config, std::set<uint32_t> cluster_ids);
+                   std::map<std::string, std::string> &config);
 
     ~ArrayDataStore();
 
@@ -38,9 +38,6 @@ private:
     CacheTable *cache = nullptr, *read_cache = nullptr;
 
     SpaceFillingCurve *partitioner;
-
-    std::set<uint32_t> cluster_ids = {};
-
 
 };
 
