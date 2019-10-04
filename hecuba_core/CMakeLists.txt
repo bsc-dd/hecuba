@@ -315,3 +315,4 @@ if (DEFINED ENV{GTEST_ROOT})
         endif (GTest_FOUND)
     endif (PT)
 endif (DEFINED ENV{GTEST_ROOT})
+
