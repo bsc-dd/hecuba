@@ -207,7 +207,7 @@ static void hcache_dealloc(HCache *self) {
     delete (self->keysParser);
     delete (self->valuesParser);
     delete (self->T);
-    Py_TYPE((PyObject*) self)->tp_free((PyObject *) self);
+    Py_TYPE((PyObject *) self)->tp_free((PyObject *) self);
 }
 
 
@@ -321,7 +321,7 @@ static PyMethodDef hcache_type_methods[] = {
         {"iterkeys",   (PyCFunction) create_iter_keys,   METH_VARARGS, NULL},
         {"itervalues", (PyCFunction) create_iter_values, METH_VARARGS, NULL},
         {"iteritems",  (PyCFunction) create_iter_items,  METH_VARARGS, NULL},
-        {NULL, NULL, 0,                                                NULL}
+        {NULL, NULL,                                     0,            NULL}
 };
 
 
@@ -475,7 +475,7 @@ static PyObject *save_numpy(HNumpyStore *self, PyObject *args) {
 
     // 1 Extract metadatas && write data
     try {
-        self->NumpyDataStore->store(storage_id, numpy_arr);
+        self->NumpyDataStore->store_numpy(storage_id, numpy_arr);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -512,7 +512,7 @@ static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
 
     PyObject *numpy;
     try {
-        numpy = self->NumpyDataStore->read(storage_id);
+        numpy = self->NumpyDataStore->read_numpy(storage_id);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -528,7 +528,7 @@ static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
 
 static void hnumpy_store_dealloc(HNumpyStore *self) {
     delete (self->NumpyDataStore);
-    Py_TYPE((PyObject*) self)->tp_free((PyObject *) self);
+    Py_TYPE((PyObject *) self)->tp_free((PyObject *) self);
 }
 
 
@@ -541,10 +541,9 @@ static PyObject *hnumpy_store_new(PyTypeObject *type, PyObject *args, PyObject *
 
 static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) {
     const char *table, *keyspace;
-    PyObject *py_tokens, *py_keys_names, *py_cols_names, *py_config, *py_storage_id;
+    PyObject *py_config;
 
-    if (!PyArg_ParseTuple(args, "ssOOOOO", &keyspace, &table, &py_storage_id, &py_tokens,
-                          &py_keys_names, &py_cols_names, &py_config)) {
+    if (!PyArg_ParseTuple(args, "ssO", &keyspace, &table, &py_config)) {
         return -1;
     };
 
@@ -574,59 +573,8 @@ static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) 
 
     /*** PARSE TABLE METADATA ***/
 
-    uint16_t tokens_size = (uint16_t) PyList_Size(py_tokens);
-    uint16_t keys_size = (uint16_t) PyList_Size(py_keys_names);
-    uint16_t cols_size = (uint16_t) PyList_Size(py_cols_names);
-
-    int64_t t_a, t_b;
-    self->token_ranges = std::vector<std::pair<int64_t, int64_t >>(tokens_size);
-    for (uint16_t i = 0; i < tokens_size; ++i) {
-        PyObject *obj_to_convert = PyList_GetItem(py_tokens, i);
-        if (!PyArg_ParseTuple(obj_to_convert, "LL", &t_a, &t_b)) return -1;
-        self->token_ranges[i] = std::make_pair(t_a, t_b);
-    }
-
-
-    std::vector<std::map<std::string, std::string>> keys_names(keys_size);
-
-    for (uint16_t i = 0; i < keys_size; ++i) {
-        PyObject *obj_to_convert = PyList_GetItem(py_keys_names, i);
-        char *str_temp;
-        if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
-            return -1;
-        }
-        keys_names[i] = {{"name", std::string(str_temp)}};
-    }
-
-    std::vector<std::map<std::string, std::string>> columns_names(cols_size);
-    for (uint16_t i = 0; i < cols_size; ++i) {
-        PyObject *obj_to_convert = PyList_GetItem(py_cols_names, i);
-
-        if (PyUnicode_Check(obj_to_convert)) {
-            char *str_temp;
-            if (!PyArg_Parse(obj_to_convert, "s", &str_temp)) {
-                return -1;
-            };
-            columns_names[i] = {{"name", std::string(str_temp)}};
-        } else if (PyDict_Check(obj_to_convert)) {
-            PyObject *dict;
-            if (!PyArg_Parse(obj_to_convert, "O", &dict)) {
-                return -1;
-            };
-
-            PyObject *py_name = PyDict_GetItemString(dict, "name");
-            columns_names[i]["name"] = PyUnicode_AsUTF8(py_name);
-        } else {
-            PyErr_SetString(PyExc_TypeError, "Can't parse column names, expected String, Dict or Unicode");
-            return -1;
-        }
-    }
-
-
     try {
-        TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names,
-                                                      storage->get_session());
-        self->NumpyDataStore = new NumpyStorage(table_meta, storage, config);
+        self->NumpyDataStore = new NumpyStorage(table, keyspace, storage->get_session(), config);
     } catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return -1;
@@ -638,7 +586,7 @@ static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) 
 static PyMethodDef hnumpy_store_type_methods[] = {
         {"get_numpy",  (PyCFunction) get_numpy,  METH_VARARGS, NULL},
         {"save_numpy", (PyCFunction) save_numpy, METH_VARARGS, NULL},
-        {NULL, NULL, 0,                                        NULL}
+        {NULL, NULL,                             0,            NULL}
 };
 
 
@@ -852,13 +800,13 @@ static PyObject *get_next(HIterator *self) {
 static void hiter_dealloc(HIterator *self) {
     if (self->rowParser) delete (self->rowParser);
     if (self->P) delete (self->P);
-    Py_TYPE((PyObject*) self)->tp_free((PyObject *) self);
+    Py_TYPE((PyObject *) self)->tp_free((PyObject *) self);
 }
 
 
 static PyMethodDef hiter_type_methods[] = {
         {"get_next", (PyCFunction) get_next, METH_NOARGS, NULL},
-        {NULL, NULL, 0,                                   NULL}
+        {NULL, NULL,                         0,           NULL}
 };
 
 
@@ -1041,13 +989,13 @@ static void hwriter_dealloc(HWriter *self) {
     if (self->keysParser) delete (self->keysParser);
     if (self->valuesParser) delete (self->valuesParser);
     if (self->W) delete (self->W);
-    Py_TYPE((PyObject*) self)->tp_free((PyObject *) self);
+    Py_TYPE((PyObject *) self)->tp_free((PyObject *) self);
 }
 
 
 static PyMethodDef hwriter_type_methods[] = {
         {"write", (PyCFunction) write_cass, METH_VARARGS, NULL},
-        {NULL, NULL, 0,                                   NULL}
+        {NULL, NULL,                        0,            NULL}
 };
 
 static PyTypeObject hfetch_HWriterType = {
@@ -1097,9 +1045,9 @@ static PyTypeObject hfetch_HWriterType = {
 
 
 static PyMethodDef module_methods[] = {
-        {"connectCassandra", (PyCFunction) connectCassandra, METH_VARARGS, NULL},
-        {"disconnectCassandra", (PyCFunction) disconnectCassandra,  METH_NOARGS, NULL},
-        {NULL, NULL, 0,                                                    NULL}
+        {"connectCassandra",    (PyCFunction) connectCassandra,    METH_VARARGS, NULL},
+        {"disconnectCassandra", (PyCFunction) disconnectCassandra, METH_NOARGS,  NULL},
+        {NULL, NULL,                                               0,            NULL}
 };
 
 
@@ -1131,7 +1079,8 @@ static PyObject *create_iter_items(HCache *self, PyObject *args) {
                 config[conf_key] = std::to_string(c_val);
             }
         }
-    } else if PyLong_Check((py_config)) {
+    } else if PyLong_Check((py_config))
+    {
         int32_t c_val = (int32_t) PyLong_AsLong(py_config);
         config["prefetch_size"] = std::to_string(c_val);
     }
@@ -1189,7 +1138,8 @@ static PyObject *create_iter_keys(HCache *self, PyObject *args) {
             }
 
         }
-    } else if PyLong_Check((py_config)) {
+    } else if PyLong_Check((py_config))
+    {
         int32_t c_val = (int32_t) PyLong_AsLong(py_config);
         config["prefetch_size"] = std::to_string(c_val);
     }
@@ -1243,7 +1193,8 @@ static PyObject *create_iter_values(HCache *self, PyObject *args) {
             }
 
         }
-    } else if PyLong_Check((py_config)) {
+    } else if PyLong_Check((py_config))
+    {
         int32_t c_val = (int32_t) PyLong_AsLong(py_config);
         config["prefetch_size"] = std::to_string(c_val);
     }
@@ -1314,15 +1265,14 @@ PyInit_hfetch(void) {
     Py_INCREF(&hfetch_HCacheType);
 
 
-
     PyObject *m = PyModule_Create(&hfetch_module_info);
     f = m->ob_type->tp_dealloc;
     m->ob_type->tp_dealloc = module_dealloc;
 
-    PyModule_AddObject(m, "Hcache", (PyObject *) &hfetch_HCacheType);
-    PyModule_AddObject(m, "HIterator", (PyObject *) &hfetch_HIterType);
-    PyModule_AddObject(m, "HWriter", (PyObject *) &hfetch_HWriterType);
-    PyModule_AddObject(m, "HNumpyStore", (PyObject *) &hfetch_HNumpyStoreType);
+    PyModule_AddObject(m, "Hcache", (PyObject * ) & hfetch_HCacheType);
+    PyModule_AddObject(m, "HIterator", (PyObject * ) & hfetch_HIterType);
+    PyModule_AddObject(m, "HWriter", (PyObject * ) & hfetch_HWriterType);
+    PyModule_AddObject(m, "HNumpyStore", (PyObject * ) & hfetch_HNumpyStoreType);
     if (_import_array() < 0) {
         PyErr_Print();
         PyErr_SetString(PyExc_ImportError, "numpy.core.multiarray failed to import");

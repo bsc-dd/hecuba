@@ -98,8 +98,6 @@ class StorageNumpy(np.ndarray, IStorage):
     def load_array(storage_id, name):
         (ksp, table) = _extract_ks_tab(name)
         hcache_params = (ksp, table + '_numpies',
-                         storage_id, [], ['storage_id', 'cluster_id', 'block_id'],
-                         [{'name': "payload", 'type': 'numpy'}],
                          {'cache_size': config.max_cache_size,
                           'writer_par': config.write_callbacks_number,
                           'write_buffer': config.write_buffer_size,
@@ -138,8 +136,6 @@ class StorageNumpy(np.ndarray, IStorage):
                                                                                                    'PRIMARY KEY((storage_id,cluster_id),block_id))')
 
         self._hcache_params = (self._ksp, self._table + '_numpies',
-                               self._storage_id, [], ['storage_id', 'cluster_id', 'block_id'],
-                               [{'name': "payload", 'type': 'numpy'}],
                                {'cache_size': config.max_cache_size,
                                 'writer_par': config.write_callbacks_number,
                                 'write_buffer': config.write_buffer_size,

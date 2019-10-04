@@ -61,7 +61,6 @@ typedef struct {
 typedef struct {
     PyObject_HEAD
     NumpyStorage *NumpyDataStore;
-    std::vector<std::pair<int64_t, int64_t>> token_ranges;
 } HNumpyStore;
 
 
