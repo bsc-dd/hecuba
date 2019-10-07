@@ -255,7 +255,7 @@ if (DEFINED ENV{GTEST_ROOT})
             add_executable(cache_imp_test tests/cache_tests.cpp)
             set_target_properties(cache_imp_test
                     PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
-            target_link_libraries(cache_imp_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch)
+            target_link_libraries(cache_imp_test ${ALL_LIBS} ${GTEST_BOTH_LIBRARIES} hfetch ${PT})
             add_dependencies(cache_imp_test hfetch)
             add_test(test cache_imp_test)
 
@@ -303,7 +303,7 @@ if (DEFINED ENV{GTEST_ROOT})
                 add_executable(py_hfetch_test tests/pytests.cpp)
                 set_target_properties(py_hfetch_test
                         PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
-                target_link_libraries(py_hfetch_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch pyinterface)
+                target_link_libraries(py_hfetch_test ${ALL_LIBS} ${GTEST_BOTH_LIBRARIES} pyinterface hfetch ${PT})
                 add_dependencies(py_hfetch_test hfetch)
                 add_test(test py_hfetch_test)
             else ()
