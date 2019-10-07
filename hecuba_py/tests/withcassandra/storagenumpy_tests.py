@@ -139,6 +139,9 @@ class StorageNumpyTest(unittest.TestCase):
         num = 13
         no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
         no.mynumpy = np.arange(100000).reshape((10, 10, 10, 10, 10))
+        import gc
+        del no
+        gc.collect()
         myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
         chunk = myobj2.mynumpy[coordinates]
         result = chunk.view(np.ndarray)
