@@ -105,6 +105,8 @@ void ArrayDataStore::store_numpy_to_cas(const uint64_t *storage_id, ArrayMetadat
 
     if (coord.empty()) { while (!partitions_it->isDone()) partitions.push_back(partitions_it->getNextPartition()); }
     else {
+        while (!partitions_it->isDone()) {clusters.insert(partitions_it->computeNextClusterId()); }
+        partitions_it = this->partitioner->make_partitions_generator(metadata, data, {});
         while (!partitions_it->isDone()) {
             clusters.insert(partitions_it->computeNextClusterId());
             auto part = partitions_it->getNextPartition();
