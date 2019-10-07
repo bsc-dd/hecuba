@@ -52,9 +52,6 @@ void ArrayDataStore::update_metadata(const uint64_t *storage_id, ArrayMetadata *
     //Block id
     memcpy(keys + offset, &block_id, sizeof(int32_t));
 
-
-
-
     //COPY VALUES
     offset = 0;
     void *values = (char *) malloc(sizeof(char *));
@@ -102,70 +99,22 @@ void ArrayDataStore::store_numpy_to_cas(const uint64_t *storage_id, ArrayMetadat
                                                                                                         {});
 
     std::set<int32_t> clusters = {};
-    std::set<Partition> partitions = {};
+    std::list<Partition> partitions = {};
 
     // PARTITIONS SIZE > CLUSTERS SIZE
 
-    if (coord.empty()) { while (!partitions_it->isDone()) partitions.insert(partitions_it->getNextPartition()); }
+    if (coord.empty()) { while (!partitions_it->isDone()) partitions.push_back(partitions_it->getNextPartition()); }
     else {
-        while (!partitions_it->isDone()) {clusters.insert(partitions_it->computeNextClusterId()); }
-        partitions_it = this->partitioner->make_partitions_generator(metadata, data, {});
         while (!partitions_it->isDone()) {
+            clusters.insert(partitions_it->computeNextClusterId());
             auto part = partitions_it->getNextPartition();
-            if(clusters.find(part.cluster_id) != clusters.end()) partitions.insert(part);
+            if(clusters.find(part.cluster_id) != clusters.end()) partitions.push_back(part);
         }
     }
 
     for (auto it = partitions.begin(); it != partitions.end(); ++it){
         auto part = *it;
         keys = (char *) malloc(keys_size);
-
-        //UUID
-        c_uuid = (uint64_t *) malloc(sizeof(uint64_t) * 2);//new uint64_t[2];
-        c_uuid[0] = *storage_id;
-        c_uuid[1] = *(storage_id + 1);
-        // [0] = storage_id.time_and_version;
-        // [1] = storage_id.clock_seq_and_node;
-        memcpy(keys, &c_uuid, sizeof(uint64_t *));
-        offset = sizeof(uint64_t *);
-        //Cluster id
-        cluster_id = part.cluster_id - half_int;
-        memcpy(keys + offset, &cluster_id, sizeof(int32_t));
-        offset += sizeof(int32_t);
-        //Block id
-        block_id = part.block_id - half_int;
-        memcpy(keys + offset, &block_id, sizeof(int32_t));
-        //COPY VALUES
-
-        values = (char *) malloc(sizeof(char *));
-        memcpy(values, &part.data, sizeof(char *));
-        //FINALLY WE WRITE THE DATA
-        cache->put_crow(keys, values);
-    }
-    //this->partitioner.serialize_metas();
-    delete (partitions_it);
-}
-
-/***
- * Write a complete numpy ndarray by using the partitioning mechanism defined in the metadata
- * @param storage_id identifying the numpy ndarray
- * @param np_metas ndarray characteristics
- * @param numpy to be saved into storage
- */
-void ArrayDataStore::store(const uint64_t *storage_id, ArrayMetadata *metadata, void *data) const {
-
-    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner->make_partitions_generator(metadata, data,
-                                                                                                        {});
-
-    char *keys = nullptr;
-    void *values = nullptr;
-    uint32_t offset = 0, keys_size = sizeof(uint64_t *) + sizeof(int32_t) * 2;
-    uint64_t *c_uuid = nullptr;
-    uint32_t half_int = 0;//(uint32_t)-1 >> (sizeof(uint32_t)*CHAR_BIT/2); //TODO be done properly
-    int32_t cluster_id, block_id;
-    while (!partitions_it->isDone()) {
-        Partition part = partitions_it->getNextPartition();
-        keys = (char *) malloc(keys_size);
         //UUID
         c_uuid = (uint64_t *) malloc(sizeof(uint64_t) * 2);//new uint64_t[2];
         c_uuid[0] = *storage_id;
@@ -191,9 +140,7 @@ void ArrayDataStore::store(const uint64_t *storage_id, ArrayMetadata *metadata, 
     //this->partitioner.serialize_metas();
     delete (partitions_it);
 
-    // No need to flush the elements because the metadata are written after the data thanks to the queue
 }
-
 
 /***
  * Reads the metadata from the storage as an ArrayMetadata for latter use

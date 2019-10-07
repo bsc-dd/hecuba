@@ -28,7 +28,7 @@ class StorageNumpy(np.ndarray, IStorage):
     _loaded_coordinates = None
     _row_elem = None
     _name = ""
-    _full_loaded = None
+    _numpy_full_loaded = None
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
                                                   '(storage_id, class_name, name, numpy_meta)'
                                                   'VALUES (?,?,?,?)')
@@ -47,8 +47,10 @@ class StorageNumpy(np.ndarray, IStorage):
             obj._hcache_params = result[3]
             obj._storage_id = storage_id
             obj._row_elem = result[1]
+            obj._numpy_full_loaded = False
             # call get_item and retrieve the result
             obj._is_persistent = True
+            obj._loaded_coordinates = []
             (obj._ksp, obj._table) = _extract_ks_tab(name)
             obj._storage_id = storage_id
         elif not name and storage_id is not None:
@@ -75,7 +77,7 @@ class StorageNumpy(np.ndarray, IStorage):
         self._hcache = getattr(obj, '_hcache', None)
         self._row_elem = getattr(obj, '_row_elem', None)
         self._loaded_coordinates = getattr(obj, '_loaded_coordinates', None)
-        self._full_loaded = getattr(obj, '_full_loaded', None)
+        self._numpy_full_loaded = getattr(obj, '_numpy_full_loaded', None)
 
     def __array_wrap__(self, out_arr, context=None):
         return super(StorageNumpy, self).__array_wrap__(self, out_arr, context)
@@ -154,11 +156,11 @@ class StorageNumpy(np.ndarray, IStorage):
         self.slices_match_numpy_shape(coo)
 
         # coordinates is the union between the loaded coordiantes and the new ones
-        coordinates = list(set(it.chain.from_iterable((self._loaded_coordinates or [], self.generate_coordinates(coo)))))
+        coordinates = list(set(it.chain.from_iterable((self._loaded_coordinates, self.generate_coordinates(coo)))))
 
-        if (len(coordinates or []) != len(self._loaded_coordinates or []) and not self._full_loaded) or (not self._full_loaded and not coordinates):
+        if ((len(coordinates) != len(self._loaded_coordinates)) and not self._numpy_full_loaded) or (not self._numpy_full_loaded and not coordinates):
             if not coordinates:
-                self._full_loaded = 1
+                self._numpy_full_loaded = True
                 coordinates = None
             self._hcache.get_numpy_from_coordinates([self._storage_id], coordinates, [self.view(np.ndarray)])
             self._loaded_coordinates = coordinates
@@ -170,7 +172,7 @@ class StorageNumpy(np.ndarray, IStorage):
         numpy[sliced_coord] = values
         coo = self.format_coords(sliced_coord)
         coordinates = list(set(it.chain.from_iterable(
-            (self._loaded_coordinates or [], self.generate_coordinates(coo)))))
+            (self._loaded_coordinates, self.generate_coordinates(coo)))))
         self._hcache.set_numpy([self._storage_id], [numpy], [self.view(np.ndarray)], coordinates)
         return super(StorageNumpy, self)
 

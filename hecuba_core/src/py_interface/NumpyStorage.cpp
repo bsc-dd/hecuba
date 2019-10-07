@@ -30,23 +30,13 @@ std::list<std::vector<uint32_t> > NumpyStorage::generate_coords(PyObject * coord
     return crd;
 }
 
-void NumpyStorage::store_numpy_after_set(const uint64_t *storage_id, PyArrayObject *numpy, PyObject *coord) const {
+void *NumpyStorage::store_numpy(const uint64_t *storage_id, PyArrayObject *numpy, PyObject *coord) const {
     ArrayMetadata *np_metas = this->get_np_metadata(numpy);
     np_metas->partition_type = ZORDER_ALGORITHM;
     void *data = PyArray_DATA(numpy);
     std::list<std::vector<uint32_t> > crd = {};
     if (coord != Py_None) crd = generate_coords(coord);
     this->store_numpy_to_cas(storage_id, np_metas, data, crd);
-    this->update_metadata(storage_id, np_metas);
-    delete (np_metas);
-}
-
-
-void NumpyStorage::store_numpy(const uint64_t *storage_id, PyArrayObject *numpy) const {
-    ArrayMetadata *np_metas = this->get_np_metadata(numpy);
-    np_metas->partition_type = ZORDER_ALGORITHM;
-    void *data = PyArray_DATA(numpy);
-    this->store(storage_id, np_metas, data);
     this->update_metadata(storage_id, np_metas);
     delete (np_metas);
 }

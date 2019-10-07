@@ -475,7 +475,7 @@ static PyObject *save_numpy(HNumpyStore *self, PyObject *args) {
 
     // 1 Extract metadatas && write data
     try {
-        self->NumpyDataStore->store_numpy(storage_id, numpy_arr);
+        self->NumpyDataStore->store_numpy(storage_id, numpy_arr, Py_None);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -635,7 +635,7 @@ static PyObject *set_numpy(HNumpyStore *self, PyObject *args) {
     const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
 
     try {
-        self->NumpyDataStore->store_numpy_after_set(storage_id, numpy_arr_v, py_coord);
+        self->NumpyDataStore->store_numpy(storage_id, numpy_arr_v, py_coord);
         memmove(numpy_arr_s, py_numpy, sizeof(py_numpy));
     }
     catch (std::exception &e) {

@@ -25,9 +25,7 @@ public:
 
     ~NumpyStorage();
 
-    void store_numpy(const uint64_t *storage_id, PyArrayObject *numpy) const;
-
-    void store_numpy_after_set(const uint64_t *storage_id, PyArrayObject *numpy, PyObject * coord) const;
+    void *store_numpy(const uint64_t *storage_id, PyArrayObject *numpy, PyObject * coord) const;
 
     std::list<std::vector<uint32_t> > generate_coords(PyObject * coord) const;
 
