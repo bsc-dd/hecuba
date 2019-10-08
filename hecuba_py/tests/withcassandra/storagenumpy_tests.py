@@ -272,7 +272,7 @@ class StorageNumpyTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_12;")
         num = 12
         no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
-        no.mynumpy = np.arange(10000).reshape((100, 100))
+        no.mynumpy = np.zeros((100, 100))
         myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
         chunk = myobj2.mynumpy
         chunk[coordinates] = 1

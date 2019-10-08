@@ -86,7 +86,7 @@ void ArrayDataStore::update_metadata(const uint64_t *storage_id, ArrayMetadata *
     cache->put_crow(keys, values);
 }
 
-void ArrayDataStore::store_numpy_to_cas(const uint64_t *storage_id, ArrayMetadata *metadata, void *data, std::list<std::vector<uint32_t> > coord) const {
+void ArrayDataStore::store_numpy_into_cas(const uint64_t *storage_id, ArrayMetadata *metadata, void *data, uint64_t size_list) const {
 
     char *keys = nullptr;
     void *values = nullptr;
@@ -95,7 +95,7 @@ void ArrayDataStore::store_numpy_to_cas(const uint64_t *storage_id, ArrayMetadat
     uint32_t half_int = 0;//(uint32_t)-1 >> (sizeof(uint32_t)*CHAR_BIT/2); //TODO be done properly
     int32_t cluster_id, block_id;
 
-    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner->make_partitions_generator(metadata, data,
+    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata, data,
                                                                                                         {});
 
     std::set<int32_t> clusters = {};
@@ -103,10 +103,10 @@ void ArrayDataStore::store_numpy_to_cas(const uint64_t *storage_id, ArrayMetadat
 
     // PARTITIONS SIZE > CLUSTERS SIZE
 
-    if (coord.empty()) { while (!partitions_it->isDone()) partitions.push_back(partitions_it->getNextPartition()); }
+    if (size_list == 0) { while (!partitions_it->isDone()) partitions.push_back(partitions_it->getNextPartition()); }
     else {
         while (!partitions_it->isDone()) {clusters.insert(partitions_it->computeNextClusterId()); }
-        partitions_it = this->partitioner->make_partitions_generator(metadata, data, {});
+        partitions_it = this->partitioner.make_partitions_generator(metadata, data, {});
         while (!partitions_it->isDone()) {
             clusters.insert(partitions_it->computeNextClusterId());
             auto part = partitions_it->getNextPartition();
@@ -209,8 +209,8 @@ ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
  * @return Numpy ndarray as a Python object
  */
 
-void *ArrayDataStore::read_n_coord(const uint64_t *storage_id, ArrayMetadata *metadata,
-                                   std::list<std::vector<uint32_t> > coord, void *save) {
+void *ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetadata *metadata,
+                                   std::list<std::vector<uint32_t> > &coord, void *save) {
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
     std::vector<const TupleRow *> result, all_results;

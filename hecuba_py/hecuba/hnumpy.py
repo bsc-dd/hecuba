@@ -125,7 +125,7 @@ class StorageNumpy(np.ndarray, IStorage):
                           'write_buffer': config.write_buffer_size,
                           'timestamped_writes': config.timestamped_writes})
         hcache = HNumpyStore(*hcache_params)
-        result = hcache.get_reserved_numpy([storage_id])
+        result = hcache.allocate_numpy([storage_id])
         return [result[0], result[1], hcache, hcache_params]
 
     def generate_coordinates(self, coordinates):
@@ -140,14 +140,15 @@ class StorageNumpy(np.ndarray, IStorage):
         elif isinstance(coord, slice):
             coordinates = np.array([coord.start, coord.stop])
         else:
-            coordinates = np.array([[coord.start, coord.stop] for coord in coord])
+            coordinates = np.array([[coo.start, coo.stop] for coo in coord])
         return coordinates
 
     def slices_match_numpy_shape(self, sliced_coord):
-        if sliced_coord is None: return None
-        for maxshape in self.shape:
-            for slice in sliced_coord:
-                if not (np.min(slice) >= 0 <= np.max(slice) <= maxshape): raise IndexError('Slices are out of numpy bounds')
+        if sliced_coord is None or len(self.shape) != len(sliced_coord): return
+        else:
+            for i, queried_slice in enumerate(sliced_coord):
+                if queried_slice[1] > self.shape[i]:
+                    print("Queried slice is out of bounds")
 
     def __getitem__(self, sliced_coord):
         log.info("RETRIEVING NUMPY")
@@ -162,7 +163,7 @@ class StorageNumpy(np.ndarray, IStorage):
             if not coordinates:
                 self._numpy_full_loaded = True
                 coordinates = None
-            self._hcache.get_numpy_from_coordinates([self._storage_id], coordinates, [self.view(np.ndarray)])
+            self._hcache.load_numpy_slices([self._storage_id], [self.view(np.ndarray)], coordinates)
             self._loaded_coordinates = coordinates
         return super(StorageNumpy, self).__getitem__(sliced_coord)
 
@@ -173,8 +174,8 @@ class StorageNumpy(np.ndarray, IStorage):
         coo = self.format_coords(sliced_coord)
         coordinates = list(set(it.chain.from_iterable(
             (self._loaded_coordinates, self.generate_coordinates(coo)))))
-        self._hcache.set_numpy([self._storage_id], [numpy], [self.view(np.ndarray)], coordinates)
-        return super(StorageNumpy, self)
+        self._hcache.store_numpy_slices([self._storage_id], [self.view(np.ndarray)], coordinates)
+        return super(StorageNumpy, self).__setitem__(sliced_coord, values)
 
     def make_persistent(self, name):
         if self._is_persistent:
@@ -212,7 +213,7 @@ class StorageNumpy(np.ndarray, IStorage):
 
         self._hcache = HNumpyStore(*self._hcache_params)
         if len(self.shape) != 0:
-            self._hcache.save_numpy([self._storage_id], [self])
+            self._hcache.store_numpy_slices([self._storage_id], [self], None)
         self._store_meta(self._build_args)
 
     def delete_persistent(self):
@@ -252,7 +253,7 @@ class StorageNumpy(np.ndarray, IStorage):
         else:
             outputs = (None,) * ufunc.nout
 
-        self._hcache.get_numpy([self._storage_id], [self.view(np.ndarray)])
+        self._hcache.load_numpy_slices([self._storage_id], [self.view(np.ndarray)], None)
 
         results = super(StorageNumpy, self).__array_ufunc__(ufunc, method,
                                                             *args, **kwargs)
@@ -263,7 +264,7 @@ class StorageNumpy(np.ndarray, IStorage):
             return
 
         if self._is_persistent and len(self.shape):
-            self._hcache.save_numpy([self._storage_id], [self])
+            self._hcache.store_numpy_slices([self._storage_id], [self], None)
 
         if ufunc.nout == 1:
             results = (results,)

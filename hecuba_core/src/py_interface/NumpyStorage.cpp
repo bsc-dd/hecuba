@@ -12,7 +12,6 @@ NumpyStorage::~NumpyStorage() {
 
 };
 
-
 std::list<std::vector<uint32_t> > NumpyStorage::generate_coords(PyObject * coord) const {
     std::vector<uint32_t> crd_inner = {};
     std::list<std::vector<uint32_t> > crd = {};
@@ -30,24 +29,24 @@ std::list<std::vector<uint32_t> > NumpyStorage::generate_coords(PyObject * coord
     return crd;
 }
 
-void *NumpyStorage::store_numpy(const uint64_t *storage_id, PyArrayObject *numpy, PyObject *coord) const {
+void *NumpyStorage::store_numpy_into_coord(const uint64_t *storage_id, PyArrayObject *numpy, PyObject *coord) const {
     ArrayMetadata *np_metas = this->get_np_metadata(numpy);
     np_metas->partition_type = ZORDER_ALGORITHM;
     void *data = PyArray_DATA(numpy);
     std::list<std::vector<uint32_t> > crd = {};
     if (coord != Py_None) crd = generate_coords(coord);
-    this->store_numpy_to_cas(storage_id, np_metas, data, crd);
+    this->store_numpy_into_cas(storage_id, np_metas, data, crd.size());
     this->update_metadata(storage_id, np_metas);
     delete (np_metas);
 }
 
-void *NumpyStorage::coord_list_to_numpy(const uint64_t *storage_id, PyObject *coord, PyArrayObject *save) {
+void *NumpyStorage::load_numpy_from_coord(const uint64_t *storage_id, PyObject *coord, PyArrayObject *save) {
     ArrayMetadata *np_metas = this->get_np_metadata(save);
     np_metas->partition_type = ZORDER_ALGORITHM;
     void *data = PyArray_DATA(save);
     std::list<std::vector<uint32_t> > crd = {};
     if (coord != Py_None) crd = generate_coords(coord);
-    this->read_n_coord(storage_id, np_metas, crd, data);
+    this->read_numpy_from_cas(storage_id, np_metas, crd, data);
     this->update_metadata(storage_id, np_metas);
     delete (np_metas);
 }
@@ -82,20 +81,6 @@ PyObject *NumpyStorage::get_row_elements(const uint64_t *storage_id) {
     uint64_t block_size = BLOCK_SIZE - (BLOCK_SIZE % np_metas->elem_size);
     uint32_t row_elements = (uint32_t) std::floor(pow(block_size / np_metas->elem_size, (1.0 / ndims)));
     return Py_BuildValue("i",row_elements);
-}
-
-/***
- * Reads a numpy ndarray by fetching the clusters indipendently
- * @param storage_id of the array to retrieve
- * @return Numpy ndarray as a Python object
- */
-PyObject *NumpyStorage::read_numpy(const uint64_t *storage_id, PyArrayObject *save) {
-    void *data = PyArray_DATA(save);
-    ArrayMetadata *np_metas = this->get_np_metadata(save);
-    np_metas->partition_type = ZORDER_ALGORITHM;
-    this->read_n_coord(storage_id, np_metas, {}, data);
-    this->update_metadata(storage_id, np_metas);
-    delete (np_metas);
 }
 
 /***
