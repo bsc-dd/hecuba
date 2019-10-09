@@ -50,6 +50,7 @@ extensions = [
         include_dirs=['hecuba_core/src/', 'build/include', numpy.get_include()] + PATH_INCLUDE,
         libraries=['hfetch', 'cassandra'],
         library_dirs=['build/lib', 'build/lib64'] + PATH_LIBS,
+        extra_compile_args=['-std=c++11'],
         extra_link_args=['-Wl,-rpath=$ORIGIN']
     ),
 ]
