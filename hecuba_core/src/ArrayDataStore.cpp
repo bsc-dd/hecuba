@@ -250,8 +250,7 @@ ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
  * @param storage_id of the array to retrieve
  * @return Numpy ndarray as a Python object
  */
-void ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetadata *metadata,
-                                                 std::list<std::vector<uint32_t> > &coord, void *save) {
+void ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetadata *metadata, void *save) {
 
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
@@ -268,7 +267,7 @@ void ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetada
     int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
 
     SpaceFillingCurve::PartitionGenerator *partitions_it = nullptr;
-    partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, coord);
+    partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, {});
 
     while (!partitions_it->isDone()) {
         cluster_id = partitions_it->computeNextClusterId();
@@ -313,7 +312,7 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
     int32_t *block = nullptr;
     int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
     SpaceFillingCurve::PartitionGenerator *partitions_it = nullptr;
-    partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, coord);
+    partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, std::move(coord));
 
     std::set<int32_t> clusters = {};
 

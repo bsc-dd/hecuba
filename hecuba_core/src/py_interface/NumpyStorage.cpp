@@ -33,9 +33,8 @@ void *NumpyStorage::store_numpy_by_coord(const uint64_t *storage_id, PyArrayObje
     ArrayMetadata *np_metas = this->get_np_metadata(numpy);
     np_metas->partition_type = ZORDER_ALGORITHM;
     void *data = PyArray_DATA(numpy);
-    std::list<std::vector<uint32_t> > crd = {};
     if (coord != Py_None) {
-        crd = generate_coords(coord);
+        std::list<std::vector<uint32_t> > crd =  generate_coords(coord);
         this->store_numpy_into_cas_by_coords(storage_id, np_metas, data, crd);
     }
     else this->store_numpy_into_cas(storage_id, np_metas, data);
@@ -47,12 +46,11 @@ void *NumpyStorage::load_numpy_from_coord(const uint64_t *storage_id, PyObject *
     ArrayMetadata *np_metas = this->get_np_metadata(save);
     np_metas->partition_type = ZORDER_ALGORITHM;
     void *data = PyArray_DATA(save);
-    std::list<std::vector<uint32_t> > crd = {};
     if (coord != Py_None) {
-        crd = generate_coords(coord);
+        std::list<std::vector<uint32_t> > crd = generate_coords(coord);
         this->read_numpy_from_cas_by_coords(storage_id, np_metas, crd, data);
     }
-    else this->read_numpy_from_cas(storage_id, np_metas, crd, data);
+    else this->read_numpy_from_cas(storage_id, np_metas, data);
     this->update_metadata(storage_id, np_metas);
     delete (np_metas);
 }

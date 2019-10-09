@@ -33,8 +33,7 @@ public:
     void read_numpy_from_cas_by_coords(const uint64_t *storage_id, ArrayMetadata *metadata,
                              std::list<std::vector<uint32_t> > &coord, void *save);
 
-    void read_numpy_from_cas(const uint64_t *storage_id, ArrayMetadata *metadata,
-                                    std::list<std::vector<uint32_t> > &coord, void *save);
+    void read_numpy_from_cas(const uint64_t *storage_id, ArrayMetadata *metadata, void *save);
 
 
 private:
