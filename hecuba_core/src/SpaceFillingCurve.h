@@ -68,7 +68,7 @@ public:
 
         virtual int32_t computeNextClusterId() = 0;
 
-        virtual void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks, void *data) = 0;
+        virtual void merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks, void *data) = 0;
 
     };
 
@@ -76,7 +76,8 @@ public:
     ~SpaceFillingCurve() {};
 
     static PartitionGenerator *
-    make_partitions_generator(const ArrayMetadata *metas, void *data, std::list<std::vector<uint32_t> > coord);
+    make_partitions_generator(const ArrayMetadata *metas, void *data,
+                              const std::list<std::vector<uint32_t> >& coord);
 
 protected:
 
@@ -92,7 +93,7 @@ protected:
 
         bool isDone() { return done; };
 
-        void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks, void *data);
+        void merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks, void *data);
 
     protected:
         bool done;
@@ -127,7 +128,7 @@ public:
 
     uint64_t getIdFromIndexes(const std::vector<uint32_t> &dims, const std::vector<uint32_t> &indexes);
 
-    void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks, void *data);
+    void merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks, void *data);
 
 private:
     bool done;

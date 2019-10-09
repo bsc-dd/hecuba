@@ -786,7 +786,6 @@ TEST(TestMakePartitions, 3DZorderAndReverse) {
     EXPECT_EQ(elements_found.size(), max_elem);
     EXPECT_EQ(*elements_found.begin(), 0);
     EXPECT_EQ(*elements_found.rbegin(), max_elem - 1);
-    void *array = partitioner->merge_partitions(arr_metas, chunks, nullptr);
 }
 
 
@@ -842,21 +841,6 @@ TEST(TestMakePartitions, 4DZorderAndReverse) {
     EXPECT_EQ(elements_found.size(), max_elem);
     EXPECT_EQ(*elements_found.begin(), 0);
     EXPECT_EQ(*elements_found.rbegin(), max_elem - 1);
-    void *array = partitioner->merge_partitions(arr_metas, chunks, nullptr);
-
-    int32_t *ptr_to_array = (int32_t *) array;
-    for (int32_t elem = 0; elem < max_elem; ++elem) {
-        EXPECT_EQ(elem, *ptr_to_array);
-        ++ptr_to_array;
-    }
-    int32_t equal = memcmp(array, data, arr_size * sizeof(int32_t));
-    EXPECT_TRUE(equal == 0);
-    free(array);
-    delete[](data);
-    delete (arr_metas);
-    for (Partition chunk:chunks) {
-        free(chunk.data);
-    }
     delete (partitioner);
 }
 

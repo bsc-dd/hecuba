@@ -165,6 +165,58 @@ class StorageNumpyTest(unittest.TestCase):
         chunk = casted[slice(None, None, None)]
         self.assertTrue(np.allclose(chunk.view(np.ndarray), test_numpy))
 
+    def test_numpy_all_slices_out_of_bounds(self):
+        coordinates = [slice(200, 1000, None), slice(200,1000, None)]
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_1;")
+        num = 14
+        no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        no.mynumpy = np.arange(10000).reshape((100, 100))
+        myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        chunk = myobj2.mynumpy[coordinates]
+        result = chunk.view(np.ndarray)
+        test_numpy = np.arange(10000).reshape((100, 100))
+        test_numpy = test_numpy[coordinates]
+        self.assertTrue(np.allclose(result, test_numpy))
+
+    def test_numpy_all_slices_out_of_bounds2(self):
+        coordinates = [slice(20, 100, None), slice(20,100, None), slice(20,100, None)]
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_1;")
+        num = 15
+        no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        no.mynumpy = np.arange(1000).reshape((10, 10, 10))
+        myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        chunk = myobj2.mynumpy[coordinates]
+        result = chunk.view(np.ndarray)
+        test_numpy = np.arange(1000).reshape((10, 10, 10))
+        test_numpy = test_numpy[coordinates]
+        self.assertTrue(np.allclose(result, test_numpy))
+
+    def test_numpy_some_slices_out_of_bounds(self):
+        coordinates = [slice(50, 150, None), slice(50,150, None)]
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_1;")
+        num = 16
+        no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        no.mynumpy = np.arange(10000).reshape((100, 100))
+        myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        chunk = myobj2.mynumpy[coordinates]
+        result = chunk.view(np.ndarray)
+        test_numpy = np.arange(10000).reshape((100, 100))
+        test_numpy = test_numpy[coordinates]
+        self.assertTrue(np.allclose(result, test_numpy))
+
+    def test_numpy_some_slices_out_of_bounds2(self):
+        coordinates = [slice(50, 150, None), slice(50,150, None), slice(5,150, None)]
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_1;")
+        num = 16
+        no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        no.mynumpy = np.arange(1000).reshape((10, 10, 10))
+        myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        chunk = myobj2.mynumpy[coordinates]
+        result = chunk.view(np.ndarray)
+        test_numpy = np.arange(1000).reshape((10, 10, 10))
+        test_numpy = test_numpy[coordinates]
+        self.assertTrue(np.allclose(result, test_numpy))
+
     def test_types_persistence(self):
         base_array = np.arange(256)
         tablename = self.ksp + '.' + self.table

@@ -79,9 +79,6 @@ class StorageNumpy(np.ndarray, IStorage):
         self._loaded_coordinates = getattr(obj, '_loaded_coordinates', None)
         self._numpy_full_loaded = getattr(obj, '_numpy_full_loaded', None)
 
-    def __array_wrap__(self, out_arr, context=None):
-        return super(StorageNumpy, self).__array_wrap__(self, out_arr, context)
-
     @staticmethod
     def build_remotely(new_args):
         """
@@ -125,7 +122,7 @@ class StorageNumpy(np.ndarray, IStorage):
                           'write_buffer': config.write_buffer_size,
                           'timestamped_writes': config.timestamped_writes})
         hcache = HNumpyStore(*hcache_params)
-        result = hcache.allocate_numpy([storage_id])
+        result = hcache.allocate_numpy(storage_id)
         return [result[0], result[1], hcache, hcache_params]
 
     def generate_coordinates(self, coordinates):
@@ -144,33 +141,55 @@ class StorageNumpy(np.ndarray, IStorage):
         return coordinates
 
     def slices_match_numpy_shape(self, sliced_coord):
-        if sliced_coord is None or len(self.shape) != len(sliced_coord): return
+        if sliced_coord is None: return True
+        elif len(self.shape) != len(sliced_coord): return False
         else:
             for i, queried_slice in enumerate(sliced_coord):
                 if queried_slice[1] > self.shape[i]:
-                    print("Queried slice is out of bounds")
+                    return False
+            return True
+
+    def get_coords_match_numpy_shape(self, coo):
+        new_coords = self.generate_coordinates(coo)
+        shape_slices = [slice(0, coord) for coord in self.shape]
+        formated_shape_coords = self.format_coords(shape_slices)
+        numpy_coords = self.generate_coordinates(formated_shape_coords)
+        coordinates = []
+        for coord in new_coords:
+            if coord in numpy_coords and coord not in coordinates:
+                coordinates.append(coord)
+        return coordinates
 
     def __getitem__(self, sliced_coord):
         log.info("RETRIEVING NUMPY")
 
-        coo = self.format_coords(sliced_coord)
-        self.slices_match_numpy_shape(coo)
+        #formats sliced coords
+        new_coords = self.format_coords(sliced_coord)
 
-        # coordinates is the union between the loaded coordiantes and the new ones
-        coordinates = list(set(it.chain.from_iterable((self._loaded_coordinates, self.generate_coordinates(coo)))))
+        #checks if some coord in sliced_coords are inside the numpy
+        if not self.slices_match_numpy_shape(new_coords): #some coordinates match
+            new_coords = self.get_coords_match_numpy_shape(new_coords) #generates the coordinates
+            if not new_coords:
+                self._hcache.load_numpy_slices([self._storage_id], [self.view(np.ndarray)], None) #any coordinates generated match
+                return super(StorageNumpy, self).__getitem__(sliced_coord)
+        else: #coordinates match
+            new_coords = self.generate_coordinates(new_coords)
 
+        #coordinates is the union between the loaded coordiantes and the new ones
+        coordinates = list(set(it.chain.from_iterable((self._loaded_coordinates, new_coords))))
+
+        #checks if we already loaded the coordinates
         if ((len(coordinates) != len(self._loaded_coordinates)) and not self._numpy_full_loaded) or (not self._numpy_full_loaded and not coordinates):
             if not coordinates:
                 self._numpy_full_loaded = True
-                coordinates = None
-            self._hcache.load_numpy_slices([self._storage_id], [self.view(np.ndarray)], coordinates)
+                new_coords = None
+            self._hcache.load_numpy_slices([self._storage_id], [self.view(np.ndarray)], new_coords)
             self._loaded_coordinates = coordinates
         return super(StorageNumpy, self).__getitem__(sliced_coord)
 
+
     def __setitem__(self, sliced_coord, values):
-        log.info("WRITTING NUMPY")
-        numpy = self.view(np.ndarray)
-        numpy[sliced_coord] = values
+        log.info("WRITING NUMPY")
         coo = self.format_coords(sliced_coord)
         coordinates = list(set(it.chain.from_iterable(
             (self._loaded_coordinates, self.generate_coordinates(coo)))))

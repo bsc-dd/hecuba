@@ -431,22 +431,8 @@ static PyObject *allocate_numpy(HNumpyStore *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, "O", &py_keys)) {
         return NULL;
     }
-    for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
-        if (PyList_GetItem(py_keys, key_i) == Py_None) {
-            std::string error_msg = "Keys can't be None, key_position: " + std::to_string(key_i);
-            PyErr_SetString(PyExc_TypeError, error_msg.c_str());
-            return NULL;
-        }
-    }
 
-    // Only one uuid as a key
-    if (PyList_Size(py_keys) != 1) {
-        std::string error_msg = "Only one uuid as a key can be passed";
-        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
-        return NULL;
-    };
-
-    const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
+    const uint64_t *storage_id = parse_uuid(py_keys);
     PyObject *res, *obj;
     try {
         res = self->NumpyDataStore->reserve_numpy_space(storage_id);
@@ -513,7 +499,7 @@ static PyObject *store_numpy_slices(HNumpyStore *self, PyObject *args) {
 
     const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
     try {
-        self->NumpyDataStore->store_numpy_into_coord(storage_id, numpy_arr_v, py_coord);
+        self->NumpyDataStore->store_numpy_by_coord(storage_id, numpy_arr_v, py_coord);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
