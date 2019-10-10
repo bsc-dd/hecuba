@@ -88,9 +88,11 @@ class StorageObjTest(unittest.TestCase):
 
     def test_init(self):
         # still in development
+        original_exec = config.session.execute
         config.session.execute = Mock(return_value=None)
         nopars = Words()
         config.session.execute.assert_not_called()
+        config.session.execute = original_exec
 
     def test_init_pdict(self):
         t = TestStorageObj()

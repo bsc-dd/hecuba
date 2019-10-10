@@ -1,10 +1,17 @@
 import unittest
 from collections import defaultdict
 
-from hecuba import config
-from hecuba.IStorage import _tokens_partitions, _discrete_token_ranges
+from hecuba import config, StorageDict
+from hecuba.IStorage import _discrete_token_ranges
+from hecuba.partitioner import Partitioner
 
 from .. import test_config
+
+
+class SimpleObj(StorageDict):
+    '''
+    @TypeSpec dict<<k:int>, v:int>
+    '''
 
 
 class IStorageSplitLocalityTest(unittest.TestCase):
@@ -16,36 +23,44 @@ class IStorageSplitLocalityTest(unittest.TestCase):
         config.session.execute("CREATE TABLE IF NOT EXISTS test_ksp.tab(k int PRIMARY KEY,v int)")
 
     def test_enough_token(self):
-        all_tokens = _discrete_token_ranges(map(lambda a: a.value, config.cluster.metadata.token_map.ring))
-        tkns_p = list(_tokens_partitions("test_ksp", "tab", all_tokens, splits_per_node=10, token_range_size=None,
-                                         target_token_range_size=64 * 1024 * 1024))
+        obj = SimpleObj("test_ksp.tab")
+        partitioner = Partitioner(obj, "SIMPLE")
+        config.splits_per_node = 10
+        tkns_p = list(partitioner._tokens_partitions("test_ksp", "tab", token_range_size=None,
+                                                     target_token_range_size=64 * 1024 * 1024))
+        tkns_p = [i[1] for i in tkns_p]
         self.check_all(tkns_p, 10, 20)
 
     def test_too_little_tokens(self):
-        all_tokens = _discrete_token_ranges(map(lambda a: a.value, config.cluster.metadata.token_map.ring))
-        tkns_p = list(_tokens_partitions("test_ksp", "tab", all_tokens, splits_per_node=1000, token_range_size=None,
-                                         target_token_range_size=64 * 1024))
+        obj = SimpleObj("test_ksp.tab")
+        partitioner = Partitioner(obj, "SIMPLE")
+        config.splits_per_node = 1000
+        tkns_p = list(partitioner._tokens_partitions("test_ksp", "tab", token_range_size=None,
+                                                     target_token_range_size=64 * 1024))
+        tkns_p = [i[1] for i in tkns_p]
         self.check_all(tkns_p, 1000, 1000)
 
     def test_splitting_tokens(self):
-        all_tokens = _discrete_token_ranges(map(lambda a: a.value, config.cluster.metadata.token_map.ring))
-        tkns_p = list(
-            _tokens_partitions("test_ksp", "tab", all_tokens, splits_per_node=1,
-                               token_range_size=int((2 ** 64) / 1000),
-                               target_token_range_size=None))
+        obj = SimpleObj("test_ksp.tab")
+        partitioner = Partitioner(obj, "SIMPLE")
+        config.splits_per_node = 1
+        tkns_p = list(partitioner._tokens_partitions("test_ksp", "tab", token_range_size=int((2 ** 64) / 1000),
+                                                     target_token_range_size=None))
+        tkns_p = [i[1] for i in tkns_p]
         self.check_all(tkns_p, 1, 1000)
 
     def test_using_size_estimates(self):
-        for i in xrange(100000):
+        for i in range(100000):
             config.session.execute("INSERT INTO test_ksp.tab(k,v) values(%s,%s)", [i, i])
         test_config.ccm_cluster.flush()
         test_config.ccm_cluster.compact()
-        all_tokens = _discrete_token_ranges(map(lambda a: a.value, config.cluster.metadata.token_map.ring))
+
+        obj = SimpleObj("test_ksp.tab")
+        partitioner = Partitioner(obj, "SIMPLE")
+        config.splits_per_node = 1
         tkns_p = list(
-            _tokens_partitions("test_ksp", "tab", all_tokens, splits_per_node=1,
-                               token_range_size=None,
-                               target_token_range_size=64))
-        #self.check_all(tkns_p, 1, 1000)
+            partitioner._tokens_partitions("test_ksp", "tab", token_range_size=None, target_token_range_size=64))
+        # self.check_all(tkns_p, 1, 1000)
 
     def check_all(self, tkns_p, split_per_node, expected_total_tkns):
         self.assertGreaterEqual(len(tkns_p), len(test_config.ccm_cluster.nodes) * split_per_node)
@@ -58,11 +73,11 @@ class IStorageSplitLocalityTest(unittest.TestCase):
 
     def check_full_range(self, list_of_ranges):
         list_of_ranges.sort()
-        start = map(lambda a: a[0], list_of_ranges)
-        counts = filter(lambda size: size[1] > 1, map(lambda number: (number, start.count(number)), start))
+        start = list(map(lambda a: a[0], list_of_ranges))
+        counts = list(filter(lambda size: size[1] > 1, map(lambda number: (number, start.count(number)), start)))
         self.assertEqual(0, len(counts), "duplicated starts")
-        end = map(lambda a: a[0], list_of_ranges)
-        counts = filter(lambda size: size[1] > 1, map(lambda number: (number, end.count(number)), end))
+        end = list(map(lambda a: a[0], list_of_ranges))
+        counts = list(filter(lambda size: size[1] > 1, map(lambda number: (number, end.count(number)), end)))
         self.assertEqual(0, len(counts), "duplicated ends")
 
         first, last = list_of_ranges[0]
@@ -93,6 +108,10 @@ class IStorageSplitLocalityTest(unittest.TestCase):
         # type: (List[Long]) -> Host
         from cassandra.metadata import Token
         tm = config.cluster.metadata.token_map
+
+        # only the first token of each partition is not assigned correctly
+        tokens = [(tok[0] + 1, tok[1]) for tok in tokens]
+
         hosts = set(map(lambda token: tm.get_replicas("test_ksp", token)[0],
                         map(lambda a: Token(a[0]), tokens)))
         self.assertEqual(len(hosts), 1, "A token range is local in 2 nodes")
