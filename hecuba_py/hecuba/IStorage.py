@@ -1,10 +1,9 @@
 import re
-import uuid
 from bisect import bisect_right
 from collections import namedtuple, defaultdict
-from time import time
 
-from hecuba import config, log
+from hecuba import config
+from hecuba.partitioner import partitioner_split
 
 
 class AlreadyPersistentError(RuntimeError):
@@ -75,61 +74,6 @@ def process_path(module_path):
     return class_name, module
 
 
-def _tokens_partitions(ksp, table, tokens_ranges, splits_per_node, token_range_size, target_token_range_size):
-    """
-    Method that calculates the new token partitions for a given object
-    Args:
-        tokens: current number of tokens of the object
-        min_tokens_per_worker: defined minimum number of tokens
-        number_of_workers: defined
-    Returns:
-        a partition every time it's called
-        :type tokens_ranges: list[(long,long)]
-    """
-
-    tm = config.cluster.metadata.token_map
-    tmap = tm.tokens_to_hosts_by_ks.get(ksp, None)
-    from cassandra.metadata import Murmur3Token
-    tokens_murmur3 = map(lambda a: (Murmur3Token(a[0]), a[1]), tokens_ranges)
-    if not tmap:
-        tm.rebuild_keyspace(ksp, build_if_absent=True)
-        tmap = tm.tokens_to_hosts_by_ks[ksp]
-
-    tokens_per_node = defaultdict(list)
-    for tmumur, t_to in tokens_murmur3:
-        point = bisect_right(tm.ring, tmumur)
-        if point == len(tm.ring):
-            tokens_per_node[tmap[tm.ring[0]][0]].append((tmumur.value, t_to))
-        else:
-            tokens_per_node[tmap[tm.ring[point]][0]].append((tmumur.value, t_to))
-
-    n_nodes = len(tokens_per_node)
-    step_size = _max_token // (splits_per_node * n_nodes)
-    if token_range_size:
-        step_size = token_range_size
-    elif target_token_range_size:
-        one = config.session.execute(_size_estimates, [ksp, table]).one()
-        if one:
-            (mean_p_size, p_count) = one
-            estimated_size = mean_p_size * p_count
-            if estimated_size > 0:
-                step_size = _max_token // (
-                    max(estimated_size / target_token_range_size,
-                        splits_per_node * n_nodes)
-                )
-
-    for tokens_in_node in tokens_per_node.values():
-        partition = []
-        for fraction, to in tokens_in_node:
-            while fraction < to - step_size:
-                partition.append((fraction, fraction + step_size))
-                fraction += step_size
-            partition.append((fraction, to))
-        group_size = max(len(partition) // splits_per_node, 1)
-        for i in range(0, len(partition), group_size):
-            yield partition[i:i + group_size]
-
-
 def _discrete_token_ranges(tokens):
     """
     Makes proper tokens ranges ensuring that in a tuple (a,b) a <= b
@@ -181,20 +125,7 @@ class IStorage:
         Returns:
             a subobject everytime is called
         """
-        st = time()
-        tokens = self._build_args.tokens
-
-        for token_split in _tokens_partitions(self._ksp, self._table, tokens,
-                                              config.splits_per_node,
-                                              config.token_range_size,
-                                              config.target_token_range_size):
-            storage_id = uuid.uuid4()
-            log.debug('assigning to %s %d  tokens', str(storage_id), len(token_split))
-            new_args = self._build_args._replace(tokens=token_split, storage_id=storage_id)
-            args_dict = new_args._asdict()
-            args_dict["built_remotely"] = False
-            yield self.__class__.build_remotely(args_dict)
-        log.debug('completed split of %s in %f', self.__class__.__name__, time() - st)
+        return partitioner_split(self)
 
     def _get_istorage_attrs(self, storage_id):
         return list(config.session.execute(_select_istorage_meta, [storage_id]))

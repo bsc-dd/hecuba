@@ -1,5 +1,6 @@
 import uuid
 
+
 def init(config_file_path=None):
     """
     Function that can be useful when running the application with COMPSs >= 2.0
@@ -38,7 +39,28 @@ def start_task(params):
     Args:
         params: a list of objects (Blocks, StorageObjs, strings, ints, ...)
     """
-    pass
+    from hecuba import config
+    import time
+    for param in params:
+        uid = None
+        try:
+            uid = uuid.UUID(param.__dict__["key"])
+        except KeyError:
+            pass
+        try:
+            uid = param._storage_id
+        except AttributeError:
+            pass
+
+        if uid is not None:
+            try:
+                prepare = config.session.prepare("""UPDATE hecuba.partitioning
+                                                    SET start_time = ?
+                                                    WHERE storage_id = ?""")
+                config.session.execute(prepare, [time.time(), uid])
+            except:
+                pass
+            break
 
 
 def end_task(params):
@@ -48,7 +70,28 @@ def end_task(params):
     Args:
         params: a list of objects (Blocks, StorageObjs, strings, ints, ...)
     """
-    pass
+    from hecuba import config
+    import time
+    for param in params:
+        uid = None
+        try:
+            uid = uuid.UUID(param.__dict__["key"])
+        except KeyError:
+            pass
+        try:
+            uid = param._storage_id
+        except AttributeError:
+            pass
+
+        if uid is not None:
+            try:
+                prepare = config.session.prepare("""UPDATE hecuba.partitioning
+                                                    SET end_time = ?
+                                                    WHERE storage_id = ?""")
+                config.session.execute(prepare, [time.time(), uid])
+            except:
+                pass
+            break
 
 
 class TaskContext(object):
