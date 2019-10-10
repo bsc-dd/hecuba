@@ -86,7 +86,8 @@ void ArrayDataStore::update_metadata(const uint64_t *storage_id, ArrayMetadata *
     cache->put_crow(keys, values);
 }
 
-void ArrayDataStore::store_numpy_into_cas_by_coords(const uint64_t *storage_id, ArrayMetadata *metadata, void *data, std::list<std::vector<uint32_t> > &coord) const {
+void ArrayDataStore::store_numpy_into_cas_by_coords(const uint64_t *storage_id, ArrayMetadata *metadata, void *data,
+                                                    std::list<std::vector<uint32_t> > &coord) const {
 
     char *keys = nullptr;
     void *values = nullptr;
@@ -95,21 +96,21 @@ void ArrayDataStore::store_numpy_into_cas_by_coords(const uint64_t *storage_id, 
     uint32_t half_int = 0;//(uint32_t)-1 >> (sizeof(uint32_t)*CHAR_BIT/2); //TODO be done properly
     int32_t cluster_id, block_id;
 
-    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata, data,
-                                                                                                       coord);
+    SpaceFillingCurve::PartitionGenerator *partitions_it = new ZorderCurveGeneratorFiltered(metadata, data,
+                                                                                            coord);
 
     std::set<int32_t> clusters = {};
     std::list<Partition> partitions = {};
 
-    while (!partitions_it->isDone()) {clusters.insert(partitions_it->computeNextClusterId()); }
-    partitions_it = this->partitioner.make_partitions_generator(metadata, data, {});
+    while (!partitions_it->isDone()) { clusters.insert(partitions_it->computeNextClusterId()); }
+    partitions_it = new ZorderCurveGeneratorFiltered(metadata, data, coord);
     while (!partitions_it->isDone()) {
         clusters.insert(partitions_it->computeNextClusterId());
         auto part = partitions_it->getNextPartition();
-        if(clusters.find(part.cluster_id) != clusters.end()) partitions.push_back(part);
+        if (clusters.find(part.cluster_id) != clusters.end()) partitions.push_back(part);
     }
 
-    for (auto it = partitions.begin(); it != partitions.end(); ++it){
+    for (auto it = partitions.begin(); it != partitions.end(); ++it) {
         auto part = *it;
         keys = (char *) malloc(keys_size);
         //UUID
@@ -144,10 +145,9 @@ void ArrayDataStore::store_numpy_into_cas_by_coords(const uint64_t *storage_id, 
  * @param np_metas ndarray characteristics
  * @param numpy to be saved into storage
  */
-void ArrayDataStore::store_numpy_into_cas(const uint64_t *storage_id, ArrayMetadata *metadata, void *data) const{
+void ArrayDataStore::store_numpy_into_cas(const uint64_t *storage_id, ArrayMetadata *metadata, void *data) const {
 
-    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata, data,
-                                                                                                       {});
+    auto partitions_it = this->partitioner.make_partitions_generator(metadata, data);
 
     char *keys = nullptr;
     void *values = nullptr;
@@ -256,7 +256,6 @@ void ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetada
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
 
 
-
     std::vector<const TupleRow *> result, all_results;
     std::vector<Partition> all_partitions;
 
@@ -266,8 +265,7 @@ void ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetada
     int32_t *block = nullptr;
     int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
 
-    SpaceFillingCurve::PartitionGenerator *partitions_it = nullptr;
-    partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, {});
+    auto partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr);
 
     while (!partitions_it->isDone()) {
         cluster_id = partitions_it->computeNextClusterId();
@@ -311,9 +309,7 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
     int32_t offset = 0;
     int32_t *block = nullptr;
     int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
-    SpaceFillingCurve::PartitionGenerator *partitions_it = nullptr;
-    partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, std::move(coord));
-
+    auto partitions_it = new ZorderCurveGeneratorFiltered(metadata, nullptr, coord);
     std::set<int32_t> clusters = {};
 
     while (!partitions_it->isDone()) {
@@ -321,7 +317,7 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
     }
 
     std::set<int32_t>::iterator it = clusters.begin();
-    for (; it != clusters.end(); ++it ){
+    for (; it != clusters.end(); ++it) {
         buffer = (char *) malloc(keys_size);
         //UUID
         c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};

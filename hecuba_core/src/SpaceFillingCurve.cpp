@@ -9,15 +9,11 @@
  * @return
  */
 SpaceFillingCurve::PartitionGenerator *
-SpaceFillingCurve::make_partitions_generator(const ArrayMetadata *metas, void *data,
-                                             const std::list<std::vector<uint32_t> >& coord) {
+SpaceFillingCurve::make_partitions_generator(const ArrayMetadata *metas, void *data) {
     if (!metas) throw ModuleException("Array metadata not present");
-    if (metas->partition_type == ZORDER_ALGORITHM && !coord.empty())
-        return new ZorderCurveGeneratorFiltered(metas, data, coord);
     if (metas->partition_type == ZORDER_ALGORITHM) return new ZorderCurveGenerator(metas, data);
     return new SpaceFillingGenerator(metas, data);
 }
-
 
 SpaceFillingCurve::SpaceFillingGenerator::SpaceFillingGenerator() : done(true) {}
 
@@ -69,7 +65,6 @@ ZorderCurveGenerator::ZorderCurveGenerator() : done(true) {}
 
 ZorderCurveGenerator::ZorderCurveGenerator(const ArrayMetadata *metas, void *data) : done(false), metas(metas),
                                                                                      data(data) {
-
     ndims = (uint32_t) metas->dims.size();
     //Compute the best fitting block
     //Make the block size multiple of the element size
@@ -278,9 +273,13 @@ int32_t ZorderCurveGenerator::computeNextClusterId() {
     std::vector<uint32_t> block_ccs = getIndexes(block_counter, blocks_dim);
     uint64_t zorder_id = computeZorder(block_ccs);
 
-    //2D-3D count z dim until blocks_dim[0] (++block_counter), after that increment block_counter by blocks_dim[0]^(ndim - 2)*(CLUSTER_SIZE << 1)
-
-    block_counter += ((blocks_dim[0] - block_counter == 0) * (std::pow(blocks_dim[0], blocks_dim.size() - 2) * (CLUSTER_SIZE << 1))) > 0 || 1;
+    uint64_t blocks_inside_cluster = 1;
+    for (auto dim = 2; dim < blocks_dim.size(); ++dim) {
+        blocks_inside_cluster *= blocks_dim[dim];
+    }
+    uint64_t blocks_to_add = (((blocks_inside_cluster - 1) - block_counter == 0) *
+                              ((blocks_inside_cluster - 1) * (CLUSTER_SIZE << 1)));
+    block_counter += blocks_to_add > 0 ? blocks_to_add : 1;
 
     if (block_counter == nblocks) done = true;
     //Block parameters
@@ -427,6 +426,17 @@ bool ZorderCurveGeneratorFiltered::isDone() {
     return done;
 
 }
+
+ZorderCurveGeneratorFiltered::ZorderCurveGeneratorFiltered(const ArrayMetadata *metas, void *data,
+                                                           std::list<std::vector<uint32_t> > &coord)
+        : ZorderCurveGenerator(metas, data) {
+    this->coord = coord;
+}
+
+
+
+
+
 
 
 

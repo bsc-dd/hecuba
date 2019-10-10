@@ -321,7 +321,7 @@ static PyMethodDef hcache_type_methods[] = {
         {"iterkeys",   (PyCFunction) create_iter_keys,   METH_VARARGS, NULL},
         {"itervalues", (PyCFunction) create_iter_values, METH_VARARGS, NULL},
         {"iteritems",  (PyCFunction) create_iter_items,  METH_VARARGS, NULL},
-        {NULL, NULL,                                     0,            NULL}
+        {NULL, NULL, 0,                                                NULL}
 };
 
 
@@ -499,7 +499,7 @@ static PyObject *store_numpy_slices(HNumpyStore *self, PyObject *args) {
 
     const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
     try {
-        self->NumpyDataStore->store_numpy_by_coord(storage_id, numpy_arr_v, py_coord);
+        self->NumpyDataStore->store_numpy(storage_id, numpy_arr_v, py_coord);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -561,7 +561,7 @@ static PyObject *load_numpy_slices(HNumpyStore *self, PyObject *args) {
     }
     const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
     try {
-        self->NumpyDataStore->load_numpy_from_coord(storage_id, py_coord, numpy_arr);
+        self->NumpyDataStore->load_numpy(storage_id, py_coord, numpy_arr);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -690,10 +690,10 @@ static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) 
 
 
 static PyMethodDef hnumpy_store_type_methods[] = {
-        {"allocate_numpy", (PyCFunction) allocate_numpy, METH_VARARGS, NULL},
+        {"allocate_numpy",     (PyCFunction) allocate_numpy,     METH_VARARGS, NULL},
         {"store_numpy_slices", (PyCFunction) store_numpy_slices, METH_VARARGS, NULL},
-        {"load_numpy_slices", (PyCFunction) load_numpy_slices, METH_VARARGS, NULL},
-        {NULL, NULL, 0, NULL}
+        {"load_numpy_slices",  (PyCFunction) load_numpy_slices,  METH_VARARGS, NULL},
+        {NULL, NULL, 0,                                                        NULL}
 };
 
 
@@ -913,7 +913,7 @@ static void hiter_dealloc(HIterator *self) {
 
 static PyMethodDef hiter_type_methods[] = {
         {"get_next", (PyCFunction) get_next, METH_NOARGS, NULL},
-        {NULL, NULL,                         0,           NULL}
+        {NULL, NULL, 0,                                   NULL}
 };
 
 
@@ -1102,7 +1102,7 @@ static void hwriter_dealloc(HWriter *self) {
 
 static PyMethodDef hwriter_type_methods[] = {
         {"write", (PyCFunction) write_cass, METH_VARARGS, NULL},
-        {NULL, NULL,                        0,            NULL}
+        {NULL, NULL, 0,                                   NULL}
 };
 
 static PyTypeObject hfetch_HWriterType = {
@@ -1154,7 +1154,7 @@ static PyTypeObject hfetch_HWriterType = {
 static PyMethodDef module_methods[] = {
         {"connectCassandra",    (PyCFunction) connectCassandra,    METH_VARARGS, NULL},
         {"disconnectCassandra", (PyCFunction) disconnectCassandra, METH_NOARGS,  NULL},
-        {NULL, NULL,                                               0,            NULL}
+        {NULL, NULL, 0,                                                          NULL}
 };
 
 
@@ -1186,8 +1186,7 @@ static PyObject *create_iter_items(HCache *self, PyObject *args) {
                 config[conf_key] = std::to_string(c_val);
             }
         }
-    } else if PyLong_Check((py_config))
-    {
+    } else if PyLong_Check((py_config)) {
         int32_t c_val = (int32_t) PyLong_AsLong(py_config);
         config["prefetch_size"] = std::to_string(c_val);
     }
@@ -1245,8 +1244,7 @@ static PyObject *create_iter_keys(HCache *self, PyObject *args) {
             }
 
         }
-    } else if PyLong_Check((py_config))
-    {
+    } else if PyLong_Check((py_config)) {
         int32_t c_val = (int32_t) PyLong_AsLong(py_config);
         config["prefetch_size"] = std::to_string(c_val);
     }
@@ -1300,8 +1298,7 @@ static PyObject *create_iter_values(HCache *self, PyObject *args) {
             }
 
         }
-    } else if PyLong_Check((py_config))
-    {
+    } else if PyLong_Check((py_config)) {
         int32_t c_val = (int32_t) PyLong_AsLong(py_config);
         config["prefetch_size"] = std::to_string(c_val);
     }
@@ -1376,10 +1373,10 @@ PyInit_hfetch(void) {
     f = m->ob_type->tp_dealloc;
     m->ob_type->tp_dealloc = module_dealloc;
 
-    PyModule_AddObject(m, "Hcache", (PyObject * ) & hfetch_HCacheType);
-    PyModule_AddObject(m, "HIterator", (PyObject * ) & hfetch_HIterType);
-    PyModule_AddObject(m, "HWriter", (PyObject * ) & hfetch_HWriterType);
-    PyModule_AddObject(m, "HNumpyStore", (PyObject * ) & hfetch_HNumpyStoreType);
+    PyModule_AddObject(m, "Hcache", (PyObject *) &hfetch_HCacheType);
+    PyModule_AddObject(m, "HIterator", (PyObject *) &hfetch_HIterType);
+    PyModule_AddObject(m, "HWriter", (PyObject *) &hfetch_HWriterType);
+    PyModule_AddObject(m, "HNumpyStore", (PyObject *) &hfetch_HNumpyStoreType);
     if (_import_array() < 0) {
         PyErr_Print();
         PyErr_SetString(PyExc_ImportError, "numpy.core.multiarray failed to import");

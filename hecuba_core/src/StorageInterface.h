@@ -17,7 +17,7 @@
 
 #include "ArrayDataStore.h"
 
-typedef std::map <std::string, std::string> config_map;
+typedef std::map<std::string, std::string> config_map;
 
 
 class StorageInterface {
@@ -49,9 +49,9 @@ public:
 
 
     ArrayDataStore *make_arrray_store(const char *table, const char *keyspace,
-                        std::vector<config_map> &keys_names,
-                        std::vector<config_map> &columns_names,
-                        config_map &config);
+                                      std::vector<config_map> &keys_names,
+                                      std::vector<config_map> &columns_names,
+                                      config_map &config);
 
     Prefetch *get_iterator(const char *table, const char *keyspace,
                            std::vector<config_map> &keys_names,

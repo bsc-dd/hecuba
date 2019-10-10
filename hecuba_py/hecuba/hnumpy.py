@@ -1,6 +1,6 @@
+import itertools as it
 import uuid
 from collections import namedtuple
-import itertools as it
 
 import numpy as np
 from hfetch import HNumpyStore
@@ -129,11 +129,12 @@ class StorageNumpy(np.ndarray, IStorage):
         if coordinates is None: return []
         coord = [coordinates[:, coord] // self._row_elem for coord in
                  range(len(coordinates[0]))]  # coords divided by number of elem in a row
-        keys = list([coord for coord in it.product(*(range(*r) for r in zip(coord[0], coord[1]+1)))])
+        keys = list([coord for coord in it.product(*(range(*r) for r in zip(coord[0], coord[1] + 1)))])
         return keys
 
     def format_coords(self, coord):
-        if coord == slice(None, None, None) or slice(None, None, None) in coord: return None
+        if coord == slice(None, None, None) or slice(None, None, None) in coord:
+            return None
         elif isinstance(coord, slice):
             coordinates = np.array([coord.start, coord.stop])
         else:
@@ -141,8 +142,10 @@ class StorageNumpy(np.ndarray, IStorage):
         return coordinates
 
     def slices_match_numpy_shape(self, sliced_coord):
-        if sliced_coord is None: return True
-        elif len(self.shape) != len(sliced_coord): return False
+        if sliced_coord is None:
+            return True
+        elif len(self.shape) != len(sliced_coord):
+            return False
         else:
             for i, queried_slice in enumerate(sliced_coord):
                 if queried_slice[1] > self.shape[i]:
@@ -163,30 +166,31 @@ class StorageNumpy(np.ndarray, IStorage):
     def __getitem__(self, sliced_coord):
         log.info("RETRIEVING NUMPY")
 
-        #formats sliced coords
+        # formats sliced coords
         new_coords = self.format_coords(sliced_coord)
 
-        #checks if some coord in sliced_coords are inside the numpy
-        if not self.slices_match_numpy_shape(new_coords): #some coordinates match
-            new_coords = self.get_coords_match_numpy_shape(new_coords) #generates the coordinates
+        # checks if some coord in sliced_coords are inside the numpy
+        if not self.slices_match_numpy_shape(new_coords):  # some coordinates match
+            new_coords = self.get_coords_match_numpy_shape(new_coords)  # generates the coordinates
             if not new_coords:
-                self._hcache.load_numpy_slices([self._storage_id], [self.view(np.ndarray)], None) #any coordinates generated match
+                self._hcache.load_numpy_slices([self._storage_id], [self.view(np.ndarray)],
+                                               None)  # any coordinates generated match
                 return super(StorageNumpy, self).__getitem__(sliced_coord)
-        else: #coordinates match
+        else:  # coordinates match
             new_coords = self.generate_coordinates(new_coords)
 
-        #coordinates is the union between the loaded coordiantes and the new ones
+        # coordinates is the union between the loaded coordiantes and the new ones
         coordinates = list(set(it.chain.from_iterable((self._loaded_coordinates, new_coords))))
 
-        #checks if we already loaded the coordinates
-        if ((len(coordinates) != len(self._loaded_coordinates)) and not self._numpy_full_loaded) or (not self._numpy_full_loaded and not coordinates):
+        # checks if we already loaded the coordinates
+        if ((len(coordinates) != len(self._loaded_coordinates)) and not self._numpy_full_loaded) or (
+                not self._numpy_full_loaded and not coordinates):
             if not coordinates:
                 self._numpy_full_loaded = True
                 new_coords = None
             self._hcache.load_numpy_slices([self._storage_id], [self.view(np.ndarray)], new_coords)
             self._loaded_coordinates = coordinates
         return super(StorageNumpy, self).__getitem__(sliced_coord)
-
 
     def __setitem__(self, sliced_coord, values):
         log.info("WRITING NUMPY")

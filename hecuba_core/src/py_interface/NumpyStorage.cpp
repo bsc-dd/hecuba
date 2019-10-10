@@ -12,7 +12,7 @@ NumpyStorage::~NumpyStorage() {
 
 };
 
-std::list<std::vector<uint32_t> > NumpyStorage::generate_coords(PyObject * coord) const {
+std::list<std::vector<uint32_t> > NumpyStorage::generate_coords(PyObject *coord) const {
     std::vector<uint32_t> crd_inner = {};
     std::list<std::vector<uint32_t> > crd = {};
     crd_inner.resize((PyTuple_Size(PyList_GetItem(coord, 0))));
@@ -29,28 +29,26 @@ std::list<std::vector<uint32_t> > NumpyStorage::generate_coords(PyObject * coord
     return crd;
 }
 
-void *NumpyStorage::store_numpy_by_coord(const uint64_t *storage_id, PyArrayObject *numpy, PyObject *coord) const {
+void *NumpyStorage::store_numpy(const uint64_t *storage_id, PyArrayObject *numpy, PyObject *coord) const {
     ArrayMetadata *np_metas = this->get_np_metadata(numpy);
     np_metas->partition_type = ZORDER_ALGORITHM;
     void *data = PyArray_DATA(numpy);
     if (coord != Py_None) {
-        std::list<std::vector<uint32_t> > crd =  generate_coords(coord);
+        std::list<std::vector<uint32_t> > crd = generate_coords(coord);
         this->store_numpy_into_cas_by_coords(storage_id, np_metas, data, crd);
-    }
-    else this->store_numpy_into_cas(storage_id, np_metas, data);
+    } else this->store_numpy_into_cas(storage_id, np_metas, data);
     this->update_metadata(storage_id, np_metas);
     delete (np_metas);
 }
 
-void *NumpyStorage::load_numpy_from_coord(const uint64_t *storage_id, PyObject *coord, PyArrayObject *save) {
+void *NumpyStorage::load_numpy(const uint64_t *storage_id, PyObject *coord, PyArrayObject *save) {
     ArrayMetadata *np_metas = this->get_np_metadata(save);
     np_metas->partition_type = ZORDER_ALGORITHM;
     void *data = PyArray_DATA(save);
     if (coord != Py_None) {
         std::list<std::vector<uint32_t> > crd = generate_coords(coord);
         this->read_numpy_from_cas_by_coords(storage_id, np_metas, crd, data);
-    }
-    else this->read_numpy_from_cas(storage_id, np_metas, data);
+    } else this->read_numpy_from_cas(storage_id, np_metas, data);
     this->update_metadata(storage_id, np_metas);
     delete (np_metas);
 }
@@ -84,7 +82,7 @@ PyObject *NumpyStorage::get_row_elements(const uint64_t *storage_id) {
     uint32_t ndims = (uint32_t) np_metas->dims.size();
     uint64_t block_size = BLOCK_SIZE - (BLOCK_SIZE % np_metas->elem_size);
     uint32_t row_elements = (uint32_t) std::floor(pow(block_size / np_metas->elem_size, (1.0 / ndims)));
-    return Py_BuildValue("i",row_elements);
+    return Py_BuildValue("i", row_elements);
 }
 
 /***
