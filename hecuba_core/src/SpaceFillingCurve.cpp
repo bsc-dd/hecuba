@@ -15,6 +15,14 @@ SpaceFillingCurve::make_partitions_generator(const ArrayMetadata *metas, void *d
     return new SpaceFillingGenerator(metas, data);
 }
 
+SpaceFillingCurve::PartitionGenerator *
+SpaceFillingCurve::make_partitions_generator(const ArrayMetadata *metas, void *data,
+                                             std::list<std::vector<uint32_t> > &coord) {
+    if (!metas) throw ModuleException("Array metadata not present");
+    if (metas->partition_type == ZORDER_ALGORITHM) return new ZorderCurveGeneratorFiltered(metas, data, coord);
+    return new SpaceFillingGenerator(metas, data);
+}
+
 SpaceFillingCurve::SpaceFillingGenerator::SpaceFillingGenerator() : done(true) {}
 
 SpaceFillingCurve::SpaceFillingGenerator::SpaceFillingGenerator(const ArrayMetadata *metas, void *data) : done(false),
@@ -273,13 +281,7 @@ int32_t ZorderCurveGenerator::computeNextClusterId() {
     std::vector<uint32_t> block_ccs = getIndexes(block_counter, blocks_dim);
     uint64_t zorder_id = computeZorder(block_ccs);
 
-    uint64_t blocks_inside_cluster = 1;
-    for (auto dim = 2; dim < blocks_dim.size(); ++dim) {
-        blocks_inside_cluster *= blocks_dim[dim];
-    }
-    uint64_t blocks_to_add = (((blocks_inside_cluster - 1) - block_counter == 0) *
-                              ((blocks_inside_cluster - 1) * (CLUSTER_SIZE << 1)));
-    block_counter += blocks_to_add > 0 ? blocks_to_add : 1;
+    block_counter += ((blocks_dim.size() == 2) * (CLUSTER_SIZE << 1)) + (blocks_dim.size() != 2);
 
     if (block_counter == nblocks) done = true;
     //Block parameters

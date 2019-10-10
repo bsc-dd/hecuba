@@ -74,6 +74,9 @@ public:
     static PartitionGenerator *
     make_partitions_generator(const ArrayMetadata *metas, void *data);
 
+    static PartitionGenerator *make_partitions_generator(const ArrayMetadata *metas, void *data,
+                                                         std::list<std::vector<uint32_t> > &coord);
+
 
 protected:
 
