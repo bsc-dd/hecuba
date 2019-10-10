@@ -4,6 +4,7 @@ language: python
 python:
   - '3.6'
   - '3.7'
+  - '3.8-dev'
 services:
   - docker
 
@@ -17,7 +18,6 @@ stages:
   - build_wheel_manylinux1
 
 before_install:
-  - export CFLAGS='-std=c++11'
   - source .travis/install_openjdk8.sh
 
 # command to install dependencies
@@ -65,3 +65,4 @@ jobs:
 # Push the results back to codecov
 after_success:
   - codecov
+
