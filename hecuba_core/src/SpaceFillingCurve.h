@@ -153,7 +153,7 @@ public:
 
     ZorderCurveGeneratorFiltered(const ArrayMetadata *metas, void *data, std::list<std::vector<uint32_t> > &coord);
 
-    int32_t computeNextClusterId();
+    int32_t computeNextClusterId() override;
 
     bool isDone() override;
 

@@ -129,7 +129,9 @@ class StorageNumpy(np.ndarray, IStorage):
         if coordinates is None: return []
         coord = [coordinates[:, coord] // self._row_elem for coord in
                  range(len(coordinates[0]))]  # coords divided by number of elem in a row
-        keys = list([coord for coord in it.product(*(range(*r) for r in zip(coord[0], coord[1] + 1)))])
+        ranges = (range(*range_tuple) for range_tuple in zip(coord[0], coord[1] + 1))
+        keys = list(it.product(*ranges))
+
         return keys
 
     def format_coords(self, coord):
