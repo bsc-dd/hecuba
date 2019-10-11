@@ -1246,7 +1246,9 @@ class StorageObjTest(unittest.TestCase):
         timestamp = 1545733000
         dt = datetime.fromtimestamp(timestamp)
         d.attr = dt.timestamp()
-        self.assertEqual(d.attr, timestamp)
+        del d
+        mynew_d = TestTimestamp("my_app.timestampAttrib")
+        self.assertEqual(mynew_d.attr, timestamp)
 
 if __name__ == '__main__':
     unittest.main()
