@@ -281,7 +281,7 @@ int32_t ZorderCurveGenerator::computeNextClusterId() {
     std::vector<uint32_t> block_ccs = getIndexes(block_counter, blocks_dim);
     uint64_t zorder_id = computeZorder(block_ccs);
 
-    block_counter += ((blocks_dim.size() == 2) * (CLUSTER_SIZE << 1)) + (blocks_dim.size() != 2);
+    block_counter += blocks_dim.size() == 2 ? CLUSTER_SIZE << 1 : 1;
 
     if (block_counter == nblocks) done = true;
     //Block parameters
