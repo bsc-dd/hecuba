@@ -238,14 +238,17 @@ class StorageNumpy(np.ndarray, IStorage):
 
         self._hcache = HNumpyStore(*self._hcache_params)
         if len(self.shape) != 0:
-            self._hcache.store_numpy_slices([self._storage_id], [self], None)
+            self._hcache.store_numpy_slices([self._storage_id], [self.view(np.ndarray)], None)
         self._store_meta(self._build_args)
 
     def delete_persistent(self):
         """
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
-        query = "DELETE FROM %s.%s WHERE storage_id = %s;" % (self._ksp, self._table + '_numpies', self._storage_id)
+        if not self._is_persistent:
+            raise RuntimeError("Delete_persistent invoked on non persistent object {}".format(self._ksp+'.'+self._table))
+
+        query = "DELETE FROM {}.{} WHERE storage_id = {} AND cluster_id=-1;".format(self._ksp, self._table + '_numpies', self._storage_id)
         query2 = "DELETE FROM hecuba.istorage WHERE storage_id = %s;" % self._storage_id
         log.debug("DELETE PERSISTENT: %s", query)
         config.session.execute(query)
@@ -289,7 +292,7 @@ class StorageNumpy(np.ndarray, IStorage):
             return
 
         if self._is_persistent and len(self.shape):
-            self._hcache.store_numpy_slices([self._storage_id], [self], None)
+            self._hcache.store_numpy_slices([self._storage_id], [self.view(np.ndarray)], None)
 
         if ufunc.nout == 1:
             results = (results,)
