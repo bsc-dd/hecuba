@@ -202,7 +202,8 @@ class StorageDict(dict, IStorage):
     # Object used to access data from workers.
     # """
 
-    args_names = ["name", "primary_keys", "columns", "tokens", "storage_id", "indexed_on", "class_name", "built_remotely"]
+    args_names = ["name", "primary_keys", "columns", "tokens", "storage_id", "indexed_on", "class_name",
+                  "built_remotely"]
     args = namedtuple('StorageDictArgs', args_names)
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
                                                   '(storage_id, class_name, name, tokens, '
@@ -496,7 +497,7 @@ class StorageDict(dict, IStorage):
                                {'cache_size': config.max_cache_size,
                                 'writer_par': config.write_callbacks_number,
                                 'writer_buffer': config.write_buffer_size,
-                                'timestamped_writes' : config.timestamped_writes})
+                                'timestamped_writes': config.timestamped_writes})
         log.debug("HCACHE params %s", self._hcache_params)
         self._hcache = Hcache(*self._hcache_params)
 
@@ -580,6 +581,7 @@ class StorageDict(dict, IStorage):
                     info = {"name": table_name, "tokens": self._build_args.tokens, "storage_id": uuid.UUID(element),
                             "class_name": col_type}
                     element = IStorage.build_remotely(info)
+
                 final_results.append(element)
 
             if self._column_builder is not None:

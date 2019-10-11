@@ -36,7 +36,7 @@ PythonParser::PythonParser(std::shared_ptr<StorageInterface> storage,
             parsers[meta_i] = new TimeParser(CM);
         } else if (CM.type == CASS_VALUE_TYPE_TIMESTAMP) {
             parsers[meta_i] = new TimestampParser(CM);
-        }else parsers[meta_i] = new UnitParser(CM);
+        } else parsers[meta_i] = new UnitParser(CM);
         ++meta_i;
     }
 }
