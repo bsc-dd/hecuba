@@ -96,7 +96,7 @@ void ArrayDataStore::store_numpy_into_cas_by_coords(const uint64_t *storage_id, 
     uint32_t half_int = 0;//(uint32_t)-1 >> (sizeof(uint32_t)*CHAR_BIT/2); //TODO be done properly
     int32_t cluster_id, block_id;
 
-    auto partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, coord);
+    SpaceFillingCurve::PartitionGenerator *partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, data, coord);
 
     std::set<int32_t> clusters = {};
     std::list<Partition> partitions = {};
@@ -146,7 +146,7 @@ void ArrayDataStore::store_numpy_into_cas_by_coords(const uint64_t *storage_id, 
  */
 void ArrayDataStore::store_numpy_into_cas(const uint64_t *storage_id, ArrayMetadata *metadata, void *data) const {
 
-    auto partitions_it = this->partitioner.make_partitions_generator(metadata, data);
+    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata, data);
 
     char *keys = nullptr;
     void *values = nullptr;
@@ -264,7 +264,7 @@ void ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetada
     int32_t *block = nullptr;
     int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
 
-    auto partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr);
+    SpaceFillingCurve::PartitionGenerator *partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr);
 
     while (!partitions_it->isDone()) {
         cluster_id = partitions_it->computeNextClusterId();
@@ -308,7 +308,8 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
     int32_t offset = 0;
     int32_t *block = nullptr;
     int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
-    auto partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, coord);
+
+    SpaceFillingCurve::PartitionGenerator *partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, coord);
     std::set<int32_t> clusters = {};
 
     while (!partitions_it->isDone()) {
