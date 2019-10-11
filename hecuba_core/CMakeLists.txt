@@ -245,7 +245,7 @@ if (DEFINED ENV{GTEST_ROOT})
             add_executable(cache_imp_test tests/cache_tests.cpp)
             set_target_properties(cache_imp_test
                     PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
-            target_link_libraries(cache_imp_test ${ALL_LIBS} ${GTEST_BOTH_LIBRARIES} hfetch ${PT})
+            target_link_libraries(cache_imp_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch)
             add_test(test cache_imp_test)
 
             find_package(PythonLibs 3 REQUIRED)
@@ -263,8 +263,7 @@ if (DEFINED ENV{GTEST_ROOT})
 
             #set(PY_SRC_FILES py_interface/HCache.cpp PythonParser.cpp UnitParser.cpp NumpyStorage.cpp)
             #set(PY_H_FILES HCache.h PythonParser.h UnitParser.h NumpyStorage.h)
-	    
-	    add_library(pyinterface SHARED ${PY_SRC_FILES} ${PY_H_FILES})
+            add_library(pyinterface SHARED ${PY_SRC_FILES} ${PY_H_FILES})
             set_target_properties(pyinterface
                     PROPERTIES PREFIX ""
                     INSTALL_RPATH "$ORIGIN/"
@@ -272,11 +271,11 @@ if (DEFINED ENV{GTEST_ROOT})
             target_link_libraries(pyinterface ${ALL_LIBS})
 
 
-	    #add_executable(py_hfetch_test tests/pytests.cpp)
-	    #set_target_properties(py_hfetch_test
-	    #        PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
-	    #target_link_libraries(py_hfetch_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch pyinterface)
-	    #add_test(test py_hfetch_test)
+            add_executable(py_hfetch_test tests/pytests.cpp)
+            set_target_properties(py_hfetch_test
+                    PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
+            target_link_libraries(py_hfetch_test ${ALL_LIBS} ${PT} ${GTEST_BOTH_LIBRARIES} hfetch pyinterface)
+            add_test(test py_hfetch_test)
 
         else ()
             message(STATUS "If GTest is installed, point the environment var GTEST_ROOT to its root (/home/user/local)")
