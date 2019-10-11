@@ -31,9 +31,9 @@ public:
 
     PyObject *get_row_elements(const uint64_t *storage_id);
 
-    void *store_numpy(const uint64_t *storage_id, PyArrayObject *numpy, PyObject *coord) const;
+    void store_numpy(const uint64_t *storage_id, PyArrayObject *numpy, PyObject *coord) const;
 
-    void *load_numpy(const uint64_t *storage_id, PyObject *coord, PyArrayObject *save);
+    void load_numpy(const uint64_t *storage_id, PyObject *coord, PyArrayObject *save);
 
 private:
 
