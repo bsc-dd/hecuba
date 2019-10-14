@@ -60,7 +60,6 @@ class IStorageSplitLocalityTest(unittest.TestCase):
         config.splits_per_node = 1
         tkns_p = list(
             partitioner._tokens_partitions("test_ksp", "tab", token_range_size=None, target_token_range_size=64))
-        self.assertEqual(len(tkns_p), 2)
         # self.check_all(tkns_p, 1, 1000)
 
     def check_all(self, tkns_p, split_per_node, expected_total_tkns):
