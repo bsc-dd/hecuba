@@ -12,6 +12,19 @@ class MyDict(StorageDict):
     '''
 
 
+set_start_time = """UPDATE hecuba.partitioning
+                    SET start_time = %s
+                    WHERE storage_id = %s"""
+
+set_time = """UPDATE hecuba.partitioning
+              SET start_time = %s, end_time = %s
+              WHERE storage_id = %s"""
+
+set_end_time = """UPDATE hecuba.partitioning
+                  SET end_time = %s
+                  WHERE storage_id = %s"""
+
+
 class PartitionerTest(unittest.TestCase):
 
     def computeItems(self, SDict):
@@ -64,10 +77,7 @@ class PartitionerTest(unittest.TestCase):
         for partition in d.split():
             if nsplits <= 1:
                 # this will be done by the compss api
-                query = config.session.prepare("""UPDATE hecuba.partitioning
-                                                  SET start_time = ?, end_time = ?
-                                                  WHERE storage_id = ?""")
-                config.session.execute(query, [times[nsplits][0], times[nsplits][1], partition._storage_id])
+                config.session.execute(set_time, [times[nsplits][0], times[nsplits][1], partition._storage_id])
             nsplits += 1
 
             acc += self.computeItems(partition)
@@ -97,10 +107,7 @@ class PartitionerTest(unittest.TestCase):
         for partition in d.split():
             if nsplits <= 1:
                 # this will be done by the compss api
-                query = config.session.prepare("""UPDATE hecuba.partitioning
-                                                  SET start_time = ?, end_time = ?
-                                                  WHERE storage_id = ?""")
-                config.session.execute(query, [times[nsplits][0], times[nsplits][1], partition._storage_id])
+                config.session.execute(set_time, [times[nsplits][0], times[nsplits][1], partition._storage_id])
             nsplits += 1
 
             acc += self.computeItems(partition)
@@ -130,10 +137,7 @@ class PartitionerTest(unittest.TestCase):
         for partition in d.split():
             if nsplits <= 3:
                 # this will be done by the compss api
-                query = config.session.prepare("""UPDATE hecuba.partitioning
-                                                  SET start_time = ?, end_time = ?
-                                                  WHERE storage_id = ?""")
-                config.session.execute(query, [times[nsplits][0], times[nsplits][1], partition._storage_id])
+                config.session.execute(set_time, [times[nsplits][0], times[nsplits][1], partition._storage_id])
             nsplits += 1
 
             acc += self.computeItems(partition)
@@ -168,15 +172,9 @@ class PartitionerTest(unittest.TestCase):
             # pretending that task with gran=32 is taking a lot of time
             if nsplits == 0:
                 # this will be done by the compss api
-                query = config.session.prepare("""UPDATE hecuba.partitioning
-                                                  SET start_time = ?
-                                                  WHERE storage_id = ?""")
-                config.session.execute(query, [0, partition._storage_id])
+                config.session.execute(set_start_time, [0, partition._storage_id])
             elif nsplits == 1:
-                query = config.session.prepare("""UPDATE hecuba.partitioning
-                                                  SET start_time = ?, end_time = ?
-                                                  WHERE storage_id = ?""")
-                config.session.execute(query, [times[nsplits][0], times[nsplits][1], partition._storage_id])
+                config.session.execute(set_time, [times[nsplits][0], times[nsplits][1], partition._storage_id])
             else:
                 self.assertEqual(config.splits_per_node, 45 // 2)
 
@@ -210,26 +208,14 @@ class PartitionerTest(unittest.TestCase):
             if nsplits == 0:
                 id_partition0 = partition._storage_id
                 # this will be done by the compss api
-                query = config.session.prepare("""UPDATE hecuba.partitioning
-                                                  SET start_time = ?
-                                                  WHERE storage_id = ?""")
-                config.session.execute(query, [time.time(), partition._storage_id])
+                config.session.execute(set_start_time, [time.time(), partition._storage_id])
             elif nsplits == 1:
-                query = config.session.prepare("""UPDATE hecuba.partitioning
-                                                  SET start_time = ?, end_time = ?
-                                                  WHERE storage_id = ?""")
-                config.session.execute(query, [times[nsplits][0], times[nsplits][1], partition._storage_id])
-            elif nsplits == 15:
-                query = config.session.prepare("""UPDATE hecuba.partitioning
-                                                  SET end_time = ?
-                                                  WHERE storage_id = ?""")
-                config.session.execute(query, [time.time() + 150, id_partition0])
-            elif 1 < nsplits < 15:
-                query = config.session.prepare("""UPDATE hecuba.partitioning
-                                                  SET start_time = ?, end_time = ?
-                                                  WHERE storage_id = ?""")
+                config.session.execute(set_time, [times[nsplits][0], times[nsplits][1], partition._storage_id])
+            elif nsplits == 5:
+                config.session.execute(set_end_time, [time.time() + 150, id_partition0])
+            elif 1 < nsplits < 5:
                 start = randint(0, 200)
-                config.session.execute(query, [start, start + 60, partition._storage_id])
+                config.session.execute(set_time, [start, start + 60, partition._storage_id])
 
             if nsplits > 1:
                 self.assertEqual(config.splits_per_node, 45 // 2)
@@ -263,34 +249,22 @@ class PartitionerTest(unittest.TestCase):
             if nsplits == 0:
                 id_partition0 = partition._storage_id
                 # this will be done by the compss api
-                query = config.session.prepare("""UPDATE hecuba.partitioning
-                                                  SET start_time = ?
-                                                  WHERE storage_id = ?""")
                 # time.time() to avoid choosing gran=64 when task with gran=32 taking a lot of time
                 # dynamic partitioning mode will use time.time() to check how much is taking
-                config.session.execute(query, [time.time(), partition._storage_id])
+                config.session.execute(set_start_time, [time.time(), partition._storage_id])
             elif nsplits == 1:
-                query = config.session.prepare("""UPDATE hecuba.partitioning
-                                                  SET start_time = ?, end_time = ?
-                                                  WHERE storage_id = ?""")
-                config.session.execute(query, [times[nsplits][0], times[nsplits][1], partition._storage_id])
-            elif nsplits == 10:
+                config.session.execute(set_time, [times[nsplits][0], times[nsplits][1], partition._storage_id])
+            elif nsplits == 5:
                 last_time = config.session.execute("""SELECT start_time FROM hecuba.partitioning
                                                       WHERE storage_id = %s""" % id_partition0)[0][0]
-                query = config.session.prepare("""UPDATE hecuba.partitioning
-                                                  SET end_time = ?
-                                                  WHERE storage_id = ?""")
-                config.session.execute(query, [last_time + 80, id_partition0])
+                config.session.execute(set_end_time, [last_time + 80, id_partition0])
             else:
-                query = config.session.prepare("""UPDATE hecuba.partitioning
-                                                  SET start_time = ?, end_time = ?
-                                                  WHERE storage_id = ?""")
                 start = randint(0, 200)
-                config.session.execute(query, [start, start + 60, partition._storage_id])
+                config.session.execute(set_time, [start, start + 60, partition._storage_id])
 
-            if 10 >= nsplits >= 2:
+            if 5 >= nsplits >= 2:
                 self.assertEqual(config.splits_per_node, 45 // 2)
-            elif nsplits > 10:
+            elif nsplits > 5:
                 self.assertEqual(config.splits_per_node, 32 // 2)
             nsplits += 1
             acc += self.computeItems(partition)

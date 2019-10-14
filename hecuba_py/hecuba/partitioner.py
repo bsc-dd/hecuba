@@ -158,19 +158,20 @@ class Partitioner:
         Returns:
             a tuple (node, partition) every time it's called
         """
-        while True:
-            if self._initial_send > 0:
-                for initial_tokens in self._send_initial_tasks(partitions_per_node):
-                    yield initial_tokens
-            elif self._best_granularity is None:
-                for intermediate_tokens in self._send_intermediate_tasks(partitions_per_node):
-                    yield intermediate_tokens
-                if sum([len(partitions) for partitions in partitions_per_node.values()]) == 0:
-                    break
-            else:
-                for final_tokens in self._send_final_tasks(partitions_per_node):
-                    yield final_tokens
+
+        while self._initial_send > 0:
+            for initial_tokens in self._send_initial_tasks(partitions_per_node):
+                yield initial_tokens
+
+        while self._best_granularity is None:
+            for intermediate_tokens in self._send_intermediate_tasks(partitions_per_node):
+                yield intermediate_tokens
+            if sum([len(partitions) for partitions in partitions_per_node.values()]) == 0:
+                self._best_granularity = config.splits_per_node
                 break
+        else:
+            for final_tokens in self._send_final_tasks(partitions_per_node):
+                yield final_tokens
 
     def _send_initial_tasks(self, partitions_per_node):
         for node in self._tokens_per_node.keys():
@@ -302,11 +303,11 @@ class Partitioner:
                             self._idle_cassandra_nodes.append(self._partitions_nodes[storage_id])
                         break
                 else:
+                    total_time = {"start_time": start, "end_time": end}
+                    self._partitions_time[partitions].append(total_time)
                     if end is not None:
                         self._n_idle_nodes += 1
                         self._idle_cassandra_nodes.append(self._partitions_nodes[storage_id])
-                    total_time = {"start_time": start, "end_time": end}
-                    self._partitions_time[partitions].append(total_time)
 
     def split(self):
         """
