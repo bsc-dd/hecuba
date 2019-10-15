@@ -49,7 +49,6 @@ void *NumpyStorage::load_numpy(const uint64_t *storage_id, PyObject *coord, PyAr
         std::list<std::vector<uint32_t> > crd = generate_coords(coord);
         this->read_numpy_from_cas_by_coords(storage_id, np_metas, crd, data);
     } else this->read_numpy_from_cas(storage_id, np_metas, data);
-    this->update_metadata(storage_id, np_metas);
     delete (np_metas);
 }
 

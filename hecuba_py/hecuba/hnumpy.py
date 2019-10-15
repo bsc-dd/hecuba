@@ -40,7 +40,7 @@ class StorageNumpy(np.ndarray, IStorage):
 
         if input_array is None and name and storage_id is not None:
             # result = cls.load_array(storage_id, name)
-            result = cls.get_numpy_array(storage_id, name)
+            result = cls.reserve_numpy_array(storage_id, name)
             obj = np.asarray(result[0]).view(cls)
             obj._name = name
             obj._hcache = result[2]
@@ -110,7 +110,7 @@ class StorageNumpy(np.ndarray, IStorage):
             raise ex
 
     @staticmethod
-    def get_numpy_array(storage_id, name):
+    def reserve_numpy_array(storage_id, name):
         '''Provides a numpy array with the number of elements obtained through storage_id'''
 
         (ksp, table) = _extract_ks_tab(name)
