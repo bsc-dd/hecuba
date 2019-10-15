@@ -139,10 +139,12 @@ class mixObj(StorageObj):
     @ClassField inttupleField tuple<int,int>
     '''
 
+
 class TestTimestamp(StorageObj):
     '''
     @ClassField attr timestamp
     '''
+
 
 class StorageObjTest(unittest.TestCase):
     def test_build_remotely(self):
@@ -1238,17 +1240,14 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(external_sobj.myotherso.age, age_attr)
 
     def test_timestamp(self):
-        config.session.execute("DROP TABLE IF EXISTS testing.time")
-        a = TestTimestamp('testing.time')
-        dt = datetime.fromtimestamp(1545730073)
-        a.attr = dt.timestamp()
-
-        del a
-        import gc
-        gc.collect()
-
-        a = TestTimestamp('testing.time')
-        self.assertEqual(a.attr, dt.timestamp())
+        config.session.execute("DROP TABLE IF EXISTS my_app.timestampAttrib")
+        d = TestTimestamp("my_app.timestampAttrib")
+        timestamp = 1545733000
+        dt = datetime.fromtimestamp(timestamp)
+        d.attr = dt.timestamp()
+        del d
+        mynew_d = TestTimestamp("my_app.timestampAttrib")
+        self.assertEqual(mynew_d.attr, timestamp)
 
 
 if __name__ == '__main__':

@@ -3,13 +3,13 @@ from collections import Iterable, defaultdict
 from collections import Mapping
 from collections import namedtuple
 from datetime import datetime
+
 import numpy as np
 from hecuba import config, log, Parser
-from hecuba.tools import NamedItemsIterator, NamedIterator
-from hecuba.hnumpy import StorageNumpy
-from hfetch import Hcache
-
 from hecuba.IStorage import IStorage, AlreadyPersistentError, _basic_types, _discrete_token_ranges, _extract_ks_tab
+from hecuba.hnumpy import StorageNumpy
+from hecuba.tools import NamedItemsIterator, NamedIterator
+from hfetch import Hcache
 
 
 class EmbeddedSet(set):
@@ -202,7 +202,8 @@ class StorageDict(dict, IStorage):
     # Object used to access data from workers.
     # """
 
-    args_names = ["name", "primary_keys", "columns", "tokens", "storage_id", "indexed_on", "class_name", "built_remotely"]
+    args_names = ["name", "primary_keys", "columns", "tokens", "storage_id", "indexed_on", "class_name",
+                  "built_remotely"]
     args = namedtuple('StorageDictArgs', args_names)
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
                                                   '(storage_id, class_name, name, tokens, '
@@ -496,7 +497,7 @@ class StorageDict(dict, IStorage):
                                {'cache_size': config.max_cache_size,
                                 'writer_par': config.write_callbacks_number,
                                 'writer_buffer': config.write_buffer_size,
-                                'timestamped_writes' : config.timestamped_writes})
+                                'timestamped_writes': config.timestamped_writes})
         log.debug("HCACHE params %s", self._hcache_params)
         self._hcache = Hcache(*self._hcache_params)
 
@@ -581,6 +582,7 @@ class StorageDict(dict, IStorage):
                             "class_name": col_type}
                     element = IStorage.build_remotely(info)
                 if col_type == 'timestamp': element = datetime.timestamp(element)
+
                 final_results.append(element)
 
             if self._column_builder is not None:
