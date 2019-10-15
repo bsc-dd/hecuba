@@ -97,6 +97,13 @@ class DictWithDateTimes2(StorageDict):
     @TypeSpec dict<<k:int>, v:timestamp>
     '''
 
+
+class DictWithTimestamp(StorageDict):
+    """
+    @TypeSpec dict <<k:int>,v:timestamp>
+    """
+
+
 class StorageDictTest(unittest.TestCase):
     def test_init_empty(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab1")
@@ -1168,12 +1175,19 @@ class StorageDictTest(unittest.TestCase):
 
         self.assertEqual(count, len(list(d)))
 
-    def test_datetimes2(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithdatetimes")
-        d = DictWithDateTimes2("my_app.dictwithdatetimes")
-        dt = datetime.fromtimestamp(1545733000)
-        d[0] = dt.timestamp()
-        self.assertEqual(dt, d[0])
+    def test_timestamp(self):
+        config.session.execute("DROP TABLE IF EXISTS testing.timedict")
+        dt = datetime.fromtimestamp(1545730073)
+        c = DictWithTimestamp('testing.timedict')
+        c[0] = dt.timestamp()
+
+        del c
+        import gc
+        gc.collect()
+
+        c = DictWithTimestamp('testing.timedict')
+        self.assertEqual(c[0], dt.timestamp())
+
 
 if __name__ == '__main__':
     unittest.main()

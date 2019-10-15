@@ -1,12 +1,13 @@
 import uuid
 from collections import namedtuple
+from datetime import datetime
 
 import numpy as np
 from hecuba import config, log, Parser
-
-from hecuba.hnumpy import StorageNumpy
 from hecuba.IStorage import IStorage, AlreadyPersistentError, _discrete_token_ranges, _basic_types, _valid_types, \
     _extract_ks_tab
+from hecuba.hnumpy import StorageNumpy
+
 
 class StorageObj(IStorage):
     args_names = ["name", "tokens", "storage_id", "istorage_props", "class_name", "built_remotely"]
@@ -304,18 +305,12 @@ class StorageObj(IStorage):
             info["built_remotely"] = self._built_remotely
             value = IStorage.build_remotely(info)
 
-        object.__setattr__(self, attribute, value)
-        return value
+        else:
+            if value_info['type'] == 'timestamp':
+                epoch = datetime(1970, 1, 1, 0, 0, 0)
+                value = (value - epoch).total_seconds() * 1000  # ms (standard format)
 
-    @staticmethod
-    def _make_value(value):
-        """
-        Method used to pass the value data to the StorageObject cache in a proper way.
-        Args:
-            value: the data that needs to get the correct format
-        """
-        if value.is_integer():  # for timestamps
-            value = int(value)
+        object.__setattr__(self, attribute, value)
         return value
 
     def __setattr__(self, attribute, value):
@@ -343,12 +338,8 @@ class StorageObj(IStorage):
                 new_value = IStorage.build_remotely(info)
                 new_value.update(value)
                 value = new_value
-            elif isinstance(value, float):
-                try:
-                    value = self._make_value(value)
-                except AttributeError:
-                    pass
-
+            if self._persistent_props[attribute]["type"] == 'timestamp':
+                value = int(value)
 
         if self._is_persistent:
             # Write attribute to the storage

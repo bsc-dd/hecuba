@@ -2,7 +2,7 @@ import uuid
 from collections import Iterable, defaultdict
 from collections import Mapping
 from collections import namedtuple
-
+from datetime import datetime
 import numpy as np
 from hecuba import config, log, Parser
 from hecuba.tools import NamedItemsIterator, NamedIterator
@@ -580,6 +580,7 @@ class StorageDict(dict, IStorage):
                     info = {"name": table_name, "tokens": self._build_args.tokens, "storage_id": uuid.UUID(element),
                             "class_name": col_type}
                     element = IStorage.build_remotely(info)
+                if col_type == 'timestamp': element = datetime.timestamp(element)
                 final_results.append(element)
 
             if self._column_builder is not None:

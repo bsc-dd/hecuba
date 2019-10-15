@@ -1,6 +1,7 @@
 import time as user_time
 import unittest
 import uuid
+from datetime import datetime
 
 import cassandra
 import numpy as np
@@ -10,7 +11,7 @@ from hecuba.storageobj import StorageObj
 from storage.api import getByID
 
 from ..app.words import Words
-from datetime import date, datetime, time
+
 
 class Result(StorageObj):
     '''
@@ -769,7 +770,6 @@ class StorageObjTest(unittest.TestCase):
         my_so = TestStorageObjNumpy('mynewso')
         mynumpy = np.random.rand(3, 2)
         my_so.mynumpy = mynumpy
-        import time
         user_time.sleep(2)
         self.assertTrue(np.array_equal(mynumpy, my_so.mynumpy))
 
@@ -810,7 +810,6 @@ class StorageObjTest(unittest.TestCase):
         mynumpydict = np.random.rand(3, 2)
         my_so.mynumpydict[0] = mynumpydict
         my_so.make_persistent('mynewso')
-        import time
         user_time.sleep(2)
         self.assertTrue(np.array_equal(mynumpydict, my_so.mynumpydict[0]))
 
@@ -822,7 +821,6 @@ class StorageObjTest(unittest.TestCase):
         base_numpy = np.arange(2048)
         my_so.mynumpy = np.arange(2048)
         my_so.make_persistent('mynewso')
-        import time
         user_time.sleep(2)
         self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
         base_numpy += 1
@@ -839,7 +837,6 @@ class StorageObjTest(unittest.TestCase):
         base_numpy = np.arange(2048)
         my_so.mynumpy = np.arange(2048)
         my_so.make_persistent('mynewso')
-        import time
         user_time.sleep(2)
         self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
         base_numpy += 1
@@ -1241,12 +1238,18 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(external_sobj.myotherso.age, age_attr)
 
     def test_timestamp(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.timestampAttrib")
-        d = TestTimestamp("my_app.timestampAttrib")
-        timestamp = 1545733000
-        dt = datetime.fromtimestamp(timestamp)
-        d.attr = dt.timestamp()
-        self.assertEqual(d.attr, timestamp)
+        config.session.execute("DROP TABLE IF EXISTS testing.time")
+        a = TestTimestamp('testing.time')
+        dt = datetime.fromtimestamp(1545730073)
+        a.attr = dt.timestamp()
+
+        del a
+        import gc
+        gc.collect()
+
+        a = TestTimestamp('testing.time')
+        self.assertEqual(a.attr, dt.timestamp())
+
 
 if __name__ == '__main__':
     unittest.main()
