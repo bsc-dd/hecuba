@@ -134,9 +134,10 @@ class StorageObj(IStorage):
                 name (string): name with which the table in the DB will be created
         """
         # Update name
-        name = name[:name.rfind('.') + 1] + self.__class__.__name__
 
         super().make_persistent(name)
+
+        self._table = self.__class__.__name__.lower()
 
         # Arguments used to build objects remotely
         self._build_args = self.args(self._get_name(),
@@ -160,7 +161,6 @@ class StorageObj(IStorage):
             The StorageObj stops being persistent, but keeps the information already stored in Cassandra
         """
         log.debug("STOP PERSISTENT")
-        super().stop_persistent()
 
         for obj_name in self._persistent_attrs:
             try:
@@ -171,6 +171,7 @@ class StorageObj(IStorage):
             if isinstance(attr, IStorage):
                 attr.stop_persistent()
 
+        super().stop_persistent()
         self.storage_id = None
 
     def delete_persistent(self):
@@ -178,7 +179,6 @@ class StorageObj(IStorage):
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
         log.debug("DELETE PERSISTENT: %s", self._table)
-        super().delete_persistent()
 
         for obj_name in self._persistent_attrs:
             attr = getattr(self, obj_name, None)
@@ -188,6 +188,10 @@ class StorageObj(IStorage):
         query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
         config.session.execute(query)
 
+        query = "DELETE FROM hecuba.istorage where storage_id={}".format(self.storage_id)
+        config.session.execute(query)
+
+        super().delete_persistent()
         self.storage_id = None
 
     def __getattr__(self, attribute):
@@ -246,8 +250,13 @@ class StorageObj(IStorage):
 
         if is_istorage_attr:
             # Value is uuid or None, because it was not found
-            count = count_name_collision(self._ksp, self._table, attribute)
-            attr_name = self._ksp + '.' + self._table + '_' + attribute
+
+            attr_name = attribute.lower()
+            my_name = self._get_name()
+            trailing_name = my_name[my_name.rfind('.') + 1:]
+
+            count = count_name_collision(self._ksp, trailing_name, attr_name)
+            attr_name = self._ksp + '.' + trailing_name + '_' + attr_name
             if count > 1:
                 attr_name += '_' + str(count - 2)
 
@@ -289,9 +298,12 @@ class StorageObj(IStorage):
             # Write attribute to the storage
             if isinstance(value, IStorage):
                 if not value.storage_id:
-                    name_collisions = attribute.lower()
-                    count = count_name_collision(self._ksp, self._table, name_collisions)
-                    attr_name = self._ksp + '.' + self._table + '_' + name_collisions
+                    attr_name = attribute.lower()
+                    my_name = self._get_name()
+                    trailing_name = my_name[my_name.rfind('.')+1:]
+
+                    count = count_name_collision(self._ksp, trailing_name, attr_name)
+                    attr_name = self._ksp + '.' + trailing_name + '_' + attr_name
                     if count != 0:
                         attr_name += '_' + str(count - 1)
                     value.make_persistent(attr_name)

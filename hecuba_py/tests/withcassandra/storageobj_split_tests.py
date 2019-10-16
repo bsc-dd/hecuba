@@ -44,6 +44,7 @@ class StorageObjSplitTest(unittest.TestCase):
             for val in partition.keys():
                 res.add(val)
                 count += 1
+        pd.delete_persistent()
         del pd
         self.assertTrue(splits >= config.splits_per_node * N_CASS_NODES)
         self.assertEqual(count, num_inserts)
@@ -81,6 +82,7 @@ class StorageObjSplitTest(unittest.TestCase):
             for val in rebuild.keys():
                 res.add(val)
                 count += 1
+        pd.delete_persistent()
         del pd
         self.assertTrue(splits >= config.splits_per_node * N_CASS_NODES)
         self.assertEqual(count, num_inserts)
@@ -112,6 +114,7 @@ class StorageObjSplitTest(unittest.TestCase):
             for val in partition.words.keys():
                 res.add(val)
                 count += 1
+        sto.delete_persistent()
         del sto
         self.assertTrue(splits >= config.splits_per_node * N_CASS_NODES)
         self.assertEqual(count, num_inserts)
@@ -146,6 +149,7 @@ class StorageObjSplitTest(unittest.TestCase):
             for val in rebuild.words.keys():
                 res.add(val)
                 count += 1
+        sto.delete_persistent()
         del sto
         self.assertTrue(splits >= config.splits_per_node * N_CASS_NODES)
         self.assertEqual(count, num_inserts)
@@ -160,6 +164,7 @@ class StorageObjSplitTest(unittest.TestCase):
 
         ids = len(set(map(lambda x: x.storage_id, pd.split())))
         self.assertTrue(ids >= config.splits_per_node * N_CASS_NODES)
+        sto.delete_persistent()
 
 
 if __name__ == '__main__':

@@ -34,7 +34,7 @@ class BlockTest(unittest.TestCase):
         Words._create_tables.assert_called_once()
         Words._persist_attributes.assert_called_once()
         assert (b._ksp == "ksp1")
-        assert (b._table == "Words")
+        assert (b._table == b.__class__.__name__.lower())
 
         Words._create_tables, Words._persist_attributes, Words._store_meta = words_mock_methods
         StorageDict.make_persistent = sdict_mock_methods

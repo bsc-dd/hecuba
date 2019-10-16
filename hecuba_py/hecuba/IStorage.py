@@ -31,7 +31,7 @@ class IStorage(object):
 
         self.storage_id = kwargs.pop("storage_id", None)
         self._built_remotely = kwargs.pop("built_remotely", False)
-        self._tokens = kwargs.pop("tokens", [])
+        self._tokens = kwargs.pop("tokens", None)
         self._is_persistent = False
 
     def __eq__(self, other):
@@ -57,7 +57,7 @@ class IStorage(object):
             self.storage_id = storage_id_from_name(name)
 
         # If found data, replace the constructor data
-        if not self._tokens:
+        if self._tokens is None:
             metas = get_istorage_attrs(self.storage_id)
             try:
                 self._tokens = metas[0].tokens
