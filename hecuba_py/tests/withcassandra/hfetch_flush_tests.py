@@ -5,7 +5,6 @@ from hecuba.hdict import StorageDict
 
 
 class StorageDictTest(unittest.TestCase):
-
     @staticmethod
     def setUpClass():
         config.session.execute(
@@ -19,6 +18,8 @@ class StorageDictTest(unittest.TestCase):
         for i in range(num_inserts):
             pd[i] = 'ciao' + str(i)
         del pd  # To force hfetch to flush data
+        import gc
+        gc.collect()
         count, = config.session.execute("SELECT count(*) FROM ksp.tb1")[0]
 
         self.assertEqual(count, num_inserts)
@@ -31,6 +32,8 @@ class StorageDictTest(unittest.TestCase):
         for i in range(num_inserts):
             pd[i] = 'ciao' + str(i)
         del pd  # To force hfetch to flush data
+        import gc
+        gc.collect()
         count, = config.session.execute("SELECT count(*) FROM ksp.tb1 LIMIT " + str(num_inserts + 1))[0]
         self.assertEqual(count, num_inserts)
 
@@ -56,6 +59,8 @@ class StorageDictTest(unittest.TestCase):
         for i in range(100):
             pd[i] = 'ciao' + str(i)
         del pd  # To force hfetch to flush data
+        import gc
+        gc.collect()
         count, = config.session.execute("SELECT count(*) FROM ksp.tb1")[0]
 
         self.assertEqual(count, 100)
@@ -70,6 +75,8 @@ class StorageDictTest(unittest.TestCase):
         for i in range(100):
             pd[i] = ['ciao' + str(i), i]
         del pd  # To force hfetch to flush data
+        import gc
+        gc.collect()
         count, = config.session.execute("SELECT count(*) FROM ksp.tb1")[0]
 
         self.assertEqual(count, 100)

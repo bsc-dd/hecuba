@@ -4,12 +4,13 @@ from collections import Mapping
 from collections import namedtuple
 
 import numpy as np
-from hecuba import config, log, Parser
-from hecuba.tools import NamedItemsIterator, NamedIterator
-from hecuba.hnumpy import StorageNumpy
+from . import config, log, Parser
+from .storageiter import NamedItemsIterator, NamedIterator
+from .hnumpy import StorageNumpy
 from hfetch import Hcache
 
-from hecuba.IStorage import IStorage, AlreadyPersistentError, _basic_types, _discrete_token_ranges, _extract_ks_tab
+from .IStorage import IStorage
+from .tools import get_istorage_attrs, count_name_collision, build_remotely, basic_types
 
 
 class EmbeddedSet(set):
@@ -197,12 +198,13 @@ class EmbeddedSet(set):
             self.remove(value)
 
 
-class StorageDict(dict, IStorage):
+class StorageDict(IStorage, dict):
     # """
     # Object used to access data from workers.
     # """
 
-    args_names = ["name", "primary_keys", "columns", "tokens", "storage_id", "indexed_on", "class_name", "built_remotely"]
+    args_names = ["name", "primary_keys", "columns", "tokens", "storage_id", "indexed_on", "class_name",
+                  "built_remotely"]
     args = namedtuple('StorageDictArgs', args_names)
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
                                                   '(storage_id, class_name, name, tokens, '
@@ -228,8 +230,7 @@ class StorageDict(dict, IStorage):
             log.error("Error creating the StorageDict metadata: %s %s", storage_args, ex)
             raise ex
 
-    def __init__(self, name=None, primary_keys=None, columns=None, tokens=None,
-                 storage_id=None, indexed_on=None, built_remotely=False, **kwargs):
+    def __init__(self, name='', primary_keys=None, columns=None, indexed_on=None, storage_id=None, **kwargs):
         """
         Creates a new StorageDict.
 
@@ -243,19 +244,9 @@ class StorageDict(dict, IStorage):
             kwargs: other parameters
         """
 
-        super(StorageDict, self).__init__(**kwargs)
-        self._is_persistent = False
-        self._built_remotely = built_remotely
-        log.debug("CREATED StorageDict(%s,%s,%s,%s,%s,%s)", primary_keys, columns, name, tokens, storage_id, kwargs)
+        super().__init__((), name=name, storage_id=storage_id, **kwargs)
 
-        if tokens is None:
-            log.info('using all tokens')
-            tokens = list(map(lambda a: a.value, config.cluster.metadata.token_map.ring))
-            self._tokens = _discrete_token_ranges(tokens)
-        else:
-            self._tokens = tokens
-
-        self._storage_id = storage_id
+        log.debug("CREATED StorageDict(%s,%s)", primary_keys, columns)
 
         if self.__doc__ is not None:
             self._persistent_props = self._parse_comments(self.__doc__)
@@ -323,22 +314,14 @@ class StorageDict(dict, IStorage):
         if build_column is None:
             build_column = self._columns[:]
 
-        self._build_args = self.args(None, build_keys, build_column, self._tokens,
-                                     self._storage_id, self._indexed_on, class_name, built_remotely)
+        self._build_args = self.args(self._get_name(), build_keys, build_column, self._tokens,
+                                     self.storage_id, self._indexed_on, class_name, self._built_remotely)
 
-        if name:
+        if storage_id and not name:
+            name = get_istorage_attrs(storage_id)[0].name
+
+        if name or storage_id:
             self.make_persistent(name)
-
-    def __eq__(self, other):
-        """
-        Method to compare a StorageDict with another one.
-        Args:
-            other: StorageDict to be compared with.
-        Returns:
-            boolean (true - equals, false - not equals).
-        """
-        return self._storage_id == other._storage_id and self._tokens == other.token_ranges and \
-               self._table == other.table_name and self._ksp == other.keyspace
 
     @classmethod
     def _parse_comments(self, comments):
@@ -353,7 +336,7 @@ class StorageDict(dict, IStorage):
         Returns:
             boolean (true - exists, false - doesn't exist).
         """
-        if not self._is_persistent:
+        if not self.storage_id:
             return dict.__contains__(self, key)
         else:
             try:
@@ -363,6 +346,85 @@ class StorageDict(dict, IStorage):
             except Exception as ex:
                 log.warn("persistentDict.__contains__ ex %s", ex)
                 return False
+
+    def _create_tables(self):
+        # Prepare data
+        persistent_keys = [(key["name"], "tuple<" + ",".join(key["columns"]) + ">") if key["type"] == "tuple"
+                           else (key["name"], key["type"]) for key in self._primary_keys] + self._get_set_types()
+        persistent_values = []
+        if not self._has_embedded_set:
+            for col in self._columns:
+                if col["type"] == "tuple":
+                    persistent_values.append({"name": col["name"], "type": "tuple<" + ",".join(col["columns"]) + ">"})
+                elif col["type"] not in basic_types:
+                    persistent_values.append({"name": col["name"], "type": "uuid"})
+                else:
+                    persistent_values.append({"name": col["name"], "type": col["type"]})
+
+        key_names = [col[0] if isinstance(col, tuple) else col["name"] for col in persistent_keys]
+
+        query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
+        try:
+            log.debug('MAKE PERSISTENCE: %s', query_keyspace)
+            config.session.execute(query_keyspace)
+        except Exception as ex:
+            log.warn("Error creating the StorageDict keyspace %s, %s", (query_keyspace), ex)
+            raise ex
+
+        persistent_columns = [(col["name"], col["type"]) for col in persistent_values]
+
+        query_table = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" \
+                      % (self._ksp,
+                         self._table,
+                         ",".join("%s %s" % tup for tup in persistent_keys + persistent_columns),
+                         str.join(',', key_names))
+        try:
+            log.debug('MAKE PERSISTENCE: %s', query_table)
+            config.session.execute(query_table)
+        except Exception as ex:
+            log.warn("Error creating the StorageDict table: %s %s", query_table, ex)
+            raise ex
+
+        if hasattr(self, '_indexed_on') and self._indexed_on is not None:
+            index_query = 'CREATE CUSTOM INDEX IF NOT EXISTS ' + self._table + '_idx ON '
+            index_query += self._ksp + '.' + self._table + ' (' + str.join(',', self._indexed_on) + ') '
+            index_query += "using 'es.bsc.qbeast.index.QbeastIndex';"
+            try:
+                config.session.execute(index_query)
+            except Exception as ex:
+                log.error("Error creating the Qbeast custom index: %s %s", index_query, ex)
+                raise ex
+            trigger_query = "CREATE TRIGGER IF NOT EXISTS %s%s_qtr ON %s.%s USING 'es.bsc.qbeast.index.QbeastTrigger';" % \
+                            (self._ksp, self._table, self._ksp, self._table)
+            try:
+                config.session.execute(trigger_query)
+            except Exception as ex:
+                log.error("Error creating the Qbeast trigger: %s %s", trigger_query, ex)
+                raise ex
+
+    def _flush_data(self):
+        for k, v in super().items():
+            self[k] = v
+        super().clear()
+
+    def _setup_hcache(self):
+        key_names = [key["name"] for key in self._primary_keys]
+        key_names = key_names + [name for name, dt in self._get_set_types()]
+
+        persistent_values = []
+        if not self._has_embedded_set:
+            persistent_values = [{"name": col["name"]} for col in self._columns]
+        if self._tokens is None:
+            raise RuntimeError("Tokens for object {} are null".format(self._get_name()))
+        self._hcache_params = (self._ksp, self._table,
+                               self.storage_id,
+                               self._tokens, key_names, persistent_values,
+                               {'cache_size': config.max_cache_size,
+                                'writer_par': config.write_callbacks_number,
+                                'writer_buffer': config.write_buffer_size,
+                                'timestamped_writes': config.timestamped_writes})
+        log.debug("HCACHE params %s", self._hcache_params)
+        self._hcache = Hcache(*self._hcache_params)
 
     def _make_key(self, key):
         """
@@ -392,7 +454,7 @@ class StorageDict(dict, IStorage):
             value: the data that needs to get the correct format
         """
         if issubclass(value.__class__, IStorage):
-            return [uuid.UUID(value.getID())]
+            return [value.storage_id]
         elif isinstance(value, str) or not isinstance(value, Iterable) or isinstance(value, np.ndarray):
             return [value]
         elif isinstance(value, tuple):
@@ -401,7 +463,7 @@ class StorageDict(dict, IStorage):
             val = []
             for v in value:
                 if isinstance(v, IStorage):
-                    val.append(uuid.UUID(v.getID()))
+                    val.append(v.storage_id)
                 else:
                     val.append(v)
             return val
@@ -423,112 +485,38 @@ class StorageDict(dict, IStorage):
         Args:
             name:
         """
-        if self._is_persistent:
-            raise AlreadyPersistentError("This StorageDict is already persistent [Before:{}.{}][After:{}]",
-                                         self._ksp, self._table, name)
-
+        super().make_persistent(name)
         # Update local StorageDict metadata
-        self._is_persistent = True
-        (self._ksp, self._table) = _extract_ks_tab(name)
+        self._build_args = self._build_args._replace(storage_id=self.storage_id, name=self._ksp + "." + self._table,
+                                                     tokens=self._tokens)
 
-        if self._storage_id is None:
-            self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table)
-        self._build_args = self._build_args._replace(storage_id=self._storage_id, name=self._ksp + "." + self._table)
+        if not self._built_remotely:
+            self._create_tables()
 
-        # Prepare data
-        persistent_keys = [(key["name"], "tuple<" + ",".join(key["columns"]) + ">") if key["type"] == "tuple"
-                           else (key["name"], key["type"]) for key in self._primary_keys] + self._get_set_types()
-        persistent_values = []
-        if not self._has_embedded_set:
-            for col in self._columns:
-                if col["type"] == "tuple":
-                    persistent_values.append({"name": col["name"], "type": "tuple<" + ",".join(col["columns"]) + ">"})
-                elif col["type"] not in _basic_types:
-                    persistent_values.append({"name": col["name"], "type": "uuid"})
-                else:
-                    persistent_values.append({"name": col["name"], "type": col["type"]})
+        self._setup_hcache()
 
-        key_names = [col[0] if isinstance(col, tuple) else col["name"] for col in persistent_keys]
+        self._flush_data()
 
-        if config.id_create_schema == -1 and not self._built_remotely:
-            query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
-            try:
-                log.debug('MAKE PERSISTENCE: %s', query_keyspace)
-                config.session.execute(query_keyspace)
-            except Exception as ex:
-                log.warn("Error creating the StorageDict keyspace %s, %s", (query_keyspace), ex)
-                raise ex
-
-            persistent_columns = [(col["name"], col["type"]) for col in persistent_values]
-
-            query_table = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" \
-                          % (self._ksp,
-                             self._table,
-                             ",".join("%s %s" % tup for tup in persistent_keys + persistent_columns),
-                             str.join(',', key_names))
-            try:
-                log.debug('MAKE PERSISTENCE: %s', query_table)
-                config.session.execute(query_table)
-            except Exception as ex:
-                log.warn("Error creating the StorageDict table: %s %s", query_table, ex)
-                raise ex
-
-            if hasattr(self, '_indexed_on') and self._indexed_on is not None:
-                index_query = 'CREATE CUSTOM INDEX IF NOT EXISTS ' + self._table + '_idx ON '
-                index_query += self._ksp + '.' + self._table + ' (' + str.join(',', self._indexed_on) + ') '
-                index_query += "using 'es.bsc.qbeast.index.QbeastIndex';"
-                try:
-                    config.session.execute(index_query)
-                except Exception as ex:
-                    log.error("Error creating the Qbeast custom index: %s %s", index_query, ex)
-                    raise ex
-                trigger_query = "CREATE TRIGGER IF NOT EXISTS %s%s_qtr ON %s.%s USING 'es.bsc.qbeast.index.QbeastTrigger';" % \
-                                (self._ksp, self._table, self._ksp, self._table)
-                try:
-                    config.session.execute(trigger_query)
-                except Exception as ex:
-                    log.error("Error creating the Qbeast trigger: %s %s", trigger_query, ex)
-                    raise ex
-
-        self._hcache_params = (self._ksp, self._table,
-                               self._storage_id,
-                               self._tokens, key_names, persistent_values,
-                               {'cache_size': config.max_cache_size,
-                                'writer_par': config.write_callbacks_number,
-                                'writer_buffer': config.write_buffer_size,
-                                'timestamped_writes' : config.timestamped_writes})
-        log.debug("HCACHE params %s", self._hcache_params)
-        self._hcache = Hcache(*self._hcache_params)
-
-        # Storing all in-memory values to cassandra
-        for key, value in dict.items(self):
-            if issubclass(value.__class__, IStorage):
-                # new name as ksp.table_valuename, where valuename is either defined by the user or set by hecuba
-                if not value._is_persistent:
-                    val_name = self._ksp + '.' + self._table + '_' + self._columns[0]["name"]
-                    value.make_persistent(val_name)
-                value = value._storage_id
-            self._hcache.put_row(self._make_key(key), self._make_value(value))
-
-        super(StorageDict, self).clear()
-
-        self._store_meta(self._build_args)
+        StorageDict._store_meta(self._build_args)
 
     def stop_persistent(self):
         """
         Method to turn a StorageDict into non-persistent.
         """
+        super().stop_persistent()
         log.debug('STOP PERSISTENCE: %s', self._table)
-        self._is_persistent = False
         self._hcache = None
+        self.storage_id = None
 
     def delete_persistent(self):
         """
         Method to empty all data assigned to a StorageDict.
         """
+        super().delete_persistent()
+        log.debug('DELETE PERSISTENT: %s', self._table)
         query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
-        log.debug('DELETE PERSISTENT: %s', query)
         config.session.execute(query)
+        self.storage_id = None
 
     def __delitem__(self, key):
         """
@@ -536,7 +524,7 @@ class StorageDict(dict, IStorage):
         Args:
             key: position of the entry that we want to delete
         """
-        if not self._is_persistent:
+        if not self.storage_id:
             dict.__delitem__(self, key)
         elif self._has_embedded_set:
             self._hcache.delete_row(key)
@@ -559,7 +547,7 @@ class StorageDict(dict, IStorage):
         """
         log.debug('GET ITEM %s', key)
 
-        if not self._is_persistent:
+        if not self.storage_id:
             return dict.__getitem__(self, key)
         elif self._has_embedded_set:
             return self.__create_embeddedset(key=key)
@@ -569,17 +557,15 @@ class StorageDict(dict, IStorage):
             log.debug("GET ITEM %s[%s]", persistent_result, persistent_result.__class__)
 
             # we need to transform UUIDs belonging to IStorage objects and rebuild them
+            # TODO hcache should return objects of the class uuid, not str
             final_results = []
             for index, col in enumerate(self._columns):
-                name = col["name"]
                 col_type = col["type"]
                 element = persistent_result[index]
-                if col_type not in _basic_types:
+                if col_type not in basic_types:
                     # element is not a built-in type
-                    table_name = self._ksp + '.' + self._table + '_' + name
-                    info = {"name": table_name, "tokens": self._build_args.tokens, "storage_id": uuid.UUID(element),
-                            "class_name": col_type}
-                    element = IStorage.build_remotely(info)
+                    info = {"storage_id": uuid.UUID(element), "tokens": self._build_args.tokens, "class_name": col_type}
+                    element = build_remotely(info)
 
                 final_results.append(element)
 
@@ -589,16 +575,13 @@ class StorageDict(dict, IStorage):
                 return final_results[0]
 
     def __make_val_persistent(self, val, col=0):
-        if isinstance(val, StorageDict):
-            for k, element in val.items():
-                val[k] = self.__make_val_persistent(element)
-        elif isinstance(val, list):
+        if isinstance(val, list):
             for index, element in enumerate(val):
                 val[index] = self.__make_val_persistent(element, index)
-        if isinstance(val, IStorage) and not val._is_persistent:
-            val._storage_id = uuid.uuid4()
+        elif isinstance(val, IStorage) and not val._is_persistent:
+            val.storage_id = uuid.uuid4()
             attribute = self._columns[col]["name"]
-            count = self._count_name_collision(attribute)
+            count = count_name_collision(self._ksp, self._table, attribute)
             if count == 0:
                 name = self._ksp + "." + self._table + "_" + attribute
             else:
@@ -630,7 +613,7 @@ class StorageDict(dict, IStorage):
             val = self.__create_embeddedset(key=key, val=val)
 
         log.debug('SET ITEM %s->%s', key, val)
-        if not self._is_persistent:
+        if self.storage_id is None:
             dict.__setitem__(self, key, val)
         elif not isinstance(val, EmbeddedSet):
             # Not needed because it is made persistent and inserted to hcache when calling to self.__create_embeddedset
@@ -681,7 +664,7 @@ class StorageDict(dict, IStorage):
             if not persistent:
                 dict.keys(self)
         """
-        if self._is_persistent:
+        if self.storage_id:
             ik = self._hcache.iterkeys(config.prefetch_size)
             iterator = NamedIterator(ik, self._key_builder, self)
             if self._has_embedded_set:
@@ -700,7 +683,7 @@ class StorageDict(dict, IStorage):
             if not persistent:
                 dict.items(self)
         """
-        if self._is_persistent:
+        if self.storage_id:
             ik = self._hcache.iteritems(config.prefetch_size)
             iterator = NamedItemsIterator(self._key_builder,
                                           self._column_builder,
@@ -732,7 +715,7 @@ class StorageDict(dict, IStorage):
             if not persistent:
                 dict.values(self)
         """
-        if self._is_persistent:
+        if self.storage_id:
             if self._has_embedded_set:
                 items = self.items()
                 return dict(items).values()
@@ -742,7 +725,7 @@ class StorageDict(dict, IStorage):
         else:
             return dict.values(self)
 
-    def get(self, key, default):
+    def get(self, key, default=None):
         try:
             value = self.__getitem__(key)
         except KeyError:

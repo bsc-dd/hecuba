@@ -42,7 +42,6 @@ class SObj_ComplexClassField(StorageObj):
 
 
 class StorageDictSplitTestbase(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         config.session.execute("DROP KEYSPACE IF EXISTS my_app", timeout=60)
@@ -64,6 +63,8 @@ class StorageDictSplitTestbase(unittest.TestCase):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd
+        import gc
+        gc.collect()
         count, = config.session.execute('SELECT count(*) FROM my_app.tab30')[0]
         self.assertEqual(count, num_inserts)
 
@@ -93,6 +94,8 @@ class StorageDictSplitTestbase(unittest.TestCase):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd
+        import gc
+        gc.collect()
         count, = config.session.execute('SELECT count(*) FROM my_app.tab_b0')[0]
         self.assertEqual(count, num_inserts)
 
@@ -103,7 +106,7 @@ class StorageDictSplitTestbase(unittest.TestCase):
         count = 0
         res = set()
         for partition in pd.split():
-            id = partition.getID()
+            id = partition.storage_id
             from storage.api import getByID
             rebuild = getByID(id)
             for val in rebuild.keys():
@@ -126,7 +129,8 @@ class StorageDictSplitTestbase(unittest.TestCase):
             what_should_be[i, i + 100] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
 
         del pd
-
+        import gc
+        gc.collect()
         count, = config.session.execute('SELECT count(*) FROM my_app.tab_b1')[0]
         self.assertEqual(count, num_inserts)
         pd = StorageDict(tablename,
@@ -162,7 +166,8 @@ class StorageDictSplitTestbase(unittest.TestCase):
             mybook[id] = 'someRandomText' + str(id)
 
         del mybook
-
+        import gc
+        gc.collect()
         # verify all data has been written
         myotherbook = SDict_SimpleTypeSpec("test_records")
         self.assertEqual(nitems, self.computeItems(myotherbook))
@@ -290,7 +295,7 @@ class StorageDictSplitTestbase(unittest.TestCase):
         count = 0
         res = {}
         for partition in pd.split():
-            id = partition.getID()
+            id = partition.storage_id
             from storage.api import getByID
             rebuild = getByID(id)
             for key, val in rebuild.items():

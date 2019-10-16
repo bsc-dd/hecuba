@@ -2,11 +2,11 @@ from collections import Iterable
 
 import re
 import inspect
-from hecuba import config
-from hecuba.qbeast import QbeastIterator, QbeastMeta
+from . import config
+from .qbeast import QbeastIterator, QbeastMeta
 
-from hecuba.IStorage import IStorage
-from hecuba.tools import NamedItemsIterator
+from .IStorage import IStorage
+from .storageiter import NamedItemsIterator
 
 magical_regex = re.compile(r'(?:\d+(?:\.\d+)?|\w|"\w+"|\'\w+\')+|[^\s\w\_]')
 is_numerical = re.compile(r'\d+(\.\d+)?')
@@ -38,7 +38,7 @@ def substit_var(final_list, func_vars, dictv):
                     else:
                         list_with_values.append(dictv.get(str(elem)))
                 else:
-                    list_with_values.append(elem[i+1:])
+                    list_with_values.append(elem[i + 1:])
             else:
                 get_elem = dictv.get(str(elem), elem)
                 list_with_values.append(get_elem)
@@ -123,7 +123,7 @@ def parse_lambda(func):
                 simplified_filter[i:index + i + 1] = [joined_tuple]
             else:
                 simplified_filter[i:index + i + 1] = []
-                simplified_filter[i-1] += "()"
+                simplified_filter[i - 1] += "()"
 
     final_list = []
     while 'and' in simplified_filter:
@@ -131,7 +131,7 @@ def parse_lambda(func):
         sublist = simplified_filter[:i]
         sublist = substit_var(sublist, func_vars, dictv)
         final_list.append(sublist)
-        simplified_filter[:i+1] = []
+        simplified_filter[:i + 1] = []
     else:
         sublist = substit_var(simplified_filter, func_vars, dictv)
         final_list.append(sublist)

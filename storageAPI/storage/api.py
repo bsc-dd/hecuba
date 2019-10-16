@@ -1,5 +1,6 @@
 import uuid
 
+
 def init(config_file_path=None):
     """
     Function that can be useful when running the application with COMPSs >= 2.0
@@ -73,15 +74,13 @@ class TaskContext(object):
 
 def getByID(objid):
     """
-    We rebuild the object from its id. The id can either be:
-    block: UUID (eg. f291f008-a520-11e6-b42e-5b582e04fd70)
-    storageobj: UUID_(version) (eg. f291f008-a520-11e6-b42e-5b582e04fd70_1)
+    We rebuild the object from its id.
 
     Args:
         objid (str):  object identifier
 
     Returns:
-         (Block| Storageobj)
+         Hecuba Object
 
     """
     """
@@ -92,10 +91,10 @@ def getByID(objid):
                     (Block| Storageobj)
                """
     from hecuba import log
-    from hecuba.IStorage import IStorage
-
+    from hecuba.IStorage import build_remotely
+    from hecuba import config
+    objid = str(objid)
     try:
-        from hecuba import config
         query = "SELECT * FROM hecuba.istorage WHERE storage_id = %s"
         results = config.session.execute(query, [uuid.UUID(objid)])[0]
     except Exception as e:
@@ -103,4 +102,4 @@ def getByID(objid):
         raise e
 
     log.debug("IStorage API:getByID(%s) of class %s", objid, results.class_name)
-    return IStorage.build_remotely(results._asdict())
+    return build_remotely(results._asdict())
