@@ -31,7 +31,11 @@ int16_t BoolParser::py_to_c(PyObject *obj, void *payload) const {
 PyObject *BoolParser::c_to_py(const void *payload) const {
     if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to int, found NULL");
     const bool *temp = reinterpret_cast<const bool *>(payload);
-    if (*temp) return Py_True;
+    if (*temp) {
+        Py_INCREF(Py_True);
+        return Py_True;
+    }
+    Py_INCREF(Py_False);
     return Py_False;
 }
 

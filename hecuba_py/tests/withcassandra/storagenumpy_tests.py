@@ -45,7 +45,9 @@ class StorageNumpyTest(unittest.TestCase):
             storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, tablename + typecode)
             typed_array = StorageNumpy(base_array.astype(typecode), storage_id, tablename)
             self.assertTrue(np.array_equal(typed_array, base_array.astype(typecode)))
-            typed_array = None
+            import gc
+            del typed_array
+            gc.collect()
             typed_array = StorageNumpy(None, storage_id, tablename)
             self.assertTrue(np.array_equal(typed_array, base_array.astype(typecode)))
 
@@ -84,8 +86,6 @@ class StorageNumpyTest(unittest.TestCase):
         basic_init = StorageNumpy(base_array)
         new_from_template = basic_init[:32]
 
-
-
     def test_explicit_construct(self):
         # From an explicit constructor - e.g. InfoArray():
         #    obj is None
@@ -108,7 +108,23 @@ class StorageNumpyTest(unittest.TestCase):
         #    type(obj) is InfoArray
         base_array = np.arange(4096).reshape((64, 64))
         basic_init = StorageNumpy(base_array)
-        new_from_template=basic_init[:32]
+        new_from_template = basic_init[:32]
+
+    def test_read_all(self):
+        nelem = 2 ** 21
+        elem_dim = 2 ** 7
+
+        storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, "first_test")
+        base_array = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim))
+        casted = StorageNumpy(input_array=base_array, name="testing_arrays.first_test", storage_id=storage_id)
+        import gc
+        del casted
+        gc.collect()
+        test_numpy = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim))
+        casted = StorageNumpy(name="testing_arrays.first_test", storage_id=storage_id)
+        chunk = casted[slice(None, None, None)]
+        self.assertTrue(np.allclose(chunk.view(np.ndarray), test_numpy))
+
 
 if __name__ == '__main__':
     unittest.main()

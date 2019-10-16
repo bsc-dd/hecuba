@@ -3,7 +3,7 @@ import unittest
 
 from hecuba import StorageDict
 from hecuba import config
-from hecuba.IStorage\
+from hecuba.IStorage \
     import build_remotely
 
 

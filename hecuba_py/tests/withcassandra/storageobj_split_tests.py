@@ -1,4 +1,5 @@
 import unittest
+import gc
 
 from hecuba import config
 from hecuba.storageobj import StorageObj
@@ -17,8 +18,8 @@ N_CASS_NODES = 2
 class StorageObjSplitTest(unittest.TestCase):
     def test_simple_keys_split_test(self):
         tablename = "tab30"
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + "_words")
+        config.session.execute("DROP TABLE IF EXISTS my_app.TestSimple")
+        config.session.execute("DROP TABLE IF EXISTS my_app.TestSimple" + "_words")
         sto = TestSimple(tablename)
         pd = sto.words
         num_inserts = 1000
@@ -27,9 +28,9 @@ class StorageObjSplitTest(unittest.TestCase):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd, sto
-        import gc
+
         gc.collect()
-        count, = config.session.execute('SELECT count(*) FROM my_app.' + tablename + '_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.TestSimple_words')[0]
         self.assertEqual(count, num_inserts)
 
         sto = TestSimple(tablename)
@@ -50,8 +51,8 @@ class StorageObjSplitTest(unittest.TestCase):
 
     def test_build_remotely_keys_split_test(self):
         tablename = 'tab30'
-        config.session.execute('DROP TABLE IF EXISTS my_app.' + tablename)
-        config.session.execute('DROP TABLE IF EXISTS my_app.' + tablename + '_words')
+        config.session.execute('DROP TABLE IF EXISTS my_app.TestSimple')
+        config.session.execute('DROP TABLE IF EXISTS my_app.TestSimple_words')
         sto = TestSimple(tablename)
         pd = sto.words
         num_inserts = 1000
@@ -61,9 +62,9 @@ class StorageObjSplitTest(unittest.TestCase):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd, sto
-        import gc
+
         gc.collect()
-        count, = config.session.execute('SELECT count(*) FROM my_app.' + tablename + '_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.TestSimple_words')[0]
         self.assertEqual(count, num_inserts)
 
         sto = TestSimple(tablename)
@@ -87,8 +88,8 @@ class StorageObjSplitTest(unittest.TestCase):
 
     def test_simple_keys_split_fromSO_test(self):
         tablename = "tab31"
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + "_words")
+        config.session.execute('DROP TABLE IF EXISTS my_app.TestSimple')
+        config.session.execute('DROP TABLE IF EXISTS my_app.TestSimple_words')
         sto = TestSimple(tablename)
         pd = sto.words
         num_inserts = 1000
@@ -97,9 +98,9 @@ class StorageObjSplitTest(unittest.TestCase):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd, sto
-        import gc
+
         gc.collect()
-        count, = config.session.execute('SELECT count(*) FROM my_app.' + tablename + '_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.TestSimple_words')[0]
         self.assertEqual(count, num_inserts)
 
         sto = TestSimple(tablename)
@@ -118,8 +119,8 @@ class StorageObjSplitTest(unittest.TestCase):
 
     def test_build_remotely_keys_split_fromSO_test(self):
         tablename = "tab32"
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + "_words")
+        config.session.execute('DROP TABLE IF EXISTS my_app.TestSimple')
+        config.session.execute('DROP TABLE IF EXISTS my_app.TestSimple_words')
         sto = TestSimple(tablename)
         pd = sto.words
         num_inserts = 1000
@@ -128,9 +129,9 @@ class StorageObjSplitTest(unittest.TestCase):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
         del pd, sto
-        import gc
+
         gc.collect()
-        count, = config.session.execute('SELECT count(*) FROM my_app.' + tablename + '_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.TestSimple_words')[0]
         self.assertEqual(count, num_inserts)
 
         sto = TestSimple(tablename)
@@ -150,10 +151,10 @@ class StorageObjSplitTest(unittest.TestCase):
         self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
 
-    def test_split_with_differentstorage_ids(self):
+    def test_split_with_different_storage_ids(self):
         tablename = "tab33"
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename + "_words")
+        config.session.execute('DROP TABLE IF EXISTS my_app.TestSimple')
+        config.session.execute('DROP TABLE IF EXISTS my_app.TestSimple_words')
         sto = TestSimple(tablename)
         pd = sto.words
 

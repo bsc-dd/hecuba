@@ -13,8 +13,8 @@ from .tools import count_name_collision, get_istorage_attrs, build_remotely, sto
 class StorageObj(IStorage):
     args_names = ["name", "tokens", "storage_id", "class_name", "built_remotely"]
     args = namedtuple('StorageObjArgs', args_names)
-    _prepared_store_meta = config.session.prepare('INSERT INTO hecuba' +
-                                                  '.istorage (storage_id, class_name, name, tokens) '
+    _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
+                                                  '(storage_id, class_name, name, tokens) '
                                                   ' VALUES (?,?,?,?)')
 
     """
@@ -73,6 +73,9 @@ class StorageObj(IStorage):
             self.make_persistent(name)
         log.debug("CREATED StorageObj(%s)", self._get_name())
 
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self.getID() == other.getID()
+
     def _persist_attributes(self):
         """
         Persist in-memory attributes to the data store
@@ -130,7 +133,11 @@ class StorageObj(IStorage):
             Args:
                 name (string): name with which the table in the DB will be created
         """
+        # Update name
+        name = name[:name.rfind('.') + 1] + self.__class__.__name__
+
         super().make_persistent(name)
+
         # Arguments used to build objects remotely
         self._build_args = self.args(self._get_name(),
                                      self._tokens,

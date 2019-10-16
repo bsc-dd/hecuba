@@ -3065,3 +3065,40 @@ TEST(TableMeta, BigIntANDTextFromCassandra) {
     cass_session_free(test_session);
 
 }
+
+TEST(TableMeta, CheckErrorTupleRowFact_Type) {
+
+    CassSession *test_session = NULL;
+    CassCluster *test_cluster = NULL;
+
+    CassFuture *connect_future = NULL;
+    test_cluster = cass_cluster_new();
+    test_session = cass_session_new();
+
+    cass_cluster_set_contact_points(test_cluster, contact_p);
+    cass_cluster_set_port(test_cluster, nodePort);
+
+    connect_future = cass_session_connect_keyspace(test_session, test_cluster, keyspace);
+
+    CassError rcc = cass_future_error_code(connect_future);
+    EXPECT_TRUE(rcc == CASS_OK);
+
+    cass_future_free(connect_future);
+
+    fireandforget("DROP KEYSPACE IF EXISTS test;", test_session);
+
+    fireandforget("CREATE KEYSPACE test WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};",
+                  test_session);
+
+    CassStatement *statement = cass_statement_new("CREATE TABLE test.people(dni text PRIMARY KEY, info it);", 0);
+    CassFuture *connect_fut = cass_session_execute(test_session, statement);
+    CassError rc = cass_future_error_code(connect_fut);
+
+    try {
+        CHECK_CASS("Cannot create table");
+    }
+    catch (ModuleException &e1) {
+        std::string excep_text = e1.what();
+        GTEST_CHECK_(excep_text.find("Cannot create table"));
+    }
+}

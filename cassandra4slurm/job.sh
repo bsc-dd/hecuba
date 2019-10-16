@@ -2,10 +2,10 @@
 #TO BE REMOVED#SBATCH --qos=debug
 ###############################################################################################################
 #                                                                                                             #
-#                                        Cassandra4Slurm Job for Slurm                                        #
+#                                             Cassandra Job for HPC                                           #
 #                                          Eloy Gil - eloy.gil@bsc.es                                         #
 #                                                                                                             #
-#                                     Barcelona Supercomputing Center 2018                                    #
+#                                        Barcelona Supercomputing Center                                      #
 #                                                    .-.--_                                                   #
 #                                                  ,´,´.´   `.                                                #
 #                                                  | | | BSC |                                                #
@@ -24,7 +24,7 @@ PYCOMPSS_APP=${4}     # Application execution using PyCOMPSs. 0: No, 1: Yes
 DISJOINT=${5}         # Guarantee disjoint allocation. 1: Yes, empty otherwise
 
 export C4S_HOME=$HOME/.c4s
-MODULE_PATH=/apps/HECUBA/0.1/lib/cassandra4slurm
+MODULE_PATH=/apps/HECUBA/0.1.3/lib/cassandra4slurm
 CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
 NODEFILE=$C4S_HOME/hostlist-"$UNIQ_ID".txt
 export CASSFILE=$C4S_HOME/casslist-"$UNIQ_ID".txt
@@ -37,48 +37,26 @@ RECOVER_FILE=$C4S_HOME/cassandra-recover-file-"$UNIQ_ID".txt
 rm -f $NODEFILE $CASSFILE $APPFILE
 scontrol show hostnames $SLURM_NODELIST > $NODEFILE
 
-export CASS_HOME=$(cat $CFG_FILE | grep "CASS_HOME=" | sed 's/CASS_HOME=//g' | sed 's/"//g')
-export DATA_PATH=$(cat $CFG_FILE | grep "DATA_PATH=" | sed 's/DATA_PATH=//g' | sed 's/"//g') 
-export SNAP_PATH=$(cat $CFG_FILE | grep "SNAP_PATH=" | sed 's/SNAP_PATH=//g' | sed 's/"//g')
+export CASS_HOME=$(cat $CFG_FILE | grep -v "#" | grep "CASS_HOME=" | tail -n 1 | sed 's/CASS_HOME=//g' | sed 's/"//g' | sed "s/'//g")
+export DATA_PATH=$(cat $CFG_FILE | grep -v "#" | grep "DATA_PATH=" | tail -n 1 | sed 's/DATA_PATH=//g' | sed 's/"//g' | sed "s/'//g") 
+export SNAP_PATH=$(cat $CFG_FILE | grep -v "#" | grep "SNAP_PATH=" | tail -n 1 | sed 's/SNAP_PATH=//g' | sed 's/"//g' | sed "s/'//g")
 mkdir -p $SNAP_PATH
 THETIME=$(date "+%Y%m%dD%H%Mh%Ss")"-$SLURM_JOB_ID"
 ROOT_PATH=$DATA_PATH/$THETIME
-DATA_HOME=$ROOT_PATH/c4j/cassandra-data
-COMM_HOME=$ROOT_PATH/c4j/cassandra-commitlog
-SAV_CACHE=$ROOT_PATH/c4j/saved_caches
+DATA_HOME=$ROOT_PATH/cassandra-data
+COMM_HOME=$ROOT_PATH/cassandra-commitlog
+SAV_CACHE=$ROOT_PATH/saved_caches
 CLUSTER=$THETIME
-C4S_CASSANDRA_CORES=4
-RETRY_MAX=50
+if [ "$DISJOINT" == "1" ]; then
+    C4S_CASSANDRA_CORES=48
+else
+    C4S_CASSANDRA_CORES=4
+fi
+RETRY_MAX=3000 # This value is around 50, higher now to test big clusters that need more time to be completely discovered
 
 # Generating nodefiles
-cass_count=0
-for node in $(cat $NODEFILE)
-do
-    if [ $cass_count -eq $CASSANDRA_NODES ]; then
-        break
-    else
-        echo $node >> $CASSFILE
-        ((cass_count++))
-    fi
-done
-
-app_count=0
-iter=0
-touch $APPFILE
-for node in $(cat $NODEFILE)
-do
-    if [ "$DISJOINT" == "1" ] && [ $iter -lt $CASSANDRA_NODES ]; then
-        # If disjoint execution is enabled cassandra nodes are skipped
-        ((iter++))
-        echo "[DEBUG] Omitting node: "$node
-        continue
-    elif [ $app_count -eq $APP_NODES ]; then
-        break
-    else
-        echo $node >> $APPFILE
-        ((app_count++))
-    fi
-done
+head -n $CASSANDRA_NODES $NODEFILE > $CASSFILE
+tail -n $APP_NODES $NODEFILE > $APPFILE
 export APPNODELIST=$(cat $APPFILE | tr '\n' ',' | sed "s/,/$full_iface,/g" | rev | cut -c 2- | rev)
 
 echo "[DEBUG] iter="$iter
@@ -90,7 +68,7 @@ echo "[DEBUG] DISJOINT="$DISJOINT
 N_NODES=$(cat $CASSFILE | wc -l)
 
 if [ "$(cat $RECOVER_FILE)" != "" ]; then
-    CLUSTER="$(cat $(find $SNAP_PATH -type f -name $(cat $RECOVER_FILE)-cluster.txt | head -n 1))"
+    CLUSTER=$(cat $RECOVER_FILE)
 else
     CLUSTER=$THETIME
 fi
@@ -109,18 +87,7 @@ function exit_bad_node_status () {
 }
 
 function get_nodes_up () {
-    NODE_STATE_LIST=`$CASS_HOME/bin/nodetool status | sed 1,5d | sed '$ d' | awk '{ print $1 }'`
-    if [ "$NODE_STATE_LIST" != "" ]
-    then
-        NODE_COUNTER=0
-        for state in $NODE_STATE_LIST
-        do  
-            if [ $state == "UN" ]
-            then
-                ((NODE_COUNTER++))
-            fi  
-        done
-    fi 
+    NODE_COUNTER=$($CASS_HOME/bin/nodetool status | sed 1,5d | sed '$ d' | awk '{ print $1 }' | grep "UN" | wc -l)
 }
 
 if [ ! -f $CASS_HOME/bin/cassandra ]; then
@@ -148,8 +115,6 @@ echo "STARTING UP CASSANDRA..."
 echo "I am $(hostname)."
 export REPLICA_FACTOR=2
 
-sleep 10
-
 # If template is not there, it is copied from cassandra config folder 
 if [ ! -f $C4S_HOME/conf/template.yaml ]; then
     cp $CASS_HOME/conf/cassandra.yaml $C4S_HOME/conf/template.yaml
@@ -161,15 +126,17 @@ if [ -f $CASS_HOME/conf/cassandra.yaml ] && [[ ! -s $C4S_HOME/conf/template.yaml
     cp $CASS_HOME/conf/cassandra.yaml $C4S_HOME/conf/template.yaml
 fi
 
-hostlist=`cat $CASSFILE`
-seeds=`echo $hostlist | sed "s/ /-$iface,/g"`
+casslist=`cat $CASSFILE`
+seedlist=`head -n 2 $CASSFILE`
+seeds=`echo $seedlist | sed "s/ /-$iface,/g"`
 seeds=$seeds-$iface #using only infiniband atm, will change later
-sed "s/.*seeds:.*/          - seeds: \"$seeds\"/" $C4S_HOME/conf/template.yaml | sed "s/.*rpc_interface:.*/rpc_interface: $iface/" | sed "s/.*listen_interface:.*/listen_interface: $iface/" | sed "s/.*listen_address:.*/#listen_address: localhost/" | sed "s/.*rpc_address:.*/#rpc_address: localhost/" | sed "s/.*initial_token:.*/#initial_token:/" > $C4S_HOME/conf/template-aux.yaml
-mv $C4S_HOME/conf/template-aux.yaml $C4S_HOME/conf/template.yaml
+sed "s/.*seeds:.*/          - seeds: \"$seeds\"/" $C4S_HOME/conf/template.yaml | sed "s/.*rpc_interface:.*/rpc_interface: $iface/" | sed "s/.*listen_interface:.*/listen_interface: $iface/" | sed "s/.*listen_address:.*/#listen_address: localhost/" | sed "s/.*rpc_address:.*/#rpc_address: localhost/" | sed "s/.*initial_token:.*/#initial_token:/" > $C4S_HOME/conf/template-aux-"$SLURM_JOB_ID".yaml
+ls -la $C4S_HOME/conf/template-aux-"$SLURM_JOB_ID".yaml
 
 TIME_START=`date +"%T.%3N"`
-echo "Launching in the following hosts: $hostlist"
-export CASSANDRA_NODELIST=$(echo $hostlist | sed -e 's+ +,+g')
+echo "Launching Cassandra in the following hosts: $casslist"
+export CASSANDRA_NODELIST=$(echo $casslist | sed -e 's+ +,+g')
+echo "CASSANDRA_NODELIST var: "$CASSANDRA_NODELIST
 
 # Clearing data from previous executions and checking symlink coherence
 srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES $MODULE_PATH/tmp-set.sh $CASS_HOME $DATA_HOME $COMM_HOME $SAV_CACHE $ROOT_PATH $CLUSTER $UNIQ_ID
@@ -202,12 +169,15 @@ then
 
     echo "[STATS] Cluster recover process (copy files and set tokens for all nodes) took: "$TIMESEC"s. "$MILL"ms."    
 fi       
-
+#exit # TODO QUITAR ESTO DE AQUÍ, SI NO NO FUNCIONA!!! TODO
 # Launching Cassandra in every node
 
 echo "RUNNING srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES $MODULE_PATH/cass_node.sh $UNIQ_ID"
 srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES $MODULE_PATH/cass_node.sh $UNIQ_ID &
 sleep 5
+
+# Cleaning config template
+rm -f $C4S_HOME/conf/template-aux-"$SLURM_JOB_ID".yaml
 
 # Checking cluster status until all nodes are UP (or timeout)
 echo "Checking..."
@@ -249,7 +219,7 @@ echo "CHECKING CASSANDRA STATUS: "
 $CASS_HOME/bin/nodetool status
 
 sleep 12
-firstnode=$(echo $hostlist | awk '{ print $1 }')
+firstnode=$(echo $seeds | awk -F ',' '{ print $1 }')
 CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $CASSFILE)$CASS_IFACE
 CNAMES=$(echo $CNAMES | sed "s/,/$CASS_IFACE,/g")
 export CONTACT_NAMES=$CNAMES
@@ -259,13 +229,18 @@ PYCOMPSS_STORAGE=$C4S_HOME/pycompss_storage_"$UNIQ_ID".txt
 echo $CNAMES | tr , '\n' > $PYCOMPSS_STORAGE # Set list of nodes (with interface) in PyCOMPSs file
 
 # Workaround: Creating hecuba.istorage before execution.
-#$CASS_HOME/bin/cqlsh $(head -n 1 $CASSFILE)$CASS_IFACE < hecuba-istorage.cql
+#$CASS_HOME/bin/cqlsh $(head -n 1 $CASSFILE)$CASS_IFACE < $MODULE_PATH/hecuba-istorage.cql
 #$CASS_HOME/bin/cqlsh $(head -n 1 $CASSFILE)$CASS_IFACE < $MODULE_PATH/tables_numpy.cql
+if [ "0$SCHEMA" != "0" ]; then
+  echo "Connecting to $firstnode for tables creation. Schema $SCHEMA."
+  $CASS_HOME/bin/cqlsh $firstnode -f $SCHEMA
+  sleep 10
+fi
 
 # Application launcher
 if [ "$APP_NODES" != "0" ]; then
+    APP_AND_PARAMS=$(cat $APPPATHFILE)
     if [ "$PYCOMPSS_APP" == "1" ]; then
-        APP_AND_PARAMS=$(cat $APPPATHFILE)
         PYCOMPSS_FLAGS=$(cat $PYCOMPSS_FLAGS_FILE)
         # TODO: Check if escaping chars is needed for app parameters
         echo "export CONTACT_NAMES=$CNAMES" > ~/contact_names.sh # Setting Cassandra cluster environment variable for Hecuba
@@ -279,12 +254,21 @@ if [ "$APP_NODES" != "0" ]; then
         cat $MODULE_PATH/pycompss_template.sh | sed "s+PLACEHOLDER_CASSANDRA_NODES_FILE+$CASSFILE+g" | sed "s+PLACEHOLDER_PYCOMPSS_NODES_FILE+$APPFILE+g" | sed "s+PLACEHOLDER_APP_PATH_AND_PARAMETERS+$APP_AND_PARAMS+g" | sed "s+PLACEHOLDER_PYCOMPSS_FLAGS+$PYCOMPSS_FLAGS+g" | sed "s+PLACEHOLDER_PYCOMPSS_STORAGE+$PYCOMPSS_STORAGE+g" > $PYCOMPSS_FILE
         bash $PYCOMPSS_FILE "-$iface" # Params - 1st: interface
     else
-        if [ "$DISJOINT" != "1" ]; then
-            export SLURM_NTASKS_PER_NODE=$((SLURM_NTASKS_PER_NODE - C4S_CASSANDRA_CORES))
-            export SLURM_NTASKS=$((SLURM_NTASKS_PER_NODE*APP_NODES))
-            export SLURM_NPROCS=$SLURM_NTASKS
+        if [ "$DISJOINT" == "1" ]; then
+            C4S_CASSANDRA_CORES=0
+            if [ "$(echo $APP_AND_PARAMS | cut -c-5)" == "srun " ]; then
+                APP_TAIL="$(echo $APP_AND_PARAMS | cut -c6-)"
+                NEW_APP="srun --exclude="$CASSANDRA_NODELIST" --nodes="$APP_NODES" "$APP_TAIL
+                echo $NEW_APP > $APPPATHFILE
+                APP_AND_PARAMS=$NEW_APP
+            fi
         fi
+        echo "SETTING ENV VARS"
+        export SLURM_NTASKS_PER_NODE=$((SLURM_NTASKS_PER_NODE - C4S_CASSANDRA_CORES))
+        export SLURM_NTASKS=$((SLURM_NTASKS_PER_NODE*APP_NODES))
+        export SLURM_NPROCS=$SLURM_NTASKS
         export APP_NODES=$APP_NODES
+        echo "RUNNING IN $APP_NODES APP_NODES WITH NTASKS_PERNODE $SLURM_NTASKS_PER_NODE, NTASKS $SLURM_NTASKS AND NPROCS $SLURM_NPROCS"
         source $MODULE_PATH/app_node.sh $UNIQ_ID
     fi
 else
@@ -299,14 +283,6 @@ while [ "$(cat $C4S_HOME/stop."$UNIQ_ID".txt)" != "1" ]; do
     sleep 2
 done
 
-# Don't continue until the status is stable
-#while [ "$NDT_STATUS" != "$($CASS_HOME/bin/nodetool status)" ]
-#do
-#    NDT_STATUS=$($CASS_HOME/bin/nodetool status)
-#    #sleep 60
-#    sleep 20
-#done
-
 # If an snapshot was ordered, it is done
 if [ "$(cat $SNAPSHOT_FILE)" == "1" ]
 then 
@@ -320,7 +296,7 @@ then
     while [ "$SNAP_CONT" != "$N_NODES" ]
     do
         SNAP_CONT=0
-        for u_host in $hostlist
+        for u_host in $casslist
         do
             if [ -f $C4S_HOME/snap-status-$SNAP_NAME-$u_host-file.txt ]
             then

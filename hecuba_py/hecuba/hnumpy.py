@@ -23,7 +23,7 @@ class StorageNumpy(IStorage, np.ndarray):
     args_names = ["storage_id", "class_name", "name", "shape", "dtype", "block_id", "built_remotely"]
     args = namedtuple('StorageNumpyArgs', args_names)
 
-    def __new__(cls, input_array=None, storage_id=None, name='', built_remotely=False, **kwargs):
+    def __new__(cls, input_array=None, storage_id=None, name=None, built_remotely=False, **kwargs):
         if name:
             name = name + '_numpies'
         elif storage_id:
@@ -54,7 +54,7 @@ class StorageNumpy(IStorage, np.ndarray):
         obj._class_name = '%s.%s' % (cls.__module__, cls.__name__)
         return obj
 
-    def __init__(self, input_array=None, storage_id=None, name='', **kwargs):
+    def __init__(self, input_array=None, storage_id=None, name=None, **kwargs):
         IStorage.__init__(self, storage_id=storage_id, name=name, **kwargs)
         if input_array is not None and (name or storage_id):
             self.make_persistent(name)
@@ -81,8 +81,6 @@ class StorageNumpy(IStorage, np.ndarray):
     def _create_hcache(storage_id, name):
         (ksp, table) = extract_ks_tab(name)
         hcache_params = (ksp, table,
-                         storage_id, [], ['storage_id', 'cluster_id', 'block_id'],
-                         [{'name': "payload", 'type': 'numpy'}],
                          {'cache_size': config.max_cache_size,
                           'writer_par': config.write_callbacks_number,
                           'write_buffer': config.write_buffer_size,
@@ -118,10 +116,10 @@ class StorageNumpy(IStorage, np.ndarray):
             raise KeyError
 
     def make_persistent(self, name):
-        super().make_persistent(name)
         if not name.endswith("_numpies"):
             name = name + '_numpies'
             self._table = self._table + '_numpies'
+        super().make_persistent(name)
 
         self._build_args = self.args(self.storage_id, self._class_name, self._ksp + '.' + self._table,
                                      self.shape, self.dtype.num, self._block_id, self._built_remotely)
