@@ -206,8 +206,8 @@ class StorageDictTest(unittest.TestCase):
         '''
 
     def test_make_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.Words")
-        config.session.execute("DROP TABLE IF EXISTS my_app.Words_words")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t_make")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t_make_words")
         nopars = Words()
         self.assertIsNone(nopars.storage_id)
         nopars.ciao = 1
@@ -227,7 +227,7 @@ class StorageDictTest(unittest.TestCase):
         del nopars
         import gc
         gc.collect()
-        count, = config.session.execute('SELECT count(*) FROM my_app.Words_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.t_make_words')[0]
         self.assertEqual(10, count)
 
     def test_none_value(self):
@@ -345,8 +345,8 @@ class StorageDictTest(unittest.TestCase):
         self.assertEquals(pd[0, 'pos1'], ('bla', 1.0))
 
     def test_empty_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.Words")
-        config.session.execute("DROP TABLE IF EXISTS my_app.Words_words")
+        config.session.execute("DROP TABLE IF EXISTS my_app.wordsso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.wordsso_words")
         so = Words()
         so.make_persistent("wordsso")
         so.ciao = "an attribute"
@@ -359,7 +359,7 @@ class StorageDictTest(unittest.TestCase):
         del so
         import gc
         gc.collect()
-        count, = config.session.execute('SELECT count(*) FROM my_app.Words_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.wordsso_words')[0]
         self.assertEqual(10, count)
 
         so = Words("wordsso")
@@ -370,7 +370,7 @@ class StorageDictTest(unittest.TestCase):
 
         self.assertRaises(RuntimeError, delete_already_deleted)
 
-        count, = config.session.execute('SELECT count(*) FROM my_app.Words_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.wordsso_words')[0]
         self.assertEqual(0, count)
 
     def test_simple_items_test(self):
