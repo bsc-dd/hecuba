@@ -8,11 +8,17 @@
 #include <unordered_map>
 
 
-#include "CacheTable.h"
 #include <cassandra.h>
+
+#include "TableMetadata.h"
 #include "Prefetch.h"
 #include "Writer.h"
-#include "TableMetadata.h"
+#include "CacheTable.h"
+
+#include "ArrayDataStore.h"
+
+typedef std::map<std::string, std::string> config_map;
+
 
 class StorageInterface {
 
@@ -22,31 +28,39 @@ public:
 
     ~StorageInterface();
 
+
+    CacheTable *make_cache(const TableMetadata *table_meta,
+                           config_map &config);
+
+
     CacheTable *make_cache(const char *table, const char *keyspace,
-                           std::vector<std::map<std::string, std::string>> &keys_names,
-                           std::vector<std::map<std::string, std::string>> &columns_names,
-                           std::map<std::string, std::string> &config);
+                           std::vector<config_map> &keys_names,
+                           std::vector<config_map> &columns_names,
+                           config_map &config);
 
     Writer *make_writer(const char *table, const char *keyspace,
-                        std::vector<std::map<std::string, std::string>> &keys_names,
-                        std::vector<std::map<std::string, std::string>> &columns_names,
-                        std::map<std::string, std::string> &config);
+                        std::vector<config_map> &keys_names,
+                        std::vector<config_map> &columns_names,
+                        config_map &config);
 
 
     Writer *make_writer(const TableMetadata *table_meta,
-                        std::map<std::string, std::string> &config);
+                        config_map &config);
+
+
+    ArrayDataStore *make_array_store(const char *table, const char *keyspace, config_map &config);
 
     Prefetch *get_iterator(const char *table, const char *keyspace,
-                           std::vector<std::map<std::string, std::string>> &keys_names,
-                           std::vector<std::map<std::string, std::string>> &columns_names,
+                           std::vector<config_map> &keys_names,
+                           std::vector<config_map> &columns_names,
                            const std::vector<std::pair<int64_t, int64_t>> &tokens,
-                           std::map<std::string, std::string> &config);
+                           config_map &config);
 
     Prefetch *get_iterator(const TableMetadata *table_meta,
                            const std::vector<std::pair<int64_t, int64_t>> &tokens,
-                           std::map<std::string, std::string> &config);
+                           config_map &config);
 
-    inline const CassSession *get_session() {
+    inline CassSession *get_session() {
         return this->session;
     }
 

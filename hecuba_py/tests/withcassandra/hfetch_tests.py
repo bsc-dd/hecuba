@@ -16,10 +16,13 @@ class HfetchTests(unittest.TestCase):
 
         my_dict = ConcurrentDict("concurrent_dict")
         last_value = 1000
-        for value in xrange(last_value):
+        for value in range(last_value):
             my_dict[0] = value
 
         del my_dict
+        import gc
+        gc.collect()
+
         my_dict = ConcurrentDict("concurrent_dict")
 
         retrieved = my_dict[0]
@@ -27,4 +30,3 @@ class HfetchTests(unittest.TestCase):
         config.timestamped_writes = previous_cfg
 
         self.assertEqual(retrieved, last_value - 1)
-

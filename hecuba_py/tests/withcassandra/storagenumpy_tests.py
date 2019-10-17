@@ -45,7 +45,9 @@ class StorageNumpyTest(unittest.TestCase):
             storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, tablename + typecode)
             typed_array = StorageNumpy(base_array.astype(typecode), storage_id, tablename)
             self.assertTrue(np.array_equal(typed_array, base_array.astype(typecode)))
-            typed_array = None
+            import gc
+            del typed_array
+            gc.collect()
             typed_array = StorageNumpy(None, storage_id, tablename)
             self.assertTrue(np.array_equal(typed_array, base_array.astype(typecode)))
 
@@ -59,6 +61,69 @@ class StorageNumpyTest(unittest.TestCase):
             typed_array = None
             typed_array = StorageNumpy(None, storage_id, tablename)
             self.assertTrue(np.array_equal(typed_array, base_array.astype(typecode)))
+
+    def test_explicit_construct(self):
+        # From an explicit constructor - e.g. InfoArray():
+        #    obj is None
+        #    (we're in the middle of the InfoArray.__new__
+        #    constructor, and self.info will be set when we return to
+        #    InfoArray.__new__)
+
+        basic_init = StorageNumpy()
+
+    def test_view_cast(self):
+        # From view casting - e.g arr.view(InfoArray):
+        #    obj is arr
+        #    (type(obj) can be InfoArray)
+
+        base_array = np.arange(4096).reshape((64, 64))
+        view_cast = base_array.view(StorageNumpy)
+
+    def test_new_from_template(self):
+        # From new-from-template - e.g infoarr[:3]
+        #    type(obj) is InfoArray
+        base_array = np.arange(4096).reshape((64, 64))
+        basic_init = StorageNumpy(base_array)
+        new_from_template = basic_init[:32]
+
+    def test_explicit_construct(self):
+        # From an explicit constructor - e.g. InfoArray():
+        #    obj is None
+        #    (we're in the middle of the InfoArray.__new__
+        #    constructor, and self.info will be set when we return to
+        #    InfoArray.__new__)
+
+        basic_init = StorageNumpy()
+
+    def test_view_cast(self):
+        # From view casting - e.g arr.view(InfoArray):
+        #    obj is arr
+        #    (type(obj) can be InfoArray)
+
+        base_array = np.arange(4096).reshape((64, 64))
+        view_cast = base_array.view(StorageNumpy)
+
+    def test_new_from_template(self):
+        # From new-from-template - e.g infoarr[:3]
+        #    type(obj) is InfoArray
+        base_array = np.arange(4096).reshape((64, 64))
+        basic_init = StorageNumpy(base_array)
+        new_from_template = basic_init[:32]
+
+    def test_read_all(self):
+        nelem = 2 ** 21
+        elem_dim = 2 ** 7
+
+        storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, "first_test")
+        base_array = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim))
+        casted = StorageNumpy(input_array=base_array, name="testing_arrays.first_test", storage_id=storage_id)
+        import gc
+        del casted
+        gc.collect()
+        test_numpy = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim))
+        casted = StorageNumpy(name="testing_arrays.first_test", storage_id=storage_id)
+        chunk = casted[slice(None, None, None)]
+        self.assertTrue(np.allclose(chunk.view(np.ndarray), test_numpy))
 
 
 if __name__ == '__main__':

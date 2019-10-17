@@ -1,7 +1,28 @@
 import re
 from itertools import count
 
-from IStorage import  _conversions, process_path
+from .tools import process_path
+
+_conversions = {'atomicint': 'counter',
+                'str': 'text',
+                'bool': 'boolean',
+                'decimal': 'decimal',
+                'float': 'float',
+                'int': 'int',
+                'tuple': 'tuple',
+                'list': 'list',
+                'generator': 'list',
+                'frozenset': 'set',
+                'set': 'set',
+                'dict': 'map',
+                'long': 'bigint',
+                'buffer': 'blob',
+                'bytearray': 'blob',
+                'counter': 'counter',
+                'double': 'double',
+                'StorageDict': 'dict',
+                'ndarray': 'hecuba.hnumpy.StorageNumpy',
+                'numpy.ndarray': 'hecuba.hnumpy.StorageNumpy'}
 
 
 class Parser(object):
@@ -85,7 +106,7 @@ class Parser(object):
             counter = count(0)
             for type_val in converted_primary_keys:
                 if type == "set":
-                    aux_list.append((t1 + '_' + str(counter.next()), type_val))
+                    aux_list.append((t1 + '_' + str(next(counter)), type_val))
                 else:
                     aux_list.append(type_val)
                 # string_str = ',{"name": "%s", "type": "%s", "%s": ["%s"]}' % (t1, type, pk_col, '","'.join(aux_list))
@@ -231,7 +252,7 @@ class Parser(object):
         if line.count('<') == 1:  # is tuple, set, list
             aux = self._parse_set_tuple_list(line, this)
         elif line.count('<') == 0 and line.count('Index_on') == 0 and line.count('.') == 0 or (
-                    line.count('numpy.ndarray') and line.count('dict') == 0):  # is simple type
+                line.count('numpy.ndarray') and line.count('dict') == 0):  # is simple type
             aux = self._parse_simple(line, this)
         elif line.count('Index_on') == 1:
             aux = self._parse_index(line, this)

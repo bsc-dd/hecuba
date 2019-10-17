@@ -1,39 +1,68 @@
 sudo: false
-dist: trusty
+dist: xenial
 language: python
 python:
-  - "2.7"
+  - '3.6'
+  - '3.7'
+  - '3.8-dev'
+services:
+  - docker
+
+env:
+  matrix:
+    - TEST_CASSANDRA_VERSION=3.11.4
+
+stages:
+  - test
+  - build_wheel_manylinux2010
+  - build_wheel_manylinux1
+
+before_install:
+  - source .travis/install_openjdk8.sh
+
 # command to install dependencies
 install:
   - pip install -r requirements.txt
   - pip install codecov
-  - python setup.py install --user
-# command to run tests
-script:
-  - nosetests --with-coverage -v -s hecuba_py/tests/*.py
-  - nosetests --with-coverage -v -s hecuba_py/tests/withcassandra
-jdk:
-  - oraclejdk8
+  - python setup.py install
+
 #caches dependencies
 cache: bundler
 addons:
   apt:
     packages:
-      - cmake3
+      - cmake
       - python-dev
       - libpython-dev
       - gcc-4.8
       - libtool
       - python-numpy
-env:
-  - TEST_CASSANDRA_VERSION=3.11.4
-env.global:
-  - PYTHONPATH=/home/travis/.local/lib/python2.7/site-packages/
-before_install:
-  - export PYTHONPATH=/home/travis/.local/lib/python2.7/site-packages/
-  - export CFLAGS='-std=c++11'
-  - java -version
+
+# command to run tests
+script:
+  - nosetests --with-coverage -v -s hecuba_py/tests/*.py
+  - nosetests --with-coverage -v -s hecuba_py/tests/withcassandra
+
+jobs:
+  include:
+    - stage: build_wheel_manylinux2010
+      sudo: required
+      env:
+        - DOCKER_IMAGE=quay.io/pypa/manylinux2010_x86_64  PLAT=manylinux2010_x86_64
+      install:
+        - docker pull $DOCKER_IMAGE
+      script:
+        - docker run --rm -e PLAT=$PLAT -v `pwd`:/io $DOCKER_IMAGE /io/.travis/build-wheels.sh
+    - stage: build_wheel_manylinux1
+      sudo: required
+      env:
+        - DOCKER_IMAGE=quay.io/pypa/manylinux1_x86_64  PLAT=manylinux1_x86_64
+      install:
+        - docker pull $DOCKER_IMAGE
+      script:
+        - docker run --rm -e PLAT=$PLAT -v `pwd`:/io $DOCKER_IMAGE /io/.travis/build-wheels.sh
 
 # Push the results back to codecov
 after_success:
   - codecov
+
