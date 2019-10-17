@@ -567,7 +567,7 @@ class StorageDict(IStorage, dict):
                 element = persistent_result[index]
                 if col_type not in basic_types:
                     # element is not a built-in type
-                    info = {"storage_id": uuid.UUID(element), "tokens": self._build_args.tokens, "class_name": col_type}
+                    info = {"storage_id": element, "tokens": self._build_args.tokens, "class_name": col_type}
                     element = build_remotely(info)
 
                 final_results.append(element)
