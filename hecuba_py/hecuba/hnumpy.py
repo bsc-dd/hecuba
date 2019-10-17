@@ -118,7 +118,7 @@ class StorageNumpy(IStorage, np.ndarray):
     def make_persistent(self, name):
         if not name.endswith("_numpies"):
             name = name + '_numpies'
-            self._table = self._table + '_numpies'
+
         super().make_persistent(name)
 
         self._build_args = self.args(self.storage_id, self._class_name, self._ksp + '.' + self._table,

@@ -516,6 +516,9 @@ class StorageDict(IStorage, dict):
         log.debug('DELETE PERSISTENT: %s', self._table)
         query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
         config.session.execute(query)
+
+        query = "DELETE FROM hecuba.istorage where storage_id={}".format(self.storage_id)
+        config.session.execute(query)
         self.storage_id = None
 
     def __delitem__(self, key):

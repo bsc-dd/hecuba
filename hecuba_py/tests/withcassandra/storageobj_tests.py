@@ -152,7 +152,7 @@ class StorageObjTest(unittest.TestCase):
              "tokens": discrete_token_ranges([token.value for token in config.cluster.metadata.token_map.ring])}
 
         nopars = build_remotely(r)
-        self.assertEqual('TestStorageObj', nopars._table)
+        self.assertEqual('TestStorageObj'.lower(), nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
         self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), nopars.storage_id)
         name, tkns = \
@@ -177,7 +177,7 @@ class StorageObjTest(unittest.TestCase):
 
         nopars = build_remotely(r)
         self.assertEqual(nopars._built_remotely, False)
-        self.assertEqual('TestStorageObj', nopars._table)
+        self.assertEqual('TestStorageObj'.lower(), nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
         self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt1'), nopars.storage_id)
         name, tkns = \
@@ -192,7 +192,7 @@ class StorageObjTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS " + config.execution_name + '.tt2')
         nopars = Result(name='tt2',
                         tokens=tkns)
-        self.assertEqual('Result', nopars._table)
+        self.assertEqual('Result'.lower(), nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
         self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.tt2'), nopars.storage_id)
         self.assertEqual(True, nopars._is_persistent)
@@ -238,7 +238,7 @@ class StorageObjTest(unittest.TestCase):
     def test_init_empty(self):
         config.session.execute("DROP TABLE IF EXISTS ksp1.TestStorageObj")
         nopars = TestStorageObj('ksp1.ttta')
-        self.assertEqual('TestStorageObj', nopars._table)
+        self.assertEqual('TestStorageObj'.lower(), nopars._table)
         self.assertEqual('ksp1', nopars._ksp)
 
         res = config.session.execute(
@@ -252,18 +252,18 @@ class StorageObjTest(unittest.TestCase):
 
         rebuild = build_remotely(res._asdict())
         self.assertEqual(rebuild._built_remotely, True)
-        self.assertEqual('TestStorageObj', rebuild._table)
-        self.assertEqual('ksp1', rebuild._ksp)
+        self.assertEqual('TestStorageObj'.lower(), rebuild._table)
+        self.assertEqual('ksp1'.lower(), rebuild._ksp)
         self.assertEqual(storage_id, rebuild.storage_id)
 
         self.assertEqual(nopars._is_persistent, rebuild._is_persistent)
         # self.assertEqual(vars(nopars), vars(rebuild))
 
     def test_make_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS hecuba_test.test6storageobj")
+        config.session.execute("DROP TABLE IF EXISTS hecuba_test.nonames")
         config.session.execute("DROP TABLE IF EXISTS hecuba_test.words")
         config.session.execute("DROP TABLE IF EXISTS hecuba_test.words_words")
-        config.session.execute("DROP TABLE IF EXISTS hecuba_test.test6storageobj_test3")
+        config.session.execute("DROP TABLE IF EXISTS hecuba_test.nonames_test3")
         nopars = Words()
         self.assertFalse(nopars._is_persistent)
         nopars.ciao = 1
@@ -280,13 +280,13 @@ class StorageObjTest(unittest.TestCase):
         nopars.make_persistent("hecuba_test.wordsso")
         del nopars
 
-        count, = config.session.execute('SELECT count(*) FROM hecuba_test.Words_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM hecuba_test.wordsso_words')[0]
         self.assertEqual(10, count)
 
         nopars2 = Test6StorageObj("hecuba_test.nonames")
         nopars2.test3[0] = ['1', '2']
         time.sleep(2)
-        result = config.session.execute("SELECT val0, val1 FROM hecuba_test.Test6StorageObj_test3 WHERE key0 = 0")
+        result = config.session.execute("SELECT val0, val1 FROM hecuba_test.nonames_test3 WHERE key0 = 0")
 
         rval0 = None
         rval1 = None
@@ -313,13 +313,13 @@ class StorageObjTest(unittest.TestCase):
         import gc
         gc.collect()
 
-        count, = config.session.execute('SELECT count(*) FROM my_app.Words_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.wordsso_words')[0]
         self.assertEqual(10, count)
         so = Words()
         so.make_persistent("my_app.wordsso")
         so.delete_persistent()
 
-        count, = config.session.execute('SELECT count(*) FROM my_app.Words_words')[0]
+        count, = config.session.execute('SELECT count(*) FROM my_app.wordsso_words')[0]
         self.assertEqual(0, count)
 
     def test_simple_stores_after_make_persistent(self):
@@ -647,10 +647,10 @@ class StorageObjTest(unittest.TestCase):
     def test_nestedso_sets_gets_complex(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.Test3StorageObj")
         config.session.execute("DROP TABLE IF EXISTS my_app.test2storageobj")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobj")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobj_test")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobj_test_0")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobj_test_1")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tnsgc")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tnsgc_test")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tnsgc_test_0")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tnsgc_test_1")
 
         my_nested_so = Test3StorageObj()
 
@@ -674,13 +674,13 @@ class StorageObjTest(unittest.TestCase):
         for i in range(0, 100):
             my_nested_so.myso2.test[i] = 'position' + str(i)
         time.sleep(5)
-        count, = config.session.execute("SELECT COUNT(*) FROM my_app.TestStorageObj_test")[0]
+        count, = config.session.execute("SELECT COUNT(*) FROM my_app.tnsgc_myso2_test")[0]
         self.assertEquals(100, count)
 
     def test_nestedso_deletepersistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.Test3StorageObj")
         config.session.execute("DROP TABLE IF EXISTS my_app.test2storageobj")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobj")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tndp")
 
         my_nested_so = Test3StorageObj('tndp')
 
@@ -821,8 +821,8 @@ class StorageObjTest(unittest.TestCase):
         self.assertTrue(np.array_equal(mynumpydict, my_so.mynumpydict[0]))
 
     def test_numpy_operations(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.TestStorageObjNumpy")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy_numpies")
         my_so = TestStorageObjNumpy()
         base_numpy = np.arange(2048)
         my_so.mynumpy = np.arange(2048)
@@ -837,8 +837,8 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(np.mean(base_numpy), np.mean(my_so.mynumpy))
 
     def test_numpy_ops_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso2")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso2_mynumpy_numpies")
         my_so = TestStorageObjNumpy()
         base_numpy = np.arange(2048)
         my_so.mynumpy = np.arange(2048)
@@ -885,19 +885,19 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(initial_name_np, final_name_np)
 
     def test_storagedict_assign(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.TestStorageObj")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobj_test")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobj_test_0")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobj_test_1")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobj_test_2")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2_1")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2_1_test")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2_1_test_0")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2_1_test_1")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t2_1_test_2")
         so = TestStorageObj("t2_1")
-        self.assertEquals('teststorageobj_test', so.test._table)
+        self.assertEquals('t2_1_test', so.test._table)
         so.test = {}
-        self.assertEquals('teststorageobj_test_0', so.test._table)
+        self.assertEquals('t2_1_test_0', so.test._table)
         so.test = {1: 'a', 2: 'b'}
-        self.assertEquals('teststorageobj_test_1', so.test._table)
+        self.assertEquals('t2_1_test_1', so.test._table)
         so.test = {3: 'c', 4: 'd'}
-        self.assertEquals('teststorageobj_test_2', so.test._table)
+        self.assertEquals('t2_1_test_2', so.test._table)
 
     def test_storageobj_coherence_basic(self):
         '''
@@ -1191,7 +1191,7 @@ class StorageObjTest(unittest.TestCase):
         uuid_sobj_internal = storage_obj.storage_id
         uuid_sobj_external = external_sobj.storage_id
 
-        internal_name = external_sobj.myotherso._ksp + '.' + external_sobj.myotherso._table
+        internal_name = external_sobj.myotherso._get_name()
         storage_obj = None
         external_sobj = None
 
@@ -1233,10 +1233,10 @@ class StorageObjTest(unittest.TestCase):
 
         external_sobj = Test4StorageObj(sobj_name)
         # Check internal configuration is correct
-        self.assertEqual(external_sobj.getID(), uuid_sobj_external)
-        self.assertEqual(external_sobj.myotherso.getID(), uuid_sobj_internal)
-        self.assertEqual(external_sobj._ksp + '.' + external_sobj._table, sobj_name)
-        self.assertEqual(external_sobj.myotherso._ksp + '.' + external_sobj.myotherso._table, internal_name)
+        self.assertEqual(external_sobj.storage_id, uuid_sobj_external)
+        self.assertEqual(external_sobj.myotherso.storage_id, uuid_sobj_internal)
+        self.assertEqual(external_sobj._get_name(), sobj_name)
+        self.assertEqual(external_sobj.myotherso._get_name(), internal_name)
 
         # Check data is correct
         self.assertEqual(external_sobj.myotherso.name, name_attr)
@@ -1251,9 +1251,9 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(my_obj1._ksp, my_obj2._ksp)
         self.assertEqual(my_obj1._table, my_obj2._table)
 
-        res = config.session.execute("SELECT * FROM my_app.Test2StorageObj WHERE storage_id = %s" % my_obj1._storage_id)
+        res = config.session.execute("SELECT * FROM my_app.Test2StorageObj WHERE storage_id = %s" % my_obj1.storage_id)
         res2 = config.session.execute(
-            "SELECT * FROM my_app.Test2StorageObj WHERE storage_id = %s" % my_obj2._storage_id)
+            "SELECT * FROM my_app.Test2StorageObj WHERE storage_id = %s" % my_obj2.storage_id)
         self.assertEqual(res.one().name, "Adrian")
         self.assertEqual(res2.one().name, "Adri")
         self.assertEqual(res.one().age, 21)
@@ -1270,9 +1270,9 @@ class StorageObjTest(unittest.TestCase):
 
         for i in range(0, 20):
             self.assertEqual(my_dict.test2[i]._ksp, "my_app")
-            self.assertEqual(my_dict.test2[i]._table, "Test2StorageObj")
+            self.assertEqual(my_dict.test2[i]._table, "Test2StorageObj".lower())
             res = config.session.execute(
-                "SELECT * FROM my_app.Test2StorageObj WHERE storage_id = %s" % my_dict.test2[i]._storage_id)
+                "SELECT * FROM my_app.Test2StorageObj WHERE storage_id = %s" % my_dict.test2[i].storage_id)
             self.assertEqual(res.one().name, "RandomName" + str(i))
             self.assertEqual(res.one().age, 18 + i)
 
