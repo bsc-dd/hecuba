@@ -152,12 +152,6 @@ class TestTime(StorageObj):
     '''
 
 
-class TestTimestamp(StorageObj):
-    '''
-    @ClassField attr timestamp
-    '''
-
-
 class TestDateTime(StorageObj):
     '''
     @ClassField attr datetime
@@ -1257,18 +1251,8 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(external_sobj.myotherso.name, name_attr)
         self.assertEqual(external_sobj.myotherso.age, age_attr)
 
-    def test_timestamp(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.timestampAttrib")
-        d = TestTimestamp("my_app.timestampAttrib")
-        timestamp = 1545733000
-        dt = datetime.fromtimestamp(timestamp)
-        d.attr = dt.timestamp()
-        del d
-        mynew_d = TestTimestamp("my_app.timestampAttrib")
-        self.assertEqual(mynew_d.attr, timestamp)
-
     def test_time(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.timestampAttrib")
+        config.session.execute("DROP TABLE IF EXISTS my_app.timeAttrib")
         d = TestTime("my_app.timeAttrib")
         from datetime import time
 
@@ -1279,7 +1263,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(mynew_d.attr, mytime)
 
     def test_date(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.timestampAttrib")
+        config.session.execute("DROP TABLE IF EXISTS my_app.dateAttrib")
         d = TestDate("my_app.dateAttrib")
         from datetime import date
         mydate = date(year=1992, month=7, day=25)
@@ -1290,13 +1274,13 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(mynew_d.attr, mydate)
 
     def test_datetime(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.timestampAttrib")
-        d = TestTimestamp("my_app.dateTimeAttrib")
+        config.session.execute("DROP TABLE IF EXISTS my_app.dateTimeAttrib")
+        d = TestDateTime("my_app.dateTimeAttrib")
         dtime = datetime(year=1940, month=10, day=16,
                          hour=23, minute=59, second=59)
         d.attr = dtime
         del d
-        mynew_d = TestTimestamp("my_app.dateTimeAttrib")
+        mynew_d = TestDateTime("my_app.dateTimeAttrib")
         self.assertEqual(mynew_d.attr, dtime)
 
 

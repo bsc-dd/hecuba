@@ -1,6 +1,5 @@
 import uuid
 from collections import namedtuple
-from datetime import datetime
 
 import numpy as np
 from hecuba import config, log, Parser
@@ -305,11 +304,6 @@ class StorageObj(IStorage):
             info["built_remotely"] = self._built_remotely
             value = IStorage.build_remotely(info)
 
-        else:
-            if value_info['type'] == 'timestamp':
-                epoch = datetime(1970, 1, 1, 0, 0, 0)
-                value = (value - epoch).total_seconds() * 1000  # ms (standard format)
-
         object.__setattr__(self, attribute, value)
         return value
 
@@ -338,7 +332,7 @@ class StorageObj(IStorage):
                 new_value = IStorage.build_remotely(info)
                 new_value.update(value)
                 value = new_value
-            if self._persistent_props[attribute]["type"] == 'timestamp':
+            if self._persistent_props[attribute]["type"] == 'timestamp' and isinstance(value, float):
                 value = int(value)
 
         if self._is_persistent:

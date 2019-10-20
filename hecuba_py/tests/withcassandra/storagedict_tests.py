@@ -5,7 +5,9 @@ from datetime import date, datetime, time
 from random import randint
 
 from hecuba import config, StorageObj, StorageDict
+
 from ..app.words import Words
+
 
 class MyStorageDict(StorageDict):
     '''
@@ -87,21 +89,17 @@ class DictWithTimes(StorageDict):
     @TypeSpec dict<<date1:time>, date4:time>
     '''
 
+
 class DictWithDateTimes(StorageDict):
     '''
     @TypeSpec dict<<date1:datetime>, date4:datetime>
     '''
 
+
 class DictWithDateTimes2(StorageDict):
     '''
-    @TypeSpec dict<<k:int>, v:timestamp>
+    @TypeSpec dict<<k:int>, v:datetime>
     '''
-
-
-class DictWithTimestamp(StorageDict):
-    """
-    @TypeSpec dict <<k:int>,v:timestamp>
-    """
 
 
 class StorageDictTest(unittest.TestCase):
@@ -1142,7 +1140,6 @@ class StorageDictTest(unittest.TestCase):
         gc.collect()
         d = DictWithTimes("my_app.dictwithtimes")
 
-
         self.assertEqual(len(list(d.keys())), len(what_should_be.keys()))
 
         count = 0
@@ -1174,19 +1171,6 @@ class StorageDictTest(unittest.TestCase):
             self.assertEqual(what_should_be[k], [d[k]])
 
         self.assertEqual(count, len(list(d)))
-
-    def test_timestamp(self):
-        config.session.execute("DROP TABLE IF EXISTS testing.timedict")
-        dt = datetime.fromtimestamp(1545730073)
-        c = DictWithTimestamp('testing.timedict')
-        c[0] = dt.timestamp()
-
-        del c
-        import gc
-        gc.collect()
-
-        c = DictWithTimestamp('testing.timedict')
-        self.assertEqual(c[0], dt.timestamp())
 
 
 if __name__ == '__main__':

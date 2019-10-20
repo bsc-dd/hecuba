@@ -51,8 +51,7 @@ _conversions = {'atomicint': 'counter',
                 'numpy.ndarray': 'hecuba.hnumpy.StorageNumpy',
                 'date': 'date',
                 'time': 'time',
-                'datetime': 'timestamp',
-                'timestamp': 'timestamp'}
+                'datetime': 'timestamp'}
 
 args = namedtuple("IStorage", [])
 
