@@ -173,7 +173,14 @@ fi
 # Launching Cassandra in every node
 
 echo "RUNNING srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES $MODULE_PATH/cass_node.sh $UNIQ_ID"
-srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES $MODULE_PATH/cass_node.sh $UNIQ_ID &
+
+if [ "$DISJOINT" == "1" ]; then
+  C4S_CASSANDRA_CORES=48
+else
+  C4S_CASSANDRA_CORES=4
+fi
+
+srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES $MODULE_PATH/cass_node.sh $UNIQ_ID &
 sleep 5
 
 # Cleaning config template
@@ -254,20 +261,6 @@ if [ "$APP_NODES" != "0" ]; then
         cat $MODULE_PATH/pycompss_template.sh | sed "s+PLACEHOLDER_CASSANDRA_NODES_FILE+$CASSFILE+g" | sed "s+PLACEHOLDER_PYCOMPSS_NODES_FILE+$APPFILE+g" | sed "s+PLACEHOLDER_APP_PATH_AND_PARAMETERS+$APP_AND_PARAMS+g" | sed "s+PLACEHOLDER_PYCOMPSS_FLAGS+$PYCOMPSS_FLAGS+g" | sed "s+PLACEHOLDER_PYCOMPSS_STORAGE+$PYCOMPSS_STORAGE+g" > $PYCOMPSS_FILE
         bash $PYCOMPSS_FILE "-$iface" # Params - 1st: interface
     else
-        if [ "$DISJOINT" == "1" ]; then
-            C4S_CASSANDRA_CORES=0
-            if [ "$(echo $APP_AND_PARAMS | cut -c-5)" == "srun " ]; then
-                APP_TAIL="$(echo $APP_AND_PARAMS | cut -c6-)"
-                NEW_APP="srun --exclude="$CASSANDRA_NODELIST" --nodes="$APP_NODES" "$APP_TAIL
-                echo $NEW_APP > $APPPATHFILE
-                APP_AND_PARAMS=$NEW_APP
-            fi
-        fi
-        echo "SETTING ENV VARS"
-        export SLURM_NTASKS_PER_NODE=$((SLURM_NTASKS_PER_NODE - C4S_CASSANDRA_CORES))
-        export SLURM_NTASKS=$((SLURM_NTASKS_PER_NODE*APP_NODES))
-        export SLURM_NPROCS=$SLURM_NTASKS
-        export APP_NODES=$APP_NODES
         echo "RUNNING IN $APP_NODES APP_NODES WITH NTASKS_PERNODE $SLURM_NTASKS_PER_NODE, NTASKS $SLURM_NTASKS AND NPROCS $SLURM_NPROCS"
         source $MODULE_PATH/app_node.sh $UNIQ_ID
     fi
