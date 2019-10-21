@@ -90,15 +90,15 @@ class DictWithTimes(StorageDict):
     '''
 
 
-class DictWithDateTimes(StorageDict):
+class DictWithTimestamp(StorageDict):
     '''
-    @TypeSpec dict<<date1:datetime>, date4:datetime>
+    @TypeSpec dict<<date1:timestamp>, date4:timestamp>
     '''
 
 
-class DictWithDateTimes2(StorageDict):
+class DictWithTimestamp2(StorageDict):
     '''
-    @TypeSpec dict<<k:int>, v:datetime>
+    @TypeSpec dict<<k:int>, v:timestamp>
     '''
 
 
@@ -1094,9 +1094,9 @@ class StorageDictTest(unittest.TestCase):
     def gen_random_date(self):
         return date(year=randint(2000, 2019), month=randint(1, 12), day=randint(1, 28))
 
-    def gen_random_datetime(self):
+    def gen_random_timestamp(self):
         return datetime(year=randint(2000, 2019), month=randint(1, 12), day=randint(1, 28),
-                        hour=randint(0, 23), minute=randint(0, 59), second=randint(0, 59))
+                        hour=randint(0, 23), minute=randint(0, 59), second=randint(0, 59)).timestamp()
 
     def gen_random_time(self):
         return time(hour=randint(0, 23), minute=randint(0, 59), second=randint(0, 59), microsecond=randint(0, 59))
@@ -1149,13 +1149,13 @@ class StorageDictTest(unittest.TestCase):
 
         self.assertEqual(count, len(list(d)))
 
-    def test_datetimes(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithdatetimes")
-        d = DictWithDateTimes("my_app.dictwithdatetimes")
+    def test_timestamp(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.timestamp_test")
+        d = DictWithTimestamp("my_app.timestamp_test")
         what_should_be = dict()
         for i in range(0, 50):
-            keys = self.gen_random_datetime()
-            cols = self.gen_random_datetime()
+            keys = self.gen_random_timestamp()
+            cols = self.gen_random_timestamp()
             what_should_be[keys] = [cols]
             d[keys] = [cols]
 
@@ -1163,7 +1163,7 @@ class StorageDictTest(unittest.TestCase):
         import gc
         gc.collect()
 
-        d = DictWithTimes("my_app.dictwithdatetimes")
+        d = DictWithTimestamp("my_app.timestamp_test")
         self.assertEqual(len(list(d.keys())), len(what_should_be.keys()))
         count = 0
         for k in what_should_be.keys():
