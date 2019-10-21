@@ -18,7 +18,7 @@ _max_token = int(((2 ** 63) - 1))  # type: int
 _min_token = int(-2 ** 63)  # type: int
 
 _valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map', 'bigint', 'blob',
-                'tuple', 'dict', 'float', 'date', 'time', 'timestamp', 'datetime', 'numpy.ndarray']
+                'tuple', 'dict', 'float', 'date', 'time', 'timestamp', 'numpy.ndarray']
 
 _basic_types = _valid_types[:-1]
 _hecuba_valid_types = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer' \
