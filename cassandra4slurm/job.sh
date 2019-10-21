@@ -175,12 +175,6 @@ fi
 
 echo "RUNNING srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES $MODULE_PATH/cass_node.sh $UNIQ_ID"
 
-if [ "$DISJOINT" == "1" ]; then
-  C4S_CASSANDRA_CORES=48
-else
-  C4S_CASSANDRA_CORES=4
-fi
-
 srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES $MODULE_PATH/cass_node.sh $UNIQ_ID &
 sleep 5
 
