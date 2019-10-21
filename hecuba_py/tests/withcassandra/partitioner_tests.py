@@ -273,6 +273,22 @@ class PartitionerTest(unittest.TestCase):
         self.assertEqual(nitems, acc)
         self.assertEqual(config.splits_per_node, 32 // 2)
 
+    def test_check_nodes_not_set(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.mydict")
+        d = MyDict("my_app.mydict")
+
+        def raise_exception():
+            return [partition for partition in d.split()]
+
+        config.partition_strategy = "DYNAMIC"
+
+        if "NODES_NUMBER" in os.environ:
+            del os.environ["NODES_NUMBER"]
+        if "PYCOMPSS_NODES" in os.environ:
+            del os.environ["PYCOMPSS_NODES"]
+
+        self.assertRaises(RuntimeError, raise_exception)
+
 
 if __name__ == "__main__":
     unittest.main()

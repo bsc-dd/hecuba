@@ -15,10 +15,13 @@ _min_token = int(-2 ** 63)  # type: int
 
 
 def partitioner_split(father):
-    if hasattr(config, "partition_strategy"):
-        return Partitioner(father, config.partition_strategy).split()
+    if hasattr(config, "partition_strategy") and (
+            config.partition_strategy == "DYNAMIC" or config.partition_strategy == "SIMPLE"):
+        strategy = config.partition_strategy
     else:
-        return Partitioner(father, "SIMPLE").split()
+        strategy = "SIMPLE"
+
+    return Partitioner(father, strategy).split()
 
 
 class Partitioner:
@@ -82,7 +85,14 @@ class Partitioner:
         try:
             self._nodes_number = len(os.environ["PYCOMPSS_NODES"].split(",")) - 1
         except KeyError:
+            pass
+        try:
             self._nodes_number = int(os.environ["NODES_NUMBER"]) - 1  # master and worker
+        except KeyError:
+            raise RuntimeError("You must set the environment variable PYCOMPSS_NODES|NODES_NUMBER before using "
+                               "the dynamic task granularity scheduler."
+                               "\nPYCOMPSS_NODES should be a list of nodes separated by commas."
+                               "\nNODES_NUMBER should be an integer representing the number of hosts.")
 
         self._n_idle_nodes = self._nodes_number
         self._initial_send = self._nodes_number
@@ -190,7 +200,7 @@ class Partitioner:
 
     def _send_intermediate_tasks(self, partitions_per_node):
         self._update_partitions_time()
-        while not self._all_tasks_finished():
+        while not self._at_least_each_granularity_finished():
             if self._n_idle_nodes > 0:
                 # if there is an idle node, send a new task without choosing the best granularity
                 config.splits_per_node, set_best = self._best_time_per_token()
@@ -217,7 +227,7 @@ class Partitioner:
             for i in range(0, len(partition), group_size):
                 yield -1, partition[i:i + group_size]
 
-    def _all_tasks_finished(self):
+    def _at_least_each_granularity_finished(self):
         """
         Checks that there is at least one end_time set for all the granularities
         """
@@ -245,38 +255,40 @@ class Partitioner:
         unfinished_tasks = dict()
         actual_time = time.time()
 
-        for splits_per_node, partition_times in self._partitions_time.items():
-            if len(partition_times) > 0:
-                group_size = self._partitions_size[splits_per_node]
-                partition_time = 0.0
-                if not any(times["end_time"] for times in partition_times):
-                    """
-                    If there isn't at least one end_time set for this granularity, takes the actual time as the
-                    finishing time. If there is already a granularity with better performance, it is selected as the
-                    best granularity.
-                    A granularity with this condition cannot be set as the best granularity.
-                    """
-                    for t in partition_times:
-                        partition_time += actual_time - t["start_time"]
+        not_empty_partitions = ((splits, partition_times) for splits, partition_times
+                                in self._partitions_time.items() if partition_times)
 
-                    partition_time = partition_time / float(len(partition_times))
+        for splits_per_node, partition_times in not_empty_partitions:
+            group_size = self._partitions_size[splits_per_node]
+            partition_time = 0.0
+            if not any(times["end_time"] for times in partition_times):
+                """
+                If there isn't at least one end_time set for this granularity, takes the actual time as the
+                finishing time. If there is already a granularity with better performance, it is selected as the
+                best granularity.
+                A granularity with this condition cannot be set as the best granularity.
+                """
+                for t in partition_times:
+                    partition_time += actual_time - t["start_time"]
+
+                partition_time = partition_time / float(len(partition_times))
+                try:
+                    unfinished_tasks[splits_per_node] = partition_time / group_size
+                except ZeroDivisionError:
+                    pass
+            else:
+                # at least one task finished
+                for t in partition_times:
+                    if t["end_time"] is not None:
+                        partition_time += t["end_time"] - t["start_time"]
+
+                partition_time = partition_time / float(len(partition_times))
+                if partition_time >= 2.0:
+                    # to avoid having too much overhead, granularities lasting less than two seconds are discarded
                     try:
-                        unfinished_tasks[splits_per_node] = partition_time / group_size
+                        times_per_token[splits_per_node] = partition_time / group_size
                     except ZeroDivisionError:
                         pass
-                else:
-                    # at least one task finished
-                    for t in partition_times:
-                        if t["end_time"] is not None:
-                            partition_time += t["end_time"] - t["start_time"]
-
-                    partition_time = partition_time / float(len(partition_times))
-                    if partition_time >= 2.0:
-                        # to avoid having too much overhead, granularities lasting less than two seconds are discarded
-                        try:
-                            times_per_token[splits_per_node] = partition_time / group_size
-                        except ZeroDivisionError:
-                            pass
 
         sorted_times = sorted(times_per_token.items(), key=lambda item: item[1])
 
