@@ -1,5 +1,4 @@
 #!/bin/bash
-#TO BE REMOVED#SBATCH --qos=debug
 ###############################################################################################################
 #                                                                                                             #
 #                                             Cassandra Job for HPC                                           #
@@ -47,11 +46,13 @@ DATA_HOME=$ROOT_PATH/cassandra-data
 COMM_HOME=$ROOT_PATH/cassandra-commitlog
 SAV_CACHE=$ROOT_PATH/saved_caches
 CLUSTER=$THETIME
+
 if [ "$DISJOINT" == "1" ]; then
-    C4S_CASSANDRA_CORES=48
+    C4S_CASSANDRA_CORES=$(nproc --all)
 else
     C4S_CASSANDRA_CORES=4
 fi
+
 RETRY_MAX=3000 # This value is around 50, higher now to test big clusters that need more time to be completely discovered
 
 # Generating nodefiles
