@@ -1,5 +1,6 @@
 from hecuba import log
 from hfetch import Hcache, HNumpyStore
+import hecuba
 from . import config
 import uuid
 import numpy
@@ -178,7 +179,7 @@ class CqlCOMM(object):
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (ksp, config.replication)
         config.session.execute(query_keyspace)
 
-        primary_keys = definition['keys']
+        primary_keys = definition['value_id']
         columns = definition['cols']
 
         if not primary_keys:
@@ -215,7 +216,7 @@ class CqlCOMM(object):
 
         if definition["type"] is numpy.ndarray:
 
-            keys = [k for k in definition["keys"].keys()]
+            keys = [k for k in definition["value_id"].keys()]
             columns = [k for k in definition["cols"].keys()]
             hcache_params = (ksp, table, object_id, [(-2 ** 63, 2 ** 63 - 1)], keys, columns,
                              {'cache_size': config.max_cache_size,
@@ -223,8 +224,8 @@ class CqlCOMM(object):
                               'writer_buffer': config.write_buffer_size,
                               'timestamped_writes': config.timestamped_writes})
             return HNumpyStore(*hcache_params)
-        elif definition["keys"]:
-            keys = [k for k in definition["keys"].keys()]
+        elif issubclass(definition.get("type", None), hecuba.hdict.StorageDict):
+            keys = [k for k in definition["value_id"].keys()]
             columns = [k for k in definition["cols"].keys()]
 
             hcache_params = (ksp, table, object_id, [(-2 ** 63, 2 ** 63 - 1)], keys, columns,
@@ -234,7 +235,7 @@ class CqlCOMM(object):
                               'timestamped_writes': config.timestamped_writes})
             return Hcache(*hcache_params)
 
-        else:
+        elif issubclass(definition.get("type", None), hecuba.storageobj.StorageObj):
 
             class HcacheWrapper(object):
                 def __init__(self, attributes, object_id, ksp, table):

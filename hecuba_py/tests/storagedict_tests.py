@@ -1,6 +1,5 @@
 import unittest
 
-from hecuba import Config
 from hecuba.hdict import StorageDict
 
 

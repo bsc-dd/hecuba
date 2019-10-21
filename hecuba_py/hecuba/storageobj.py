@@ -3,7 +3,7 @@ from . import log, Parser
 
 from .hnumpy import StorageNumpy
 from .IStorage import IStorage, AlreadyPersistentError
-from .tools import storage_id_from_name, update_type
+from .tools import storage_id_from_name, transform_to_dm
 import uuid
 import storage
 
@@ -22,13 +22,14 @@ class StorageObj(IStorage):
             try:
                 cls._data_model_def = kwargs['data_model']
             except KeyError:
-                persistent_props = Parser("ClassField").parse_comments(cls.__doc__)
-                cols = {k: update_type(v['type']) for k, v in persistent_props.items()}
-                cls._data_model_def = {"type": cls.__name__, 'keys': keys, 'cols': cols}
+                cls._data_model_def = dict()
+                cls._data_model_def["cols"] = transform_to_dm(cls)
+                cls._data_model_def['value_id'] = {'storage_id': uuid.UUID}
+                cls._data_model_def['type'] = cls
 
             # Storage data model
-            cols = {k: uuid.UUID if issubclass(v, IStorage) else v for k, v in cls._data_model_def["cols"].items()}
-            cls._data_model_id = storage.StorageAPI.add_data_model({"type": cls.__name__, 'keys': keys, 'cols': cols})
+            #cols = {k: uuid.UUID if issubclass(v, IStorage) else v for k, v in cls._data_model_def["cols"].items()}
+            cls._data_model_id = storage.StorageAPI.add_data_model(cls._data_model_def)
 
         toret = super(StorageObj, cls).__new__(cls)
         storage_id = kwargs.get('storage_id', None)

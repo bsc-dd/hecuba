@@ -1,6 +1,6 @@
 import unittest
 
-from hecuba import config, StorageDict
+from hecuba import StorageDict
 
 
 class ConcurrentDict(StorageDict):
@@ -11,8 +11,6 @@ class ConcurrentDict(StorageDict):
 
 class HfetchTests(unittest.TestCase):
     def test_timestamped_writes(self):
-        previous_cfg = config.timestamped_writes
-        config.timestamped_writes = "True"
 
         my_dict = ConcurrentDict("concurrent_dict")
         last_value = 1000
@@ -24,7 +22,7 @@ class HfetchTests(unittest.TestCase):
 
         retrieved = my_dict[0]
 
-        config.timestamped_writes = previous_cfg
+
 
         self.assertEqual(retrieved, last_value - 1)
 

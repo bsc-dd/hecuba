@@ -2,7 +2,7 @@ from . import log, Parser
 from .storageiter import StorageIter
 
 from .IStorage import IStorage, AlreadyPersistentError
-from .tools import build_remotely, storage_id_from_name, update_type
+from .tools import build_remotely, storage_id_from_name, transform_to_dm
 import storage
 import uuid
 
@@ -28,16 +28,22 @@ class StorageDict(IStorage, dict):
             try:
                 cls._data_model_def = kwargs['data_model']
             except KeyError:
-                persistent_props = Parser("TypeSpec").parse_comments(cls.__doc__)
-                keys = {k: update_type(v) for k, v in persistent_props['primary_keys']}
-                cols = {k: update_type(v) for k, v in persistent_props['columns']}
-                cls._data_model_def = {"type": cls.__name__, 'keys': keys, 'cols': cols}
+                import typing
+                dms = []
+                for ob in cls.__orig_bases__:
+                    if isinstance(ob, typing.GenericMeta):
+                        dms.append(transform_to_dm(ob))
+                if len(dms) != 1:
+                    raise ValueError("Different orig bases than expected ({})".format(len(dms)))
+
+                cls._data_model_def = dms[0]
+                cls._data_model_def['type'] = cls
 
             # Storage data model
-            keys = {k: uuid.UUID if issubclass(v, IStorage) else v for k, v in cls._data_model_def["keys"].items()}
-            cols = {k: uuid.UUID if issubclass(v, IStorage) else v for k, v in cls._data_model_def["cols"].items()}
+            #keys = {k: uuid.UUID if issubclass(v, IStorage) else v for k, v in cls._data_model_def["value_id"]}
+            #cols = {k: uuid.UUID if issubclass(v, IStorage) else v for k, v in cls._data_model_def["cols"]}
 
-            cls._data_model_id = storage.StorageAPI.add_data_model({"type": cls.__name__, 'keys': keys, 'cols': cols})
+            cls._data_model_id = storage.StorageAPI.add_data_model(cls._data_model_def)
 
         toret = super(StorageDict, cls).__new__(cls, kwargs)
         storage_id = kwargs.get('storage_id', None)
@@ -74,7 +80,7 @@ class StorageDict(IStorage, dict):
         Returns:
           list: a list of keys
         """
-        iter_cols = self._data_model_def.get('keys', None)
+        iter_cols = self._data_model_def.get('value_id', None)
         iter_model = {"type": "StorageIter", "name": self.get_name(), "cols": iter_cols}
         if self.storage_id:
             return StorageIter(storage_id=self.storage_id, data_model=iter_model, name=self.get_name())
@@ -228,7 +234,7 @@ class StorageDict(IStorage, dict):
         if not isinstance(val, list):
             val = [val]
 
-        keys = [def_type(val[i]) for i, def_type in enumerate(self._data_model_def['keys'].values())]
+        keys = [def_type(val[i]) for i, def_type in enumerate(self._data_model_def['value_id'].values())]
         vals = [def_type(val[i]) for i, def_type in enumerate(self._data_model_def['cols'].values())]
 
         if not self._is_persistent:

@@ -86,19 +86,6 @@ class CQLIface(StorageIface):
         return results
 
         # List < Value >
-        '''
-        dm = self.data_models_cache[self.object_to_data_model[object_id]]
-
-        persistent_res = self.hcache_by_id[object_id].get_row([object_id])
-
-        for key in key_list:
-            results.append(persistent_res[list(dm['cols'].keys()).index(key)])
-
-        if not key_list:
-            results = persistent_res
-
-        return results
-        '''
 
     def put_records(self, object_id, key_list, value_list):
 
