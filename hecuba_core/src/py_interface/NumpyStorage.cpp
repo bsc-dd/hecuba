@@ -1,8 +1,9 @@
 #include "NumpyStorage.h"
 
 
-NumpyStorage::NumpyStorage(CacheTable *cache, CacheTable *read_cache,
-                           std::map<std::string, std::string> &config) : ArrayDataStore(cache, read_cache, config) {
+NumpyStorage::NumpyStorage(const char *table, const char *keyspace, CassSession *session,
+                           std::map<std::string, std::string> &config) :
+        ArrayDataStore(table, keyspace, session, config) {
 
 
 }

@@ -1,30 +1,33 @@
 #include "ArrayDataStore.h"
 
 
-ArrayDataStore::ArrayDataStore(CacheTable *cache, CacheTable *read_cache,
+ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSession *session,
                                std::map<std::string, std::string> &config) {
 
-    //this->storage = storage;
-/*
+    std::vector<std::map<std::string, std::string> > keys_names = {{{"name", "storage_id"}},
+                                                                   {{"name", "cluster_id"}},
+                                                                   {{"name", "block_id"}}};
 
-    std::vector <config_map> keysnames = {{{"name", "storage_id"}},
-                                          {{"name", "cluster_id"}},
-                                          {{"name", "block_id"}}};
+    std::vector<std::map<std::string, std::string> > columns_names = {{{"name", "payload"}}};
 
 
-    std::vector <config_map> colsnames = {{{"name", "payload"}}};
-*/
+    TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names, session);
+    this->cache = new CacheTable(table_meta, session, config);
 
-    this->cache = cache;
-    this->read_cache = read_cache;
-    //this->storage->make_cache(table_meta, config);
+    std::vector<std::map<std::string, std::string>> read_keys_names(keys_names.begin(), (keys_names.end() - 1));
+    std::vector<std::map<std::string, std::string>> read_columns_names = columns_names;
+    read_columns_names.insert(read_columns_names.begin(), keys_names.back());
+
+    table_meta = new TableMetadata(table, keyspace, read_keys_names, read_columns_names, session);
+
+    this->read_cache = new CacheTable(table_meta, session, config);
 }
 
 
 ArrayDataStore::~ArrayDataStore() {
-
+    delete (this->cache);
+    delete (this->read_cache);
 };
-
 
 /***
  * Stores the array metadata by setting the cluster and block ids to -1. Deletes the array metadata afterwards.
@@ -84,6 +87,7 @@ void ArrayDataStore::update_metadata(const uint64_t *storage_id, ArrayMetadata *
 
     // Finally, we write the data
     cache->put_crow(keys, values);
+    cache->flush_elements();
 }
 
 void ArrayDataStore::store_numpy_into_cas_by_coords(const uint64_t *storage_id, ArrayMetadata *metadata, void *data,
@@ -196,7 +200,7 @@ ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
     // Get metas from Cassandra
     int32_t cluster_id = -1, block_id = -1;
 
-    char *buffer = (char *) malloc(sizeof(uint64_t *) + sizeof(int32_t) * 2);
+    char *buffer = (char *) malloc(sizeof(uint64_t*)+sizeof(int32_t)*2);
     // UUID
     uint64_t *c_uuid = (uint64_t *) malloc(sizeof(uint64_t) * 2);
     c_uuid[0] = *storage_id;
@@ -244,6 +248,8 @@ ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
     return arr_metas;
 }
 
+
+
 /***
  * Reads a numpy ndarray by fetching the clusters indipendently
  * @param storage_id of the array to retrieve
@@ -264,7 +270,9 @@ void ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetada
     int32_t *block = nullptr;
     int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
 
-    SpaceFillingCurve::PartitionGenerator *partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr);
+    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata,
+                                                                                                       nullptr);
+    this->cache->flush_elements();
 
     while (!partitions_it->isDone()) {
         cluster_id = partitions_it->computeNextClusterId();
@@ -288,6 +296,7 @@ void ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetada
                     Partition((uint32_t) cluster_id + half_int, (uint32_t) *block + half_int, *chunk));
         }
     }
+
 
     if (all_partitions.empty()) {
         throw ModuleException("no npy found on sys");

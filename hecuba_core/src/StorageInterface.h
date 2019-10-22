@@ -48,10 +48,7 @@ public:
                         config_map &config);
 
 
-    ArrayDataStore *make_arrray_store(const char *table, const char *keyspace,
-                                      std::vector<config_map> &keys_names,
-                                      std::vector<config_map> &columns_names,
-                                      config_map &config);
+    ArrayDataStore *make_array_store(const char *table, const char *keyspace, config_map &config);
 
     Prefetch *get_iterator(const char *table, const char *keyspace,
                            std::vector<config_map> &keys_names,
@@ -63,7 +60,7 @@ public:
                            const std::vector<std::pair<int64_t, int64_t>> &tokens,
                            config_map &config);
 
-    inline const CassSession *get_session() {
+    inline CassSession *get_session() {
         return this->session;
     }
 

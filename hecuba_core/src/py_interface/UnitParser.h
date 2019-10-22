@@ -159,9 +159,14 @@ class UuidParser : public UnitParser {
 public:
     UuidParser(const ColumnMeta &CM);
 
+    ~UuidParser();
+
     virtual int16_t py_to_c(PyObject *text, void *payload) const;
 
     virtual PyObject *c_to_py(const void *payload) const;
+
+private:
+    PyObject *uuid_module;
 };
 
 class TupleParser : public UnitParser {

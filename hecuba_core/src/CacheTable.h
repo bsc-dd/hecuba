@@ -35,8 +35,6 @@ public:
 
     std::vector<const TupleRow *> get_crow(void *keys);
 
-    void put_crow(const TupleRow *row);
-
     void put_crow(const TupleRow *keys, const TupleRow *values);
 
     void delete_crow(const TupleRow *keys);

@@ -13,7 +13,7 @@ class TestConfig:
 
 test_config = TestConfig()
 test_config.n_nodes = int(os.environ.get('TEST_CASSANDRA_N_NODES', '2'))
-TEST_DEBUG = strtobool(os.environ.get("TEST_DEBUG", "False").lower())
+TEST_DEBUG = strtobool(os.environ.get("TEST_DEBUG", "True").lower())
 if TEST_DEBUG:
     logging.warning(("You are using TEST_DEBUG=True, a Cassandra cluster must be already running. "
                      "Keep in mind that the results of the test might be altered by data already existing."))
@@ -35,7 +35,7 @@ def set_up_default_cassandra():
 
     set_ccm_cluster()
     try:
-        test_config.ccm_cluster.populate(test_config.n_nodes).start(allow_root=True)
+        test_config.ccm_cluster.populate(test_config.n_nodes).start(allow_root=True,jvm_args=["-Xss512k"])
     except Exception as a:
         if TEST_DEBUG:
             logging.warning("TEST_DEBUG: ignoring exception")

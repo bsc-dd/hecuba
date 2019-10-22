@@ -31,7 +31,11 @@ int16_t BoolParser::py_to_c(PyObject *obj, void *payload) const {
 PyObject *BoolParser::c_to_py(const void *payload) const {
     if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to int, found NULL");
     const bool *temp = reinterpret_cast<const bool *>(payload);
-    if (*temp) return Py_True;
+    if (*temp) {
+        Py_INCREF(Py_True);
+        return Py_True;
+    }
+    Py_INCREF(Py_False);
     return Py_False;
 }
 
@@ -248,6 +252,13 @@ PyObject *BytesParser::c_to_py(const void *payload) const {
 UuidParser::UuidParser(const ColumnMeta &CM) : UnitParser(CM) {
     if (CM.size != sizeof(uint64_t *))
         throw ModuleException("Bad size allocated for a text");
+    this->uuid_module = PyImport_ImportModule("uuid");
+    if (!this->uuid_module) throw ModuleException("Error importing the module 'uuid'");
+    Py_INCREF(uuid_module);
+}
+
+UuidParser::~UuidParser() {
+    Py_DECREF(this->uuid_module);
 }
 
 int16_t UuidParser::py_to_c(PyObject *obj, void *payload) const {
@@ -301,9 +312,9 @@ PyObject *UuidParser::c_to_py(const void *payload) const {
     //trick to transform the data back, since it was parsed using the cassandra generator
     CassUuid uuid = {*((uint64_t *) it), *((uint64_t *) it + 1)};
     cass_uuid_string(uuid, final);
-
-    // The PyUnicode_DecodeUTF8 does not recognize the end flag \0
-    return PyUnicode_DecodeUTF8(final, CASS_UUID_STRING_LENGTH - 1, NULL);
+    PyObject *uuidpy = PyObject_CallMethod(this->uuid_module, "UUID", "s", final);
+    if (!uuidpy) throw ModuleException("Error parsing UUID from C to Py, expected a non-NULL result");
+    return uuidpy;
 }
 
 TupleParser::TupleParser(const ColumnMeta &CM) : UnitParser(CM) {

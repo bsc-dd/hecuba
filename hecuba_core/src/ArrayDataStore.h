@@ -13,7 +13,7 @@ class ArrayDataStore {
 
 public:
 
-    ArrayDataStore(CacheTable *cache, CacheTable *read_cache,
+    ArrayDataStore(const char *table, const char *keyspace, CassSession *session,
                    std::map<std::string, std::string> &config);
 
     ~ArrayDataStore();
@@ -36,8 +36,7 @@ public:
     void read_numpy_from_cas(const uint64_t *storage_id, ArrayMetadata *metadata, void *save);
 
 
-private:
-
+protected:
 
     CacheTable *cache = nullptr, *read_cache = nullptr;
 

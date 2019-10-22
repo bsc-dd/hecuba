@@ -3,6 +3,8 @@ import unittest
 
 from hecuba import StorageDict
 from hecuba import config
+from hecuba.IStorage \
+    import build_remotely
 
 
 class DictSet(StorageDict):
@@ -30,7 +32,6 @@ class DictSet4(StorageDict):
 
 
 class EmbeddedSetTest(unittest.TestCase):
-
     def testAddRemove(self):
         config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset")
         d = DictSet2("pruebas0.dictset")
@@ -583,17 +584,17 @@ class EmbeddedSetTest(unittest.TestCase):
 
         res = config.session.execute(
             'SELECT storage_id, primary_keys, columns, class_name, name, tokens, istorage_props,indexed_on ' +
-            'FROM hecuba.istorage WHERE storage_id = %s', [d._storage_id])[0]
+            'FROM hecuba.istorage WHERE storage_id = %s', [d.storage_id])[0]
 
-        self.assertEqual(res.storage_id, d._storage_id)
+        self.assertEqual(res.storage_id, d.storage_id)
         self.assertEqual(res.class_name, DictSet.__module__ + "." + DictSet.__name__)
         self.assertEqual(res.name, 'pruebas0.dictset1')
 
-        rebuild = StorageDict.build_remotely(res._asdict())
+        rebuild = build_remotely(res._asdict())
         self.assertEqual(rebuild._built_remotely, True)
         self.assertEqual('dictset1', rebuild._table)
         self.assertEqual('pruebas0', rebuild._ksp)
-        self.assertEqual(res.storage_id, rebuild._storage_id)
+        self.assertEqual(res.storage_id, rebuild.storage_id)
 
         self.assertEqual(d._is_persistent, rebuild._is_persistent)
 

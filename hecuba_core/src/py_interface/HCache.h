@@ -8,6 +8,10 @@
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define PY_ARRAY_UNIQUE_SYMBOL cool_ARRAY_API
 
+#if __cplusplus <= 199711L
+  #error This library needs at least a C++11 compliant compiler
+#endif
+
 #include "numpy/arrayobject.h"
 
 
@@ -62,8 +66,6 @@ typedef struct {
 typedef struct {
     PyObject_HEAD
     NumpyStorage *NumpyDataStore;
-    CacheTable *cache, *read_cache;
-    std::vector<std::pair<int64_t, int64_t>> token_ranges;
 } HNumpyStore;
 
 
