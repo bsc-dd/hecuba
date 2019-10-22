@@ -213,7 +213,7 @@ public:
 
     virtual PyObject *c_to_py(const void *payload) const;
 
-    int64_t time_from_timezone(struct tm * timeinfo) const;
+    int64_t time_from_timezone(struct tm *timeinfo) const;
 };
 
 #endif //HFETCH_UNITPARSER_H

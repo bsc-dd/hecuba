@@ -88,6 +88,7 @@ PyObject *PythonParser::make_pylist(std::vector<const TupleRow *> &values) const
     if (tuple->n_elem() != parsers.size())
         throw ModuleException("PythonParser: Found " + std::to_string(tuple->n_elem()) +
                               " elements from a max of " + std::to_string(parsers.size()));
+
     PyObject *list = PyList_New(tuple->n_elem());
     for (uint16_t i = 0; i < tuple->n_elem(); i++) {
         if (!tuple->isNull(i)) PyList_SetItem(list, i, this->parsers[i]->c_to_py(tuple->get_element(i)));

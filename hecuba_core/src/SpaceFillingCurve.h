@@ -6,8 +6,6 @@
 #include <cstring>
 #include <cmath>
 #include "limits.h"
-#include <map>
-#include <list>
 
 #define BLOCK_SIZE 4096
 #define CLUSTER_SIZE 2
@@ -28,9 +26,6 @@ struct Partition {
     uint32_t cluster_id;
     uint32_t block_id;
     void *data;
-
-    bool operator<(const Partition &part) const { return cluster_id < part.cluster_id; };
-
 };
 
 //TODO Inherit from CassUserType, pass the user type directly
@@ -66,17 +61,14 @@ public:
 
         virtual int32_t computeNextClusterId() = 0;
 
-        virtual void merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks, void *data) = 0;
+        virtual void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks) = 0;
+
     };
+
 
     ~SpaceFillingCurve() {};
 
-    static PartitionGenerator *
-    make_partitions_generator(const ArrayMetadata *metas, void *data);
-
-    static PartitionGenerator *make_partitions_generator(const ArrayMetadata *metas, void *data,
-                                                         std::list<std::vector<uint32_t> > &coord);
-
+    static PartitionGenerator *make_partitions_generator(const ArrayMetadata *metas, void *data);
 
 protected:
 
@@ -86,13 +78,13 @@ protected:
 
         SpaceFillingGenerator(const ArrayMetadata *metas, void *data);
 
-        Partition getNextPartition() override;
+        Partition getNextPartition();
 
-        int32_t computeNextClusterId() override;
+        int32_t computeNextClusterId();
 
-        bool isDone() override { return done; };
+        bool isDone() { return done; };
 
-        void merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks, void *data) override;
+        void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks);
 
     protected:
         bool done;
@@ -110,11 +102,11 @@ public:
 
     ZorderCurveGenerator(const ArrayMetadata *metas, void *data);
 
-    Partition getNextPartition() override;
+    Partition getNextPartition();
 
-    int32_t computeNextClusterId() override;
+    int32_t computeNextClusterId();
 
-    bool isDone() override {
+    bool isDone() {
         if (block_counter >= nblocks) done = true;
         return done;
     };
@@ -127,7 +119,7 @@ public:
 
     uint64_t getIdFromIndexes(const std::vector<uint32_t> &dims, const std::vector<uint32_t> &indexes);
 
-    void merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks, void *data) override;
+    void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks);
 
 private:
     bool done;
@@ -138,6 +130,7 @@ private:
     std::vector<uint32_t> block_dims, blocks_dim, bound_dims;
     uint64_t block_counter;
 
+
     static void tessellate(std::vector<uint32_t> dims, std::vector<uint32_t> block_dims, uint32_t elem_size, char *data,
                            char *output_data, char *output_data_end);
 
@@ -145,21 +138,6 @@ private:
     copy_block_to_array(std::vector<uint32_t> dims, std::vector<uint32_t> block_dims, uint32_t elem_size, char *data,
                         char *output_data, char *output_data_end);
 
-};
-
-
-class ZorderCurveGeneratorFiltered : public ZorderCurveGenerator {
-public:
-
-    ZorderCurveGeneratorFiltered(const ArrayMetadata *metas, void *data, std::list<std::vector<uint32_t> > &coord);
-
-    int32_t computeNextClusterId() override;
-
-    bool isDone() override;
-
-private:
-    std::list<std::vector<uint32_t> > coord;
-    bool done = false;
 };
 
 #endif //HFETCH_SPACEFILLINGCURVE_H

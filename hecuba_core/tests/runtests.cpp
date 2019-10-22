@@ -263,6 +263,7 @@ TEST(TestMakePartitions, 2DZorder) {
     SpaceFillingCurve SFC;
     SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas, data);
 
+
     std::set<int32_t> elements_found;
     uint64_t total_elem = 0;
     while (!partitioner->isDone()) {
@@ -282,7 +283,6 @@ TEST(TestMakePartitions, 2DZorder) {
             EXPECT_TRUE(elements_found.find((int32_t) col + (ncols * row)) != elements_found.end());
         }
     }
-
     EXPECT_EQ(total_elem, ncols * nrows);
     EXPECT_EQ(elements_found.size(), ncols * nrows);
     EXPECT_EQ(*elements_found.begin(), 0);
@@ -459,7 +459,7 @@ TEST(TestMakePartitions, 3DZorder_Medium) {
 
 //Test to analyze the partitioning of a big 3D array, approx 256MB
 TEST(TestMakePartitions, 3DZorder_Big) {
-    std::vector<uint32_t> ccs = {512, 512, 512};
+    std::vector<uint32_t> ccs = {512, 256, 512};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
     arr_metas->inner_type = CASS_VALUE_TYPE_INT;
@@ -739,7 +739,7 @@ TEST(TestMakePartitions, 2DNopart) {
 //Test to generate partitions of the array using Zorder and merge them back
 // into a single array and make sure both processes performed correctly
 TEST(TestMakePartitions, 3DZorderAndReverse) {
-    std::vector<uint32_t> ccs = {256, 256, 256};
+    std::vector<uint32_t> ccs = {45, 17, 32};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
     arr_metas->inner_type = CASS_VALUE_TYPE_INT;
@@ -769,7 +769,7 @@ TEST(TestMakePartitions, 3DZorderAndReverse) {
             elements_found.insert(*chunk_data);
             ++chunk_data;
         }
-        chunks.push_back(chunk);
+        chunks.emplace_back(chunk);
     }
     int32_t max_elem = 1;
     for (int32_t cc:ccs) {
@@ -786,6 +786,23 @@ TEST(TestMakePartitions, 3DZorderAndReverse) {
     EXPECT_EQ(elements_found.size(), max_elem);
     EXPECT_EQ(*elements_found.begin(), 0);
     EXPECT_EQ(*elements_found.rbegin(), max_elem - 1);
+
+    void *array = partitioner->merge_partitions(arr_metas, chunks);
+
+    int32_t *ptr_to_array = (int32_t *) array;
+    for (int32_t elem = 0; elem < max_elem; ++elem) {
+        EXPECT_EQ(elem, *ptr_to_array);
+        ++ptr_to_array;
+    }
+    int32_t equal = memcmp(array, data, arr_size * sizeof(int32_t));
+    EXPECT_TRUE(equal == 0);
+    free(array);
+    delete[](data);
+    delete (arr_metas);
+    for (Partition chunk:chunks) {
+        free(chunk.data);
+    }
+    delete (partitioner);
 }
 
 
@@ -841,6 +858,21 @@ TEST(TestMakePartitions, 4DZorderAndReverse) {
     EXPECT_EQ(elements_found.size(), max_elem);
     EXPECT_EQ(*elements_found.begin(), 0);
     EXPECT_EQ(*elements_found.rbegin(), max_elem - 1);
+    void *array = partitioner->merge_partitions(arr_metas, chunks);
+
+    int32_t *ptr_to_array = (int32_t *) array;
+    for (int32_t elem = 0; elem < max_elem; ++elem) {
+        EXPECT_EQ(elem, *ptr_to_array);
+        ++ptr_to_array;
+    }
+    int32_t equal = memcmp(array, data, arr_size * sizeof(int32_t));
+    EXPECT_TRUE(equal == 0);
+    free(array);
+    delete[](data);
+    delete (arr_metas);
+    for (Partition chunk:chunks) {
+        free(chunk.data);
+    }
     delete (partitioner);
 }
 
@@ -867,7 +899,6 @@ TEST(TestMakePartitions, ReadBlockOnlyOnce) {
     SpaceFillingCurve::PartitionGenerator *partitioner = SFC.make_partitions_generator(arr_metas, data);
 
     std::set<uint32_t> clusters_found;
-    std::set<uint32_t> n_cluster;
     std::set<int32_t> elements_found;
     uint64_t total_elem = 0;
     while (!partitioner->isDone()) {
@@ -899,13 +930,15 @@ TEST(TestMakePartitions, ReadBlockOnlyOnce) {
 
     // Assess the partitioner produces the same number of clusters as generated before
     partitioner = SFC.make_partitions_generator(arr_metas, nullptr);
+    uint32_t n_clusters = 0;
     while (!partitioner->isDone()) {
-        n_cluster.insert(partitioner->computeNextClusterId());
+        partitioner->computeNextClusterId();
+        ++n_clusters;
     }
 
     delete (partitioner);
 
-    EXPECT_EQ(clusters_found.size(), n_cluster.size());
+    EXPECT_EQ(clusters_found.size(), n_clusters);
 
     // Verify each cluster id is gen
     // erated exactly once
@@ -917,8 +950,7 @@ TEST(TestMakePartitions, ReadBlockOnlyOnce) {
     while (!partitioner->isDone()) {
         cluster_id = partitioner->computeNextClusterId();
         auto it = clusters_found.insert(cluster_id);
-        //ASSERT_TRUE(it.second); the improvement in the function computeNextClusterId increment 4 by 4 the blocks, but sometimes
-        //the cluster will be repeated
+        ASSERT_TRUE(it.second);
     }
 
     delete (arr_metas);
@@ -1017,7 +1049,7 @@ TEST(TestingKVCache, ReplaceOp) {
 
     EXPECT_EQ(myCache.size(), 1);
     TupleRow t = myCache.get(key1);
-    //EXPECT_TRUE(t == *key1);
+    EXPECT_TRUE(t == *key1);
     EXPECT_FALSE(&t == key1);
 
 
@@ -2098,7 +2130,7 @@ TEST(TestingCacheTable, PutRowStringC) {
         memcpy(&addr, v, sizeof(char *));
         char *d = reinterpret_cast<char *>(addr);
 
-        EXPECT_STREQ(d, "74040");
+        EXPECT_STREQ(d, "71919");
     }
 
 
