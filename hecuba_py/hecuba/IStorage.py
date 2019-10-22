@@ -22,7 +22,7 @@ _valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list'
 
 _basic_types = _valid_types[:-1]
 _hecuba_valid_types = '(atomicint|str|bool|decimal|float|int|tuple|list|generator|frozenset|set|dict|long|buffer' \
-                      '|counter|double|date|time|timestamp)'
+                      '|counter|double|date|time|datetime)'
 
 AT = 'int | atomicint | str | bool | decimal | float | long | double | buffer'
 
@@ -51,7 +51,7 @@ _conversions = {'atomicint': 'counter',
                 'numpy.ndarray': 'hecuba.hnumpy.StorageNumpy',
                 'date': 'date',
                 'time': 'time',
-                'timestamp': 'timestamp'}
+                'datetime': 'timestamp'}
 
 args = namedtuple("IStorage", [])
 

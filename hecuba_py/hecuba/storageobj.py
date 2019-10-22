@@ -332,8 +332,6 @@ class StorageObj(IStorage):
                 new_value = IStorage.build_remotely(info)
                 new_value.update(value)
                 value = new_value
-            if self._persistent_props[attribute]["type"] == 'timestamp' and isinstance(value, float):
-                value = int(value)
 
         if self._is_persistent:
             # Write attribute to the storage
