@@ -141,6 +141,27 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertTrue(np.allclose(chunk.view(np.ndarray), test_numpy))
         casted.delete_persistent()
 
+    def test_reconstruct(self):
+        base_array = np.arange(256)
+        tablename = self.ksp + '.' + self.table
+
+        typecode = 'mytype'
+        storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, tablename + typecode)
+        niter = 2
+
+        for _ in range(niter):
+            # Build array and store
+            typed_array = StorageNumpy(base_array, storage_id, tablename)
+            self.assertTrue(np.array_equal(typed_array, base_array))
+
+            del typed_array
+            gc.collect()
+
+            # Load array
+            typed_array = StorageNumpy(None, storage_id, tablename)
+            self.assertTrue(np.allclose(typed_array, base_array))
+            typed_array.delete_persistent()
+
 
 if __name__ == '__main__':
     unittest.main()
