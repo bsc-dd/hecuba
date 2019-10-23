@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e -x
-
+export CFLAGS="-std=c11 $CFLAGS"
 # Install a system package required by our library
 #yum remove -y cmake
 yum install -y  cmake  java #openssl openssl-devel
@@ -36,7 +36,6 @@ cd
 
 ORIGINAL_CPATH=${CPATH}
 ORIGINAL_LD=${LD_LIBRARY_PATH}
-export CFLAGS='-std=c++11'
 # Compile wheels
 for PYBIN in /opt/python/cp3*; do
      VNAME=`basename ${PYBIN}`

@@ -1,76 +1,105 @@
 # Hecuba ![](https://travis-ci.org/bsc-dd/hecuba.svg?branch=master) [![codecov](https://codecov.io/gh/bsc-dd/hecuba/branch/master/graph/badge.svg)](https://codecov.io/gh/bsc-dd/hecuba)
-Non-relational databases are nowadays a common solution when dealing with huge data set and massive query work load. These systems have been redesigned from scratch in order to achieve scalability and availability at the cost of providing only a reduced set of low-level functionality, thus forcing the client application to take care of complex logics. As a solution, our research group developed **Hecuba**, a set of tools and interfaces, which aims to facilitate programmers with an efficient and easy interaction with non-relational technologies.
+Non-relational databases are nowadays a common solution when dealing with a huge data set and massive query workload. These systems have been redesigned from scratch to achieve scalability and availability at the cost of providing only a reduced set of low-level functionality, thus forcing the client application to take care of complex logic. As a solution, our research group developed **Hecuba**, a set of tools and interfaces, which aims to facilitate programmers with an efficient and easy interaction with non-relational technologies.
 
 ## Installation procedure
 
 ### Software requisites:
 
-+ GCC 4.8 & up. Tested with versions 4.8.2, 4.8.5, 4.9.1, 5.4.0, 7.2.0, 7.2.1.
-+ ICC 17.0.4
-+ CMake 3.3 & up. Tested with versions 3.5.0, 3.6.x, 3.7.1, 3.9.3.
-+ Libtools. Tested with versions 2.4.2
-+ Python > 2.7.6 with the development package installed (includes the Python dynamic library). Tested with versions ranging from 2.7.5 to 2.7.14. Python 3 not supported yet.
-+ Python modules: distutils, numpy, six, futures
++ GCC >= 4.8 or Intel Compiler >= 17.0.4. 
++ CMake >= 3.3
++ Python > 3.4 development version installed.
 
-### OpenSuse
-Requirements on OpenSuse 42.2
+
+### Quick install in OpenSuse 42.2
+
+```bash
+# Install dependencies
+sudo zypper install cmake python-devel gcc-c++ python-numpy-devel python-pip
+
+pip install hecuba
 ```
-sudo zypper install cmake python-devel gcc-c++ libtool python-numpy-devel
+
+
+## Instructions to execute with Hecuba:
+
+1) Start Cassandra.
+```bash
+$CASSANDRA_HOME/bin/cassandra -f 
+```
+
+2) Configure the environment variables as described in [Wiki Launch Hecuba](https://github.com/bsc-dd/hecuba/wiki/1:-User-Manual#how-to-execute).
+```bash
+# E.g:
+export CONTACT_NAMES=127.0.0.1
+```
+
+3) Launch the desired application
+```bash
+python myapp.py
+```
+
+Please, refer to the [Hecuba manual](https://github.com/bsc-dd/hecuba/wiki/1:-User-Manual) to check more Hecuba configuration options.
+
+
+## Manual installation
+
+This procedure launches CMake to build the dependencies, which can take some time.
+
+If CMake selects the wrong compiler, it can be replaced by defining the environment vars `CC=/custom/path/gcc` and `CXX=/custom/path/g++`. Then remove the build folder and restart the install process.
+ 
+If the compilation fails because some feature is not supported or requires C++11 support, define the environment variable `CFLAGS="-std=c++11 $CFLAGS" and resume the installation.
+
+```bash
+# Clone the repository
+git clone https://github.com/bsc-dd/hecuba.git hecuba_repo
+cd hecuba_repo
+
+# To install hecuba to the default directory
+python setup.py install
+```
+
+To install Hecuba to the user space, or a custom directory run:
+
+```bash
+# Install to userspace, under $HOME/.local
+python setup.py install --user
+
+# Install to a user-defined path $CUSTOM_PATH
+python setup.py install --prefix=$CUSTOM_PATH
 ```
 
 
-### 3rd party software (autodownloaded):
-They are automatically downloaded if they can not be located in the system by cmake.
+### Install without Internet:
 
-* Cassandra database. [Github](https://github.com/apache/cassandra). Version 3.10 or later.
-
-* LIBUV, requisite for Cassandra C++ driver. [Github](https://github.com/libuv/libuv). Version 1.11.0
-
-* Datastax C++ Driver for apache cassandra. [Github](https://github.com/datastax/cpp-driver), [Official](https://datastax.github.io/cpp-driver/). Version 2.5.0 or later.
-
-* POCO, C++ libraries which implement a cache. [Github](https://github.com/pocoproject/poco/), [Official](https://pocoproject.org). Version 1.7.7
-
-* TBB, Intel Threading Building Blocks, concurrency & efficiency support. [Github](https://github.com/01org/tbb), [Official](https://www.threadingbuildingblocks.org). Version 4.4
+By running the install process on a computer with internet access, the dependencies will be downloaded as tar balls under `hecuba_core/dependencies`. Then, it is only necessary to copy the dependencies to the remote computer under the same directory. 
 
 
+### Install the Hecuba core only
 
-### Instructions to install:
-
-A file named `setup.py` should be present inside the root folder. By running the command `python setup.py install` the application will be installed to the system. However, a more versatile install is produced by adding `--user` to the previous command which will install the application in the user space, thus not requiring privileges.
-
-This procedure will launch a cmake process to build a submodule of the application producing a lot of output, which is completely normal. It may occur that CMake selects the wrong compiler, which might not support C++11. In this case, the environment flags `CC` and `CXX` should be defined to point to the C and C++ compilers respectively and the installing command relaunched.
-
-Bear in mind that for being able to use Numpy arrays, the Numpy developer package should be present on the system. It contains all the necessary headers.
-
-
-#### Install without Internet:
-
-Perform a local install, and then copy all the files excluding the folder "Build". Most of the dependencies will be already downloaded under hecuba_core/dependencies.
-
-
-#### Install the Hecuba core only
-
-In some circumstances, it is useful to use the Hecuba core to interface Cassandra with C++ applications. In this case, installation needs to be done manual (still). The following commands build the Hecuba core:
+In some circumstances, it is useful to use the Hecuba core to interface Cassandra with C++ applications. In this case, the installation is performed completely manual (still). The following commands build the Hecuba core:
 
 ```bash
 cmake -Hhecuba_core -Bbuild
 make -C build
 ```
-And finally, under the "build" folder we will find the subfolder "include" and "lib" which needs to be moved to the desired installation path.
+And finally, under the "build" folder, we will find the subfolders "include" and "lib" which need to be moved to the desired installation path.
 
 
+# 3rd party software:
 
-### Instructions to execute with Hecuba:
-The only requirement are:
-
-+ Append the path the site-packages directory where Hecuba was installed to the PYTHONPATH environment variable,
-+ Append the path to the Python dynamic library to the LD_LIBRARY_PATH enviroment variable.
-
-These two actions are rarely necessary, since in most systems the packet manager already configures the system correctly, or modules exists which take care of this. The only case is when deploying Hecuba locally and installing the software in the user space with "--user".
+Cassandra database. [Github](https://github.com/apache/cassandra). Version 3.10 or later. Desirable 3.11.4 or later.
 
 
+## Auto-downloaded
 
-Please, refer to the Hecuba manual to check more Hecuba configuration options.
+They are automatically downloaded if they can not be located in the system by CMake.
+
+* LIBUV, requisite for Cassandra C++ driver. [Github](https://github.com/libuv/libuv). Version 1.11.0 or later.
+
+* Datastax C++ Driver for apache cassandra. [Github](https://github.com/datastax/cpp-driver), [Official](https://datastax.github.io/cpp-driver/). Version 2.5.0 or later.
+
+* TBB, Intel Threading Building Blocks, concurrency & efficiency support. [Github](https://github.com/01org/tbb), [Official](https://www.threadingbuildingblocks.org). Version 4.4.
+
 
 ## LICENSING 
 

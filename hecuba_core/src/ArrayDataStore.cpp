@@ -29,6 +29,7 @@ ArrayDataStore::~ArrayDataStore() {
     delete (this->read_cache);
 };
 
+
 /***
  * Stores the array metadata by setting the cluster and block ids to -1. Deletes the array metadata afterwards.
  * @param storage_id UUID used as part of the key
@@ -87,7 +88,6 @@ void ArrayDataStore::update_metadata(const uint64_t *storage_id, ArrayMetadata *
 
     // Finally, we write the data
     cache->put_crow(keys, values);
-    cache->flush_elements();
 }
 
 void ArrayDataStore::store_numpy_into_cas_by_coords(const uint64_t *storage_id, ArrayMetadata *metadata, void *data,
@@ -200,7 +200,7 @@ ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
     // Get metas from Cassandra
     int32_t cluster_id = -1, block_id = -1;
 
-    char *buffer = (char *) malloc(sizeof(uint64_t*)+sizeof(int32_t)*2);
+    char *buffer = (char *) malloc(sizeof(uint64_t *) + sizeof(int32_t) * 2);
     // UUID
     uint64_t *c_uuid = (uint64_t *) malloc(sizeof(uint64_t) * 2);
     c_uuid[0] = *storage_id;
@@ -247,7 +247,6 @@ ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
     for (const TupleRow *&v : results) delete (v);
     return arr_metas;
 }
-
 
 
 /***

@@ -1315,7 +1315,6 @@ PyInit_hfetch(void) {
     Py_INCREF(&hfetch_HCacheType);
 
 
-
     PyObject *m = PyModule_Create(&hfetch_module_info);
     f = m->ob_type->tp_dealloc;
     m->ob_type->tp_dealloc = module_dealloc;

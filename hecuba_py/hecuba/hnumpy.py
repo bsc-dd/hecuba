@@ -120,20 +120,22 @@ class StorageNumpy(IStorage, np.ndarray):
             raise KeyError
 
     def generate_coordinates(self, coordinates):
-        if coordinates is None: return []
-        coord = [coordinates[:, coord] // self._row_elem for coord in
-                 range(len(coordinates[0]))]  # coords divided by number of elem in a row
+        if coordinates is None:
+            return []
+        # coords divided by number of elem in a row
+        coord = [coordinates[:, coord] // self._row_elem for coord in range(len(coordinates[0]))]
         ranges = (range(*range_tuple) for range_tuple in zip(coord[0], coord[1] + 1))
         keys = list(it.product(*ranges))
         return keys
 
     def format_coords(self, coord):
-        if coord == slice(None, None, None) or slice(None, None, None) in coord:
+        if not isinstance(coord, tuple):
+            coord = (coord,)
+
+        if slice(None, None, None) in coord:
             return None
-        elif isinstance(coord, slice):
-            coordinates = np.array([coord.start, coord.stop])
-        else:
-            coordinates = np.array([[coo.start, coo.stop] for coo in coord])
+
+        coordinates = np.array([[coo.start, coo.stop] for coo in coord])
         return coordinates
 
     def slices_match_numpy_shape(self, sliced_coord):
