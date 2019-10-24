@@ -186,6 +186,13 @@ class StorageNumpyTest(unittest.TestCase):
         basic_init = StorageNumpy(base_array)
         new_from_template = basic_init[:32]
 
+    def test_new2_from_template(self):
+        # From new-from-template - e.g infoarr[:3]
+        #    type(obj) is InfoArray
+        base_array = np.arange(4096).reshape((64, 64))
+        basic_init = StorageNumpy(base_array)
+        new_from_template = basic_init[32:]
+
     def test_explicit_construct(self):
         # From an explicit constructor - e.g. InfoArray():
         #    obj is None
