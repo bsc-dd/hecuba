@@ -152,9 +152,9 @@ class StorageNumpyTest(unittest.TestCase):
         test_numpy = test_numpy[slice(None, None, None)]
         self.assertTrue(np.allclose(result, test_numpy))
 
-    def test_numpy_1D_some_none_slices(self):
+    def test_numpy_2D_some_none_slices(self):
         config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_5;")
-        num = 24
+        num = 28
         no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
         no.mynumpy = np.arange(10000).reshape((100,100))
         myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
@@ -162,6 +162,30 @@ class StorageNumpyTest(unittest.TestCase):
         result = chunk.view(np.ndarray)
         test_numpy = np.arange(10000).reshape((100,100))
         test_numpy = test_numpy[slice(None, None, None), slice(4, 100, None)]
+        self.assertTrue(np.allclose(result, test_numpy))
+
+    def test_numpy_1D_none_slice_not_a_list(self):
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_5;")
+        num = 25
+        no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        no.mynumpy = np.arange(10000)
+        myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        chunk = myobj2.mynumpy[slice(None, None, None)]
+        result = chunk.view(np.ndarray)
+        test_numpy = np.arange(10000)
+        test_numpy = test_numpy[slice(None, None, None)]
+        self.assertTrue(np.allclose(result, test_numpy))
+
+    def test_numpy_1D_list_1_slice(self):
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_5;")
+        num = 26
+        no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        no.mynumpy = np.arange(10000)
+        myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        chunk = myobj2.mynumpy[slice(2, 20, None)]
+        result = chunk.view(np.ndarray)
+        test_numpy = np.arange(10000)
+        test_numpy = test_numpy[slice(2, 20, None)]
         self.assertTrue(np.allclose(result, test_numpy))
 
     def test_numpy_reserved_4d_1cluster(self):

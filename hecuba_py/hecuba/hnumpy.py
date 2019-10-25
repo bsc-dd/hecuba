@@ -130,10 +130,8 @@ class StorageNumpy(IStorage, np.ndarray):
         return keys
 
     def format_coords(self, coord):
-        if not type(coord) in [list, tuple]:
-            coord = (coord,)
-            if coord == slice(None, None, None): return None
 
+        coord = list(coord)
         np_list = []
         count_none = 0
         for dim, coo in enumerate(coord):
