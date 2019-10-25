@@ -141,7 +141,7 @@ class StorageNumpy(IStorage, np.ndarray):
             if coo.start is None:
                 np_list.append([0, coo.stop])
             elif coo.stop is None:
-                np_list.append([coo.start, self.shape[dim] - 1])
+                np_list.append([coo.start, self.shape[dim]])
             else:
                 np_list.append([coo.start, coo.stop])
 
