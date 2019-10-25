@@ -22,7 +22,10 @@ _conversions = {'atomicint': 'counter',
                 'double': 'double',
                 'StorageDict': 'dict',
                 'ndarray': 'hecuba.hnumpy.StorageNumpy',
-                'numpy.ndarray': 'hecuba.hnumpy.StorageNumpy'}
+                'numpy.ndarray': 'hecuba.hnumpy.StorageNumpy',
+                'date': 'date',
+                'time': 'time',
+                'datetime': 'timestamp'}
 
 
 class Parser(object):

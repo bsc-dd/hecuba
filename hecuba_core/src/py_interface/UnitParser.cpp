@@ -210,6 +210,133 @@ PyObject *TextParser::c_to_py(const void *payload) const {
     return PyUnicode_FromString(d);
 }
 
+/***Timestamp parser ***/
+
+TimestampParser::TimestampParser(const ColumnMeta &CM) : UnitParser(CM) {
+    if (CM.size != sizeof(int64_t *))
+        throw ModuleException("Bad size allocated for a timestamp");
+    if (!PyDateTimeAPI) PyDateTime_IMPORT;
+}
+
+int16_t TimestampParser::py_to_c(PyObject *obj, void *payload) const {
+    if (obj == Py_None) return -1;
+    if (PyDateTime_CheckExact(obj)) {
+        time_t time_now;
+        time(&time_now);
+        struct tm timeinfo = {0}; //express datetime to the current timezone (tzset)
+        timeinfo.tm_sec = PyDateTime_DATE_GET_SECOND(obj);
+        timeinfo.tm_min = PyDateTime_DATE_GET_MINUTE(obj);
+        timeinfo.tm_hour = PyDateTime_DATE_GET_HOUR(obj);
+        timeinfo.tm_year = PyDateTime_GET_YEAR(obj) - 1900;
+        timeinfo.tm_mon = PyDateTime_GET_MONTH(obj) - 1;
+        timeinfo.tm_mday = PyDateTime_GET_DAY(obj);
+        time_t time = mktime(&timeinfo);
+        if(time == -1) throw ModuleException("Calendar time cannot be represented");
+        auto diff = std::chrono::system_clock::from_time_t(time).time_since_epoch();
+        std::time_t time_epoch = 0;
+        time_t timezone = -1 * std::mktime(std::gmtime(&time_epoch));
+        int64_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(diff).count() + (timezone * 1000);
+        memcpy(payload, &ms, sizeof(int64_t *));
+        return 0;
+    }
+    else { //if pyobject is a double it has already the exact date so is no use to call tzset
+        if (!PyFloat_Check(obj) && !PyLong_Check(obj)) error_parsing("PyDouble", obj);
+        double t;
+        if (!PyArg_Parse(obj, Py_DOUBLE, &t)) error_parsing("PyDouble as Double", obj);
+        time_t time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::time_point(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::duration<double>(t))));
+        auto diff = std::chrono::system_clock::from_time_t(time).time_since_epoch();
+        std::time_t time_epoch = 0;
+        time_t timezone = -1 * std::mktime(std::gmtime(&time_epoch));
+        int64_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(diff).count() + (timezone * 1000);
+        memcpy(payload, &ms, sizeof(int64_t *));
+        return 0;
+    }
+    error_parsing("PyDateTime_DateType", obj);
+    return -2;
+}
+
+PyObject *TimestampParser::c_to_py(const void *payload) const {
+    if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to int, found NULL");
+    time_t time =  *(reinterpret_cast<const time_t *>(payload)) /1000; //we convert from ms to sec (UNIX time)
+    struct tm * timeinfo = gmtime(&time); //gmt+0
+    PyObject *timestamp_py = PyDateTime_FromDateAndTime(timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday, timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec, 0);
+    return timestamp_py;
+}
+
+/***Date parser ***/
+
+DateParser::DateParser(const ColumnMeta &CM) : UnitParser(CM) {
+    if (CM.size != sizeof(int64_t *))
+        throw ModuleException("Bad size allocated for a date");
+    if (!PyDateTimeAPI) PyDateTime_IMPORT;
+}
+
+int16_t DateParser::py_to_c(PyObject *obj, void *payload) const {
+    if (obj == Py_None) return -1;
+    if (PyDate_CheckExact(obj)) {
+        struct tm timeinfo = {0}; //express datetime to the current timezone (tzset)
+        timeinfo.tm_year = PyDateTime_GET_YEAR(obj) - 1900;
+        timeinfo.tm_mon = PyDateTime_GET_MONTH(obj) - 1;
+        timeinfo.tm_mday = PyDateTime_GET_DAY(obj);
+        std::time_t time_epoch = 0;
+        time_t time = mktime(&timeinfo);
+        if(time == -1) throw ModuleException("Calendar time cannot be represented");
+        time_t timezone = -1 * std::mktime(std::gmtime(&time_epoch));
+        time += timezone;
+        memcpy(payload, &time, sizeof(uint32_t *));
+        return 0;
+    }
+    error_parsing("PyDateTime_DateType", obj);
+    return -2;
+}
+
+PyObject *DateParser::c_to_py(const void *payload) const {
+    if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to int, found NULL");
+    const time_t *time = reinterpret_cast<const time_t *>(payload);
+    std::tm *now = std::gmtime(time);
+    PyObject *date_py = PyDate_FromDate(now->tm_year + 1900, now->tm_mon + 1, now->tm_mday);
+    return date_py;
+}
+
+/***Time parser ***/
+
+
+
+TimeParser::TimeParser(const ColumnMeta &CM) : UnitParser(CM) {
+    if (CM.size != sizeof(int64_t *))
+        throw ModuleException("Bad size allocated for a time");
+    if (!PyDateTimeAPI) PyDateTime_IMPORT;
+}
+
+int16_t TimeParser::py_to_c(PyObject *obj, void *payload) const {
+    if (obj == Py_None) return -1;
+    if (PyTime_CheckExact(obj)) {
+        int64_t date = static_cast<int64_t>(PyDateTime_TIME_GET_HOUR(obj)) * 3600000000000 + //time in nanoseconds
+                       static_cast<int64_t>(PyDateTime_TIME_GET_MINUTE(obj)) * 60000000000 +
+                       static_cast<int64_t>(PyDateTime_TIME_GET_SECOND(obj)) * 1000000000 +
+                       PyDateTime_TIME_GET_MICROSECOND(obj) * 1000;
+        memcpy(payload, &date, sizeof(int64_t *));
+        return 0;
+    }
+    error_parsing("PyDateTime_DateType", obj);
+    return -2;
+}
+
+PyObject *TimeParser::c_to_py(const void *payload) const {
+    if (!payload) throw ModuleException("Error parsing from C to Py, expected ptr to int, found NULL");
+    int64_t msec = *(reinterpret_cast<const int64_t *>(payload)) / 1000; //from nanoseconds to microseconds
+    int64_t hour = 0, min = 0, sec = 0;
+    hour = msec / 3600000000;
+    msec = msec - 3600000000 * hour;
+    //60000000 microseconds in a minute
+    min = msec / 60000000;
+    msec = msec - 60000000 * min;
+    //1000000 microseconds in a second
+    sec = msec / 1000000;
+    msec = msec - 1000000 * sec;
+    PyObject *time_py = PyTime_FromTime(hour, min, sec, msec);
+    return time_py;
+}
 
 /***Bytes parser ***/
 
@@ -390,7 +517,8 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
                     break;
                 }
                 case CASS_VALUE_TYPE_TIMESTAMP: {
-                    //TODO
+                    TimestampParser dp = TimestampParser(col_meta.pointer->at(i));
+                    dp.py_to_c(tuple_elem, destiny);
                     break;
                 }
                 case CASS_VALUE_TYPE_UUID: {
@@ -407,11 +535,13 @@ int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
                     break;
                 }
                 case CASS_VALUE_TYPE_DATE: {
-
+                    DateParser dp = DateParser(col_meta.pointer->at(i));
+                    dp.py_to_c(tuple_elem, destiny);
                     break;
                 }
                 case CASS_VALUE_TYPE_TIME: {
-                    //TODO
+                    TimeParser dp = TimeParser(col_meta.pointer->at(i));
+                    dp.py_to_c(tuple_elem, destiny);
                     break;
                 }
                 case CASS_VALUE_TYPE_SMALL_INT: {
@@ -523,7 +653,10 @@ PyObject *TupleParser::c_to_py(const void *payload) const {
                     break;
                 }
                 case CASS_VALUE_TYPE_TIMESTAMP: {
-                    //TODO
+                    TimestampParser uip = TimestampParser((col_meta.pointer->at(i)));
+                    int64_t *p = (int64_t *) inner_data->get_element(i);
+                    PyObject *po = uip.c_to_py(p);
+                    PyTuple_SET_ITEM(tuple, i, po);
                     break;
                 }
                 case CASS_VALUE_TYPE_UUID: {
@@ -542,11 +675,17 @@ PyObject *TupleParser::c_to_py(const void *payload) const {
                     break;
                 }
                 case CASS_VALUE_TYPE_DATE: {
-
+                    DateParser uip = DateParser((col_meta.pointer->at(i)));
+                    int64_t *p = (int64_t *) inner_data->get_element(i);
+                    PyObject *po = uip.c_to_py(p);
+                    PyTuple_SET_ITEM(tuple, i, po);
                     break;
                 }
                 case CASS_VALUE_TYPE_TIME: {
-                    //TODO
+                    TimeParser uip = TimeParser((col_meta.pointer->at(i)));
+                    int64_t *p = (int64_t *) inner_data->get_element(i);
+                    PyObject *po = uip.c_to_py(p);
+                    PyTuple_SET_ITEM(tuple, i, po);
                     break;
                 }
                 case CASS_VALUE_TYPE_SMALL_INT: {
