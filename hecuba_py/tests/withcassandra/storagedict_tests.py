@@ -190,7 +190,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(count, 100)
 
     def test_dict_print(self):
-        tablename = "tab10"
+        tablename = "tab11"
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         pd = StorageDict(tablename,
                          [('position', 'int')],
