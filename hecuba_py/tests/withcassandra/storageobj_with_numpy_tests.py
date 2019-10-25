@@ -152,6 +152,18 @@ class StorageNumpyTest(unittest.TestCase):
         test_numpy = test_numpy[slice(None, None, None)]
         self.assertTrue(np.allclose(result, test_numpy))
 
+    def test_numpy_1D_some_none_slices(self):
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_5;")
+        num = 24
+        no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        no.mynumpy = np.arange(10000).reshape((100,100))
+        myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        chunk = myobj2.mynumpy[slice(None, None, None), slice(4, 100, None)]
+        result = chunk.view(np.ndarray)
+        test_numpy = np.arange(10000).reshape((100,100))
+        test_numpy = test_numpy[slice(None, None, None), slice(4, 100, None)]
+        self.assertTrue(np.allclose(result, test_numpy))
+
     def test_numpy_reserved_4d_1cluster(self):
         coordinates = [slice(0, 8, None), slice(0, 8, None), slice(0, 8, None), slice(0, 8, None)]
         config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_6;")

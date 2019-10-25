@@ -132,19 +132,22 @@ class StorageNumpy(IStorage, np.ndarray):
     def format_coords(self, coord):
         if not type(coord) in [list, tuple]:
             coord = (coord,)
-
-        if slice(None, None, None) in coord:
-            return None
+            if coord == slice(None, None, None): return None
 
         np_list = []
+        count_none = 0
         for dim, coo in enumerate(coord):
-            if coo.start is None:
+            if coo.stop is None and coo.start is None:
+                np_list.append([0, self.shape[dim]])
+                count_none = count_none + 1
+            elif coo.start is None:
                 np_list.append([0, coo.stop])
             elif coo.stop is None:
                 np_list.append([coo.start, self.shape[dim]])
             else:
                 np_list.append([coo.start, coo.stop])
 
+        if count_none == len(coord): return None
         coordinates = np.array(np_list)
         return coordinates
 
