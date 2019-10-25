@@ -130,38 +130,29 @@ class StorageNumpy(IStorage, np.ndarray):
         return keys
 
     def format_coords(self, coord):
-        if not type(coord) in [tuple, list]:
-            if coord == slice(None, None, None):
-                return None
-            elif coord.start is None:
-                return np.array([[0, 0], [0, coord.stop]])
-            elif coord.stop is None:
-                return np.array([[0, coord.start], [self.shape[0], self.shape[1]]])
+        if not type(coord) in [list, tuple]:
+            coord = (coord,)
+
+        if slice(None, None, None) in coord:
+            return None
+
+        np_list = []
+        for dim, coo in enumerate(coord):
+            if coo.start is None:
+                np_list.append([0, coo.stop])
+            elif coo.stop is None:
+                np_list.append([coo.start, self.shape[dim] - 1])
             else:
-                return np.array([coord])
+                np_list.append([coo.start, coo.stop])
 
-        else:
-            if slice(None, None, None) in coord:
-                return None
-
-            np_coord = []
-
-            for dim, coo in enumerate(coord):
-                if coo.start is None:
-                    np_coord.append([0, coo.stop])
-                elif coo.stop is None:
-                    np_coord.append([coo.start, self.shape[dim]])
-                else:
-                    np_coord.append([coo.start, coo.stop])
-            return np.array(np_coord)
+        coordinates = np.array(np_list)
+        return coordinates
 
     def slices_match_numpy_shape(self, sliced_coord):
         if sliced_coord is None:
             return True
         elif len(self.shape) != len(sliced_coord):
             return False
-        elif sliced_coord.shape.__len__() == 1:
-            return sliced_coord[1] <= self.shape[0]
         else:
             for i, queried_slice in enumerate(sliced_coord):
                 return queried_slice[1] <= self.shape[i]

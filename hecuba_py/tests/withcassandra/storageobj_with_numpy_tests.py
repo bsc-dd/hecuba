@@ -92,16 +92,64 @@ class StorageNumpyTest(unittest.TestCase):
         test_numpy = test_numpy[coordinates]
         self.assertTrue(np.allclose(result, test_numpy))
 
-    def test_numpy_1_slice(self):
+    def test_numpy_2D_slice_right(self):
         config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_5;")
         num = 5
         no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
-        no.mynumpy = np.arange(10000).reshape((100,100))
+        no.mynumpy = np.arange(10000).reshape((100, 100))
         myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
-        chunk = myobj2.mynumpy[:25]
+        chunk = myobj2.mynumpy[slice(None, 5, None), slice(None, 5, None)]
         result = chunk.view(np.ndarray)
-        test_numpy = np.arange(10000).reshape((100,100))
-        test_numpy = test_numpy[:25]
+        test_numpy = np.arange(10000).reshape((100, 100))
+        test_numpy = test_numpy[slice(None, 5, None), slice(None, 5, None)]
+        self.assertTrue(np.allclose(result, test_numpy))
+
+    def test_numpy_2D_slice_left(self):
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_5;")
+        num = 6
+        no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        no.mynumpy = np.arange(10000).reshape((100, 100))
+        myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        chunk = myobj2.mynumpy[slice(5, None, None), slice(5, None, None)]
+        result = chunk.view(np.ndarray)
+        test_numpy = np.arange(10000).reshape((100, 100))
+        test_numpy = test_numpy[slice(5, None, None), slice(5, None, None)]
+        self.assertTrue(np.allclose(result, test_numpy))
+
+    def test_numpy_1D_slice_right(self):
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_5;")
+        num = 5
+        no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        no.mynumpy = np.arange(10000)
+        myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        chunk = myobj2.mynumpy[slice(None, 5, None)]
+        result = chunk.view(np.ndarray)
+        test_numpy = np.arange(10000)
+        test_numpy = test_numpy[slice(None, 5, None)]
+        self.assertTrue(np.allclose(result, test_numpy))
+
+    def test_numpy_1D_slice_left(self):
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_5;")
+        num = 5
+        no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        no.mynumpy = np.arange(10000)
+        myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        chunk = myobj2.mynumpy[slice(5, None, None)]
+        result = chunk.view(np.ndarray)
+        test_numpy = np.arange(10000)
+        test_numpy = test_numpy[slice(5, None, None)]
+        self.assertTrue(np.allclose(result, test_numpy))
+
+    def test_numpy_1D_none_slices(self):
+        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_5;")
+        num = 5
+        no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        no.mynumpy = np.arange(10000)
+        myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
+        chunk = myobj2.mynumpy[slice(None, None, None)]
+        result = chunk.view(np.ndarray)
+        test_numpy = np.arange(10000)
+        test_numpy = test_numpy[slice(None, None, None)]
         self.assertTrue(np.allclose(result, test_numpy))
 
     def test_numpy_reserved_4d_1cluster(self):
