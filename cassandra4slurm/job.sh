@@ -260,7 +260,7 @@ if [ "$APP_NODES" != "0" ]; then
         bash $PYCOMPSS_FILE "-$iface" # Params - 1st: interface
     else
         echo "RUNNING IN $APP_NODES APP_NODES WITH NTASKS_PERNODE $SLURM_NTASKS_PER_NODE, NTASKS $SLURM_NTASKS AND NPROCS $SLURM_NPROCS"
-        source $MODULE_PATH/app_node.sh $UNIQ_ID
+        SLURM_JOB_NUM_NODES=$APP_NODES source $MODULE_PATH/app_node.sh $UNIQ_ID
     fi
 else
     echo "[INFO] This job is not configured to run any application. Skipping..."
