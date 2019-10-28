@@ -138,6 +138,8 @@ class StorageNumpy(IStorage, np.ndarray):
             else:
                 return Exception('Slice formats supported: list, set, tuple of slices and slice class')
 
+        if not all(isinstance(c, slice) for c in coord): return Exception('All slices should be of class slice')
+
         np_list = []
         count_none = 0
         for dim, coo in enumerate(coord):
