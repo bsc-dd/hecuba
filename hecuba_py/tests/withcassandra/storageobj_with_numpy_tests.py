@@ -154,7 +154,7 @@ class StorageNumpyTest(unittest.TestCase):
 
     def test_numpy_2D_some_none_slices(self):
         config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_5;")
-        num = 28
+        num = 30
         no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
         no.mynumpy = np.arange(10000).reshape((100,100))
         myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
