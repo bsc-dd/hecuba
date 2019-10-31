@@ -1024,6 +1024,12 @@ static int hwriter_init(HWriter *self, PyObject *args, PyObject *kwds) {
                 int32_t c_val = (int32_t) PyLong_AsLong(value);
                 config[conf_key] = std::to_string(c_val);
             }
+            if (PyBool_Check(value)) {
+                int truthy = PyObject_IsTrue(value);
+                if (truthy) config[conf_key] = "True";
+                else config[conf_key] = "False";
+
+            }
         }
     }
     try {
