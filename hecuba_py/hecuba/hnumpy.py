@@ -34,16 +34,16 @@ class StorageNumpy(IStorage, np.ndarray):
             result = cls.reserve_numpy_array(storage_id, name)
             input_array = result[0]
             obj = np.asarray(input_array).view(cls)
-            (obj._ksp, obj._table) = extract_ks_tab(name)
-            obj._row_elem = result[1]
-            obj._hcache = result[2]
-            obj._numpy_full_loaded = False
-            obj._loaded_coordinates = []
+            obj._hcache = result[1]
+            obj._row_elem = obj._hcache.get_elements_per_row(storage_id)[0]
         elif not name and storage_id is not None:
             raise RuntimeError("hnumpy received storage id but not a name")
         else:
             obj = np.asarray(input_array).view(cls)
         # Finally, we must return the newly created object:
+        obj.name = name
+        obj._numpy_full_loaded = False
+        obj._loaded_coordinates = []
         obj._block_id = -1
         obj._built_remotely = built_remotely
         obj._class_name = '%s.%s' % (cls.__module__, cls.__name__)
@@ -52,8 +52,10 @@ class StorageNumpy(IStorage, np.ndarray):
     def __init__(self, input_array=None, storage_id=None, name=None, **kwargs):
         IStorage.__init__(self, storage_id=storage_id, name=name, **kwargs)
         if name or storage_id:
+            (self._ksp, self._table) = extract_ks_tab(self.name)
             if input_array is not None:
-                self.make_persistent(name)
+                self.make_persistent(self.name)
+                self._row_elem = self._hcache.get_elements_per_row(self.storage_id)[0]
             self._is_persistent = True
 
     # used as copy constructor
@@ -61,6 +63,7 @@ class StorageNumpy(IStorage, np.ndarray):
         if obj is None:
             return
         self.storage_id = getattr(obj, 'storage_id', None)
+        self.name = getattr(obj, 'name', None)
         self._hcache = getattr(obj, '_hcache', None)
         self._row_elem = getattr(obj, '_row_elem', None)
         self._loaded_coordinates = getattr(obj, '_loaded_coordinates', None)
@@ -115,19 +118,24 @@ class StorageNumpy(IStorage, np.ndarray):
 
         hcache = StorageNumpy._create_hcache(name)
         result = hcache.allocate_numpy(storage_id)
-        if len(result) == 2:
-            return [result[0], result[1], hcache]
+        if len(result) == 1:
+            return [result[0], hcache]
         else:
             raise KeyError
 
     def generate_coordinates(self, coordinates):
+        coords = None
         if coordinates is None:
-            return []
-        # coords divided by number of elem in a row
-        coord = [coordinates[:, coord] // self._row_elem for coord in range(len(coordinates[0]))]
-        ranges = (range(*range_tuple) for range_tuple in zip(coord[0], coord[1] + 1))
-        keys = list(it.product(*ranges))
-        return keys
+            coords = []
+        elif len(coordinates) == 1:
+            coord = coordinates // self._row_elem
+            coords = [(c,) for c in range(np.min(coord), np.max(coord) + 1)]
+        else:
+            # coords divided by number of elem in a row
+            coord = [coordinates[:, coord] // self._row_elem for coord in range(len(coordinates[0]))]
+            ranges = (range(*range_tuple) for range_tuple in zip(coord[0], coord[1] + 1))
+            coords = list(it.product(*ranges))
+        return coords
 
     def format_coords(self, coord):
         if not isinstance(coord, tuple):
@@ -243,7 +251,7 @@ class StorageNumpy(IStorage, np.ndarray):
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
         super().delete_persistent()
-        query = "DELETE FROM {}.{} WHERE storage_id = {} AND cluster_id=-1;".format(self._ksp, self._table + '_numpies',
+        query = "DELETE FROM {}.{} WHERE storage_id = {} AND cluster_id=-1;".format(self._ksp, self._table,
                                                                                     self.storage_id)
         query2 = "DELETE FROM hecuba.istorage WHERE storage_id = %s;" % self.storage_id
         log.debug("DELETE PERSISTENT: %s", query)

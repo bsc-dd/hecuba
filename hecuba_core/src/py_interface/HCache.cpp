@@ -422,7 +422,25 @@ static uint64_t *parse_uuid(PyObject *py_storage_id) {
     }
     return uuid;
 }
+static PyObject *get_elements_per_row(HNumpyStore *self, PyObject *args) {
+    PyObject *py_keys;
+    if (!PyArg_ParseTuple(args, "O", &py_keys)) {
+        return NULL;
+    }
 
+    const uint64_t *storage_id = parse_uuid(py_keys);
+    PyObject *obj;
+    try {
+        obj = self->NumpyDataStore->get_row_elements(storage_id);
+    }
+    catch (std::exception &e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    PyObject *result_list = PyList_New(1);
+    PyList_SetItem(result_list, 0, obj ? obj : Py_None);
+    return result_list;
+}
 /***
  * Receives a uuid, makes the reservation of the numpy specified in the storage_id and computes the number of elements inside each row of a block
  * @param self Python HNumpyStore object upon method invocation
@@ -437,18 +455,16 @@ static PyObject *allocate_numpy(HNumpyStore *self, PyObject *args) {
     }
 
     const uint64_t *storage_id = parse_uuid(py_keys);
-    PyObject *res, *obj;
+    PyObject *res;
     try {
         res = self->NumpyDataStore->reserve_numpy_space(storage_id);
-        obj = self->NumpyDataStore->get_row_elements(storage_id);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
-    PyObject *result_list = PyList_New(2);
+    PyObject *result_list = PyList_New(1);
     PyList_SetItem(result_list, 0, res ? res : Py_None);
-    PyList_SetItem(result_list, 1, obj ? obj : Py_None);
     return result_list;
 }
 
@@ -639,6 +655,7 @@ static PyMethodDef hnumpy_store_type_methods[] = {
         {"allocate_numpy",     (PyCFunction) allocate_numpy,     METH_VARARGS, NULL},
         {"store_numpy_slices", (PyCFunction) store_numpy_slices, METH_VARARGS, NULL},
         {"load_numpy_slices",  (PyCFunction) load_numpy_slices,  METH_VARARGS, NULL},
+        {"get_elements_per_row", (PyCFunction) get_elements_per_row,  METH_VARARGS, NULL},
         {NULL, NULL, 0,                                                        NULL}
 };
 
