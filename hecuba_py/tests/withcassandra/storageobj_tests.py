@@ -880,7 +880,7 @@ class StorageObjTest(unittest.TestCase):
         a = no.mynumpy
 
         final_name_so = no._ksp + '.' + no._table
-        final_name_np = no.mynumpy._ksp + '.' + no.mynumpy._table + '_numpies'
+        final_name_np = no.mynumpy._ksp + '.' + no.mynumpy._table
         self.assertEqual(initial_name_so, final_name_so)
         self.assertEqual(initial_name_np, final_name_np)
 

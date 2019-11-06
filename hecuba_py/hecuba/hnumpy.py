@@ -25,23 +25,22 @@ class StorageNumpy(IStorage, np.ndarray):
     args = namedtuple('StorageNumpyArgs', args_names)
 
     def __new__(cls, input_array=None, storage_id=None, name=None, built_remotely=False, **kwargs):
-        if name:
-            name = name + '_numpies'
-        elif storage_id:
+        if storage_id and not name:
             metas = get_istorage_attrs(storage_id)
             name = metas[0].name
+        elif not name:
+            name = ''
         if input_array is None and name and storage_id is not None:
             result = cls.reserve_numpy_array(storage_id, name)
             input_array = result[0]
             obj = np.asarray(input_array).view(cls)
             obj._hcache = result[1]
-            obj._row_elem = obj._hcache.get_elements_per_row(storage_id)[0]
         elif not name and storage_id is not None:
             raise RuntimeError("hnumpy received storage id but not a name")
         else:
             obj = np.asarray(input_array).view(cls)
         # Finally, we must return the newly created object:
-        obj.name = name
+        obj._set_name(name)
         obj._numpy_full_loaded = False
         obj._loaded_coordinates = []
         obj._block_id = -1
@@ -50,12 +49,11 @@ class StorageNumpy(IStorage, np.ndarray):
         return obj
 
     def __init__(self, input_array=None, storage_id=None, name=None, **kwargs):
-        IStorage.__init__(self, storage_id=storage_id, name=name, **kwargs)
-        if name or storage_id:
-            (self._ksp, self._table) = extract_ks_tab(self.name.replace('_numpies', ''))
+        IStorage.__init__(self, storage_id=storage_id, name=self._get_name(), **kwargs)
+        if self._get_name() or self.storage_id:
             if input_array is not None:
-                self.make_persistent(self.name)
-                self._row_elem = self._hcache.get_elements_per_row(self.storage_id)[0]
+                self.make_persistent(self._get_name())
+            self._row_elem = self._hcache.get_elements_per_row(self.storage_id)[0]
             self._is_persistent = True
 
     # used as copy constructor
@@ -72,12 +70,12 @@ class StorageNumpy(IStorage, np.ndarray):
 
     @staticmethod
     def _create_tables(name):
-        (ksp, table) = extract_ks_tab(name)
+        (ksp, _) = extract_ks_tab(name)
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (ksp, config.replication)
         config.session.execute(query_keyspace)
 
         config.session.execute(
-            'CREATE TABLE IF NOT EXISTS ' + ksp + '.' + table + '(storage_id uuid , '
+            'CREATE TABLE IF NOT EXISTS ' + name + '(storage_id uuid , '
                                                                 'cluster_id int, '
                                                                 'block_id int, '
                                                                 'payload blob, '
@@ -85,8 +83,8 @@ class StorageNumpy(IStorage, np.ndarray):
 
     @staticmethod
     def _create_hcache(name):
-        (ksp, table) = extract_ks_tab(name)
-        hcache_params = (ksp, table,
+        (ksp, name) = extract_ks_tab(name)
+        hcache_params = (ksp, name,
                          {'cache_size': config.max_cache_size,
                           'writer_par': config.write_callbacks_number,
                           'write_buffer': config.write_buffer_size,
@@ -223,12 +221,9 @@ class StorageNumpy(IStorage, np.ndarray):
         return super(StorageNumpy, self).__setitem__(sliced_coord, values)
 
     def make_persistent(self, name):
-        if not name.endswith("_numpies"):
-            name = name + '_numpies'
-
         super().make_persistent(name)
 
-        self._build_args = self.args(self.storage_id, self._class_name, self._ksp + '.' + self._table,
+        self._build_args = self.args(self.storage_id, self._class_name, name,
                                      self.shape, self.dtype.num, self._block_id, self._built_remotely)
 
         if not self._built_remotely:
@@ -251,7 +246,7 @@ class StorageNumpy(IStorage, np.ndarray):
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
         super().delete_persistent()
-        query = "DELETE FROM {}.{} WHERE storage_id = {} AND cluster_id=-1;".format(self._ksp, self._table + '_numpies',
+        query = "DELETE FROM {} WHERE storage_id = {} AND cluster_id=-1;".format(self._get_name(),
                                                                                     self.storage_id)
         query2 = "DELETE FROM hecuba.istorage WHERE storage_id = %s;" % self.storage_id
         log.debug("DELETE PERSISTENT: %s", query)
