@@ -140,8 +140,6 @@ export CASSANDRA_NODELIST=$(echo $casslist | sed -e 's+ +,+g')
 echo "CASSANDRA_NODELIST var: "$CASSANDRA_NODELIST
 
 # Clearing data from previous executions and checking symlink coherence
-echo "Executing srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 --nodes=$N_NODES $MODULE_PATH/tmp-set.sh $CASS_HOME $DATA_HOME $COMM_HOME $SAV_CACHE $ROOT_PATH $CLUSTER $UNIQ_ID"
-
 srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 --nodes=$N_NODES $MODULE_PATH/tmp-set.sh $CASS_HOME $DATA_HOME $COMM_HOME $SAV_CACHE $ROOT_PATH $CLUSTER $UNIQ_ID
 sleep 5
 
@@ -149,8 +147,6 @@ if [ "$(cat $RECOVER_FILE)" != "" ]
 then
     RECOVERTIME1=`date +"%T.%3N"`
     # Moving data to each datapath
-    #srun --ntasks=$TOTAL_NODES --ntasks-per-node=1 $MODULE_PATH/recover.sh $ROOT_PATH $UNIQ_ID
-    echo "Executing srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 --nodes=$N_NODES $MODULE_PATH/recover.sh $ROOT_PATH $UNIQ_ID"
     srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 --nodes=$N_NODES $MODULE_PATH/recover.sh $ROOT_PATH $UNIQ_ID
     RECOVERTIME2=`date +"%T.%3N"`
 
@@ -176,9 +172,7 @@ fi
 #exit # TODO QUITAR ESTO DE AQUÍ, SI NO NO FUNCIONA!!! TODO
 # Launching Cassandra in every node
 
-echo "Executing srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES --overcommit $MODULE_PATH/cass_node.sh $UNIQ_ID"
-
-srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES --overcommit $MODULE_PATH/cass_node.sh $UNIQ_ID &
+srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES $MODULE_PATH/cass_node.sh $UNIQ_ID &
 sleep 5
 
 # Cleaning config template
@@ -281,7 +275,9 @@ then
     SNAP_NAME="$THETIME"
     # Looping over the assigned hosts until the snapshots are confirmed
     echo "Launching snapshot tasks on nodes $CASSANDRA_NODELIST"
-    srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --nodes=$N_NODES --overcommit $MODULE_PATH/snapshot.sh $SNAP_NAME $ROOT_PATH $CLUSTER $UNIQ_ID
+
+    source $MODULE_PATH/snapshot.sh $SNAP_NAME $ROOT_PATH $CLUSTER $UNIQ_ID
+
     SNAP_CONT=0
     while [ "$SNAP_CONT" != "$N_NODES" ]
     do
@@ -321,9 +317,5 @@ then
     rm -f $C4S_HOME/snap-status-$SNAP_NAME-*-file.txt
 fi
 sleep 10
-echo "Executing srun  --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --nodes=$N_NODES --ntasks-per-node=1 bash $MODULE_PATH/killer.sh"
 
-srun  --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --nodes=$N_NODES --ntasks-per-node=1 bash $MODULE_PATH/killer.sh
-
-# Kills the job to shutdown every cassandra service
-exit_killjob
+sacct --delimiter="," -pj ${SLURM_JOB_ID} | grep cass_node | awk -F ',' '{print $1}' | xargs scancel
