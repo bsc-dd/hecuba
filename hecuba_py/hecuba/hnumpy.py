@@ -52,7 +52,7 @@ class StorageNumpy(IStorage, np.ndarray):
     def __init__(self, input_array=None, storage_id=None, name=None, **kwargs):
         IStorage.__init__(self, storage_id=storage_id, name=name, **kwargs)
         if name or storage_id:
-            (self._ksp, self._table) = extract_ks_tab(self.name)
+            (self._ksp, self._table) = extract_ks_tab(self.name.replace('_numpies', ''))
             if input_array is not None:
                 self.make_persistent(self.name)
                 self._row_elem = self._hcache.get_elements_per_row(self.storage_id)[0]
@@ -251,7 +251,7 @@ class StorageNumpy(IStorage, np.ndarray):
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
         super().delete_persistent()
-        query = "DELETE FROM {}.{} WHERE storage_id = {} AND cluster_id=-1;".format(self._ksp, self._table,
+        query = "DELETE FROM {}.{} WHERE storage_id = {} AND cluster_id=-1;".format(self._ksp, self._table + '_numpies',
                                                                                     self.storage_id)
         query2 = "DELETE FROM hecuba.istorage WHERE storage_id = %s;" % self.storage_id
         log.debug("DELETE PERSISTENT: %s", query)
