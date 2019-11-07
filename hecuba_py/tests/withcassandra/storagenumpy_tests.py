@@ -235,6 +235,24 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertGreater(sum, 0)
         description = hecu_sub.__repr__()
         self.assertIsInstance(description, str)
+        hecu.delete_persistent()
+
+
+    def test_iter_numpy(self):
+        obj = np.arange(8 * 8 * 8).reshape((8, 8, 8))
+        hecu = StorageNumpy(input_array=obj, name='some_name')
+        acc = 0
+        for i in hecu:
+            acc = acc + 1
+
+        hecu_sub = hecu[:2, 3:, 4:]
+
+        acc2 = 0
+        for i in hecu_sub:
+            acc2 = acc2 + 1
+
+        self.assertGreater(acc, acc2)
+        hecu.delete_persistent()
 
 
 if __name__ == '__main__':
