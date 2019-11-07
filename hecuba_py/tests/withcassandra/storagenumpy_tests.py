@@ -237,6 +237,16 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertIsInstance(description, str)
         hecu.delete_persistent()
 
+    def test_slice_ops2(self):
+        obj = np.arange(8 * 8 * 8).reshape((8, 8, 8))
+        hecu = StorageNumpy(input_array=obj, name='some_name')
+        hecu_sub = hecu[:2, 3:, 4:]
+        hecu_sub2 = hecu_sub[:1, 2:, 3:]
+        sum = hecu_sub2.sum()
+        self.assertGreater(sum, 0)
+        description = hecu_sub2.__repr__()
+        self.assertIsInstance(description, str)
+        hecu.delete_persistent()
 
     def test_iter_numpy(self):
         obj = np.arange(8 * 8 * 8).reshape((8, 8, 8))
