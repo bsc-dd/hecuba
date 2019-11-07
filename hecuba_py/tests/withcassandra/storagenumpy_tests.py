@@ -172,6 +172,14 @@ class StorageNumpyTest(unittest.TestCase):
         basic_init = StorageNumpy(base_array)
         new_from_template = basic_init[32:]
 
+    def test_get_subarray(self):
+        base = np.arange(8 * 8 * 4).reshape((8, 8, 4))
+        hecu_p = StorageNumpy(input_array=base, name='my_array')
+        hecu_r2 = StorageNumpy(storage_id=hecu_p.storage_id)
+        res = hecu_r2[:3, :2]
+        res
+        res[:2]
+
     def test_slicing_3d(self):
         base = np.arange(8 * 8 * 4).reshape((8, 8, 4))
         hecu = StorageNumpy(input_array=base, name='my_array')
