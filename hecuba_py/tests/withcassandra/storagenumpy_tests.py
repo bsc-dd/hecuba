@@ -177,8 +177,11 @@ class StorageNumpyTest(unittest.TestCase):
         hecu_p = StorageNumpy(input_array=base, name='my_array')
         hecu_r2 = StorageNumpy(storage_id=hecu_p.storage_id)
         res = hecu_r2[:3, :2]
-        res
-        res[:2]
+        sum = res.sum()
+        res = hecu_r2[:3, :2]
+        avg = res.mean()
+        self.assertGreater(sum, 0)
+        self.assertGreater(avg, 0)
 
     def test_slicing_3d(self):
         base = np.arange(8 * 8 * 4).reshape((8, 8, 4))
@@ -187,7 +190,6 @@ class StorageNumpyTest(unittest.TestCase):
         res_hecu = hecu[6:7, 4:]
         res = base[6:7, 4:]
         self.assertTrue(np.array_equal(res, res_hecu))
-
 
         del hecu
         del res_hecu
@@ -205,9 +207,9 @@ class StorageNumpyTest(unittest.TestCase):
         max_elements = 2048
         for dims in range(1, ndims):
             storage_id = uuid.uuid4()
-            elem_per_dim = int(max_elements **(1/dims))
-            select = (slice(random.randint(0, elem_per_dim)),)*dims
-            base = np.arange(elem_per_dim**dims).reshape((elem_per_dim, )*dims)
+            elem_per_dim = int(max_elements ** (1 / dims))
+            select = (slice(random.randint(0, elem_per_dim)),) * dims
+            base = np.arange(elem_per_dim ** dims).reshape((elem_per_dim,) * dims)
 
             hecu = StorageNumpy(input_array=base, name='my_array', storage_id=storage_id)
             res_hecu = hecu[select]
@@ -225,6 +227,14 @@ class StorageNumpyTest(unittest.TestCase):
             del res_hecu
             del hecu
 
+    def test_slice_ops(self):
+        obj = np.arange(8 * 8 * 8).reshape((8, 8, 8))
+        hecu = StorageNumpy(input_array=obj, name='some_name')
+        hecu_sub = hecu[:2, 3:, 4:]
+        sum = hecu_sub.sum()
+        self.assertGreater(sum, 0)
+        description = hecu_sub.__repr__()
+        self.assertIsInstance(description, str)
 
 
 if __name__ == '__main__':
