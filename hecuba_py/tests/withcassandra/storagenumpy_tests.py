@@ -233,7 +233,7 @@ class StorageNumpyTest(unittest.TestCase):
         hecu_sub = hecu[:2, 3:, 4:]
         sum = hecu_sub.sum()
         self.assertGreater(sum, 0)
-        description = hecu_sub.__repr__()
+        description = repr(hecu_sub)
         self.assertIsInstance(description, str)
         hecu.delete_persistent()
 
@@ -244,7 +244,7 @@ class StorageNumpyTest(unittest.TestCase):
         hecu_sub2 = hecu_sub[:1, 2:, 3:]
         sum = hecu_sub2.sum()
         self.assertGreater(sum, 0)
-        description = hecu_sub2.__repr__()
+        description = repr(hecu_sub2)
         self.assertIsInstance(description, str)
         hecu.delete_persistent()
 
@@ -263,6 +263,38 @@ class StorageNumpyTest(unittest.TestCase):
 
         self.assertGreater(acc, acc2)
         hecu.delete_persistent()
+
+    def test_assign_slice(self):
+        base = np.arange(8 * 8 * 4).reshape((8, 8, 4))
+        hecu_p = StorageNumpy(input_array=base, name='my_array')
+        sub_hecu = hecu_p[:2, 3:]
+        sub_hecu[0][2:] = 0
+        storage_id = hecu_p.storage_id
+        del sub_hecu
+        del hecu_p
+        gc.collect()
+        hecu_p_load = StorageNumpy(storage_id=storage_id)
+        rep = repr(hecu_p_load)
+        self.assertIsInstance(rep, str)
+        load_sub_arr = hecu_p_load[:]
+        self.assertTrue(np.array_equal(load_sub_arr, base))
+        hecu_p_load.delete_persistent()
+
+    def test_assign_element(self):
+        base = np.arange(8 * 8 * 4).reshape((8, 8, 4))
+        hecu_p = StorageNumpy(input_array=base, name='my_array')
+        sub_hecu = hecu_p[:2, 3:]
+        sub_hecu[0][1][0] = 0
+        storage_id = hecu_p.storage_id
+        del sub_hecu
+        del hecu_p
+        gc.collect()
+        hecu_p_load = StorageNumpy(storage_id=storage_id)
+        rep = repr(hecu_p_load)
+        self.assertIsInstance(rep, str)
+        load_sub_arr = hecu_p_load[:]
+        self.assertTrue(np.array_equal(load_sub_arr, base))
+        hecu_p_load.delete_persistent()
 
 
 if __name__ == '__main__':
