@@ -71,7 +71,7 @@ PyObject *NumpyStorage::reserve_numpy_space(const uint64_t *storage_id) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
-
+    delete[] dims;
     delete (np_metas);
 
     return resulting_array;
@@ -82,6 +82,7 @@ PyObject *NumpyStorage::get_row_elements(const uint64_t *storage_id) {
     uint32_t ndims = (uint32_t) np_metas->dims.size();
     uint64_t block_size = BLOCK_SIZE - (BLOCK_SIZE % np_metas->elem_size);
     uint32_t row_elements = (uint32_t) std::floor(pow(block_size / np_metas->elem_size, (1.0 / ndims)));
+    delete (np_metas);
     return Py_BuildValue("i", row_elements);
 }
 

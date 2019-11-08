@@ -375,39 +375,44 @@ static PyTypeObject hfetch_HCacheType = {
  * @return C-like UUID
  */
 static uint64_t *parse_uuid(PyObject *py_storage_id) {
-    uint64_t *uuid;
+    uint64_t *uuid = new uint64_t[2];
     if (!PyByteArray_Check(py_storage_id)) {
         //Object is UUID python class
-        uint32_t len = sizeof(uint64_t) * 2;
-        uuid = (uint64_t *) malloc(len);
-
         PyObject *bytes = PyObject_GetAttrString(py_storage_id, "time_low"); //32b
         if (!bytes) throw TypeErrorException("Error parsing python UUID");
 
         uint64_t time_low = (uint32_t) PyLong_AsLongLong(bytes);
+        Py_DECREF(bytes);
 
         bytes = PyObject_GetAttrString(py_storage_id, "time_mid"); //16b
         if (!bytes) throw TypeErrorException("Error parsing python UUID");
 
         uint64_t time_mid = (uint16_t) PyLong_AsLongLong(bytes);
+        Py_DECREF(bytes);
 
         bytes = PyObject_GetAttrString(py_storage_id, "time_hi_version"); //16b
         if (!bytes) throw TypeErrorException("Error parsing python UUID");
 
         uint64_t time_hi_version = (uint16_t) PyLong_AsLongLong(bytes);
+        Py_DECREF(bytes);
 
         *uuid = (time_hi_version << 48) + (time_mid << 32) + (time_low);
 
         bytes = PyObject_GetAttrString(py_storage_id, "clock_seq_hi_variant"); //8b
         uint64_t clock_seq_hi_variant = (uint64_t) PyLong_AsLongLong(bytes);
+        Py_DECREF(bytes);
+
         bytes = PyObject_GetAttrString(py_storage_id, "clock_seq_low"); //8b
         uint64_t clock_seq_low = (uint64_t) PyLong_AsLongLong(bytes);
+        Py_DECREF(bytes);
+
         bytes = PyObject_GetAttrString(py_storage_id, "node"); //48b
 
 
         *(uuid + 1) = (uint64_t) PyLong_AsLongLong(bytes);
         *(uuid + 1) += clock_seq_hi_variant << 56;
         *(uuid + 1) += clock_seq_low << 48;
+        Py_DECREF(bytes);
 
     } else {
         uint32_t len = sizeof(uint64_t) * 2;
@@ -417,11 +422,12 @@ static uint64_t *parse_uuid(PyObject *py_storage_id) {
                                     ", expected was: " + std::to_string(len);
             PyErr_SetString(PyExc_ValueError, error_msg.c_str());
         }
-
-        uuid = (uint64_t *) PyByteArray_AsString(py_storage_id);
+        char *uuid_bits = PyByteArray_AsString(py_storage_id);
+        std::memcpy(uuid, uuid_bits, sizeof(uint64_t) * 2);
     }
     return uuid;
 }
+
 static PyObject *get_elements_per_row(HNumpyStore *self, PyObject *args) {
     PyObject *py_keys;
     if (!PyArg_ParseTuple(args, "O", &py_keys)) {
@@ -437,10 +443,12 @@ static PyObject *get_elements_per_row(HNumpyStore *self, PyObject *args) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
+    delete[] storage_id;
     PyObject *result_list = PyList_New(1);
     PyList_SetItem(result_list, 0, obj ? obj : Py_None);
     return result_list;
 }
+
 /***
  * Receives a uuid, makes the reservation of the numpy specified in the storage_id and computes the number of elements inside each row of a block
  * @param self Python HNumpyStore object upon method invocation
@@ -463,6 +471,7 @@ static PyObject *allocate_numpy(HNumpyStore *self, PyObject *args) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
+    delete[] storage_id;
     PyObject *result_list = PyList_New(1);
     PyList_SetItem(result_list, 0, res ? res : Py_None);
     return result_list;
@@ -525,6 +534,7 @@ static PyObject *store_numpy_slices(HNumpyStore *self, PyObject *args) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
+    delete[] storage_id;
     Py_RETURN_NONE;
 }
 
@@ -587,6 +597,7 @@ static PyObject *load_numpy_slices(HNumpyStore *self, PyObject *args) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
+    delete[] storage_id;
     Py_RETURN_NONE;
 }
 
@@ -652,11 +663,11 @@ static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) 
 
 
 static PyMethodDef hnumpy_store_type_methods[] = {
-        {"allocate_numpy",     (PyCFunction) allocate_numpy,     METH_VARARGS, NULL},
-        {"store_numpy_slices", (PyCFunction) store_numpy_slices, METH_VARARGS, NULL},
-        {"load_numpy_slices",  (PyCFunction) load_numpy_slices,  METH_VARARGS, NULL},
-        {"get_elements_per_row", (PyCFunction) get_elements_per_row,  METH_VARARGS, NULL},
-        {NULL, NULL, 0,                                                        NULL}
+        {"allocate_numpy",       (PyCFunction) allocate_numpy,       METH_VARARGS, NULL},
+        {"store_numpy_slices",   (PyCFunction) store_numpy_slices,   METH_VARARGS, NULL},
+        {"load_numpy_slices",    (PyCFunction) load_numpy_slices,    METH_VARARGS, NULL},
+        {"get_elements_per_row", (PyCFunction) get_elements_per_row, METH_VARARGS, NULL},
+        {NULL, NULL, 0,                                                            NULL}
 };
 
 

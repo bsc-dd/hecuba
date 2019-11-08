@@ -9,7 +9,7 @@
 #define PY_ARRAY_UNIQUE_SYMBOL cool_ARRAY_API
 
 #if __cplusplus <= 199711L
-  #error This library needs at least a C++11 compliant compiler
+#error This library needs at least a C++11 compliant compiler
 #endif
 
 #include "numpy/arrayobject.h"

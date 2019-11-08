@@ -278,7 +278,7 @@ class StorageNumpy(IStorage, np.ndarray):
         else:
             outputs = (None,) * ufunc.nout
         if self._is_persistent and len(self.shape) and self._numpy_full_loaded is False:
-            self._hcache.load_numpy_slices([self.storage_id], [self.base], None)
+            self._hcache.load_numpy_slices([self.storage_id], [self.base.view(np.ndarray)], None)
 
         results = super(StorageNumpy, self).__array_ufunc__(ufunc, method,
                                                             *args, **kwargs)
