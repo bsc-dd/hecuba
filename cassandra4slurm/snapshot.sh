@@ -27,8 +27,8 @@ RINGFILE=$C4S_HOME/ringfile-"$UNIQ_ID".txt
 RINGDONE=$C4S_HOME/ringdone-"$UNIQ_ID".txt
 HST_IFACE="-ib0" #interface configured in the cassandra.yaml file
 
-casslist=`cat $CASSFILE`
 
+casslist=`cat $CASSFILE`
 
 mkdir -p $SNAP_PATH
 
@@ -43,6 +43,7 @@ rm -f $RINGFILE $RINGDONE
 $CASS_HOME/bin/nodetool -h ${first_node} ring > $RINGFILE
 echo "1" > $RINGDONE
 
+
 for u_host in $casslist
 do
     $CASS_HOME/bin/nodetool -h ${u_host} snapshot -t $SNAP_NAME
@@ -51,4 +52,4 @@ done
 
 sacct --delimiter="," -pj ${SLURM_JOB_ID} | grep cass_node | awk -F ',' '{print $1}' | xargs scancel
 
-srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES $MODULE_PATH/copy_snapshot.sh $SNAP_NAME $ROOT_PATH $CLUSTER $UNIQ_ID 
+srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES $MODULE_PATH/copy_snapshot.sh $SNAP_NAME $ROOT_PATH $CLUSTER $UNIQ_ID
