@@ -184,13 +184,15 @@ class StorageNumpy(IStorage, np.ndarray):
         log.info("RETRIEVING NUMPY")
         if self._is_persistent and not (self._loaded_coordinates or self._numpy_full_loaded):
             # formats sliced coords
-            new_coords = self.format_coords(sliced_coord)
-
+            try:
+                new_coords = self.format_coords(sliced_coord)
+            except IndexError:
+                return super(StorageNumpy, self).__getitem__(sliced_coord)
             # checks if some coord in sliced_coords are inside the numpy
             if not self.slices_match_numpy_shape(new_coords):  # some coordinates match
                 new_coords = self.get_coords_match_numpy_shape(new_coords)  # generates the coordinates
                 if not new_coords:
-                    self._hcache.load_numpy_slices([self.storage_id], [self.view(np.ndarray)],
+                    self._hcache.load_numpy_slices([self.storage_id], [self.base.view(np.ndarray)],
                                                    None)  # any coordinates generated match
                     self._numpy_full_loaded = True
                     return super(StorageNumpy, self).__getitem__(sliced_coord)
@@ -206,17 +208,20 @@ class StorageNumpy(IStorage, np.ndarray):
                 if not coordinates:
                     self._numpy_full_loaded = True
                     new_coords = None
-                self._hcache.load_numpy_slices([self.storage_id], [self.view(np.ndarray)], new_coords)
+                self._hcache.load_numpy_slices([self.storage_id], [self.base.view(np.ndarray)], new_coords)
                 self._loaded_coordinates = coordinates
         return super(StorageNumpy, self).__getitem__(sliced_coord)
 
     def __setitem__(self, sliced_coord, values):
         log.info("WRITING NUMPY")
         if self._is_persistent:
-            coo = self.format_coords(sliced_coord)
+            try:
+                coo = self.format_coords(sliced_coord)
+            except IndexError:
+                return super(StorageNumpy, self).__setitem__(sliced_coord, values)
             coordinates = list(set(it.chain.from_iterable(
                 (self._loaded_coordinates, self.generate_coordinates(coo)))))
-            self._hcache.store_numpy_slices([self.storage_id], [self.view(np.ndarray)], coordinates)
+            self._hcache.store_numpy_slices([self.storage_id], [self.base.view(np.ndarray)], coordinates)
         return super(StorageNumpy, self).__setitem__(sliced_coord, values)
 
     def make_persistent(self, name):
@@ -232,7 +237,7 @@ class StorageNumpy(IStorage, np.ndarray):
             self._hcache = self._create_hcache(name)
 
         if len(self.shape) != 0:
-            self._hcache.store_numpy_slices([self.storage_id], [self.view(np.ndarray)], None)
+            self._hcache.store_numpy_slices([self.storage_id], [self.base.view(np.ndarray)], None)
         StorageNumpy._store_meta(self._build_args)
 
     def stop_persistent(self):
@@ -289,7 +294,7 @@ class StorageNumpy(IStorage, np.ndarray):
             return
 
         if self._is_persistent and len(self.shape):
-            self._hcache.store_numpy_slices([self.storage_id], [self.view(np.ndarray)], None)
+            self._hcache.store_numpy_slices([self.storage_id], [self.base.view(np.ndarray)], None)
 
         if ufunc.nout == 1:
             results = (results,)

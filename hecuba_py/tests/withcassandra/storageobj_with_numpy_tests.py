@@ -355,17 +355,5 @@ class StorageNumpyTest(unittest.TestCase):
         test_numpy[coordinates] = 1
         self.assertTrue(np.allclose(chunk.view(np.ndarray), test_numpy))
 
-    def test_no_correct_format(self):
-        coordinates = [slice(30, 45, None), slice(30, 45, None)]
-        config.session.execute("DROP TABLE IF EXISTS myapp.numpy_test_12;")
-        num = 12
-        no = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
-        no.mynumpy = np.zeros((100, 100))
-        myobj2 = TestStorageObjNumpy("my_app.numpy_test_%d" % num)
-        chunk = myobj2.mynumpy
-        with self.assertRaises(IndexError):
-            chunk[coordinates] = 1
-
-
 if __name__ == '__main__':
     unittest.main()

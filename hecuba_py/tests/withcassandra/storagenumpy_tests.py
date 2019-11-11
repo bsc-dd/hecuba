@@ -277,12 +277,12 @@ class StorageNumpyTest(unittest.TestCase):
         rep = repr(hecu_p_load)
         self.assertIsInstance(rep, str)
         load_sub_arr = hecu_p_load[:]
-        self.assertTrue(np.array_equal(load_sub_arr, base))
+        self.assertTrue(np.array_equal(load_sub_arr, np.arange(8 * 8 * 4).reshape((8, 8, 4))))
         hecu_p_load.delete_persistent()
 
     def test_assign_element(self):
         base = np.arange(8 * 8 * 4).reshape((8, 8, 4))
-        hecu_p = StorageNumpy(input_array=base, name='my_array')
+        hecu_p = StorageNumpy(input_array=base, name='my_array2')
         sub_hecu = hecu_p[:2, 3:]
         sub_hecu[0][1][0] = 0
         storage_id = hecu_p.storage_id
@@ -293,7 +293,7 @@ class StorageNumpyTest(unittest.TestCase):
         rep = repr(hecu_p_load)
         self.assertIsInstance(rep, str)
         load_sub_arr = hecu_p_load[:]
-        self.assertTrue(np.array_equal(load_sub_arr, base))
+        self.assertTrue(np.array_equal(load_sub_arr, np.arange(8 * 8 * 4).reshape((8, 8, 4))))
         hecu_p_load.delete_persistent()
 
 
