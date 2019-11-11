@@ -56,8 +56,8 @@ fi
 RETRY_MAX=3000 # This value is around 50, higher now to test big clusters that need more time to be completely discovered
 
 # Generating nodefiles
-head -n $CASSANDRA_NODES $NODEFILE > $CASSFILE
-tail -n $APP_NODES $NODEFILE > $APPFILE
+tail -n $CASSANDRA_NODES $NODEFILE > $CASSFILE
+head -n $APP_NODES $NODEFILE > $APPFILE
 export APPNODELIST=$(cat $APPFILE | tr '\n' ',' | sed "s/,/$full_iface,/g" | rev | cut -c 2- | rev)
 
 echo "[DEBUG] iter="$iter
@@ -88,7 +88,8 @@ function exit_bad_node_status () {
 }
 
 function get_nodes_up () {
-    NODE_COUNTER=$($CASS_HOME/bin/nodetool status | sed 1,5d | sed '$ d' | awk '{ print $1 }' | grep "UN" | wc -l)
+    first_node=`head -n1 $CASSFILE`"$CASS_IFACE"
+    NODE_COUNTER=$($CASS_HOME/bin/nodetool -h $first_node status | sed 1,5d | sed '$ d' | awk '{ print $1 }' | grep "UN" | wc -l)
 }
 
 if [ ! -f $CASS_HOME/bin/cassandra ]; then
@@ -215,7 +216,8 @@ fi
 
 # THIS IS THE APPLICATION CODE EXECUTING SOME TASKS USING CASSANDRA DATA, ETC
 echo "CHECKING CASSANDRA STATUS: "
-$CASS_HOME/bin/nodetool status
+first_node=`head -n1 $CASSFILE`"$CASS_IFACE"
+$CASS_HOME/bin/nodetool -h $first_node status
 
 sleep 12
 firstnode=$(echo $seeds | awk -F ',' '{ print $1 }')
