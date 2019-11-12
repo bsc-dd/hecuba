@@ -1,21 +1,11 @@
 sudo: false
 dist: xenial
 language: python
-python:
-  - '3.6'
-  - '3.7'
-  - '3.8-dev'
 services:
   - docker
 
-env:
-  matrix:
-    - TEST_CASSANDRA_VERSION=3.11.4
-
 stages:
-  - test
-  - build_wheel_manylinux2010
-  - build_wheel_manylinux1
+  - test_integration
 
 before_install:
   - source .travis/install_openjdk8.sh
@@ -39,30 +29,13 @@ addons:
       - python-numpy
 
 # command to run tests
-script:
-  - nosetests --with-coverage -v -s hecuba_py/tests/*.py
-  - nosetests --with-coverage -v -s hecuba_py/tests/withcassandra
 
 jobs:
   include:
-    - stage: build_wheel_manylinux2010
+    - stage: test_integration
       sudo: required
-      env:
-        - DOCKER_IMAGE=quay.io/pypa/manylinux2010_x86_64  PLAT=manylinux2010_x86_64
       install:
-        - docker pull $DOCKER_IMAGE
+        - docker build -t hecuba:0.1 /io/Dockerfiles/hecuba
+        - docker build -t hecompss:0.1 /io/Dockerfiles/compss_integration
       script:
-        - docker run --rm -e PLAT=$PLAT -v `pwd`:/io $DOCKER_IMAGE /io/.travis/build-wheels.sh
-    - stage: build_wheel_manylinux1
-      sudo: required
-      env:
-        - DOCKER_IMAGE=quay.io/pypa/manylinux1_x86_64  PLAT=manylinux1_x86_64
-      install:
-        - docker pull $DOCKER_IMAGE
-      script:
-        - docker run --rm -e PLAT=$PLAT -v `pwd`:/io $DOCKER_IMAGE /io/.travis/build-wheels.sh
-
-# Push the results back to codecov
-after_success:
-  - codecov
-
+       - docker run --rm -it hecompss:0.1
