@@ -35,7 +35,7 @@ jobs:
     - stage: test_integration
       sudo: required
       install:
-        - docker build -t hecuba:0.1 /io/Dockerfiles/hecuba
-        - docker build -t hecompss:0.1 /io/Dockerfiles/compss_integration
+        - docker build -t hecuba:0.1 /io/dockerfiles/hecuba
+        - docker build -t hecompss:0.1 /io/dockerfiles/compss_integration
       script:
        - docker run --rm -it hecompss:0.1
