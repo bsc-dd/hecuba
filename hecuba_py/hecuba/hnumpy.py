@@ -182,7 +182,7 @@ class StorageNumpy(IStorage, np.ndarray):
 
     def __getitem__(self, sliced_coord):
         log.info("RETRIEVING NUMPY")
-        if self._is_persistent and not (self._loaded_coordinates or self._numpy_full_loaded):
+        if self._is_persistent and not self._numpy_full_loaded:
             # formats sliced coords
             try:
                 new_coords = self.format_coords(sliced_coord)

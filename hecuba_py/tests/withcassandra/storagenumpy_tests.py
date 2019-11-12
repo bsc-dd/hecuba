@@ -296,6 +296,15 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertTrue(np.array_equal(load_sub_arr, np.arange(8 * 8 * 4).reshape((8, 8, 4))))
         hecu_p_load.delete_persistent()
 
+    def test_load_2_dif_clusters_same_instance(self):
+        base = np.arange(50 * 50).reshape((50, 50))
+        hecu_p = StorageNumpy(input_array=base, name='my_array3')
+        storage_id = hecu_p.storage_id
+        del hecu_p
+        gc.collect()
+        hecu_p_load = StorageNumpy(storage_id=storage_id)
+        hecu_p_load[0:1, 0:1]
+        self.assertTrue(np.array_equal(hecu_p_load[40:50, 40:50], base[40:50, 40:50]))
 
 if __name__ == '__main__':
     unittest.main()
