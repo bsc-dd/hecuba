@@ -1,5 +1,4 @@
 #!/bin/bash
-#TO BE REMOVED#SBATCH --qos=debug
 ###############################################################################################################
 #                                                                                                             #
 #                                             Cassandra Job for HPC                                           #
@@ -47,16 +46,18 @@ DATA_HOME=$ROOT_PATH/cassandra-data
 COMM_HOME=$ROOT_PATH/cassandra-commitlog
 SAV_CACHE=$ROOT_PATH/saved_caches
 CLUSTER=$THETIME
+
 if [ "$DISJOINT" == "1" ]; then
-    C4S_CASSANDRA_CORES=48
+    C4S_CASSANDRA_CORES=$(nproc --all)
 else
     C4S_CASSANDRA_CORES=4
 fi
+
 RETRY_MAX=3000 # This value is around 50, higher now to test big clusters that need more time to be completely discovered
 
 # Generating nodefiles
-head -n $CASSANDRA_NODES $NODEFILE > $CASSFILE
-tail -n $APP_NODES $NODEFILE > $APPFILE
+tail -n $CASSANDRA_NODES $NODEFILE > $CASSFILE
+head -n $APP_NODES $NODEFILE > $APPFILE
 export APPNODELIST=$(cat $APPFILE | tr '\n' ',' | sed "s/,/$full_iface,/g" | rev | cut -c 2- | rev)
 
 echo "[DEBUG] iter="$iter
@@ -87,7 +88,8 @@ function exit_bad_node_status () {
 }
 
 function get_nodes_up () {
-    NODE_COUNTER=$($CASS_HOME/bin/nodetool status | sed 1,5d | sed '$ d' | awk '{ print $1 }' | grep "UN" | wc -l)
+    first_node=`head -n1 $CASSFILE`"$CASS_IFACE"
+    NODE_COUNTER=$($CASS_HOME/bin/nodetool -h $first_node status | sed 1,5d | sed '$ d' | awk '{ print $1 }' | grep "UN" | wc -l)
 }
 
 if [ ! -f $CASS_HOME/bin/cassandra ]; then
@@ -139,15 +141,14 @@ export CASSANDRA_NODELIST=$(echo $casslist | sed -e 's+ +,+g')
 echo "CASSANDRA_NODELIST var: "$CASSANDRA_NODELIST
 
 # Clearing data from previous executions and checking symlink coherence
-srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES $MODULE_PATH/tmp-set.sh $CASS_HOME $DATA_HOME $COMM_HOME $SAV_CACHE $ROOT_PATH $CLUSTER $UNIQ_ID
+srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 --nodes=$N_NODES $MODULE_PATH/tmp-set.sh $CASS_HOME $DATA_HOME $COMM_HOME $SAV_CACHE $ROOT_PATH $CLUSTER $UNIQ_ID
 sleep 5
 
 if [ "$(cat $RECOVER_FILE)" != "" ]
 then
     RECOVERTIME1=`date +"%T.%3N"`
     # Moving data to each datapath
-    #srun --ntasks=$TOTAL_NODES --ntasks-per-node=1 $MODULE_PATH/recover.sh $ROOT_PATH $UNIQ_ID
-    srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES $MODULE_PATH/recover.sh $ROOT_PATH $UNIQ_ID
+    srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 --nodes=$N_NODES $MODULE_PATH/recover.sh $ROOT_PATH $UNIQ_ID
     RECOVERTIME2=`date +"%T.%3N"`
 
     echo "[STATS] Recover process initial datetime: $RECOVERTIME1"
@@ -172,8 +173,7 @@ fi
 #exit # TODO QUITAR ESTO DE AQUÍ, SI NO NO FUNCIONA!!! TODO
 # Launching Cassandra in every node
 
-echo "RUNNING srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES $MODULE_PATH/cass_node.sh $UNIQ_ID"
-srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES $MODULE_PATH/cass_node.sh $UNIQ_ID &
+srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES $MODULE_PATH/cass_node.sh $UNIQ_ID &
 sleep 5
 
 # Cleaning config template
@@ -216,7 +216,8 @@ fi
 
 # THIS IS THE APPLICATION CODE EXECUTING SOME TASKS USING CASSANDRA DATA, ETC
 echo "CHECKING CASSANDRA STATUS: "
-$CASS_HOME/bin/nodetool status
+first_node=`head -n1 $CASSFILE`"$CASS_IFACE"
+$CASS_HOME/bin/nodetool -h $first_node status
 
 sleep 12
 firstnode=$(echo $seeds | awk -F ',' '{ print $1 }')
@@ -250,26 +251,18 @@ if [ "$APP_NODES" != "0" ]; then
         fi
         if [ "$DISJOINT" == "1" ]; then
             export PYCOMPSS_NODES=$(cat $APPFILE | tr '\n' ',' | sed "s/,/$full_iface,/g" | rev | cut -c 2- | rev) # Workaround for disjoint executions with PyCOMPSs 
+            C4S_COMPSS_CORES=$(nproc --all)
+        else
+            C4S_COMPSS_CORES=$(( $(nproc --all) - $C4S_CASSANDRA_CORES ))
         fi
+
         cat $MODULE_PATH/pycompss_template.sh | sed "s+PLACEHOLDER_CASSANDRA_NODES_FILE+$CASSFILE+g" | sed "s+PLACEHOLDER_PYCOMPSS_NODES_FILE+$APPFILE+g" | sed "s+PLACEHOLDER_APP_PATH_AND_PARAMETERS+$APP_AND_PARAMS+g" | sed "s+PLACEHOLDER_PYCOMPSS_FLAGS+$PYCOMPSS_FLAGS+g" | sed "s+PLACEHOLDER_PYCOMPSS_STORAGE+$PYCOMPSS_STORAGE+g" > $PYCOMPSS_FILE
-        bash $PYCOMPSS_FILE "-$iface" # Params - 1st: interface
+
+        APP_NODELIST=$(cat $APPFILE | tr '\n' ',')
+        SLURM_JOB_NUM_NODES=$APP_NODES SLURM_NTASKS=$(( $APP_NODES * $C4S_COMPSS_CORES )) SLURM_JOB_NODELIST=${APP_NODELIST::-1} bash $PYCOMPSS_FILE "-$iface" # Params - 1st: interface
     else
-        if [ "$DISJOINT" == "1" ]; then
-            C4S_CASSANDRA_CORES=0
-            if [ "$(echo $APP_AND_PARAMS | cut -c-5)" == "srun " ]; then
-                APP_TAIL="$(echo $APP_AND_PARAMS | cut -c6-)"
-                NEW_APP="srun --exclude="$CASSANDRA_NODELIST" --nodes="$APP_NODES" "$APP_TAIL
-                echo $NEW_APP > $APPPATHFILE
-                APP_AND_PARAMS=$NEW_APP
-            fi
-        fi
-        echo "SETTING ENV VARS"
-        export SLURM_NTASKS_PER_NODE=$((SLURM_NTASKS_PER_NODE - C4S_CASSANDRA_CORES))
-        export SLURM_NTASKS=$((SLURM_NTASKS_PER_NODE*APP_NODES))
-        export SLURM_NPROCS=$SLURM_NTASKS
-        export APP_NODES=$APP_NODES
         echo "RUNNING IN $APP_NODES APP_NODES WITH NTASKS_PERNODE $SLURM_NTASKS_PER_NODE, NTASKS $SLURM_NTASKS AND NPROCS $SLURM_NPROCS"
-        source $MODULE_PATH/app_node.sh $UNIQ_ID
+        SLURM_JOB_NUM_NODES=$APP_NODES source $MODULE_PATH/app_node.sh $UNIQ_ID
     fi
 else
     echo "[INFO] This job is not configured to run any application. Skipping..."
@@ -289,8 +282,9 @@ then
     TIME1=`date +"%T.%3N"`
     SNAP_NAME="$THETIME"
     # Looping over the assigned hosts until the snapshots are confirmed
-    #srun --ntasks=$TOTAL_NODES --ntasks-per-node=1 bash $MODULE_PATH/snapshot.sh $SNAP_NAME $ROOT_PATH $CLUSTER $UNIQ_ID
-    srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES bash $MODULE_PATH/snapshot.sh $SNAP_NAME $ROOT_PATH $CLUSTER $UNIQ_ID
+    echo "Launching snapshot tasks on nodes $CASSANDRA_NODELIST"
+
+    source $MODULE_PATH/snapshot.sh $SNAP_NAME $ROOT_PATH $CLUSTER $UNIQ_ID
 
     SNAP_CONT=0
     while [ "$SNAP_CONT" != "$N_NODES" ]
@@ -331,7 +325,5 @@ then
     rm -f $C4S_HOME/snap-status-$SNAP_NAME-*-file.txt
 fi
 sleep 10
-srun  --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 bash $MODULE_PATH/killer.sh
 
-# Kills the job to shutdown every cassandra service
-exit_killjob
+sacct --delimiter="," -pj ${SLURM_JOB_ID} | grep cass_node | awk -F ',' '{print $1}' | xargs scancel
