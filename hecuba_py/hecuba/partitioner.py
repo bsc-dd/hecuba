@@ -123,24 +123,24 @@ class Partitioner:
         Returns:
             a dictionary with hosts as keys and partitions of tokens as values
         """
-
-        from collections import defaultdict
-
         splits_per_node = config.splits_per_node
+        step_size = _max_token // (config.splits_per_node * self._nodes_number)
 
-        n_nodes = len(self._tokens_per_node)
-        step_size = _max_token // (splits_per_node * n_nodes)
         if token_range_size:
             step_size = token_range_size
         elif target_token_range_size:
-            one = config.session.execute(_size_estimates, [ksp, table]).one()
+            res = config.session.execute(_size_estimates, [ksp, table])
+            if res:
+                one = res.one()
+            else:
+                one = 0
             if one:
                 (mean_p_size, p_count) = one
                 estimated_size = mean_p_size * p_count
                 if estimated_size > 0:
                     step_size = _max_token // (
                         max(estimated_size / target_token_range_size,
-                            splits_per_node * n_nodes)
+                            splits_per_node * self._nodes_number)
                     )
 
         if self._strategy == "DYNAMIC":
