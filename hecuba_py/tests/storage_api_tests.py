@@ -13,18 +13,6 @@ class ApiTestSDict(StorageDict):
 
 
 select_time = "SELECT * FROM hecuba.partitioning"
-create_partitioning = """CREATE TABLE IF NOT EXISTS hecuba.partitioning(
-                         partitioning_uuid uuid,
-                         storage_id uuid,
-                         number_of_partitions int,
-                         start_time double,
-                         end_time double,
-                         PRIMARY KEY (storage_id))
-                         WITH default_time_to_live = 86400"""
-
-
-class SimpleObject:
-    pass
 
 
 class StorageApiTest(unittest.TestCase):
@@ -39,11 +27,10 @@ class StorageApiTest(unittest.TestCase):
 
     def test_start_task_uuid(self):
         config.session.execute("DROP TABLE IF EXISTS hecuba.partitioning")
-        config.session.execute(create_partitioning)
 
-        storage_id = uuid.uuid4()
-        simple_obj = SimpleObject()
-        simple_obj._storage_id = storage_id
+        base_obj = ApiTestSDict("test.compss_api")
+        simple_obj = next(base_obj.split())
+        storage_id = simple_obj.getID()
 
         start_task([simple_obj])
 
@@ -51,14 +38,14 @@ class StorageApiTest(unittest.TestCase):
         self.assertEqual(len(inserted), 1)
         self.assertEqual(inserted[0].storage_id, storage_id)
         self.assertNotEqual(inserted[0].start_time, None)
+        simple_obj.delete_persistent()
 
     def test_end_task_uuid(self):
         config.session.execute("DROP TABLE IF EXISTS hecuba.partitioning")
-        config.session.execute(create_partitioning)
 
-        storage_id = uuid.uuid4()
-        simple_obj = SimpleObject()
-        simple_obj._storage_id = storage_id
+        base_obj = ApiTestSDict("test.compss_api")
+        simple_obj = next(base_obj.split())
+        storage_id = simple_obj.getID()
 
         end_task([simple_obj])
 
@@ -66,14 +53,14 @@ class StorageApiTest(unittest.TestCase):
         self.assertEqual(len(inserted), 1)
         self.assertEqual(inserted[0].storage_id, storage_id)
         self.assertNotEqual(inserted[0].end_time, None)
+        simple_obj.delete_persistent()
 
     def test_task_context_uuid(self):
         config.session.execute("DROP TABLE IF EXISTS hecuba.partitioning")
-        config.session.execute(create_partitioning)
 
-        storage_id = uuid.uuid4()
-        simple_obj = SimpleObject()
-        simple_obj._storage_id = storage_id
+        base_obj = ApiTestSDict("test.compss_api")
+        simple_obj = next(base_obj.split())
+        storage_id = simple_obj.getID()
 
         task_context = TaskContext(logger=logging, values=[simple_obj])
         task_context.__enter__()
@@ -84,13 +71,14 @@ class StorageApiTest(unittest.TestCase):
         self.assertEqual(inserted[0].storage_id, storage_id)
         self.assertNotEqual(inserted[0].start_time, None)
         self.assertNotEqual(inserted[0].end_time, None)
+        simple_obj.delete_persistent()
 
     def test_start_task_key(self):
         config.session.execute("DROP TABLE IF EXISTS hecuba.partitioning")
-        config.session.execute(create_partitioning)
 
-        storage_id = uuid.uuid4()
-        simple_obj = SimpleObject()
+        base_obj = ApiTestSDict("test.compss_api")
+        simple_obj = next(base_obj.split())
+        storage_id = simple_obj.getID()
         simple_obj.__dict__["key"] = str(storage_id)
 
         start_task([simple_obj])
@@ -99,13 +87,14 @@ class StorageApiTest(unittest.TestCase):
         self.assertEqual(len(inserted), 1)
         self.assertEqual(inserted[0].storage_id, storage_id)
         self.assertNotEqual(inserted[0].start_time, None)
+        simple_obj.delete_persistent()
 
     def test_end_task_key(self):
         config.session.execute("DROP TABLE IF EXISTS hecuba.partitioning")
-        config.session.execute(create_partitioning)
 
-        storage_id = uuid.uuid4()
-        simple_obj = SimpleObject()
+        base_obj = ApiTestSDict("test.compss_api")
+        simple_obj = next(base_obj.split())
+        storage_id = simple_obj.getID()
         simple_obj.__dict__["key"] = str(storage_id)
 
         end_task([simple_obj])
@@ -114,13 +103,14 @@ class StorageApiTest(unittest.TestCase):
         self.assertEqual(len(inserted), 1)
         self.assertEqual(inserted[0].storage_id, storage_id)
         self.assertNotEqual(inserted[0].end_time, None)
+        simple_obj.delete_persistent()
 
     def test_task_context_key(self):
         config.session.execute("DROP TABLE IF EXISTS hecuba.partitioning")
-        config.session.execute(create_partitioning)
 
-        storage_id = uuid.uuid4()
-        simple_obj = SimpleObject()
+        base_obj = ApiTestSDict("test.compss_api")
+        simple_obj = next(base_obj.split())
+        storage_id = simple_obj.getID()
         simple_obj.__dict__["key"] = str(storage_id)
 
         task_context = TaskContext(logger=logging, values=[simple_obj])
@@ -132,6 +122,7 @@ class StorageApiTest(unittest.TestCase):
         self.assertEqual(inserted[0].storage_id, storage_id)
         self.assertNotEqual(inserted[0].start_time, None)
         self.assertNotEqual(inserted[0].end_time, None)
+        simple_obj.delete_persistent()
 
 
 if __name__ == "__main__":

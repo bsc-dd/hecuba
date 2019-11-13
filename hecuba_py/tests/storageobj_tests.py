@@ -15,7 +15,6 @@ class TestStorageObj(StorageObj):
 
 
 class StorageObjTest(unittest.TestCase):
-
     def test_parse_comments(self):
         result = {'instances': {'columns': [('instances',
                                              'counter')],
@@ -88,17 +87,15 @@ class StorageObjTest(unittest.TestCase):
 
     def test_init(self):
         # still in development
-        original_exec = config.session.execute
+        original_execute = config.session.execute
         config.session.execute = Mock(return_value=None)
         nopars = Words()
         config.session.execute.assert_not_called()
-        config.session.execute = original_exec
+        config.session.execute = original_execute
 
     def test_init_pdict(self):
         t = TestStorageObj()
         t.test = {1: 'ciao'}
-        #its not persistent, so in memory it is still a dict
-        #hecuba converts the dicts to StorageDicts when the StorageObj is made persistent
+        # its not persistent, so in memory it is still a dict
+        # hecuba converts the dicts to StorageDicts when the StorageObj is made persistent
         self.assertTrue(issubclass(t.test.__class__, dict))
-
-

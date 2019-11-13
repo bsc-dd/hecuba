@@ -1,7 +1,6 @@
 import os
 import time
 import uuid
-from bisect import bisect_right
 from collections import defaultdict, deque
 
 from hecuba import config, log
@@ -14,16 +13,6 @@ _max_token = int(((2 ** 63) - 1))  # type: int
 _min_token = int(-2 ** 63)  # type: int
 
 
-def partitioner_split(father):
-    if hasattr(config, "partition_strategy") and (
-            config.partition_strategy == "DYNAMIC" or config.partition_strategy == "SIMPLE"):
-        strategy = config.partition_strategy
-    else:
-        strategy = "SIMPLE"
-
-    return Partitioner(father, strategy).split()
-
-
 class Partitioner:
 
     def __init__(self, father, strategy):
@@ -34,9 +23,11 @@ class Partitioner:
             self._setup_dynamic_structures()
 
     def _rebuild_token_ring(self, ksp, tokens_ranges):
+        from bisect import bisect_right
+        from cassandra.metadata import Murmur3Token
+
         tm = config.cluster.metadata.token_map
         tmap = tm.tokens_to_hosts_by_ks.get(ksp, None)
-        from cassandra.metadata import Murmur3Token
         tokens_murmur3 = map(lambda a: (Murmur3Token(a[0]), a[1]), tokens_ranges)
         if not tmap:
             tm.rebuild_keyspace(ksp, build_if_absent=True)
@@ -102,7 +93,7 @@ class Partitioner:
         # 11 basic number of partitions, repeating them when more than 11 nodes
         self._basic_partitions = (partitions * (self._nodes_number // len(partitions) + 1))[0:self._nodes_number]
 
-    def _tokens_partitions(self, ksp, table, token_range_size, target_token_range_size):
+    def tokens_partitions(self, ksp, table, token_range_size, target_token_range_size):
         """
         Method that calculates the new token partitions for a given object
         Returns:
@@ -112,10 +103,16 @@ class Partitioner:
 
         if self._strategy == "DYNAMIC":
             for partition_tokens in self._dynamic_tokens_partitions(partitions_per_node):
-                yield partition_tokens
+                storage_id = uuid.uuid4()
+                config.session.execute(self._prepared_store_id,
+                                       [self._partitioning_uuid, storage_id, config.splits_per_node])
+                self._n_idle_nodes -= 1
+                # self._partitions_nodes[storage_id] = node TODO why? where do you get node?
+
+                yield uuid.uuid4(), partition_tokens
         else:
             for final_tokens in self._send_final_tasks(partitions_per_node):
-                yield final_tokens
+                yield uuid.uuid4(), final_tokens
 
     def _compute_partitions_per_node(self, ksp, table, token_range_size, target_token_range_size):
         """
@@ -126,24 +123,26 @@ class Partitioner:
         Returns:
             a dictionary with hosts as keys and partitions of tokens as values
         """
-        step_size = _max_token // (config.splits_per_node * self._nodes_number)
 
+        from collections import defaultdict
+
+        splits_per_node = config.splits_per_node
+
+        n_nodes = len(self._tokens_per_node)
+        step_size = _max_token // (splits_per_node * n_nodes)
         if token_range_size:
             step_size = token_range_size
         elif target_token_range_size:
-            res = config.session.execute(_size_estimates, [ksp, table])
-            if res:
-                one = res.one()
-            else:
-                one = 0
+            one = config.session.execute(_size_estimates, [ksp, table]).one()
             if one:
                 (mean_p_size, p_count) = one
                 estimated_size = mean_p_size * p_count
                 if estimated_size > 0:
                     step_size = _max_token // (
                         max(estimated_size / target_token_range_size,
-                            config.splits_per_node * self._nodes_number)
+                            splits_per_node * n_nodes)
                     )
+
         if self._strategy == "DYNAMIC":
             # 1024 because it is the maximum number of splits per node, in the case of only one Cassandra node
             step_size = _max_token // 1024
@@ -155,6 +154,11 @@ class Partitioner:
                     partitions_per_node[node].append((fraction, fraction + step_size))
                     fraction += step_size
                 partitions_per_node[node].append((fraction, to))
+
+            #group_size = max(len(partition) // splits_per_node, 1) TODO
+            #for i in range(0, len(partition), group_size):
+            #    yield partition[i:i + group_size]
+
         return partitions_per_node
 
     def _dynamic_tokens_partitions(self, partitions_per_node):
@@ -320,28 +324,3 @@ class Partitioner:
                     if end is not None:
                         self._n_idle_nodes += 1
                         self._idle_cassandra_nodes.append(self._partitions_nodes[storage_id])
-
-    def split(self):
-        """
-        Method used to divide an object into sub-objects.
-        Returns:
-            a subobject everytime is called
-        """
-        st = time.time()
-
-        for node, token_split in self._tokens_partitions(self._father._ksp, self._father._table,
-                                                         config.token_range_size,
-                                                         config.target_token_range_size):
-            storage_id = uuid.uuid4()
-            log.debug('assigning to %s %d  tokens', str(storage_id), len(token_split))
-            new_args = self._father._build_args._replace(tokens=token_split, storage_id=storage_id)
-            args_dict = new_args._asdict()
-            args_dict["built_remotely"] = False
-            if self._strategy == "DYNAMIC":
-                config.session.execute(self._prepared_store_id,
-                                       [self._partitioning_uuid, storage_id, config.splits_per_node])
-                self._n_idle_nodes -= 1
-                self._partitions_nodes[storage_id] = node
-            yield self._father.__class__.build_remotely(args_dict)
-
-        log.debug('completed split of %s in %f', self.__class__.__name__, time.time() - st)

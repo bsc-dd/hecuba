@@ -4,6 +4,7 @@ import time
 import unittest
 
 from hecuba import config, StorageDict
+from hecuba.tools import build_remotely
 
 
 class TestIndexObj(StorageDict):
@@ -53,7 +54,7 @@ class QbeastStorageDictTest(unittest.TestCase):
         time.sleep(1)
 
         filtered = filter(lambda row: row.x > 0.02 and row.x < 0.25 and row.y > 0.26 and row.y < 0.45 and row.z > 0.58 and row.z < 0.9, d.items())
-        normal_filtered = python_filter(lambda row: row[1][0] > 0.02 and row[1][0] < 0.25 and row[1][1] > 0.26 and row[1][1] < 0.45 and row[1][2] > 0.58 and row[1][2] < 0.9, what_should_be.items())
+        normal_filtered = list(python_filter(lambda row: row[1][0] > 0.02 and row[1][0] < 0.25 and row[1][1] > 0.26 and row[1][1] < 0.45 and row[1][2] > 0.58 and row[1][2] < 0.9, what_should_be.items()))
 
         filtered_list = [row for row in filtered]
         self.assertEqual(len(filtered_list), len(normal_filtered))
@@ -71,7 +72,7 @@ class QbeastStorageDictTest(unittest.TestCase):
         filtered = filter(lambda row: row.x > 0.02 and row.x < 0.25 and row.y > 0.26 and row.y < 0.45 and row.z > 0.58 and row.z < 0.9, d.items())
         from storage.api import getByID
         for partition in filtered.split():
-            it2 = getByID(partition.getID())
+            it2 = getByID(partition.storage_id)
             self.assertEqual(filtered._qbeast_random, it2._qbeast_random)
 
     def testBuildRemotely(self):
@@ -85,12 +86,12 @@ class QbeastStorageDictTest(unittest.TestCase):
 
         res = config.session.execute(
             'SELECT storage_id, primary_keys, columns, class_name, name, tokens, istorage_props,indexed_on ' +
-            'FROM hecuba.istorage WHERE storage_id = %s', [d._storage_id])[0]
+            'FROM hecuba.istorage WHERE storage_id = %s', [d.storage_id])[0]
 
-        self.assertEqual(res.storage_id, d._storage_id)
+        self.assertEqual(res.storage_id, d.storage_id)
         self.assertEqual(res.class_name, TestIndexObj.__module__ + "." + TestIndexObj.__name__)
 
-        rebuild = StorageDict.build_remotely(res._asdict())
+        rebuild = build_remotely(res._asdict())
         self.assertEqual(rebuild._ksp, 'my_app')
         self.assertEqual(rebuild._table, 'indexed_dict')
 
@@ -109,7 +110,7 @@ class QbeastStorageDictTest(unittest.TestCase):
             d[i, i + 1.0] = [i * 0.1 / 9.0, i * 0.2 / 9.0, i * 0.3 / 9.0]
 
         for partition in d.split():
-            rebuild = StorageDict.build_remotely(partition._build_args._asdict())
+            rebuild = build_remotely(partition._build_args._asdict())
             for k, v in rebuild.items():
                 self.assertEqual(what_should_be[k], list(v))
 
@@ -125,7 +126,7 @@ class QbeastStorageDictTest(unittest.TestCase):
         time.sleep(1)
 
         filtered = filter(lambda row: row.x > 0.02 and row.x < 0.25 and row.y > 0.26 and row.y < 0.45 and row.z > 0.58 and row.z < 0.9 and random.random() < 1, d.items())
-        normal_filtered = python_filter(lambda row: row[1][0] > 0.02 and row[1][0] < 0.25 and row[1][1] > 0.26 and row[1][1] < 0.45 and row[1][2] > 0.58 and row[1][2] < 0.9, what_should_be.items())
+        normal_filtered = list(python_filter(lambda row: row[1][0] > 0.02 and row[1][0] < 0.25 and row[1][1] > 0.26 and row[1][1] < 0.45 and row[1][2] > 0.58 and row[1][2] < 0.9, what_should_be.items()))
 
         filtered_list = [row for row in filtered]
         self.assertEqual(len(filtered_list), len(normal_filtered))

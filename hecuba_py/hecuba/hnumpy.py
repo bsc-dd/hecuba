@@ -1,29 +1,21 @@
-import uuid
 from collections import namedtuple
 
 import numpy as np
-from hecuba import config, log
+from . import config, log
 from hfetch import HNumpyStore
 
-from hecuba.IStorage import IStorage, AlreadyPersistentError, _extract_ks_tab
+from .IStorage import IStorage
+from .tools import extract_ks_tab, get_istorage_attrs
 
 
-class StorageNumpy(np.ndarray, IStorage):
+class StorageNumpy(IStorage, np.ndarray):
     class np_meta(object):
         def __init__(self, shape, dtype, block_id):
             self.dims = shape
             self.type = dtype
             self.block_id = block_id
 
-    _storage_id = None
     _build_args = None
-    _class_name = None
-    _hcache_params = None
-    _hcache = None
-    _is_persistent = False
-    _ksp = ""
-    _table = ""
-    _block_id = None
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
                                                   '(storage_id, class_name, name, numpy_meta)'
                                                   'VALUES (?,?,?,?)')
@@ -32,49 +24,69 @@ class StorageNumpy(np.ndarray, IStorage):
     args = namedtuple('StorageNumpyArgs', args_names)
 
     def __new__(cls, input_array=None, storage_id=None, name=None, built_remotely=False, **kwargs):
-
+        if name:
+            name = name + '_numpies'
+        elif storage_id:
+            metas = get_istorage_attrs(storage_id)
+            name = metas[0].name
         if input_array is None and name and storage_id is not None:
             result = cls.load_array(storage_id, name)
             input_array = result[0]
             obj = np.asarray(input_array).view(cls)
-            obj._is_persistent = True
-            (obj._ksp, obj._table) = _extract_ks_tab(name)
+            (obj._ksp, obj._table) = extract_ks_tab(name)
             obj._hcache = result[1]
-            obj._hcache_params = result[2]
-            obj._storage_id = storage_id
+            # obj.storage_id = storage_id
+            # obj._is_persistent = True
         elif not name and storage_id is not None:
             raise RuntimeError("hnumpy received storage id but not a name")
         elif (input_array is not None and name and storage_id is not None) \
                 or (storage_id is None and name):
             obj = np.asarray(input_array).view(cls)
-            obj._storage_id = storage_id
-            obj._built_remotely = built_remotely
-            obj.make_persistent(name)
+            obj.storage_id = storage_id
+            obj._is_persistent = False
         else:
             obj = np.asarray(input_array).view(cls)
-            obj._storage_id = storage_id
+            obj.storage_id = storage_id
+            obj._is_persistent = storage_id is not None
         # Finally, we must return the newly created object:
+        obj._block_id = -1
         obj._built_remotely = built_remotely
         obj._class_name = '%s.%s' % (cls.__module__, cls.__name__)
         return obj
+
+    def __init__(self, input_array=None, storage_id=None, name=None, **kwargs):
+        IStorage.__init__(self, storage_id=storage_id, name=name, **kwargs)
+        if input_array is not None and (name or storage_id):
+            self.make_persistent(name)
 
     # used as copy constructor
     def __array_finalize__(self, obj):
         if obj is None:
             return
-        self._storage_id = getattr(obj, '_storage_id', None)
 
     @staticmethod
-    def build_remotely(new_args):
-        """
-            Launches the StorageNumpy.__init__ from the uuid api.getByID
-            Args:
-                new_args: a list of all information needed to create again the StorageNumpy
-            Returns:
-                so: the created StorageNumpy
-        """
-        log.debug("Building StorageNumpy object with %s", new_args)
-        return StorageNumpy(name=new_args.name, storage_id=new_args.storage_id)
+    def _create_tables(name):
+        (ksp, table) = extract_ks_tab(name)
+        query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (ksp, config.replication)
+        config.session.execute(query_keyspace)
+
+        config.session.execute(
+            'CREATE TABLE IF NOT EXISTS ' + ksp + '.' + table + '(storage_id uuid , '
+                                                                'cluster_id int, '
+                                                                'block_id int, '
+                                                                'payload blob, '
+                                                                'PRIMARY KEY((storage_id,cluster_id),block_id))')
+
+    @staticmethod
+    def _create_hcache(storage_id, name):
+        (ksp, table) = extract_ks_tab(name)
+        hcache_params = (ksp, table,
+                         {'cache_size': config.max_cache_size,
+                          'writer_par': config.write_callbacks_number,
+                          'write_buffer': config.write_buffer_size,
+                          'timestamped_writes': config.timestamped_writes})
+
+        return HNumpyStore(*hcache_params)
 
     @staticmethod
     def _store_meta(storage_args):
@@ -96,66 +108,48 @@ class StorageNumpy(np.ndarray, IStorage):
 
     @staticmethod
     def load_array(storage_id, name):
-        (ksp, table) = _extract_ks_tab(name)
-        hcache_params = (ksp, table + '_numpies',
-                         {'cache_size': config.max_cache_size,
-                          'writer_par': config.write_callbacks_number,
-                          'write_buffer': config.write_buffer_size,
-                          'timestamped_writes': config.timestamped_writes})
-        hcache = HNumpyStore(*hcache_params)
+        hcache = StorageNumpy._create_hcache(storage_id, name)
         result = hcache.get_numpy([storage_id])
         if len(result) == 1:
-            return [result[0], hcache, hcache_params]
+            return [result[0], hcache]
         else:
             raise KeyError
 
     def make_persistent(self, name):
-        if self._is_persistent:
-            raise AlreadyPersistentError("This StorageNumpy is already persistent [Before:{}.{}][After:{}]",
-                                         self._ksp, self._table, name)
-        self._is_persistent = True
+        if not name.endswith("_numpies"):
+            name = name + '_numpies'
 
-        (self._ksp, self._table) = _extract_ks_tab(name)
-        if self._storage_id is None:
-            self._storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, self._ksp + '.' + self._table + '_numpies')
+        super().make_persistent(name)
 
-        self._build_args = self.args(self._storage_id, self._class_name, self._ksp + '.' + self._table,
+        self._build_args = self.args(self.storage_id, self._class_name, self._ksp + '.' + self._table,
                                      self.shape, self.dtype.num, self._block_id, self._built_remotely)
 
         if not self._built_remotely:
-            log.info("PERSISTING DATA INTO %s %s", self._ksp, self._table)
+            self._create_tables(name)
 
-            query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
-            config.session.execute(query_keyspace)
+        if not getattr(self, '_hcache', None):
+            self._hcache = self._create_hcache(self.storage_id, name)
 
-            config.session.execute('CREATE TABLE IF NOT EXISTS ' + self._ksp + '.' + self._table + '_numpies'
-                                                                                                   '(storage_id uuid , '
-                                                                                                   'cluster_id int, '
-                                                                                                   'block_id int, '
-                                                                                                   'payload blob, '
-                                                                                                   'PRIMARY KEY((storage_id,cluster_id),block_id))')
-
-        self._hcache_params = (self._ksp, self._table + '_numpies',
-                               {'cache_size': config.max_cache_size,
-                                'writer_par': config.write_callbacks_number,
-                                'write_buffer': config.write_buffer_size,
-                                'timestamped_writes': config.timestamped_writes})
-
-        self._hcache = HNumpyStore(*self._hcache_params)
         if len(self.shape) != 0:
-            self._hcache.save_numpy([self._storage_id], [self])
-        self._store_meta(self._build_args)
+            self._hcache.save_numpy([self.storage_id], [self])
+        StorageNumpy._store_meta(self._build_args)
+
+    def stop_persistent(self):
+        super().stop_persistent()
+
+        self.storage_id = None
 
     def delete_persistent(self):
         """
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
-        query = "DELETE FROM %s.%s WHERE storage_id = %s;" % (self._ksp, self._table + '_numpies', self._storage_id)
-        query2 = "DELETE FROM hecuba.istorage WHERE storage_id = %s;" % self._storage_id
+        super().delete_persistent()
+        query = "DELETE FROM %s.%s WHERE storage_id = %s;" % (self._ksp, self._table, self.storage_id)
+        query2 = "DELETE FROM hecuba.istorage WHERE storage_id = %s;" % self.storage_id
         log.debug("DELETE PERSISTENT: %s", query)
         config.session.execute(query)
         config.session.execute(query2)
-        self._is_persistent = False
+        self.storage_id = None
 
     def __iter__(self):
         return iter(self.view(np.ndarray))
@@ -191,8 +185,8 @@ class StorageNumpy(np.ndarray, IStorage):
         if method == 'at':
             return
 
-        if self._is_persistent and len(self.shape):
-            self._hcache.save_numpy([self._storage_id], [self])
+        if self.storage_id and len(self.shape):
+            self._hcache.save_numpy([self.storage_id], [self])
 
         if ufunc.nout == 1:
             results = (results,)

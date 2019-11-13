@@ -119,12 +119,19 @@ class Config:
         except KeyError:
             singleton.token_range_size = None
 
-            try:
-                singleton.target_token_range_size = int(os.environ['TARGET_TOKEN_RANGE_SIZE'])
-                log.info('TARGET_TOKEN_RANGE_SIZE: %d', singleton.target_token_range_size)
-            except KeyError:
-                singleton.target_token_range_size = 64 * 1024
-                log.warn('using default TARGET_TOKEN_RANGE_SIZE: %d', singleton.target_token_range_size)
+        try:
+            singleton.target_token_range_size = int(os.environ['TARGET_TOKEN_RANGE_SIZE'])
+            log.info('TARGET_TOKEN_RANGE_SIZE: %d', singleton.target_token_range_size)
+        except KeyError:
+            singleton.target_token_range_size = 64 * 1024
+            log.warn('using default TARGET_TOKEN_RANGE_SIZE: %d', singleton.target_token_range_size)
+
+        try:
+            singleton.partition_strategy = int(os.environ['PARTITION_STRATEGY'])
+            log.info('PARTITION STRATEGY: %d', singleton.partition_strategy)
+        except KeyError:
+            singleton.partition_strategy = "SIMPLE"
+            log.warn('using default PARTITION STRATEGY: %d', singleton.partition_strategy)
 
         try:
             singleton.max_cache_size = int(os.environ['MAX_CACHE_SIZE'])
@@ -241,14 +248,15 @@ class Config:
 global config
 config = Config()
 
-from hecuba.parser import Parser
-from hecuba.storageobj import StorageObj
-from hecuba.hdict import StorageDict
-from hecuba.hnumpy import StorageNumpy
-from hecuba.hfilter import hfilter
+from .parser import Parser
+from .storageobj import StorageObj
+from .hdict import StorageDict
+from .hnumpy import StorageNumpy
+from .hfilter import hfilter
 
 if not filter == hfilter:
     import builtins
+
     builtins.python_filter = filter
     builtins.filter = hfilter
 

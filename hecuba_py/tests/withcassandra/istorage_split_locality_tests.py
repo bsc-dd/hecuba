@@ -1,9 +1,11 @@
 import unittest
+
 from collections import defaultdict
 
-from hecuba import config, StorageDict
-from hecuba.IStorage import _discrete_token_ranges
+from hecuba import config
+from hecuba.tools import tokens_partitions, discrete_token_ranges
 from hecuba.partitioner import Partitioner
+from hecuba import config, StorageDict
 
 from .. import test_config
 
@@ -23,35 +25,51 @@ class IStorageSplitLocalityTest(unittest.TestCase):
         config.session.execute("CREATE TABLE IF NOT EXISTS test_ksp.tab(k int PRIMARY KEY,v int)")
 
     def test_enough_token(self):
+        original_cfg = config.__dict__
+        config.__dict__.update(splits_per_node=10, token_range_size=None, target_token_range_size=64 * 1024 * 1024)
+
         obj = SimpleObj("test_ksp.tab")
         partitioner = Partitioner(obj, "SIMPLE")
         config.splits_per_node = 10
-        tkns_p = list(partitioner._tokens_partitions("test_ksp", "tab", token_range_size=None,
+        tkns_p = list(partitioner.tokens_partitions("test_ksp", "tab", token_range_size=None,
                                                      target_token_range_size=64 * 1024 * 1024))
         tkns_p = [i[1] for i in tkns_p]
         self.check_all(tkns_p, 10, 20)
+        config.__dict__ = original_cfg
 
     def test_too_little_tokens(self):
+        original_cfg = config.__dict__
+        config.__dict__.update(splits_per_node=1000, token_range_size=None, target_token_range_size=64 * 1024)
         obj = SimpleObj("test_ksp.tab")
         partitioner = Partitioner(obj, "SIMPLE")
         config.splits_per_node = 1000
-        tkns_p = list(partitioner._tokens_partitions("test_ksp", "tab", token_range_size=None,
+        tkns_p = list(partitioner.tokens_partitions("test_ksp", "tab", token_range_size=None,
                                                      target_token_range_size=64 * 1024))
         tkns_p = [i[1] for i in tkns_p]
         self.check_all(tkns_p, 1000, 1000)
+        config.__dict__ = original_cfg
 
     def test_splitting_tokens(self):
+        original_cfg = config.__dict__
+        config.__dict__.update(splits_per_node=1,
+                               token_range_size=int((2 ** 64) / 1000),
+                               target_token_range_size=None)
         obj = SimpleObj("test_ksp.tab")
         partitioner = Partitioner(obj, "SIMPLE")
         config.splits_per_node = 1
-        tkns_p = list(partitioner._tokens_partitions("test_ksp", "tab", token_range_size=int((2 ** 64) / 1000),
+        tkns_p = list(partitioner.tokens_partitions("test_ksp", "tab", token_range_size=int((2 ** 64) / 1000),
                                                      target_token_range_size=None))
         tkns_p = [i[1] for i in tkns_p]
         self.check_all(tkns_p, 1, 1000)
+        config.__dict__ = original_cfg
 
     def test_using_size_estimates(self):
         for i in range(100000):
             config.session.execute("INSERT INTO test_ksp.tab(k,v) values(%s,%s)", [i, i])
+        original_cfg = config.__dict__
+        config.__dict__.update(splits_per_node=1,
+                               token_range_size=None,
+                               target_token_range_size=64)
         test_config.ccm_cluster.flush()
         test_config.ccm_cluster.compact()
 
@@ -59,7 +77,8 @@ class IStorageSplitLocalityTest(unittest.TestCase):
         partitioner = Partitioner(obj, "SIMPLE")
         config.splits_per_node = 1
         tkns_p = list(
-            partitioner._tokens_partitions("test_ksp", "tab", token_range_size=None, target_token_range_size=64))
+            partitioner.tokens_partitions("test_ksp", "tab", token_range_size=None, target_token_range_size=64))
+        config.__dict__ = original_cfg
         # self.check_all(tkns_p, 1, 1000)
 
     def check_all(self, tkns_p, split_per_node, expected_total_tkns):
@@ -105,7 +124,7 @@ class IStorageSplitLocalityTest(unittest.TestCase):
         self.assertGreaterEqual(min_delta, avg_delta / 2)
 
     def checkToken(self, tokens):
-        # type: (List[Long]) -> Host
+        # type : (List[Long]) -> Host
         from cassandra.metadata import Token
         tm = config.cluster.metadata.token_map
 
