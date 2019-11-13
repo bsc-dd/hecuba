@@ -35,22 +35,14 @@ def cmake_build():
 #    if subprocess.call(["make", "-j4", "-C", "./build", "install"]) != 0:
 #        raise EnvironmentError("error calling make install")
 
-def get_var(var):
-    value = os.environ.get(var,'')
-    return [p for p in value.split(':') if p != '']
-
-
-PATH_LIBS = get_var('LD_LIBRARY_PATH')
-PATH_INCLUDE = get_var('CPATH') + get_var('CPLUS_INCLUDE_PATH') + get_var('C_INCLUDE_PATH')
 
 extensions = [
     Extension(
         "hfetch",
         sources=glob.glob("hecuba_core/src/py_interface/*.cpp"),
-        include_dirs=['hecuba_core/src/', 'build/include', numpy.get_include()] + PATH_INCLUDE,
+        include_dirs=['hecuba_core/src/', 'build/include', numpy.get_include()],
         libraries=['hfetch', 'cassandra'],
-        library_dirs=['build/lib', 'build/lib64'] + PATH_LIBS,
-        extra_compile_args=['-std=c++11'],
+        library_dirs=['build/lib', 'build/lib64'],
         extra_link_args=['-Wl,-rpath=$ORIGIN']
     ),
 ]
@@ -71,8 +63,8 @@ def setup_packages():
     # compute which libraries were built
     metadata = dict(name="Hecuba",
                     version="0.1.3",
-                    package_dir={'hecuba': 'hecuba_py/hecuba', 'storage': 'storageAPI/storage'},
-                    packages=['hecuba', 'storage'],  # find_packages(),
+                    package_dir={'hecuba': 'hecuba_py/hecuba', 'storage': 'storage', 'pycompss': 'pycompss'},
+                    packages=['hecuba', 'storage', 'pycompss'] + find_packages(),
                     install_requires=['cassandra-driver>=3.7.1', 'numpy>=1.16'],
                     zip_safe=False,
                     data_files=[('', extra_files)],
