@@ -1,7 +1,10 @@
+import os
+
 from cassandra.cluster import Cluster
 from cassandra.policies import RetryPolicy, RoundRobinPolicy, TokenAwarePolicy
 from hecuba import log
-import os
+
+from .cas import *
 
 
 class _NRetry(RetryPolicy):
@@ -217,4 +220,6 @@ class Config(object):
         # connecting c++ bindings
         connectCassandra(singleton.contact_names, singleton.nodePort)
 
+
+# set_up_default_cassandra()
 config = Config()

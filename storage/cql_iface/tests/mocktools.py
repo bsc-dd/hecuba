@@ -1,7 +1,9 @@
-import uuid
 import typing
+import uuid
 from collections import OrderedDict
-import hecuba
+
+# from .mockIStorage import IStorage
+from storage.cql_iface.tests.mockIStorage import IStorage
 
 
 def storage_id_from_name(name):
@@ -16,7 +18,6 @@ def process_path(module_path):
     Returns:
         tuple containing class_name and module
     """
-
     if module_path == 'numpy.ndarray':
         return 'StorageNumpy', 'hecuba.hnumpy'
     if module_path == 'StorageDict':
@@ -104,18 +105,18 @@ def transform_to_dm(ob, depth=0):
     :param ob:
     :return: List or dict
     """
-    if issubclass(ob, hecuba.IStorage.IStorage) and depth>0:
+    if issubclass(ob, IStorage.IStorage) and depth > 0:
         return ob
     elif issubclass(ob, typing.Dict):
         fields = {}
 
-        keys = transform_to_dm(ob.__args__[0], depth+1)  # Keys
-        cols = transform_to_dm(ob.__args__[1], depth+1)  # Cols
+        keys = transform_to_dm(ob.__args__[0], depth + 1)  # Keys
+        cols = transform_to_dm(ob.__args__[1], depth + 1)  # Cols
 
         if isinstance(keys, list):
-            keys = {"key{}".format(i): transform_to_dm(v, depth+1) for i, v in enumerate(keys)}
+            keys = {"key{}".format(i): transform_to_dm(v, depth + 1) for i, v in enumerate(keys)}
         if isinstance(cols, list):
-            cols = {"col{}".format(i): transform_to_dm(v,depth+1) for i, v in enumerate(cols)}
+            cols = {"col{}".format(i): transform_to_dm(v, depth + 1) for i, v in enumerate(cols)}
 
         fields["value_id"] = keys
         fields["cols"] = cols
@@ -124,15 +125,15 @@ def transform_to_dm(ob, depth=0):
     elif hasattr(ob, '__annotations__'):
         annot = ob.__annotations__
         if isinstance(annot, OrderedDict):
-            return {k: transform_to_dm(v, depth+1) for k,v in annot.items()}
+            return {k: transform_to_dm(v, depth + 1) for k, v in annot.items()}
         elif isinstance(annot, dict):
-            return {k: transform_to_dm(v, depth+1) for k,v in annot.items()}
+            return {k: transform_to_dm(v, depth + 1) for k, v in annot.items()}
         else:
             raise NotImplemented
 
     elif hasattr(ob, '__args__'):
         if issubclass(ob, typing.Tuple):
-            t = [transform_to_dm(cl, depth+1) for cl in ob.__args__ if cl != ()]
+            t = [transform_to_dm(cl, depth + 1) for cl in ob.__args__ if cl != ()]
             return tuple(t)
-        return [transform_to_dm(cl, depth+1) for cl in ob.__args__ if cl != ()]
+        return [transform_to_dm(cl, depth + 1) for cl in ob.__args__ if cl != ()]
     return ob

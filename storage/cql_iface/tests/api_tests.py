@@ -1,14 +1,15 @@
 import unittest
-import numpy
 import uuid
 
-from storage.cql_iface.cql_iface import CQLIface
+import numpy
 
+from storage.cql_iface.cql_iface import CQLIface
 from storage.cql_iface.tests.mockIStorage import IStorage
-from storage.cql_iface.tests.mocktools import storage_id_from_name
-from storage.cql_iface.tests.mockhdict import StorageDict
 from storage.cql_iface.tests.mockStorageObj import StorageObj
+from storage.cql_iface.tests.mockhdict import StorageDict
 from storage.cql_iface.tests.mockhnumpy import StorageNumpy
+from storage.cql_iface.tests.mocktools import storage_id_from_name
+
 
 class TestClass(IStorage):
 
@@ -27,10 +28,13 @@ class TestClass(IStorage):
     def __init__(self, *args, **kwargs):
         super(TestClass, self).__init__()
 
+
 class mockClass(IStorage):
     pass
 
+
 class HfetchTests(unittest.TestCase):
+
     def test_instantiate(self):
         result = CQLIface()
         self.assertIsNotNone(result)
@@ -57,7 +61,8 @@ class HfetchTests(unittest.TestCase):
             storage.check_definition(data_model)
 
     def test_add_data_different_types(self):
-        data_model = {"type": mockClass, "value_id": {"k": int}, "fields": {"a": numpy.int64, "b": numpy.ndarray, "c": uuid.UUID}}
+        data_model = {"type": mockClass, "value_id": {"k": int},
+                      "fields": {"a": numpy.int64, "b": numpy.ndarray, "c": uuid.UUID}}
         raised = False
         try:
             storage = CQLIface()
@@ -95,7 +100,6 @@ class HfetchTests(unittest.TestCase):
         id = storage.add_data_model(data_model)
         self.assertTrue(storage.data_models_cache[id])
 
-
     def test_add_data_model_existing_one(self):
         data_model1 = {"type": mockClass, "value_id": {"k": int}, "fields": {"a": str}}
         data_model2 = {"type": mockClass, "value_id": {"k": int}, "fields": {"a": str}}
@@ -106,7 +110,8 @@ class HfetchTests(unittest.TestCase):
         self.assertTrue(storage.data_models_cache[id2])
 
     def test_add_data_model_complex_types(self):
-        data_model = {"type": mockClass, "value_id": {"k": int, "k1": int}, "fields": {"a": {"value_id": {"k": int}, "fields": {"f": str}}}}
+        data_model = {"type": mockClass, "value_id": {"k": int, "k1": int},
+                      "fields": {"a": {"value_id": {"k": int}, "fields": {"f": str}}}}
         storage = CQLIface()
         # Register data models
         id = storage.add_data_model(data_model)
@@ -114,8 +119,12 @@ class HfetchTests(unittest.TestCase):
 
     def test_add_data_model_complex_structure(self):
         data_model = {"type": mockClass, "value_id": {"k": int, "k1": [int, int]}, "fields": {"a": {
-                      "value_id": {"k": (int, str)}, "fields": {"f": str, "f2": (float,)}}}}
+            "value_id": {"k": (int, str)}, "fields": {"f": str, "f2": (float,)}}}}
         storage = CQLIface()
         # Register data models
         id = storage.add_data_model(data_model)
         self.assertTrue(storage.data_models_cache[id])
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -1,6 +1,8 @@
 import uuid
 from collections import namedtuple
-from .mocktools import storage_id_from_name
+
+
+# from .mocktools import storage_id_from_name
 
 
 class AlreadyPersistentError(RuntimeError):
@@ -56,8 +58,8 @@ class IStorage(object):
         pass
 
     def make_persistent(self, name):
-        if not self.storage_id:
-            self.storage_id = storage_id_from_name(name)
+        # if not self.storage_id:
+        #    self.storage_id = storage_id_from_name(name)
         self._is_persistent = True
         self._name = name
 
