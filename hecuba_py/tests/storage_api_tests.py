@@ -17,6 +17,15 @@ select_time = "SELECT * FROM hecuba.partitioning"
 
 class StorageApiTest(unittest.TestCase):
 
+    def setUp(self) -> None:
+        config.partition_strategy = "DYNAMIC"
+        import os
+        os.environ['PYCOMPSS_NODES'] = '2'
+        os.environ['NODES_NUMBER'] = '2'
+
+    def tearDown(self) -> None:
+        config.partition_strategy = "SIMPLE"
+
     def test_class_type(self):
         base_dict = ApiTestSDict('test.api_sdict')
         storage_id = base_dict.getID()
