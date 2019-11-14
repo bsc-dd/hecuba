@@ -108,8 +108,9 @@ class Partitioner:
                                        [self._partitioning_uuid, storage_id, config.splits_per_node])
                 self._n_idle_nodes -= 1
                 # self._partitions_nodes[storage_id] = node TODO why? where do you get node?
-
-                yield uuid.uuid4(), partition_tokens
+                storage_id = uuid.uuid4()
+                self._partitions_nodes[storage_id] = partition_tokens[0]
+                yield storage_id, partition_tokens[1]
         else:
             for final_tokens in self._send_final_tasks(partitions_per_node):
                 yield uuid.uuid4(), final_tokens
@@ -124,6 +125,9 @@ class Partitioner:
             a dictionary with hosts as keys and partitions of tokens as values
         """
         splits_per_node = config.splits_per_node
+        token_range_size = config.token_range_size
+        target_token_range_size = config.target_token_range_size
+
         step_size = _max_token // (config.splits_per_node * self._nodes_number)
 
         if token_range_size:
@@ -154,10 +158,6 @@ class Partitioner:
                     partitions_per_node[node].append((fraction, fraction + step_size))
                     fraction += step_size
                 partitions_per_node[node].append((fraction, to))
-
-            #group_size = max(len(partition) // splits_per_node, 1) TODO
-            #for i in range(0, len(partition), group_size):
-            #    yield partition[i:i + group_size]
 
         return partitions_per_node
 
@@ -229,7 +229,7 @@ class Partitioner:
         for partition in partitions_per_node.values():
             group_size = max(len(partition) // config.splits_per_node, 1)
             for i in range(0, len(partition), group_size):
-                yield -1, partition[i:i + group_size]
+                yield partition[i:i + group_size]
 
     def _at_least_each_granularity_finished(self):
         """
