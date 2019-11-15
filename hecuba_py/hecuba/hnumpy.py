@@ -76,10 +76,10 @@ class StorageNumpy(IStorage, np.ndarray):
 
         config.session.execute(
             'CREATE TABLE IF NOT EXISTS ' + name + '(storage_id uuid , '
-                                                                'cluster_id int, '
-                                                                'block_id int, '
-                                                                'payload blob, '
-                                                                'PRIMARY KEY((storage_id,cluster_id),block_id))')
+                                                   'cluster_id int, '
+                                                   'block_id int, '
+                                                   'payload blob, '
+                                                   'PRIMARY KEY((storage_id,cluster_id),block_id))')
 
     @staticmethod
     def _create_hcache(name):
@@ -121,84 +121,20 @@ class StorageNumpy(IStorage, np.ndarray):
         else:
             raise KeyError
 
-    def generate_coordinates(self, coordinates):
-        coords = None
-        if coordinates is None:
-            coords = []
-        elif len(coordinates) == 1:
-            coord = coordinates // self._row_elem
-            coords = [(c,) for c in range(np.min(coord), np.max(coord) + 1)]
-        else:
-            # coords divided by number of elem in a row
-            coord = [coordinates[:, coord] // self._row_elem for coord in range(len(coordinates[0]))]
-            ranges = (range(*range_tuple) for range_tuple in zip(coord[0], coord[1] + 1))
-            coords = list(it.product(*ranges))
-        return coords
-
-    def format_coords(self, coord):
-        if not isinstance(coord, tuple):
-            coord = (coord,)
-
-        if not all(isinstance(c, slice) for c in coord):
-            raise IndexError("only integers, slices (`:`), ellipsis (`...`), numpy.newaxis (`None`) and integer or boolean arrays are valid indices")
-
-        np_list = []
-        count_none = 0
-        for dim, coo in enumerate(coord):
-            if coo.stop is None and coo.start is None:
-                np_list.append([0, self.shape[dim]])
-                count_none = count_none + 1
-            elif coo.start is None:
-                np_list.append([0, coo.stop])
-            elif coo.stop is None:
-                np_list.append([coo.start, self.shape[dim]])
-            else:
-                np_list.append([coo.start, coo.stop])
-
-        if count_none == len(coord): return None
-        coordinates = np.array(np_list)
-        return coordinates
-
-    def slices_match_numpy_shape(self, sliced_coord):
-        if sliced_coord is None:
-            return True
-        elif len(self.shape) != len(sliced_coord):
-            return False
-        else:
-            for i, queried_slice in enumerate(sliced_coord):
-                match_shape = queried_slice[1] <= self.shape[i]
-        return match_shape
-
-    def get_coords_match_numpy_shape(self, coo):
-        new_coords = self.generate_coordinates(coo)
-        shape_slices = tuple([slice(0, coord) for coord in self.shape])
-        formated_shape_coords = self.format_coords(shape_slices)
-        numpy_coords = self.generate_coordinates(formated_shape_coords)
-        coordinates = []
-        for coord in new_coords:
-            if coord in numpy_coords and coord not in coordinates:
-                coordinates.append(coord)
-        return coordinates
-
     def __getitem__(self, sliced_coord):
         log.info("RETRIEVING NUMPY")
         if self._is_persistent and not self._numpy_full_loaded:
-            # formats sliced coords
-            try:
-                new_coords = self.format_coords(sliced_coord)
-            except IndexError:
-                return super(StorageNumpy, self).__getitem__(sliced_coord)
-            # checks if some coord in sliced_coords are inside the numpy
-            if not self.slices_match_numpy_shape(new_coords):  # some coordinates match
-                new_coords = self.get_coords_match_numpy_shape(new_coords)  # generates the coordinates
-                if not new_coords:
-                    self._hcache.load_numpy_slices([self.storage_id], [self.base.view(np.ndarray)],
-                                                   None)  # any coordinates generated match
-                    self._numpy_full_loaded = True
+            extract_coord = self.view(np.ndarray).copy()
+            if sliced_coord == slice(None, None, None):
+                new_coords = []
+            else:
+                try:
+                    extract_coord[sliced_coord] = -1
+                except IndexError:
                     return super(StorageNumpy, self).__getitem__(sliced_coord)
-            else:  # coordinates match
-                new_coords = self.generate_coordinates(new_coords)
-
+                new_coords = np.argwhere(extract_coord == -1) // self._row_elem
+                new_coords = [tuple(coord) for coord in new_coords]
+                new_coords = list(dict.fromkeys(new_coords))
             # coordinates is the union between the loaded coordiantes and the new ones
             coordinates = list(set(it.chain.from_iterable((self._loaded_coordinates, new_coords))))
 
@@ -215,12 +151,19 @@ class StorageNumpy(IStorage, np.ndarray):
     def __setitem__(self, sliced_coord, values):
         log.info("WRITING NUMPY")
         if self._is_persistent:
-            try:
-                coo = self.format_coords(sliced_coord)
-            except IndexError:
-                return super(StorageNumpy, self).__setitem__(sliced_coord, values)
-            coordinates = list(set(it.chain.from_iterable(
-                (self._loaded_coordinates, self.generate_coordinates(coo)))))
+            extract_coord = self.view(np.ndarray).copy()
+            if sliced_coord == slice(None, None, None):
+                new_coords = []
+            else:
+                try:
+                    extract_coord[sliced_coord] = -1
+                except IndexError:
+                    return super(StorageNumpy, self).__setitem__(sliced_coord)
+                new_coords = np.argwhere(extract_coord == -1) // self._row_elem
+                new_coords = [tuple(coord) for coord in new_coords]
+                new_coords = list(dict.fromkeys(new_coords))
+            # coordinates is the union between the loaded coordiantes and the new ones
+            coordinates = list(set(it.chain.from_iterable((self._loaded_coordinates, new_coords))))
             self._hcache.store_numpy_slices([self.storage_id], [self.base.view(np.ndarray)], coordinates)
         return super(StorageNumpy, self).__setitem__(sliced_coord, values)
 
@@ -251,7 +194,7 @@ class StorageNumpy(IStorage, np.ndarray):
         """
         super().delete_persistent()
         query = "DELETE FROM {} WHERE storage_id = {} AND cluster_id=-1;".format(self._get_name(),
-                                                                                    self.storage_id)
+                                                                                 self.storage_id)
         query2 = "DELETE FROM hecuba.istorage WHERE storage_id = %s;" % self.storage_id
         log.debug("DELETE PERSISTENT: %s", query)
         config.session.execute(query)
