@@ -1,8 +1,4 @@
 from abc import ABCMeta, abstractmethod
-from hecuba.IStorage import IStorage
-from uuid import UUID
-from typing import List, Generator
-
 
 class StorageIface(metaclass=ABCMeta):
     @abstractmethod
