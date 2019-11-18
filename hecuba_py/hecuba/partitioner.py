@@ -9,6 +9,15 @@ _select_istorage_meta = config.session.prepare("SELECT * FROM hecuba.istorage WH
 _size_estimates = config.session.prepare(("SELECT mean_partition_size, partitions_count "
                                           "FROM system.size_estimates WHERE keyspace_name=? and table_name=?"))
 
+_dynamic_part_table_cql = """CREATE TABLE IF NOT EXISTS hecuba.partitioning(
+                                        partitioning_uuid uuid,
+                                        storage_id uuid,
+                                        number_of_partitions int,
+                                        start_time double,
+                                        end_time double,
+                                        PRIMARY KEY (storage_id))
+                                        WITH default_time_to_live = 86400"""
+
 _max_token = int(((2 ** 63) - 1))  # type: int
 _min_token = int(-2 ** 63)  # type: int
 
@@ -45,14 +54,7 @@ class Partitioner:
 
     def _setup_dynamic_structures(self):
         try:
-            config.session.execute("""CREATE TABLE IF NOT EXISTS hecuba.partitioning(
-                                        partitioning_uuid uuid,
-                                        storage_id uuid,
-                                        number_of_partitions int,
-                                        start_time double,
-                                        end_time double,
-                                        PRIMARY KEY (storage_id))
-                                        WITH default_time_to_live = 86400""")
+            config.session.execute(_dynamic_part_table_cql)
         except Exception as ex:
             print("Could not create table hecuba.partitioning.")
             raise ex

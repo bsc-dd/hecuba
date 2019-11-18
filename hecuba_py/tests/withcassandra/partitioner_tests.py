@@ -77,7 +77,7 @@ class PartitionerTest(unittest.TestCase):
         for partition in d.split():
             if nsplits <= 1:
                 # this will be done by the compss api
-                config.session.execute(set_time, [times[nsplits][0], times[nsplits][1], partition._storage_id])
+                config.session.execute(set_time, [times[nsplits][0], times[nsplits][1], partition.storage_id])
             nsplits += 1
 
             acc += self.computeItems(partition)
@@ -107,7 +107,7 @@ class PartitionerTest(unittest.TestCase):
         for partition in d.split():
             if nsplits <= 1:
                 # this will be done by the compss api
-                config.session.execute(set_time, [times[nsplits][0], times[nsplits][1], partition._storage_id])
+                config.session.execute(set_time, [times[nsplits][0], times[nsplits][1], partition.storage_id])
             nsplits += 1
 
             acc += self.computeItems(partition)
@@ -137,7 +137,7 @@ class PartitionerTest(unittest.TestCase):
         for partition in d.split():
             if nsplits <= 3:
                 # this will be done by the compss api
-                config.session.execute(set_time, [times[nsplits][0], times[nsplits][1], partition._storage_id])
+                config.session.execute(set_time, [times[nsplits][0], times[nsplits][1], partition.storage_id])
             nsplits += 1
 
             acc += self.computeItems(partition)
@@ -172,9 +172,9 @@ class PartitionerTest(unittest.TestCase):
             # pretending that task with gran=32 is taking a lot of time
             if nsplits == 0:
                 # this will be done by the compss api
-                config.session.execute(set_start_time, [0, partition._storage_id])
+                config.session.execute(set_start_time, [0, partition.storage_id])
             elif nsplits == 1:
-                config.session.execute(set_time, [times[nsplits][0], times[nsplits][1], partition._storage_id])
+                config.session.execute(set_time, [times[nsplits][0], times[nsplits][1], partition.storage_id])
             else:
                 self.assertEqual(config.splits_per_node, 45 // 2)
 
@@ -206,16 +206,16 @@ class PartitionerTest(unittest.TestCase):
         for partition in d.split():
             # pretending that task with gran=32 is taking a lot of time
             if nsplits == 0:
-                id_partition0 = partition._storage_id
+                id_partition0 = partition.storage_id
                 # this will be done by the compss api
-                config.session.execute(set_start_time, [time.time(), partition._storage_id])
+                config.session.execute(set_start_time, [time.time(), partition.storage_id])
             elif nsplits == 1:
-                config.session.execute(set_time, [times[nsplits][0], times[nsplits][1], partition._storage_id])
+                config.session.execute(set_time, [times[nsplits][0], times[nsplits][1], partition.storage_id])
             elif nsplits == 5:
                 config.session.execute(set_end_time, [time.time() + 150, id_partition0])
             elif 1 < nsplits < 5:
                 start = randint(0, 200)
-                config.session.execute(set_time, [start, start + 60, partition._storage_id])
+                config.session.execute(set_time, [start, start + 60, partition.storage_id])
 
             if nsplits > 1:
                 self.assertEqual(config.splits_per_node, 45 // 2)
@@ -247,20 +247,20 @@ class PartitionerTest(unittest.TestCase):
         nsplits = 0
         for partition in d.split():
             if nsplits == 0:
-                id_partition0 = partition._storage_id
+                id_partition0 = partition.storage_id
                 # this will be done by the compss api
                 # time.time() to avoid choosing gran=64 when task with gran=32 taking a lot of time
                 # dynamic partitioning mode will use time.time() to check how much is taking
-                config.session.execute(set_start_time, [time.time(), partition._storage_id])
+                config.session.execute(set_start_time, [time.time(), partition.storage_id])
             elif nsplits == 1:
-                config.session.execute(set_time, [times[nsplits][0], times[nsplits][1], partition._storage_id])
+                config.session.execute(set_time, [times[nsplits][0], times[nsplits][1], partition.storage_id])
             elif nsplits == 5:
                 last_time = config.session.execute("""SELECT start_time FROM hecuba.partitioning
                                                       WHERE storage_id = %s""" % id_partition0)[0][0]
                 config.session.execute(set_end_time, [last_time + 80, id_partition0])
             else:
                 start = randint(0, 200)
-                config.session.execute(set_time, [start, start + 60, partition._storage_id])
+                config.session.execute(set_time, [start, start + 60, partition.storage_id])
 
             if 5 >= nsplits >= 2:
                 self.assertEqual(config.splits_per_node, 45 // 2)
