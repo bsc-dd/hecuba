@@ -7,7 +7,7 @@ import numpy as np
 from hecuba import config
 from hecuba.tools import discrete_token_ranges
 from hecuba.storageobj import StorageObj
-from storage.api import getByID
+from storage import getByID
 from hecuba.IStorage import build_remotely
 
 from ..app.words import Words

@@ -1,8 +1,8 @@
 import unittest
 
-from storage.api import getByID
+from storage import getByID
 from ..app.words import Words
-from hecuba import config, StorageDict
+from hecuba import StorageDict
 
 
 class ApiTestSDict(StorageDict):

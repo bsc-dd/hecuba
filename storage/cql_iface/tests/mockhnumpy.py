@@ -1,10 +1,7 @@
 from collections import namedtuple
 import numpy as np
-import uuid
 
-from storage.cql_iface.tests.mockIStorage import IStorage, AlreadyPersistentError
-
-import storage
+from storage.cql_iface.tests.mockIStorage import IStorage
 
 
 class StorageNumpy(IStorage, np.ndarray):

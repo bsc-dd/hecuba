@@ -70,7 +70,7 @@ class QbeastStorageDictTest(unittest.TestCase):
 
         time.sleep(1)
         filtered = filter(lambda row: row.x > 0.02 and row.x < 0.25 and row.y > 0.26 and row.y < 0.45 and row.z > 0.58 and row.z < 0.9, d.items())
-        from storage.api import getByID
+        from storage import getByID
         for partition in filtered.split():
             it2 = getByID(partition.storage_id)
             self.assertEqual(filtered._qbeast_random, it2._qbeast_random)

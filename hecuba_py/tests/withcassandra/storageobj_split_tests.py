@@ -76,7 +76,7 @@ class StorageObjSplitTest(unittest.TestCase):
         splits = 0
         for partition in pd.split():
             id = partition.storage_id
-            from storage.api import getByID
+            from storage import getByID
             rebuild = getByID(id)
             splits += 1
             for val in rebuild.keys():
@@ -144,7 +144,7 @@ class StorageObjSplitTest(unittest.TestCase):
         for partition in sto.split():
             splits += 1
             id = partition.storage_id
-            from storage.api import getByID
+            from storage import getByID
             rebuild = getByID(id)
             for val in rebuild.words.keys():
                 res.add(val)

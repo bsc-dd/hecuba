@@ -1,5 +1,5 @@
 from storage.cql_iface.tests.mockIStorage import IStorage
-from storage.cql_iface.tests.mocktools import build_remotely, storage_id_from_name, transform_to_dm
+from storage.cql_iface.tests.mocktools import storage_id_from_name, transform_to_dm
 import storage
 
 
