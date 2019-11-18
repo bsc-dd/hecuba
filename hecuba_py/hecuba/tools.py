@@ -2,7 +2,7 @@ import uuid
 from . import config
 
 valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map', 'bigint', 'blob',
-               'tuple', 'dict', 'float', 'numpy.ndarray']
+               'tuple', 'dict', 'float', 'timestamp', 'time', 'date', 'numpy.ndarray']
 
 basic_types = valid_types[:-1]
 
