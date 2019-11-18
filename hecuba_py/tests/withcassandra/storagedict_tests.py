@@ -1,7 +1,7 @@
 import unittest
-import time as user_time
 import uuid
-from datetime import date, datetime, time
+import datetime
+import time
 from random import randint
 
 from hecuba import config, StorageObj, StorageDict
@@ -90,7 +90,6 @@ class TestDictOfStorageObj(StorageDict):
     '''
         @TypeSpec dict<<key0:int>, val:tests.withcassandra.storageobj_tests.Test2StorageObj>
     '''
-
 
 
 class DictWithDates(StorageDict):
@@ -190,7 +189,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(count, 100)
 
     def test_dict_print(self):
-        tablename = "tab11"
+        tablename = "tab10"
         config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         pd = StorageDict(tablename,
                          [('position', 'int')],
@@ -368,7 +367,7 @@ class StorageDictTest(unittest.TestCase):
                          [('position1', 'int'), ('position2', 'text')],
                          [('value1', 'text'), ('value2', 'double')])
         pd[0, 'pos1'] = ['bla', 1.0]
-        user_time.sleep(2)
+        time.sleep(2)
         self.assertEquals(pd[0, 'pos1'], ('bla', 1.0))
 
     def test_empty_persistent(self):
@@ -661,12 +660,12 @@ class StorageDictTest(unittest.TestCase):
         my_dict = MyStorageDict()
         my_dict[0] = 1
         my_dict.make_persistent('my_dict')
-        user_time.sleep(1)
+        time.sleep(1)
         count, = config.session.execute('SELECT count(*) FROM my_app.my_dict')[0]
         self.assertEquals(1, count)
 
         my_dict[1] = 2
-        user_time.sleep(1)
+        time.sleep(1)
         count, = config.session.execute('SELECT count(*) FROM my_app.my_dict')[0]
         self.assertEquals(2, count)
 
@@ -686,11 +685,11 @@ class StorageDictTest(unittest.TestCase):
         self.assertEquals(pd[0], 'prev_a')
         self.assertEquals(pd[1], 'prev_b')
         pd.update({0: 'a', 1: 'b'})
-        user_time.sleep(1)
+        time.sleep(1)
         self.assertEquals(pd[0], 'a')
         self.assertEquals(pd[1], 'b')
         pd.update({2: 'c', 3: 'd'})
-        user_time.sleep(1)
+        time.sleep(1)
         self.assertEquals(pd[0], 'a')
         self.assertEquals(pd[1], 'b')
         self.assertEquals(pd[2], 'c')
@@ -702,7 +701,7 @@ class StorageDictTest(unittest.TestCase):
         pd2[0] = 'final_a'
         pd2[4] = 'final_4'
         pd.update(pd2)
-        user_time.sleep(1)
+        time.sleep(1)
         self.assertEquals(pd[0], 'final_a')
         self.assertEquals(pd[4], 'final_4')
 
@@ -714,11 +713,11 @@ class StorageDictTest(unittest.TestCase):
                          [('value', 'text')])
         pd['val1'] = 'old_a'
         pd['val2'] = 'old_b'
-        user_time.sleep(2)
+        time.sleep(2)
         self.assertEquals(pd['val1'], 'old_a')
         self.assertEquals(pd['val2'], 'old_b')
         pd.update(val1='new_a', val2='new_b')
-        user_time.sleep(2)
+        time.sleep(2)
         self.assertEquals(pd['val1'], 'new_a')
         self.assertEquals(pd['val2'], 'new_b')
 
@@ -728,14 +727,14 @@ class StorageDictTest(unittest.TestCase):
         my_text = MyStorageDict3('my_app.' + table_name)
         self.assertEquals(0, my_text.get('word', 0))
         my_text['word'] = my_text.get('word', 0) + 1
-        user_time.sleep(2)
+        time.sleep(2)
         self.assertEquals(1, my_text.get('word', 0))
 
     def test_get_notpersistent(self):
         my_text = MyStorageDict3()
         self.assertEquals(0, my_text.get('word', 0))
         my_text['word'] = my_text.get('word', 0) + 1
-        user_time.sleep(2)
+        time.sleep(2)
         self.assertEquals(1, my_text.get('word', 0))
 
     def test_keys(self):
@@ -975,7 +974,7 @@ class StorageDictTest(unittest.TestCase):
             what_should_be[i] = (i, i + 10)
             d[i] = (i, i + 10)
 
-        user_time.sleep(1)
+        time.sleep(1)
         for i in range(0, 10):
             self.assertEqual(d[i], (i, i + 10))
 
@@ -1000,7 +999,7 @@ class StorageDictTest(unittest.TestCase):
             what_should_be.add((i, (5500000000000000, i + 10), "hola", ("adios", (i + 20.5))))
             d[i] = [i, (5500000000000000, i + 10), "hola", ("adios", (i + 20.5))]
 
-        user_time.sleep(1)
+        time.sleep(1)
         res = set()
         count = 0
         for item in d.values():
@@ -1018,7 +1017,7 @@ class StorageDictTest(unittest.TestCase):
         for i in range(0, 10):
             d[(i, i), i + 1] = str(i)
 
-        user_time.sleep(1)
+        time.sleep(1)
         for i in range(0, 10):
             self.assertEqual(d[(i, i), i + 1], str(i))
 
@@ -1033,7 +1032,7 @@ class StorageDictTest(unittest.TestCase):
             what_should_be.add(((i, i), i + 1))
             d[(i, i), i + 1] = str(i)
 
-        user_time.sleep(1)
+        time.sleep(1)
 
         res = set()
         count = 0
@@ -1053,7 +1052,7 @@ class StorageDictTest(unittest.TestCase):
             what_should_be[i] = [i, (5500000000000000, i + 10), "hola", ("adios", (i + 20.5))]
             d[i] = [i, (5500000000000000, i + 10), "hola", ("adios", (i + 20.5))]
 
-        user_time.sleep(2)
+        time.sleep(2)
         for i in range(0, 10):
             self.assertEqual(list(d[i]), [i, (5500000000000000, i + 10), "hola", ("adios", (i + 20.5))])
         self.assertEqual(len(list(d.keys())), 10)
@@ -1147,15 +1146,16 @@ class StorageDictTest(unittest.TestCase):
         for i in range(0, n):
             self.assertEqual(d[i]._ksp, "my_app")
             self.assertEqual(d[i]._table, "Test2StorageObj")
+
     def gen_random_date(self):
-        return date(year=randint(2000, 2019), month=randint(1, 12), day=randint(1, 28))
+        return datetime.date(year=randint(2000, 2019), month=randint(1, 12), day=randint(1, 28))
 
     def gen_random_datetime(self):
-        return datetime(year=randint(2000, 2019), month=randint(1, 12), day=randint(1, 28),
+        return datetime.datetime(year=randint(2000, 2019), month=randint(1, 12), day=randint(1, 28),
                         hour=randint(0, 23), minute=randint(0, 59), second=randint(0, 59))
 
     def gen_random_time(self):
-        return time(hour=randint(0, 23), minute=randint(0, 59), second=randint(0, 59), microsecond=randint(0, 59))
+        return datetime.time(hour=randint(0, 23), minute=randint(0, 59), second=randint(0, 59), microsecond=randint(0, 59))
 
     def test_multiple_dates(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.dictwithdates")
