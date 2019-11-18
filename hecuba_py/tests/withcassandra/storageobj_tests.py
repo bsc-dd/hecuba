@@ -1,7 +1,7 @@
-import time
+import time as user_time
 import unittest
 import uuid
-import datetime
+from datetime import datetime
 
 import cassandra
 import numpy as np
@@ -12,14 +12,6 @@ from storage.api import getByID
 from hecuba.IStorage import build_remotely
 
 from ..app.words import Words
-
-
-class Test2StorageObj(StorageObj):
-    '''
-       @ClassField name str
-       @ClassField age int
-    '''
-    pass
 
 
 class Result(StorageObj):
@@ -40,6 +32,14 @@ class TestStorageIndexedArgsObj(StorageObj):
     '''
        @ClassField test dict<<position:int>, x:float, y:float, z:float>
        @Index_on test x,y,z
+    '''
+    pass
+
+
+class Test2StorageObj(StorageObj):
+    '''
+       @ClassField name str
+       @ClassField age int
     '''
     pass
 
@@ -304,7 +304,7 @@ class StorageObjTest(unittest.TestCase):
 
         nopars2 = Test6StorageObj("hecuba_test.nonames")
         nopars2.test3[0] = ['1', '2']
-        time.sleep(2)
+        user_time.sleep(2)
         result = config.session.execute("SELECT val0, val1 FROM hecuba_test.nonames_test3 WHERE key0 = 0")
 
         rval0 = None
@@ -692,7 +692,7 @@ class StorageObjTest(unittest.TestCase):
 
         for i in range(0, 100):
             my_nested_so.myso2.test[i] = 'position' + str(i)
-        time.sleep(5)
+        user_time.sleep(5)
         count, = config.session.execute("SELECT COUNT(*) FROM my_app.tnsgc_myso2_test")[0]
         self.assertEquals(100, count)
 
@@ -799,7 +799,7 @@ class StorageObjTest(unittest.TestCase):
         my_so = TestStorageObjNumpy('mynewso')
         mynumpy = np.random.rand(3, 2)
         my_so.mynumpy = mynumpy
-        time.sleep(2)
+        user_time.sleep(2)
         self.assertTrue(np.array_equal(mynumpy, my_so.mynumpy))
 
     def test_numpy_topersistent(self):
@@ -845,7 +845,7 @@ class StorageObjTest(unittest.TestCase):
         base_numpy = np.arange(2048)
         my_so.mynumpy = np.arange(2048)
         my_so.make_persistent('mynewso')
-        time.sleep(2)
+        user_time.sleep(2)
         self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
         base_numpy += 1
         my_so.mynumpy += 1
@@ -1296,8 +1296,9 @@ class StorageObjTest(unittest.TestCase):
     def test_time(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.timeAttrib")
         d = TestTime("my_app.timeAttrib")
+        from datetime import time
 
-        mytime =datetime.time(hour=11, minute=43, second=2, microsecond=90)
+        mytime = time(hour=11, minute=43, second=2, microsecond=90)
         d.attr = mytime
         del d
         mynew_d = TestTime("my_app.timeAttrib")
@@ -1306,8 +1307,8 @@ class StorageObjTest(unittest.TestCase):
     def test_date(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.dateAttrib")
         d = TestDate("my_app.dateAttrib")
-        
-        mydate = datetime.date(year=1992, month=7, day=25)
+        from datetime import date
+        mydate = date(year=1992, month=7, day=25)
         d.attr = mydate
         del d
         mynew_d = TestDate("my_app.dateAttrib")
@@ -1317,7 +1318,7 @@ class StorageObjTest(unittest.TestCase):
     def test_datetime(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.dateTimeAttrib")
         d = TestDateTime("my_app.dateTimeAttrib")
-        dtime = datetime.datetime(year=1940, month=10, day=16,
+        dtime = datetime(year=1940, month=10, day=16,
                          hour=23, minute=59, second=59)
         d.attr = dtime
         del d

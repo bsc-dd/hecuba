@@ -4,7 +4,7 @@
 #                                           Cassandra Process Killer                                          #
 #                                          Eloy Gil - eloy.gil@bsc.es                                         #
 #                                                                                                             #
-#                                        Barcelona Supercomputing Center                                      #
+#                                     Barcelona Supercomputing Center 2018                                    #
 #                                                    .-.--_                                                   #
 #                                                  ,´,´.´   `.                                                #
 #                                                  | | | BSC |                                                #

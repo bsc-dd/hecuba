@@ -1,10 +1,10 @@
 #!/bin/bash
 ###############################################################################################################
 #                                                                                                             #
-#                                      Cassandra Cluster Launcher for HPC                                     #
+#                                     Cassandra Cluster Launcher for Slurm                                    #
 #                                          Eloy Gil - eloy.gil@bsc.es                                         #
 #                                                                                                             #
-#                                        Barcelona Supercomputing Center                                      #
+#                                     Barcelona Supercomputing Center 2018                                    #
 #                                                    .-.--_                                                   #
 #                                                  ,´,´.´   `.                                                #
 #                                                  | | | BSC |                                                #
@@ -38,16 +38,16 @@ else
     mv $C4S_HOME/newjoblist.txt $C4S_JOBLIST
 fi
 
-MODULE_PATH=/apps/HECUBA/0.1.3/lib/cassandra4slurm
-CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg    # Feel free to change this to a "source" if you want, but I don't recommend it.
-CASS_HOME=$(cat $CFG_FILE | grep -v "#" | grep "CASS_HOME=" | tail -n 1 | sed 's/CASS_HOME=//g' | sed 's/"//g' | sed "s/'//g")
-SNAP_PATH=$(cat $CFG_FILE | grep -v "#" | grep "SNAP_PATH=" | tail -n 1 | sed 's/SNAP_PATH=//g' | sed 's/"//g' | sed "s/'//g")
+MODULE_PATH=/apps/HECUBA/0.1/lib/cassandra4slurm
+CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
+CASS_HOME=$(cat $CFG_FILE | grep "CASS_HOME=" | sed 's/CASS_HOME=//g' | sed 's/"//g')
+SNAP_PATH=$(cat $CFG_FILE | grep "SNAP_PATH=" | sed 's/SNAP_PATH=//g' | sed 's/"//g')
 UNIQ_ID="c4s"$(echo $RANDOM | cut -c -5)
 DEFAULT_NUM_NODES=4
 DEFAULT_MAX_TIME="04:00:00"
 DEFAULT_DATA_PATH=/scratch/tmp
-DEFAULT_CASSANDRA=/apps/HECUBA/0.1.3/cassandra-d8tree
-RETRY_MAX=30
+DEFAULT_CASSANDRA=/apps/HECUBA/0.1/cassandra-d8tree
+RETRY_MAX=15
 PYCOMPSS_SET=0
 EXEC_NAME=$(echo ${0} | sed "s+/+ +g" | awk '{ print $NF }')
 QUEUE=""
@@ -76,12 +76,10 @@ function usage () {
     echo "       Using --jobname=<JOBNAME> that will be the job name sent to the queue."
     echo "       Using --logs=<directory path> that will be the destination of the log files."
     echo "       Using --qos=debug it will run in the testing queue. It has some restrictions (a single job and 2h max.) so any higher requirements will be rejected by the queuing system."
-    echo "       Everything passed using --constraint flags will be sent as it is to the job scheduler."
     echo " "
     echo "       RECOVER [ -s ]:"
     echo "       Shows a list of snapshots from previous Cassandra Clusters and restores the chosen one."
     echo "       Using -s it will save a new snapshot after the execution."
-    echo "       Using -r=recover_id the user can specify the snapshot to restore directly."
     echo " "
     echo "       STOP [ -c=cluster_id ]:"
     echo "       If there is a cassandra cluster it is stopped, if there are many shows a list of cluster_id that can be stopped."
@@ -268,10 +266,6 @@ case $i in
     QUEUE="--qos=""${i#*=}"
     shift
     ;;
-    -con=*|--constraint=*)
-    CONSTRAINTS=$CONSTRAINTS" --constraint=""${i#*=}"
-    shift
-    ;;
     -nT=*|--total_nodes=*)
     TOTAL_NODES="${i#*=}"
     shift
@@ -289,11 +283,6 @@ case $i in
     shift
     ;;
     -p=*|--pycompss=*)
-    path_to_executable=$(which launch_compss)
-    if [ "0$path_to_executable" == "0" ] ; then
-        echo "[ERROR] COMPSs is not available. Remember to load COMPSs before executing an application. Exiting..."
-        exit
-    fi
     PYCOMPSS_APP="${i#*=}"
     PYCOMPSS_SET=1
     shift
@@ -304,10 +293,6 @@ case $i in
     ;;
     -f|--finish)
     FINISH=1
-    shift
-    ;;
-    -r=*|--recover_id=*)
-    input_snap="${i#*=}"
     shift
     ;;
     -j=*|--jobname=*)
@@ -331,10 +316,6 @@ case $i in
     -l=*|--logs=*)
     LOGS_DIR="${i#*=}"
     mkdir -p $LOGS_DIR
-    shift
-    ;;
-    -r=*|--restore=*)
-    input_snap="${i#*=}"
     shift
     ;;
     *)
@@ -522,13 +503,21 @@ if [ "$ACTION" == "RUN" ]; then
             fi
         fi
     fi
+    # CHAPUZA, DESCOMENTAR ESTO CUANTO ANTES
+    # Check PyCOMPSs pre-condition (at least two nodes, 1 master 1 slave)
+    #if [ "0$PYCOMPSS_APP" != "0" ] && [ $APP_NODES -lt 2 ]; then
+    #    echo "ERROR: PyCOMPSs executions need at least 2 application nodes. Aborting..."
+    #    exit
+    #elif [ "0$PYCOMPSS_APP" != "0" ]; then
+    #    echo "[INFO] This execution will use PyCOMPSs in $APP_NODES nodes."
+    #fi
  
-    #WHILE DEBUGGING
+    #WHILE DEBUGGING...
     echo "EXECUTION SUMMARY:"
     echo "# of Cassandra nodes: "$CASSANDRA_NODES
     echo "# of application nodes: "$APP_NODES
     echo "# total of requested nodes: "$TOTAL_NODES
-    #END DEBUGGING
+    #DEBUGGING#exit
     
     echo "Job allocation started..."
 
@@ -544,9 +533,7 @@ if [ "$ACTION" == "RUN" ]; then
         DEFAULT_LOGS_DIR=$(cat $CFG_FILE | grep "LOG_PATH=" | sed 's/LOG_PATH=//g' | sed 's/"//g')
         LOGS_DIR=$DEFAULT_LOGS_DIR
     fi
-    echo "SUBMITTING sbatch --job-name="$UNIQ_ID" --nodes=$TOTAL_NODES --time=$JOB_MAX_TIME --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $QUEUE $CONSTRAINTS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT"
-
-    SUBMIT_MSG=$(sbatch --job-name="$UNIQ_ID" --nodes=$TOTAL_NODES --time=$JOB_MAX_TIME --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $QUEUE $CONSTRAINTS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT) #nproc result is 48 here
+    SUBMIT_MSG=$(sbatch --job-name="$UNIQ_ID" --nodes=$TOTAL_NODES --ntasks-per-node=$(nproc --all) --time=$JOB_MAX_TIME --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $QUEUE $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT) #nproc result is 48 here
     echo $SUBMIT_MSG" ("$UNIQ_ID")"
     JOB_NUMBER=$(echo $SUBMIT_MSG | awk '{ print $NF }')
     echo $JOB_NUMBER $UNIQ_ID" " >> $C4S_JOBLIST
@@ -558,6 +545,7 @@ if [ "$ACTION" == "RUN" ]; then
         echo "Checking..."
         sleep 10
 	get_nodes_up
+	#echo "NODE_COUNTER: $NODE_COUNTER | N_NODES: $N_NODES | RETRY_COUNTER: $RETRY_COUNTER" #debug only
     done
     if [ "$NODE_COUNTER" == "$CASSANDRA_NODES" ]
     then
@@ -569,6 +557,7 @@ if [ "$ACTION" == "RUN" ]; then
 	CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $C4S_HOME/casslist-"$UNIQ_ID".txt)$CASS_IFACE
 	CNAMES=$(echo $CNAMES | sed "s/,/$CASS_IFACE,/g")
 	export CONTACT_NAMES=$CNAMES
+	#echo $CNAMES | tr , '\n' > $HOME/bla.txt # Set list of nodes (with interface) in PyCOMPSs file
 	echo "Contact names environment variable (CONTACT_NAMES) should be set to: $CNAMES"
     else
         echo "ERROR: Cassandra Cluster RUN timeout. Check STATUS."
@@ -622,6 +611,7 @@ then
         if [ "$N_NODES" == "$NODE_COUNTER" ]
         then
             echo "Cassandra Cluster Status: OK"
+       	    #ssh $NODE_ID "$CASS_HOME/bin/nodetool -h $NODE_ID$CASS_IFACE status"
        	    $CASS_HOME/bin/nodetool -h $NODE_ID$CASS_IFACE status 2> /dev/null
         else
             echo "E2"
@@ -638,58 +628,59 @@ then
     set_utils_paths
     test_if_cluster_up
     # Launches a new Cluster to recover a previous snapshot
-    SNAP_LIST=$(ls -tr $SNAP_PATH)
-    if [ "0$input_snap" == "0" ]; then 
-        if [ "$SNAP_LIST" == "" ]
-        then
-            echo "There are no available snapshots to restore."
-            echo "Exiting..."
-            exit
-        else
-            echo "The following snapshots are available to be restored:"
-        fi
-        for snap in $SNAP_LIST
+    SNAP_LIST=""
+    for node in $(ls $SNAP_PATH -tr)
+    do 
+        for snap in $(ls $SNAP_PATH/$node/*-ring.txt)
         do
-            echo -e $snap
+            snap_name=`echo $snap | sed 's+/+ +g' | awk '{ print $NF }' | rev | cut -c 10- | rev`
+            if [ "$(echo $SNAP_LIST | grep $snap_name)" == "" ]
+            then
+                SNAP_LIST="$SNAP_LIST $snap_name"
+            fi 
         done
-        echo "Introduce a snapshot to restore: "
-        read input_snap
-        while [ "$(echo $SNAP_LIST | grep -w $input_snap)" == "" ]; do
-            echo "ERROR: Wrong snapshot input. Introduce a snapshot to restore: "
-            read input_snap
-        done
+    done
+    if [ "$SNAP_LIST" == "" ]
+    then
+        echo "There are no available snapshots to restore."
+        echo "Exiting..."
+        exit
     else
-        if [ "$(echo $SNAP_LIST | grep -w $input_snap)" == "" ]; then
-            echo "ERROR: Snapshot <<"$input_snap">> not available. Aborting..."
-            exit
-        fi
+        echo "The following snapshots are available to be restored:"
     fi
-    N_NODES=$(find $SNAP_PATH/$input_snap -type f -name $input_snap-ring.txt | wc -l)
+    for snap in $SNAP_LIST
+    do
+        echo -e $snap
+    done
+    echo "Introduce a snapshot to restore: "
+    read input_snap
+    while [ "$(echo $SNAP_LIST | grep $input_snap)" == "" ]
+    do
+        echo "ERROR: Wrong snapshot input. Introduce a snapshot to restore: "
+        read input_snap
+    done
+    TKNFILE_LIST=$(find $SNAP_PATH -type f -name $input_snap-ring.txt)
+    N_NODES=0
+    for token_file in $TKNFILE_LIST
+    do
+        ((N_NODES++))
+    done
 
     # Set snapshot name to recover into file
     echo $input_snap > $RECOVER_FILE
 
     # Enables/Disables the snapshot option after the execution
     set_snapshot_value
+    #sbatch --job-name=$UNIQ_ID --ntasks=$(($N_NODES * 48)) --exclusive --output=$C4S_HOME/logs/cassandra-%j.out --error=$C4S_HOME/logs/cassandra-%j.err $MODULE_PATH/job.sh $UNIQ_ID
     if [ "0$LOGS_DIR" == "0" ]; then
         DEFAULT_LOGS_DIR=$(cat $CFG_FILE | grep "LOG_PATH=" | sed 's/LOG_PATH=//g' | sed 's/"//g')
         LOGS_DIR=$DEFAULT_LOGS_DIR
     fi
 
+    TOTAL_NODES=$N_NODES
     CASSANDRA_NODES=$N_NODES
-    if [ "$DISJOINT" == "1" ]; then 
-        if [ "0$APP_NODES" == "0" ]; then
-            echo "ERROR: If the disjoint option is provided a number of application nodes (-nA=<NUM>) should be provided. Aborting..."
-            exit
-        fi  
-        TOTAL_NODES=$((N_NODES + APP_NODES))
-    elif [ "0$TOTAL_NODES" == "0" ]; then
-        TOTAL_NODES=$N_NODES
-    fi
-
-    if [ "0$APP" != "0" ] && [ "0$APP_NODES" == "0" ]; then
-        APP_NODES=$N_NODES
-    fi
+    export APP_NODES=$N_NODES
+    DISJOINT="0"
 
     if [ "0$JOB_MAX_TIME" == "0" ]; then
         JOB_MAX_TIME=$DEFAULT_MAX_TIME
@@ -698,21 +689,14 @@ then
         DEFAULT_LOGS_DIR=$(cat $CFG_FILE | grep "LOG_PATH=" | sed 's/LOG_PATH=//g' | sed 's/"//g')
         LOGS_DIR=$DEFAULT_LOGS_DIR
     fi
-
-    echo "[ PARAM DEBUG ]"
-    echo "UNIQ_ID: "$UNIQ_ID
-    echo "CASSANDRA_NODES: "$CASSANDRA_NODES
-    echo "APP_NODES: "$APP_NODES
-    echo "PYCOMPSS_SET: "$PYCOMPSS_SET
-    echo "DISJOINT: "$DISJOINT
      
-    SUBMIT_MSG=$(sbatch --job-name="$UNIQ_ID" --nodes=$TOTAL_NODES --time=$JOB_MAX_TIME --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $QUEUE $CONSTRAINTS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT) 
-    echo $SUBMIT_MSG" ("$UNIQ_ID")"
-    JOB_NUMBER=$(echo $SUBMIT_MSG | awk '{ print $NF }')
-    echo $JOB_NUMBER $UNIQ_ID" " >> $C4S_JOBLIST
+    sbatch --job-name=$UNIQ_ID --nodes=$TOTAL_NODES --ntasks-per-node=$(nproc --all) --time=$JOB_MAX_TIME --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $QUEUE $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT #nproc result is 48 here
 
-    echo "Launching $TOTAL_NODES nodes to recover snapshot $input_snap"
-    sleep 5
+
+
+#    sbatch --job-name=$UNIQ_ID --ntasks=$N_NODES --ntasks-per-node=1 --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $QUEUE $MODULE_PATH/job.sh $UNIQ_ID
+    echo "Launching $N_NODES nodes to recover snapshot $input_snap"
+    sleep 15
     echo "Launch still in progress. You can check it later with:"
     echo "    $EXEC_NAME STATUS"
 elif [ "$ACTION" == "STOP" ] || [ "$ACTION" == "stop" ]
@@ -737,7 +721,7 @@ then
         echo "1" > $C4S_HOME/stop."$JOBNAME".txt
         sleep 10
     else
-        echo "ERROR: Cluster with name "$JOBNAME" not found in the queuing system."
+        echo "[ERROR] Cluster with name "$JOBNAME" not found in the queuing system."
         if [ $(cat $C4S_JOBLIST | wc -l) -gt 0 ]; then
             echo "JOBID    JOBNAME"
             cat $C4S_JOBLIST
