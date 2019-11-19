@@ -3,7 +3,7 @@ import os
 
 from cassandra.cluster import Cluster
 from cassandra.policies import RetryPolicy, RoundRobinPolicy, TokenAwarePolicy
-from .cas import *
+from .cassandra_cluster_manager import *
 
 # Set default log.handler to avoid "No handler found" warnings.
 

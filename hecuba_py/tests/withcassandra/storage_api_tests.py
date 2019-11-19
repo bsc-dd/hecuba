@@ -1,6 +1,6 @@
 import unittest
 
-from storage import getByID
+from storage.api import getByID
 from ..app.words import Words
 from hecuba import StorageDict
 
