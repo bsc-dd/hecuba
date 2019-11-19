@@ -42,16 +42,12 @@ class CQLIface(StorageIface):
     def __init__(self):
         pass
 
-    @staticmethod
-    def is_persistent(pyobject):
-        return pyobject.getID() is not None and pyobject.get_name() is not None
-
     def check_definition(self, definition):
         if not isinstance(definition, dict):
             raise TypeError("Expected a dict type as a definition")
-        elif not all(name in definition for name in ["type", "value_id", "fields"]):
+        if not all(name in definition for name in ["type", "value_id", "fields"]):
             raise KeyError("Expected keys 'type', 'value_id' and 'fields'")
-        elif not issubclass(definition["type"], IStorage):
+        if not issubclass(definition["type"], IStorage):
             raise TypeError("Class must inherit IStorage")
 
     def add_data_model(self, definition):

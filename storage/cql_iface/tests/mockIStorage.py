@@ -53,6 +53,9 @@ class IStorage(object):
         """
         return self.__class__ == other.__class__ and self.getID() == other.getID()
 
+    def is_persistent(self):
+        return self.getID() is not None and self.get_name() is not None
+
     @staticmethod
     def _store_meta(storage_args):
         pass
