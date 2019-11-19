@@ -1,6 +1,4 @@
 from storage.cql_iface.tests.mockIStorage import IStorage
-from storage.cql_iface.tests.mocktools import storage_id_from_name, transform_to_dm
-import uuid
 
 
 class StorageObj(IStorage):
@@ -10,28 +8,9 @@ class StorageObj(IStorage):
     DB(Cassandra), depending on if it's persistent or not.
     """
 
-    def __new__(cls, name='', *args, **kwargs):
-        if not cls._data_model_id:
-            # User data model
-            keys = {}
-            try:
-                cls._data_model_def = kwargs['data_model']
-            except KeyError:
-                pass
-                cls._data_model_def = dict()
-                cls._data_model_def["cols"] = transform_to_dm(cls)
-                cls._data_model_def['value_id'] = {'storage_id': uuid.UUID}
-                cls._data_model_def['type'] = cls
-
+    def __new__(cls, *args, name='', **kwargs):
         toret = super(StorageObj, cls).__new__(cls)
-        storage_id = kwargs.get('storage_id', None)
-        if storage_id is None and name:
-            storage_id = storage_id_from_name(name)
 
-        if name or storage_id:
-            toret.setID(storage_id)
-            toret.set_name(name)
-            toret._is_persistent = True
         return toret
 
     def __init__(self, *args, **kwargs):

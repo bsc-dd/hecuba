@@ -8,21 +8,12 @@ from storage.cql_iface.tests.mockIStorage import IStorage
 from storage.cql_iface.tests.mockStorageObj import StorageObj
 from storage.cql_iface.tests.mockhdict import StorageDict
 from storage.cql_iface.tests.mockhnumpy import StorageNumpy
-from storage.cql_iface.tests.mocktools import storage_id_from_name
 
 
 class TestClass(IStorage):
 
     def __new__(cls, name='', *args, **kwargs):
         toret = super(TestClass, cls).__new__(cls)
-        storage_id = kwargs.get('storage_id', None)
-        if storage_id is None and name:
-            storage_id = storage_id_from_name(name)
-
-        if name or storage_id:
-            toret.setID(storage_id)
-            toret.set_name(name)
-            toret._is_persistent = True
         return toret
 
     def __init__(self, *args, **kwargs):

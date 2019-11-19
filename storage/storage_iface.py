@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
 
+
 class StorageIface(metaclass=ABCMeta):
     @abstractmethod
     def add_data_model(self, definition: dict) -> int:

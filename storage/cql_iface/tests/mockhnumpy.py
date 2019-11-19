@@ -5,11 +5,6 @@ from storage.cql_iface.tests.mockIStorage import IStorage
 
 
 class StorageNumpy(IStorage, np.ndarray):
-    class np_meta(object):
-        def __init__(self, shape, dtype, block_id):
-            self.dims = shape
-            self.type = dtype
-            self.block_id = block_id
 
     _build_args = None
     _class_name = None
@@ -23,10 +18,6 @@ class StorageNumpy(IStorage, np.ndarray):
     args = namedtuple('StorageNumpyArgs', args_names)
 
     def __new__(cls, input_array=None, storage_id=None, name=None, built_remotely=False, **kwargs):
-        if storage_id:
-            # already exists
-            pass
-
         if input_array is None and name and storage_id is not None:
             result = cls.load_array(storage_id)
             input_array = result[0]
@@ -73,4 +64,4 @@ class StorageNumpy(IStorage, np.ndarray):
         else:
             raise KeyError
         '''
-        pass
+        return np.zeros(())
