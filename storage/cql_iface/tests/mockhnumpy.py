@@ -64,4 +64,4 @@ class StorageNumpy(IStorage, np.ndarray):
         else:
             raise KeyError
         '''
-        return np.zeros(())
+        return [np.zeros(())]
