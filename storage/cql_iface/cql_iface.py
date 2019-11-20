@@ -42,16 +42,13 @@ class CQLIface(StorageIface):
     def __init__(self):
         pass
 
-    def check_definition(self, definition):
+    def add_data_model(self, definition):
         if not isinstance(definition, dict):
             raise TypeError("Expected a dict type as a definition")
         if not all(name in definition for name in ["type", "value_id", "fields"]):
             raise KeyError("Expected keys 'type', 'value_id' and 'fields'")
         if not issubclass(definition["type"], IStorage):
             raise TypeError("Class must inherit IStorage")
-
-    def add_data_model(self, definition):
-        self.check_definition(definition)
         dm = list(definition.items())
         dm.sort()
         datamodel_id = hash(str(dm))
