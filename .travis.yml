@@ -12,11 +12,6 @@ env:
   matrix:
     - TEST_CASSANDRA_VERSION=3.11.4
 
-stages:
-  - test
-  - build_wheel_manylinux2010
-  - build_wheel_manylinux1
-
 before_install:
   - source .travis/install_openjdk8.sh
 
@@ -40,9 +35,7 @@ addons:
 
 # command to run tests
 script:
-  #- nosetests --with-coverage -v -s hecuba_py/tests/*.py
-  #- nosetests --with-coverage -v -s hecuba_py/tests/withcassandra
-
+  - nosetests --with-coverage -v -s storage/cql_iface/tests/api_tests.py
 
 # Push the results back to codecov
 after_success:
