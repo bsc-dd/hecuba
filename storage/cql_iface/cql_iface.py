@@ -57,7 +57,7 @@ class CQLIface(StorageIface):
         if isinstance(definition, dict):
             for v in definition.values():
                 CQLIface.check_values_from_definition(v)
-        elif isinstance(definition, list) or isinstance(definition, set) or isinstance(definition, tuple):
+        elif isinstance(definition, (list, set, tuple)):
             for v in definition:
                 CQLIface.check_values_from_definition(v)
         else:
