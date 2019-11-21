@@ -28,7 +28,6 @@ class CQLIface(StorageIface):
 
     # User class to Cassandra data type
     _hecuba2cassandra_typemap = {
-        None: 'NULL',
         bool: 'boolean',
         int: 'int',
         float: 'float',
@@ -75,14 +74,13 @@ class CQLIface(StorageIface):
             raise TypeError("Expected keys 'value_id' and 'fields' to be dict")
         if not issubclass(definition["type"], IStorage):
             raise TypeError("Class must inherit IStorage")
-        dict_definition = {k: definition[k] for k in ('value_id', 'fields')}
-        CQLIface.check_values_from_definition(dict_definition)
-        dm = list(definition.items())
-        dm.sort()
+        dm = sorted(definition.items())
         datamodel_id = hash(str(dm))
         try:
             self.data_models_cache[datamodel_id]
         except KeyError:
+            dict_definition = {k: definition[k] for k in ('value_id', 'fields')}
+            CQLIface.check_values_from_definition(dict_definition)
             self.data_models_cache[datamodel_id] = definition
             CqlCOMM.register_data_model(datamodel_id, definition)
         return datamodel_id
