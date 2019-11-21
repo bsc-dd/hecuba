@@ -1,3 +1,4 @@
+import decimal
 import unittest
 import uuid
 
@@ -35,21 +36,35 @@ class HfetchTests(unittest.TestCase):
             data_model = "a"
             storage = CQLIface()
             # Register data models
-            storage.check_definition(data_model)
+            storage.add_data_model(data_model)
 
     def test_add_data_model_except_invalid_class(self):
         with self.assertRaises(TypeError):
             data_model = {"type": "a", "value_id": {"k": str}, "fields": {"a": str}}
             storage = CQLIface()
             # Register data models
-            storage.check_definition(data_model)
+            storage.add_data_model(data_model)
 
     def test_add_data_model_except_invalid_format(self):
         with self.assertRaises(KeyError):
             data_model = {"type": mockClass, "": {"k": str}, "fields": {"a": str}}
             storage = CQLIface()
             # Register data models
-            storage.check_definition(data_model)
+            storage.add_data_model(data_model)
+
+    def test_add_data_model_except_not_value_fields_dict_type(self):
+        with self.assertRaises(TypeError):
+            data_model = {"type": mockClass, "value_id": [str], "fields": {"a": str}}
+            storage = CQLIface()
+            # Register data models
+            storage.add_data_model(data_model)
+
+    def test_add_data_model_except_incorrect_type(self):
+        with self.assertRaises(TypeError):
+            data_model = {"type": mockClass, "value_id": {"k": dict}, "fields": {"a": str}}
+            storage = CQLIface()
+            # Register data models
+            storage.add_data_model(data_model)
 
     def test_add_data_different_types(self):
         data_model = {"type": mockClass, "value_id": {"k": int},
@@ -58,7 +73,7 @@ class HfetchTests(unittest.TestCase):
         try:
             storage = CQLIface()
             # Register data models
-            storage.check_definition(data_model)
+            storage.add_data_model(data_model)
         except:
             raised = True
         self.assertFalse(raised, 'Exception raised')
@@ -101,16 +116,17 @@ class HfetchTests(unittest.TestCase):
         self.assertTrue(storage.data_models_cache[id2])
 
     def test_add_data_model_complex_types(self):
-        data_model = {"type": mockClass, "value_id": {"k": int, "k1": int},
-                      "fields": {"a": {"value_id": {"k": int}, "fields": {"f": str}}}}
+        data_model = {"type": mockClass, "value_id": {"k": decimal.Decimal, "k1": numpy.ndarray},
+                      "fields": {"k": numpy.unicode, "f": numpy.int64}}
         storage = CQLIface()
         # Register data models
         id = storage.add_data_model(data_model)
         self.assertTrue(storage.data_models_cache[id])
 
     def test_add_data_model_complex_structure(self):
-        data_model = {"type": mockClass, "value_id": {"k": int, "k1": [int, int]}, "fields": {"a": {
-            "value_id": {"k": (int, str)}, "fields": {"f": str, "f2": (float,)}}}}
+        data_model = {"type": mockClass,
+                      "value_id": {"k": int, "k1": [int], "k2": (int, uuid.UUID), "k3": {"a": float, "b": (bool, int)}},
+                      "fields": {"f": [str, (str, str)]}}
         storage = CQLIface()
         # Register data models
         id = storage.add_data_model(data_model)
