@@ -1,25 +1,8 @@
-import logging
-import os
-
 from cassandra.cluster import Cluster
 from cassandra.policies import RetryPolicy, RoundRobinPolicy, TokenAwarePolicy
 from .tests.cassandra_cluster_manager import *
-
+from .config import log
 # Set default log.handler to avoid "No handler found" warnings.
-
-stderrLogger = logging.StreamHandler()
-f = '%(filename)s: %(levelname)s: %(funcName)s(): %(lineno)d:\t%(message)s'
-stderrLogger.setFormatter(logging.Formatter(f))
-
-log = logging.getLogger('hecuba')
-log.addHandler(stderrLogger)
-
-if 'DEBUG' in os.environ and os.environ['DEBUG'].lower() == "true":
-    log.setLevel(logging.DEBUG)
-elif 'HECUBA_LOG' in os.environ:
-    log.setLevel(os.environ['HECUBA_LOG'].upper())
-else:
-    log.setLevel(logging.ERROR)
 
 class _NRetry(RetryPolicy):
     def __init__(self, time_to_retry=5):
