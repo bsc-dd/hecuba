@@ -18,7 +18,7 @@ class TestClass(IStorage):
         toret = super(TestClass, cls).__new__(cls, name)
         return toret
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         super(TestClass, self).__init__()
 
 
