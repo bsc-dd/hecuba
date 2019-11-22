@@ -212,7 +212,8 @@ class Config:
                 to_point frozen<list<double>>,
                 precision float);
                 """,
-                'CREATE TYPE IF NOT EXISTS hecuba.np_meta(dims frozen<list<int>>,type int,block_id int);',
+                """CREATE TYPE IF NOT EXISTS hecuba.np_meta (flags int, elem_size int, partition_type int,
+                dims list<int>, strides list<int>, typekind text, byteorder text)""",
                 """CREATE TABLE IF NOT EXISTS hecuba
                 .istorage (storage_id uuid, 
                 class_name text,name text, 
