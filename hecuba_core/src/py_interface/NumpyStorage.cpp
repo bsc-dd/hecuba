@@ -14,91 +14,140 @@ NumpyStorage::~NumpyStorage() {
 };
 
 
-void NumpyStorage::store_numpy(const uint64_t *storage_id, PyArrayObject *numpy) const {
-
-    ArrayMetadata *np_metas = this->get_np_metadata(numpy);
-    np_metas->partition_type = ZORDER_ALGORITHM;
-
+void NumpyStorage::store_numpy(const uint64_t *storage_id, PyArrayObject *numpy, ArrayMetadata *np_metas) const {
     void *data = PyArray_BYTES(numpy);
     this->store(storage_id, np_metas, data);
-    this->update_metadata(storage_id, np_metas);
-    delete (np_metas);
 }
 
 
 /***
  * Reads a numpy ndarray by fetching the clusters independently
  * @param storage_id of the array to retrieve
+ * @param np_metas array description
  * @return Numpy ndarray as a Python object
  */
-PyObject *NumpyStorage::read_numpy(const uint64_t *storage_id) {
-    ArrayMetadata *np_metas = this->read_metadata(storage_id);
+PyObject *NumpyStorage::read_numpy(const uint64_t *storage_id, ArrayMetadata *np_metas) {
     void *data = this->read(storage_id, np_metas);
-
 
     npy_intp *dims = new npy_intp[np_metas->dims.size()];
     for (uint32_t i = 0; i < np_metas->dims.size(); ++i) {
         dims[i] = np_metas->dims[i];
     }
 
+    int32_t type = PyArray_TypestrConvert(np_metas->elem_size, np_metas->typekind[0]);
+    if (type == NPY_NOTYPE)
+        throw ModuleException("Can't identify Numpy dtype from typekind");
+
     PyObject *resulting_array;
     try {
-        resulting_array = PyArray_SimpleNewFromData((int32_t) np_metas->dims.size(), dims, np_metas->inner_type, data);
+        resulting_array = PyArray_SimpleNewFromData((int32_t) np_metas->dims.size(), dims, type, data);
 
         PyArrayObject *converted_array;
         PyArray_OutputConverter(resulting_array, &converted_array);
         PyArray_ENABLEFLAGS(converted_array, NPY_ARRAY_OWNDATA);
     }
-    catch (std::exception e) {
+    catch (std::exception &e) {
         if (PyErr_Occurred()) PyErr_Print();
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
-
-    delete (np_metas);
-
     return resulting_array;
 }
 
-/***
- * Extract the metadatas of the given numpy ndarray and return a new ArrayMetadata with its representation
- * @param numpy Ndarray to extract the metadata
- * @return ArrayMetadata defining the information to reconstruct a numpy ndarray
- */
-ArrayMetadata *NumpyStorage::get_np_metadata(PyArrayObject *numpy) const {
-    int64_t ndims = PyArray_NDIM(numpy);
-    npy_intp *shape = PyArray_SHAPE(numpy);
 
-    ArrayMetadata *shape_and_type = new ArrayMetadata();
-    shape_and_type->inner_type = PyArray_TYPE(numpy);
+ArrayMetadata *NumpyStorage::make_metadata(PyObject *py_np_metas) const {
 
-    //TODO implement as a union
-    if (shape_and_type->inner_type == NPY_INT8) shape_and_type->elem_size = sizeof(int8_t);
-    else if (shape_and_type->inner_type == NPY_UINT8) shape_and_type->elem_size = sizeof(uint8_t);
-    else if (shape_and_type->inner_type == NPY_INT16) shape_and_type->elem_size = sizeof(int16_t);
-    else if (shape_and_type->inner_type == NPY_UINT16) shape_and_type->elem_size = sizeof(uint16_t);
-    else if (shape_and_type->inner_type == NPY_INT32) shape_and_type->elem_size = sizeof(int32_t);
-    else if (shape_and_type->inner_type == NPY_UINT32) shape_and_type->elem_size = sizeof(uint32_t);
-    else if (shape_and_type->inner_type == NPY_INT64) shape_and_type->elem_size = sizeof(int64_t);
-    else if (shape_and_type->inner_type == NPY_LONGLONG) shape_and_type->elem_size = sizeof(int64_t);
-    else if (shape_and_type->inner_type == NPY_UINT64) shape_and_type->elem_size = sizeof(uint64_t);
-    else if (shape_and_type->inner_type == NPY_ULONGLONG) shape_and_type->elem_size = sizeof(uint64_t);
-    else if (shape_and_type->inner_type == NPY_DOUBLE) shape_and_type->elem_size = sizeof(npy_double);
-    else if (shape_and_type->inner_type == NPY_FLOAT16) shape_and_type->elem_size = sizeof(npy_float16);
-    else if (shape_and_type->inner_type == NPY_FLOAT32) shape_and_type->elem_size = sizeof(npy_float32);
-    else if (shape_and_type->inner_type == NPY_FLOAT64) shape_and_type->elem_size = sizeof(npy_float64);
-    else if (shape_and_type->inner_type == NPY_FLOAT128) shape_and_type->elem_size = sizeof(npy_float128);
-    else if (shape_and_type->inner_type == NPY_BOOL) shape_and_type->elem_size = sizeof(bool);
-    else if (shape_and_type->inner_type == NPY_BYTE) shape_and_type->elem_size = sizeof(char);
-    else if (shape_and_type->inner_type == NPY_LONG) shape_and_type->elem_size = sizeof(long);
-    else if (shape_and_type->inner_type == NPY_LONGLONG) shape_and_type->elem_size = sizeof(long long);
-    else if (shape_and_type->inner_type == NPY_SHORT) shape_and_type->elem_size = sizeof(short);
-    else throw ModuleException("Numpy data type still not supported");
-
-    // Copy elements per dimension
-    shape_and_type->dims = std::vector<uint32_t>((uint64_t) ndims);//PyArray_SHAPE()
-    for (int32_t dim = 0; dim < ndims; ++dim) {
-        shape_and_type->dims[dim] = (uint32_t) shape[dim];
+    const char *expected = "np_meta"; //hecuba.hnumpy.StorageNumpy.
+    if (strlen(py_np_metas->ob_type->tp_name) != strlen(expected) ||
+        memcmp(py_np_metas->ob_type->tp_name, expected, strlen(expected)) != 0) {
+        PyErr_SetString(PyExc_ValueError, "Numpy metadata class does not match the expected");
+        std::cerr << py_np_metas->ob_type->tp_name << std::endl;
+        return NULL;
     }
-    return shape_and_type;
+
+    ArrayMetadata *np_meta = new ArrayMetadata();
+
+    // elem_size (itemsize)
+    PyObject *attr = PyObject_GetAttrString(py_np_metas, "elem_size");
+    if (attr == Py_None) return nullptr;
+    if (!PyLong_Check(attr) || !PyArg_Parse(attr, Py_INT, &np_meta->elem_size))
+        throw ModuleException("Numpy elem_size must be an int");
+    Py_DECREF(attr);
+
+
+
+    // Dims and ndims
+    attr = PyObject_GetAttrString(py_np_metas, "dims");
+    if (attr == Py_None || !PyList_Check(attr)) return nullptr;
+    int32_t ndims = PyList_Size(attr);
+    np_meta->dims.resize(ndims);
+    np_meta->strides.resize(ndims);
+
+
+    for (uint32_t dim_i = 0; dim_i < ndims; ++dim_i) {
+        PyObject *elem_dim = PyList_GetItem(attr, dim_i);
+        if (elem_dim == Py_None) return nullptr;
+        if (!PyLong_Check(elem_dim) || !PyArg_Parse(elem_dim, Py_INT, &np_meta->dims[dim_i]))
+            throw ModuleException("Numpy dims must be a list of ints");
+    }
+    Py_DECREF(attr);
+
+
+    // Strides
+    attr = PyObject_GetAttrString(py_np_metas, "strides");
+    if (attr == Py_None || !PyList_Check(attr)) return nullptr;
+    else {
+        if (PyList_Size(attr) != ndims) throw ModuleException("Numpy strides must be a list of ints");
+        for (uint32_t dim_i = 0; dim_i < ndims; ++dim_i) {
+            PyObject *elem_dim = PyList_GetItem(attr, dim_i);
+            if (elem_dim == Py_None) return nullptr;
+            if (!PyLong_Check(elem_dim) || !PyArg_Parse(elem_dim, Py_INT, &np_meta->strides[dim_i]))
+                throw ModuleException("Numpy strides must be a list of ints");
+        }
+    }
+    Py_DECREF(attr);
+
+
+    // Typekind (gentype) != typecode
+    attr = PyObject_GetAttrString(py_np_metas, "typekind");
+    if (attr == Py_None) return nullptr;
+
+    if (PyUnicode_Check(attr)) {
+        Py_ssize_t l_size;
+        const char *l_temp = PyUnicode_AsUTF8AndSize(attr, &l_size);
+        if (!l_temp)
+            throw ModuleException("Numpy typekind must be UTF8");
+        np_meta->typekind = std::string(l_temp, l_size + 1);
+    }
+    Py_DECREF(attr);
+
+    // Byteorder
+    attr = PyObject_GetAttrString(py_np_metas, "byteorder");
+    if (attr == Py_None) return nullptr;
+
+    if (PyUnicode_Check(attr)) {
+        Py_ssize_t l_size;
+        const char *l_temp = PyUnicode_AsUTF8AndSize(attr, &l_size);
+        if (!l_temp)
+            throw ModuleException("Byteorder must be UTF8");
+        np_meta->byteorder = std::string(l_temp, l_size + 1);
+    }
+    Py_DECREF(attr);
+
+
+    // Flags
+    attr = PyObject_GetAttrString(py_np_metas, "flags");
+    if (attr == Py_None) np_meta->flags = 0;
+    else if (!PyLong_Check(attr) || !PyArg_Parse(attr, Py_INT, &np_meta->flags))
+        throw ModuleException("Numpy flgs must be an int");
+    Py_DECREF(attr);
+
+    // Partition algorithm
+    attr = PyObject_GetAttrString(py_np_metas, "partition_type");
+    if (attr == Py_None) np_meta->partition_type = NO_PARTITIONS;
+    else if (!PyLong_Check(attr) || !PyArg_Parse(attr, Py_SHORT_INT, &np_meta->partition_type))
+        throw ModuleException("Numpy partition type must be an int");
+    Py_DECREF(attr);
+
+    return np_meta;
 }

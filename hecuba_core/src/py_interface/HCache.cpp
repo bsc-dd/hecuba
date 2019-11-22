@@ -321,7 +321,7 @@ static PyMethodDef hcache_type_methods[] = {
         {"iterkeys",   (PyCFunction) create_iter_keys,   METH_VARARGS, NULL},
         {"itervalues", (PyCFunction) create_iter_values, METH_VARARGS, NULL},
         {"iteritems",  (PyCFunction) create_iter_items,  METH_VARARGS, NULL},
-        {NULL, NULL,                                     0,            NULL}
+        {NULL,         NULL,                             0,            NULL}
 };
 
 
@@ -427,42 +427,28 @@ static uint64_t *parse_uuid(PyObject *py_storage_id) {
  * values of a list with a single numpy ndarray.
  */
 static PyObject *save_numpy(HNumpyStore *self, PyObject *args) {
-    PyObject *py_keys, *py_values;
-    if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_values)) {
+    PyObject *py_storage_id, *numpy, *py_np_metas;
+    if (!PyArg_ParseTuple(args, "OOO", &py_storage_id, &numpy, &py_np_metas)) {
         return NULL;
     }
 
-    // Only one uuid as a key
-    if (PyList_Size(py_keys) != 1) {
-        std::string error_msg = "Only one uuid as a key can be passed";
-        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
-        return NULL;
-    };
-
-    // Only one numpy as a value
-    if (PyList_Size(py_values) != 1) {
-        std::string error_msg = "Only one numpy can be saved at once";
-        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
-        return NULL;
-    };
-
-
-    for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
-        if (PyList_GetItem(py_keys, key_i) == Py_None) {
-            std::string error_msg = "Keys can't be None, key_position: " + std::to_string(key_i);
-            PyErr_SetString(PyExc_TypeError, error_msg.c_str());
-            return NULL;
-        }
-    }
-
-
-    const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
-
-    PyObject *numpy = PyList_GetItem(py_values, 0);
     if (numpy == Py_None) {
         std::string error_msg = "The numpy can't be None";
         PyErr_SetString(PyExc_TypeError, error_msg.c_str());
         return NULL;
+    }
+
+    const uint64_t *storage_id = parse_uuid(py_storage_id);
+    ArrayMetadata *metas;
+
+    try {
+        metas = self->NumpyDataStore->make_metadata(py_np_metas);
+    }
+    catch (std::exception &e) {
+        std::string error_msg = "Can't extract metadatas from np_meta before saving the numpy";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+
     }
 
     // Transform the object to the numpy ndarray
@@ -473,56 +459,52 @@ static PyObject *save_numpy(HNumpyStore *self, PyObject *args) {
         return NULL;
     }
 
-    // 1 Extract metadatas && write data
     try {
-        self->NumpyDataStore->store_numpy(storage_id, numpy_arr);
+        self->NumpyDataStore->store_numpy(storage_id, numpy_arr, metas);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
+
+    delete (metas);
 
     Py_RETURN_NONE;
 }
 
 
 static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
-    PyObject *py_keys;
-    if (!PyArg_ParseTuple(args, "O", &py_keys)) {
+    PyObject *py_storage_id, *py_np_metas;
+    if (!PyArg_ParseTuple(args, "OO", &py_storage_id, &py_np_metas)) {
         return NULL;
     }
 
-    for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
-        if (PyList_GetItem(py_keys, key_i) == Py_None) {
-            std::string error_msg = "Keys can't be None, key_position: " + std::to_string(key_i);
-            PyErr_SetString(PyExc_TypeError, error_msg.c_str());
-            return NULL;
-        }
+    const uint64_t *storage_id = parse_uuid(py_storage_id);
+
+    ArrayMetadata *metas;
+
+    try {
+        metas = self->NumpyDataStore->make_metadata(py_np_metas);
     }
-
-    // Only one uuid as a key
-    if (PyList_Size(py_keys) != 1) {
-        std::string error_msg = "Only one uuid as a key can be passed";
-        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+    catch (std::exception &e) {
+        std::string error_msg = "Can't extract metadatas from np_meta before reading";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
         return NULL;
-    };
 
-
-    const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
+    }
 
     PyObject *numpy;
     try {
-        numpy = self->NumpyDataStore->read_numpy(storage_id);
+        numpy = self->NumpyDataStore->read_numpy(storage_id, metas);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
 
+    delete (metas);
     // Wrap the numpy into a list to follow the standard format of Hecuba
-    PyObject *result_list = PyList_New(1);
-    PyList_SetItem(result_list, 0, numpy ? numpy : Py_None);
-    return result_list;
+    return numpy;
 }
 
 
@@ -586,7 +568,7 @@ static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) 
 static PyMethodDef hnumpy_store_type_methods[] = {
         {"get_numpy",  (PyCFunction) get_numpy,  METH_VARARGS, NULL},
         {"save_numpy", (PyCFunction) save_numpy, METH_VARARGS, NULL},
-        {NULL, NULL,                             0,            NULL}
+        {NULL,         NULL,                     0,            NULL}
 };
 
 
@@ -806,7 +788,7 @@ static void hiter_dealloc(HIterator *self) {
 
 static PyMethodDef hiter_type_methods[] = {
         {"get_next", (PyCFunction) get_next, METH_NOARGS, NULL},
-        {NULL, NULL,                         0,           NULL}
+        {NULL,       NULL,                   0,           NULL}
 };
 
 
@@ -995,7 +977,7 @@ static void hwriter_dealloc(HWriter *self) {
 
 static PyMethodDef hwriter_type_methods[] = {
         {"write", (PyCFunction) write_cass, METH_VARARGS, NULL},
-        {NULL, NULL,                        0,            NULL}
+        {NULL,    NULL,                     0,            NULL}
 };
 
 static PyTypeObject hfetch_HWriterType = {
@@ -1047,7 +1029,7 @@ static PyTypeObject hfetch_HWriterType = {
 static PyMethodDef module_methods[] = {
         {"connectCassandra",    (PyCFunction) connectCassandra,    METH_VARARGS, NULL},
         {"disconnectCassandra", (PyCFunction) disconnectCassandra, METH_NOARGS,  NULL},
-        {NULL, NULL,                                               0,            NULL}
+        {NULL,                  NULL,                              0,            NULL}
 };
 
 
