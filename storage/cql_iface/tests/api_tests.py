@@ -4,12 +4,12 @@ import uuid
 
 import numpy
 
-from storage.cql_iface.cql_comm import config
 from storage.cql_iface.cql_iface import CQLIface
 from storage.cql_iface.tests.mockIStorage import IStorage
 from storage.cql_iface.tests.mockStorageObj import StorageObj
 from storage.cql_iface.tests.mockhdict import StorageDict
 from storage.cql_iface.tests.mockhnumpy import StorageNumpy
+from .. import config
 
 
 class TestClass(IStorage):
@@ -247,6 +247,48 @@ class HfetchTests(unittest.TestCase):
         res = config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(myid)).one()
         self.assertEqual(res.name, name)
         config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
+
+    def test_delete_persistent_except_object_id_not_uuid(self):
+        with self.assertRaises(ValueError):
+            given_name = 'storage_test.dict'
+            config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
+
+            # Setup object
+            obj = TestClass(given_name)
+            myid = obj.getID()
+            name = obj.get_name()
+            data_model = {"type": StorageNumpy, "value_id": {"k": int}, "fields": {"a": str, "b": str}}
+
+            # Setup persistent storage
+            storage = CQLIface()
+            data_model_id = storage.add_data_model(data_model)
+
+            # Setup persistent storage
+            storage = CQLIface()
+            storage.register_persistent_object(data_model_id, obj)
+
+            storage.delete_persistent_object('exc')
+
+    def test_delete_persistent_object(self):
+        given_name = 'storage_test.dict'
+        config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
+
+        # Setup object
+        obj = TestClass(given_name)
+        myid = obj.getID()
+        name = obj.get_name()
+        data_model = {"type": StorageNumpy, "value_id": {"k": int}, "fields": {"a": str, "b": str}}
+
+        # Setup persistent storage
+        storage = CQLIface()
+        data_model_id = storage.add_data_model(data_model)
+
+        # Setup persistent storage
+        storage = CQLIface()
+        storage.register_persistent_object(data_model_id, obj)
+        storage.delete_persistent_object(myid)
+        res = config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(myid))
+        self.assertIsNone(res.one())
 
 
 if __name__ == "__main__":

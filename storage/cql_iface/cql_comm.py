@@ -6,7 +6,7 @@ from hfetch import Hcache, HNumpyStore
 
 from . import config
 from .config import _hecuba2cassandra_typemap, log
-from .queries import istorage_prepared_st, istorage_read_entry
+from .queries import istorage_prepared_st, istorage_read_entry, istorage_remove_entry
 from .tests.mockStorageObj import StorageObj
 from .tests.mockhdict import StorageDict
 
@@ -114,3 +114,8 @@ class CqlCOMM(object):
                 return HNumpyStore(*hcache_params)
             elif issubclass(definition.get("type", None), StorageDict):
                 return Hcache(*hcache_params)
+
+    @staticmethod
+    def delete_data(object_id):
+        config.execute(istorage_remove_entry, [object_id])
+        # TODO Use res to delete the appropriate data, maybe async

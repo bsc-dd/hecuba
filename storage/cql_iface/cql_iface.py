@@ -1,3 +1,4 @@
+import uuid
 from uuid import UUID
 
 from storage.cql_iface.tests.mockIStorage import IStorage
@@ -86,3 +87,13 @@ class CQLIface(StorageIface):
             self.hcache_by_id[object_id] = hc
         return object_id
 
+    def delete_persistent_object(self, object_id: UUID):
+        try:
+            uuid.UUID(str(object_id))
+        except ValueError:
+            raise ValueError("The object_id is not an UUID")
+        try:
+            CqlCOMM.delete_data(object_id)
+        except Exception:
+            return False
+        return True
