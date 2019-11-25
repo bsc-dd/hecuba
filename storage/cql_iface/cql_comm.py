@@ -95,13 +95,7 @@ class CqlCOMM(object):
                     self.internal_caches = {}
                     self.object_id = object_id
                     for col in definition["fields"].keys():
-                        hc = Hcache(ksp, table, object_id, [(-2 ** 63, 2 ** 63 - 1)], list(definition["value_id"].keys()), [col],
-                                    {'cache_size': config.max_cache_size,
-                                     'writer_par': config.write_callbacks_number,
-                                     'writer_buffer': config.write_buffer_size,
-                                     'timestamped_writes': config.timestamped_writes})
-
-                        self.internal_caches[col] = hc
+                        self.internal_caches[col] = Hcache(*CqlCOMM.hcache_parameters_generator(ksp, table, object_id, list(definition["value_id"].keys()), [col]))
 
                 def get_row(self, attr):
                     return self.internal_caches[attr].get_row([self.object_id])[0]
