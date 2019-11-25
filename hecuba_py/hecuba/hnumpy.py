@@ -67,6 +67,14 @@ class StorageNumpy(IStorage, np.ndarray):
     def __array_finalize__(self, obj):
         if obj is None:
             return
+        self.storage_id = getattr(obj, "storage_id", None)
+        self._hcache = getattr(obj, "_hcache", None)
+        self._build_args = getattr(obj, "_build_args", None)
+        try:
+            name = obj._get_name()
+            self._set_name(name)
+        except AttributeError:
+            pass
 
     @staticmethod
     def _create_tables(name):
