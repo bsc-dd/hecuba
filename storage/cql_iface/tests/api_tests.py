@@ -71,6 +71,13 @@ class HfetchTests(unittest.TestCase):
             # Register data models
             storage.add_data_model(data_model)
 
+    def test_add_data_model_except_incorrect_value_id(self):
+        with self.assertRaises(TypeError):
+            data_model = {"type": StorageObj, "value_id": {"k": dict}, "fields": {"a": str}}
+            storage = CQLIface()
+            # Register data models
+            storage.add_data_model(data_model)
+
     def test_add_data_different_types(self):
         data_model = {"type": mockClass, "value_id": {"k": int},
                       "fields": {"a": numpy.int64, "b": numpy.ndarray, "c": uuid.UUID}}
@@ -91,7 +98,7 @@ class HfetchTests(unittest.TestCase):
         self.assertTrue(storage.data_models_cache[id])
 
     def test_add_data_model_StorageObj(self):
-        data_model = {"type": StorageObj, "value_id": {"k": int}, "fields": {"a": str}}
+        data_model = {"type": StorageObj, "value_id": {"k": uuid.UUID}, "fields": {"a": str}}
         storage = CQLIface()
         # Register data models
         id = storage.add_data_model(data_model)
@@ -203,7 +210,7 @@ class HfetchTests(unittest.TestCase):
         obj = TestClass(given_name)
         myid = obj.getID()
         name = obj.get_name()
-        data_model = {"type": StorageObj, "value_id": {"k": int}, "fields": {"a": str, "b": str}}
+        data_model = {"type": StorageObj, "value_id": {"k": uuid.UUID}, "fields": {"a": str, "b": str}}
 
         # Setup persistent storage
         storage = CQLIface()

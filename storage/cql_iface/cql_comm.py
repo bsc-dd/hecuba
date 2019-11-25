@@ -91,12 +91,17 @@ class CqlCOMM(object):
         ksp, table = extract_ksp_table(name)
         if issubclass(definition.get("type", None), StorageObj):
             class HcacheWrapper(object):
-                def __init__(self, attributes, object_id, ksp, table):
+                def __init__(self, definition, object_id, ksp, table):
                     self.internal_caches = {}
                     self.object_id = object_id
-                    for attr in attributes:
-                        self.internal_caches[attr] = Hcache(
-                            CqlCOMM.hcache_parameters_generator(ksp, table, object_id, ["storage_id"], [attr]))
+                    for col in definition["fields"].keys():
+                        hc = Hcache(ksp, table, object_id, [(-2 ** 63, 2 ** 63 - 1)], list(definition["value_id"].keys()), [col],
+                                    {'cache_size': config.max_cache_size,
+                                     'writer_par': config.write_callbacks_number,
+                                     'writer_buffer': config.write_buffer_size,
+                                     'timestamped_writes': config.timestamped_writes})
+
+                        self.internal_caches[col] = hc
 
                 def get_row(self, attr):
                     return self.internal_caches[attr].get_row([self.object_id])[0]
@@ -104,7 +109,7 @@ class CqlCOMM(object):
                 def put_row(self, attr, val):
                     self.internal_caches[attr].put_row([self.object_id], [val])
 
-            return HcacheWrapper(definition["fields"].keys(), object_id, ksp, table)
+            return HcacheWrapper(definition, object_id, ksp, table)
 
         else:
             keys = [k for k in definition["value_id"].keys()]

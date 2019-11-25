@@ -1,9 +1,10 @@
-from uuid import UUID
+import uuid
 
 from storage.cql_iface.tests.mockIStorage import IStorage
 from .config import _hecuba2cassandra_typemap
 from .cql_comm import CqlCOMM
 from ..storage_iface import StorageIface
+from .tests.mockStorageObj import StorageObj
 
 """
 Mockup on how the Cassandra implementation of the interface could work.
@@ -46,6 +47,8 @@ class CQLIface(StorageIface):
             raise KeyError("Expected keys 'type', 'value_id' and 'fields'")
         if not (isinstance(definition["value_id"], dict) and isinstance(definition["fields"], dict)):
             raise TypeError("Expected keys 'value_id' and 'fields' to be dict")
+        if definition["type"] is StorageObj and not all([definition["value_id"][k] is uuid.UUID for k in definition["value_id"].keys()]):
+            raise TypeError("If the type is StorageObj the value_id values must be of type uuid")
         if not issubclass(definition["type"], IStorage):
             raise TypeError("Class must inherit IStorage")
         dm = sorted(definition.items())
@@ -59,7 +62,7 @@ class CQLIface(StorageIface):
             CqlCOMM.register_data_model(datamodel_id, definition)
         return datamodel_id
 
-    def register_persistent_object(self, datamodel_id: int, pyobject: IStorage) -> UUID:
+    def register_persistent_object(self, datamodel_id: int, pyobject: IStorage) -> uuid.UUID:
         if not isinstance(pyobject, IStorage):
             raise RuntimeError("Class does not inherit IStorage")
         elif not pyobject.is_persistent():
@@ -79,7 +82,7 @@ class CQLIface(StorageIface):
         CqlCOMM.register_istorage(object_id, object_name, data_model)
         CqlCOMM.create_table(object_name, data_model)
         obj_class = pyobject.__class__.__name__
-        if obj_class not in self.hcache_by_class:
+        if obj_class not in (self.hcache_by_class, self.hcache_by_name, self.hcache_by_id):
             hc = CqlCOMM.create_hcache(object_id, object_name, data_model)
             self.hcache_by_class[obj_class] = hc
             self.hcache_by_name[pyobject.get_name()] = hc
