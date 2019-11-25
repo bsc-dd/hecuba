@@ -1,3 +1,4 @@
+from typing import List
 from uuid import UUID
 
 from storage.cql_iface.tests.mockIStorage import IStorage
@@ -86,3 +87,10 @@ class CQLIface(StorageIface):
             self.hcache_by_id[object_id] = hc
         return object_id
 
+    def put_records(self, object_id, key_list: List[object], value_list: List[object]) -> None:
+
+        if not key_list:
+            return
+
+        for key, value in zip(key_list, value_list):
+            self.hcache_by_id[object_id].put_row(key, value)

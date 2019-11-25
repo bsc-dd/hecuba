@@ -248,6 +248,38 @@ class HfetchTests(unittest.TestCase):
         self.assertEqual(res.name, name)
         config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
 
+    def test_put_records(self):
+        given_name = 'storage_test.complex_obj'
+        config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
+
+        obj = TestClass(given_name)
+        myid = obj.getID()
+        data_model = {"type": StorageObj, "value_id": {"k": int}, "fields": {"a": int, "b": str, "c": float}}
+        given_name = 'storage_test.dict'
+        storage = CQLIface()
+        data_model_id = storage.add_data_model(data_model)
+        storage.register_persistent_object(data_model_id, obj)
+
+        fields_ids = []
+        values = []
+        ninserts = 10
+        for i in range(ninserts):
+            fields_ids.append([i * 10])
+            values.append([i, "someText{}".format(i), i / 10.0])
+
+        storage.put_records(myid, fields_ids, values)
+
+        returned_values = []
+        hcache = storage.hcache_by_id[myid]
+        for key in fields_ids:
+            returned_values.append(hcache.get_row(key))
+
+        self.assertEqual(len(values), len(returned_values))
+
+        for val, ret_val in zip(values, returned_values):
+            self.assertEqual(val, ret_val)
+
+        config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
 
 if __name__ == "__main__":
     unittest.main()

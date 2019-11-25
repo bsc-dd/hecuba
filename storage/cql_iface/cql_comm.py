@@ -95,8 +95,8 @@ class CqlCOMM(object):
                     self.internal_caches = {}
                     self.object_id = object_id
                     for attr in attributes:
-                        self.internal_caches[attr] = Hcache(
-                            CqlCOMM.hcache_parameters_generator(ksp, table, object_id, ["storage_id"], [attr]))
+                        hcache_params = CqlCOMM.hcache_parameters_generator(ksp, table, object_id, ["storage_id"], [attr])
+                        self.internal_caches[attr] = Hcache(*hcache_params)
 
                 def get_row(self, attr):
                     return self.internal_caches[attr].get_row([self.object_id])[0]
