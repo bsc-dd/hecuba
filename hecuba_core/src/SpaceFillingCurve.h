@@ -31,19 +31,22 @@ struct Partition {
 //TODO Inherit from CassUserType, pass the user type directly
 //Represents the shape and type of an array
 struct ArrayMetadata {
-    ArrayMetadata() {}
+    ArrayMetadata() = default;
 
-    ArrayMetadata(std::vector<uint32_t> dims, int32_t inner_type, uint32_t elem_size, uint8_t partition_type) {
+    ArrayMetadata(std::vector<uint32_t> &dims, std::vector<uint32_t> &strides, uint32_t elem_size,
+                  uint8_t partition_type, std::string &typekind, std::string &byteorder) {
         this->dims = dims;
-        this->inner_type = inner_type;
+        this->strides = strides;
         this->elem_size = elem_size;
         this->partition_type = partition_type;
+        this->typekind = typekind;
+        this->byteorder = byteorder;
     }
 
-    std::vector<uint32_t> dims;
-    int32_t inner_type;
-    uint32_t elem_size;
+    std::vector<uint32_t> dims, strides;
+    uint32_t elem_size, flags;
     uint8_t partition_type;
+    std::string typekind, byteorder;
 };
 
 

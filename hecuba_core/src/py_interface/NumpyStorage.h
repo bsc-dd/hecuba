@@ -11,6 +11,7 @@
 #define PY_ARRAY_UNIQUE_SYMBOL cool_ARRAY_API
 
 #include "numpy/arrayobject.h"
+#include "UnitParser.h"
 
 /***
  * Responsible to store a numpy to the keyspace.table_numpies, associating an attribute_name and a storage_id(uuid)
@@ -25,15 +26,11 @@ public:
 
     ~NumpyStorage();
 
-    void store_numpy(const uint64_t *storage_id, PyArrayObject *numpy) const;
+    void store_numpy(const uint64_t *storage_id, PyArrayObject *numpy, ArrayMetadata *) const;
 
-    PyObject *read_numpy(const uint64_t *storage_id);
+    PyObject *read_numpy(const uint64_t *storage_id, ArrayMetadata *np_metas);
 
-
-private:
-
-    ArrayMetadata *get_np_metadata(PyArrayObject *numpy) const;
-
+    ArrayMetadata *make_metadata(PyObject *py_np_metas) const;
 };
 
 

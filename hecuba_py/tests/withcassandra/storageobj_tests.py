@@ -782,12 +782,12 @@ class StorageObjTest(unittest.TestCase):
 
     def test_numpy_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.TestStorageObjNumpy")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy")
         my_so = TestStorageObjNumpy('tnp')
 
     def test_numpy_set(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.TestStorageObjNumpy")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy")
         my_so = TestStorageObjNumpy()
         my_so.mynumpy = np.random.rand(3, 2)
         my_so.make_persistent('mynewso')
@@ -795,7 +795,7 @@ class StorageObjTest(unittest.TestCase):
     def test_numpy_get(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.TestStorageObjNumpy")
         config.session.execute("DROP TABLE IF EXISTS my_app.TestStorageObjNumpy_mynumpy")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy")
         my_so = TestStorageObjNumpy('mynewso')
         mynumpy = np.random.rand(3, 2)
         my_so.mynumpy = mynumpy
@@ -804,32 +804,32 @@ class StorageObjTest(unittest.TestCase):
 
     def test_numpy_topersistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.TestStorageObjNumpy")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy")
         my_so = TestStorageObjNumpy()
         my_so.mynumpy = np.random.rand(3, 2)
         my_so.make_persistent('mynewso')
 
     def test_numpydict_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.TestStorageObjNumpy")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy")
         my_so = TestStorageObjNumpyDict('mynewso')
 
     def test_numpydict_set(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.TestStorageObjNumpy")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy")
         my_so = TestStorageObjNumpyDict('mynewso')
         my_so.mynumpydict[0] = np.random.rand(3, 2)
 
     def test_numpydict_to_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.TestStorageObjNumpy")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy")
         my_so = TestStorageObjNumpyDict()
         my_so.mynumpydict[0] = np.random.rand(3, 2)
         my_so.make_persistent('mynewso')
 
     def test_numpydict_get(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.TestStorageObjNumpy")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy")
         my_so = TestStorageObjNumpyDict()
         mynumpydict = np.random.rand(3, 2)
         my_so.mynumpydict[0] = mynumpydict
@@ -840,7 +840,7 @@ class StorageObjTest(unittest.TestCase):
 
     def test_numpy_operations(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
-        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy")
         my_so = TestStorageObjNumpy()
         base_numpy = np.arange(2048)
         my_so.mynumpy = np.arange(2048)
@@ -855,7 +855,7 @@ class StorageObjTest(unittest.TestCase):
 
     def test_numpy_ops_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso2")
-        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso2_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso2_mynumpy")
         my_so = TestStorageObjNumpy()
         base_numpy = np.arange(2048)
         my_so.mynumpy = np.arange(2048)
@@ -897,7 +897,7 @@ class StorageObjTest(unittest.TestCase):
         a = no.mynumpy
 
         final_name_so = no._ksp + '.' + no._table
-        final_name_np = no.mynumpy._ksp + '.' + no.mynumpy._table + '_numpies'
+        final_name_np = no.mynumpy._ksp + '.' + no.mynumpy._table
         self.assertEqual(initial_name_so, final_name_so)
         self.assertEqual(initial_name_np, final_name_np)
 

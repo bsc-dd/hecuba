@@ -126,5 +126,25 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertTrue(np.allclose(chunk.view(np.ndarray), test_numpy))
 
 
+    def test_mulitply(self):
+        nelem = 2 ** 10
+        elem_dim = 2 ** 5
+
+        storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, "test_mult")
+        base_array = np.arange(nelem).reshape((elem_dim, elem_dim))
+        casted = StorageNumpy(input_array=base_array, name="testing_arrays.test_mult", storage_id=storage_id)
+        import gc
+        del casted
+        gc.collect()
+        test_numpy = np.arange(nelem).reshape((elem_dim, elem_dim))
+        casted = StorageNumpy(name="testing_arrays.test_mult", storage_id=storage_id)
+        chunk = casted[slice(None, None, None)]
+        result = np.multiply(chunk, base_array)
+        result2 = np.multiply(base_array, chunk)
+        result3 = np.multiply(base_array, base_array)
+        self.assertTrue(np.array_equal(result, result2))
+        self.assertTrue(np.array_equal(result3, result3))
+
+
 if __name__ == '__main__':
     unittest.main()

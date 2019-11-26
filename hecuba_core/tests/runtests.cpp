@@ -250,7 +250,6 @@ TEST(TestMakePartitions, 2DZorder) {
     std::vector<uint32_t> ccs = {nrows, ncols};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
-    arr_metas->inner_type = CASS_VALUE_TYPE_INT;
     arr_metas->elem_size = sizeof(int32_t);
     arr_metas->partition_type = ZORDER_ALGORITHM;
 
@@ -304,7 +303,6 @@ TEST(TestMakePartitions, 2DZorderZeroes) {
     std::vector<uint32_t> ccs = {nrows, ncols};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
-    arr_metas->inner_type = CASS_VALUE_TYPE_DOUBLE;
     arr_metas->elem_size = sizeof(double);
     arr_metas->partition_type = ZORDER_ALGORITHM;
 
@@ -351,7 +349,6 @@ TEST(TestMakePartitions, 3DZorder_Small) {
     std::vector<uint32_t> ccs = {17, 17, 17};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
-    arr_metas->inner_type = CASS_VALUE_TYPE_INT;
     arr_metas->elem_size = sizeof(int32_t);
     arr_metas->partition_type = ZORDER_ALGORITHM;
 
@@ -406,7 +403,6 @@ TEST(TestMakePartitions, 3DZorder_Medium) {
     std::vector<uint32_t> ccs = {250, 150, 500};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
-    arr_metas->inner_type = CASS_VALUE_TYPE_INT;
     arr_metas->elem_size = sizeof(int32_t);
     arr_metas->partition_type = ZORDER_ALGORITHM;
 
@@ -462,7 +458,6 @@ TEST(TestMakePartitions, 3DZorder_Big) {
     std::vector<uint32_t> ccs = {512, 256, 512};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
-    arr_metas->inner_type = CASS_VALUE_TYPE_INT;
     arr_metas->elem_size = sizeof(int32_t);
     arr_metas->partition_type = ZORDER_ALGORITHM;
 
@@ -521,7 +516,6 @@ TEST(TestMakePartitions, NDZorder) {
     ArrayMetadata *arr_metas = new ArrayMetadata();
     while (ccs.size() <= max_dims) {
         arr_metas->dims = ccs;
-        arr_metas->inner_type = CASS_VALUE_TYPE_INT;
         arr_metas->elem_size = sizeof(int32_t);
         arr_metas->partition_type = ZORDER_ALGORITHM;
 
@@ -584,7 +578,6 @@ TEST(TestMakePartitions, 2DZorder128Double) {
     std::vector<uint32_t> ccs = {nrows, ncols}; //4D 128 elements
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
-    arr_metas->inner_type = CASS_VALUE_TYPE_DOUBLE;
     arr_metas->elem_size = sizeof(double);
     arr_metas->partition_type = ZORDER_ALGORITHM;
 
@@ -643,7 +636,6 @@ TEST(TestMakePartitions, 2DZorderByRange) {
             std::vector<uint32_t> ccs = {nrows, ncols}; //4D 128 elements
             ArrayMetadata *arr_metas = new ArrayMetadata();
             arr_metas->dims = ccs;
-            arr_metas->inner_type = CASS_VALUE_TYPE_DOUBLE;
             arr_metas->elem_size = sizeof(double);
             arr_metas->partition_type = ZORDER_ALGORITHM;
 
@@ -708,7 +700,6 @@ TEST(TestMakePartitions, 2DNopart) {
     std::vector<uint32_t> ccs = {ncols, nrows};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
-    arr_metas->inner_type = CASS_VALUE_TYPE_INT;
     arr_metas->elem_size = sizeof(int32_t);
     arr_metas->partition_type = NO_PARTITIONS;
 
@@ -742,7 +733,6 @@ TEST(TestMakePartitions, 3DZorderAndReverse) {
     std::vector<uint32_t> ccs = {45, 17, 32};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
-    arr_metas->inner_type = CASS_VALUE_TYPE_INT;
     arr_metas->elem_size = sizeof(int32_t);
     arr_metas->partition_type = ZORDER_ALGORITHM;
 
@@ -814,7 +804,6 @@ TEST(TestMakePartitions, 4DZorderAndReverse) {
     std::vector<uint32_t> ccs = {100, 20, 150, 30};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
-    arr_metas->inner_type = CASS_VALUE_TYPE_INT;
     arr_metas->elem_size = sizeof(int32_t);
     arr_metas->partition_type = ZORDER_ALGORITHM;
 
@@ -883,7 +872,6 @@ TEST(TestMakePartitions, ReadBlockOnlyOnce) {
     std::vector<uint32_t> ccs = {nrows, ncols};
     ArrayMetadata *arr_metas = new ArrayMetadata();
     arr_metas->dims = ccs;
-    arr_metas->inner_type = CASS_VALUE_TYPE_INT;
     arr_metas->elem_size = sizeof(int32_t);
     arr_metas->partition_type = ZORDER_ALGORITHM;
 
