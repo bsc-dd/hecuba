@@ -82,7 +82,7 @@ class CQLIface(StorageIface):
         CqlCOMM.register_istorage(object_id, object_name, data_model)
         CqlCOMM.create_table(object_name, data_model)
         obj_class = pyobject.__class__.__name__
-        if obj_class not in (self.hcache_by_class, self.hcache_by_name, self.hcache_by_id):
+        if obj_class not in self.hcache_by_class:
             hc = CqlCOMM.create_hcache(object_id, object_name, data_model)
             self.hcache_by_class[obj_class] = hc
             self.hcache_by_name[pyobject.get_name()] = hc

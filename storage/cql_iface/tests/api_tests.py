@@ -14,7 +14,7 @@ from storage.cql_iface.tests.mockhnumpy import StorageNumpy
 
 class TestClass(IStorage):
 
-    def __new__(cls, name='', *args, **kwargs):
+    def __new__(cls, *args, name='', **kwargs):
         toret = super(TestClass, cls).__new__(cls, name)
         return toret
 
@@ -148,7 +148,7 @@ class HfetchTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             # Setup object
             given_name = 'storage_test.custom_obj'
-            obj = TestClass(given_name)
+            obj = TestClass(name=given_name)
             data_model = {"type": mockClass, "value_id": {"k": str}, "fields": {"a": int}}
 
             # Setup persistent storage
@@ -180,7 +180,7 @@ class HfetchTests(unittest.TestCase):
         with self.assertRaises(KeyError):
             # Setup object
             given_name = 'storage_test.custom_obj'
-            obj = TestClass(given_name)
+            obj = TestClass(name=given_name)
             data_model = {"type": mockClass, "value_id": {"k": str}, "fields": {"a": int}}
 
             # Setup persistent storage
@@ -190,7 +190,7 @@ class HfetchTests(unittest.TestCase):
     def test_register_persistent_obj_dict_ints(self):
         given_name = 'storage_test.custom_obj'
         config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
-        obj = TestClass(given_name)
+        obj = TestClass(name=given_name)
         myid = obj.getID()
         name = obj.get_name()
         data_model = {"type": TestClass, "value_id": {"k": str}, "fields": {"a": int}}
@@ -207,7 +207,7 @@ class HfetchTests(unittest.TestCase):
     def test_register_persistent_obj_storage_obj(self):
         given_name = 'storage_test.custom_obj'
         config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
-        obj = TestClass(given_name)
+        obj = TestClass(name=given_name)
         myid = obj.getID()
         name = obj.get_name()
         data_model = {"type": StorageObj, "value_id": {"k": uuid.UUID}, "fields": {"a": str, "b": str}}
@@ -224,7 +224,7 @@ class HfetchTests(unittest.TestCase):
     def test_register_persistent_obj_storage_dict(self):
         given_name = 'storage_test.custom_obj'
         config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
-        obj = TestClass(given_name)
+        obj = TestClass(name=given_name)
         myid = obj.getID()
         name = obj.get_name()
         data_model = {"type": StorageDict, "value_id": {"k": int}, "fields": {"a": str, "b": str}}
@@ -241,7 +241,7 @@ class HfetchTests(unittest.TestCase):
     def test_register_persistent_obj_storage_numpy(self):
         given_name = 'storage_test.custom_obj'
         config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
-        obj = TestClass(given_name)
+        obj = TestClass(name=given_name)
         myid = obj.getID()
         name = obj.get_name()
         data_model = {"type": StorageNumpy, "value_id": {"k": int}, "fields": {"a": str, "b": str}}
