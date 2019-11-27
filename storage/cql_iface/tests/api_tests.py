@@ -263,11 +263,26 @@ class HfetchTests(unittest.TestCase):
             storage = CQLIface()
             data_model_id = storage.add_data_model(data_model)
 
-            # Setup persistent storage
-            storage = CQLIface()
             storage.register_persistent_object(data_model_id, obj)
 
             storage.delete_persistent_object('exc')
+
+    def test_delete_persistent_except_no_records_object_id(self):
+        given_name = 'storage_test.dict'
+        config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
+
+        # Setup object
+        obj = TestClass(given_name)
+        myid = obj.getID()
+        name = obj.get_name()
+        data_model = {"type": StorageDict, "value_id": {"k": int}, "fields": {"a": str, "b": str}}
+
+        # Setup persistent storage
+        storage = CQLIface()
+        data_model_id = storage.add_data_model(data_model)
+
+        is_correct = storage.delete_persistent_object(myid)
+        self.assertFalse(is_correct)
 
     def test_delete_persistent_object(self):
         given_name = 'storage_test.dict'
@@ -277,15 +292,18 @@ class HfetchTests(unittest.TestCase):
         obj = TestClass(given_name)
         myid = obj.getID()
         name = obj.get_name()
-        data_model = {"type": StorageNumpy, "value_id": {"k": int}, "fields": {"a": str, "b": str}}
+        data_model = {"type": StorageDict, "value_id": {"k": int}, "fields": {"a": str, "b": str}}
 
         # Setup persistent storage
         storage = CQLIface()
         data_model_id = storage.add_data_model(data_model)
 
-        # Setup persistent storage
-        storage = CQLIface()
         storage.register_persistent_object(data_model_id, obj)
+
+        fields_ids = [8]
+        values = ["a", "b"]
+        storage.put_record(myid, fields_ids, values)
+
         storage.delete_persistent_object(myid)
         res = config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(myid))
         self.assertIsNone(res.one())

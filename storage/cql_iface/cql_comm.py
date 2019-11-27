@@ -91,12 +91,14 @@ class CqlCOMM(object):
         ksp, table = extract_ksp_table(name)
         if issubclass(definition.get("type", None), StorageObj):
             class HcacheWrapper(object):
-                def __init__(self, attributes, object_id, ksp, table):
+                def __init__(self, definition, object_id, ksp, table):
                     self.internal_caches = {}
                     self.object_id = object_id
-                    for attr in attributes:
-                        self.internal_caches[attr] = Hcache(
-                            CqlCOMM.hcache_parameters_generator(ksp, table, object_id, ["storage_id"], [attr]))
+                    for col in definition["fields"].keys():
+                        self.internal_caches[col] = Hcache(*CqlCOMM.hcache_parameters_generator(ksp, table, object_id,
+                                                                                                list(definition[
+                                                                                                         "value_id"].keys()),
+                                                                                                [col]))
 
                 def get_row(self, attr):
                     return self.internal_caches[attr].get_row([self.object_id])[0]
@@ -104,7 +106,7 @@ class CqlCOMM(object):
                 def put_row(self, attr, val):
                     self.internal_caches[attr].put_row([self.object_id], [val])
 
-            return HcacheWrapper(definition["fields"].keys(), object_id, ksp, table)
+            return HcacheWrapper(definition, object_id, ksp, table)
 
         else:
             keys = [k for k in definition["value_id"].keys()]
@@ -117,5 +119,10 @@ class CqlCOMM(object):
 
     @staticmethod
     def delete_data(object_id):
+        res = config.execute(istorage_read_entry, [object_id])
+        if res:
+            res = res.one()
+        else:
+            raise ValueError("There are no records with the specified object_id")
         config.execute(istorage_remove_entry, [object_id])
-        # TODO Use res to delete the appropriate data, maybe async
+        config.execute(f'TRUNCATE TABLE {res.name}', None)
