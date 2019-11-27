@@ -439,7 +439,7 @@ static PyObject *save_numpy(HNumpyStore *self, PyObject *args) {
     }
 
     const uint64_t *storage_id = parse_uuid(py_storage_id);
-    ArrayMetadata *metas;
+    ArrayMetadata metas;
 
     try {
         metas = self->NumpyDataStore->make_metadata(py_np_metas);
@@ -467,7 +467,6 @@ static PyObject *save_numpy(HNumpyStore *self, PyObject *args) {
         return NULL;
     }
 
-    delete (metas);
 
     Py_RETURN_NONE;
 }
@@ -481,7 +480,7 @@ static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
 
     const uint64_t *storage_id = parse_uuid(py_storage_id);
 
-    ArrayMetadata *metas;
+    ArrayMetadata metas;
 
     try {
         metas = self->NumpyDataStore->make_metadata(py_np_metas);
@@ -502,7 +501,6 @@ static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
         return NULL;
     }
 
-    delete (metas);
     // Wrap the numpy into a list to follow the standard format of Hecuba
     return numpy;
 }
@@ -1255,6 +1253,7 @@ PyInit_hfetch(void) {
     PyModule_AddObject(m, "HIterator", (PyObject * ) & hfetch_HIterType);
     PyModule_AddObject(m, "HWriter", (PyObject * ) & hfetch_HWriterType);
     PyModule_AddObject(m, "HNumpyStore", (PyObject * ) & hfetch_HNumpyStoreType);
+    //PyModule_AddObject(m, "HArrayMetadata", (PyObject * ) & hfetch_HArrayMetadataType);
     if (_import_array() < 0) {
         PyErr_Print();
         PyErr_SetString(PyExc_ImportError, "numpy.core.multiarray failed to import");
