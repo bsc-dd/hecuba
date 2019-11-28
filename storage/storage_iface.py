@@ -37,13 +37,3 @@ class StorageIface(metaclass=ABCMeta):
         :return: -
         """
         pass
-
-    @abstractmethod
-    def get_record(self, object_id: UUID, key_list: List[object]) -> List[object]:
-        """
-        Returns a list with the records corresponding to the key_list for the Hecuba object referenced by `object_id`.
-        :param object_id: Hecuba object identifier
-        :param key_list: List with the keys of the records to be retrieved.
-        :return: List of the records corresponding to the keys contained in key_list
-        """
-        pass
