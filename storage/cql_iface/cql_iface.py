@@ -117,7 +117,7 @@ class CQLIface(StorageIface):
             if not (all(x in data_model["fields"].keys() for x in key_list)):
                 raise KeyError("value_list must have the keys that exist in the data model")
             dict_of_kv = dict(zip(key_list, value_list))
-            if not all([isinstance(dict_of_kv[k], data_model["fields"][k]) for k in
+            if not all([isinstance(dict_of_kv[k], data_model["fields"][k]) or dict_of_kv[k] is None for k in
                         key_list]):
                 raise TypeError("the value types must be of the same class types as the data model")
             for key, value in zip(key_list, value_list):
@@ -127,7 +127,7 @@ class CQLIface(StorageIface):
                 raise ValueError("The length of the keys and values should be the same one as the data model definition")
             if not all([isinstance(ke, kc) for ke, kc in zip(key_list, data_model["value_id"].values())]):
                 raise TypeError("The key types don't match the data model specification")
-            if not all([isinstance(ke, kc) for ke, kc in zip(value_list, data_model["fields"].values())]):
+            if not all([isinstance(ke, kc) or ke is None for ke, kc in zip(value_list, data_model["fields"].values())]):
                 raise TypeError("The value types don't match the data model specification")
             self.hcache_by_id[object_id].put_row(key_list, value_list)
 
@@ -135,3 +135,23 @@ class CQLIface(StorageIface):
             raise NotImplemented("The class type is not supported")
         else:
             raise NotImplemented("The class type is not supported")
+
+    def get_record(self, object_id: UUID, key_list: List[object]) -> List[object]:
+        results = []
+        try:
+            UUID(str(object_id))
+        except ValueError:
+            raise ValueError("The object_id is not an UUID")
+        if not key_list:
+            raise TypeError("key_list cannot be None")
+        if not isinstance(key_list, list):
+            raise TypeError("key_list must be a list")
+        try:
+            hcache = self.hcache_by_id[object_id]
+        except KeyError:
+            raise KeyError("The object_id is not registered as a persistent object")
+        try:
+            results.append(hcache.get_row(key_list))
+        except Exception:
+            results.append([])
+        return results
