@@ -24,7 +24,30 @@ class StorageNumpy(IStorage, np.ndarray):
     args_names = ["storage_id", "class_name", "name", "shape", "dtype", "block_id", "built_remotely"]
     args = namedtuple('StorageNumpyArgs', args_names)
 
-    def __new__(cls, input_array=None, storage_id=None, name=None, built_remotely=False, **kwargs):
+    def np_split(self, block_size, axis=0):
+        # iterate through rows
+        if axis == 0 or axis == 'rows':
+            n_rows, n_cols = self.shape
+            splits = n_rows // block_size
+            for i, chunk in enumerate(np.split(self.view(np.ndarray), splits, axis=0)):  # is reading the entire numpy
+                import uuid
+                storage_id = uuid.uuid4()
+                new_args = self._build_args._replace(shape=chunk.shape, storage_id=storage_id, block_id=i)
+                args_dict = new_args._asdict()
+                args_dict["built_remotely"] = True
+                if len(chunk.shape) != 0:
+                    self._hcache.store_numpy_slices([storage_id], [chunk.view(np.ndarray)], None)
+                obj = StorageNumpy(input_array=chunk, **args_dict)
+                yield obj
+
+        elif axis == 1 or axis == 'columns':
+            raise Exception("Not implemented yet.")
+
+        else:
+            raise Exception(
+                "Axis must be [0|'rows'] or [1|'columns']. Got: %s" % axis)
+
+    def __new__(cls, input_array=None, storage_id=None, name=None, built_remotely=False, block_id=-1, **kwargs):
         if storage_id and not name:
             metas = get_istorage_attrs(storage_id)
             name = metas[0].name
@@ -43,14 +66,27 @@ class StorageNumpy(IStorage, np.ndarray):
         obj._set_name(name)
         obj._numpy_full_loaded = False
         obj._loaded_coordinates = []
-        obj._block_id = -1
+        obj._block_id = block_id
         obj._built_remotely = built_remotely
+        if obj._built_remotely and obj._block_id == -1:
+            metas = get_istorage_attrs(storage_id)[0]
+            obj._block_id = metas.numpy_meta.block_id
         obj._class_name = '%s.%s' % (cls.__module__, cls.__name__)
         return obj
 
     def __init__(self, input_array=None, storage_id=None, name=None, **kwargs):
         IStorage.__init__(self, storage_id=storage_id, name=self._get_name(), **kwargs)
-        if self._get_name() or self.storage_id:
+        if self._built_remotely:
+            self._build_args = self.args(self.storage_id, self._class_name, name,
+                                         self.shape, self.dtype.num, self._block_id, self._built_remotely)
+            StorageNumpy._store_meta(self._build_args)
+
+            if not getattr(self, '_hcache', None):
+                self._hcache = self._create_hcache(name)
+            self._row_elem = self._hcache.get_elements_per_row(self.storage_id)[0]
+            self._is_persistent = True
+
+        elif self._get_name() or self.storage_id:
             if input_array is not None:
                 self.make_persistent(self._get_name())
             self._row_elem = self._hcache.get_elements_per_row(self.storage_id)[0]
@@ -201,7 +237,14 @@ class StorageNumpy(IStorage, np.ndarray):
         config.session.execute(query2)
 
     def __iter__(self):
-        return iter(self.view(np.ndarray))
+        if self._block_id != -1:
+            # start_chunk = self.shape[0] * self._block_id
+            # end_chunk = self.shape[0] * (self._block_id + 1)
+            start_chunk = 0
+            end_chunk = self.shape[0]
+            return iter(self[start_chunk:end_chunk].view(np.ndarray))
+        else:
+            return iter(self.view(np.ndarray))
 
     def __contains__(self, item):
         return item in self.view(np.ndarray)
