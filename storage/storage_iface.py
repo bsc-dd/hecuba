@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from typing import List
 from uuid import UUID
 from storage.cql_iface.tests.mockIStorage import IStorage
 

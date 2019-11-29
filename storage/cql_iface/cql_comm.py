@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Tuple, FrozenSet
 from uuid import UUID
 
 import numpy
@@ -45,6 +45,20 @@ class CqlCOMM(object):
         pass
 
     @staticmethod
+    def parse_definition_to_cass_format(fields_dict):
+        all_values = ""
+        for k, v in fields_dict.items():
+            try:
+                all_values = all_values + "%s %s," % (k, _hecuba2cassandra_typemap[v])
+            except KeyError:
+                val = str(v)
+                if issubclass(v.__origin__, Tuple):
+                    all_values = all_values + str(k) + f" tuple<{val[val.find('[') + 1:val.rfind(']')]}>,"
+                elif issubclass(v.__origin__, FrozenSet):
+                    all_values = all_values + str(k) + f" frozen <set<{val[val.find('[') + 1:val.rfind(']')]}>>,"
+        return all_values[:-1]
+
+    @staticmethod
     def create_table(name: str, definition: dict) -> None:
         # StorageObj for now
         ksp, table = extract_ksp_table(name)
@@ -58,9 +72,9 @@ class CqlCOMM(object):
         if definition["type"] is numpy.ndarray:
             pks = "(storage_id, cluster_id),block_id"
 
-        all_keys = ",".join("%s %s" % (k, _hecuba2cassandra_typemap[v]) for k, v in primary_keys.items())
-        all_cols = ",".join("%s %s" % (k, _hecuba2cassandra_typemap[v]) for k, v in columns.items())
-        if all_cols:
+        all_keys = CqlCOMM.parse_definition_to_cass_format(primary_keys)
+        if columns:
+            all_cols = CqlCOMM.parse_definition_to_cass_format(columns)
             total_cols = all_keys + ',' + all_cols
         else:
             total_cols = all_keys
@@ -95,7 +109,10 @@ class CqlCOMM(object):
                     self.internal_caches = {}
                     self.object_id = object_id
                     for col in definition["fields"].keys():
-                        self.internal_caches[col] = Hcache(*CqlCOMM.hcache_parameters_generator(ksp, table, object_id, list(definition["value_id"].keys()), [col]))
+                        self.internal_caches[col] = Hcache(*CqlCOMM.hcache_parameters_generator(ksp, table, object_id,
+                                                                                                list(definition[
+                                                                                                         "value_id"].keys()),
+                                                                                                [col]))
 
                 def get_row(self, attr):
                     return self.internal_caches[attr].get_row([self.object_id])[0]
@@ -106,9 +123,9 @@ class CqlCOMM(object):
             return HcacheWrapper(definition, object_id, ksp, table)
 
         else:
-            keys = [k for k in definition["value_id"].keys()]
-            columns = [k for k in definition["fields"].keys()]
-            hcache_params = CqlCOMM.hcache_parameters_generator(ksp, table, object_id, keys, columns)
+            hcache_params = CqlCOMM.hcache_parameters_generator(ksp, table, object_id,
+                                                                list(definition["value_id"].keys()),
+                                                                list(definition["fields"].keys()))
             if definition["type"] is numpy.ndarray:
                 return HNumpyStore(*hcache_params)
             elif issubclass(definition.get("type", None), StorageDict):

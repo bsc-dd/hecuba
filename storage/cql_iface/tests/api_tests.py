@@ -14,12 +14,22 @@ from storage.cql_iface.tests.mockhnumpy import StorageNumpy
 
 class TestClass(IStorage):
 
-    def __new__(cls, *args, name='', **kwargs):
+    def __new__(cls, name='', *args, **kwargs):
         toret = super(TestClass, cls).__new__(cls, name)
         return toret
 
     def __init__(self, *args, **kwargs):
         super(TestClass, self).__init__()
+
+
+class TestClass2(IStorage):
+
+    def __new__(cls, *args, name='', **kwargs):
+        toret = super(TestClass2, cls).__new__(cls, name)
+        return toret
+
+    def __init__(self, *args, **kwargs):
+        super(TestClass2, self).__init__()
 
 
 class mockClass(IStorage):
