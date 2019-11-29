@@ -1,5 +1,5 @@
 import itertools
-from typing import List
+from typing import List, Tuple, FrozenSet
 from uuid import UUID
 
 from storage.cql_iface.tests.mockhnumpy import StorageNumpy
@@ -18,7 +18,7 @@ Mockup on how the Cassandra implementation of the interface could work.
 
 
 class CQLIface(StorageIface):
-    data_model_hcache = []
+    hcache_datamodel = []
     # DataModelID - DataModelDef
     data_models_cache = {}
     # StorageID - DataModelID
@@ -43,9 +43,16 @@ class CQLIface(StorageIface):
                 CQLIface.check_values_from_definition(v)
         else:
             try:
-                _hecuba2cassandra_typemap[definition]
-            except KeyError:
-                raise TypeError(f"The type {definition} is not supported")
+                if isinstance(definition.__origin__, (Tuple, FrozenSet)):
+                    try:
+                        _hecuba2cassandra_typemap[definition.__origin__]
+                    except KeyError:
+                        raise TypeError(f"The type {definition} is not supported")
+            except AttributeError:
+                try:
+                    _hecuba2cassandra_typemap[definition]
+                except KeyError:
+                    raise TypeError(f"The type {definition} is not supported")
 
     def add_data_model(self, definition: dict) -> int:
         if not isinstance(definition, dict):
@@ -60,6 +67,8 @@ class CQLIface(StorageIface):
             raise TypeError("Class must inherit IStorage")
         dm = sorted(definition.items())
         datamodel_id = hash(str(dm))
+        print(datamodel_id)
+        print(self.data_models_cache.keys())
         try:
             self.data_models_cache[datamodel_id]
         except KeyError:
@@ -81,19 +90,17 @@ class CQLIface(StorageIface):
         except KeyError:
             raise KeyError("Before making a pyobject persistent, the data model needs to be registered")
         object_id = pyobject.getID()
-         #TODO an object to data model can have more than 1 data model id, because the class and name can be the same one for different datamodels, for now we replace AND we change the name of the class in order to create hcache (another problem)
         self.object_to_data_model[object_id] = datamodel_id
         object_name = pyobject.get_name()
         CqlCOMM.register_istorage(object_id, object_name, data_model)
         CqlCOMM.create_table(object_name, data_model)
         obj_class = pyobject.__class__.__name__
-        if datamodel_id not in self.data_model_hcache or obj_class not in self.hcache_by_class or object_name \
-                not in self.hcache_by_name or not object_id in self.hcache_by_id:
+        if datamodel_id not in self.well or obj_class not in self.hcache_by_class or object_name not in self.hcache_by_name or object_id not in self.hcache_by_id:
+            self.hcache_datamodel.append(datamodel_id)
             hc = CqlCOMM.create_hcache(object_id, object_name, data_model)
             self.hcache_by_class[obj_class] = hc
             self.hcache_by_name[object_name] = hc
             self.hcache_by_id[object_id] = hc
-            self.data_model_hcache.append(datamodel_id)
         return object_id
 
     def put_record(self, object_id: UUID, key_list: List[object], value_list: List[object]) -> None:
@@ -117,19 +124,36 @@ class CQLIface(StorageIface):
             if not (all(x in data_model["fields"].keys() for x in key_list)):
                 raise KeyError("value_list must have the keys that exist in the data model")
             dict_of_kv = dict(zip(key_list, value_list))
-            if not all([isinstance(dict_of_kv[k], data_model["fields"][k]) for k in
-                        key_list]):
-                raise TypeError("the value types must be of the same class types as the data model")
+            for k in key_list:
+                try:
+                    if not isinstance(dict_of_kv[k], data_model["fields"][k]) and dict_of_kv[k] is not None:
+                        raise Exception("the value types must be of the same class types as the data model")
+                except TypeError:
+                    if not isinstance(dict_of_kv[k], data_model["fields"][k].__origin__):
+                        raise TypeError("The value types don't match the data model specification")
             for key, value in zip(key_list, value_list):
                 self.hcache_by_id[object_id].put_row(key, value)
         elif issubclass(data_model["type"], StorageDict):
             if len(key_list) != len(data_model["value_id"].keys()) or len(value_list) != len(data_model["fields"].keys()):
                 raise ValueError("The length of the keys and values should be the same one as the data model definition")
-            if not all([isinstance(ke, kc) for ke, kc in zip(key_list, data_model["value_id"].values())]):
-                raise TypeError("The key types don't match the data model specification")
-            if not all([isinstance(ke, kc) for ke, kc in zip(value_list, data_model["fields"].values())]):
-                raise TypeError("The value types don't match the data model specification")
+
+            for ke, kc in zip(key_list, data_model["value_id"].values()):
+                try:
+                    if not isinstance(ke, kc):
+                        raise Exception("The key types don't match the data model specification")
+                except TypeError:
+                    if not isinstance(ke, kc.__origin__):
+                        raise TypeError("The key types don't match the data model specification")
+
+            for ke, kc in zip(value_list, data_model["fields"].values()):
+                try:
+                    if not isinstance(ke, kc) and ke is not None:
+                        raise Exception("The value types don't match the data model specification")
+                except TypeError:
+                    if not isinstance(ke, kc.__origin__):
+                        raise TypeError("The value types don't match the data model specification")
             self.hcache_by_id[object_id].put_row(key_list, value_list)
+
 
         elif issubclass(data_model["type"], StorageNumpy):
             raise NotImplemented("The class type is not supported")

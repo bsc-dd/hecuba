@@ -1,6 +1,7 @@
 import datetime
 import decimal
 import uuid
+from typing import FrozenSet, Tuple
 
 import numpy
 import logging
@@ -13,8 +14,8 @@ _hecuba2cassandra_typemap = {
     str: 'text',
     bytearray: 'blob',
     bytes: 'blob',
-    tuple: 'tuple',
-    frozenset: 'set',
+    Tuple: 'tuple',
+    FrozenSet: 'set',
     decimal.Decimal: 'decimal',
     datetime.date: 'date',
     datetime.datetime: 'datetime',
