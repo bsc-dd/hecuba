@@ -67,8 +67,6 @@ class CQLIface(StorageIface):
             raise TypeError("Class must inherit IStorage")
         dm = sorted(definition.items())
         datamodel_id = hash(str(dm))
-        print(datamodel_id)
-        print(self.data_models_cache.keys())
         try:
             self.data_models_cache[datamodel_id]
         except KeyError:
