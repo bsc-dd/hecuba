@@ -125,4 +125,7 @@ class CqlCOMM(object):
         else:
             raise ValueError("There are no records with the specified object_id")
         config.execute(istorage_remove_entry, [object_id])
-        config.execute(f'TRUNCATE TABLE {res.name}', None)
+        if res[1].find('StorageObj') != -1:
+            pass
+        else:
+            config.execute(f'TRUNCATE TABLE {res.name}', None)

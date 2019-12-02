@@ -17,7 +17,7 @@ Mockup on how the Cassandra implementation of the interface could work.
 
 
 class CQLIface(StorageIface):
-    data_model_hcache = []
+    hcache_datamodel = []
     # DataModelID - DataModelDef
     data_models_cache = {}
     # StorageID - DataModelID
@@ -78,19 +78,17 @@ class CQLIface(StorageIface):
         except KeyError:
             raise KeyError("Before making a pyobject persistent, the data model needs to be registered")
         object_id = pyobject.getID()
-        # TODO an object to data model can have more than 1 data model id, because the class and name can be the same one for different datamodels, for now we replace AND we change the name of the class in order to create hcache (another problem)
         self.object_to_data_model[object_id] = datamodel_id
         object_name = pyobject.get_name()
         CqlCOMM.register_istorage(object_id, object_name, data_model)
         CqlCOMM.create_table(object_name, data_model)
         obj_class = pyobject.__class__.__name__
-        if datamodel_id not in self.data_model_hcache or obj_class not in self.hcache_by_class or object_name \
-                not in self.hcache_by_name or not object_id in self.hcache_by_id:
+        if data_model not in self.hcache_datamodel or object_name not in self.hcache_by_name or object_id not in self.hcache_by_id:
+            self.hcache_datamodel.append(datamodel_id)
             hc = CqlCOMM.create_hcache(object_id, object_name, data_model)
             self.hcache_by_class[obj_class] = hc
             self.hcache_by_name[object_name] = hc
             self.hcache_by_id[object_id] = hc
-            self.data_model_hcache.append(datamodel_id)
         return object_id
 
     def delete_persistent_object(self, object_id: UUID):
