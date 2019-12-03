@@ -2,7 +2,7 @@ import itertools
 from collections import OrderedDict
 from typing import List, Tuple, FrozenSet
 from uuid import UUID
-
+import uuid
 from storage.cql_iface.tests.mockhnumpy import StorageNumpy
 
 from storage.cql_iface.tests.mockhdict import StorageDict
@@ -113,45 +113,31 @@ class CQLIface(StorageIface):
             raise KeyError("hcache must be registered before in the function register_persistent_object")
         if not isinstance(key_list, OrderedDict) and not isinstance(value_list, OrderedDict):
             raise TypeError("key_list and value_list must be OrderedDict")
-        if not (key_list and value_list):
-            raise ValueError("key_list and value_list cannot be None")
         data_model = self.data_models_cache[self.object_to_data_model[object_id]]
+        if len(key_list) != len(data_model["value_id"].keys()) or len(value_list) != len(data_model["fields"].keys()):
+            raise ValueError("The length of the keys and values should be the same one as the data model definition")
+        for v in value_list:
+            try:
+                if not isinstance(value_list[v], data_model["fields"][v]) and value_list[v] is not None:
+                    raise Exception("The value types don't match the data model specification")
+            except TypeError:
+                if not isinstance(value_list[v], data_model["fields"][v].__origin__):
+                    raise TypeError("The value types don't match the data model specification")
 
-        # if issubclass(data_model["type"], StorageObj):
-        #     if not len(key_list) == len(value_list):
-        #         raise ValueError("key_list and value_list must have the same length")
-        #     if not (all(x in data_model["fields"].keys() for x in key_list)):
-        #         raise KeyError("value_list must have the keys that exist in the data model")
-        #     dict_of_kv = dict(zip(key_list, value_list))
-        #     for k in key_list:
-        #         try:
-        #             if not isinstance(dict_of_kv[k], data_model["fields"][k]) and dict_of_kv[k] is not None:
-        #                 raise Exception("the value types must be of the same class types as the data model")
-        #         except TypeError:
-        #             if not isinstance(dict_of_kv[k], data_model["fields"][k].__origin__):
-        #                 raise TypeError("The value types don't match the data model specification")
-        #     for key, value in zip(key_list, value_list):
-        #         self.hcache_by_id[object_id].put_row(key, value)
-        if issubclass(data_model["type"], StorageDict):
-            if len(key_list) != len(data_model["value_id"].keys()) or len(value_list) != len(data_model["fields"].keys()):
-                raise ValueError("The length of the keys and values should be the same one as the data model definition")
+        if issubclass(data_model["type"], StorageObj):
+            for k in key_list:
+                if not isinstance(key_list[k], data_model["value_id"][k]):
+                    raise Exception("The key types don't match the data model specification")
+            self.hcache_by_id[object_id].put_row(list(key_list.values()), list(value_list.values()))
 
-            for k, v in zip(key_list, value_list):
+        elif issubclass(data_model["type"], StorageDict):
+            for k in key_list:
                 try:
                     if not isinstance(key_list[k], data_model["value_id"][k]):
                         raise Exception("The key types don't match the data model specification")
                 except TypeError:
                     if not isinstance(key_list[k], data_model["value_id"][k].__origin__):
                         raise TypeError("The key types don't match the data model specification")
-                try:
-                    if not isinstance(value_list[v], data_model["fields"][v]) and value_list[v] is not None:
-                        raise Exception("The value types don't match the data model specification")
-                except TypeError:
-                    if not isinstance(value_list[v], data_model["fields"][v].__origin__):
-                        raise TypeError("The value types don't match the data model specification")
-
-            # TODO After c++ works with OrderedDicts we will change the following line
-
             self.hcache_by_id[object_id].put_row(list(key_list.values()), list(value_list.values()))
 
         elif issubclass(data_model["type"], StorageNumpy):
