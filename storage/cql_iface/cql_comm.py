@@ -103,30 +103,9 @@ class CqlCOMM(object):
     @staticmethod
     def create_hcache(object_id: UUID, name: str, definition: dict) -> Union[object, HNumpyStore, Hcache]:
         ksp, table = extract_ksp_table(name)
-        if issubclass(definition.get("type", None), StorageObj):
-            class HcacheWrapper(object):
-                def __init__(self, definition, object_id, ksp, table):
-                    self.internal_caches = {}
-                    self.object_id = object_id
-                    for col in definition["fields"].keys():
-                        self.internal_caches[col] = Hcache(*CqlCOMM.hcache_parameters_generator(ksp, table, object_id,
-                                                                                                list(definition[
-                                                                                                         "value_id"].keys()),
-                                                                                                [col]))
-
-                def get_row(self, attr):
-                    return self.internal_caches[attr].get_row([self.object_id])[0]
-
-                def put_row(self, attr, val):
-                    self.internal_caches[attr].put_row([self.object_id], [val])
-
-            return HcacheWrapper(definition, object_id, ksp, table)
-
+        hcache_params = CqlCOMM.hcache_parameters_generator(ksp, table, object_id, list(definition["value_id"].keys()),
+                                                            list(definition["fields"].keys()))
+        if definition["type"] is numpy.ndarray:
+            return HNumpyStore(*hcache_params)
         else:
-            hcache_params = CqlCOMM.hcache_parameters_generator(ksp, table, object_id,
-                                                                list(definition["value_id"].keys()),
-                                                                list(definition["fields"].keys()))
-            if definition["type"] is numpy.ndarray:
-                return HNumpyStore(*hcache_params)
-            elif issubclass(definition.get("type", None), StorageDict):
-                return Hcache(*hcache_params)
+            return Hcache(*hcache_params)
