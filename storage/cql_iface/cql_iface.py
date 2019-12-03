@@ -154,8 +154,42 @@ class CQLIface(StorageIface):
 
             self.hcache_by_id[object_id].put_row(list(key_list.values()), list(value_list.values()))
 
-
         elif issubclass(data_model["type"], StorageNumpy):
             raise NotImplemented("The class type is not supported")
         else:
             raise NotImplemented("The class type is not supported")
+
+    def get_record(self, object_id: UUID, key_list: OrderedDict) -> List[object]:
+        try:
+            UUID(str(object_id))
+        except ValueError:
+            raise ValueError("The object_id is not an UUID")
+        try:
+            self.hcache_by_id[object_id]
+        except KeyError:
+            raise KeyError("hcache must be registered before in the function register_persistent_object")
+
+        if not key_list:
+            raise ValueError("key_list and value_list cannot be None")
+
+        data_model = self.data_models_cache[self.object_to_data_model[object_id]]
+
+        if len(key_list) != len(data_model["value_id"].keys()):
+            raise ValueError("The length of the keys should be the same one as the data model definition")
+
+        if not all([k in data_model["value_id"].keys()for k in list(key_list.keys())]) :
+            raise KeyError("The keys in key_list must exist in the specified data model")
+
+        for k in key_list:
+            try:
+                if not isinstance(key_list[k], data_model["value_id"][k]):
+                    raise Exception("The key types don't match the data model specification")
+            except TypeError:
+                if not isinstance(key_list[k], data_model["value_id"][k].__origin__):
+                    raise TypeError("The key types don't match the data model specification")
+
+        try:
+            result = self.hcache_by_id[object_id].get_row(list(key_list.values()))
+        except Exception:
+            result = []
+        return result
