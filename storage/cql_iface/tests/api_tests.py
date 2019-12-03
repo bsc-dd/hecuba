@@ -749,5 +749,75 @@ class HfetchTests(unittest.TestCase):
         result = storage.get_record(myid, keys)
         self.assertEqual(result, [4, (6, 6), 4])
 
+    def test_get_record_except_key_not_uuid(self):
+        with self.assertRaises(Exception):
+            given_name = 'storage_test.complex_obj'
+            config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
+
+            obj = TestClass(name=given_name)
+            myid = obj.getID()
+            data_model = {"type": StorageObj, "value_id": {"k": uuid.UUID}, "fields": {"a": int, "b": str, "c": int}}
+            given_name = 'storage_test.dict'
+            storage = CQLIface()
+            data_model_id = storage.add_data_model(data_model)
+            storage.register_persistent_object(data_model_id, obj)
+
+            keys = NamedTuple('keys', [('k', uuid.UUID)])
+            keys = keys(myid)._asdict()
+            fields = NamedTuple('fields', [('a', int), ('b', str), ('c', int)])
+            fields = fields(4, 'abc', 4)._asdict()
+
+            storage.put_record(myid, keys, fields)
+            keys = NamedTuple('keys', [('k', uuid.UUID)])
+            keys = keys('abc')._asdict()
+            result = storage.get_record(myid, keys)
+            self.assertEqual(result, [4, 'abc', 4])
+
+    def test_get_record_so(self):
+        given_name = 'storage_test.complex_obj'
+        config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
+
+        obj = TestClass(name=given_name)
+        myid = obj.getID()
+        data_model = {"type": StorageObj, "value_id": {"k": uuid.UUID}, "fields": {"a": int, "b": str, "c": int}}
+        given_name = 'storage_test.dict'
+        storage = CQLIface()
+        data_model_id = storage.add_data_model(data_model)
+        storage.register_persistent_object(data_model_id, obj)
+
+        keys = NamedTuple('keys', [('k', uuid.UUID)])
+        keys = keys(myid)._asdict()
+        fields = NamedTuple('fields', [('a', int), ('b', str), ('c', int)])
+        fields = fields(4, 'abc', 4)._asdict()
+
+        storage.put_record(myid, keys, fields)
+        keys = NamedTuple('keys', [('k', uuid.UUID)])
+        keys = keys(myid)._asdict()
+        result = storage.get_record(myid, keys)
+        self.assertEqual(result, [4, 'abc', 4])
+
+    def test_get_record_tuple_so(self):
+        given_name = 'storage_test.complex_obj'
+        config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
+
+        obj = TestClass(name=given_name)
+        myid = obj.getID()
+        data_model = {"type": StorageObj, "value_id": {"k": uuid.UUID}, "fields": {"a": int, "b": Tuple[int, int], "c": int}}
+        given_name = 'storage_test.dict'
+        storage = CQLIface()
+        data_model_id = storage.add_data_model(data_model)
+        storage.register_persistent_object(data_model_id, obj)
+
+        keys = NamedTuple('keys', [('k', uuid.UUID)])
+        keys = keys(myid)._asdict()
+        fields = NamedTuple('fields', [('a', int), ('b', Tuple[int, int]), ('c', int)])
+        fields = fields(4, (6, 6), 4)._asdict()
+
+        storage.put_record(myid, keys, fields)
+        keys = NamedTuple('keys', [('k', uuid.UUID)])
+        keys = keys(myid)._asdict()
+        result = storage.get_record(myid, keys)
+        self.assertEqual(result, [4, (6, 6), 4])
+
 if __name__ == "__main__":
     unittest.main()
