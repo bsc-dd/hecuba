@@ -28,7 +28,7 @@ class StorageIface(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def put_record(self, object_id: UUID, key_list: OrderedDict, value_list: OrderedDict):
+    def put_record(self, object_id: UUID, key_list: OrderedDict, value_list: OrderedDict) -> None:
         """
         Stores the records contained in value_list, which correspond to the keys in key_list
         for the Hecuba object referenced by `object_id`.
