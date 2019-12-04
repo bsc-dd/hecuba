@@ -304,7 +304,7 @@ class HfetchTests(unittest.TestCase):
             storage.register_persistent_object(data_model_id, obj)
             storage.put_record(myid, None, None)
 
-    def test_put_record_except_keys_values_list_not_same_length(self):
+    def test_put_record_except_values_list_not_same_length(self):
         with self.assertRaises(ValueError):
             given_name = 'storage_test.complex_obj'
             config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
@@ -316,8 +316,8 @@ class HfetchTests(unittest.TestCase):
             data_model_id = storage.add_data_model(data_model)
             storage.register_persistent_object(data_model_id, obj)
 
-            keys = NamedTuple('keys', [('k', uuid.UUID)])
-            keys = keys(myid)._asdict()
+            keys = NamedTuple('keys', [('k', uuid.UUID), ('k1', int)])
+            keys = keys(myid, 8)._asdict()
             fields = NamedTuple('fields', [('a', int), ('b', 'name'), ('c', str), ('d', str)])
             fields = fields(4, 4, 'ab', 'hola')._asdict()
             storage.put_record(myid, keys, fields)
@@ -414,7 +414,7 @@ class HfetchTests(unittest.TestCase):
             self.assertAlmostEqual(val, ret_val)
 
     def test_put_record_except_values_fields_not_same_size_as_data_model(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(Exception):
             given_name = 'storage_test.complex_obj'
             config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
 
