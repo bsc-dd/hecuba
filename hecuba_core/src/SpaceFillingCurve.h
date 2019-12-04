@@ -33,20 +33,10 @@ struct Partition {
 struct ArrayMetadata {
     ArrayMetadata() = default;
 
-    ArrayMetadata(std::vector<uint32_t> &dims, std::vector<uint32_t> &strides, uint32_t elem_size,
-                  uint8_t partition_type, std::string &typekind, std::string &byteorder) {
-        this->dims = dims;
-        this->strides = strides;
-        this->elem_size = elem_size;
-        this->partition_type = partition_type;
-        this->typekind = typekind;
-        this->byteorder = byteorder;
-    }
-
     std::vector<uint32_t> dims, strides;
-    uint32_t elem_size, flags;
-    uint8_t partition_type;
-    std::string typekind, byteorder;
+    uint32_t elem_size = 0, flags = 0;
+    uint8_t partition_type = ZORDER_ALGORITHM;
+    char typekind = ' ', byteorder = ' ';
 };
 
 
