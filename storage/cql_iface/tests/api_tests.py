@@ -643,9 +643,9 @@ class HfetchTests(unittest.TestCase):
         keys = NamedTuple('keys', [('k', int)])
         keys = keys(8)._asdict()
         fields = NamedTuple('fields', [('a', Tuple[int, int]), ('b', bool), ('c', str)])
-        fields = fields((3, 4), True, 'adeu')._asdict()
+        fields1 = fields((3, 4), True, 'adeu')._asdict()
 
-        storage.put_record(myid, keys, fields)
+        storage.put_record(myid, keys, fields1)
 
         returned_values = []
         hcache = storage.hcache_by_id[myid]
@@ -654,7 +654,7 @@ class HfetchTests(unittest.TestCase):
 
         self.assertEqual(len(data_model["fields"]), len(returned_values[0]))
 
-        for val, ret_val in zip(fields.values(), returned_values[0]):
+        for val, ret_val in zip(fields1.values(), returned_values[0]):
             self.assertEqual(val, ret_val)
 
         fields = NamedTuple('fields', [('d', int)])
@@ -669,7 +669,7 @@ class HfetchTests(unittest.TestCase):
 
         self.assertEqual(len(data_model["fields"]), len(returned_values[0]))
 
-        for val, ret_val in zip(fields.values(), returned_values[0]):
+        for val, ret_val in zip(fields1.values(), returned_values[0]):
             self.assertEqual(val, ret_val)
 if __name__ == "__main__":
     unittest.main()
