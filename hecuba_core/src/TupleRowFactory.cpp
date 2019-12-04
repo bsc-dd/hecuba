@@ -497,10 +497,11 @@ TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t o
                     throw ModuleException("Default behaviour not supported");
             }
         } else {
+            std::cout << "null elem" << std::endl;
             //Element is a nullptr
-            CassError rc = cass_statement_bind_null(statement, bind_pos);
-            CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [Null value], column:" +
-                               metadata->at(i).info.begin()->second);
+            //CassError rc = cass_statement_bind_null(statement, bind_pos);
+            //CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [Null value], column:" +
+            //                  metadata->at(i).info.begin()->second);
         }
     }
 }
