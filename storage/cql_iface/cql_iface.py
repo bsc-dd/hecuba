@@ -107,7 +107,7 @@ class CQLIface(StorageIface):
         data_model = {k: None for k in data_model.keys()}
         return {**data_model, **keys_dict}
 
-    def put_record(self, object_id: UUID, key_list: OrderedDict, value_list: OrderedDict) -> None:
+    def put_record(self, object_id: UUID, key_list: dict, value_list: dict) -> None:
         try:
             UUID(str(object_id))
         except ValueError:
@@ -116,7 +116,7 @@ class CQLIface(StorageIface):
             self.hcache_by_id[object_id]
         except KeyError:
             raise KeyError("hcache must be registered before in the function register_persistent_object")
-        if not isinstance(key_list, OrderedDict) and not isinstance(value_list, OrderedDict):
+        if not isinstance(key_list, dict) and not isinstance(value_list, dict):
             raise TypeError("key_list and value_list must be OrderedDict")
         data_model = self.data_models_cache[self.object_to_data_model[object_id]]
         if len(key_list) != len(data_model["value_id"].keys()):
