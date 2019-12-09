@@ -52,8 +52,8 @@ static PyObject *disconnectCassandra(PyObject *self) {
 /*** HCACHE DATA TYPE METHODS AND SETUP ***/
 
 static PyObject *put_row(HCache *self, PyObject *args) {
-    PyObject *py_keys, *py_values;
-    if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_values)) {
+    PyObject *py_keys, *py_values, *py_union_k;
+    if (!PyArg_ParseTuple(args, "OOO", &py_keys, &py_values, &py_union_k)) {
         return NULL;
     }
     for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
@@ -63,9 +63,16 @@ static PyObject *put_row(HCache *self, PyObject *args) {
             return NULL;
         }
     }
+    std::set<std::string> keys;
+    PyObject *elem = NULL, *format_text = NULL;
+    for (uint16_t value_i = 0; value_i < PyList_Size(py_union_k); ++value_i) {
+        format_text = PyUnicode_AsUTF8String(PyList_GetItem(py_union_k, value_i));
+        keys.insert(PyBytes_AS_STRING(format_text));
+    }
     TupleRow *k;
     try {
         k = self->keysParser->make_tuple(py_keys);
+        k->set_keys(keys);
     }
     catch (TypeErrorException &e) {
         PyErr_SetString(PyExc_TypeError, e.what());
@@ -78,6 +85,7 @@ static PyObject *put_row(HCache *self, PyObject *args) {
     }
     try {
         TupleRow *v = self->valuesParser->make_tuple(py_values);
+        v->set_keys(keys);
         self->T->put_crow(k, v);
         delete (k);
         delete (v);

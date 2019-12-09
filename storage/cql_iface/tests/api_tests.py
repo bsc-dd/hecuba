@@ -705,7 +705,7 @@ class HfetchTests(unittest.TestCase):
         for val, ret_val in zip(fields1.values(), returned_values[0]):
             self.assertEqual(val, ret_val)
         fields = NamedTuple('fields', [('a', Tuple[int, int])])
-        fields = fields((3, 4))._asdict()
+        fields = fields((3, 5))._asdict()
 
         storage.put_record(myid, keys, fields)
 
@@ -715,7 +715,7 @@ class HfetchTests(unittest.TestCase):
             returned_values.append(hcache.get_row([key]))
 
         self.assertEqual(len(data_model["fields"]), len(returned_values[0]))
-        self.assertEqual([(3, 4), True, 'adeu', None], returned_values[0])
+        self.assertEqual([(3, 5), True, 'adeu', None], returned_values[0])
 
 
 if __name__ == "__main__":

@@ -139,7 +139,8 @@ class CQLIface(StorageIface):
                     if not isinstance(key_list[k], data_model["value_id"][k].__origin__):
                         raise TypeError("The key types don't match the data model specification")
             values_dict = CQLIface.fill_empty_keys_with_None(value_list, data_model["fields"])
-            self.hcache_by_id[object_id].put_row(list(key_list.values()), list(values_dict.values()))
+            self.hcache_by_id[object_id].put_row(list(key_list.values()),  list(values_dict.values()), list(value_list.keys()))
+
         elif issubclass(data_model["type"], StorageNumpy):
             raise NotImplemented("The class type is not supported")
         else:
