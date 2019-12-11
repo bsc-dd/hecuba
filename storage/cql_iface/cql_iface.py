@@ -11,8 +11,11 @@ from storage.cql_iface.tests.mockIStorage import IStorage
 from .config import _hecuba2cassandra_typemap
 from .cql_comm import CqlCOMM
 from ..storage_iface import StorageIface
+from typing import Generator
+from uuid import UUID
 from .tests.mockStorageObj import StorageObj
-
+from .tools import generate_token_ring_ranges, get_istorage_attrs
+from . import log
 """
 Mockup on how the Cassandra implementation of the interface could work.
 """
@@ -145,3 +148,25 @@ class CQLIface(StorageIface):
             raise NotImplemented("The class type is not supported")
         else:
             raise NotImplemented("The class type is not supported")
+
+    def split(self, object_id: UUID, subsets: int):# -> Generator[UUID, int]:
+        try:
+            UUID(str(object_id))
+        except ValueError:
+            raise ValueError("The object_id is not an UUID")
+        if not isinstance(subsets, int):
+            raise TypeError("subsets parameter should be an integer")
+        from .tools import tokens_partitions, build_remotely
+        try:
+            tokens = get_istorage_attrs(object_id)[0].tokens
+        except AttributeError:
+            tokens = generate_token_ring_ranges()
+
+        for token_split in tokens_partitions(get_istorage_attrs(object_id)[0].name.split('.')[0], get_istorage_attrs(object_id)[0].name.split('.')[1], tokens, subsets):
+            storage_id = uuid.uuid4()
+            log.debug('assigning to {} num tokens {}'.format(str(storage_id), len(token_split)))
+            args_dict = self.data_models_cache[self.object_to_data_model[object_id]]
+            args_dict['value_id'] = storage_id
+            args_dict['tokens'] = token_split
+            args_dict["built_remotely"] = True
+            yield build_remotely(args_dict)
