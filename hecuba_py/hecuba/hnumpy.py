@@ -27,9 +27,11 @@ class StorageNumpy(IStorage, np.ndarray):
     def np_split(self, block_size, axis=0):
         # iterate through rows
         if axis == 0 or axis == 'rows':
-            n_rows, n_cols = self.shape
+            n_rows, n_cols = self.shape[:2]
             splits = n_rows // block_size
-            for i, chunk in enumerate(np.split(self.view(np.ndarray), splits, axis=0)):  # is reading the entire numpy
+            if splits == 0:
+                splits = 1
+            for i, chunk in enumerate(np.array_split(self.view(np.ndarray), splits, axis=0)):  # is reading the entire numpy
                 import uuid
                 storage_id = uuid.uuid4()
                 new_args = self._build_args._replace(shape=chunk.shape, storage_id=storage_id, block_id=i)
@@ -76,11 +78,11 @@ class StorageNumpy(IStorage, np.ndarray):
 
     def __init__(self, input_array=None, storage_id=None, name=None, **kwargs):
         IStorage.__init__(self, storage_id=storage_id, name=self._get_name(), **kwargs)
-        if self._built_remotely:
-            self._build_args = self.args(self.storage_id, self._class_name, name,
-                                         self.shape, self.dtype.num, self._block_id, self._built_remotely)
-            StorageNumpy._store_meta(self._build_args)
+        self._build_args = self.args(self.storage_id, self._class_name, name,
+                                     self.shape, self.dtype.num, self._block_id, self._built_remotely)
+        StorageNumpy._store_meta(self._build_args)
 
+        if self._built_remotely:
             if not getattr(self, '_hcache', None):
                 self._hcache = self._create_hcache(name)
             self._row_elem = self._hcache.get_elements_per_row(self.storage_id)[0]
