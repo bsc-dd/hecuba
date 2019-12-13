@@ -306,5 +306,25 @@ class StorageNumpyTest(unittest.TestCase):
         hecu_p_load[0:1, 0:1]
         self.assertTrue(np.array_equal(hecu_p_load[40:50, 40:50], base[40:50, 40:50]))
 
+    def test_split_by_rows(self):
+        """
+        Tests iterating through the rows of the Hecuba array
+        """
+        config.session.execute("DROP TABLE IF EXISTS hecuba_dislib.test_array")
+        config.session.execute("DROP TABLE IF EXISTS hecuba_dislib.test_array_numpies")
+
+        block_size = (20, 10)
+        x = np.array([[i] * 10 for i in range(100)])
+        storage_id = uuid.uuid4()
+
+        data = StorageNumpy(input_array=x, name="hecuba_dislib.test_array", storage_id=storage_id)
+
+        for i, chunk in enumerate(data.np_split(block_size=block_size[0], axis="rows")):
+            r_x = np.array([[j] * 10 for j in range(i * block_size[0], i * block_size[0] + block_size[0])])
+            self.assertTrue(np.array_equal(chunk, r_x))
+
+        self.assertEqual(i + 1, len(data) // block_size[0])
+
+
 if __name__ == '__main__':
     unittest.main()
