@@ -31,7 +31,7 @@ class StorageNumpy(IStorage, np.ndarray):
             splits = n_rows // block_size
             if splits == 0:
                 splits = 1
-            for i, chunk in enumerate(np.array_split(self.view(np.ndarray), splits, axis=0)):  # is reading the entire numpy
+            for i, chunk in enumerate(np.array_split(self.view(np.ndarray), splits, axis=0)):
                 import uuid
                 storage_id = uuid.uuid4()
                 new_args = self._build_args._replace(shape=chunk.shape, storage_id=storage_id, block_id=i)
@@ -80,9 +80,9 @@ class StorageNumpy(IStorage, np.ndarray):
         IStorage.__init__(self, storage_id=storage_id, name=self._get_name(), **kwargs)
         self._build_args = self.args(self.storage_id, self._class_name, name,
                                      self.shape, self.dtype.num, self._block_id, self._built_remotely)
-        StorageNumpy._store_meta(self._build_args)
 
         if self._built_remotely:
+            StorageNumpy._store_meta(self._build_args)
             if not getattr(self, '_hcache', None):
                 self._hcache = self._create_hcache(name)
             self._row_elem = self._hcache.get_elements_per_row(self.storage_id)[0]
@@ -105,6 +105,7 @@ class StorageNumpy(IStorage, np.ndarray):
         self._loaded_coordinates = getattr(obj, '_loaded_coordinates', None)
         self._numpy_full_loaded = getattr(obj, '_numpy_full_loaded', None)
         self._is_persistent = getattr(obj, '_is_persistent', None)
+        self._block_id = getattr(obj, '_block_id', None)
 
     @staticmethod
     def _create_tables(name):
