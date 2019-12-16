@@ -2,11 +2,8 @@ from typing import List, Tuple, FrozenSet
 from uuid import UUID
 
 from storage.cql_iface.tests.mockIStorage import IStorage
-from storage.cql_iface.tests.mockhdict import StorageDict
-from storage.cql_iface.tests.mockhnumpy import StorageNumpy
 from .config import _hecuba2cassandra_typemap
 from .cql_comm import CqlCOMM
-from .tests.mockStorageObj import StorageObj
 from ..storage_iface import StorageIface
 
 """
@@ -58,9 +55,6 @@ class CQLIface(StorageIface):
             raise KeyError("Expected keys 'type', 'value_id' and 'fields'")
         if not (isinstance(definition["value_id"], dict) and isinstance(definition["fields"], dict)):
             raise TypeError("Expected keys 'value_id' and 'fields' to be dict")
-        if definition["type"] is StorageObj and not all(
-                [definition["value_id"][k] is UUID for k in definition["value_id"].keys()]):
-            raise TypeError("If the type is StorageObj the value_id values must be of type uuid")
         if not issubclass(definition["type"], IStorage):
             raise TypeError("Class must inherit IStorage")
         dm = sorted(definition.items())

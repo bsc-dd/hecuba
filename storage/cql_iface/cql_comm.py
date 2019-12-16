@@ -109,3 +109,16 @@ class CqlCOMM(object):
             return HNumpyStore(*hcache_params)
         else:
             return Hcache(*hcache_params)
+
+    @staticmethod
+    def delete_data(object_id):
+        res = config.execute(istorage_read_entry, [object_id])
+        if res:
+            res = res.one()
+        else:
+            raise ValueError("There are no records with the specified object_id")
+        config.execute(config.session.prepare('DELETE FROM hecuba.istorage WHERE storage_id = ?'), [object_id])
+        if res[1].find('StorageObj') != -1:
+            pass
+        else:
+            config.execute(f'TRUNCATE TABLE {res.name}', None)
