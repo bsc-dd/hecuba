@@ -62,8 +62,6 @@ class CQLIface(StorageIface):
             raise KeyError("Expected keys 'type', 'value_id' and 'fields'")
         if not (isinstance(definition["value_id"], dict) and isinstance(definition["fields"], dict)):
             raise TypeError("Expected keys 'value_id' and 'fields' to be dict")
-        if definition["type"] is StorageObj and not all([definition["value_id"][k] is UUID for k in definition["value_id"].keys()]):
-            raise TypeError("If the type is StorageObj the value_id values must be of type uuid")
         if not issubclass(definition["type"], IStorage):
             raise TypeError("Class must inherit IStorage")
         dm = sorted(definition.items())
@@ -119,9 +117,7 @@ class CQLIface(StorageIface):
         if not isinstance(key_list, dict) and not isinstance(value_list, dict):
             raise TypeError("key_list and value_list must be OrderedDict")
         data_model = self.data_models_cache[self.object_to_data_model[object_id]]
-        if len(key_list) != len(data_model["value_id"].keys()):
-            raise ValueError(
-                "The length of the keys should be the same as the keys length in the data model definition")
+
         for v in value_list:
             try:
                 if not isinstance(value_list[v], data_model["fields"][v]) and value_list[v] is not None:
@@ -130,18 +126,17 @@ class CQLIface(StorageIface):
                 if not isinstance(value_list[v], data_model["fields"][v].__origin__):
                     raise TypeError("The value types don't match the data model specification")
 
-        if issubclass(data_model["type"], StorageObj) or issubclass(data_model["type"], StorageDict):
-            for k in key_list:
-                try:
-                    if not isinstance(key_list[k], data_model["value_id"][k]):
-                        raise Exception("The key types don't match the data model specification")
-                except TypeError:
-                    if not isinstance(key_list[k], data_model["value_id"][k].__origin__):
-                        raise TypeError("The key types don't match the data model specification")
-            values_dict = CQLIface.fill_empty_keys_with_None(value_list, data_model["fields"])
-            self.hcache_by_id[object_id].put_row(list(key_list.values()),  list(values_dict.values()), list(value_list.keys()))
+        for k in key_list:
+            try:
+                if not isinstance(key_list[k], data_model["value_id"][k]):
+                    raise Exception("The key types don't match the data model specification")
+            except TypeError:
+                if not isinstance(key_list[k], data_model["value_id"][k].__origin__):
+                    raise TypeError("The key types don't match the data model specification")
 
-        elif issubclass(data_model["type"], StorageNumpy):
-            raise NotImplemented("The class type is not supported")
-        else:
-            raise NotImplemented("The class type is not supported")
+        values_dict = CQLIface.fill_empty_keys_with_None(value_list, data_model["fields"])
+        try:
+            self.hcache_by_id[object_id].put_row(list(key_list.values()), list(values_dict.values()),
+                                                 list(value_list.keys()))
+        except Exception:
+            raise Exception("key_list or value_list have some parameter that does not correspond with the data model")
