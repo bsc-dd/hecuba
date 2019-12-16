@@ -216,7 +216,7 @@ class HfetchTests(unittest.TestCase):
         keys = NamedTuple('keys', [('k', int)])
         keys = keys(8)._asdict()
         fields = NamedTuple('fields', [('a', int), ('b', 'name'), ('c', float)])
-        fields = fields(None, None, None)._asdict()
+        fields = fields(1, 'a', 3.0)._asdict()
 
         storage.put_record(myid, keys, fields)
         parts = []

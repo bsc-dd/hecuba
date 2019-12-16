@@ -149,6 +149,40 @@ class CQLIface(StorageIface):
         else:
             raise NotImplemented("The class type is not supported")
 
+    def get_record(self, object_id: UUID, key_list: OrderedDict) -> List[object]:
+        try:
+            UUID(str(object_id))
+        except ValueError:
+            raise ValueError("The object_id is not an UUID")
+        try:
+            self.hcache_by_id[object_id]
+        except KeyError:
+            raise KeyError("hcache must be registered before in the function register_persistent_object")
+
+        if not key_list:
+            raise ValueError("key_list and value_list cannot be None")
+        data_model = self.data_models_cache[self.object_to_data_model[object_id]]
+
+        if len(key_list) != len(data_model["value_id"].keys()):
+            raise ValueError("The length of the keys should be the same one as the data model definition")
+
+        if not all([k in data_model["value_id"].keys() for k in list(key_list.keys())]):
+            raise KeyError("The keys in key_list must exist in the specified data model")
+
+        for k in key_list:
+            try:
+                if not isinstance(key_list[k], data_model["value_id"][k]):
+                    raise Exception("The key types don't match the data model specification")
+            except TypeError:
+                if not isinstance(key_list[k], data_model["value_id"][k].__origin__):
+                    raise TypeError("The key types don't match the data model specification")
+
+        try:
+            result = self.hcache_by_id[object_id].get_row(list(key_list.values()))
+        except Exception:
+            result = []
+        return result
+
     def split(self, object_id: UUID, subsets: int):# -> Generator[UUID, int]:
         try:
             UUID(str(object_id))
@@ -157,17 +191,16 @@ class CQLIface(StorageIface):
         if not isinstance(subsets, int):
             raise TypeError("subsets parameter should be an integer")
         from .tools import tokens_partitions
-        #try:
-        #    tokens = get_istorage_attrs(object_id)[0].tokens
-        #except AttributeError:
+
         tokens = generate_token_ring_ranges()
 
         for token_split in tokens_partitions(get_istorage_attrs(object_id)[0].name.split('.')[0], get_istorage_attrs(object_id)[0].name.split('.')[1], tokens, subsets):
             storage_id = uuid.uuid4()
             log.debug('assigning to {} num tokens {}'.format(str(storage_id), len(token_split)))
+            self.hcache_by_id[storage_id] = self.hcache_by_id[object_id]
             args_dict = self.data_models_cache[self.object_to_data_model[object_id]]
-            args_dict['value_id'] = storage_id
             args_dict['tokens'] = token_split
-            args_dict["built_remotely"] = True
+            self.object_to_data_model[storage_id] = self.object_to_data_model[object_id]
+            self.data_models_cache[self.object_to_data_model[storage_id]] = args_dict
             yield storage_id
 
