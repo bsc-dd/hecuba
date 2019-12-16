@@ -681,7 +681,6 @@ class HfetchTests(unittest.TestCase):
             storage.get_record(myid, None)
 
     def test_get_record_except_invalid_keys_size(self):
-        with self.assertRaises(ValueError):
             given_name = 'storage_test.complex_obj'
             config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
 
@@ -701,7 +700,9 @@ class HfetchTests(unittest.TestCase):
             storage.put_record(myid, keys, fields)
             keys = NamedTuple('keys', [('k', str), ('a', str)])
             keys = keys('hola', 'abc')._asdict()
-            storage.get_record(myid, keys)
+            result = storage.get_record(myid, keys)
+            self.assertEqual(result, [])
+
 
     def test_get_record(self):
         given_name = 'storage_test.complex_obj'
