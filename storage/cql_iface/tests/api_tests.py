@@ -220,7 +220,6 @@ class HfetchTests(unittest.TestCase):
 
         storage.put_record(myid, keys, fields)
         for partition in storage.split(myid, 8):
-            for val in partition.keys():
-                print(val)
+                print(partition)
 if __name__ == "__main__":
     unittest.main()

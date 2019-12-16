@@ -156,11 +156,11 @@ class CQLIface(StorageIface):
             raise ValueError("The object_id is not an UUID")
         if not isinstance(subsets, int):
             raise TypeError("subsets parameter should be an integer")
-        from .tools import tokens_partitions, build_remotely
-        try:
-            tokens = get_istorage_attrs(object_id)[0].tokens
-        except AttributeError:
-            tokens = generate_token_ring_ranges()
+        from .tools import tokens_partitions
+        #try:
+        #    tokens = get_istorage_attrs(object_id)[0].tokens
+        #except AttributeError:
+        tokens = generate_token_ring_ranges()
 
         for token_split in tokens_partitions(get_istorage_attrs(object_id)[0].name.split('.')[0], get_istorage_attrs(object_id)[0].name.split('.')[1], tokens, subsets):
             storage_id = uuid.uuid4()
@@ -169,4 +169,5 @@ class CQLIface(StorageIface):
             args_dict['value_id'] = storage_id
             args_dict['tokens'] = token_split
             args_dict["built_remotely"] = True
-            yield build_remotely(args_dict)
+            yield storage_id
+
