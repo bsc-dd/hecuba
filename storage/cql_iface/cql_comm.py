@@ -2,6 +2,7 @@ from typing import Union, Tuple, FrozenSet
 from uuid import UUID
 
 import numpy
+import pickle
 from hfetch import Hcache, HNumpyStore
 
 from . import config
@@ -32,10 +33,10 @@ def extract_ksp_table(name):
 class CqlCOMM(object):
 
     @staticmethod
-    def register_istorage(obj_id: UUID, obj_name: str, data_model: dict) -> UUID:
+    def register_istorage(obj_id: UUID, table_name: str, obj_name:str, data_model: dict) -> UUID:
         row = config.session.execute(istorage_read_entry, [obj_id])
         if not row:
-            obj_info = [obj_id, obj_name, str(data_model)]
+            obj_info = [obj_id, table_name, obj_name, pickle.dumps(data_model)]
             config.execute(istorage_prepared_st, obj_info)
         return obj_id
 

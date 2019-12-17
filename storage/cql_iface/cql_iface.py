@@ -1,21 +1,16 @@
-import itertools
 from collections import OrderedDict
-from typing import List, Tuple, FrozenSet
+from typing import List, Tuple, FrozenSet, Generator
 from uuid import UUID
 import uuid
-from storage.cql_iface.tests.mockhnumpy import StorageNumpy
 
-from storage.cql_iface.tests.mockhdict import StorageDict
 
 from storage.cql_iface.tests.mockIStorage import IStorage
 from .config import _hecuba2cassandra_typemap
 from .cql_comm import CqlCOMM
 from ..storage_iface import StorageIface
-from typing import Generator
-from uuid import UUID
-from .tests.mockStorageObj import StorageObj
-from .tools import generate_token_ring_ranges, get_istorage_attrs
-from . import log
+from .tools import generate_token_ring_ranges
+from .queries import istorage_read_entry, istorage_prepared_st
+from .tools import config
 """
 Mockup on how the Cassandra implementation of the interface could work.
 """
@@ -65,8 +60,6 @@ class CQLIface(StorageIface):
             raise KeyError("Expected keys 'type', 'value_id' and 'fields'")
         if not (isinstance(definition["value_id"], dict) and isinstance(definition["fields"], dict)):
             raise TypeError("Expected keys 'value_id' and 'fields' to be dict")
-        if definition["type"] is StorageObj and not all([definition["value_id"][k] is UUID for k in definition["value_id"].keys()]):
-            raise TypeError("If the type is StorageObj the value_id values must be of type uuid")
         if not issubclass(definition["type"], IStorage):
             raise TypeError("Class must inherit IStorage")
         dm = sorted(definition.items())
@@ -94,9 +87,9 @@ class CQLIface(StorageIface):
         object_id = pyobject.getID()
         self.object_to_data_model[object_id] = datamodel_id
         object_name = pyobject.get_name()
-        CqlCOMM.register_istorage(object_id, object_name, data_model)
-        CqlCOMM.create_table(object_name, data_model)
         obj_class = pyobject.__class__.__name__
+        CqlCOMM.register_istorage(object_id, object_name, obj_class, data_model)
+        CqlCOMM.create_table(object_name, data_model)
         if data_model not in self.hcache_datamodel or object_name not in self.hcache_by_name or object_id not in self.hcache_by_id:
             self.hcache_datamodel.append(datamodel_id)
             hc = CqlCOMM.create_hcache(object_id, object_name, data_model)
@@ -122,9 +115,7 @@ class CQLIface(StorageIface):
         if not isinstance(key_list, dict) and not isinstance(value_list, dict):
             raise TypeError("key_list and value_list must be OrderedDict")
         data_model = self.data_models_cache[self.object_to_data_model[object_id]]
-        if len(key_list) != len(data_model["value_id"].keys()):
-            raise ValueError(
-                "The length of the keys should be the same as the keys length in the data model definition")
+
         for v in value_list:
             try:
                 if not isinstance(value_list[v], data_model["fields"][v]) and value_list[v] is not None:
@@ -133,21 +124,20 @@ class CQLIface(StorageIface):
                 if not isinstance(value_list[v], data_model["fields"][v].__origin__):
                     raise TypeError("The value types don't match the data model specification")
 
-        if issubclass(data_model["type"], StorageObj) or issubclass(data_model["type"], StorageDict):
-            for k in key_list:
-                try:
-                    if not isinstance(key_list[k], data_model["value_id"][k]):
-                        raise Exception("The key types don't match the data model specification")
-                except TypeError:
-                    if not isinstance(key_list[k], data_model["value_id"][k].__origin__):
-                        raise TypeError("The key types don't match the data model specification")
-            values_dict = CQLIface.fill_empty_keys_with_None(value_list, data_model["fields"])
-            self.hcache_by_id[object_id].put_row(list(key_list.values()),  list(values_dict.values()), list(value_list.keys()))
+        for k in key_list:
+            try:
+                if not isinstance(key_list[k], data_model["value_id"][k]):
+                    raise Exception("The key types don't match the data model specification")
+            except TypeError:
+                if not isinstance(key_list[k], data_model["value_id"][k].__origin__):
+                    raise TypeError("The key types don't match the data model specification")
 
-        elif issubclass(data_model["type"], StorageNumpy):
-            raise NotImplemented("The class type is not supported")
-        else:
-            raise NotImplemented("The class type is not supported")
+        values_dict = CQLIface.fill_empty_keys_with_None(value_list, data_model["fields"])
+        try:
+            self.hcache_by_id[object_id].put_row(list(key_list.values()), list(values_dict.values()),
+                                                 list(value_list.keys()))
+        except Exception:
+            raise Exception("key_list or value_list have some parameter that does not correspond with the data model")
 
     def get_record(self, object_id: UUID, key_list: OrderedDict) -> List[object]:
         try:
@@ -161,29 +151,13 @@ class CQLIface(StorageIface):
 
         if not key_list:
             raise ValueError("key_list and value_list cannot be None")
-        data_model = self.data_models_cache[self.object_to_data_model[object_id]]
-
-        if len(key_list) != len(data_model["value_id"].keys()):
-            raise ValueError("The length of the keys should be the same one as the data model definition")
-
-        if not all([k in data_model["value_id"].keys() for k in list(key_list.keys())]):
-            raise KeyError("The keys in key_list must exist in the specified data model")
-
-        for k in key_list:
-            try:
-                if not isinstance(key_list[k], data_model["value_id"][k]):
-                    raise Exception("The key types don't match the data model specification")
-            except TypeError:
-                if not isinstance(key_list[k], data_model["value_id"][k].__origin__):
-                    raise TypeError("The key types don't match the data model specification")
-
         try:
             result = self.hcache_by_id[object_id].get_row(list(key_list.values()))
         except Exception:
             result = []
         return result
 
-    def split(self, object_id: UUID, subsets: int):# -> Generator[UUID, int]:
+    def split(self, object_id: UUID, subsets: int) -> Generator[UUID, UUID, None]:
         try:
             UUID(str(object_id))
         except ValueError:
@@ -191,16 +165,16 @@ class CQLIface(StorageIface):
         if not isinstance(subsets, int):
             raise TypeError("subsets parameter should be an integer")
         from .tools import tokens_partitions
-
-        tokens = generate_token_ring_ranges()
-
-        for token_split in tokens_partitions(get_istorage_attrs(object_id)[0].name.split('.')[0], get_istorage_attrs(object_id)[0].name.split('.')[1], tokens, subsets):
+        res = config.execute(istorage_read_entry, [object_id])
+        if res:
+            res = res.one()
+        else:
+            raise ValueError("The istorage that identifies the object_id is not registered in the IStorage")
+        tokens = generate_token_ring_ranges() if not res.tokens else res.tokens
+        for token_split in tokens_partitions(res.table_name.split('.')[0], res.table_name.split('.')[1], tokens, subsets):
             storage_id = uuid.uuid4()
-            log.debug('assigning to {} num tokens {}'.format(str(storage_id), len(token_split)))
-            self.hcache_by_id[storage_id] = self.hcache_by_id[object_id]
-            args_dict = self.data_models_cache[self.object_to_data_model[object_id]]
-            args_dict['tokens'] = token_split
-            self.object_to_data_model[storage_id] = self.object_to_data_model[object_id]
-            self.data_models_cache[self.object_to_data_model[storage_id]] = args_dict
+            try:
+                config.execute(istorage_prepared_st, [storage_id, res.table_name, res.obj_name+'_block', res.data_model, token_split])
+            except Exception:
+                raise Exception("The IStorage parameters could not be inserted into the IStorage table")
             yield storage_id
-

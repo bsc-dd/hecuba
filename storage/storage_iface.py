@@ -1,9 +1,8 @@
 from abc import ABCMeta, abstractmethod
 from typing import Generator
 from uuid import UUID
-
 from collections import OrderedDict
-from uuid import UUID
+from typing import List
 from storage.cql_iface.tests.mockIStorage import IStorage
 
 class StorageIface(metaclass=ABCMeta):
@@ -40,8 +39,19 @@ class StorageIface(metaclass=ABCMeta):
         :return: -
         """
         pass
+
     @abstractmethod
-    def split(self, object_id: UUID, subsets: int):# -> Generator[UUID]:
+    def get_record(self, object_id: UUID, key_list: OrderedDict) -> List[object]:
+        """
+        Returns a list with the records corresponding to the key_list for the Hecuba object referenced by `object_id`.
+        :param object_id: Hecuba object identifier
+        :param key_list: List with the keys of the records to be retrieved.
+        :return: List of the records corresponding to the keys contained in key_list
+        """
+        pass
+
+    @abstractmethod
+    def split(self, object_id: UUID, subsets: int) -> Generator[UUID, UUID, None]:
         """
         Partitions the data of the Hecuba object referenced by `object_id` following the same data model.
         Each partition is assigned an UUID.
@@ -49,3 +59,4 @@ class StorageIface(metaclass=ABCMeta):
         :return: Yield an `object_id` referencing a subset of the data.
         """
         pass
+
