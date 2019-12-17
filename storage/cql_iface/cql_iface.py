@@ -1,16 +1,12 @@
-import uuid
-from typing import List
+from collections import OrderedDict
+from typing import Tuple, FrozenSet
 from uuid import UUID
-
+import uuid
 from storage.cql_iface.tests.mockIStorage import IStorage
 from .config import _hecuba2cassandra_typemap
 from .cql_comm import CqlCOMM
 from ..storage_iface import StorageIface
 
-from storage.cql_iface.tests.mockhnumpy import StorageNumpy
-
-from storage.cql_iface.tests.mockhdict import StorageDict
-from .tests.mockStorageObj import StorageObj
 """
 Mockup on how the Cassandra implementation of the interface could work.
 """
@@ -42,9 +38,16 @@ class CQLIface(StorageIface):
                 CQLIface.check_values_from_definition(v)
         else:
             try:
-                _hecuba2cassandra_typemap[definition]
-            except KeyError:
-                raise TypeError(f"The type {definition} is not supported")
+                if isinstance(definition.__origin__, (Tuple, FrozenSet)):
+                    try:
+                        _hecuba2cassandra_typemap[definition.__origin__]
+                    except KeyError:
+                        raise TypeError(f"The type {definition} is not supported")
+            except AttributeError:
+                try:
+                    _hecuba2cassandra_typemap[definition]
+                except KeyError:
+                    raise TypeError(f"The type {definition} is not supported")
 
     def add_data_model(self, definition: dict) -> int:
         if not isinstance(definition, dict):
@@ -91,6 +94,12 @@ class CQLIface(StorageIface):
             self.hcache_by_id[object_id] = hc
         return object_id
 
+    @staticmethod
+    def fill_empty_keys_with_None(keys_dict, data_model):
+        data_model = {k: None for k in data_model.keys()}
+        return {**data_model, **keys_dict}
+
+
     def delete_persistent_object(self, object_id: UUID):
         try:
             uuid.UUID(str(object_id))
@@ -102,7 +111,7 @@ class CQLIface(StorageIface):
             return False
         return True
 
-    def put_record(self, object_id: UUID, key_list: List[object], value_list: List[object]) -> None:
+    def put_record(self, object_id: UUID, key_list: dict, value_list: dict) -> None:
         try:
             UUID(str(object_id))
         except ValueError:
@@ -111,35 +120,29 @@ class CQLIface(StorageIface):
             self.hcache_by_id[object_id]
         except KeyError:
             raise KeyError("hcache must be registered before in the function register_persistent_object")
-        if not isinstance(key_list, list) and not isinstance(value_list, list):
-            raise TypeError("key_list and value_list must be lists")
-        if not (key_list and value_list):
-            raise ValueError("key_list and value_list cannot be None")
+        if not isinstance(key_list, dict) and not isinstance(value_list, dict):
+            raise TypeError("key_list and value_list must be OrderedDict")
         data_model = self.data_models_cache[self.object_to_data_model[object_id]]
 
-        if issubclass(data_model["type"], StorageObj):
-            if not len(key_list) == len(value_list):
-                raise ValueError("key_list and value_list must have the same length")
-            if not (all(x in data_model["fields"].keys() for x in key_list)):
-                raise KeyError("value_list must have the keys that exist in the data model")
-            dict_of_kv = dict(zip(key_list, value_list))
-            if not all([isinstance(dict_of_kv[k], data_model["fields"][k]) for k in
-                        key_list]):
-                raise TypeError("the value types must be of the same class types as the data model")
-            for key, value in zip(key_list, value_list):
-                self.hcache_by_id[object_id].put_row(key, value)
-        elif issubclass(data_model["type"], StorageDict):
-            if len(key_list) != len(data_model["value_id"].keys()) or len(value_list) != len(
-                    data_model["fields"].keys()):
-                raise ValueError(
-                    "The length of the keys and values should be the same one as the data model definition")
-            if not all([isinstance(ke, kc) for ke, kc in zip(key_list, data_model["value_id"].values())]):
-                raise TypeError("The key types don't match the data model specification")
-            if not all([isinstance(ke, kc) for ke, kc in zip(value_list, data_model["fields"].values())]):
-                raise TypeError("The value types don't match the data model specification")
-            self.hcache_by_id[object_id].put_row(key_list, value_list)
+        for v in value_list:
+            try:
+                if not isinstance(value_list[v], data_model["fields"][v]) and value_list[v] is not None:
+                    raise Exception("The value types don't match the data model specification")
+            except TypeError:
+                if not isinstance(value_list[v], data_model["fields"][v].__origin__):
+                    raise TypeError("The value types don't match the data model specification")
 
-        elif issubclass(data_model["type"], StorageNumpy):
-            raise NotImplemented("The class type is not supported")
-        else:
-            raise NotImplemented("The class type is not supported")
+        for k in key_list:
+            try:
+                if not isinstance(key_list[k], data_model["value_id"][k]):
+                    raise Exception("The key types don't match the data model specification")
+            except TypeError:
+                if not isinstance(key_list[k], data_model["value_id"][k].__origin__):
+                    raise TypeError("The key types don't match the data model specification")
+
+        values_dict = CQLIface.fill_empty_keys_with_None(value_list, data_model["fields"])
+        try:
+            self.hcache_by_id[object_id].put_row(list(key_list.values()), list(values_dict.values()),
+                                                 list(value_list.keys()))
+        except Exception:
+            raise Exception("key_list or value_list have some parameter that does not correspond with the data model")

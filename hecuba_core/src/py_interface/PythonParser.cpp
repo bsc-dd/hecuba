@@ -51,8 +51,6 @@ PythonParser::~PythonParser() {
  */
 TupleRow *PythonParser::make_tuple(PyObject *obj) const {
     if (!PyList_Check(obj)) throw ModuleException("PythonParser: Make tuple: Expected python list");
-    if (size_t(PyList_Size(obj)) != parsers.size())
-    throw ModuleException("PythonParser: Got less python elements than columns configured");
     uint32_t total_bytes = 0;
     char *buffer = nullptr;
     if (!metas->empty()) {

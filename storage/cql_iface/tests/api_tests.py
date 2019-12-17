@@ -1,15 +1,16 @@
 import decimal
 import unittest
 import uuid
+from typing import Tuple, NamedTuple
 
 import numpy
 
+from storage.cql_iface.cql_comm import config
 from storage.cql_iface.cql_iface import CQLIface
 from storage.cql_iface.tests.mockIStorage import IStorage
 from storage.cql_iface.tests.mockStorageObj import StorageObj
 from storage.cql_iface.tests.mockhdict import StorageDict
 from storage.cql_iface.tests.mockhnumpy import StorageNumpy
-from .. import config
 
 
 class TestClass(IStorage):
@@ -20,6 +21,16 @@ class TestClass(IStorage):
 
     def __init__(self, *args, **kwargs):
         super(TestClass, self).__init__()
+
+
+class TestClass2(IStorage):
+
+    def __new__(cls, *args, name='', **kwargs):
+        toret = super(TestClass2, cls).__new__(cls, name)
+        return toret
+
+    def __init__(self, *args, **kwargs):
+        super(TestClass2, self).__init__()
 
 
 class mockClass(IStorage):
@@ -71,6 +82,13 @@ class HfetchTests(unittest.TestCase):
             # Register data models
             storage.add_data_model(data_model)
 
+    def test_add_data_model_except_incorrect_value_id(self):
+        with self.assertRaises(TypeError):
+            data_model = {"type": StorageObj, "value_id": {"k": dict}, "fields": {"a": str}}
+            storage = CQLIface()
+            # Register data models
+            storage.add_data_model(data_model)
+
     def test_add_data_different_types(self):
         data_model = {"type": mockClass, "value_id": {"k": int},
                       "fields": {"a": numpy.int64, "b": numpy.ndarray, "c": uuid.UUID}}
@@ -91,7 +109,7 @@ class HfetchTests(unittest.TestCase):
         self.assertTrue(storage.data_models_cache[id])
 
     def test_add_data_model_StorageObj(self):
-        data_model = {"type": StorageObj, "value_id": {"k": int}, "fields": {"a": str}}
+        data_model = {"type": StorageObj, "value_id": {"k": uuid.UUID}, "fields": {"a": str}}
         storage = CQLIface()
         # Register data models
         id = storage.add_data_model(data_model)
@@ -141,7 +159,7 @@ class HfetchTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             # Setup object
             given_name = 'storage_test.custom_obj'
-            obj = TestClass(given_name)
+            obj = TestClass(name=given_name)
             data_model = {"type": mockClass, "value_id": {"k": str}, "fields": {"a": int}}
 
             # Setup persistent storage
@@ -173,7 +191,7 @@ class HfetchTests(unittest.TestCase):
         with self.assertRaises(KeyError):
             # Setup object
             given_name = 'storage_test.custom_obj'
-            obj = TestClass(given_name)
+            obj = TestClass(name=given_name)
             data_model = {"type": mockClass, "value_id": {"k": str}, "fields": {"a": int}}
 
             # Setup persistent storage
@@ -183,7 +201,7 @@ class HfetchTests(unittest.TestCase):
     def test_register_persistent_obj_dict_ints(self):
         given_name = 'storage_test.custom_obj'
         config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
-        obj = TestClass(given_name)
+        obj = TestClass(name=given_name)
         myid = obj.getID()
         name = obj.get_name()
         data_model = {"type": TestClass, "value_id": {"k": str}, "fields": {"a": int}}
@@ -200,10 +218,10 @@ class HfetchTests(unittest.TestCase):
     def test_register_persistent_obj_storage_obj(self):
         given_name = 'storage_test.custom_obj'
         config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
-        obj = TestClass(given_name)
+        obj = TestClass(name=given_name)
         myid = obj.getID()
         name = obj.get_name()
-        data_model = {"type": StorageObj, "value_id": {"k": int}, "fields": {"a": str, "b": str}}
+        data_model = {"type": StorageObj, "value_id": {"k": uuid.UUID}, "fields": {"a": str, "b": str}}
 
         # Setup persistent storage
         storage = CQLIface()
@@ -217,7 +235,7 @@ class HfetchTests(unittest.TestCase):
     def test_register_persistent_obj_storage_dict(self):
         given_name = 'storage_test.custom_obj'
         config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
-        obj = TestClass(given_name)
+        obj = TestClass(name=given_name)
         myid = obj.getID()
         name = obj.get_name()
         data_model = {"type": StorageDict, "value_id": {"k": int}, "fields": {"a": str, "b": str}}
@@ -234,7 +252,7 @@ class HfetchTests(unittest.TestCase):
     def test_register_persistent_obj_storage_numpy(self):
         given_name = 'storage_test.custom_obj'
         config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
-        obj = TestClass(given_name)
+        obj = TestClass(name=given_name)
         myid = obj.getID()
         name = obj.get_name()
         data_model = {"type": StorageNumpy, "value_id": {"k": int}, "fields": {"a": str, "b": str}}
@@ -267,23 +285,6 @@ class HfetchTests(unittest.TestCase):
 
             storage.delete_persistent_object('exc')
 
-    def test_delete_persistent_except_no_records_object_id(self):
-        given_name = 'storage_test.dict'
-        config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
-
-        # Setup object
-        obj = TestClass(given_name)
-        myid = obj.getID()
-        name = obj.get_name()
-        data_model = {"type": StorageDict, "value_id": {"k": int}, "fields": {"a": str, "b": str}}
-
-        # Setup persistent storage
-        storage = CQLIface()
-        data_model_id = storage.add_data_model(data_model)
-
-        is_correct = storage.delete_persistent_object(myid)
-        self.assertFalse(is_correct)
-
     def test_delete_persistent_object(self):
         given_name = 'storage_test.dict'
         config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
@@ -300,9 +301,12 @@ class HfetchTests(unittest.TestCase):
 
         storage.register_persistent_object(data_model_id, obj)
 
-        fields_ids = [8]
-        values = ["a", "b"]
-        storage.put_record(myid, fields_ids, values)
+        keys = NamedTuple('keys', [('k', int)])
+        keys = keys(8)._asdict()
+        fields = NamedTuple('fields', [('a', str), ('b', str)])
+        fields = fields('a', 'a')._asdict()
+
+        storage.put_record(myid, keys, fields)
 
         storage.delete_persistent_object(myid)
         res = config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(myid))
