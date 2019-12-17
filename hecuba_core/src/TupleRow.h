@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <vector>
 #include <cassandra.h>
-
+#include <set>
 
 #include "TableMetadata.h"
 
@@ -35,6 +35,10 @@ public:
 
 
     /* Set methods */
+    inline void set_keys(std::set<std::string> keys) {
+        this->payload->set_keys(keys);
+    }
+
     inline void setNull(uint32_t position) {
         this->payload->setNull(position);
     }
@@ -47,8 +51,11 @@ public:
         this->payload->setTimestamp(timestamp);
     }
 
-
     /* Get methods */
+    inline const std::set<std::string> get_keys() const {
+        return this->payload->get_keys();
+    }
+
     inline bool isNull(uint32_t position) const {
         return this->payload->isNull(position);
     }
@@ -100,6 +107,7 @@ private:
         size_t ptr_length;
         std::vector<uint32_t> null_values;
         int64_t timestamp;
+        std::set<std::string> keys;
 
 
         /* Constructors */
@@ -122,6 +130,11 @@ private:
          * we need to access the position must be divided by 32. This is accomplished by
          * doing bit shifting (5 positions to the right since 2^5=32).
          */
+
+        void set_keys(std::set<std::string> keys) {
+            this->keys = keys;
+        }
+
         void setNull(uint32_t position) {
             if (!null_values.empty()) this->null_values[position >> 5] |= (0x1 << (position % 32));
         }
@@ -144,6 +157,9 @@ private:
             return this->timestamp;
         }
 
+        std::set<std::string> get_keys() const {
+            return this->keys;
+        }
 
         /* Comparators */
         bool operator<(TupleRowData &rhs) {
