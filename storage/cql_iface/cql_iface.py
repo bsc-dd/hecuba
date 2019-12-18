@@ -1,16 +1,15 @@
+import uuid
 from collections import OrderedDict
 from typing import List, Tuple, FrozenSet, Generator
 from uuid import UUID
-import uuid
-
 
 from storage.cql_iface.tests.mockIStorage import IStorage
 from .config import _hecuba2cassandra_typemap
 from .cql_comm import CqlCOMM
-from ..storage_iface import StorageIface
-from .tools import generate_token_ring_ranges
 from .queries import istorage_read_entry, istorage_prepared_st
-from .tools import config
+from .tools import generate_token_ring_ranges, config
+from ..storage_iface import StorageIface
+
 """
 Mockup on how the Cassandra implementation of the interface could work.
 """
@@ -171,10 +170,12 @@ class CQLIface(StorageIface):
         else:
             raise ValueError("The istorage that identifies the object_id is not registered in the IStorage")
         tokens = generate_token_ring_ranges() if not res.tokens else res.tokens
-        for token_split in tokens_partitions(res.table_name.split('.')[0], res.table_name.split('.')[1], tokens, subsets):
+        for token_split in tokens_partitions(res.table_name.split('.')[0], res.table_name.split('.')[1], tokens,
+                                             subsets):
             storage_id = uuid.uuid4()
             try:
-                config.execute(istorage_prepared_st, [storage_id, res.table_name, res.obj_name+'_block', res.data_model, token_split])
+                config.execute(istorage_prepared_st,
+                               [storage_id, res.table_name, res.obj_name + '_block', res.data_model, token_split])
             except Exception:
                 raise Exception("The IStorage parameters could not be inserted into the IStorage table")
             yield storage_id
