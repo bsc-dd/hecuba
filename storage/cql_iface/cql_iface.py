@@ -7,7 +7,7 @@ from storage.cql_iface.tests.mockIStorage import IStorage
 from .config import _hecuba2cassandra_typemap
 from .cql_comm import CqlCOMM
 from .queries import istorage_read_entry, istorage_prepared_st
-from .tools import generate_token_ring_ranges, config
+from .tools import generate_token_ring_ranges, config, get_hosts
 from ..storage_iface import StorageIface
 
 """
@@ -179,3 +179,17 @@ class CQLIface(StorageIface):
             except Exception:
                 raise Exception("The IStorage parameters could not be inserted into the IStorage table")
             yield storage_id
+
+    def get_data_locality(self, object_id: UUID) -> List[str]:
+        hosts_list = []
+        try:
+            UUID(str(object_id))
+        except ValueError:
+            raise ValueError("The object_id is not an UUID")
+        res = config.execute(istorage_read_entry, [object_id])
+        if not res.one().tokens:
+            raise ValueError("The istorage identifies that the object_id is not registered in the IStorage")
+        tokens = res.one().tokens
+        hosts = set([get_hosts(worker_partition, res.one().table_name) for worker_partition in tokens])
+        hosts_list.append(str(hosts))
+        return hosts_list

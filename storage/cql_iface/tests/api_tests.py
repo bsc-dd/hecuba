@@ -401,7 +401,55 @@ class HfetchTests(unittest.TestCase):
                 for val in partition.keys():
                     print(val)
 
-    def test_put_record_StorageDict_split(self):
+    def test_put_record_StorageDict_split_and_get_data_locality_except(self):
+        with self.assertRaises(ValueError):
+            given_name = 'storage_test.complex_obj'
+            config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
+
+            obj = TestClass(name=given_name)
+            myid = obj.getID()
+            data_model = {"type": StorageDict, "value_id": {"k": int}, "fields": {"a": int, "b": str, "c": float}}
+            given_name = 'storage_test.dict'
+            storage = CQLIface()
+            data_model_id = storage.add_data_model(data_model)
+            storage.register_persistent_object(data_model_id, obj)
+
+            keys = NamedTuple('keys', [('k', int)])
+            keys = keys(8)._asdict()
+            fields = NamedTuple('fields', [('a', int), ('b', 'name'), ('c', float)])
+            fields = fields(1, 'a', 3.0)._asdict()
+
+            storage.put_record(myid, keys, fields)
+            parts = []
+            for partition in storage.split(myid, 9):
+                    parts.append(partition)
+            self.assertTrue(storage.get_data_locality(None))
+
+    def test_put_record_StorageDict_split_and_get_data_locality_except(self):
+        with self.assertRaises(ValueError):
+            given_name = 'storage_test.complex_obj'
+            config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
+
+            obj = TestClass(name=given_name)
+            myid = obj.getID()
+            data_model = {"type": StorageDict, "value_id": {"k": int}, "fields": {"a": int, "b": str, "c": float}}
+            given_name = 'storage_test.dict'
+            storage = CQLIface()
+            data_model_id = storage.add_data_model(data_model)
+            storage.register_persistent_object(data_model_id, obj)
+
+            keys = NamedTuple('keys', [('k', int)])
+            keys = keys(8)._asdict()
+            fields = NamedTuple('fields', [('a', int), ('b', 'name'), ('c', float)])
+            fields = fields(1, 'a', 3.0)._asdict()
+
+            storage.put_record(myid, keys, fields)
+            parts = []
+            for partition in storage.split(myid, 9):
+                    parts.append(partition)
+            self.assertTrue(storage.get_data_locality(myid))
+
+    def test_put_record_StorageDict_split_and_get_data_locality(self):
         given_name = 'storage_test.complex_obj'
         config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
 
@@ -422,7 +470,7 @@ class HfetchTests(unittest.TestCase):
         parts = []
         for partition in storage.split(myid, 9):
                 parts.append(partition)
-        self.assertTrue(len(parts) == 10)
+        self.assertTrue(storage.get_data_locality(parts[0]))
 
 if __name__ == "__main__":
     unittest.main()
