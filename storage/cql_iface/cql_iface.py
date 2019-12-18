@@ -1,4 +1,3 @@
-from typing import List, Tuple, FrozenSet
 from uuid import UUID
 
 from storage.cql_iface.tests.mockIStorage import IStorage
@@ -28,25 +27,18 @@ class CQLIface(StorageIface):
         pass
 
     @staticmethod
-    def check_values_from_definition(definition):
+    def _check_values_from_definition(definition):
         if isinstance(definition, dict):
             for v in definition.values():
-                CQLIface.check_values_from_definition(v)
+                CQLIface._check_values_from_definition(v)
         elif isinstance(definition, (list, set, tuple)):
             for v in definition:
-                CQLIface.check_values_from_definition(v)
+                CQLIface._check_values_from_definition(v)
         else:
             try:
-                if isinstance(definition.__origin__, (Tuple, FrozenSet)):
-                    try:
-                        _hecuba2cassandra_typemap[definition.__origin__]
-                    except KeyError:
-                        raise TypeError(f"The type {definition} is not supported")
-            except AttributeError:
-                try:
-                    _hecuba2cassandra_typemap[definition]
-                except KeyError:
-                    raise TypeError(f"The type {definition} is not supported")
+                _hecuba2cassandra_typemap[definition]
+            except KeyError:
+                raise TypeError(f"The type {definition} is not supported")
 
     def add_data_model(self, definition: dict) -> int:
         if not isinstance(definition, dict):
@@ -63,7 +55,7 @@ class CQLIface(StorageIface):
             self.data_models_cache[datamodel_id]
         except KeyError:
             dict_definition = {k: definition[k] for k in ('value_id', 'fields')}
-            CQLIface.check_values_from_definition(dict_definition)
+            CQLIface._check_values_from_definition(dict_definition)
             self.data_models_cache[datamodel_id] = definition
             CqlCOMM.register_data_model(datamodel_id, definition)
         return datamodel_id

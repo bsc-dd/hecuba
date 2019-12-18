@@ -7,9 +7,6 @@ from hfetch import Hcache, HNumpyStore
 from . import config
 from .config import _hecuba2cassandra_typemap, log
 from .queries import istorage_prepared_st, istorage_read_entry
-from .tests.mockStorageObj import StorageObj
-from .tests.mockhdict import StorageDict
-
 
 def extract_ksp_table(name):
     """
@@ -48,19 +45,11 @@ class CqlCOMM(object):
     def parse_definition_to_cass_format(fields_dict):
         all_values = ""
         for k, v in fields_dict.items():
-            try:
-                all_values = all_values + "%s %s," % (k, _hecuba2cassandra_typemap[v])
-            except KeyError:
-                val = str(v)
-                if issubclass(v.__origin__, Tuple):
-                    all_values = all_values + str(k) + f" tuple<{val[val.find('[') + 1:val.rfind(']')]}>,"
-                elif issubclass(v.__origin__, FrozenSet):
-                    all_values = all_values + str(k) + f" frozen <set<{val[val.find('[') + 1:val.rfind(']')]}>>,"
+            all_values = all_values + "%s %s," % (k, _hecuba2cassandra_typemap[v])
         return all_values[:-1]
 
     @staticmethod
     def create_table(name: str, definition: dict) -> None:
-        # StorageObj for now
         ksp, table = extract_ksp_table(name)
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (ksp, config.replication)
         config.session.execute(query_keyspace)
@@ -88,7 +77,7 @@ class CqlCOMM(object):
             log.debug('MAKE PERSISTENCE: %s', query_table)
             config.session.execute(query_table)
         except Exception as ex:
-            log.warn("Error creating the StorageDict table: %s %s", query_table, ex)
+            log.warn("Error creating the table: %s %s", query_table, ex)
             raise ex
 
     @staticmethod
@@ -109,16 +98,3 @@ class CqlCOMM(object):
             return HNumpyStore(*hcache_params)
         else:
             return Hcache(*hcache_params)
-
-    @staticmethod
-    def delete_data(object_id):
-        res = config.execute(istorage_read_entry, [object_id])
-        if res:
-            res = res.one()
-        else:
-            raise ValueError("There are no records with the specified object_id")
-        config.execute(config.session.prepare('DELETE FROM hecuba.istorage WHERE storage_id = ?'), [object_id])
-        if res[1].find('StorageObj') != -1:
-            pass
-        else:
-            config.execute(f'TRUNCATE TABLE {res.name}', None)
