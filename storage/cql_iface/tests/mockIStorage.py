@@ -32,7 +32,7 @@ class IStorage(object):
 
     storage_id = property(getID, setID)
 
-    def __new__(cls, *args, name='', **kwargs):
+    def __new__(cls, name='', *args, **kwargs):
         toret = super(IStorage, cls).__new__(cls)
         toret._ksp = ''
         toret._table = ''
