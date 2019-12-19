@@ -1,6 +1,7 @@
 import decimal
 import unittest
 import uuid
+from typing import Tuple
 
 import numpy
 
@@ -114,6 +115,13 @@ class HfetchTests(unittest.TestCase):
         id = storage.add_data_model(data_model)
         self.assertTrue(storage.data_models_cache[id])
 
+    def test_add_data_model_StorageObj2(self):
+        data_model = {"type": StorageObj, "value_id": {"k": uuid.UUID}, "fields": {"a": Tuple[int]}}
+        storage = CQLIface()
+        # Register data models
+        id = storage.add_data_model(data_model)
+        self.assertTrue(storage.data_models_cache[id])
+
     def test_add_data_model_StorageDict(self):
         data_model = {"type": StorageDict, "value_id": {"k": int}, "fields": {"a": str}}
         storage = CQLIface()
@@ -221,6 +229,23 @@ class HfetchTests(unittest.TestCase):
         myid = obj.getID()
         name = obj.get_name()
         data_model = {"type": StorageObj, "value_id": {"k": uuid.UUID}, "fields": {"a": str, "b": str}}
+
+        # Setup persistent storage
+        storage = CQLIface()
+
+        data_model_id = storage.add_data_model(data_model)
+        storage.register_persistent_object(data_model_id, obj)
+        res = config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(myid)).one()
+        self.assertEqual(res.name, name)
+        config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
+
+    def test_register_persistent_obj_storage_obj_tuple(self):
+        given_name = 'storage_test.custom_obj'
+        config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
+        obj = TestClass(name=given_name)
+        myid = obj.getID()
+        name = obj.get_name()
+        data_model = {"type": StorageObj, "value_id": {"k": uuid.UUID}, "fields": {"a": Tuple[int], "b": str}}
 
         # Setup persistent storage
         storage = CQLIface()

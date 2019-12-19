@@ -1,3 +1,4 @@
+from typing import Tuple
 from uuid import UUID
 
 from storage.cql_iface.tests.mockIStorage import IStorage
@@ -36,9 +37,16 @@ class CQLIface(StorageIface):
                 CQLIface._check_values_from_definition(v)
         else:
             try:
-                _hecuba2cassandra_typemap[definition]
-            except KeyError:
-                raise TypeError(f"The type {definition} is not supported")
+                if isinstance(definition.__origin__, Tuple):
+                    try:
+                        _hecuba2cassandra_typemap[definition.__origin__]
+                    except KeyError:
+                        raise TypeError(f"The type {definition} is not supported")
+            except AttributeError:
+                try:
+                    _hecuba2cassandra_typemap[definition]
+                except KeyError:
+                    raise TypeError(f"The type {definition} is not supported")
 
     def add_data_model(self, definition: dict) -> int:
         if not isinstance(definition, dict):

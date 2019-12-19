@@ -1,4 +1,4 @@
-from typing import Union, Tuple, FrozenSet
+from typing import Union, Tuple
 from uuid import UUID
 
 import numpy
@@ -7,6 +7,7 @@ from hfetch import Hcache, HNumpyStore
 from . import config
 from .config import _hecuba2cassandra_typemap, log
 from .queries import istorage_prepared_st, istorage_read_entry
+
 
 def extract_ksp_table(name):
     """
@@ -45,7 +46,12 @@ class CqlCOMM(object):
     def parse_definition_to_cass_format(fields_dict):
         all_values = ""
         for k, v in fields_dict.items():
-            all_values = all_values + "%s %s," % (k, _hecuba2cassandra_typemap[v])
+            try:
+                all_values = all_values + "%s %s," % (k, _hecuba2cassandra_typemap[v])
+            except KeyError:
+                val = str(v)
+                if issubclass(v, Tuple):
+                    all_values = all_values + str(k) + f" tuple<{val[val.find('[') + 1:val.rfind(']')]}>,"
         return all_values[:-1]
 
     @staticmethod
