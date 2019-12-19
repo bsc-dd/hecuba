@@ -50,7 +50,7 @@ class CqlCOMM(object):
                 all_values = all_values + "%s %s," % (k, _hecuba2cassandra_typemap[v])
             except KeyError:
                 val = str(v)
-                if issubclass(v, tuple):
+                if issubclass(v.__origin__, Tuple):
                     all_values = all_values + str(k) + f" tuple<{val[val.find('[') + 1:val.rfind(']')]}>,"
         return all_values[:-1]
 
