@@ -1,11 +1,12 @@
 import datetime
 import decimal
-import uuid
-from typing import FrozenSet, Tuple
-
-import numpy
 import logging
 import os
+import uuid
+from typing import Tuple
+
+import numpy
+
 # User class to Cassandra data type
 _hecuba2cassandra_typemap = {
     bool: 'boolean',
@@ -15,7 +16,7 @@ _hecuba2cassandra_typemap = {
     bytearray: 'blob',
     bytes: 'blob',
     Tuple: 'tuple',
-    FrozenSet: 'set',
+    # FrozenSet: 'set',
     decimal.Decimal: 'decimal',
     datetime.date: 'date',
     datetime.datetime: 'datetime',

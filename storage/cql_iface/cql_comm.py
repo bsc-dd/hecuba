@@ -1,4 +1,4 @@
-from typing import Union, Tuple, FrozenSet
+from typing import Union, Tuple
 from uuid import UUID
 
 import numpy
@@ -7,8 +7,6 @@ from hfetch import Hcache, HNumpyStore
 from . import config
 from .config import _hecuba2cassandra_typemap, log
 from .queries import istorage_prepared_st, istorage_read_entry
-from .tests.mockStorageObj import StorageObj
-from .tests.mockhdict import StorageDict
 
 
 def extract_ksp_table(name):
@@ -54,13 +52,10 @@ class CqlCOMM(object):
                 val = str(v)
                 if issubclass(v.__origin__, Tuple):
                     all_values = all_values + str(k) + f" tuple<{val[val.find('[') + 1:val.rfind(']')]}>,"
-                elif issubclass(v.__origin__, FrozenSet):
-                    all_values = all_values + str(k) + f" frozen <set<{val[val.find('[') + 1:val.rfind(']')]}>>,"
         return all_values[:-1]
 
     @staticmethod
     def create_table(name: str, definition: dict) -> None:
-        # StorageObj for now
         ksp, table = extract_ksp_table(name)
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (ksp, config.replication)
         config.session.execute(query_keyspace)
@@ -88,7 +83,7 @@ class CqlCOMM(object):
             log.debug('MAKE PERSISTENCE: %s', query_table)
             config.session.execute(query_table)
         except Exception as ex:
-            log.warn("Error creating the StorageDict table: %s %s", query_table, ex)
+            log.warn("Error creating the table: %s %s", query_table, ex)
             raise ex
 
     @staticmethod

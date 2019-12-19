@@ -1,17 +1,10 @@
-import itertools
-from collections import OrderedDict
-from typing import List, Tuple, FrozenSet
+from typing import Tuple
 from uuid import UUID
-import uuid
-from storage.cql_iface.tests.mockhnumpy import StorageNumpy
-
-from storage.cql_iface.tests.mockhdict import StorageDict
 
 from storage.cql_iface.tests.mockIStorage import IStorage
 from .config import _hecuba2cassandra_typemap
 from .cql_comm import CqlCOMM
 from ..storage_iface import StorageIface
-from .tests.mockStorageObj import StorageObj
 
 """
 Mockup on how the Cassandra implementation of the interface could work.
@@ -35,16 +28,16 @@ class CQLIface(StorageIface):
         pass
 
     @staticmethod
-    def check_values_from_definition(definition):
+    def _check_values_from_definition(definition):
         if isinstance(definition, dict):
             for v in definition.values():
-                CQLIface.check_values_from_definition(v)
+                CQLIface._check_values_from_definition(v)
         elif isinstance(definition, (list, set, tuple)):
             for v in definition:
-                CQLIface.check_values_from_definition(v)
+                CQLIface._check_values_from_definition(v)
         else:
             try:
-                if isinstance(definition.__origin__, (Tuple, FrozenSet)):
+                if isinstance(definition.__origin__, Tuple):
                     try:
                         _hecuba2cassandra_typemap[definition.__origin__]
                     except KeyError:
@@ -70,7 +63,7 @@ class CQLIface(StorageIface):
             self.data_models_cache[datamodel_id]
         except KeyError:
             dict_definition = {k: definition[k] for k in ('value_id', 'fields')}
-            CQLIface.check_values_from_definition(dict_definition)
+            CQLIface._check_values_from_definition(dict_definition)
             self.data_models_cache[datamodel_id] = definition
             CqlCOMM.register_data_model(datamodel_id, definition)
         return datamodel_id
