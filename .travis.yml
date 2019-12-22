@@ -35,7 +35,10 @@ jobs:
     - stage: test_integration
       sudo: required
       install:
-        - docker build -t hecuba:0.1 dockerfiles/hecuba
         - docker build -t hecompss:0.1 dockerfiles/compss_integration
       script:
-       - docker run --rm -it hecompss:0.1
+       - docker network create --driver bridge hecompss_bridge
+       - CASSANDRA_ID=$(docker run --rm --network=hecompss_bridge -d  cassandra)
+       - sleep 30
+       - CASSANDRA_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${CASSANDRA_ID})
+       - docker run --rm -it --env CONTACT_NAMES=${CASSANDRA_IP} --network=hecompss_bridge hecompss:0.1docker run --rm -it hecompss:0.1
