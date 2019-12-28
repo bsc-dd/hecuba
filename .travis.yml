@@ -41,4 +41,4 @@ jobs:
        - CASSANDRA_ID=$(docker run --rm --network=hecompss_bridge -d  cassandra)
        - sleep 30
        - CASSANDRA_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${CASSANDRA_ID})
-       - docker run --rm -it --env CONTACT_NAMES=${CASSANDRA_IP} --network=hecompss_bridge hecompss:0.1
+       - docker run --rm --env CONTACT_NAMES=${CASSANDRA_IP} --network=hecompss_bridge -v `pwd`:/io hecompss:0.1
