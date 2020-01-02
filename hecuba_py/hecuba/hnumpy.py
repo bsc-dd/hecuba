@@ -1,5 +1,6 @@
 import itertools as it
 from collections import namedtuple
+from math import ceil
 
 import numpy as np
 from hfetch import HNumpyStore
@@ -28,7 +29,7 @@ class StorageNumpy(IStorage, np.ndarray):
         # iterate through rows
         if axis == 0 or axis == 'rows':
             n_rows, n_cols = self.shape[:2]
-            splits = n_rows // block_size
+            splits = ceil(n_rows / block_size)
             if splits == 0:
                 splits = 1
             for i, chunk in enumerate(np.array_split(self.view(np.ndarray), splits, axis=0)):
