@@ -133,3 +133,21 @@ class CQLIface(StorageIface):
                                                  list(value_list.keys()))
         except Exception:
             raise Exception("key_list or value_list have some parameter that does not correspond with the data model")
+
+    def get_record(self, object_id: UUID, key_list: OrderedDict) -> List[object]:
+        try:
+            UUID(str(object_id))
+        except ValueError:
+            raise ValueError("The object_id is not an UUID")
+        try:
+            self.hcache_by_id[object_id]
+        except KeyError:
+            raise KeyError("hcache must be registered before in the function register_persistent_object")
+
+        if not key_list:
+            raise ValueError("key_list and value_list cannot be None")
+        try:
+            result = self.hcache_by_id[object_id].get_row(list(key_list.values()))
+        except Exception:
+            result = []
+        return result
