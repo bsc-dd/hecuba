@@ -22,7 +22,6 @@ class TestClass(IStorage):
     def __init__(self, *args, **kwargs):
         super(TestClass, self).__init__()
 
-
 class TestClass2(IStorage):
 
     def __new__(cls, *args, name='', **kwargs):
@@ -31,7 +30,6 @@ class TestClass2(IStorage):
 
     def __init__(self, *args, **kwargs):
         super(TestClass2, self).__init__()
-
 
 class mockClass(IStorage):
     pass
@@ -110,13 +108,6 @@ class HfetchTests(unittest.TestCase):
 
     def test_add_data_model_StorageObj(self):
         data_model = {"type": StorageObj, "value_id": {"k": uuid.UUID}, "fields": {"a": str}}
-        storage = CQLIface()
-        # Register data models
-        id = storage.add_data_model(data_model)
-        self.assertTrue(storage.data_models_cache[id])
-
-    def test_add_data_model_StorageObj2(self):
-        data_model = {"type": StorageObj, "value_id": {"k": uuid.UUID}, "fields": {"a": Tuple[int]}}
         storage = CQLIface()
         # Register data models
         id = storage.add_data_model(data_model)
@@ -263,23 +254,6 @@ class HfetchTests(unittest.TestCase):
         myid = obj.getID()
         name = obj.get_name()
         data_model = {"type": StorageDict, "value_id": {"k": int}, "fields": {"a": str, "b": str}}
-
-        # Setup persistent storage
-        storage = CQLIface()
-
-        data_model_id = storage.add_data_model(data_model)
-        storage.register_persistent_object(data_model_id, obj)
-        res = config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(myid)).one()
-        self.assertEqual(res.name, name)
-        config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
-
-    def test_register_persistent_obj_storage_numpy(self):
-        given_name = 'storage_test.custom_obj'
-        config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
-        obj = TestClass(name=given_name)
-        myid = obj.getID()
-        name = obj.get_name()
-        data_model = {"type": StorageNumpy, "value_id": {"k": int}, "fields": {"a": str, "b": str}}
 
         # Setup persistent storage
         storage = CQLIface()
@@ -565,182 +539,21 @@ class HfetchTests(unittest.TestCase):
         for val, ret_val in zip(fields.values(), returned_values[0]):
             self.assertAlmostEqual(val, ret_val)
 
-    def test_put_record_StorageDict_except_with_key_nones(self):
-        with self.assertRaises(Exception):
-            given_name = 'storage_test.complex_obj'
-            config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
-
-            obj = TestClass(name=given_name)
-            myid = obj.getID()
-            data_model = {"type": StorageDict, "value_id": {"k": int}, "fields": {"a": int, "b": str, "c": float}}
-            given_name = 'storage_test.dict'
-            storage = CQLIface()
-            data_model_id = storage.add_data_model(data_model)
-            storage.register_persistent_object(data_model_id, obj)
-
-            keys = NamedTuple('keys', [('k', int)])
-            keys = keys(None)._asdict()
-            fields = NamedTuple('fields', [('a', int), ('b', 'name'), ('c', float)])
-            fields = fields(4, 'hola', 3.8)._asdict()
-
-            storage.put_record(myid, keys, fields)
-
-            returned_values = []
-            hcache = storage.hcache_by_id[myid]
-            for key in keys.values():
-                returned_values.append(hcache.get_row([key]))
-
-            self.assertEqual(len(fields.values()), len(returned_values[0]))
-
-            for val, ret_val in zip(fields.values(), returned_values[0]):
-                self.assertAlmostEqual(val, ret_val)
-
-    def test_put_record_StorageDict_complex(self):
-        given_name = 'storage_test.complex_obj'
+    def test_register_persistent_obj_storage_numpy(self):
+        given_name = 'storage_test.custom_obj'
         config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
-
         obj = TestClass(name=given_name)
         myid = obj.getID()
-        data_model = {"type": StorageDict, "value_id": {"k": int},
-                      "fields": {"a": Tuple[int, int], "b": bool, "c": str}}
-        given_name = 'storage_test.dict'
+        name = obj.get_name()
+        data_model = {"type": StorageNumpy, "value_id": {"k": int}, "fields": {"a": str, "b": str}}
+
+        # Setup persistent storage
         storage = CQLIface()
+
         data_model_id = storage.add_data_model(data_model)
         storage.register_persistent_object(data_model_id, obj)
-
-        keys = NamedTuple('keys', [('k', int)])
-        keys = keys(8)._asdict()
-        fields = NamedTuple('fields', [('a', Tuple[int, int]), ('b', bool), ('c', str)])
-        fields = fields((3, 4), True, 'adeu')._asdict()
-
-        storage.put_record(myid, keys, fields)
-
-        returned_values = []
-        hcache = storage.hcache_by_id[myid]
-        for key in keys.values():
-            returned_values.append(hcache.get_row([key]))
-
-        self.assertEqual(len(fields.values()), len(returned_values[0]))
-
-        for val, ret_val in zip(fields.values(), returned_values[0]):
-            self.assertEqual(val, ret_val)
-
-    def test_put_record_StorageDict_complex_less_values(self):
-        given_name = 'storage_test.complex_obj'
-        config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
-
-        obj = TestClass(name=given_name)
-        myid = obj.getID()
-        data_model = {"type": StorageDict, "value_id": {"k": int},
-                      "fields": {"a": Tuple[int, int], "b": bool, "c": str, "d": int}}
-        given_name = 'storage_test.dict'
-        storage = CQLIface()
-        data_model_id = storage.add_data_model(data_model)
-        storage.register_persistent_object(data_model_id, obj)
-
-        keys = NamedTuple('keys', [('k', int)])
-        keys = keys(8)._asdict()
-        fields = NamedTuple('fields', [('a', Tuple[int, int]), ('b', bool), ('c', str)])
-        fields = fields((3, 4), True, 'adeu')._asdict()
-
-        storage.put_record(myid, keys, fields)
-
-        returned_values = []
-        hcache = storage.hcache_by_id[myid]
-        for key in keys.values():
-            returned_values.append(hcache.get_row([key]))
-
-        self.assertEqual(len(data_model["fields"]), len(returned_values[0]))
-
-        for val, ret_val in zip(fields.values(), returned_values[0]):
-            self.assertEqual(val, ret_val)
-
-    def test_put_record_StorageDict_complex_less_values_2_inserts(self):
-        given_name = 'storage_test.complex_obj'
-        config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
-
-        obj = TestClass(name=given_name)
-        myid = obj.getID()
-        data_model = {"type": StorageDict, "value_id": {"k": int},
-                      "fields": {"a": Tuple[int, int], "b": bool, "c": str, "d": int}}
-        given_name = 'storage_test.dict'
-        storage = CQLIface()
-        data_model_id = storage.add_data_model(data_model)
-        storage.register_persistent_object(data_model_id, obj)
-
-        keys = NamedTuple('keys', [('k', int)])
-        keys = keys(8)._asdict()
-        fields = NamedTuple('fields', [('a', Tuple[int, int]), ('b', bool), ('c', str)])
-        fields1 = fields((3, 4), True, 'adeu')._asdict()
-
-        storage.put_record(myid, keys, fields1)
-
-        returned_values = []
-        hcache = storage.hcache_by_id[myid]
-        for key in keys.values():
-            returned_values.append(hcache.get_row([key]))
-
-        self.assertEqual(len(data_model["fields"]), len(returned_values[0]))
-
-        for val, ret_val in zip(fields1.values(), returned_values[0]):
-            self.assertEqual(val, ret_val)
-
-        fields = NamedTuple('fields', [('d', int)])
-        fields = fields(8)._asdict()
-
-        storage.put_record(myid, keys, fields)
-
-        returned_values = []
-        hcache = storage.hcache_by_id[myid]
-        for key in keys.values():
-            returned_values.append(hcache.get_row([key]))
-
-        self.assertEqual(len(data_model["fields"]), len(returned_values[0]))
-
-        for val, ret_val in zip(fields1.values(), returned_values[0]):
-            self.assertEqual(val, ret_val)
-
-    def test_put_record_StorageDict_complex_less_values_2_inserts_tuple_modif(self):
-        given_name = 'storage_test.complex_obj'
-        config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
-
-        obj = TestClass(name=given_name)
-        myid = obj.getID()
-        data_model = {"type": StorageDict, "value_id": {"k": int},
-                      "fields": {"a": Tuple[int, int], "b": bool, "c": str, "d": int}}
-        given_name = 'storage_test.dict'
-        storage = CQLIface()
-        data_model_id = storage.add_data_model(data_model)
-        storage.register_persistent_object(data_model_id, obj)
-
-        keys = NamedTuple('keys', [('k', int)])
-        keys = keys(8)._asdict()
-        fields = NamedTuple('fields', [('a', Tuple[int, int]), ('b', bool), ('c', str)])
-        fields1 = fields((3, None), True, 'adeu')._asdict()
-
-        storage.put_record(myid, keys, fields1)
-        returned_values = []
-        hcache = storage.hcache_by_id[myid]
-        for key in keys.values():
-            returned_values.append(hcache.get_row([key]))
-
-        self.assertEqual(len(data_model["fields"]), len(returned_values[0]))
-
-        for val, ret_val in zip(fields1.values(), returned_values[0]):
-            self.assertEqual(val, ret_val)
-        fields = NamedTuple('fields', [('a', Tuple[int, int])])
-        fields = fields((3, 5))._asdict()
-
-        storage.put_record(myid, keys, fields)
-
-        returned_values = []
-        hcache = storage.hcache_by_id[myid]
-        for key in keys.values():
-            returned_values.append(hcache.get_row([key]))
-
-        self.assertEqual(len(data_model["fields"]), len(returned_values[0]))
-        self.assertEqual([(3, 5), True, 'adeu', None], returned_values[0])
-
+        res = config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(myid)).one()
+        self.assertEqual(res.name, name)
 
 if __name__ == "__main__":
     unittest.main()
