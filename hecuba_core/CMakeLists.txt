@@ -211,7 +211,7 @@ if (NOT TBB_FOUND)
             TBB
             DOWNLOAD_DIR ${CMAKE_CURRENT_LIST_DIR}/dependencies
             URL "https://www.threadingbuildingblocks.org/sites/default/files/software_releases/source/tbb2017_20161128oss_src.tgz"
-            URL_HASH SHA1=1dff5db26fadd8f27111eae92fa4effa95568b85
+            URL_HASH SHA1=2c451a5bcf6fc31487b98b4b29651c369874277c
             CMAKE_COMMAND echo
             BUILD_COMMAND make tbb tbb_build_prefix=${build_prefix}
             BUILD_IN_SOURCE 1
