@@ -27,8 +27,8 @@ cd build;make;make install
 
 
 # getting TBB
-cd;curl -L https://www.threadingbuildingblocks.org/sites/default/files/software_releases/source/tbb2017_20161128oss_src.tgz|tar -xz
-cd tbb2017_20161128oss/
+cd;curl -L https://github.com/intel/tbb/archive/v2020.0.tar.gz|tar -xz
+cd tbb-2020.0/
 make tbb
 cp -r build/*_release/libtbb.so*  /usr/lib64
 cp -r include/tbb /usr/include
