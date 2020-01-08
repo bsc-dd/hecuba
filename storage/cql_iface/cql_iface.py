@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, List
 from uuid import UUID
 
 from storage.cql_iface.tests.mockIStorage import IStorage
@@ -134,7 +134,7 @@ class CQLIface(StorageIface):
         except Exception:
             raise Exception("key_list or value_list have some parameter that does not correspond with the data model")
 
-    def get_record(self, object_id: UUID, key_list: OrderedDict) -> List[object]:
+    def get_record(self, object_id: UUID, key_list: dict) -> List[object]:
         try:
             UUID(str(object_id))
         except ValueError:

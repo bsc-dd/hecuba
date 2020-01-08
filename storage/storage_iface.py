@@ -1,5 +1,4 @@
 from abc import ABCMeta, abstractmethod
-from collections import OrderedDict
 from typing import List
 from uuid import UUID
 from storage.cql_iface.tests.mockIStorage import IStorage
@@ -28,7 +27,7 @@ class StorageIface(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def put_record(self, object_id: UUID, key_list: OrderedDict, value_list: OrderedDict) -> None:
+    def put_record(self, object_id: UUID, key_list: dict, value_list: dict) -> None:
         """
         Stores the records contained in value_list, which correspond to the keys in key_list
         for the Hecuba object referenced by `object_id`.
@@ -40,7 +39,7 @@ class StorageIface(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def get_record(self, object_id: UUID, key_list: OrderedDict) -> List[object]:
+    def get_record(self, object_id: UUID, key_list: dict) -> List[object]:
         """
         Returns a list with the records corresponding to the key_list for the Hecuba object referenced by `object_id`.
         :param object_id: Hecuba object identifier
