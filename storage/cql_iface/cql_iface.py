@@ -92,3 +92,62 @@ class CQLIface(StorageIface):
             self.hcache_by_name[object_name] = hc
             self.hcache_by_id[object_id] = hc
         return object_id
+
+    @staticmethod
+    def fill_empty_keys_with_None(keys_dict, data_model):
+        data_model = {k: None for k in data_model.keys()}
+        return {**data_model, **keys_dict}
+
+    def put_record(self, object_id: UUID, key_list: dict, value_list: dict) -> None:
+        try:
+            UUID(str(object_id))
+        except ValueError:
+            raise ValueError("The object_id is not an UUID")
+        try:
+            self.hcache_by_id[object_id]
+        except KeyError:
+            raise KeyError("hcache must be registered before in the function register_persistent_object")
+        if not isinstance(key_list, dict) and not isinstance(value_list, dict):
+            raise TypeError("key_list and value_list must be OrderedDict")
+        data_model = self.data_models_cache[self.object_to_data_model[object_id]]
+
+        for v in value_list:
+            try:
+                if not isinstance(value_list[v], data_model["fields"][v]) and value_list[v] is not None:
+                    raise Exception("The value types don't match the data model specification")
+            except TypeError:
+                if not isinstance(value_list[v], data_model["fields"][v].__origin__):
+                    raise TypeError("The value types don't match the data model specification")
+
+        for k in key_list:
+            try:
+                if not isinstance(key_list[k], data_model["value_id"][k]):
+                    raise Exception("The key types don't match the data model specification")
+            except TypeError:
+                if not isinstance(key_list[k], data_model["value_id"][k].__origin__):
+                    raise TypeError("The key types don't match the data model specification")
+
+        values_dict = CQLIface.fill_empty_keys_with_None(value_list, data_model["fields"])
+        try:
+            self.hcache_by_id[object_id].put_row(list(key_list.values()), list(values_dict.values()),
+                                                 list(value_list.keys()))
+        except Exception:
+            raise Exception("key_list or value_list have some parameter that does not correspond with the data model")
+
+    def get_record(self, object_id: UUID, key_list: OrderedDict) -> List[object]:
+        try:
+            UUID(str(object_id))
+        except ValueError:
+            raise ValueError("The object_id is not an UUID")
+        try:
+            self.hcache_by_id[object_id]
+        except KeyError:
+            raise KeyError("hcache must be registered before in the function register_persistent_object")
+
+        if not key_list:
+            raise ValueError("key_list and value_list cannot be None")
+        try:
+            result = self.hcache_by_id[object_id].get_row(list(key_list.values()))
+        except Exception:
+            result = []
+        return result
