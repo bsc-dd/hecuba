@@ -210,8 +210,8 @@ if (NOT TBB_FOUND)
     ExternalProject_Add(
             TBB
             DOWNLOAD_DIR ${CMAKE_CURRENT_LIST_DIR}/dependencies
-            URL "https://www.threadingbuildingblocks.org/sites/default/files/software_releases/source/tbb2017_20161128oss_src.tgz"
-            URL_HASH SHA1=2c451a5bcf6fc31487b98b4b29651c369874277c
+            URL "https://github.com/intel/tbb/archive/v2020.0.tar.gz"
+            URL_HASH SHA1=0b8e9db0c7672eea6207e6749e14ec80b1b4eaa7
             CMAKE_COMMAND echo
             BUILD_COMMAND make tbb tbb_build_prefix=${build_prefix}
             BUILD_IN_SOURCE 1
