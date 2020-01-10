@@ -39,6 +39,10 @@ ORIGINAL_LD=${LD_LIBRARY_PATH}
 # Compile wheels
 for PYBIN in /opt/python/cp3*; do
      VNAME=`basename ${PYBIN}`
+     if [[ ${VNAME} =~ "cp34" ]]
+     then
+       continue      # Skip.
+     fi
      export CPATH=$PYBIN/include:${ORIGINAL_CPATH}
      export LD_LIBRARY_PATH=${PYBIN}/lib:/io/build/lib:${ORIGINAL_LD}
 
