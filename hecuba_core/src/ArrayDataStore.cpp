@@ -36,7 +36,7 @@ ArrayDataStore::~ArrayDataStore() {
  * @param np_metas ndarray characteristics
  * @param numpy to be saved into storage
  */
-void ArrayDataStore::store(const uint64_t *storage_id, ArrayMetadata *metadata, void *data) const {
+void ArrayDataStore::store(const uint64_t *storage_id, ArrayMetadata &metadata, void *data) const {
 
     SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata, data);
 
@@ -83,7 +83,7 @@ void ArrayDataStore::store(const uint64_t *storage_id, ArrayMetadata *metadata, 
  * @param storage_id of the array to retrieve
  * @return Numpy ndarray as a Python object
  */
-void *ArrayDataStore::read(const uint64_t *storage_id, ArrayMetadata *metadata) const {
+void *ArrayDataStore::read(const uint64_t *storage_id, ArrayMetadata &metadata) const {
 
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
@@ -114,7 +114,8 @@ void *ArrayDataStore::read(const uint64_t *storage_id, ArrayMetadata *metadata) 
         //Cluster id
         memcpy(buffer + offset, &cluster_id, sizeof(cluster_id));
         //We fetch the data
-        result = read_cache->get_crow(new TupleRow(keys_metas, keys_size, buffer));
+        const TupleRow *tr = new TupleRow(keys_metas, keys_size, buffer);
+        result = read_cache->get_crow(tr);
         //build cluster
         all_results.insert(all_results.end(), result.begin(), result.end());
         for (const TupleRow *row:result) {

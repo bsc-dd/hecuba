@@ -2,16 +2,18 @@
 #define PREFETCHER_PREFETCHER_IMP_H
 
 #define PY_SSIZE_T_CLEAN
+
 #include <Python.h>
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define PY_ARRAY_UNIQUE_SYMBOL cool_ARRAY_API
 
 #if __cplusplus <= 199711L
-  #error This library needs at least a C++11 compliant compiler
+#error This library needs at least a C++11 compliant compiler
 #endif
 
 #include "numpy/arrayobject.h"
+#include <structmember.h>
 
 
 #include <tuple>
@@ -66,6 +68,11 @@ typedef struct {
     PyObject_HEAD
     NumpyStorage *NumpyDataStore;
 } HNumpyStore;
+
+typedef struct {
+    PyObject_HEAD
+    ArrayMetadata np_metas;
+} HArrayMetadata;
 
 
 static PyObject *create_iter_keys(HCache *self, PyObject *args);

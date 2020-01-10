@@ -26,11 +26,10 @@ public:
 
     ~NumpyStorage();
 
-    void store_numpy(const uint64_t *storage_id, PyArrayObject *numpy, ArrayMetadata *) const;
+    void store_numpy(const uint64_t *storage_id, PyArrayObject *numpy, ArrayMetadata &) const;
 
-    PyObject *read_numpy(const uint64_t *storage_id, ArrayMetadata *np_metas);
+    PyObject *read_numpy(const uint64_t *storage_id, ArrayMetadata &np_metas);
 
-    ArrayMetadata *make_metadata(PyObject *py_np_metas) const;
 };
 
 

@@ -2,26 +2,10 @@ from collections import namedtuple
 
 import numpy as np
 from . import config, log
-from hfetch import HNumpyStore
+from hfetch import HNumpyStore, HArrayMetadata
 
 from .IStorage import IStorage
 from .tools import extract_ks_tab, get_istorage_attrs
-
-
-class np_meta:
-
-    def __init__(self, flags, elem_size, partition_type, dims, strides, kind, byteorder):
-        self.flags = flags
-        self.elem_size = elem_size
-        self.partition_type = partition_type
-        self.dims = list(dims)
-        self.strides = list(strides)
-        self.typekind = kind
-        self.byteorder = byteorder
-
-    def __repr__(self):
-        return f"""{self.flags, self.elem_size, self.partition_type,
-                    self.dims, self.strides, self.typekind, self.byteorder}"""
 
 
 class StorageNumpy(IStorage, np.ndarray):
@@ -41,11 +25,11 @@ class StorageNumpy(IStorage, np.ndarray):
             numpy_metadata = istorage_metas[0].numpy_meta
 
             # Load array
-            result = cls.load_array(storage_id, name, numpy_metadata)
-            input_array = result[0]
+            hcache = StorageNumpy._create_hcache(name)
+            input_array = hcache.get_numpy(storage_id, numpy_metadata)
             obj = np.asarray(input_array).view(cls)
             (obj._ksp, obj._table) = extract_ks_tab(name)
-            obj._hcache = result[1]
+            obj._hcache = hcache
         else:
             obj = np.asarray(input_array).view(cls)
 
@@ -58,8 +42,8 @@ class StorageNumpy(IStorage, np.ndarray):
         if input_array is not None and (name or storage_id):
             self.make_persistent(name)
 
-        metas = np_meta(self.flags.num, self.itemsize, 0, self.shape, self.strides, self.dtype.kind,
-                        self.dtype.byteorder)
+        metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
+                               self.itemsize, self.flags.num, 0)
 
         self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), metas)
 
@@ -69,7 +53,11 @@ class StorageNumpy(IStorage, np.ndarray):
             return
         self.storage_id = getattr(obj, "storage_id", None)
         self._hcache = getattr(obj, "_hcache", None)
-        self._build_args = getattr(obj, "_build_args", None)
+        try:
+            self._build_args = obj._build_args
+        except AttributeError:
+            self._build_args = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind,
+                                              self.dtype.byteorder, self.itemsize, self.flags.num, 0)
         try:
             name = obj._get_name()
             self._set_name(name)
@@ -117,12 +105,6 @@ class StorageNumpy(IStorage, np.ndarray):
             log.warn("Error creating the StorageNumpy metadata with args: %s" % str(storage_args))
             raise ex
 
-    @staticmethod
-    def load_array(storage_id, name, metas):
-        hcache = StorageNumpy._create_hcache(name)
-        result = hcache.get_numpy(storage_id, metas)
-        return [result, hcache]
-
     def make_persistent(self, name):
         super().make_persistent(name)
 
@@ -132,13 +114,15 @@ class StorageNumpy(IStorage, np.ndarray):
         if not getattr(self, '_hcache', None):
             self._hcache = self._create_hcache(name)
 
-        metas = np_meta(self.flags.num, self.itemsize, 0, self.shape, self.strides, self.dtype.kind,
-                        self.dtype.byteorder)
+        if None in self or not self.ndim:
+            raise NotImplemented("Empty array persistance")
 
-        self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), metas)
+        hfetch_metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
+                                      self.itemsize, self.flags.num, 0)
 
+        self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas)
         if len(self.shape) != 0:
-            self._hcache.save_numpy(self.storage_id, self, self._build_args.metas)
+            self._hcache.save_numpy(self.storage_id, self, hfetch_metas)
         StorageNumpy._store_meta(self._build_args)
 
     def stop_persistent(self):

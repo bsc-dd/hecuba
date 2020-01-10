@@ -35,6 +35,7 @@
 #define Py_FLOAT "f"
 #define Py_DOUBLE "d"
 #define Py_SHORT_INT "h"
+#define Py_UCHAR "b"
 
 class UnitParser {
 public:
