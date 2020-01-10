@@ -104,17 +104,15 @@ class Partitioner:
         partitions_per_node = self._compute_partitions_per_node(ksp, table, token_range_size, target_token_range_size)
 
         if self._strategy == "DYNAMIC":
-            for partition_tokens in self._dynamic_tokens_partitions(partitions_per_node):
+            for node, partition_tokens in self._dynamic_tokens_partitions(partitions_per_node):
                 storage_id = uuid.uuid4()
                 config.session.execute(self._prepared_store_id,
                                        [self._partitioning_uuid, storage_id, config.splits_per_node])
                 self._n_idle_nodes -= 1
-                # self._partitions_nodes[storage_id] = node TODO why? where do you get node?
-                storage_id = uuid.uuid4()
-                self._partitions_nodes[storage_id] = partition_tokens[0]
-                yield storage_id, partition_tokens[1]
+                self._partitions_nodes[storage_id] = node
+                yield storage_id, partition_tokens
         else:
-            for final_tokens in self._send_final_tasks(partitions_per_node):
+            for _, final_tokens in self._send_final_tasks(partitions_per_node):
                 yield uuid.uuid4(), final_tokens
 
     def _compute_partitions_per_node(self, ksp, table, token_range_size, target_token_range_size):
@@ -231,7 +229,7 @@ class Partitioner:
         for partition in partitions_per_node.values():
             group_size = max(len(partition) // config.splits_per_node, 1)
             for i in range(0, len(partition), group_size):
-                yield partition[i:i + group_size]
+                yield -1, partition[i:i + group_size]
 
     def _at_least_each_granularity_finished(self):
         """
