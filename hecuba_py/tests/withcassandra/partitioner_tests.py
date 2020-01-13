@@ -26,6 +26,17 @@ set_end_time = """UPDATE hecuba.partitioning
 
 number_nodes = 2
 
+_dynamic_part_table_cql = """CREATE TABLE IF NOT EXISTS hecuba.partitioning(
+                                        partitioning_uuid uuid,
+                                        storage_id uuid,
+                                        number_of_partitions int,
+                                        start_time double,
+                                        end_time double,
+                                        PRIMARY KEY (storage_id))
+                                        WITH default_time_to_live = 86400"""
+
+config.session.execute(_dynamic_part_table_cql)
+
 
 class PartitionerTest(unittest.TestCase):
 
