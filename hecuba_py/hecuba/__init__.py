@@ -219,7 +219,8 @@ class Config:
                 to_point frozen<list<double>>,
                 precision float);
                 """,
-                'CREATE TYPE IF NOT EXISTS hecuba.np_meta(dims frozen<list<int>>,type int,block_id int);',
+                """CREATE TYPE IF NOT EXISTS hecuba.np_meta (flags int, elem_size int, partition_type tinyint,
+                dims list<int>, strides list<int>, typekind text, byteorder text)""",
                 """CREATE TABLE IF NOT EXISTS hecuba
                 .istorage (storage_id uuid, 
                 class_name text,name text, 
@@ -240,9 +241,11 @@ class Config:
                     log.error("Error executing query %s" % query)
                     raise e
 
-        from hfetch import connectCassandra
+        from hfetch import connectCassandra, HArrayMetadata
         # connecting c++ bindings
         connectCassandra(singleton.contact_names, singleton.nodePort)
+
+        singleton.cluster.register_user_type('hecuba', 'np_meta', HArrayMetadata)
 
 
 global config

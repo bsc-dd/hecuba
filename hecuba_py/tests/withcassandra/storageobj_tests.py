@@ -1,6 +1,7 @@
 import time
 import unittest
 import uuid
+import datetime
 
 import cassandra
 import numpy as np
@@ -137,6 +138,24 @@ class mixObj(StorageObj):
     @ClassField strlistField list<str>
     @ClassField dictField dict<<key0:int>, val0:str>
     @ClassField inttupleField tuple<int,int>
+    '''
+
+
+class TestDate(StorageObj):
+    '''
+    @ClassField attr date
+    '''
+
+
+class TestTime(StorageObj):
+    '''
+    @ClassField attr time
+    '''
+
+
+class TestDateTime(StorageObj):
+    '''
+    @ClassField attr datetime
     '''
 
 
@@ -763,12 +782,12 @@ class StorageObjTest(unittest.TestCase):
 
     def test_numpy_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.TestStorageObjNumpy")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy")
         my_so = TestStorageObjNumpy('tnp')
 
     def test_numpy_set(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.TestStorageObjNumpy")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy")
         my_so = TestStorageObjNumpy()
         my_so.mynumpy = np.random.rand(3, 2)
         my_so.make_persistent('mynewso')
@@ -776,42 +795,41 @@ class StorageObjTest(unittest.TestCase):
     def test_numpy_get(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.TestStorageObjNumpy")
         config.session.execute("DROP TABLE IF EXISTS my_app.TestStorageObjNumpy_mynumpy")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy")
         my_so = TestStorageObjNumpy('mynewso')
         mynumpy = np.random.rand(3, 2)
         my_so.mynumpy = mynumpy
-        import time
         time.sleep(2)
         self.assertTrue(np.array_equal(mynumpy, my_so.mynumpy))
 
     def test_numpy_topersistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.TestStorageObjNumpy")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy")
         my_so = TestStorageObjNumpy()
         my_so.mynumpy = np.random.rand(3, 2)
         my_so.make_persistent('mynewso')
 
     def test_numpydict_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.TestStorageObjNumpy")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy")
         my_so = TestStorageObjNumpyDict('mynewso')
 
     def test_numpydict_set(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.TestStorageObjNumpy")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy")
         my_so = TestStorageObjNumpyDict('mynewso')
         my_so.mynumpydict[0] = np.random.rand(3, 2)
 
     def test_numpydict_to_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.TestStorageObjNumpy")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy")
         my_so = TestStorageObjNumpyDict()
         my_so.mynumpydict[0] = np.random.rand(3, 2)
         my_so.make_persistent('mynewso')
 
     def test_numpydict_get(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.TestStorageObjNumpy")
-        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.teststorageobjnumpy_mynumpy")
         my_so = TestStorageObjNumpyDict()
         mynumpydict = np.random.rand(3, 2)
         my_so.mynumpydict[0] = mynumpydict
@@ -822,12 +840,11 @@ class StorageObjTest(unittest.TestCase):
 
     def test_numpy_operations(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
-        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso_mynumpy")
         my_so = TestStorageObjNumpy()
         base_numpy = np.arange(2048)
         my_so.mynumpy = np.arange(2048)
         my_so.make_persistent('mynewso')
-        import time
         time.sleep(2)
         self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
         base_numpy += 1
@@ -838,7 +855,7 @@ class StorageObjTest(unittest.TestCase):
 
     def test_numpy_ops_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso2")
-        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso2_mynumpy_numpies")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mynewso2_mynumpy")
         my_so = TestStorageObjNumpy()
         base_numpy = np.arange(2048)
         my_so.mynumpy = np.arange(2048)
@@ -880,7 +897,7 @@ class StorageObjTest(unittest.TestCase):
         a = no.mynumpy
 
         final_name_so = no._ksp + '.' + no._table
-        final_name_np = no.mynumpy._ksp + '.' + no.mynumpy._table + '_numpies'
+        final_name_np = no.mynumpy._ksp + '.' + no.mynumpy._table
         self.assertEqual(initial_name_so, final_name_so)
         self.assertEqual(initial_name_np, final_name_np)
 
@@ -1275,6 +1292,37 @@ class StorageObjTest(unittest.TestCase):
                 "SELECT * FROM my_app.Test2StorageObj WHERE storage_id = %s" % my_dict.test2[i].storage_id)
             self.assertEqual(res.one().name, "RandomName" + str(i))
             self.assertEqual(res.one().age, 18 + i)
+
+    def test_time(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.timeAttrib")
+        d = TestTime("my_app.timeAttrib")
+
+        mytime =datetime.time(hour=11, minute=43, second=2, microsecond=90)
+        d.attr = mytime
+        del d
+        mynew_d = TestTime("my_app.timeAttrib")
+        self.assertEqual(mynew_d.attr, mytime)
+
+    def test_date(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.dateAttrib")
+        d = TestDate("my_app.dateAttrib")
+        
+        mydate = datetime.date(year=1992, month=7, day=25)
+        d.attr = mydate
+        del d
+        mynew_d = TestDate("my_app.dateAttrib")
+
+        self.assertEqual(mynew_d.attr, mydate)
+
+    def test_datetime(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.dateTimeAttrib")
+        d = TestDateTime("my_app.dateTimeAttrib")
+        dtime = datetime.datetime(year=1940, month=10, day=16,
+                         hour=23, minute=59, second=59)
+        d.attr = dtime
+        del d
+        mynew_d = TestDateTime("my_app.dateTimeAttrib")
+        self.assertEqual(mynew_d.attr, dtime)
 
 
 if __name__ == '__main__':

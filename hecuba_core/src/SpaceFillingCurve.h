@@ -31,19 +31,12 @@ struct Partition {
 //TODO Inherit from CassUserType, pass the user type directly
 //Represents the shape and type of an array
 struct ArrayMetadata {
-    ArrayMetadata() {}
+    ArrayMetadata() = default;
 
-    ArrayMetadata(std::vector<uint32_t> dims, int32_t inner_type, uint32_t elem_size, uint8_t partition_type) {
-        this->dims = dims;
-        this->inner_type = inner_type;
-        this->elem_size = elem_size;
-        this->partition_type = partition_type;
-    }
-
-    std::vector<uint32_t> dims;
-    int32_t inner_type;
-    uint32_t elem_size;
-    uint8_t partition_type;
+    std::vector<uint32_t> dims, strides;
+    uint32_t elem_size = 0, flags = 0;
+    uint8_t partition_type = ZORDER_ALGORITHM;
+    char typekind = ' ', byteorder = ' ';
 };
 
 
@@ -61,22 +54,21 @@ public:
 
         virtual int32_t computeNextClusterId() = 0;
 
-        virtual void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks) = 0;
+        virtual void *merge_partitions(const ArrayMetadata &metas, std::vector<Partition> chunks) = 0;
 
     };
 
 
     ~SpaceFillingCurve() {};
 
-    static PartitionGenerator *make_partitions_generator(const ArrayMetadata *metas, void *data);
+    static PartitionGenerator *make_partitions_generator(const ArrayMetadata &metas, void *data);
 
 protected:
 
     class SpaceFillingGenerator : public PartitionGenerator {
     public:
-        SpaceFillingGenerator();
 
-        SpaceFillingGenerator(const ArrayMetadata *metas, void *data);
+        SpaceFillingGenerator(const ArrayMetadata &metas, void *data);
 
         Partition getNextPartition();
 
@@ -84,11 +76,11 @@ protected:
 
         bool isDone() { return done; };
 
-        void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks);
+        void *merge_partitions(const ArrayMetadata &metas, std::vector<Partition> chunks);
 
     protected:
         bool done;
-        const ArrayMetadata *metas;
+        const ArrayMetadata metas;
         void *data;
         uint64_t total_size;
     };
@@ -98,9 +90,8 @@ protected:
 
 class ZorderCurveGenerator : public SpaceFillingCurve::PartitionGenerator {
 public:
-    ZorderCurveGenerator();
 
-    ZorderCurveGenerator(const ArrayMetadata *metas, void *data);
+    ZorderCurveGenerator(const ArrayMetadata &metas, void *data);
 
     Partition getNextPartition();
 
@@ -119,11 +110,11 @@ public:
 
     uint64_t getIdFromIndexes(const std::vector<uint32_t> &dims, const std::vector<uint32_t> &indexes);
 
-    void *merge_partitions(const ArrayMetadata *metas, std::vector<Partition> chunks);
+    void *merge_partitions(const ArrayMetadata &metas, std::vector<Partition> chunks);
 
 private:
     bool done;
-    const ArrayMetadata *metas;
+    const ArrayMetadata metas;
     void *data;
     uint32_t ndims, row_elements;
     uint64_t block_size, nblocks;

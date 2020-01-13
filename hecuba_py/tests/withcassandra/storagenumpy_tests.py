@@ -86,30 +86,6 @@ class StorageNumpyTest(unittest.TestCase):
         basic_init = StorageNumpy(base_array)
         new_from_template = basic_init[:32]
 
-    def test_explicit_construct(self):
-        # From an explicit constructor - e.g. InfoArray():
-        #    obj is None
-        #    (we're in the middle of the InfoArray.__new__
-        #    constructor, and self.info will be set when we return to
-        #    InfoArray.__new__)
-
-        basic_init = StorageNumpy()
-
-    def test_view_cast(self):
-        # From view casting - e.g arr.view(InfoArray):
-        #    obj is arr
-        #    (type(obj) can be InfoArray)
-
-        base_array = np.arange(4096).reshape((64, 64))
-        view_cast = base_array.view(StorageNumpy)
-
-    def test_new_from_template(self):
-        # From new-from-template - e.g infoarr[:3]
-        #    type(obj) is InfoArray
-        base_array = np.arange(4096).reshape((64, 64))
-        basic_init = StorageNumpy(base_array)
-        new_from_template = basic_init[:32]
-
     def test_read_all(self):
         nelem = 2 ** 21
         elem_dim = 2 ** 7
@@ -124,6 +100,25 @@ class StorageNumpyTest(unittest.TestCase):
         casted = StorageNumpy(name="testing_arrays.first_test", storage_id=storage_id)
         chunk = casted[slice(None, None, None)]
         self.assertTrue(np.allclose(chunk.view(np.ndarray), test_numpy))
+
+    def test_multiply(self):
+        nelem = 2 ** 10
+        elem_dim = 2 ** 5
+
+        storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, "test_mult")
+        base_array = np.arange(nelem).reshape((elem_dim, elem_dim))
+        casted = StorageNumpy(input_array=base_array, name="testing_arrays.test_mult", storage_id=storage_id)
+        import gc
+        del casted
+        gc.collect()
+        test_numpy = np.arange(nelem).reshape((elem_dim, elem_dim))
+        casted = StorageNumpy(name="testing_arrays.test_mult", storage_id=storage_id)
+        chunk = casted[slice(None, None, None)]
+        result = np.multiply(chunk, base_array)
+        result2 = np.multiply(base_array, chunk)
+        result3 = np.multiply(base_array, base_array)
+        self.assertTrue(np.array_equal(result, result2))
+        self.assertTrue(np.array_equal(result3, result3))
 
 
 if __name__ == '__main__':

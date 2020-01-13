@@ -2,7 +2,7 @@ import uuid
 from . import config
 
 valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map', 'bigint', 'blob',
-               'tuple', 'dict', 'float', 'numpy.ndarray']
+               'tuple', 'dict', 'float', 'timestamp', 'time', 'date', 'numpy.ndarray']
 
 basic_types = valid_types[:-1]
 
@@ -111,7 +111,7 @@ def tokens_partitions(ksp, table, tokens_ranges):
             (mean_p_size, p_count) = one
             estimated_size = mean_p_size * p_count
             if estimated_size > 0:
-                step_size = _max_token // (
+                step_size = _max_token // int(
                     max(estimated_size / target_token_range_size,
                         splits_per_node * n_nodes)
                 )
