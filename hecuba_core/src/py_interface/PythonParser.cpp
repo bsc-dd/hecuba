@@ -30,6 +30,12 @@ PythonParser::PythonParser(std::shared_ptr<StorageInterface> storage,
             throw ModuleException("Support for UDT other than Numpy not implemented");
         } else if (CM.type == CASS_VALUE_TYPE_TUPLE) {
             parsers[meta_i] = new TupleParser(CM);
+        } else if (CM.type == CASS_VALUE_TYPE_DATE) {
+            parsers[meta_i] = new DateParser(CM);
+        } else if (CM.type == CASS_VALUE_TYPE_TIME) {
+            parsers[meta_i] = new TimeParser(CM);
+        } else if (CM.type == CASS_VALUE_TYPE_TIMESTAMP) {
+            parsers[meta_i] = new TimestampParser(CM);
         } else parsers[meta_i] = new UnitParser(CM);
         ++meta_i;
     }
