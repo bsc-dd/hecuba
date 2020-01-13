@@ -35,8 +35,6 @@ _dynamic_part_table_cql = """CREATE TABLE IF NOT EXISTS hecuba.partitioning(
                                         PRIMARY KEY (storage_id))
                                         WITH default_time_to_live = 86400"""
 
-config.session.execute(_dynamic_part_table_cql)
-
 
 class PartitionerTest(unittest.TestCase):
 
@@ -72,6 +70,7 @@ class PartitionerTest(unittest.TestCase):
     def test_dynamic_simple(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mydict")
         config.session.execute("DROP TABLE IF EXISTS hecuba.partitioning")
+        config.session.execute(_dynamic_part_table_cql)
         d = MyDict("my_app.mydict")
         nitems = 10000
         for i in range(0, nitems):
@@ -102,6 +101,7 @@ class PartitionerTest(unittest.TestCase):
     def test_dynamic_simple_other(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mydict")
         config.session.execute("DROP TABLE IF EXISTS hecuba.partitioning")
+        config.session.execute(_dynamic_part_table_cql)
         d = MyDict("my_app.mydict")
         nitems = 10000
         for i in range(0, nitems):
@@ -132,6 +132,7 @@ class PartitionerTest(unittest.TestCase):
     def test_dynamic_different_nodes(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mydict")
         config.session.execute("DROP TABLE IF EXISTS hecuba.partitioning")
+        config.session.execute(_dynamic_part_table_cql)
         d = MyDict("my_app.mydict")
         nitems = 10000
         for i in range(0, nitems):
@@ -166,6 +167,7 @@ class PartitionerTest(unittest.TestCase):
         """
         config.session.execute("DROP TABLE IF EXISTS my_app.mydict")
         config.session.execute("DROP TABLE IF EXISTS hecuba.partitioning")
+        config.session.execute(_dynamic_part_table_cql)
         d = MyDict("my_app.mydict")
         nitems = 10000
         for i in range(0, nitems):
@@ -201,6 +203,7 @@ class PartitionerTest(unittest.TestCase):
     def test_dynamic_best_idle_nodes(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mydict")
         config.session.execute("DROP TABLE IF EXISTS hecuba.partitioning")
+        config.session.execute(_dynamic_part_table_cql)
         d = MyDict("my_app.mydict")
         nitems = 10000
         for i in range(0, nitems):
@@ -243,6 +246,7 @@ class PartitionerTest(unittest.TestCase):
     def test_dynamic_idle_nodes_new_best(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mydict")
         config.session.execute("DROP TABLE IF EXISTS hecuba.partitioning")
+        config.session.execute(_dynamic_part_table_cql)
         d = MyDict("my_app.mydict")
         nitems = 10000
         for i in range(0, nitems):
