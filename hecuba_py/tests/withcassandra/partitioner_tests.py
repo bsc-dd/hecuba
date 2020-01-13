@@ -24,6 +24,8 @@ set_end_time = """UPDATE hecuba.partitioning
                   SET end_time = %s
                   WHERE storage_id = %s"""
 
+number_nodes = 2
+
 
 class PartitionerTest(unittest.TestCase):
 
@@ -84,7 +86,7 @@ class PartitionerTest(unittest.TestCase):
 
         print("number of splits: %s, best is %s" % (nsplits, 45))
         self.assertEqual(nitems, acc)
-        self.assertEqual(config.splits_per_node, 45 // 2)
+        self.assertEqual(config.splits_per_node, 45 // number_nodes)
 
     def test_dynamic_simple_other(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mydict")
@@ -114,7 +116,7 @@ class PartitionerTest(unittest.TestCase):
 
         print("number of splits: %s, best is %s" % (nsplits, 32))
         self.assertEqual(nitems, acc)
-        self.assertEqual(config.splits_per_node, 32 // 2)
+        self.assertEqual(config.splits_per_node, 32 // number_nodes)
 
     def test_dynamic_different_nodes(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mydict")
@@ -144,7 +146,7 @@ class PartitionerTest(unittest.TestCase):
 
         print("number of splits: %s, best is %s\n" % (nsplits, 64))
         self.assertEqual(nitems, acc)
-        self.assertEqual(config.splits_per_node, 64 // 2)
+        self.assertEqual(config.splits_per_node, 64 // number_nodes)
 
     def test_dynamic_best_without_finishing(self):
         """
@@ -176,14 +178,14 @@ class PartitionerTest(unittest.TestCase):
             elif nsplits == 1:
                 config.session.execute(set_time, [times[nsplits][0], times[nsplits][1], partition.storage_id])
             else:
-                self.assertEqual(config.splits_per_node, 45 // 2)
+                self.assertEqual(config.splits_per_node, 45 // number_nodes)
 
             nsplits += 1
             acc += self.computeItems(partition)
 
         print("number of splits: %s, best is %s" % (nsplits, 45))
         self.assertEqual(nitems, acc)
-        self.assertEqual(config.splits_per_node, 45 // 2)
+        self.assertEqual(config.splits_per_node, 45 // number_nodes)
 
     def test_dynamic_best_idle_nodes(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mydict")
@@ -218,14 +220,14 @@ class PartitionerTest(unittest.TestCase):
                 config.session.execute(set_time, [start, start + 60, partition.storage_id])
 
             if nsplits > 1:
-                self.assertEqual(config.splits_per_node, 45 // 2)
+                self.assertEqual(config.splits_per_node, 45 // number_nodes)
 
             nsplits += 1
             acc += self.computeItems(partition)
 
         print("number of splits: %s, best is %s" % (nsplits, 45))
         self.assertEqual(nitems, acc)
-        self.assertEqual(config.splits_per_node, 45 // 2)
+        self.assertEqual(config.splits_per_node, 45 // number_nodes)
 
     def test_dynamic_idle_nodes_new_best(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mydict")
@@ -263,15 +265,15 @@ class PartitionerTest(unittest.TestCase):
                 config.session.execute(set_time, [start, start + 60, partition.storage_id])
 
             if 5 >= nsplits >= 2:
-                self.assertEqual(config.splits_per_node, 45 // 2)
+                self.assertEqual(config.splits_per_node, 45 // number_nodes)
             elif nsplits > 5:
-                self.assertEqual(config.splits_per_node, 32 // 2)
+                self.assertEqual(config.splits_per_node, 32 // number_nodes)
             nsplits += 1
             acc += self.computeItems(partition)
 
         print("number of splits: %s, best is %s" % (nsplits, 32))
         self.assertEqual(nitems, acc)
-        self.assertEqual(config.splits_per_node, 32 // 2)
+        self.assertEqual(config.splits_per_node, 32 // number_nodes)
 
     def test_check_nodes_not_set(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mydict")
