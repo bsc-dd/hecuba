@@ -95,13 +95,13 @@ class Partitioner:
         # 11 basic number of partitions, repeating them when more than 11 nodes
         self._basic_partitions = (partitions * (self._nodes_number // len(partitions) + 1))[0:self._nodes_number]
 
-    def tokens_partitions(self, ksp, table):
+    def tokens_partitions(self, ksp, table, token_range_size, target_token_range_size):
         """
         Method that calculates the new token partitions for a given object
         Returns:
             a tuple (node, partition) every time it's called
         """
-        partitions_per_node = self._compute_partitions_per_node(ksp, table)
+        partitions_per_node = self._compute_partitions_per_node(ksp, table, token_range_size, target_token_range_size)
 
         if self._strategy == "DYNAMIC":
             for node, partition_tokens in self._dynamic_tokens_partitions(partitions_per_node):
@@ -115,7 +115,7 @@ class Partitioner:
             for _, final_tokens in self._send_final_tasks(partitions_per_node):
                 yield uuid.uuid4(), final_tokens
 
-    def _compute_partitions_per_node(self, ksp, table):
+    def _compute_partitions_per_node(self, ksp, table, token_range_size, target_token_range_size):
         """
         Compute all the partitions per node. If the strategy is simple partitioning, each node will have
         (config.splits_per_node (default 32) * self._nodes_number) partitions. If the strategy is dynamic partitioning,
@@ -125,9 +125,6 @@ class Partitioner:
             a dictionary with hosts as keys and partitions of tokens as values
         """
         splits_per_node = config.splits_per_node
-        token_range_size = config.token_range_size
-        target_token_range_size = config.target_token_range_size
-
         step_size = _max_token // (config.splits_per_node * self._nodes_number)
 
         if token_range_size:

@@ -111,7 +111,8 @@ class IStorage(object):
         except AttributeError as ex:
             raise RuntimeError("Object {} does not have tokens".format(self._get_name()))
 
-        for storage_id, token_split in p.tokens_partitions(self._ksp, self._table):
+        for storage_id, token_split in p.tokens_partitions(self._ksp, self._table, config.token_range_size,
+                                                           config.target_token_range_size):
             log.debug('assigning to {} num tokens {}'.format(str(storage_id), len(token_split)))
             new_args = self._build_args._replace(tokens=token_split, storage_id=storage_id)
             args_dict = new_args._asdict()
