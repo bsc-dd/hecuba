@@ -1,6 +1,7 @@
 import uuid
 from . import log
 from .tools import extract_ks_tab, build_remotely, storage_id_from_name, get_istorage_attrs, generate_token_ring_ranges
+from .partitioner import Partitioner
 
 
 class AlreadyPersistentError(RuntimeError):
@@ -102,14 +103,16 @@ class IStorage(object):
         Returns:
             a subobject everytime is called
         """
-        from .tools import tokens_partitions
+        from . import config
+        p = Partitioner(self, config.partition_strategy)
+
         try:
             tokens = self._build_args.tokens
         except AttributeError as ex:
             raise RuntimeError("Object {} does not have tokens".format(self._get_name()))
 
-        for token_split in tokens_partitions(self._ksp, self._table, tokens):
-            storage_id = uuid.uuid4()
+        for storage_id, token_split in p.tokens_partitions(self._ksp, self._table, config.token_range_size,
+                                                           config.target_token_range_size):
             log.debug('assigning to {} num tokens {}'.format(str(storage_id), len(token_split)))
             new_args = self._build_args._replace(tokens=token_split, storage_id=storage_id)
             args_dict = new_args._asdict()
