@@ -13,6 +13,7 @@
 #endif
 
 #include "numpy/arrayobject.h"
+#include <structmember.h>
 
 
 #include <tuple>
@@ -67,6 +68,11 @@ typedef struct {
     PyObject_HEAD
     NumpyStorage *NumpyDataStore;
 } HNumpyStore;
+
+typedef struct {
+    PyObject_HEAD
+    ArrayMetadata np_metas;
+} HArrayMetadata;
 
 
 static PyObject *create_iter_keys(HCache *self, PyObject *args);

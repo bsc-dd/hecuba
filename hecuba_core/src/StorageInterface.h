@@ -61,6 +61,7 @@ public:
                            config_map &config);
 
     inline CassSession *get_session() {
+        if (!this->session) throw ModuleException("Cassandra not connected yet, session unavailable");
         return this->session;
     }
 

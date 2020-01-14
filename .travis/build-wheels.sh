@@ -27,8 +27,8 @@ cd build;make;make install
 
 
 # getting TBB
-cd;curl -L https://www.threadingbuildingblocks.org/sites/default/files/software_releases/source/tbb2017_20161128oss_src.tgz|tar -xz
-cd tbb2017_20161128oss/
+cd;curl -L https://github.com/intel/tbb/archive/v2020.0.tar.gz|tar -xz
+cd tbb-2020.0/
 make tbb
 cp -r build/*_release/libtbb.so*  /usr/lib64
 cp -r include/tbb /usr/include
@@ -39,6 +39,10 @@ ORIGINAL_LD=${LD_LIBRARY_PATH}
 # Compile wheels
 for PYBIN in /opt/python/cp3*; do
      VNAME=`basename ${PYBIN}`
+     if [[ ${VNAME} =~ "cp34" ]]
+     then
+       continue      # Skip.
+     fi
      export CPATH=$PYBIN/include:${ORIGINAL_CPATH}
      export LD_LIBRARY_PATH=${PYBIN}/lib:/io/build/lib:${ORIGINAL_LD}
 
