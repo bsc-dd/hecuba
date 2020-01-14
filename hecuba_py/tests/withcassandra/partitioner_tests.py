@@ -35,6 +35,9 @@ _dynamic_part_table_cql = """CREATE TABLE IF NOT EXISTS hecuba.partitioning(
                                         PRIMARY KEY (storage_id))
                                         WITH default_time_to_live = 86400"""
 
+config.token_range_size = None
+config.target_token_range_size = None
+
 
 class PartitionerTest(unittest.TestCase):
 
