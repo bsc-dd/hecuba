@@ -41,8 +41,6 @@ class MyStorageDictA(StorageDict):
     '''
 
 
-
-
 class mydict(StorageDict):
     '''
     @TypeSpec dict<<key0:int>, val0:tests.withcassandra.storagedict_tests.myobj2>
@@ -973,6 +971,8 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.second_name")
 
     def test_make_persistent_with_persistent_obj(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.obj")
+        config.session.execute("DROP TABLE IF EXISTS my_app.dict")
         o2 = myobj2("obj")
         o2.attr1 = 1
         o2.attr2 = "2"
