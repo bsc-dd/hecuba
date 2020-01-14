@@ -531,6 +531,8 @@ class StorageDict(IStorage, dict):
             dict.__delitem__(self, key)
         elif self._has_embedded_set:
             self._hcache.delete_row(key)
+        elif isinstance(key, Iterable) and not isinstance(key, str):
+            self._hcache.delete_row(list(key))
         else:
             self._hcache.delete_row([key])
 

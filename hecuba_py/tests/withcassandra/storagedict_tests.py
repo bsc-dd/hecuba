@@ -116,6 +116,12 @@ class DictWithDateTimes2(StorageDict):
     '''
 
 
+class MyStorageDictB(StorageDict):
+    '''
+    @TypeSpec dict<<a:str, b:int>, c:int>
+    '''
+
+
 class StorageDictTest(unittest.TestCase):
     def test_init_empty(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab1")
@@ -553,6 +559,17 @@ class StorageDictTest(unittest.TestCase):
 
         self.assertRaises(KeyError, del_val)
 
+    def test_delete_two_keys(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.dict")
+        o = MyStorageDictB("dict")
+        o["0", 0] = 0
+        o["1", 1] = 1
+
+        del o["0", 0]
+
+        self.assertEqual(o["1", 1], 1)
+        self.assertEqual(o.get(("0", 0), None), None)
+
     def test_composed_items_test(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab12")
         tablename = "tab12"
@@ -954,6 +971,8 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.second_name")
 
     def test_make_persistent_with_persistent_obj(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.obj")
+        config.session.execute("DROP TABLE IF EXISTS my_app.dict")
         o2 = myobj2("obj")
         o2.attr1 = 1
         o2.attr2 = "2"
@@ -1152,10 +1171,11 @@ class StorageDictTest(unittest.TestCase):
 
     def gen_random_datetime(self):
         return datetime.datetime(year=randint(2000, 2019), month=randint(1, 12), day=randint(1, 28),
-                        hour=randint(0, 23), minute=randint(0, 59), second=randint(0, 59))
+                                 hour=randint(0, 23), minute=randint(0, 59), second=randint(0, 59))
 
     def gen_random_time(self):
-        return datetime.time(hour=randint(0, 23), minute=randint(0, 59), second=randint(0, 59), microsecond=randint(0, 59))
+        return datetime.time(hour=randint(0, 23), minute=randint(0, 59), second=randint(0, 59),
+                             microsecond=randint(0, 59))
 
     def test_multiple_dates(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.dictwithdates")
