@@ -41,6 +41,8 @@ class MyStorageDictA(StorageDict):
     '''
 
 
+
+
 class mydict(StorageDict):
     '''
     @TypeSpec dict<<key0:int>, val0:tests.withcassandra.storagedict_tests.myobj2>
@@ -113,6 +115,12 @@ class DictWithDateTimes(StorageDict):
 class DictWithDateTimes2(StorageDict):
     '''
     @TypeSpec dict<<k:int>, v:datetime>
+    '''
+
+
+class MyStorageDictB(StorageDict):
+    '''
+    @TypeSpec dict<<a:str, b:int>, c:int>
     '''
 
 
@@ -552,6 +560,17 @@ class StorageDictTest(unittest.TestCase):
             val = pd['pos1']
 
         self.assertRaises(KeyError, del_val)
+
+    def test_delete_two_keys(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.dict")
+        o = MyStorageDictB("dict")
+        o["0", 0] = 0
+        o["1", 1] = 1
+
+        del o["0", 0]
+
+        self.assertEqual(o["1", 1], 1)
+        self.assertEqual(o.get(("0", 0), None), None)
 
     def test_composed_items_test(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab12")
@@ -1152,10 +1171,11 @@ class StorageDictTest(unittest.TestCase):
 
     def gen_random_datetime(self):
         return datetime.datetime(year=randint(2000, 2019), month=randint(1, 12), day=randint(1, 28),
-                        hour=randint(0, 23), minute=randint(0, 59), second=randint(0, 59))
+                                 hour=randint(0, 23), minute=randint(0, 59), second=randint(0, 59))
 
     def gen_random_time(self):
-        return datetime.time(hour=randint(0, 23), minute=randint(0, 59), second=randint(0, 59), microsecond=randint(0, 59))
+        return datetime.time(hour=randint(0, 23), minute=randint(0, 59), second=randint(0, 59),
+                             microsecond=randint(0, 59))
 
     def test_multiple_dates(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.dictwithdates")
