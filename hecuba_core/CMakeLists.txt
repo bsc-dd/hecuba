@@ -168,8 +168,8 @@ if (NOT CASS)
         set(CASS_URL https://github.com/polsm91/cpp-driver/archive/2.7.1.0.tar.gz)
         set(CASS_SHA1 814878b3750ebd379b66df239bd3aa23981044b5)
     else ()
-        set(CASS_URL https://github.com/datastax/cpp-driver/archive/2.7.1.tar.gz)
-        set(CASS_SHA1 7a44eff7eecbb3ed95490d09cd00489c5b5ce683)
+        set(CASS_URL https://github.com/datastax/cpp-driver/archive/2.14.1.tar.gz)
+        set(CASS_SHA1 c6399a03d49d1391ee53415e75e58d64bc32795c)
     endif ()
 
     ExternalProject_Add(

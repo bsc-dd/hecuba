@@ -2,7 +2,8 @@ import itertools as it
 from collections import namedtuple
 
 import numpy as np
-from hfetch import HNumpyStore
+from . import config, log
+from hfetch import HNumpyStore, HArrayMetadata
 
 from . import config, log
 from .IStorage import IStorage
@@ -10,41 +11,34 @@ from .tools import extract_ks_tab, get_istorage_attrs
 
 
 class StorageNumpy(IStorage, np.ndarray):
-    class np_meta(object):
-        def __init__(self, shape, dtype, block_id):
-            self.dims = shape
-            self.type = dtype
-            self.block_id = block_id
-
     _build_args = None
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
                                                   '(storage_id, class_name, name, numpy_meta)'
                                                   'VALUES (?,?,?,?)')
 
-    args_names = ["storage_id", "class_name", "name", "shape", "dtype", "block_id", "built_remotely"]
+    args_names = ["storage_id", "class_name", "name", "metas"]
     args = namedtuple('StorageNumpyArgs', args_names)
 
-    def __new__(cls, input_array=None, storage_id=None, name=None, built_remotely=False, **kwargs):
-        if storage_id and not name:
-            metas = get_istorage_attrs(storage_id)
-            name = metas[0].name
-        elif not name:
-            name = ''
-        if input_array is None and name and storage_id is not None:
-            result = cls.reserve_numpy_array(storage_id, name)
-            input_array = result[0]
+    def __new__(cls, input_array=None, storage_id=None, name=None, **kwargs):
+        if input_array is None and storage_id is not None:
+            # Load metadata
+            istorage_metas = get_istorage_attrs(storage_id)
+            name = name or istorage_metas[0].name
+            numpy_metadata = istorage_metas[0].numpy_meta
+
+            # Load array
+            hcache = StorageNumpy._create_hcache(name)
+            input_array = hcache.get_numpy(storage_id, numpy_metadata)
             obj = np.asarray(input_array).view(cls)
-            obj._hcache = result[1]
-        elif not name and storage_id is not None:
-            raise RuntimeError("hnumpy received storage id but not a name")
+            (obj._ksp, obj._table) = extract_ks_tab(name)
+            obj._hcache = hcache
         else:
             obj = np.asarray(input_array).view(cls)
+
         # Finally, we must return the newly created object:
         obj._set_name(name)
         obj._numpy_full_loaded = False
         obj._loaded_coordinates = []
-        obj._block_id = -1
-        obj._built_remotely = built_remotely
         obj._class_name = '%s.%s' % (cls.__module__, cls.__name__)
         return obj
 
@@ -55,6 +49,11 @@ class StorageNumpy(IStorage, np.ndarray):
                 self.make_persistent(self._get_name())
             self._row_elem = self._hcache.get_elements_per_row(self.storage_id)[0]
             self._is_persistent = True
+
+        metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
+                               self.itemsize, self.flags.num, 0)
+
+        self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), metas)
 
     # used as copy constructor
     def __array_finalize__(self, obj):
@@ -67,24 +66,34 @@ class StorageNumpy(IStorage, np.ndarray):
         self._loaded_coordinates = getattr(obj, '_loaded_coordinates', None)
         self._numpy_full_loaded = getattr(obj, '_numpy_full_loaded', None)
         self._is_persistent = getattr(obj, '_is_persistent', None)
+        try:
+            self._build_args = obj._build_args
+        except AttributeError:
+            self._build_args = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind,
+                                              self.dtype.byteorder, self.itemsize, self.flags.num, 0)
+        try:
+            name = obj._get_name()
+            self._set_name(name)
+        except AttributeError:
+            pass
 
     @staticmethod
     def _create_tables(name):
-        (ksp, _) = extract_ks_tab(name)
+        (ksp, table) = extract_ks_tab(name)
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (ksp, config.replication)
         config.session.execute(query_keyspace)
 
         config.session.execute(
-            'CREATE TABLE IF NOT EXISTS ' + name + '(storage_id uuid , '
-                                                   'cluster_id int, '
-                                                   'block_id int, '
-                                                   'payload blob, '
-                                                   'PRIMARY KEY((storage_id,cluster_id),block_id))')
+            'CREATE TABLE IF NOT EXISTS ' + ksp + '.' + table + '(storage_id uuid , '
+                                                                'cluster_id int, '
+                                                                'block_id int, '
+                                                                'payload blob, '
+                                                                'PRIMARY KEY((storage_id,cluster_id),block_id))')
 
     @staticmethod
     def _create_hcache(name):
-        (ksp, name) = extract_ks_tab(name)
-        hcache_params = (ksp, name,
+        (ksp, table) = extract_ks_tab(name)
+        hcache_params = (ksp, table,
                          {'cache_size': config.max_cache_size,
                           'writer_par': config.write_callbacks_number,
                           'write_buffer': config.write_buffer_size,
@@ -103,8 +112,7 @@ class StorageNumpy(IStorage, np.ndarray):
         try:
             config.session.execute(StorageNumpy._prepared_store_meta,
                                    [storage_args.storage_id, storage_args.class_name,
-                                    storage_args.name, StorageNumpy.np_meta(storage_args.shape, storage_args.dtype,
-                                                                            storage_args.block_id)])
+                                    storage_args.name, storage_args.metas])
 
         except Exception as ex:
             log.warn("Error creating the StorageNumpy metadata with args: %s" % str(storage_args))
@@ -144,7 +152,7 @@ class StorageNumpy(IStorage, np.ndarray):
                 if not coordinates:
                     self._numpy_full_loaded = True
                     new_coords = None
-                self._hcache.load_numpy_slices([self.storage_id], [self.base.view(np.ndarray)], new_coords)
+                self._hcache.load_numpy_slices([self.storage_id], [self.base.view(np.ndarray)],  self._build_args.metas, new_coords)
                 self._loaded_coordinates = coordinates
         return super(StorageNumpy, self).__getitem__(sliced_coord)
 
@@ -164,14 +172,11 @@ class StorageNumpy(IStorage, np.ndarray):
                 new_coords = list(dict.fromkeys(new_coords))
             # coordinates is the union between the loaded coordiantes and the new ones
             coordinates = list(set(it.chain.from_iterable((self._loaded_coordinates, new_coords))))
-            self._hcache.store_numpy_slices([self.storage_id], [self.base.view(np.ndarray)], coordinates)
+            self._hcache.store_numpy_slices([self.storage_id], [self.base.view(np.ndarray)],  self._build_args.metas, coordinates)
         return super(StorageNumpy, self).__setitem__(sliced_coord, values)
 
     def make_persistent(self, name):
         super().make_persistent(name)
-
-        self._build_args = self.args(self.storage_id, self._class_name, name,
-                                     self.shape, self.dtype.num, self._block_id, self._built_remotely)
 
         if not self._built_remotely:
             self._create_tables(name)
@@ -179,8 +184,16 @@ class StorageNumpy(IStorage, np.ndarray):
         if not getattr(self, '_hcache', None):
             self._hcache = self._create_hcache(name)
 
+        if None in self or not self.ndim:
+            raise NotImplemented("Empty array persistance")
+
+        hfetch_metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
+                                      self.itemsize, self.flags.num, 0)
+
+        self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas)
+
         if len(self.shape) != 0:
-            self._hcache.store_numpy_slices([self.storage_id], [self.base.view(np.ndarray)], None)
+            self._hcache.store_numpy_slices([self.storage_id], [self.base.view(np.ndarray)], hfetch_metas, None)
         StorageNumpy._store_meta(self._build_args)
 
     def stop_persistent(self):
@@ -193,12 +206,12 @@ class StorageNumpy(IStorage, np.ndarray):
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
         super().delete_persistent()
-        query = "DELETE FROM {} WHERE storage_id = {} AND cluster_id=-1;".format(self._get_name(),
-                                                                                 self.storage_id)
+        query = "DELETE FROM %s.%s WHERE storage_id = %s;" % (self._ksp, self._table, self.storage_id)
         query2 = "DELETE FROM hecuba.istorage WHERE storage_id = %s;" % self.storage_id
         log.debug("DELETE PERSISTENT: %s", query)
         config.session.execute(query)
         config.session.execute(query2)
+        self.storage_id = None
 
     def __iter__(self):
         return iter(self.view(np.ndarray))
@@ -226,7 +239,7 @@ class StorageNumpy(IStorage, np.ndarray):
         else:
             outputs = (None,) * ufunc.nout
         if self._is_persistent and len(self.shape) and self._numpy_full_loaded is False:
-            self._hcache.load_numpy_slices([self.storage_id], [self.base.view(np.ndarray)], None)
+            self._hcache.load_numpy_slices([self.storage_id], [self.base.view(np.ndarray)], self._build_args.metas, None)
 
         results = super(StorageNumpy, self).__array_ufunc__(ufunc, method,
                                                             *args, **kwargs)
@@ -237,7 +250,7 @@ class StorageNumpy(IStorage, np.ndarray):
             return
 
         if self._is_persistent and len(self.shape):
-            self._hcache.store_numpy_slices([self.storage_id], [self.base.view(np.ndarray)], None)
+            self._hcache.store_numpy_slices([self.storage_id], [self.base.view(np.ndarray)], self._build_args.metas, None)
 
         if ufunc.nout == 1:
             results = (results,)

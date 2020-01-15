@@ -321,7 +321,7 @@ static PyMethodDef hcache_type_methods[] = {
         {"iterkeys",   (PyCFunction) create_iter_keys,   METH_VARARGS, NULL},
         {"itervalues", (PyCFunction) create_iter_values, METH_VARARGS, NULL},
         {"iteritems",  (PyCFunction) create_iter_items,  METH_VARARGS, NULL},
-        {NULL, NULL, 0,                                                NULL}
+        {NULL,         NULL,                             0,            NULL}
 };
 
 
@@ -375,44 +375,35 @@ static PyTypeObject hfetch_HCacheType = {
  * @return C-like UUID
  */
 static uint64_t *parse_uuid(PyObject *py_storage_id) {
-    uint64_t *uuid = new uint64_t[2];
+    uint64_t *uuid;
     if (!PyByteArray_Check(py_storage_id)) {
         //Object is UUID python class
+        uint32_t len = sizeof(uint64_t) * 2;
+        uuid = (uint64_t *) malloc(len);
+
         PyObject *bytes = PyObject_GetAttrString(py_storage_id, "time_low"); //32b
         if (!bytes) throw TypeErrorException("Error parsing python UUID");
 
         uint64_t time_low = (uint32_t) PyLong_AsLongLong(bytes);
-        Py_DECREF(bytes);
 
         bytes = PyObject_GetAttrString(py_storage_id, "time_mid"); //16b
-        if (!bytes) throw TypeErrorException("Error parsing python UUID");
-
         uint64_t time_mid = (uint16_t) PyLong_AsLongLong(bytes);
-        Py_DECREF(bytes);
 
         bytes = PyObject_GetAttrString(py_storage_id, "time_hi_version"); //16b
-        if (!bytes) throw TypeErrorException("Error parsing python UUID");
-
         uint64_t time_hi_version = (uint16_t) PyLong_AsLongLong(bytes);
-        Py_DECREF(bytes);
 
         *uuid = (time_hi_version << 48) + (time_mid << 32) + (time_low);
 
         bytes = PyObject_GetAttrString(py_storage_id, "clock_seq_hi_variant"); //8b
         uint64_t clock_seq_hi_variant = (uint64_t) PyLong_AsLongLong(bytes);
-        Py_DECREF(bytes);
-
         bytes = PyObject_GetAttrString(py_storage_id, "clock_seq_low"); //8b
         uint64_t clock_seq_low = (uint64_t) PyLong_AsLongLong(bytes);
-        Py_DECREF(bytes);
-
         bytes = PyObject_GetAttrString(py_storage_id, "node"); //48b
 
 
         *(uuid + 1) = (uint64_t) PyLong_AsLongLong(bytes);
         *(uuid + 1) += clock_seq_hi_variant << 56;
         *(uuid + 1) += clock_seq_low << 48;
-        Py_DECREF(bytes);
 
     } else {
         uint32_t len = sizeof(uint64_t) * 2;
@@ -422,22 +413,30 @@ static uint64_t *parse_uuid(PyObject *py_storage_id) {
                                     ", expected was: " + std::to_string(len);
             PyErr_SetString(PyExc_ValueError, error_msg.c_str());
         }
-        char *uuid_bits = PyByteArray_AsString(py_storage_id);
-        std::memcpy(uuid, uuid_bits, sizeof(uint64_t) * 2);
+
+        uuid = (uint64_t *) PyByteArray_AsString(py_storage_id);
     }
     return uuid;
 }
 
 static PyObject *get_elements_per_row(HNumpyStore *self, PyObject *args) {
-    PyObject *py_keys;
-    if (!PyArg_ParseTuple(args, "O", &py_keys)) {
+    PyObject *py_keys, *py_np_metas;
+    if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_np_metas)) {
         return NULL;
     }
+
+    if (py_np_metas == Py_None) {
+        std::string error_msg = "The numpy metadatas can't be None";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    HArrayMetadata *np_metas = reinterpret_cast<HArrayMetadata *>(py_np_metas);
 
     const uint64_t *storage_id = parse_uuid(py_keys);
     PyObject *obj;
     try {
-        obj = self->NumpyDataStore->get_row_elements(storage_id);
+        obj = self->NumpyDataStore->get_row_elements(storage_id, np_metas->np_metas);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -449,23 +448,24 @@ static PyObject *get_elements_per_row(HNumpyStore *self, PyObject *args) {
     return result_list;
 }
 
-/***
- * Receives a uuid, makes the reservation of the numpy specified in the storage_id and computes the number of elements inside each row of a block
- * @param self Python HNumpyStore object upon method invocation
- * @param args Arg tuple containing one list with the the keys. Keys are made of a list with a UUID and
- * values of a list with a single numpy ndarray.
- * @return A list with two elements: the first has the numpy memory reserved and the second has the row elements
- */
 static PyObject *allocate_numpy(HNumpyStore *self, PyObject *args) {
-    PyObject *py_keys;
-    if (!PyArg_ParseTuple(args, "O", &py_keys)) {
+    PyObject *py_keys, *py_np_metas;
+    if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_np_metas)) {
         return NULL;
     }
+
+    if (py_np_metas == Py_None) {
+        std::string error_msg = "The numpy metadatas can't be None";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    HArrayMetadata *np_metas = reinterpret_cast<HArrayMetadata *>(py_np_metas);
 
     const uint64_t *storage_id = parse_uuid(py_keys);
     PyObject *res;
     try {
-        res = self->NumpyDataStore->reserve_numpy_space(storage_id);
+        res = self->NumpyDataStore->reserve_numpy_space(storage_id, np_metas->np_metas);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -478,17 +478,15 @@ static PyObject *allocate_numpy(HNumpyStore *self, PyObject *args) {
 }
 
 /***
- * Receives a uuid, a pointer, and a list of coordinates. The function will write the numpy pointer into the specified coordinates
+ * Receives a uuid, makes the reservation of the numpy specified in the storage_id and computes the number of elements inside each row of a block
  * @param self Python HNumpyStore object upon method invocation
- * @param args Arg tuple containing one list with the the keys. Keys are made of a list with a UUID,
- * a numpy pointer and a list of coordinates where to insert the numpy
- * @return None
+ * @param args Arg tuple containing one list with the the keys. Keys are made of a list with a UUID and
+ * values of a list with a single numpy ndarray.
+ * @return A list with two elements: the first has the numpy memory reserved and the second has the row elements
  */
 static PyObject *store_numpy_slices(HNumpyStore *self, PyObject *args) {
-    //self._hcache.set_numpy(numpy, [self.view(np.ndarray)])
-
-    PyObject *py_keys, *py_numpy, *py_coord;
-    if (!PyArg_ParseTuple(args, "OOO", &py_keys, &py_numpy, &py_coord)) {
+    PyObject *py_keys, *py_numpy, *py_np_metas, *py_coord;
+    if (!PyArg_ParseTuple(args, "OOOO", &py_keys, &py_numpy, &py_np_metas, &py_coord)) {
         return NULL;
     }
 
@@ -512,23 +510,27 @@ static PyObject *store_numpy_slices(HNumpyStore *self, PyObject *args) {
         return NULL;
     };
 
-    PyObject *numpy = PyList_GetItem(py_numpy, 0);
-    if (numpy == Py_None) {
-        std::string error_msg = "The numpy can't be None";
+    if (py_np_metas == Py_None) {
+        std::string error_msg = "The numpy metadatas can't be None";
         PyErr_SetString(PyExc_TypeError, error_msg.c_str());
         return NULL;
     }
 
-    PyArrayObject *numpy_arr_v;
-    if (!PyArray_OutputConverter(numpy, &numpy_arr_v)) {
+    HArrayMetadata *np_metas = reinterpret_cast<HArrayMetadata *>(py_np_metas);
+
+
+    const uint64_t *storage_id = parse_uuid(py_keys);
+
+    // Transform the object to the numpy ndarray
+    PyArrayObject *numpy_arr;
+    if (!PyArray_OutputConverter(py_numpy, &numpy_arr)) {
         std::string error_msg = "Can't convert the given numpy to a numpy ndarray";
         PyErr_SetString(PyExc_TypeError, error_msg.c_str());
         return NULL;
     }
 
-    const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
     try {
-        self->NumpyDataStore->store_numpy(storage_id, numpy_arr_v, py_coord);
+        self->NumpyDataStore->store_numpy(storage_id, np_metas->np_metas, numpy_arr, py_coord);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -548,8 +550,8 @@ static PyObject *store_numpy_slices(HNumpyStore *self, PyObject *args) {
 static PyObject *load_numpy_slices(HNumpyStore *self, PyObject *args) {
     //We need to include the numpy key in the parameters list, results -> reserved numpy
 
-    PyObject *py_keys, *py_store, *py_coord;
-    if (!PyArg_ParseTuple(args, "OOO", &py_keys, &py_store, &py_coord)) {
+    PyObject *py_keys, *py_store, *py_coord, *py_np_metas;
+    if (!PyArg_ParseTuple(args, "OOOO", &py_keys, &py_np_metas, &py_store, &py_coord)) {
         return NULL;
     }
 
@@ -567,12 +569,10 @@ static PyObject *load_numpy_slices(HNumpyStore *self, PyObject *args) {
         return NULL;
     };
 
-    for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
-        if (PyList_GetItem(py_keys, key_i) == Py_None) {
-            std::string error_msg = "Keys can't be None, key_position: " + std::to_string(key_i);
-            PyErr_SetString(PyExc_TypeError, error_msg.c_str());
-            return NULL;
-        }
+    if (py_np_metas == Py_None) {
+        std::string error_msg = "The numpy metadatas can't be None";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
     }
 
     PyObject *numpy = PyList_GetItem(py_store, 0);
@@ -590,8 +590,10 @@ static PyObject *load_numpy_slices(HNumpyStore *self, PyObject *args) {
         return NULL;
     }
     const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
+    HArrayMetadata *np_metas = reinterpret_cast<HArrayMetadata *>(py_np_metas);
+
     try {
-        self->NumpyDataStore->load_numpy(storage_id, py_coord, numpy_arr);
+        self->NumpyDataStore->load_numpy(storage_id, np_metas->np_metas, numpy_arr, py_coord);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -710,6 +712,221 @@ static PyTypeObject hfetch_HNumpyStoreType = {
         (initproc) hnumpy_store_init,      /* tp_init */
         0,                         /* tp_alloc */
         hnumpy_store_new,                 /* tp_new */
+};
+
+/*** Numpy metadata expose ****/
+
+
+static PyObject *harray_metadata_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+    HArrayMetadata *self;
+    self = (HArrayMetadata *) type->tp_alloc(type, 0);
+    return (PyObject *) self;
+}
+
+
+static int harray_metadata_init(HArrayMetadata *self, PyObject *args, PyObject *kwds) {
+    char *kwlist[] = {"dims", "strides", "typekind", "byteorder", "elem_size", "flags", "partition_type", NULL};
+
+
+    const char *typekind_tmp, *byteorder_tmp;
+    self->np_metas = ArrayMetadata();
+    PyObject *dims, *strides;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOssiib", kwlist, &dims, &strides, &typekind_tmp, &byteorder_tmp,
+                                     &self->np_metas.elem_size, &self->np_metas.flags,
+                                     &self->np_metas.partition_type)) {
+        return -1;
+    }
+
+
+// Dims and ndims
+    if (!PyList_Check(dims)) throw ModuleException("numpy metadata missing dims");
+    int32_t ndims = PyList_Size(dims);
+    self->np_metas.dims.resize(ndims);
+    self->np_metas.strides.resize(ndims);
+
+
+    for (uint32_t dim_i = 0; dim_i < ndims; ++dim_i) {
+        PyObject *elem_dim = PyList_GetItem(dims, dim_i);
+        if (elem_dim == Py_None) throw ModuleException("numpy metadata missing dims");
+        if (!PyLong_Check(elem_dim) || !PyArg_Parse(elem_dim, Py_INT, &self->np_metas.dims[dim_i]))
+            throw ModuleException("Numpy dims must be a list of ints");
+    }
+
+
+// Strides
+    if (!PyList_Check(strides)) throw ModuleException("numpy metadata missing strides");
+
+    if (PyList_Size(strides) != ndims) throw ModuleException("Numpy strides must be a list of ints");
+    for (uint32_t dim_i = 0; dim_i < ndims; ++dim_i) {
+        PyObject *elem_dim = PyList_GetItem(strides, dim_i);
+        if (elem_dim == Py_None) throw ModuleException("numpy metadata missing strides");
+        if (!PyLong_Check(elem_dim) || !PyArg_Parse(elem_dim, Py_INT, &self->np_metas.strides[dim_i]))
+            throw ModuleException("Numpy strides must be a list of ints");
+    }
+
+    self->np_metas.typekind = typekind_tmp[0];
+    self->np_metas.byteorder = byteorder_tmp[0];
+
+
+    return 0;
+}
+
+
+static void harray_metadata_dealloc(HArrayMetadata *self) {
+    Py_TYPE((PyObject *) self)->tp_free((PyObject *) self);
+}
+
+static PyObject *harray_metadata_repr(PyObject *self) {
+    HArrayMetadata *array_metas = (HArrayMetadata *) self;
+    std::string repr = "Typekind: " + std::to_string(array_metas->np_metas.typekind) + ", elem_size:" +
+                       std::to_string(array_metas->np_metas.elem_size) + ", partition_type: " +
+                       std::to_string(array_metas->np_metas.partition_type);
+    PyObject *py_repr = PyUnicode_FromStringAndSize(repr.c_str(), repr.length());
+    if (!py_repr) {
+        std::string error = "Can't represent the numpy metadatas";
+        PyErr_SetString(PyExc_RuntimeError, error.c_str());
+        return NULL;
+    }
+    return py_repr;
+}
+
+static PyMemberDef harray_metadata_type_members[] = {
+        {"elem_size", /* name */
+                T_INT, /* type */
+                offsetof(HArrayMetadata, np_metas.elem_size),  /* offset */
+                0,  /* flags */
+                NULL  /* docstring */},
+        {"flags", /* name */
+                T_INT, /* type */
+                offsetof(HArrayMetadata, np_metas.flags),  /* offset */
+                0,  /* flags */
+                NULL  /* docstring */},
+        {"partition_type", /* name */
+                T_UBYTE, /* type */
+                offsetof(HArrayMetadata, np_metas.partition_type),  /* offset */
+                0,  /* flags */
+                NULL  /* docstring */},
+        {"typekind", /* name */
+                T_CHAR, /* type */
+                offsetof(HArrayMetadata, np_metas.typekind),  /* offset */
+                0,  /* flags */
+                NULL  /* docstring */},
+        {"byteorder", /* name */
+                T_CHAR, /* type */
+                offsetof(HArrayMetadata, np_metas.byteorder),  /* offset */
+                0,  /* flags */
+                NULL  /* docstring */},
+        {NULL},
+};
+
+
+static int register_harray(PyObject *self, PyObject *keyspace) {
+    return -1;
+}
+
+static PyObject *get_strides(HArrayMetadata *self, void *closure) {
+    size_t n_strides = self->np_metas.strides.size();
+    PyObject *py_strides = PyList_New(n_strides);
+
+    for (uint16_t i = 0; i < n_strides; i++) {
+        PyList_SetItem(py_strides, i, Py_BuildValue(Py_INT, self->np_metas.strides[i]));
+    }
+    return py_strides;
+}
+
+static int set_strides(HArrayMetadata *self, PyObject *value, void *closure) {
+    if (!PySequence_Check(value))
+        return -1;
+    self->np_metas.strides.clear();
+
+    PyObject *iter = PySeqIter_New(value);
+    PyObject *elem;
+    while ((elem = PyIter_Next(iter)) != NULL) {
+        uint32_t stride_i;
+        if (!PyLong_Check(elem))
+            return -1;
+        PyArg_Parse(elem, Py_INT, &stride_i);
+        self->np_metas.strides.push_back(stride_i);
+    }
+    return 0;
+}
+
+
+static PyObject *get_dims(HArrayMetadata *self, void *closure) {
+    size_t n_dims = self->np_metas.dims.size();
+    PyObject *py_strides = PyList_New(n_dims);
+
+    for (uint16_t i = 0; i < n_dims; i++) {
+        PyList_SetItem(py_strides, i, Py_BuildValue(Py_INT, self->np_metas.dims[i]));
+    }
+    return py_strides;
+}
+
+static int set_dims(HArrayMetadata *self, PyObject *value, void *closure) {
+    if (!PySequence_Check(value))
+        return -1;
+    self->np_metas.dims.clear();
+
+    PyObject *iter = PySeqIter_New(value);
+    PyObject *elem;
+    while ((elem = PyIter_Next(iter)) != NULL) {
+        uint32_t stride_i;
+        if (!PyLong_Check(elem))
+            return -1;
+        PyArg_Parse(elem, Py_INT, &stride_i);
+        self->np_metas.dims.push_back(stride_i);
+    }
+    return 0;
+}
+
+
+static PyGetSetDef harray_metadata_getset_type[] = {
+        {"strides", (getter) get_strides, (setter) set_strides, "strides attr", NULL},
+        {"dims",    (getter) get_dims,    (setter) set_dims,    "dims attr",    NULL},
+        {NULL} /* Sentinel */
+
+};
+
+
+static PyTypeObject hfetch_HArrayMetadataType = {
+        PyVarObject_HEAD_INIT(NULL, 0)
+        "hfetch.HArrayMetadata",             /* tp_name */
+        sizeof(HArrayMetadata), /* tp_basicsize */
+        0,                         /*tp_itemsize*/
+        (destructor) harray_metadata_dealloc, /*tp_dealloc*/
+        0,                         /*tp_print*/
+        0,                         /*tp_getattr*/
+        0,                         /*tp_setattr*/
+        0,                         /*tp_compare*/
+        harray_metadata_repr,                         /*tp_repr*/
+        0,                         /*tp_as_number*/
+        0,                         /*tp_as_sequence*/
+        0,                         /*tp_as_mapping*/
+        0,                         /*tp_hash */
+        0,                         /*tp_call*/
+        0,                         /*tp_str*/
+        0,                         /*tp_getattro*/
+        0,                         /*tp_setattro*/
+        0,                         /*tp_as_buffer*/
+        Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+        "Array metadata",           /* tp_doc */
+        0,                       /* tp_traverse */
+        0,                       /* tp_clear */
+        0,                       /* tp_richcompare */
+        0,                       /* tp_weaklistoffset */
+        0,                       /* tp_iter */
+        0,                       /* tp_iternext */
+        0,             /* tp_methods */
+        harray_metadata_type_members,             /* tp_members */
+        harray_metadata_getset_type,                         /* tp_getset */
+        0,                         /* tp_base */
+        0,                         /* tp_dict */
+        0,                         /* tp_descr_get */
+        0,                         /* tp_descr_set */
+        0,                         /* tp_dictoffset */
+        (initproc) harray_metadata_init,      /* tp_init */
+        0,                         /* tp_alloc */
+        harray_metadata_new,                 /* tp_new */
 };
 
 
@@ -1349,6 +1566,12 @@ PyInit_hfetch(void) {
     Py_INCREF(&hfetch_HCacheType);
 
 
+    hfetch_HArrayMetadataType.tp_new = PyType_GenericNew;
+    if (PyType_Ready(&hfetch_HArrayMetadataType) < 0)
+        return IMPORT_ERROR;
+
+    Py_INCREF(&hfetch_HArrayMetadataType);
+
     PyObject *m = PyModule_Create(&hfetch_module_info);
     f = m->ob_type->tp_dealloc;
     m->ob_type->tp_dealloc = module_dealloc;
@@ -1357,6 +1580,8 @@ PyInit_hfetch(void) {
     PyModule_AddObject(m, "HIterator", (PyObject *) &hfetch_HIterType);
     PyModule_AddObject(m, "HWriter", (PyObject *) &hfetch_HWriterType);
     PyModule_AddObject(m, "HNumpyStore", (PyObject *) &hfetch_HNumpyStoreType);
+    PyModule_AddObject(m, "HArrayMetadata", (PyObject *) &hfetch_HArrayMetadataType);
+
     if (_import_array() < 0) {
         PyErr_Print();
         PyErr_SetString(PyExc_ImportError, "numpy.core.multiarray failed to import");

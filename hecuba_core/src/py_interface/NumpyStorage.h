@@ -11,6 +11,7 @@
 #define PY_ARRAY_UNIQUE_SYMBOL cool_ARRAY_API
 
 #include "numpy/arrayobject.h"
+#include "UnitParser.h"
 
 /***
  * Responsible to store a numpy to the keyspace.table_numpies, associating an attribute_name and a storage_id(uuid)
@@ -27,13 +28,13 @@ public:
 
     std::list<std::vector<uint32_t> > generate_coords(PyObject *coord) const;
 
-    PyObject *reserve_numpy_space(const uint64_t *storage_id);
+    PyObject *reserve_numpy_space(const uint64_t *storage_id, ArrayMetadata &np_metas);
 
-    PyObject *get_row_elements(const uint64_t *storage_id);
+    PyObject *get_row_elements(const uint64_t *storage_id, ArrayMetadata &np_metas);
 
-    void store_numpy(const uint64_t *storage_id, PyArrayObject *numpy, PyObject *coord) const;
+    void store_numpy(const uint64_t *storage_id, ArrayMetadata &, PyArrayObject *numpy, PyObject *coord) const;
 
-    void load_numpy(const uint64_t *storage_id, PyObject *coord, PyArrayObject *save);
+    void load_numpy(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *save, PyObject *coord);
 
 private:
 
