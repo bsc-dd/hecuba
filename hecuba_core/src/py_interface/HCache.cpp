@@ -1,4 +1,5 @@
 #include "HCache.h"
+#include "../../../../../anaconda3/x86_64-conda_cos6-linux-gnu/include/c++/7.3.0/cstdio"
 
 
 /** MODULE METHODS **/
@@ -486,7 +487,7 @@ static PyObject *allocate_numpy(HNumpyStore *self, PyObject *args) {
  */
 static PyObject *store_numpy_slices(HNumpyStore *self, PyObject *args) {
     PyObject *py_keys, *py_numpy, *py_np_metas, *py_coord;
-    if (!PyArg_ParseTuple(args, "OOOO", &py_keys, &py_numpy, &py_np_metas, &py_coord)) {
+    if (!PyArg_ParseTuple(args, "OOOO", &py_keys, &py_np_metas, &py_numpy, &py_coord)) {
         return NULL;
     }
 
@@ -518,12 +519,11 @@ static PyObject *store_numpy_slices(HNumpyStore *self, PyObject *args) {
 
     HArrayMetadata *np_metas = reinterpret_cast<HArrayMetadata *>(py_np_metas);
 
-
-    const uint64_t *storage_id = parse_uuid(py_keys);
+    const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
 
     // Transform the object to the numpy ndarray
     PyArrayObject *numpy_arr;
-    if (!PyArray_OutputConverter(py_numpy, &numpy_arr)) {
+    if (!PyArray_OutputConverter(PyList_GetItem(py_numpy, 0), &numpy_arr)) {
         std::string error_msg = "Can't convert the given numpy to a numpy ndarray";
         PyErr_SetString(PyExc_TypeError, error_msg.c_str());
         return NULL;

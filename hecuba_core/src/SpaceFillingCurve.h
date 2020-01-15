@@ -59,7 +59,7 @@ public:
 
         virtual int32_t computeNextClusterId() = 0;
 
-        virtual void *merge_partitions(const ArrayMetadata &metas, std::vector<Partition> chunks, void *data) = 0;
+        virtual void merge_partitions(const ArrayMetadata &metas, std::vector<Partition> chunks, void *data) = 0;
     };
 
     ~SpaceFillingCurve() {};
@@ -85,7 +85,7 @@ protected:
 
         bool isDone() override { return done; };
 
-        void *merge_partitions(const ArrayMetadata &metas, std::vector<Partition> chunks, void *data) override;
+        void merge_partitions(const ArrayMetadata &metas, std::vector<Partition> chunks, void *data) override;
 
     protected:
         bool done;
@@ -99,6 +99,8 @@ protected:
 
 class ZorderCurveGenerator : public SpaceFillingCurve::PartitionGenerator {
 public:
+
+    ZorderCurveGenerator();
 
     ZorderCurveGenerator(const ArrayMetadata &metas, void *data);
 
@@ -119,7 +121,7 @@ public:
 
     uint64_t getIdFromIndexes(const std::vector<uint32_t> &dims, const std::vector<uint32_t> &indexes);
 
-    void *merge_partitions(const ArrayMetadata &metas, std::vector<Partition> chunks, void *data) override;
+    void merge_partitions(const ArrayMetadata &metas, std::vector<Partition> chunks, void *data) override;
 
 private:
     bool done;

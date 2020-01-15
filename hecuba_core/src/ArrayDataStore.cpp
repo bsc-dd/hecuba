@@ -149,7 +149,6 @@ void ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetada
     SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata,
                                                                                                        nullptr);
     this->cache->flush_elements();
-
     while (!partitions_it->isDone()) {
         cluster_id = partitions_it->computeNextClusterId();
         buffer = (char *) malloc(keys_size);

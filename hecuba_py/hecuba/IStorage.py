@@ -81,11 +81,11 @@ class IStorage(object):
     def _set_name(self, name):
         if not isinstance(name, str):
             raise TypeError("Name -{}-  should be an instance of str".format(str(name)))
-        self._name = name
+        self.name = name
 
     def _get_name(self):
         try:
-            return self._name
+            return self.name
         except AttributeError:
             return ''
 

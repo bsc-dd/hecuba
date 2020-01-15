@@ -9,11 +9,19 @@
  * @return
  */
 SpaceFillingCurve::PartitionGenerator *
+SpaceFillingCurve::make_partitions_generator(const ArrayMetadata &metas, void *data) {
+    if (metas.partition_type == ZORDER_ALGORITHM) return new ZorderCurveGenerator(metas, data);
+    return new SpaceFillingGenerator(metas, data);
+}
+
+SpaceFillingCurve::PartitionGenerator *
 SpaceFillingCurve::make_partitions_generator(const ArrayMetadata &metas, void *data,
                                              std::list<std::vector<uint32_t> > &coord) {
     if (metas.partition_type == ZORDER_ALGORITHM) return new ZorderCurveGeneratorFiltered(metas, data, coord);
     return new SpaceFillingGenerator(metas, data);
 }
+
+SpaceFillingCurve::SpaceFillingGenerator::SpaceFillingGenerator() : done(true) {}
 
 SpaceFillingCurve::SpaceFillingGenerator::SpaceFillingGenerator(const ArrayMetadata &metas, void *data) : done(false),
                                                                                                           metas(metas),
@@ -41,8 +49,9 @@ int32_t SpaceFillingCurve::SpaceFillingGenerator::computeNextClusterId() {
     return CLUSTER_END_FLAG;
 }
 
-void *
-SpaceFillingCurve::SpaceFillingGenerator::merge_partitions(const ArrayMetadata &metas, std::vector<Partition> chunks, void *data) {
+void
+SpaceFillingCurve::SpaceFillingGenerator::merge_partitions(const ArrayMetadata &metas, std::vector<Partition> chunks,
+                                                           void *data) {
     uint64_t arrsize = metas.elem_size;
 
     for (uint32_t dim:metas.dims) arrsize *= dim;
@@ -55,9 +64,13 @@ SpaceFillingCurve::SpaceFillingGenerator::merge_partitions(const ArrayMetadata &
     }
 }
 
+
+/*** Zorder (morton encoding) algorithms ***/
+
+ZorderCurveGenerator::ZorderCurveGenerator() : done(true) {}
+
 ZorderCurveGenerator::ZorderCurveGenerator(const ArrayMetadata &metas, void *data) : done(false), metas(metas),
                                                                                      data(data) {
-
     ndims = (uint32_t) metas.dims.size();
     //Compute the best fitting block
     //Make the block size multiple of the element size
@@ -315,7 +328,7 @@ void ZorderCurveGenerator::copy_block_to_array(std::vector<uint32_t> dims, std::
 }
 
 
-void *ZorderCurveGenerator::merge_partitions(const ArrayMetadata &metas, std::vector<Partition> chunks, void *data) {
+void ZorderCurveGenerator::merge_partitions(const ArrayMetadata &metas, std::vector<Partition> chunks, void *data) {
     uint32_t ndims = (uint32_t) metas.dims.size();
 
     //Compute the best fitting block
@@ -418,7 +431,6 @@ ZorderCurveGeneratorFiltered::ZorderCurveGeneratorFiltered(const ArrayMetadata &
         : ZorderCurveGenerator(metas, data) {
     this->coord = coord;
 }
-
 
 
 
