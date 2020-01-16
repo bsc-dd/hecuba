@@ -231,6 +231,10 @@ endif ()
 
 target_link_libraries(hfetch ${ALL_LIBS})
 
+set_target_properties(hfetch
+        PROPERTIES PUBLIC_HEADER "${HEADER_FILES}")
+INSTALL(TARGETS hfetch LIBRARY DESTINATION ./lib PUBLIC_HEADER DESTINATION ./include/hecuba)
+
 
 if (DEFINED ENV{GTEST_ROOT})
     #Tests dependencies
