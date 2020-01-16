@@ -7,7 +7,7 @@ from hfetch import HNumpyStore, HArrayMetadata
 
 from . import config, log
 from .IStorage import IStorage
-from .tools import extract_ks_tab, get_istorage_attrs
+from .tools import extract_ks_tab, get_istorage_attrs, storage_id_from_name
 
 
 class StorageNumpy(IStorage, np.ndarray):
@@ -20,7 +20,12 @@ class StorageNumpy(IStorage, np.ndarray):
     args = namedtuple('StorageNumpyArgs', args_names)
 
     def __new__(cls, input_array=None, storage_id=None, name=None, **kwargs):
-        if input_array is None and storage_id is not None:
+        if input_array is None and (name is not None or storage_id is not None):
+            if not storage_id:
+                (ksp, table) = extract_ks_tab(name)
+                name = ksp + "." + table
+                storage_id = storage_id_from_name(name)
+
             # Load metadata
             istorage_metas = get_istorage_attrs(storage_id)
             name = name or istorage_metas[0].name
@@ -32,6 +37,7 @@ class StorageNumpy(IStorage, np.ndarray):
             obj = np.asarray(input_array).view(cls)
             (obj._ksp, obj._table) = extract_ks_tab(name)
             obj._hcache = result[1]
+            obj.storage_id = storage_id
         else:
             obj = np.asarray(input_array).view(cls)
 
@@ -46,6 +52,7 @@ class StorageNumpy(IStorage, np.ndarray):
         IStorage.__init__(self, storage_id=storage_id, name=name, **kwargs)
         metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
                                self.itemsize, self.flags.num, 0)
+        self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), metas)
 
         if self._get_name() or self.storage_id:
             if input_array is not None:
@@ -53,14 +60,12 @@ class StorageNumpy(IStorage, np.ndarray):
             self._row_elem = self._hcache.get_elements_per_row(self.storage_id, metas)[0]
             self._is_persistent = True
 
-        self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), metas)
-
     # used as copy constructor
     def __array_finalize__(self, obj):
         if obj is None:
             return
         self.storage_id = getattr(obj, 'storage_id', None)
-        self.name = getattr(obj, 'name', None)
+        self._name = getattr(obj, '_name', None)
         self._hcache = getattr(obj, '_hcache', None)
         self._row_elem = getattr(obj, '_row_elem', None)
         self._loaded_coordinates = getattr(obj, '_loaded_coordinates', None)
@@ -92,7 +97,7 @@ class StorageNumpy(IStorage, np.ndarray):
                          {'cache_size': config.max_cache_size,
                           'writer_par': config.write_callbacks_number,
                           'write_buffer': config.write_buffer_size,
-                          'timestamped_writes': config.timestamped_writes})
+                          'timestamped_writes': False})
 
         return HNumpyStore(*hcache_params)
 
@@ -186,11 +191,11 @@ class StorageNumpy(IStorage, np.ndarray):
 
         hfetch_metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
                                       self.itemsize, self.flags.num, 0)
-
         self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas)
 
         if len(self.shape) != 0:
-            self._hcache.store_numpy_slices([self.storage_id], hfetch_metas, [self.base.view(np.ndarray)], None)
+            self._hcache.store_numpy_slices([self.storage_id], self._build_args.metas, [self.base.view(np.ndarray)],
+                                            None)
         StorageNumpy._store_meta(self._build_args)
 
     def stop_persistent(self):
@@ -204,11 +209,12 @@ class StorageNumpy(IStorage, np.ndarray):
         """
         super().delete_persistent()
 
-        clusters_query = "SELECT cluster_id FROM %s WHERE storage_id = %s ALLOW FILTERING;" % (self.name, self.storage_id)
+        clusters_query = "SELECT cluster_id FROM %s WHERE storage_id = %s ALLOW FILTERING;" % (
+        self._name, self.storage_id)
         clusters = config.session.execute(clusters_query)
         clusters = ",".join([str(cluster[0]) for cluster in clusters])
 
-        query = "DELETE FROM %s WHERE storage_id = %s AND cluster_id in (%s);" % (self.name, self.storage_id, clusters)
+        query = "DELETE FROM %s WHERE storage_id = %s AND cluster_id in (%s);" % (self._name, self.storage_id, clusters)
         query2 = "DELETE FROM hecuba.istorage WHERE storage_id = %s;" % self.storage_id
         log.debug("DELETE PERSISTENT: %s", query)
         config.session.execute(query)
