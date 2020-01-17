@@ -625,6 +625,20 @@ class StorageDict(IStorage, dict):
             val = self.__make_val_persistent(val)
             self._hcache.put_row(self._make_key(key), self._make_value(val))
 
+    def __len__(self):
+        if not self.storage_id:
+            return super().__len__()
+
+        self._hcache.flush()
+        query = "SELECT COUNT(*) FROM %s.%s" % (self._ksp, self._table)
+
+        try:
+            result = config.session.execute(query)
+            return result[0][0]
+        except Exception as ir:
+            log.error("Unable to execute %s", query)
+            raise ir
+
     def __repr__(self):
         """
         Overloads the method used by print to show a StorageDict
