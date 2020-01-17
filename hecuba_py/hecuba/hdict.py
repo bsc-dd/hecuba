@@ -3,6 +3,8 @@ from collections import Iterable, defaultdict
 from collections import Mapping
 from collections import namedtuple
 
+from cassandra import OperationTimedOut
+
 import numpy as np
 from . import config, log, Parser
 from .storageiter import NamedItemsIterator, NamedIterator
@@ -635,6 +637,11 @@ class StorageDict(IStorage, dict):
         try:
             result = config.session.execute(query)
             return result[0][0]
+        except OperationTimedOut as ex:
+            import warnings
+            warnings.warn("len() operation on {} from class {} failed by timeout."
+                          "Use len() on split() results if you must".format(self._get_name(), self.__class__.__name__))
+            raise ex
         except Exception as ir:
             log.error("Unable to execute %s", query)
             raise ir
