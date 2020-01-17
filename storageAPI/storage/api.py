@@ -1,4 +1,6 @@
 import uuid
+from hecuba import StorageNumpy, StorageDict
+from hecuba import StorageObj as StorageObject
 
 
 def init(config_file_path=None):
