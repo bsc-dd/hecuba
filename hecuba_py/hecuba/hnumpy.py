@@ -24,26 +24,15 @@ class StorageNumpy(IStorage, np.ndarray):
     def np_split(self, block_size, axis=0):
         # iterate through rows
         if axis == 0 or axis == 'rows':
-            n_rows, n_cols = self.shape[:2]
-            splits = ceil(n_rows / block_size)
-            if splits == 0:
-                splits = 1
-            new_shape = (self.shape[0] // splits, self.shape[1])
-            # for i, chunk in enumerate(np.array_split(self.view(np.ndarray), splits, axis=0)):
-            for block_id in range(splits):
+            for block_id, i in enumerate(range(0, self.shape[0], block_size)):
+                obj = self[i:i+block_size]
                 storage_id = uuid.uuid4()
-                new_metas = HArrayMetadata(list(new_shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
+                obj.storage_id = storage_id
+                new_metas = HArrayMetadata(list(obj.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
                                            self.itemsize, self.flags.num, 0)
-                # new_args = self.args(storage_id, self._class_name, None, new_metas, block_id)
                 new_args = self._build_args._replace(storage_id=storage_id, metas=new_metas, block_id=block_id,
                                                      base_numpy=self.storage_id)
                 StorageNumpy._store_meta(new_args)
-
-                start_chunk = new_shape[0] * block_id
-                end_chunk = new_shape[0] * (block_id + 1)
-                obj = self[start_chunk:end_chunk]
-                obj.storage_id = storage_id
-
                 yield obj
 
         elif axis == 1 or axis == 'columns':
@@ -53,7 +42,7 @@ class StorageNumpy(IStorage, np.ndarray):
             raise Exception(
                 "Axis must be [0|'rows'] or [1|'columns']. Got: %s" % axis)
 
-    def __new__(cls, input_array=None, storage_id=None, name=None, block_id=None, reserved=False, **kwargs):
+    def __new__(cls, input_array=None, storage_id=None, name=None, block_id=None, **kwargs):
         if input_array is None and (name is not None or storage_id is not None):
             if not storage_id:
                 (ksp, table) = extract_ks_tab(name)
