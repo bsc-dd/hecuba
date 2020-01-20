@@ -1,5 +1,7 @@
 import itertools as it
+import uuid
 from collections import namedtuple
+from math import ceil
 
 import numpy as np
 from . import config, log
@@ -13,13 +15,45 @@ from .tools import extract_ks_tab, get_istorage_attrs, storage_id_from_name
 class StorageNumpy(IStorage, np.ndarray):
     _build_args = None
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
-                                                  '(storage_id, class_name, name, numpy_meta)'
-                                                  'VALUES (?,?,?,?)')
+                                                  '(storage_id, class_name, name, numpy_meta, block_id, base_numpy)'
+                                                  'VALUES (?,?,?,?,?,?)')
 
-    args_names = ["storage_id", "class_name", "name", "metas"]
+    args_names = ["storage_id", "class_name", "name", "metas", "block_id", "base_numpy"]
     args = namedtuple('StorageNumpyArgs', args_names)
 
-    def __new__(cls, input_array=None, storage_id=None, name=None, **kwargs):
+    def np_split(self, block_size, axis=0):
+        # iterate through rows
+        if axis == 0 or axis == 'rows':
+            n_rows, n_cols = self.shape[:2]
+            splits = ceil(n_rows / block_size)
+            if splits == 0:
+                splits = 1
+            new_shape = (self.shape[0] // splits, self.shape[1])
+            # for i, chunk in enumerate(np.array_split(self.view(np.ndarray), splits, axis=0)):
+            for block_id in range(splits):
+                storage_id = uuid.uuid4()
+                new_metas = HArrayMetadata(list(new_shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
+                                           self.itemsize, self.flags.num, 0)
+                # new_args = self.args(storage_id, self._class_name, None, new_metas, block_id)
+                new_args = self._build_args._replace(storage_id=storage_id, metas=new_metas, block_id=block_id,
+                                                     base_numpy=self.storage_id)
+                StorageNumpy._store_meta(new_args)
+
+                start_chunk = new_shape[0] * block_id
+                end_chunk = new_shape[0] * (block_id + 1)
+                obj = self[start_chunk:end_chunk]
+                obj.storage_id = storage_id
+
+                yield obj
+
+        elif axis == 1 or axis == 'columns':
+            raise Exception("Not implemented yet.")
+
+        else:
+            raise Exception(
+                "Axis must be [0|'rows'] or [1|'columns']. Got: %s" % axis)
+
+    def __new__(cls, input_array=None, storage_id=None, name=None, block_id=None, reserved=False, **kwargs):
         if input_array is None and (name is not None or storage_id is not None):
             if not storage_id:
                 (ksp, table) = extract_ks_tab(name)
@@ -30,20 +64,29 @@ class StorageNumpy(IStorage, np.ndarray):
             istorage_metas = get_istorage_attrs(storage_id)
             name = name or istorage_metas[0].name
             numpy_metadata = istorage_metas[0].numpy_meta
+            base_numpy = istorage_metas[0].base_numpy
+            if base_numpy is not None:
+                storage_id = base_numpy
+
+            base_metas = get_istorage_attrs(storage_id)[0].numpy_meta
 
             # Load array
-            result = cls.reserve_numpy_array(storage_id, name, numpy_metadata)
+            result = cls.reserve_numpy_array(storage_id, name, base_metas)
             input_array = result[0]
             obj = np.asarray(input_array).view(cls)
             (obj._ksp, obj._table) = extract_ks_tab(name)
             obj._hcache = result[1]
             obj.storage_id = storage_id
+            if base_numpy is not None:
+                obj._partition_dims = numpy_metadata.dims
         else:
             obj = np.asarray(input_array).view(cls)
 
         obj._numpy_full_loaded = False
         obj._loaded_coordinates = []
         obj.name = name
+        if getattr(obj, "_block_id", None) is None:
+            obj._block_id = block_id
         # Finally, we must return the newly created object:
         obj._class_name = '%s.%s' % (cls.__module__, cls.__name__)
         return obj
@@ -52,7 +95,7 @@ class StorageNumpy(IStorage, np.ndarray):
         IStorage.__init__(self, storage_id=storage_id, name=name, **kwargs)
         metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
                                self.itemsize, self.flags.num, 0)
-        self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), metas)
+        self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), metas, self._block_id, None)
 
         if self._get_name() or self.storage_id:
             if input_array is not None:
@@ -71,6 +114,7 @@ class StorageNumpy(IStorage, np.ndarray):
         self._loaded_coordinates = getattr(obj, '_loaded_coordinates', None)
         self._numpy_full_loaded = getattr(obj, '_numpy_full_loaded', None)
         self._is_persistent = getattr(obj, '_is_persistent', None)
+        self._block_id = getattr(obj, '_block_id', None)
         try:
             self._build_args = obj._build_args
         except AttributeError:
@@ -112,7 +156,8 @@ class StorageNumpy(IStorage, np.ndarray):
         try:
             config.session.execute(StorageNumpy._prepared_store_meta,
                                    [storage_args.storage_id, storage_args.class_name,
-                                    storage_args.name, storage_args.metas])
+                                    storage_args.name, storage_args.metas, storage_args.block_id,
+                                    storage_args.base_numpy])
 
         except Exception as ex:
             log.warn("Error creating the StorageNumpy metadata with args: %s" % str(storage_args))
@@ -147,11 +192,13 @@ class StorageNumpy(IStorage, np.ndarray):
             coordinates = list(set(it.chain.from_iterable((self._loaded_coordinates, new_coords))))
 
             # checks if we already loaded the coordinates
+
             if ((len(coordinates) != len(self._loaded_coordinates)) and not self._numpy_full_loaded) or (
                     not self._numpy_full_loaded and not coordinates):
                 if not coordinates:
                     self._numpy_full_loaded = True
                     new_coords = None
+
                 self._hcache.load_numpy_slices([self.storage_id], self._build_args.metas, [self.base.view(np.ndarray)],
                                                new_coords)
                 self._loaded_coordinates = coordinates
@@ -191,7 +238,8 @@ class StorageNumpy(IStorage, np.ndarray):
 
         hfetch_metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
                                       self.itemsize, self.flags.num, 0)
-        self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas)
+        self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas, self._block_id,
+                                     None)
 
         if len(self.shape) != 0:
             self._hcache.store_numpy_slices([self.storage_id], self._build_args.metas, [self.base.view(np.ndarray)],
@@ -210,7 +258,7 @@ class StorageNumpy(IStorage, np.ndarray):
         super().delete_persistent()
 
         clusters_query = "SELECT cluster_id FROM %s WHERE storage_id = %s ALLOW FILTERING;" % (
-        self._name, self.storage_id)
+            self._name, self.storage_id)
         clusters = config.session.execute(clusters_query)
         clusters = ",".join([str(cluster[0]) for cluster in clusters])
 
@@ -222,7 +270,14 @@ class StorageNumpy(IStorage, np.ndarray):
         self.storage_id = None
 
     def __iter__(self):
-        return iter(self.view(np.ndarray))
+        if self._block_id is not None:
+            start_chunk = self._partition_dims[0] * self._block_id
+            end_chunk = self._partition_dims[0] * (self._block_id + 1)
+            # start_chunk = 0
+            # end_chunk = self.shape[0]
+            return iter(self[start_chunk:end_chunk].view(np.ndarray))
+        else:
+            return iter(self.view(np.ndarray))
 
     def __contains__(self, item):
         return item in self.view(np.ndarray)

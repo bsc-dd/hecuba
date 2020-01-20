@@ -1,9 +1,10 @@
 import unittest
-import gc
 
 from hecuba import config, StorageNumpy
 import uuid
 import numpy as np
+
+from storageAPI.storage.api import getByID
 
 
 class StorageNumpyTest(unittest.TestCase):
@@ -46,9 +47,6 @@ class StorageNumpyTest(unittest.TestCase):
             typed_array = StorageNumpy(base_array, storage_id, tablename)
             self.assertTrue(np.array_equal(typed_array, base_array))
 
-            del typed_array
-            gc.collect()
-
             # Load array
             typed_array = StorageNumpy(None, storage_id, tablename)
             self.assertTrue(np.allclose(typed_array, base_array))
@@ -66,9 +64,6 @@ class StorageNumpyTest(unittest.TestCase):
             typed_array = StorageNumpy(base_array.astype(typecode), storage_id, tablename)
             self.assertTrue(np.array_equal(typed_array, base_array.astype(typecode)))
 
-            del typed_array
-            gc.collect()
-
             typed_array = StorageNumpy(None, storage_id, tablename)
             self.assertTrue(np.allclose(typed_array, base_array.astype(typecode)))
             typed_array.delete_persistent()
@@ -80,9 +75,6 @@ class StorageNumpyTest(unittest.TestCase):
             storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, tablename + typecode)
             typed_array = StorageNumpy(base_array.astype(typecode), storage_id, tablename)
             self.assertTrue(np.allclose(typed_array, base_array.astype(typecode)))
-
-            del typed_array
-            gc.collect()
 
             typed_array = StorageNumpy(None, storage_id, tablename)
             self.assertTrue(np.allclose(typed_array, base_array.astype(typecode)))
@@ -104,9 +96,6 @@ class StorageNumpyTest(unittest.TestCase):
 
         base_array = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim))
         casted = StorageNumpy(input_array=base_array, name="testing_arrays.first_test")
-
-        del casted
-        gc.collect()
 
         test_numpy = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim))
         casted = StorageNumpy(name="testing_arrays.first_test")
@@ -131,8 +120,6 @@ class StorageNumpyTest(unittest.TestCase):
         base_array = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim, elem_dim, elem_dim))
         casted = StorageNumpy(input_array=base_array, name="testing_arrays.first_test")
 
-        del casted
-        gc.collect()
         test_numpy = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim, elem_dim, elem_dim))
         casted = StorageNumpy(name="testing_arrays.first_test")
         chunk = casted[slice(None, None, None)]
@@ -188,10 +175,6 @@ class StorageNumpyTest(unittest.TestCase):
         res = base[6:7, 4:]
         self.assertTrue(np.array_equal(res, res_hecu))
 
-        del hecu
-        del res_hecu
-        gc.collect()
-
         hecu = StorageNumpy(name="my_array")
         res_hecu = hecu[6:7, 4:]
         self.assertTrue(np.array_equal(res, res_hecu))
@@ -211,9 +194,6 @@ class StorageNumpyTest(unittest.TestCase):
             res_hecu = hecu[select]
             res = base[select]
             self.assertTrue(np.array_equal(res, res_hecu))
-
-            del hecu
-            gc.collect()
 
             hecu = StorageNumpy(name="my_array")
             res_hecu = hecu[select]
@@ -265,9 +245,6 @@ class StorageNumpyTest(unittest.TestCase):
         hecu_p = StorageNumpy(input_array=base, name='my_array')
         sub_hecu = hecu_p[:2, 3:]
         sub_hecu[0][2:] = 0
-        del sub_hecu
-        del hecu_p
-        gc.collect()
         hecu_p_load = StorageNumpy(name="my_array")
         rep = repr(hecu_p_load)
         self.assertIsInstance(rep, str)
@@ -280,9 +257,6 @@ class StorageNumpyTest(unittest.TestCase):
         hecu_p = StorageNumpy(input_array=base, name='my_array2')
         sub_hecu = hecu_p[:2, 3:]
         sub_hecu[0][1][0] = 0
-        del sub_hecu
-        del hecu_p
-        gc.collect()
         hecu_p_load = StorageNumpy(name="my_array2")
         rep = repr(hecu_p_load)
         self.assertIsInstance(rep, str)
@@ -293,11 +267,33 @@ class StorageNumpyTest(unittest.TestCase):
     def test_load_2_dif_clusters_same_instance(self):
         base = np.arange(50 * 50).reshape((50, 50))
         hecu_p = StorageNumpy(input_array=base, name='my_array3')
-        del hecu_p
-        gc.collect()
         hecu_p_load = StorageNumpy(name="my_array3")
         hecu_p_load[0:1, 0:1]
         self.assertTrue(np.array_equal(hecu_p_load[40:50, 40:50], base[40:50, 40:50]))
+
+    def test_split_by_rows(self):
+        """
+        Tests iterating through the rows of the Hecuba array
+        """
+        config.session.execute("DROP TABLE IF EXISTS hecuba_dislib.test_array")
+        config.session.execute("DROP TABLE IF EXISTS hecuba_dislib.test_array_numpies")
+        config.session.execute("TRUNCATE TABLE hecuba.istorage")
+
+        block_size = (20, 10)
+        x = np.array([[i] * 10 for i in range(100)])
+        storage_id = uuid.uuid4()
+
+        data = StorageNumpy(input_array=x, name="hecuba_dislib.test_array", storage_id=storage_id)
+
+        for i, chunk in enumerate(data.np_split(block_size=block_size[0], axis="rows")):
+            r_x = np.array([[j] * 10 for j in range(i * block_size[0], i * block_size[0] + block_size[0])])
+
+            storage_id = chunk.storage_id
+            del chunk
+            chunk = getByID(storage_id)
+            self.assertTrue(np.array_equal(list(chunk), r_x))
+
+        self.assertEqual(i + 1, len(data) // block_size[0])
 
 
 if __name__ == '__main__':
