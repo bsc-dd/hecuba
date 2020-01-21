@@ -42,7 +42,7 @@ class StorageNumpy(IStorage, np.ndarray):
             raise Exception(
                 "Axis must be [0|'rows'] or [1|'columns']. Got: %s" % axis)
 
-    def __new__(cls, input_array=None, storage_id=None, name=None, block_id=None, **kwargs):
+    def __new__(cls, input_array=None, name=None, storage_id=None, block_id=None, **kwargs):
         if input_array is None and (name is not None or storage_id is not None):
             if not storage_id:
                 (ksp, table) = extract_ks_tab(name)
@@ -80,7 +80,7 @@ class StorageNumpy(IStorage, np.ndarray):
         obj._class_name = '%s.%s' % (cls.__module__, cls.__name__)
         return obj
 
-    def __init__(self, input_array=None, storage_id=None, name=None, **kwargs):
+    def __init__(self, input_array=None, name=None, storage_id=None, **kwargs):
         IStorage.__init__(self, storage_id=storage_id, name=name, **kwargs)
         metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
                                self.itemsize, self.flags.num, 0)
