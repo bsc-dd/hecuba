@@ -39,16 +39,15 @@ class StorageNumpyTest(unittest.TestCase):
         tablename = self.ksp + '.' + self.table
 
         typecode = 'mytype'
-        storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, tablename + typecode)
         niter = 2
 
         for _ in range(niter):
             # Build array and store
-            typed_array = StorageNumpy(base_array, storage_id, tablename)
+            typed_array = StorageNumpy(base_array, tablename)
             self.assertTrue(np.array_equal(typed_array, base_array))
 
             # Load array
-            typed_array = StorageNumpy(None, storage_id, tablename)
+            typed_array = StorageNumpy(None, tablename)
             self.assertTrue(np.allclose(typed_array, base_array))
             typed_array.delete_persistent()
 
@@ -60,11 +59,10 @@ class StorageNumpyTest(unittest.TestCase):
             if typecode == 'p':
                 # TODO For now skip arrays made of pointers
                 pass
-            storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, tablename + typecode)
-            typed_array = StorageNumpy(base_array.astype(typecode), storage_id, tablename)
+            typed_array = StorageNumpy(base_array.astype(typecode), tablename)
             self.assertTrue(np.array_equal(typed_array, base_array.astype(typecode)))
 
-            typed_array = StorageNumpy(None, storage_id, tablename)
+            typed_array = StorageNumpy(None, tablename)
             self.assertTrue(np.allclose(typed_array, base_array.astype(typecode)))
             typed_array.delete_persistent()
 
@@ -72,11 +70,10 @@ class StorageNumpyTest(unittest.TestCase):
             if typecode == 'P':
                 # TODO For now skip arrays made of pointers
                 pass
-            storage_id = uuid.uuid3(uuid.NAMESPACE_DNS, tablename + typecode)
-            typed_array = StorageNumpy(base_array.astype(typecode), storage_id, tablename)
+            typed_array = StorageNumpy(base_array.astype(typecode), tablename)
             self.assertTrue(np.allclose(typed_array, base_array.astype(typecode)))
 
-            typed_array = StorageNumpy(None, storage_id, tablename)
+            typed_array = StorageNumpy(None, tablename)
             self.assertTrue(np.allclose(typed_array, base_array.astype(typecode)))
             typed_array.delete_persistent()
 
