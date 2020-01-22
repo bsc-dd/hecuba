@@ -3,6 +3,8 @@ from collections import Iterable, defaultdict
 from collections import Mapping
 from collections import namedtuple
 
+from cassandra import OperationTimedOut
+
 import numpy as np
 from . import config, log, Parser
 from .storageiter import NamedItemsIterator, NamedIterator
@@ -624,6 +626,25 @@ class StorageDict(IStorage, dict):
             # Not needed because it is made persistent and inserted to hcache when calling to self.__create_embeddedset
             val = self.__make_val_persistent(val)
             self._hcache.put_row(self._make_key(key), self._make_value(val))
+
+    def __len__(self):
+        if not self.storage_id:
+            return super().__len__()
+
+        self._hcache.flush()
+        query = "SELECT COUNT(*) FROM %s.%s" % (self._ksp, self._table)
+
+        try:
+            result = config.session.execute(query)
+            return result[0][0]
+        except OperationTimedOut as ex:
+            import warnings
+            warnings.warn("len() operation on {} from class {} failed by timeout."
+                          "Use len() on split() results if you must".format(self._get_name(), self.__class__.__name__))
+            raise ex
+        except Exception as ir:
+            log.error("Unable to execute %s", query)
+            raise ir
 
     def __repr__(self):
         """
