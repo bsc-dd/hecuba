@@ -1,3 +1,4 @@
+import gc
 import unittest
 
 from hecuba import config, StorageNumpy
@@ -307,6 +308,60 @@ class StorageNumpyTest(unittest.TestCase):
             blocks.append(row)
 
         data = StorageNumpy(input_array=x, name="hecuba_dislib.test_array")
+
+        for i, chunk in enumerate(data.np_split(block_size=(bn, bm))):
+            storage_id = chunk.storage_id
+            del chunk
+            chunk = getByID(storage_id)
+            self.assertTrue(np.array_equal(list(chunk), blocks[i]))
+
+        self.assertEqual(i + 1, len(blocks))
+
+    def test_split_rows_and_columns(self):
+        config.session.execute("DROP TABLE IF EXISTS hecuba_dislib.test_array")
+        config.session.execute("TRUNCATE TABLE hecuba.istorage")
+
+        bn, bm = (2, 1)
+        x = np.arange(100).reshape(10, -1)
+        blocks = []
+        for i in range(0, x.shape[0], bn):
+            row = [x[i: i + bn, j: j + bm] for j in range(0, x.shape[1], bm)]
+            blocks.append(row)
+
+        data = StorageNumpy(input_array=x, name="hecuba_dislib.test_array")
+
+        for i, chunk in enumerate(data.np_split(block_size=(bn, bm))):
+            storage_id = chunk.storage_id
+            del chunk
+            chunk = getByID(storage_id)
+            self.assertTrue(np.array_equal(list(chunk), blocks[i]))
+
+        self.assertEqual(i + 1, len(blocks))
+
+    def test_split_already_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS hecuba_dislib.test_array")
+        config.session.execute("TRUNCATE TABLE hecuba.istorage")
+
+        bn, bm = (2, 1)
+        x = np.arange(100).reshape(10, -1)
+        blocks = []
+        for i in range(0, x.shape[0], bn):
+            row = [x[i: i + bn, j: j + bm] for j in range(0, x.shape[1], bm)]
+            blocks.append(row)
+
+        data = StorageNumpy(input_array=x, name="hecuba_dislib.test_array")
+
+        for i, chunk in enumerate(data.np_split(block_size=(bn, bm))):
+            storage_id = chunk.storage_id
+            del chunk
+            chunk = getByID(storage_id)
+            self.assertTrue(np.array_equal(list(chunk), blocks[i]))
+
+        del data
+        gc.collect()
+
+        data = StorageNumpy(name="hecuba_dislib.test_array")
+        self.assertTrue(np.array_equal(list(data), x))
 
         for i, chunk in enumerate(data.np_split(block_size=(bn, bm))):
             storage_id = chunk.storage_id

@@ -245,14 +245,10 @@ class StorageNumpy(IStorage, np.ndarray):
         self.storage_id = None
 
     def __iter__(self):
-        if self._block_id is not None:
-            # start_chunk = self._partition_dims[0] * self._block_id
-            # end_chunk = self._partition_dims[0] * (self._block_id + 1)
-            start_chunk = 0
-            end_chunk = self.shape[0]
-            return iter(self[start_chunk:end_chunk].view(np.ndarray))
-        else:
+        if self._numpy_full_loaded:
             return iter(self.view(np.ndarray))
+        else:
+            return iter(self[:].view(np.ndarray))
 
     def __contains__(self, item):
         return item in self.view(np.ndarray)
