@@ -34,6 +34,10 @@ class IStorage(object):
         self._tokens = kwargs.pop("tokens", None)
         self._is_persistent = False
 
+    @classmethod
+    def get_by_alias(cls, alias=""):
+        return cls(name=alias)
+
     def __eq__(self, other):
         """
         Method to compare a IStorage object with another one.
