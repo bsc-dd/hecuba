@@ -1,10 +1,9 @@
 import itertools as it
 import uuid
 from collections import namedtuple
-from math import ceil
+from typing import Tuple
 
 import numpy as np
-from . import config, log
 from hfetch import HNumpyStore, HArrayMetadata
 
 from . import config, log
@@ -21,26 +20,13 @@ class StorageNumpy(IStorage, np.ndarray):
     args_names = ["storage_id", "class_name", "name", "metas", "block_id", "base_numpy"]
     args = namedtuple('StorageNumpyArgs', args_names)
 
-    def np_split(self, block_size, axis=0):
-        # iterate through rows
-        if axis == 0 or axis == 'rows':
-            for block_id, i in enumerate(range(0, self.shape[0], block_size)):
-                obj = self[i:i+block_size]
-                storage_id = uuid.uuid4()
-                obj.storage_id = storage_id
-                new_metas = HArrayMetadata(list(obj.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
-                                           self.itemsize, self.flags.num, 0)
-                new_args = self._build_args._replace(storage_id=storage_id, metas=new_metas, block_id=block_id,
-                                                     base_numpy=self.storage_id)
-                StorageNumpy._store_meta(new_args)
-                yield obj
-
-        elif axis == 1 or axis == 'columns':
-            raise Exception("Not implemented yet.")
-
-        else:
-            raise Exception(
-                "Axis must be [0|'rows'] or [1|'columns']. Got: %s" % axis)
+    def np_split(self, block_size: Tuple[int, int]):
+        # For now, only split in two dimensions is supported
+        bn, bm = block_size
+        for block_id, i in enumerate(range(0, self.shape[0], bn)):
+            block = [self[i: i + bn, j:j + bm] for j in range(0, self.shape[1], bm)]
+            obj = StorageNumpy(input_array=block, name=self.name, storage_id=uuid.uuid4(), block_id=block_id)
+            yield obj
 
     def __new__(cls, input_array=None, name=None, storage_id=None, block_id=None, **kwargs):
         if input_array is None and (name is not None or storage_id is not None):
@@ -260,10 +246,10 @@ class StorageNumpy(IStorage, np.ndarray):
 
     def __iter__(self):
         if self._block_id is not None:
-            start_chunk = self._partition_dims[0] * self._block_id
-            end_chunk = self._partition_dims[0] * (self._block_id + 1)
-            # start_chunk = 0
-            # end_chunk = self.shape[0]
+            # start_chunk = self._partition_dims[0] * self._block_id
+            # end_chunk = self._partition_dims[0] * (self._block_id + 1)
+            start_chunk = 0
+            end_chunk = self.shape[0]
             return iter(self[start_chunk:end_chunk].view(np.ndarray))
         else:
             return iter(self.view(np.ndarray))
