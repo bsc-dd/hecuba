@@ -271,6 +271,20 @@ class StorageDictSplitTestbase(unittest.TestCase):
 
         self.assertEqual(acc, nitems)
 
+    def test_len_on_split(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_split_len")
+        ninserts = 100
+        obj = SDict_SimpleTypeSpec("test_split_len")
+        for i in range(ninserts):
+            obj[i] = str(f"test_split_len{i}")
+        nin = len(obj)
+
+        count = 0
+        for chunk in obj.split():
+            count = count + len(chunk)
+
+        self.assertEqual(count, ninserts)
+
     '''
     def test_remote_build_composed_iteritems(self):
          config.session.execute(
