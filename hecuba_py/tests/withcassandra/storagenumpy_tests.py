@@ -1,15 +1,8 @@
 import unittest
+
+from hecuba import config, StorageNumpy
 import uuid
-
 import numpy as np
-from cassandra.metadata import Token
-from hecuba import config, StorageNumpy, StorageDict
-
-
-class Prueba(StorageDict):
-    '''
-    @TypeSpec dict<<key:int>, val:str>
-    '''
 
 
 class StorageNumpyTest(unittest.TestCase):
@@ -131,33 +124,6 @@ class StorageNumpyTest(unittest.TestCase):
         casted = StorageNumpy(name="testing_arrays.first_test", storage_id=storage_id)
         chunk = casted[slice(None, None, None)]
         self.assertTrue(np.allclose(chunk.view(np.ndarray), test_numpy))
-
-    def test_locality(self):
-
-        def get_hosts(tokens):
-            # type : (List[Long]) -> Host
-
-            tm = config.cluster.metadata.token_map
-            hosts = set()
-            for token in tokens:
-                t = Token(token)
-                hosts.add(tm.get_replicas("my_app", t)[0])
-
-
-            #hosts = set(map(lambda token: tm.get_replicas("my_app", token)[0],
-            #                map(lambda a: Token(a), tokens)))
-
-            return list(hosts)[0]
-
-        prueba = Prueba("my_app.prueba")
-
-        config.splits_per_node = 2
-
-        for partition in prueba.split():
-            tokens = partition._tokens
-
-            hosts = set([get_hosts(worker_partition) for worker_partition in tokens])
-            print(hosts)
 
 
 if __name__ == '__main__':
