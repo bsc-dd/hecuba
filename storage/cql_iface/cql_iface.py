@@ -103,11 +103,7 @@ class CQLIface(StorageIface):
     def delete_persistent_object(self, object_id: UUID):
         if not isinstance(object_id, UUID):
             raise ValueError("The object_id is not an UUID")
-        try:
-            CqlCOMM.delete_data(object_id)
-        except ValueError:
-            return False
-        return True
+        return CqlCOMM.delete_data(object_id)
 
     def put_record(self, object_id: UUID, key_list: dict, value_list: dict) -> None:
         if not isinstance(object_id, UUID):

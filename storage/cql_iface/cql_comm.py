@@ -113,7 +113,8 @@ class CqlCOMM(object):
     def delete_data(object_id):
         res = config.execute(istorage_read_entry, [object_id])
         if res:
-            res = res.one()
+            config.execute(istorage_remove_entry, [object_id])
+            return True
         else:
-            raise ValueError("There are no records with the specified object_id")
-        config.execute(istorage_remove_entry, [object_id])
+            return False
+
