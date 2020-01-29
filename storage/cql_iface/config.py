@@ -16,6 +16,7 @@ _hecuba2cassandra_typemap = {
     bytearray: 'blob',
     bytes: 'blob',
     Tuple: 'tuple',
+    tuple: 'tuple',
     # FrozenSet: 'set',
     decimal.Decimal: 'decimal',
     datetime.date: 'date',
