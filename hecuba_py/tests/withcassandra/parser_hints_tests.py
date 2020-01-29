@@ -90,7 +90,7 @@ class ParserHintsTest(unittest.TestCase):
         self.assertEqual(try_parser(Dict4), error)
 
     def test_bad_format_dict(self):
-        error = "The TypeSpec should have two '<' and two '>'. Format: @TypeSpec dict<<key:type>, value:type>."
+        error = "The TypeSpec should have at least two '<' and two '>'. Format: @TypeSpec dict<<key:type>, value:type>."
         self.assertEqual(try_parser(Dict5), error)
 
     def test_bad_colon_obj(self):
