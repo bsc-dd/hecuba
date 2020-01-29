@@ -134,7 +134,7 @@ class HfetchTests(unittest.TestCase):
         # Register data models
         storage.add_data_model(data_model1)
         id2 = storage.add_data_model(data_model1)
-        self.assertTrue(storage.data_models_cache[id2])
+        self.assertTrue(id2 in storage.data_models_cache)
 
     def test_add_data_model_complex_types(self):
         data_model = {"type": mockClass, "value_id": {"k": decimal.Decimal, "k1": numpy.ndarray},

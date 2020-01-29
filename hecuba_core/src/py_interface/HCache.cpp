@@ -65,9 +65,20 @@ static PyObject *put_row(HCache *self, PyObject *args) {
     }
     std::set<std::string> keys;
     PyObject *elem = NULL, *format_text = NULL;
+    Py_ssize_t l_size;
+    char *permanent;
+    const char *l_temp;
     for (uint16_t value_i = 0; value_i < PyList_Size(py_union_k); ++value_i) {
-        format_text = PyUnicode_AsUTF8String(PyList_GetItem(py_union_k, value_i));
-        keys.insert(PyBytes_AS_STRING(format_text));
+        l_temp = PyUnicode_AsUTF8AndSize(PyList_GetItem(py_union_k, value_i), &l_size);
+        if (!l_temp) {
+            std::string error_msg = "PyString cannot be parsed";
+            PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+            return NULL;
+        }
+        permanent = (char *) malloc(l_size + 1);
+        memcpy(permanent, l_temp, l_size);
+        permanent[l_size] = '\0';
+        keys.insert(std::string(permanent));
     }
     TupleRow *k;
     try {

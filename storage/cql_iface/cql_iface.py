@@ -29,24 +29,23 @@ class CQLIface(StorageIface):
 
     @staticmethod
     def _check_values_from_definition(definition):
+        value_iter = None
         if isinstance(definition, dict):
-            for v in definition.values():
-                CQLIface._check_values_from_definition(v)
+            value_iter = definition.values()
         elif isinstance(definition, (list, set, tuple)):
-            for v in definition:
+            value_iter = iter(definition)
+
+        if value_iter is not None:
+            for v in value_iter:
                 CQLIface._check_values_from_definition(v)
         else:
             try:
-                if isinstance(definition.__origin__, Tuple):
-                    try:
-                        _hecuba2cassandra_typemap[definition.__origin__]
-                    except KeyError:
-                        raise TypeError(f"The type {definition} is not supported")
+                my_type = definition.__origin__
             except AttributeError:
-                try:
-                    _hecuba2cassandra_typemap[definition]
-                except KeyError:
-                    raise TypeError(f"The type {definition} is not supported")
+                my_type = definition
+
+            if my_type not in _hecuba2cassandra_typemap:
+                raise TypeError(f"The type {definition} is not supported")
 
     def add_data_model(self, definition: dict) -> int:
         if not isinstance(definition, dict):
@@ -99,9 +98,7 @@ class CQLIface(StorageIface):
         return {**data_model, **keys_dict}
 
     def put_record(self, object_id: UUID, key_list: dict, value_list: dict) -> None:
-        try:
-            UUID(str(object_id))
-        except ValueError:
+        if not isinstance(object_id, UUID):
             raise ValueError("The object_id is not an UUID")
         try:
             self.hcache_by_id[object_id]
@@ -114,7 +111,7 @@ class CQLIface(StorageIface):
         for v in value_list:
             try:
                 if not isinstance(value_list[v], data_model["fields"][v]) and value_list[v] is not None:
-                    raise Exception("The value types don't match the data model specification")
+                    raise TypeError("The value types don't match the data model specification")
             except TypeError:
                 if not isinstance(value_list[v], data_model["fields"][v].__origin__):
                     raise TypeError("The value types don't match the data model specification")
@@ -122,7 +119,7 @@ class CQLIface(StorageIface):
         for k in key_list:
             try:
                 if not isinstance(key_list[k], data_model["value_id"][k]):
-                    raise Exception("The key types don't match the data model specification")
+                    raise TypeError("The key types don't match the data model specification")
             except TypeError:
                 if not isinstance(key_list[k], data_model["value_id"][k].__origin__):
                     raise TypeError("The key types don't match the data model specification")
@@ -135,9 +132,7 @@ class CQLIface(StorageIface):
             raise Exception("key_list or value_list have some parameter that does not correspond with the data model")
 
     def get_record(self, object_id: UUID, key_list: dict) -> List[object]:
-        try:
-            UUID(str(object_id))
-        except ValueError:
+        if not isinstance(object_id, UUID):
             raise ValueError("The object_id is not an UUID")
         try:
             self.hcache_by_id[object_id]
