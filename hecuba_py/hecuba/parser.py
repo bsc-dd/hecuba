@@ -329,8 +329,8 @@ class Parser(object):
         if type_parser == "TypeSpec":
             if len(lines.split("\n")) != 1:
                 raise Exception("StorageDicts should only have one TypeSpec line.")
-            if lines.count("<") != 2 or lines.count(">") != 2:
-                raise Exception("The TypeSpec should have two '<' and two '>'. Format: "
+            if lines.count("<") < 2 or lines.count(">") < 2:
+                raise Exception("The TypeSpec should have at least two '<' and two '>'. Format: "
                                 "@TypeSpec dict<<key:type>, value:type>.")
         elif type_parser == "ClassField":
             for line in lines.split("\n"):
