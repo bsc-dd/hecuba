@@ -12,7 +12,7 @@ from .hnumpy import StorageNumpy
 from hfetch import Hcache
 
 from .IStorage import IStorage
-from .tools import get_istorage_attrs, count_name_collision, build_remotely, basic_types
+from .tools import get_istorage_attrs, count_name_collision, build_remotely, basic_types, _min_token, _max_token
 
 
 class EmbeddedSet(set):
@@ -476,6 +476,19 @@ class StorageDict(IStorage, dict):
         else:
             return list(value)
 
+    def _count_elements(self, query):
+        try:
+            result = config.session.execute(query)
+            return result[0][0]
+        except OperationTimedOut as ex:
+            import warnings
+            warnings.warn("len() operation on {} from class {} failed by timeout."
+                          "Use len() on split() results if you must".format(self._get_name(), self.__class__.__name__))
+            raise ex
+        except Exception as ir:
+            log.error("Unable to execute %s", query)
+            raise ir
+
     def __iter__(self):
         """
         Method that overloads the python dict basic iteration, which returns
@@ -637,19 +650,24 @@ class StorageDict(IStorage, dict):
             return super().__len__()
 
         self._flush_to_storage()
-        query = "SELECT COUNT(*) FROM %s.%s" % (self._ksp, self._table)
+        if self._tokens[0][0] == _min_token and self._tokens[-1][1] == _max_token:
+            query = f"SELECT COUNT(*) FROM {self._ksp}.{self._table}"
+            return self._count_elements(query)
 
-        try:
-            result = config.session.execute(query)
-            return result[0][0]
-        except OperationTimedOut as ex:
-            import warnings
-            warnings.warn("len() operation on {} from class {} failed by timeout."
-                          "Use len() on split() results if you must".format(self._get_name(), self.__class__.__name__))
-            raise ex
-        except Exception as ir:
-            log.error("Unable to execute %s", query)
-            raise ir
+        else:
+            keys = []
+            for pkey in self._primary_keys:
+                template = "'{}'" if pkey["type"] == "text" else "{}"
+                keys.append(template.format(pkey["name"]))
+            all_keys = ",".join(keys)
+
+            total = 0
+            for (token_start, token_end) in self._tokens:
+                query = f"SELECT COUNT(*) FROM {self._ksp}.{self._table} " \
+                    f"WHERE token({all_keys})>={token_start} AND token({all_keys})<{token_end}"
+
+                total = total + self._count_elements(query)
+            return total
 
     def __repr__(self):
         """
