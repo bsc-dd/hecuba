@@ -135,6 +135,8 @@ class Parser(object):
                     try:
                         mod = __import__(module, globals(), locals(), [cname], 0)
                     except (ImportError, ValueError) as ex:
+                        if cname in _conversions:
+                            raise Exception("Error parsing the TypeSpec. Maybe you forgot a comma between the columns.")
                         raise ImportError("Can't import class {} from module {}".format(cname, module))
                     string_str = ',("%s", "%s")' % (t1, t)
                 else:
@@ -244,7 +246,10 @@ class Parser(object):
     def _parse_simple(self, line, this):
         split_line = line.split()
         table = split_line[1]
-        type = _conversions[split_line[2]]
+        try:
+            type = _conversions[split_line[2]]
+        except KeyError as ex:
+            raise Exception(f"Type '{split_line[2]}' not identified.")
         simple = '{"%s":{"type":"%s"}}' % (table, type)
         simple = eval(simple)
         if table in this:
@@ -303,13 +308,47 @@ class Parser(object):
         str_splitted = comments.split('\n', 1)[-1]
         lines = str_splitted.rsplit('\n', 1)[0]
         ''''''
+        self.detect_errors_before(lines, self.type_parser)
         if self.type_parser == "TypeSpec":
             for line in lines.split('\n'):
                 this = self._input_type(self._remove_spaces_from_line(line), this)
         if self.type_parser == "ClassField":
             for line in lines.split('\n'):
                 this.update(self._input_type(self._remove_spaces_from_line(line), this))
+        self.detect_errors_after(this, self.type_parser)
         return this
+
+    @staticmethod
+    def detect_errors_before(lines, type_parser):
+        bad_characters = (";", "&", "(", ")", "[", "]", "=", "?", "¿", "!", "¡")
+        bad_characters = re.escape(",".join(bad_characters)).replace(",", "|")
+        bad_found = re.findall(bad_characters, lines)
+        if len(bad_found) > 0:
+            raise Exception(f"One or more bad character detected: [{', '.join(bad_found)}].")
+
+        if type_parser == "TypeSpec":
+            if len(lines.split("\n")) != 1:
+                raise Exception("StorageDicts should only have one TypeSpec line.")
+            if lines.count("<") != 2 or lines.count(">") != 2:
+                raise Exception("The TypeSpec should have two '<' and two '>'. Format: "
+                                "@TypeSpec dict<<key:type>, value:type>.")
+        elif type_parser == "ClassField":
+            for line in lines.split("\n"):
+                if ":" in line and "dict" not in line:
+                    line_error = line.replace("    ", "")
+                    raise Exception(
+                        f"The ClassField {line_error} should only have the character ':' if it is in a dict.")
+
+    @staticmethod
+    def detect_errors_after(output, type_parser):
+        if type_parser == "TypeSpec":
+            if "primary_keys" not in output:
+                raise Exception("No detected keys. Maybe you forgot to set a primary key or "
+                                "there is a missing 'dict' after the TypeSpec.")
+            elif "columns" not in output:
+                raise Exception("No detected non-key columns.")
+        elif type_parser == "ClassField":
+            pass
 
     def __init__(self, type_parser):
         '''Initializes the Parser class with the type_parser that can be @ClassField or @TypeSpec.'''
