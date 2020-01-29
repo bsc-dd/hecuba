@@ -20,7 +20,7 @@ class Dict2(StorageDict):
 # bad characters
 class Dict3(StorageDict):
     '''
-    @TypeSpec dict<<a:int>, &b:int; c:int!?¿>
+    @TypeSpec dict<<a:int>, b:int, c:int!?¿>
     '''
 
 
@@ -82,7 +82,7 @@ class ParserHintsTest(unittest.TestCase):
         self.assertEqual(try_parser(Dict2), error)
 
     def test_bad_characters_dict(self):
-        error = "One or more bad character detected: [&, ;, !, ?, ¿]."
+        error = "One or more bad character detected: [!, ?, ¿]."
         self.assertEqual(try_parser(Dict3), error)
 
     def test_two_lines_dict(self):
