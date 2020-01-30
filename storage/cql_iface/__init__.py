@@ -1,7 +1,10 @@
 from cassandra.cluster import Cluster
 from cassandra.policies import RetryPolicy, RoundRobinPolicy, TokenAwarePolicy
-from .tests.cassandra_cluster_manager import *
+
 from .config import log
+from .tests.cassandra_cluster_manager import *
+
+
 # Set default log.handler to avoid "No handler found" warnings.
 
 class _NRetry(RetryPolicy):
@@ -120,7 +123,7 @@ class Config(object):
             singleton.max_cache_size = int(os.environ['MAX_CACHE_SIZE'])
             log.info('MAX_CACHE_SIZE: %d', singleton.max_cache_size)
         except KeyError:
-            singleton.max_cache_size = 0 #TODO: when the data is inserted into cassandra we should merge the new data and the one that is already in the cache
+            singleton.max_cache_size = 0  # TODO: when the data is inserted into cassandra we should merge the new data and the one that is already in the cache
             log.warn('using default MAX_CACHE_SIZE: %d', singleton.max_cache_size)
 
         try:

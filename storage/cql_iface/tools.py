@@ -136,6 +136,7 @@ def generate_token_ring_ranges():
     tokens = [token.value for token in ring]
     return discrete_token_ranges(tokens)
 
+
 def get_hosts(tokens, table_name):
     tm = config.cluster.metadata.token_map
     hosts = set()
@@ -143,6 +144,7 @@ def get_hosts(tokens, table_name):
         t = Token(token)
         hosts.add(tm.get_replicas(table_name.split('.')[0], t)[0])
     return list(hosts)[0]
+
 
 def discrete_token_ranges(tokens):
     """

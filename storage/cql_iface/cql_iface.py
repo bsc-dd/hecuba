@@ -1,5 +1,5 @@
-from typing import List, Generator
 import uuid
+from typing import List, Generator
 from uuid import UUID
 
 from storage.cql_iface.tests.mockIStorage import IStorage
@@ -100,7 +100,6 @@ class CQLIface(StorageIface):
         data_model = {k: None for k in data_model.keys()}
         return {**data_model, **keys_dict}
 
-
     def delete_persistent_object(self, object_id: UUID):
         if not isinstance(object_id, UUID):
             raise ValueError("The object_id is not an UUID")
@@ -122,7 +121,10 @@ class CQLIface(StorageIface):
                 if not isinstance(value_list[v], data_model["fields"][v]) and value_list[v] is not None:
                     raise TypeError("The value types don't match the data model specification")
             except TypeError:
-                if not isinstance(value_list[v], data_model["fields"][v].__origin__):
+                try:
+                    if not isinstance(value_list[v], data_model["fields"][v].__origin__):
+                        raise TypeError("The value types don't match the data model specification")
+                except AttributeError:
                     raise TypeError("The value types don't match the data model specification")
 
         for k in key_list:
@@ -130,8 +132,11 @@ class CQLIface(StorageIface):
                 if not isinstance(key_list[k], data_model["value_id"][k]):
                     raise TypeError("The key types don't match the data model specification")
             except TypeError:
-                if not isinstance(key_list[k], data_model["value_id"][k].__origin__):
-                    raise TypeError("The key types don't match the data model specification")
+                try:
+                    if not isinstance(key_list[k], data_model["value_id"][k].__origin__):
+                        raise TypeError("The value types don't match the data model specification")
+                except AttributeError:
+                    raise TypeError("The value types don't match the data model specification")
 
         values_dict = CQLIface.fill_empty_keys_with_None(value_list, data_model["fields"])
         try:
