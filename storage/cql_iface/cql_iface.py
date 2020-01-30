@@ -1,9 +1,12 @@
-from typing import Tuple, List
+from typing import List, Generator
+import uuid
 from uuid import UUID
 
 from storage.cql_iface.tests.mockIStorage import IStorage
 from .config import _hecuba2cassandra_typemap
 from .cql_comm import CqlCOMM
+from .queries import istorage_read_entry, istorage_prepared_st
+from .tools import generate_token_ring_ranges, config, get_hosts
 from ..storage_iface import StorageIface
 
 """
@@ -81,9 +84,9 @@ class CQLIface(StorageIface):
         object_id = pyobject.getID()
         self.object_to_data_model[object_id] = datamodel_id
         object_name = pyobject.get_name()
-        CqlCOMM.register_istorage(object_id, object_name, data_model)
-        CqlCOMM.create_table(object_name, data_model)
         obj_class = pyobject.__class__.__name__
+        CqlCOMM.register_istorage(object_id, object_name, obj_class, data_model)
+        CqlCOMM.create_table(object_name, data_model)
         if data_model not in self.hcache_datamodel or object_name not in self.hcache_by_name or object_id not in self.hcache_by_id:
             self.hcache_datamodel.append(datamodel_id)
             hc = CqlCOMM.create_hcache(object_id, object_name, data_model)
@@ -146,3 +149,37 @@ class CQLIface(StorageIface):
         except Exception:
             result = []
         return result
+
+    def split(self, object_id: UUID, subsets: int) -> Generator[UUID, UUID, None]:
+        if not isinstance(object_id, UUID):
+            raise ValueError("The object_id is not an UUID")
+        if not isinstance(subsets, int):
+            raise TypeError("subsets parameter should be an integer")
+        from .tools import tokens_partitions
+        res = config.execute(istorage_read_entry, [object_id])
+        if res:
+            res = res.one()
+        else:
+            raise ValueError("The istorage that identifies the object_id is not registered in the IStorage")
+        tokens = generate_token_ring_ranges() if not res.tokens else res.tokens
+        for token_split in tokens_partitions(res.table_name.split('.')[0], res.table_name.split('.')[1], tokens,
+                                             subsets):
+            storage_id = uuid.uuid4()
+            try:
+                config.execute(istorage_prepared_st,
+                               [storage_id, res.table_name, res.obj_name + '_block', res.data_model, token_split])
+            except Exception:
+                raise Exception("The IStorage parameters could not be inserted into the IStorage table")
+            yield storage_id
+
+    def get_data_locality(self, object_id: UUID) -> List[str]:
+        hosts_list = []
+        if not isinstance(object_id, UUID):
+            raise ValueError("The object_id is not an UUID")
+        res = config.execute(istorage_read_entry, [object_id])
+        if not res.one().tokens:
+            raise ValueError("The istorage identifies that the object_id is not registered in the IStorage")
+        tokens = res.one().tokens
+        hosts = set([get_hosts(worker_partition, res.one().table_name) for worker_partition in tokens])
+        hosts_list.append(str(hosts))
+        return hosts_list

@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import List
+from typing import List, Generator
 from uuid import UUID
 from storage.cql_iface.tests.mockIStorage import IStorage
 
@@ -47,3 +47,14 @@ class StorageIface(metaclass=ABCMeta):
         :return: List of the records corresponding to the keys contained in key_list
         """
         pass
+
+    @abstractmethod
+    def split(self, object_id: UUID, subsets: int) -> Generator[UUID, UUID, None]:
+        """
+        Partitions the data of the Hecuba object referenced by `object_id` following the same data model.
+        Each partition is assigned an UUID.
+        :param object_id: Hecuba object identifier
+        :return: Yield an `object_id` referencing a subset of the data.
+        """
+        pass
+
