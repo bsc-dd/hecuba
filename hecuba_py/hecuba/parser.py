@@ -321,7 +321,8 @@ class Parser(object):
     @staticmethod
     def detect_errors_before(lines, type_parser):
         bad_characters = (";", "&", "(", ")", "[", "]", "=", "?", "¿", "!", "¡")
-        bad_characters = re.escape(",".join(bad_characters)).replace(",", "|")
+        # re.escape will escape '|' too, but it shouldn't be escaped, so 'a' is a replacement
+        bad_characters = re.escape("a".join(bad_characters)).replace("a", "|")
         bad_found = re.findall(bad_characters, lines)
         if len(bad_found) > 0:
             raise Exception(f"One or more bad character detected: [{', '.join(bad_found)}].")
