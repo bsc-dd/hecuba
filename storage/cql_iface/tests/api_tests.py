@@ -22,6 +22,7 @@ class TestClass(IStorage):
     def __init__(self, *args, **kwargs):
         super(TestClass, self).__init__()
 
+
 class TestClass2(IStorage):
 
     def __new__(cls, *args, name='', **kwargs):
@@ -30,6 +31,7 @@ class TestClass2(IStorage):
 
     def __init__(self, *args, **kwargs):
         super(TestClass2, self).__init__()
+
 
 class mockClass(IStorage):
     pass
@@ -871,6 +873,52 @@ class HfetchTests(unittest.TestCase):
         for partition in storage.split(myid, 9):
                 parts.append(partition)
         self.assertTrue(storage.get_data_locality(parts[0]))
+
+    def test_delete_persistent_except_object_id_not_uuid(self):
+        with self.assertRaises(ValueError):
+            given_name = 'storage_test.dict'
+            config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
+
+            # Setup object
+            obj = TestClass(given_name)
+            myid = obj.getID()
+            name = obj.get_name()
+            data_model = {"type": StorageNumpy, "value_id": {"k": int}, "fields": {"a": str, "b": str}}
+
+            # Setup persistent storage
+            storage = CQLIface()
+            data_model_id = storage.add_data_model(data_model)
+
+            storage.register_persistent_object(data_model_id, obj)
+
+            storage.delete_persistent_object('exc')
+
+    def test_delete_persistent_object(self):
+        given_name = 'storage_test.dict'
+        config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))
+
+        # Setup object
+        obj = TestClass(given_name)
+        myid = obj.getID()
+        name = obj.get_name()
+        data_model = {"type": StorageDict, "value_id": {"k": int}, "fields": {"a": str, "b": str}}
+
+        # Setup persistent storage
+        storage = CQLIface()
+        data_model_id = storage.add_data_model(data_model)
+
+        storage.register_persistent_object(data_model_id, obj)
+
+        keys = NamedTuple('keys', [('k', int)])
+        keys = keys(8)._asdict()
+        fields = NamedTuple('fields', [('a', str), ('b', str)])
+        fields = fields('a', 'a')._asdict()
+
+        storage.put_record(myid, keys, fields)
+
+        storage.delete_persistent_object(myid)
+        res = config.session.execute("SELECT * FROM hecuba.istorage WHERE storage_id={}".format(myid))
+        self.assertIsNone(res.one())
 
 if __name__ == "__main__":
     unittest.main()

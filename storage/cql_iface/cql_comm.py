@@ -7,7 +7,7 @@ from hfetch import Hcache, HNumpyStore
 
 from . import config
 from .config import _hecuba2cassandra_typemap, log
-from .queries import istorage_prepared_st, istorage_read_entry
+from .queries import istorage_prepared_st, istorage_read_entry, istorage_remove_entry
 
 
 def extract_ksp_table(name):
@@ -105,3 +105,13 @@ class CqlCOMM(object):
             return HNumpyStore(*hcache_params)
         else:
             return Hcache(*hcache_params)
+
+    @staticmethod
+    def delete_data(object_id):
+        res = config.execute(istorage_read_entry, [object_id])
+        if res:
+            config.execute(istorage_remove_entry, [object_id])
+            return True
+        else:
+            return False
+
