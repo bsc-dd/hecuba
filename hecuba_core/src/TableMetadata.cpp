@@ -88,9 +88,14 @@ uint16_t TableMetadata::compute_size_of(const ColumnMeta &CM) const {
             return sizeof(void *);
         }
         case CASS_VALUE_TYPE_UDT: {
-            throw ModuleException("Can't parse data: User defined type not supported");
+            //throw ModuleException("Can't parse data: User defined type not supported");
+            return sizeof(ArrayMetadata *);
         }
-        case CASS_VALUE_TYPE_CUSTOM:
+        case CASS_VALUE_TYPE_CUSTOM: {
+            //throw ModuleException("Can't parse data: User defined type not supported");
+            std::cerr << "Custom type" << std::endl;
+            return sizeof(ArrayMetadata *);
+        }
         case CASS_VALUE_TYPE_UNKNOWN:
         default: {
             throw ModuleException("Can't parse data: Unknown data type or user defined type");
@@ -128,6 +133,18 @@ std::map<std::string, ColumnMeta> TableMetadata::getMetaTypes(CassIterator *iter
 
             }
             metadatas[value].pointer = std::make_shared<std::vector<ColumnMeta>>(v);
+        } else if (cass_data_type_type(type) == CASS_VALUE_TYPE_UDT) {
+            const char *l_temp;
+            size_t l_size;
+
+            CassError rc = cass_data_type_type_name(type, &l_temp, &l_size);
+            if (rc != CASS_OK) {
+                std::cerr << cass_error_desc(rc) << std::endl;
+                throw ModuleException("Can't fetch the user defined type from schema");
+            }
+            std::string type_name = std::string(l_temp, l_size);
+            if (type_name != "np_meta") throw ModuleException("Cassandra UDT not supported");
+            metadatas[value].dtype = type;
         }
     }
     return metadatas;
@@ -273,6 +290,7 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
     for (uint16_t i = (uint16_t) keys_meta.size(); i < items_meta.size(); ++i) {
         items_meta[i].position += keys_offset;
     }
+
 
     this->cols = std::make_shared<std::vector<ColumnMeta> >(cols_meta);
     this->keys = std::make_shared<std::vector<ColumnMeta> >(keys_meta);

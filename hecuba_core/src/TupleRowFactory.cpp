@@ -539,13 +539,28 @@ TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t o
                                metadata->at(i).info.begin()->second);
                     break;
                 }
+                case CASS_VALUE_TYPE_UDT: {
+                    int64_t *addr = (int64_t *) element_i;
+                    ArrayMetadata *np_metas = reinterpret_cast<ArrayMetadata *>(*addr);
+                    CassUserType* cass_np_meta = cass_user_type_new_from_data_type(metadata->at(i).dtype);
+                    std::string field_name = "block_id";
+                    int32_t field_value=-999999;
+                    cass_user_type_set_int32_by_name(cass_np_meta, field_name.c_str(), field_value);
+                    CassError rc = cass_statement_bind_user_type(statement, bind_pos, cass_np_meta);
+                    CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UDT], column:" +
+                               metadata->at(i).info.begin()->second);
+
+
+
+                    break;
+
+                }
                 case CASS_VALUE_TYPE_DECIMAL:
                 case CASS_VALUE_TYPE_TIMEUUID:
                 case CASS_VALUE_TYPE_INET:
                 case CASS_VALUE_TYPE_LIST:
                 case CASS_VALUE_TYPE_MAP:
                 case CASS_VALUE_TYPE_SET:
-                case CASS_VALUE_TYPE_UDT:
                 case CASS_VALUE_TYPE_CUSTOM:
                 case CASS_VALUE_TYPE_UNKNOWN:
                 default:

@@ -22,15 +22,18 @@ struct ColumnMeta {
     ColumnMeta(const ColumnMeta &CM) {
         this->info = CM.info;
         this->type = CM.type;
+        this->dtype = CM.dtype;
         this->position = CM.position;
         this->size = CM.size;
         this->col_type = CM.col_type;
         this->pointer = CM.pointer;
     }
 
-    ColumnMeta(std::map<std::string, std::string> &info, CassValueType cv_type, uint16_t offset, uint16_t bsize) {
+    ColumnMeta(std::map<std::string, std::string> &info, CassValueType cv_type, CassDataType *cd_type, uint16_t offset,
+               uint16_t bsize) {
         this->info = info;
         this->type = cv_type;
+        this->dtype = cd_type;
         this->position = offset;
         this->size = bsize;
         this->col_type = CASS_COLUMN_TYPE_REGULAR;
@@ -38,6 +41,7 @@ struct ColumnMeta {
 
     uint16_t position, size;
     CassValueType type;
+    const CassDataType *dtype;
     CassColumnType col_type;
     std::map<std::string, std::string> info;
     std::shared_ptr<std::vector<ColumnMeta> > pointer;

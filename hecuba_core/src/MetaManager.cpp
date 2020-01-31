@@ -3,6 +3,8 @@
 
 MetaManager::MetaManager(const TableMetadata *table_meta, CassSession *session,
                          std::map<std::string, std::string> &config) {
+
+
     this->writer = new Writer(table_meta, session, config);
 }
 
@@ -31,7 +33,7 @@ void MetaManager::register_obj(const uint64_t *storage_id, const std::string &na
     char *c_name = (char *) std::malloc(name.length() + 1);
     std::memcpy(c_name, name.c_str(), name.length() + 1);
 
-    void *values = std::malloc(sizeof(char *)); //+sizeof(numpy_meta));
+    void *values = std::malloc(sizeof(char *) + sizeof(numpy_meta));
     std::memcpy(values, &c_name, sizeof(char *));
 
     //std::memcpy(values+sizeof(c_name), numpy_meta, sizeof(numpy_meta));

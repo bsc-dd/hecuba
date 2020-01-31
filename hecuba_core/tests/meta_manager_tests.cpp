@@ -16,7 +16,9 @@ const std::string create_ksp = "CREATE KEYSPACE " + keyspace +
                                +" WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};";
 const std::string drop_ksp = "DROP KEYSPACE IF EXISTS " + keyspace + ";";
 const std::string create_table = "CREATE TABLE " + keyspace + "." + table +
-                                 +"(storage_id uuid PRIMARY KEY, class_name text, name text);";
+                                 +"(storage_id uuid PRIMARY KEY, class_name text, name text, numpy_meta frozen<np_meta>);";
+
+const std::string create_np_dt = "CREATE TYPE IF NOT EXISTS "+ keyspace +" .np_meta(dims frozen<list<int>>,type int,block_id int);";
 
 /** TEST SETUP **/
 
@@ -51,6 +53,7 @@ void setupcassandra(std::string &contact_points, uint64_t nodePort) {
 
     fireandforget(drop_ksp);
     fireandforget(create_ksp);
+    fireandforget(create_np_dt);
     fireandforget(create_table);
 }
 
@@ -74,7 +77,7 @@ int main(int argc, char **argv) {
 
     int ret_code = RUN_ALL_TESTS();
 
-    teardown();
+    //teardown();
 
     return ret_code;
 }
@@ -82,7 +85,7 @@ int main(int argc, char **argv) {
 
 TEST(TestMetaManager, RegisterObj) {
     std::vector<std::map<std::string, std::string> > keysnames = {{{"name", "storage_id"}}};
-    std::vector<std::map<std::string, std::string> > colsnames = {{{"name", "name"}}};
+    std::vector<std::map<std::string, std::string> > colsnames = {{{"name", "name"}},{{"name","numpy_meta"}}};
 
     std::map<std::string, std::string> config;
     config["writer_par"] = "1";
