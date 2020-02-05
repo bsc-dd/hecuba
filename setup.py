@@ -17,8 +17,20 @@ def package_files(directory):
 
 
 def cmake_build():
+    import re
+    c_bind_re = re.compile("--c_binding=*")
     try:
-        if subprocess.call(["cmake", "-H./hecuba_core", "-B./build"]) != 0:
+        c_binding_path_opt = next(arg for arg in sys.argv if (re.match("--c_binding=*", arg)))
+        c_binding_path = re.search("--c_binding=(.*)", c_binding_path_opt).groups()[0]
+        sys.argv.remove(c_binding_path_opt)
+    except (IndexError, StopIteration):
+        c_binding_path=None
+
+    try:
+        cmake_args=["cmake", "-H./hecuba_core", "-B./build"]
+        if c_binding_path:
+            cmake_args=cmake_args + [ "-DC_BINDING_INSTALL_PREFIX={}".format(c_binding_path)]
+        if subprocess.call(cmake_args) != 0:
             raise EnvironmentError("error calling cmake")
     except OSError as e:
         if e.errno == os.errno.ENOENT:
@@ -31,9 +43,8 @@ def cmake_build():
     if subprocess.call(["make", "-j4", "-C", "./build"]) != 0:
         raise EnvironmentError("error calling make build")
 
-
-#    if subprocess.call(["make", "-j4", "-C", "./build", "install"]) != 0:
-#        raise EnvironmentError("error calling make install")
+    if c_binding_path and subprocess.call(["make", "-j4", "-C", "./build", "install"]) != 0:
+        raise EnvironmentError("error calling make install")
 
 def get_var(var):
     value = os.environ.get(var,'')
