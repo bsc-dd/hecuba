@@ -68,6 +68,18 @@ python setup.py install --user
 python setup.py install --prefix=$CUSTOM_PATH
 ```
 
+The following option allows to specify the path where compiled dependencies should be installed alongside their headers. Useful when compiling a code against the Hecuba C++ core.
+
+```bash
+# Install Hecuba dependencies to custom path: $HOME/.local
+python3 setup.py install --prefix=$HECUBA_ROOT --c_binding=$HOME/.local
+```
+
+This will:
+- Install the Hecuba dependencies (libuv, cassandra driver and TBB) under $HOME/.local
+- Install the Python package under $HECUBA_ROOT
+
+
 
 ### Install without Internet:
 

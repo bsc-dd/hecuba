@@ -26,15 +26,15 @@ class HdictTest(unittest.TestCase):
 
     def test_parse_2(self):
         comment = '''
-            @TypeSpec particles dict<<partid:int>,x:int,y:int,z:int>
+            @TypeSpec dict<<partid:int>,x:int,y:int,z:int>
             '''
         pd = StorageDict(None,
                          [('pk1', 'int')],
                          [('val1', 'text')])
         p = pd._parse_comments(comment)
-        should_be = {'particles': {
+        should_be = {
             'columns': [('x', 'int'), ('y', 'int'), ('z', 'int')],
             'primary_keys': [('partid', 'int')],
             'type': 'StorageDict'
-        }}
+        }
         self.assertEquals(p, should_be)

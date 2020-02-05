@@ -221,21 +221,41 @@ class StorageDictTest(unittest.TestCase):
                          [('value', 'text')])
         pd[0] = 'str1'
         self.assertEquals(pd[0], 'str1')
-        '''
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
-        pd = StorageDict(tablename,
-                         [('position', 'int')],
-                         [('value', 'list<text>')])
-        pd[0] = ['str1', 'str2']
-        self.assertEquals(pd[0], ['str1', 'str2'])
 
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
-        pd = StorageDict(tablename,
-                         [('position', 'int')],
-                         [('value', 'tuple<text,text>')])
-        pd[0] = 'str1', 'str2'
-        self.assertEquals(pd[0], 'str1', 'str2')
-        '''
+    def test_len_memory(self):
+        config.session.execute("DROP TABLE IF EXISTS test.test_dict_len")
+        config.session.execute("DROP TABLE IF EXISTS test.test_dict_len_words")
+        ninserts = 1500
+        nopars = Words()
+        self.assertIsNone(nopars.storage_id)
+        nopars.ciao = 1
+        nopars.ciao2 = "1"
+        nopars.ciao3 = [1, 2, 3]
+        nopars.ciao4 = (1, 2, 3)
+        for i in range(ninserts):
+            nopars.words[i] = 'ciao' + str(i)
+
+        self.assertEqual(len(nopars.words), ninserts)
+
+        nopars.make_persistent('test.test_dict_len')
+        self.assertEqual(len(nopars.words), ninserts)
+
+    def test_len_persistent(self):
+        config.session.execute("DROP TABLE IF EXISTS test.test_dict_len")
+        config.session.execute("DROP TABLE IF EXISTS test.test_dict_len_words")
+        ninserts = 1500
+        nopars = Words('test.test_dict_len')
+        nopars.ciao = 1
+        nopars.ciao2 = "1"
+        nopars.ciao3 = [1, 2, 3]
+        nopars.ciao4 = (1, 2, 3)
+        for i in range(ninserts):
+            nopars.words[i] = 'ciao' + str(i)
+
+        self.assertEqual(len(nopars.words), ninserts)
+
+        rebuild = Words('test.test_dict_len')
+        self.assertEqual(len(rebuild.words), ninserts)
 
     def test_make_persistent(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.t_make")
@@ -1163,8 +1183,8 @@ class StorageDictTest(unittest.TestCase):
 
         n = len(d)
         for i in range(0, n):
-            self.assertEqual(d[i]._ksp, "my_app")
-            self.assertEqual(d[i]._table, "Test2StorageObj")
+            self.assertEqual(d[i]._ksp.lower(), "my_app")
+            self.assertEqual(d[i]._table.lower(), "test2storageobj")
 
     def gen_random_date(self):
         return datetime.date(year=randint(2000, 2019), month=randint(1, 12), day=randint(1, 28))
@@ -1187,9 +1207,6 @@ class StorageDictTest(unittest.TestCase):
             what_should_be[keys] = [cols]
             d[keys] = [cols]
 
-        del d
-        import gc
-        gc.collect()
         d = DictWithDates("my_app.dictwithdates")
 
         self.assertEqual(len(list(d.keys())), len(what_should_be.keys()))
@@ -1211,9 +1228,6 @@ class StorageDictTest(unittest.TestCase):
             what_should_be[keys] = [cols]
             d[keys] = [cols]
 
-        del d
-        import gc
-        gc.collect()
         d = DictWithTimes("my_app.dictwithtimes")
 
         self.assertEqual(len(list(d.keys())), len(what_should_be.keys()))
@@ -1234,10 +1248,6 @@ class StorageDictTest(unittest.TestCase):
             cols = self.gen_random_datetime()
             what_should_be[keys] = [cols]
             d[keys] = [cols]
-
-        del d
-        import gc
-        gc.collect()
 
         d = DictWithDateTimes("my_app.dictwithdatetimes")
         self.assertEqual(len(list(d.keys())), len(what_should_be.keys()))

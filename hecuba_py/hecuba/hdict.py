@@ -3,6 +3,8 @@ from collections import Iterable, defaultdict
 from collections import Mapping
 from collections import namedtuple
 
+from cassandra import OperationTimedOut
+
 import numpy as np
 from . import config, log, Parser
 from .storageiter import NamedItemsIterator, NamedIterator
@@ -10,7 +12,7 @@ from .hnumpy import StorageNumpy
 from hfetch import Hcache
 
 from .IStorage import IStorage
-from .tools import get_istorage_attrs, count_name_collision, build_remotely, basic_types
+from .tools import get_istorage_attrs, count_name_collision, build_remotely, basic_types, _min_token, _max_token
 
 
 class EmbeddedSet(set):
@@ -402,10 +404,14 @@ class StorageDict(IStorage, dict):
                 log.error("Error creating the Qbeast trigger: %s %s", trigger_query, ex)
                 raise ex
 
-    def _flush_data(self):
+    def _persist_data_from_memory(self):
         for k, v in super().items():
             self[k] = v
         super().clear()
+
+    def _flush_to_storage(self):
+        super()._flush_to_storage()
+        self._hcache.flush()
 
     def _setup_hcache(self):
         key_names = [key["name"] for key in self._primary_keys]
@@ -470,6 +476,19 @@ class StorageDict(IStorage, dict):
         else:
             return list(value)
 
+    def _count_elements(self, query):
+        try:
+            result = config.session.execute(query)
+            return result[0][0]
+        except OperationTimedOut as ex:
+            import warnings
+            warnings.warn("len() operation on {} from class {} failed by timeout."
+                          "Use len() on split() results if you must".format(self._get_name(), self.__class__.__name__))
+            raise ex
+        except Exception as ir:
+            log.error("Unable to execute %s", query)
+            raise ir
+
     def __iter__(self):
         """
         Method that overloads the python dict basic iteration, which returns
@@ -495,7 +514,7 @@ class StorageDict(IStorage, dict):
 
         self._setup_hcache()
 
-        self._flush_data()
+        self._persist_data_from_memory()
 
         StorageDict._store_meta(self._build_args)
 
@@ -512,6 +531,7 @@ class StorageDict(IStorage, dict):
         """
         Method to empty all data assigned to a StorageDict.
         """
+        self._flush_to_storage()
         super().delete_persistent()
         log.debug('DELETE PERSISTENT: %s', self._table)
         query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
@@ -625,6 +645,30 @@ class StorageDict(IStorage, dict):
             val = self.__make_val_persistent(val)
             self._hcache.put_row(self._make_key(key), self._make_value(val))
 
+    def __len__(self):
+        if not self.storage_id:
+            return super().__len__()
+
+        self._flush_to_storage()
+        if self._tokens[0][0] == _min_token and self._tokens[-1][1] == _max_token:
+            query = f"SELECT COUNT(*) FROM {self._ksp}.{self._table}"
+            return self._count_elements(query)
+
+        else:
+            keys = []
+            for pkey in self._primary_keys:
+                template = "'{}'" if pkey["type"] == "text" else "{}"
+                keys.append(template.format(pkey["name"]))
+            all_keys = ",".join(keys)
+
+            total = 0
+            for (token_start, token_end) in self._tokens:
+                query = f"SELECT COUNT(*) FROM {self._ksp}.{self._table} " \
+                    f"WHERE token({all_keys})>={token_start} AND token({all_keys})<{token_end}"
+
+                total = total + self._count_elements(query)
+            return total
+
     def __repr__(self):
         """
         Overloads the method used by print to show a StorageDict
@@ -670,6 +714,7 @@ class StorageDict(IStorage, dict):
                 dict.keys(self)
         """
         if self.storage_id:
+            self._flush_to_storage()
             ik = self._hcache.iterkeys(config.prefetch_size)
             iterator = NamedIterator(ik, self._key_builder, self)
             if self._has_embedded_set:
@@ -689,6 +734,7 @@ class StorageDict(IStorage, dict):
                 dict.items(self)
         """
         if self.storage_id:
+            self._flush_to_storage()
             ik = self._hcache.iteritems(config.prefetch_size)
             iterator = NamedItemsIterator(self._key_builder,
                                           self._column_builder,
@@ -721,6 +767,7 @@ class StorageDict(IStorage, dict):
                 dict.values(self)
         """
         if self.storage_id:
+            self._flush_to_storage()
             if self._has_embedded_set:
                 items = self.items()
                 return dict(items).values()

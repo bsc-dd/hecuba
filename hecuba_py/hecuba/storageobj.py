@@ -123,6 +123,14 @@ class StorageObj(IStorage):
             log.error("Unable to execute %s", query_simple)
             raise ir
 
+    def _flush_to_storage(self):
+        super()._flush_to_storage()
+
+        for attr_name in self._persistent_attrs:
+            attr = getattr(super(), attr_name, None)
+            if isinstance(attr, IStorage):
+                attr._flush_to_storage()
+
     def make_persistent(self, name):
         """
             Once a StorageObj has been created, it can be made persistent. This function retrieves the information about
@@ -300,7 +308,7 @@ class StorageObj(IStorage):
                 if not value.storage_id:
                     attr_name = attribute.lower()
                     my_name = self._get_name()
-                    trailing_name = my_name[my_name.rfind('.')+1:]
+                    trailing_name = my_name[my_name.rfind('.') + 1:]
 
                     count = count_name_collision(self._ksp, trailing_name, attr_name)
                     attr_name = self._ksp + '.' + trailing_name + '_' + attr_name

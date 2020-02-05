@@ -2,12 +2,19 @@ import unittest
 
 from storage.api import getByID
 from ..app.words import Words
-from hecuba import config, StorageDict
+from storage.api import StorageDict, StorageObject, StorageNumpy
 
 
 class ApiTestSDict(StorageDict):
     '''
     @TypeSpec dict<<key:int>, value:double>
+    '''
+
+
+class ApiTestSObject(StorageObject):
+    '''
+    @ClassField attr int
+    @ClassField attr2 str
     '''
 
 
@@ -47,3 +54,18 @@ class StorageApi_Tests(unittest.TestCase):
         b = Words('testspace.tt')
         new_block = getByID(b.storage_id)
         self.assertEqual(b, new_block)
+
+    def test_get_by_alias(self):
+        attr = 123
+        attr2 = "textattribute"
+        obj = ApiTestSObject('test.api_by_alias')
+        obj.attr = attr
+        obj.attr2 = attr2
+        del obj
+        rebuild = ApiTestSObject.get_by_alias('test.api_by_alias')
+        self.assertEqual(rebuild.attr, attr)
+        self.assertEqual(rebuild.attr2, attr2)
+
+        obj2 = ApiTestSDict('test.api_by_alias2')
+        rebuild = ApiTestSDict.get_by_alias('test.api_by_alias2')
+        self.assertEqual(obj2, rebuild)

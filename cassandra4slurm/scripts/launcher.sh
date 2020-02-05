@@ -268,6 +268,10 @@ case $i in
     QUEUE="--qos=""${i#*=}"
     shift
     ;;
+    -res=*|--reservation=*)
+    CONSTRAINTS=$CONSTRAINTS" --reservation=""${i#*=}"
+    shift
+    ;;
     -con=*|--constraint=*)
     CONSTRAINTS=$CONSTRAINTS" --constraint=""${i#*=}"
     shift
