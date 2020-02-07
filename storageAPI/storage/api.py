@@ -1,4 +1,5 @@
-import uuid
+from hecuba import StorageNumpy, StorageDict
+from hecuba import StorageObj as StorageObject
 
 
 def init(config_file_path=None):
@@ -93,6 +94,7 @@ def getByID(objid):
     from hecuba import log
     from hecuba.IStorage import build_remotely
     from hecuba import config
+    import uuid
 
     query = "SELECT * FROM hecuba.istorage WHERE storage_id = %s"
 

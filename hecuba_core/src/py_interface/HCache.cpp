@@ -203,6 +203,23 @@ static PyObject *delete_row(HCache *self, PyObject *args) {
 }
 
 
+static PyObject *flush(HCache *self, PyObject *args) {
+    try {
+        self->T->flush_elements();
+    }
+    catch (TypeErrorException &e) {
+        PyErr_SetString(PyExc_TypeError, e.what());
+        return NULL;
+    }
+    catch (std::exception &e) {
+        std::string err_msg = "Flushing elements failed with " + std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
 static void hcache_dealloc(HCache *self) {
     delete (self->keysParser);
     delete (self->valuesParser);
@@ -318,6 +335,7 @@ static PyMethodDef hcache_type_methods[] = {
         {"get_row",    (PyCFunction) get_row,            METH_VARARGS, NULL},
         {"put_row",    (PyCFunction) put_row,            METH_VARARGS, NULL},
         {"delete_row", (PyCFunction) delete_row,         METH_VARARGS, NULL},
+        {"flush",      (PyCFunction) flush,              METH_VARARGS, NULL},
         {"iterkeys",   (PyCFunction) create_iter_keys,   METH_VARARGS, NULL},
         {"itervalues", (PyCFunction) create_iter_values, METH_VARARGS, NULL},
         {"iteritems",  (PyCFunction) create_iter_items,  METH_VARARGS, NULL},

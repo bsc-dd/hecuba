@@ -62,15 +62,6 @@ class StorageDictSplitTestbase(unittest.TestCase):
         for i in range(num_inserts):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
-        del pd
-        import gc
-        gc.collect()
-        count, = config.session.execute('SELECT count(*) FROM my_app.tab30')[0]
-        self.assertEqual(count, num_inserts)
-
-        pd = StorageDict(tablename,
-                         [('position', 'int')],
-                         [('value', 'text')])
 
         count = 0
         res = set()
@@ -80,6 +71,9 @@ class StorageDictSplitTestbase(unittest.TestCase):
                 count += 1
         self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
+
+        count, = config.session.execute('SELECT count(*) FROM my_app.tab30')[0]
+        self.assertEqual(count, num_inserts)
 
     def test_remote_build_iterkeys_split(self):
         config.session.execute(
@@ -93,16 +87,10 @@ class StorageDictSplitTestbase(unittest.TestCase):
         for i in range(num_inserts):
             pd[i] = 'ciao' + str(i)
             what_should_be.add(i)
-        del pd
-        import gc
-        gc.collect()
-        count, = config.session.execute('SELECT count(*) FROM my_app.tab_b0')[0]
-        self.assertEqual(count, num_inserts)
 
         pd = StorageDict(tablename,
                          [('position', 'int')],
                          [('value', 'text')])
-
         count = 0
         res = set()
         for partition in pd.split():
@@ -114,6 +102,9 @@ class StorageDictSplitTestbase(unittest.TestCase):
                 count += 1
         self.assertEqual(count, num_inserts)
         self.assertEqual(what_should_be, res)
+
+        count, = config.session.execute('SELECT count(*) FROM my_app.tab_b0')[0]
+        self.assertEqual(count, num_inserts)
 
     def test_composed_iteritems(self):
         config.session.execute(
@@ -128,14 +119,6 @@ class StorageDictSplitTestbase(unittest.TestCase):
             pd[i, i + 100] = ['ciao' + str(i), i * 0.1, i * 0.2, i * 0.3]
             what_should_be[i, i + 100] = ('ciao' + str(i), i * 0.1, i * 0.2, i * 0.3)
 
-        del pd
-        import gc
-        gc.collect()
-        count, = config.session.execute('SELECT count(*) FROM my_app.tab_b1')[0]
-        self.assertEqual(count, num_inserts)
-        pd = StorageDict(tablename,
-                         [('pid', 'int'), ('time', 'int')],
-                         [('value', 'text'), ('x', 'float'), ('y', 'float'), ('z', 'float')])
         count = 0
         res = {}
         for partition in pd.split():
@@ -143,6 +126,10 @@ class StorageDictSplitTestbase(unittest.TestCase):
                 res[key] = val
                 count += 1
         self.assertEqual(count, num_inserts)
+
+        count, = config.session.execute('SELECT count(*) FROM my_app.tab_b1')[0]
+        self.assertEqual(count, num_inserts)
+
         delta = 0.0001
         for i in range(num_inserts):
             a = what_should_be[i, i + 100]
@@ -270,6 +257,20 @@ class StorageDictSplitTestbase(unittest.TestCase):
             nsplits = nsplits + 1
 
         self.assertEqual(acc, nitems)
+
+    def test_len_on_split(self):
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_split_len")
+        ninserts = 100
+        obj = SDict_SimpleTypeSpec("test_split_len")
+        for i in range(ninserts):
+            obj[i] = str(f"test_split_len{i}")
+        nin = len(obj)
+
+        count = 0
+        for chunk in obj.split():
+            count = count + len(chunk)
+
+        self.assertEqual(count, ninserts)
 
     '''
     def test_remote_build_composed_iteritems(self):
