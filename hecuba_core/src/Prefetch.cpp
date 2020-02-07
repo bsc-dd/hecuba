@@ -50,7 +50,7 @@ Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges,
     this->completed = false;
     CassFuture *future = cass_session_prepare(session, query);
     CassError rc = cass_future_error_code(future);
-    CHECK_CASS("prefetch cannot prepare");
+    CHECK_CASS("prefetch cannot prepare query:" + std::string(query));
     this->prepared_query = cass_future_get_prepared(future);
     cass_future_free(future);
 

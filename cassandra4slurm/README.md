@@ -26,38 +26,11 @@ IMPORTANT: The leading dot is needed for Hecuba (https://github.com/bsc-dd/hecub
 
 ### Installation:
 
+Run:
 
-1) Copy the files to  **$PATH/lib/cassandra4slurm**
-
-2) Add symlinks:
 ```bash
-${ROOT}/bin/c4s -> ${ROOT}/lib/cassandra4slurm/launcher.sh
-${ROOT}/bin/cassandra4slurm -> ${ROOT}/lib/cassandra4slurm/launcher.sh
-${ROOT}/bin/runapp -> ${ROOT}/lib/cassandra4slurm/execute.sh
+$HECUBA_FOLDER/cassandra4slurm/install.sh $INSTALL_PATH
 ```
 
+which will copy the scripts into $INSTALL_PATH/lib/cassandra4slurm and add symlinks to $INSTALL_PATH/bin
 
-3) Overall organization
-
--bin
--- cassandra4slurm launchers
-
--include
--- hecuba/*.[cpp/h]
--- tbb/..
--- uv/cassandra headers
-
-
--cassandra-d8tree (Cassandra including Qbeast)
-
--lib
--- libhfetch.so / hfetch.so / libcassandra.so / libuv.so / libtbb.so (Hecuba core libs)
--- cassandra4slurm/.. (cassandra4slurm scripts)
--- python2.7/site-packages/
----- cassandra-driver
----- futures-2.1.6
----- Hecuba-0.1
-
--src (Codes used for installation)
-
--tables_templates (Template schemas)

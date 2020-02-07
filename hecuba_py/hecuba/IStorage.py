@@ -35,6 +35,10 @@ class IStorage(object):
         self._tokens = kwargs.pop("tokens", None)
         self._is_persistent = False
 
+    @classmethod
+    def get_by_alias(cls, alias=""):
+        return cls(name=alias)
+
     def __eq__(self, other):
         """
         Method to compare a IStorage object with another one.
@@ -90,6 +94,10 @@ class IStorage(object):
         except AttributeError:
             return ''
 
+    def _flush_to_storage(self):
+        if not self._is_persistent:
+            raise RuntimeError("Can't send the data to storage if the object is not persistent")
+
     def getID(self):
         """
         Method to retrieve the storage id as string. Used by PyCOMPSs solely.
@@ -108,6 +116,8 @@ class IStorage(object):
             tokens = self._build_args.tokens
         except AttributeError as ex:
             raise RuntimeError("Object {} does not have tokens".format(self._get_name()))
+
+        self._flush_to_storage()
 
         for token_split in tokens_partitions(self._ksp, self._table, tokens):
             storage_id = uuid.uuid4()
