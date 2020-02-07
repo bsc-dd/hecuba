@@ -306,5 +306,57 @@ class StorageNumpyTest(unittest.TestCase):
         hecu_p_load[0:1, 0:1]
         self.assertTrue(np.array_equal(hecu_p_load[40:50, 40:50], base[40:50, 40:50]))
 
+<<<<<<< HEAD
+=======
+    def test_split_by_rows(self):
+        """
+        Tests iterating through the rows of the Hecuba array
+        """
+        config.session.execute("DROP TABLE IF EXISTS hecuba_dislib.test_array")
+        config.session.execute("TRUNCATE TABLE hecuba.istorage")
+
+        bn, bm = (1, 10)
+        x = np.arange(100).reshape(10, -1)
+        blocks = []
+        for i in range(0, x.shape[0], bn):
+            row = [x[i: i + bn, j: j + bm] for j in range(0, x.shape[1], bm)]
+            blocks.append(row)
+
+        data = StorageNumpy(input_array=x, name="hecuba_dislib.test_array")
+
+        for i, chunk in enumerate(data.np_split(block_size=(bn, bm))):
+            storage_id = chunk.storage_id
+            del chunk
+            chunk = getByID(storage_id)
+            self.assertTrue(np.array_equal(list(chunk), blocks[i]))
+
+        self.assertEqual(i + 1, len(blocks))
+
+    def test_split_by_columns(self):
+        """
+        Tests iterating through the columns of the Hecuba array
+        """
+        config.session.execute("DROP TABLE IF EXISTS hecuba_dislib.test_array")
+        config.session.execute("TRUNCATE TABLE hecuba.istorage")
+
+        bn, bm = (10, 1)
+        x = np.arange(100).reshape(10, -1)
+        blocks = []
+        for i in range(0, x.shape[0], bn):
+            row = [x[i: i + bn, j: j + bm] for j in range(0, x.shape[1], bm)]
+            blocks.append(row)
+
+        data = StorageNumpy(input_array=x, name="hecuba_dislib.test_array")
+
+        for i, chunk in enumerate(data.np_split(block_size=(bn, bm))):
+            storage_id = chunk.storage_id
+            del chunk
+            chunk = getByID(storage_id)
+            self.assertTrue(np.array_equal(list(chunk), blocks[i]))
+
+        self.assertEqual(i + 1, len(blocks))
+
+
+>>>>>>> parent of 81d5b35... only retrieves the numpy if needed
 if __name__ == '__main__':
     unittest.main()
