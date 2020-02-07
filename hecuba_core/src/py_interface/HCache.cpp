@@ -378,8 +378,7 @@ static uint64_t *parse_uuid(PyObject *py_storage_id) {
     uint64_t *uuid;
     if (!PyByteArray_Check(py_storage_id)) {
         //Object is UUID python class
-        uint32_t len = sizeof(uint64_t) * 2;
-        uuid = (uint64_t *) malloc(len);
+        uuid = new uint64_t[2];
 
         PyObject *bytes = PyObject_GetAttrString(py_storage_id, "time_low"); //32b
         if (!bytes) throw TypeErrorException("Error parsing python UUID");
