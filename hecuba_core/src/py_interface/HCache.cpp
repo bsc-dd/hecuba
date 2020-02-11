@@ -437,22 +437,9 @@ static uint64_t *parse_uuid(PyObject *py_storage_id) {
     return uuid;
 }
 
-
-/***
- * Receives a numpy ndarray and a uuid, saves both to the table and keyspace passed during initialization
- * @param self Python HNumpyStore object upon method invocation
- * @param args Arg tuple containing two lists, the keys, and values. Keys are made of a list with a UUID,
- * values of a list with a single numpy ndarray.
- */
-static PyObject *save_numpy(HNumpyStore *self, PyObject *args) {
-    PyObject *py_storage_id, *numpy, *py_np_metas;
-    if (!PyArg_ParseTuple(args, "OOO", &py_storage_id, &numpy, &py_np_metas)) {
-        return NULL;
-    }
-
-    if (numpy == Py_None) {
-        std::string error_msg = "The numpy can't be None";
-        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+static PyObject *get_elements_per_row(HNumpyStore *self, PyObject *args) {
+    PyObject *py_keys, *py_np_metas;
+    if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_np_metas)) {
         return NULL;
     }
 
@@ -464,8 +451,153 @@ static PyObject *save_numpy(HNumpyStore *self, PyObject *args) {
 
     HArrayMetadata *np_metas = reinterpret_cast<HArrayMetadata *>(py_np_metas);
 
+    const uint64_t *storage_id = parse_uuid(py_keys);
+    PyObject *obj;
+    try {
+        obj = self->NumpyDataStore->get_row_elements(storage_id, np_metas->np_metas);
+    }
+    catch (std::exception &e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    delete[] storage_id;
+    PyObject *result_list = PyList_New(1);
+    PyList_SetItem(result_list, 0, obj ? obj : Py_None);
+    return result_list;
+}
 
-    const uint64_t *storage_id = parse_uuid(py_storage_id);
+static PyObject *allocate_numpy(HNumpyStore *self, PyObject *args) {
+    PyObject *py_keys, *py_np_metas;
+    if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_np_metas)) {
+        return NULL;
+    }
+
+    if (py_np_metas == Py_None) {
+        std::string error_msg = "The numpy metadatas can't be None";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    HArrayMetadata *np_metas = reinterpret_cast<HArrayMetadata *>(py_np_metas);
+
+    const uint64_t *storage_id = parse_uuid(py_keys);
+    PyObject *res;
+    try {
+        res = self->NumpyDataStore->reserve_numpy_space(storage_id, np_metas->np_metas);
+    }
+    catch (std::exception &e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    delete[] storage_id;
+    PyObject *result_list = PyList_New(1);
+    PyList_SetItem(result_list, 0, res ? res : Py_None);
+    return result_list;
+}
+
+/***
+ * Receives a uuid, makes the reservation of the numpy specified in the storage_id and computes the number of elements inside each row of a block
+ * @param self Python HNumpyStore object upon method invocation
+ * @param args Arg tuple containing one list with the the keys. Keys are made of a list with a UUID and
+ * values of a list with a single numpy ndarray.
+ * @return A list with two elements: the first has the numpy memory reserved and the second has the row elements
+ */
+static PyObject *store_numpy_slices(HNumpyStore *self, PyObject *args) {
+    PyObject *py_keys, *py_numpy, *py_np_metas, *py_coord;
+    if (!PyArg_ParseTuple(args, "OOOO", &py_keys, &py_np_metas, &py_numpy, &py_coord)) {
+        return NULL;
+    }
+
+    for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
+        if (PyList_GetItem(py_keys, key_i) == Py_None) {
+            std::string error_msg = "Keys can't be None, key_position: " + std::to_string(key_i);
+            PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+            return NULL;
+        }
+    }
+
+    if (PyList_Size(py_keys) != 1) {
+        std::string error_msg = "Only one uuid as a key can be passed";
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    };
+
+    if (PyList_Size(py_numpy) != 1) {
+        std::string error_msg = "Only one numpy can be saved at once";
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    };
+
+    if (py_np_metas == Py_None) {
+        std::string error_msg = "The numpy metadatas can't be None";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    HArrayMetadata *np_metas = reinterpret_cast<HArrayMetadata *>(py_np_metas);
+
+    const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
+
+    // Transform the object to the numpy ndarray
+    PyArrayObject *numpy_arr;
+    if (!PyArray_OutputConverter(PyList_GetItem(py_numpy, 0), &numpy_arr)) {
+        std::string error_msg = "Can't convert the given numpy to a numpy ndarray";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    try {
+        self->NumpyDataStore->store_numpy(storage_id, np_metas->np_metas, numpy_arr, py_coord);
+    }
+    catch (std::exception &e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    delete[] storage_id;
+    Py_RETURN_NONE;
+}
+
+/***
+ * Receives a uuid, a pointer, and a list of coordinates. The function will load a numpy in the pointer using the specified coordinates
+ * @param self Python HNumpyStore object upon method invocation
+ * @param args Arg tuple containing one list with the the keys. Keys are made of a list with a UUID,
+ * a list of coordinates which specifies the numpy chunk to read and a pointer reserved with the numpy size that will be used to store the numpy
+ * @return None
+ */
+static PyObject *load_numpy_slices(HNumpyStore *self, PyObject *args) {
+    //We need to include the numpy key in the parameters list, results -> reserved numpy
+
+    PyObject *py_keys, *py_store, *py_coord, *py_np_metas;
+    if (!PyArg_ParseTuple(args, "OOOO", &py_keys, &py_np_metas, &py_store, &py_coord)) {
+        return NULL;
+    }
+
+    // Only one uuid as a key
+    if (PyList_Size(py_keys) != 1) {
+        std::string error_msg = "Only one uuid as a key can be passed";
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    };
+
+    // Only one numpy as a value
+    if (PyList_Size(py_store) != 1) {
+        std::string error_msg = "Only one numpy can be saved at once";
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    };
+
+    if (py_np_metas == Py_None) {
+        std::string error_msg = "The numpy metadatas can't be None";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    PyObject *numpy = PyList_GetItem(py_store, 0);
+    if (numpy == Py_None) {
+        std::string error_msg = "The numpy can't be None";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
 
     // Transform the object to the numpy ndarray
     PyArrayObject *numpy_arr;
@@ -474,47 +606,19 @@ static PyObject *save_numpy(HNumpyStore *self, PyObject *args) {
         PyErr_SetString(PyExc_TypeError, error_msg.c_str());
         return NULL;
     }
-
-    try {
-        self->NumpyDataStore->store_numpy(storage_id, numpy_arr, np_metas->np_metas);
-    }
-    catch (std::exception &e) {
-        PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
-    }
-
-    Py_RETURN_NONE;
-}
-
-static PyObject *get_numpy(HNumpyStore *self, PyObject *args) {
-    PyObject *py_storage_id, *py_np_metas;
-    if (!PyArg_ParseTuple(args, "OO", &py_storage_id, &py_np_metas)) {
-        return NULL;
-    }
-
-    if (py_np_metas == Py_None) {
-        std::string error_msg = "The numpy metadatas can't be None";
-        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
-        return NULL;
-    }
-
+    const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
     HArrayMetadata *np_metas = reinterpret_cast<HArrayMetadata *>(py_np_metas);
 
-    const uint64_t *storage_id = parse_uuid(py_storage_id);
-
-    PyObject *numpy;
     try {
-        numpy = self->NumpyDataStore->read_numpy(storage_id, np_metas->np_metas);
+        self->NumpyDataStore->load_numpy(storage_id, np_metas->np_metas, numpy_arr, py_coord);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
-
-    // Wrap the numpy into a list to follow the standard format of Hecuba
-    return numpy;
+    delete[] storage_id;
+    Py_RETURN_NONE;
 }
-
 
 static void hnumpy_store_dealloc(HNumpyStore *self) {
     delete (self->NumpyDataStore);
@@ -557,7 +661,11 @@ static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) 
                 int32_t c_val = (int32_t) PyLong_AsLong(value);
                 config[conf_key] = std::to_string(c_val);
             }
-
+            if (PyBool_Check(value)) {
+                bool c_val = PyObject_IsTrue(value);
+                if (!c_val) config[conf_key] = "false";
+                else config[conf_key] = "true";
+            }
         }
     }
 
@@ -574,9 +682,11 @@ static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) 
 
 
 static PyMethodDef hnumpy_store_type_methods[] = {
-        {"get_numpy",  (PyCFunction) get_numpy,  METH_VARARGS, NULL},
-        {"save_numpy", (PyCFunction) save_numpy, METH_VARARGS, NULL},
-        {NULL,         NULL,                     0,            NULL}
+        {"allocate_numpy",       (PyCFunction) allocate_numpy,       METH_VARARGS, NULL},
+        {"store_numpy_slices",   (PyCFunction) store_numpy_slices,   METH_VARARGS, NULL},
+        {"load_numpy_slices",    (PyCFunction) load_numpy_slices,    METH_VARARGS, NULL},
+        {"get_elements_per_row", (PyCFunction) get_elements_per_row, METH_VARARGS, NULL},
+        {NULL, NULL, 0,                                                            NULL}
 };
 
 
@@ -1011,7 +1121,7 @@ static void hiter_dealloc(HIterator *self) {
 
 static PyMethodDef hiter_type_methods[] = {
         {"get_next", (PyCFunction) get_next, METH_NOARGS, NULL},
-        {NULL,       NULL,                   0,           NULL}
+        {NULL, NULL, 0,                                   NULL}
 };
 
 
@@ -1176,6 +1286,12 @@ static int hwriter_init(HWriter *self, PyObject *args, PyObject *kwds) {
                 int32_t c_val = (int32_t) PyLong_AsLong(value);
                 config[conf_key] = std::to_string(c_val);
             }
+            if (PyBool_Check(value)) {
+                int truthy = PyObject_IsTrue(value);
+                if (truthy) config[conf_key] = "True";
+                else config[conf_key] = "False";
+
+            }
         }
     }
     try {
@@ -1200,7 +1316,7 @@ static void hwriter_dealloc(HWriter *self) {
 
 static PyMethodDef hwriter_type_methods[] = {
         {"write", (PyCFunction) write_cass, METH_VARARGS, NULL},
-        {NULL,    NULL,                     0,            NULL}
+        {NULL, NULL, 0,                                   NULL}
 };
 
 static PyTypeObject hfetch_HWriterType = {
@@ -1252,7 +1368,7 @@ static PyTypeObject hfetch_HWriterType = {
 static PyMethodDef module_methods[] = {
         {"connectCassandra",    (PyCFunction) connectCassandra,    METH_VARARGS, NULL},
         {"disconnectCassandra", (PyCFunction) disconnectCassandra, METH_NOARGS,  NULL},
-        {NULL,                  NULL,                              0,            NULL}
+        {NULL, NULL, 0,                                                          NULL}
 };
 
 

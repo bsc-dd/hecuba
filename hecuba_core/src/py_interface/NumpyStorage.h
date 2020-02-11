@@ -26,9 +26,19 @@ public:
 
     ~NumpyStorage();
 
-    void store_numpy(const uint64_t *storage_id, PyArrayObject *numpy, ArrayMetadata &) const;
+    std::list<std::vector<uint32_t> > generate_coords(PyObject *coord) const;
 
-    PyObject *read_numpy(const uint64_t *storage_id, ArrayMetadata &np_metas);
+    PyObject *reserve_numpy_space(const uint64_t *storage_id, ArrayMetadata &np_metas);
+
+    PyObject *get_row_elements(const uint64_t *storage_id, ArrayMetadata &np_metas);
+
+    void store_numpy(const uint64_t *storage_id, ArrayMetadata &, PyArrayObject *numpy, PyObject *coord) const;
+
+    void load_numpy(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *save, PyObject *coord);
+
+private:
+
+    ArrayMetadata *get_np_metadata(PyArrayObject *numpy) const;
 
 };
 

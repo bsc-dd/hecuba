@@ -29,7 +29,8 @@ class IStorage(object):
             name = self._ksp + '.' + self._table
             self._set_name(name)
 
-        self.storage_id = kwargs.pop("storage_id", None)
+        if not getattr(self, "storage_id", None):
+            self.storage_id = kwargs.pop("storage_id", None)
         self._built_remotely = kwargs.pop("built_remotely", False)
         self._tokens = kwargs.pop("tokens", None)
         self._is_persistent = False

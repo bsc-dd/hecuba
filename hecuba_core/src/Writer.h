@@ -47,7 +47,7 @@ private:
     TupleRowFactory *k_factory;
     TupleRowFactory *v_factory;
 
-    tbb::concurrent_bounded_queue<std::pair<const TupleRow *, const TupleRow *>> data;
+    tbb::concurrent_bounded_queue <std::pair<const TupleRow *, const TupleRow *>> data;
 
     uint32_t max_calls;
     std::atomic<uint32_t> ncallbacks;

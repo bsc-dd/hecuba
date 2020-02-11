@@ -6,7 +6,8 @@
 #include "CacheTable.h"
 
 #include <climits>
-
+#include <list>
+#include <set>
 
 class ArrayDataStore {
 
@@ -17,12 +18,17 @@ public:
 
     ~ArrayDataStore();
 
-    void store(const uint64_t *storage_id, ArrayMetadata &metadata, void *data) const;
+    void store_numpy_into_cas_by_coords(const uint64_t *storage_id, ArrayMetadata &metadata, void *data,
+                                        std::list<std::vector<uint32_t> > &coord) const;
 
-    void *read(const uint64_t *storage_id, ArrayMetadata &metadata) const;
+    void store_numpy_into_cas(const uint64_t *storage_id, ArrayMetadata &metadata, void *data) const;
+
+    void read_numpy_from_cas_by_coords(const uint64_t *storage_id, ArrayMetadata &metadata,
+                                       std::list<std::vector<uint32_t> > &coord, void *save);
+
+    void read_numpy_from_cas(const uint64_t *storage_id, ArrayMetadata &metadata, void *save);
 
 protected:
-
 
     CacheTable *cache = nullptr, *read_cache = nullptr;
 

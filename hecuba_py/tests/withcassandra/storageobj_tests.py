@@ -836,7 +836,7 @@ class StorageObjTest(unittest.TestCase):
         my_so.make_persistent('mynewso')
         import time
         time.sleep(2)
-        self.assertTrue(np.array_equal(mynumpydict, my_so.mynumpydict[0]))
+        self.assertTrue(np.allclose(mynumpydict, my_so.mynumpydict[0]))
 
     def test_numpy_operations(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.mynewso")
@@ -865,8 +865,8 @@ class StorageObjTest(unittest.TestCase):
         my_so.mynumpy += 1
         self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
 
-        reloaded_so = TestStorageObjNumpy('mynewso')
-        self.assertTrue(np.array_equal(base_numpy, reloaded_so.mynumpy))
+        reloaded_so = TestStorageObjNumpy('my_app.mynewso2')
+        self.assertTrue(np.allclose(reloaded_so.mynumpy, base_numpy))
         self.assertEqual(np.average(base_numpy), np.average(reloaded_so.mynumpy))
         self.assertEqual(np.mean(base_numpy), np.mean(reloaded_so.mynumpy))
 
