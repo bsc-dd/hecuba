@@ -48,12 +48,16 @@ class CqlCOMM(object):
         all_values = ""
         for k, v in fields_dict.items():
             try:
-                all_values = all_values + "%s %s," % (k, _hecuba2cassandra_typemap[v])
+                all_values = all_values + f'{k} {_hecuba2cassandra_typemap[v]}, '
             except KeyError:
-                if v.__origin__ in _hecuba2cassandra_typemap:
+                try:
+                    check = v.__origin__
+                except AttributeError:
+                    check = v
+                # check if types exist
                     val = str(v)
-                    all_values = all_values + str(k) + f" tuple<{val[val.find('[') + 1:val.rfind(']')]}>,"
-        return all_values[:-1]
+                    all_values = all_values + f'{k} tuple<{", ".join(a.__name__ for a in v)}>, '
+        return all_values
 
     @staticmethod
     def create_table(name: str, definition: dict) -> None:
@@ -71,11 +75,11 @@ class CqlCOMM(object):
         all_keys = CqlCOMM.parse_definition_to_cass_format(primary_keys)
         if columns:
             all_cols = CqlCOMM.parse_definition_to_cass_format(columns)
-            total_cols = all_keys + ',' + all_cols
+            total_cols = f'{all_keys} {all_cols}'
         else:
             total_cols = all_keys
 
-        query_table = "CREATE TABLE IF NOT EXISTS %s.%s (%s, PRIMARY KEY (%s));" \
+        query_table = "CREATE TABLE IF NOT EXISTS %s.%s (%s PRIMARY KEY (%s));" \
                       % (ksp,
                          table,
                          total_cols,

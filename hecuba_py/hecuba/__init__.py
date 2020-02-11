@@ -1,25 +1,11 @@
-import logging
-import os
-
 from cassandra.cluster import Cluster
 from cassandra.policies import RetryPolicy, RoundRobinPolicy, TokenAwarePolicy
 
+from storage.cql_iface.config import log
+from storage.cql_iface.tests.cassandra_cluster_manager import *
+
+
 # Set default log.handler to avoid "No handler found" warnings.
-
-stderrLogger = logging.StreamHandler()
-f = '%(filename)s: %(levelname)s: %(funcName)s(): %(lineno)d:\t%(message)s'
-stderrLogger.setFormatter(logging.Formatter(f))
-
-log = logging.getLogger('hecuba')
-log.addHandler(stderrLogger)
-
-if 'DEBUG' in os.environ and os.environ['DEBUG'].lower() == "true":
-    log.setLevel(logging.DEBUG)
-elif 'HECUBA_LOG' in os.environ:
-    log.setLevel(os.environ['HECUBA_LOG'].upper())
-else:
-    log.setLevel(logging.ERROR)
-
 
 class _NRetry(RetryPolicy):
     def __init__(self, time_to_retry=5):
@@ -44,12 +30,19 @@ class _NRetry(RetryPolicy):
             return self.RETHROW, None
 
 
-class Config:
+class Config(object):
     class __Config:
         def __init__(self):
             self.configured = False
 
     instance = __Config()
+
+    @staticmethod
+    def execute(statement, args):
+        if not Config.instance.configured:
+            raise RuntimeError("Not configured to contact cassandra on CQL_Comm storage")
+
+        return Config.instance.session.execute(statement, args)
 
     def __getattr__(self, item):
         return getattr(Config.instance, item)
@@ -213,18 +206,8 @@ class Config:
                 precision float);
                 """,
                 'CREATE TYPE IF NOT EXISTS hecuba.np_meta(dims frozen<list<int>>,type int,block_id int);',
-                """CREATE TABLE IF NOT EXISTS hecuba
-                .istorage (storage_id uuid, 
-                class_name text,name text, 
-                istorage_props map<text,text>, 
-                tokens list<frozen<tuple<bigint,bigint>>>,
-                indexed_on list<text>,
-                qbeast_random text,
-                qbeast_meta frozen<q_meta>,
-                numpy_meta frozen<np_meta>,
-                primary_keys list<frozen<tuple<text,text>>>,
-                columns list<frozen<tuple<text,text>>>,
-                PRIMARY KEY(storage_id));
+                """CREATE TABLE IF NOT EXISTS hecuba.istorage (storage_id uuid,table_name text, obj_name text,
+                data_model blob,   tokens list<frozen<tuple<bigint,bigint>>>, PRIMARY KEY(storage_id));
                 """]
             for query in queries:
                 try:
@@ -238,19 +221,7 @@ class Config:
         connectCassandra(singleton.contact_names, singleton.nodePort)
 
 
-global config
+# set_up_default_cassandra()
 config = Config()
-
-from .parser import Parser
 from .storageobj import StorageObj
-from .hdict import StorageDict
-from .hnumpy import StorageNumpy
-from .hfilter import hfilter
-
-if not filter == hfilter:
-    import builtins
-
-    builtins.python_filter = filter
-    builtins.filter = hfilter
-
-__all__ = ['StorageObj', 'StorageDict', 'StorageNumpy', 'Parser']
+__all__ = ['StorageObj']

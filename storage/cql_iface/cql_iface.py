@@ -2,7 +2,7 @@ import uuid
 from typing import List, Generator
 from uuid import UUID
 
-from storage.cql_iface.tests.mockIStorage import IStorage
+from hecuba.IStorage import IStorage
 from .config import _hecuba2cassandra_typemap
 from .cql_comm import CqlCOMM
 from .queries import istorage_read_entry, istorage_prepared_st
@@ -73,7 +73,7 @@ class CQLIface(StorageIface):
     def register_persistent_object(self, datamodel_id: int, pyobject: IStorage) -> UUID:
         if not isinstance(pyobject, IStorage):
             raise RuntimeError("Class does not inherit IStorage")
-        elif not pyobject.is_persistent():
+        elif not pyobject._is_persistent:
             raise ValueError("Class needs to be a persistent object, it needs id and name")
         elif datamodel_id is None:
             raise ValueError("datamodel_id cannot be None")
@@ -116,34 +116,34 @@ class CQLIface(StorageIface):
             raise TypeError("key_list and value_list must be OrderedDict")
         data_model = self.data_models_cache[self.object_to_data_model[object_id]]
 
-        for v in value_list:
-            try:
-                if not isinstance(value_list[v], data_model["fields"][v]) and value_list[v] is not None:
-                    raise TypeError("The value types don't match the data model specification")
-            except TypeError:
-                try:
-                    if not isinstance(value_list[v], data_model["fields"][v].__origin__):
-                        raise TypeError("The value types don't match the data model specification")
-                except AttributeError:
-                    raise TypeError("The value types don't match the data model specification")
-
-        for k in key_list:
-            try:
-                if not isinstance(key_list[k], data_model["value_id"][k]):
-                    raise TypeError("The key types don't match the data model specification")
-            except TypeError:
-                try:
-                    if not isinstance(key_list[k], data_model["value_id"][k].__origin__):
-                        raise TypeError("The value types don't match the data model specification")
-                except AttributeError:
-                    raise TypeError("The value types don't match the data model specification")
+        # for v in value_list:
+        #     try:
+        #         if not isinstance(value_list[v], data_model["fields"][v]) and value_list[v] is not None:
+        #             raise TypeError("The value types don't match the data model specification")
+        #     except TypeError:
+        #         try:
+        #             if not isinstance(value_list[v], data_model["fields"][v].__origin__):
+        #                 raise TypeError("The value types don't match the data model specification")
+        #         except AttributeError:
+        #             raise TypeError("The value types don't match the data model specification")
+        #
+        # for k in key_list:
+        #     try:
+        #         if not isinstance(key_list[k], data_model["value_id"][k]):
+        #             raise TypeError("The key types don't match the data model specification")
+        #     except TypeError:
+        #         try:
+        #             if not isinstance(key_list[k], data_model["value_id"][k].__origin__):
+        #                 raise TypeError("The value types don't match the data model specification")
+        #         except AttributeError:
+        #             raise TypeError("The value types don't match the data model specification")
 
         values_dict = CQLIface.fill_empty_keys_with_None(value_list, data_model["fields"])
-        try:
-            self.hcache_by_id[object_id].put_row(list(key_list.values()), list(values_dict.values()),
+        #try:
+        self.hcache_by_id[object_id].put_row(list(key_list.values()), list(values_dict.values()),
                                                  list(value_list.keys()))
-        except Exception:
-            raise Exception("key_list or value_list have some parameter that does not correspond with the data model")
+        #except Exception:
+        #    raise Exception("key_list or value_list have some parameter that does not correspond with the data model")
 
     def get_record(self, object_id: UUID, key_list: dict) -> List[object]:
         if not isinstance(object_id, UUID):

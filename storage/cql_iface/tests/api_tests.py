@@ -7,7 +7,7 @@ import numpy
 
 from storage.cql_iface.cql_comm import config
 from storage.cql_iface.cql_iface import CQLIface
-from storage.cql_iface.tests.mockIStorage import IStorage
+from hecuba.IStorage import IStorage
 from storage.cql_iface.tests.mockStorageObj import StorageObj
 from storage.cql_iface.tests.mockhdict import StorageDict
 from storage.cql_iface.tests.mockhnumpy import StorageNumpy
@@ -766,7 +766,7 @@ class HfetchTests(unittest.TestCase):
         obj = TestClass(name=given_name)
         myid = obj.getID()
         data_model = {"type": StorageObj, "value_id": {"k": uuid.UUID},
-                      "fields": {"a": int, "b": Tuple[int, int], "c": int}}
+                      "fields": {"a": int, "b": Tuple[int], "c": int}}
         given_name = 'storage_test.dict'
         storage = CQLIface()
         data_model_id = storage.add_data_model(data_model)
@@ -774,8 +774,8 @@ class HfetchTests(unittest.TestCase):
 
         keys = NamedTuple('keys', [('k', uuid.UUID)])
         keys = keys(myid)._asdict()
-        fields = NamedTuple('fields', [('a', int), ('b', Tuple[int, int]), ('c', int)])
-        fields = fields(4, (6, 6), 4)._asdict()
+        fields = NamedTuple('fields', [('a', int), ('b', Tuple[int]), ('c', int)])
+        fields = fields(4, (6,), 4)._asdict()
 
         storage.put_record(myid, keys, fields)
         keys = NamedTuple('keys', [('k', uuid.UUID)])
@@ -901,7 +901,7 @@ class HfetchTests(unittest.TestCase):
                 parts.append(partition)
             self.assertTrue(storage.get_data_locality(myid))
 
-    def test_put_record_StorageDict_split_and_get_data_locality_except_wrong_UUID(self):
+    def test_put_record_StorageDict_split_and_get_data_locality_except_wrong_UUID_2(self):
         with self.assertRaises(TypeError):
             given_name = 'storage_test.complex_obj'
             config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))

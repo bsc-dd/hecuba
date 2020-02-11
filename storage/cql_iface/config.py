@@ -20,7 +20,7 @@ _hecuba2cassandra_typemap = {
     # FrozenSet: 'set',
     decimal.Decimal: 'decimal',
     datetime.date: 'date',
-    datetime.datetime: 'datetime',
+    datetime.datetime: 'timestamp',
     datetime.time: 'time',
     numpy.int8: 'tinyint',
     numpy.int16: 'smallint',

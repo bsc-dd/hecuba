@@ -1,38 +1,45 @@
 import uuid
-from . import log
-from .tools import extract_ks_tab, build_remotely, storage_id_from_name, get_istorage_attrs, generate_token_ring_ranges
+from collections import namedtuple
+from .tools import storage_id_from_name
 
 
 class AlreadyPersistentError(RuntimeError):
     pass
 
 
-class IStorage(object):
+class DataModelNode(object):
+    def __init__(self, name=None, class_name=None, args=None):
+        self.name = name
+        self.class_name = class_name
+        self.args = args
 
-    @property
-    def storage_id(self):
+
+class IStorage(object):
+    args_names = ["storage_id"]
+    args = namedtuple("IStorage", args_names)
+    _build_args = args(storage_id="")
+
+    _data_model_def = None
+    _data_model_id = None
+
+    def getID(self):
         return self.__storage_id
 
-    @storage_id.setter
-    def storage_id(self, st_id):
+    def setID(self, st_id):
         if st_id is not None and not isinstance(st_id, uuid.UUID):
             raise TypeError("Storage ID must be an instance of UUID")
         self.__storage_id = st_id
 
-    def __init__(self, *args, **kwargs):
-        super().__init__()
-        self._ksp = None
-        self._table = None
-        given_name = kwargs.pop("name", None)
-        if given_name:
-            self._ksp, self._table = extract_ks_tab(given_name)
-            name = self._ksp + '.' + self._table
-            self._set_name(name)
+    storage_id = property(getID, setID)
 
-        self.storage_id = kwargs.pop("storage_id", None)
-        self._built_remotely = kwargs.pop("built_remotely", False)
-        self._tokens = kwargs.pop("tokens", None)
-        self._is_persistent = False
+    def __new__(cls, *args, **kwargs):
+        toret = super(IStorage, cls).__new__(cls)
+        toret._ksp = ''
+        toret._table = ''
+        toret._is_persistent = False
+        toret.__storage_id = None
+        toret._name = ''
+        return toret
 
     def __eq__(self, other):
         """
@@ -42,59 +49,25 @@ class IStorage(object):
         Returns:
             boolean (true - equals, false - not equals).
         """
-        return self.__class__ == other.__class__ and self.storage_id == other.storage_id
+        return self.__class__ == other.__class__ and self.getID() == other.getID()
+
+    @staticmethod
+    def _store_meta(storage_args):
+        pass
 
     def make_persistent(self, name):
-        if self._is_persistent:
-            raise AlreadyPersistentError("This Object is already persistent [Before:{}.{}][After:{}]",
-                                         self._ksp, self._table, name)
-
-        self._ksp, self._table = extract_ks_tab(name)
-        name = self._ksp + '.' + self._table
-        self._set_name(name)
-
         if not self.storage_id:
             self.storage_id = storage_id_from_name(name)
-
-        # If found data, replace the constructor data
-        if self._tokens is None:
-            metas = get_istorage_attrs(self.storage_id)
-            try:
-                self._tokens = metas[0].tokens
-            except IndexError:
-                self._tokens = generate_token_ring_ranges()
-
         self._is_persistent = True
+        self._name = name
 
     def stop_persistent(self):
-        if not self._is_persistent:
-            raise RuntimeError("This Object is not persistent")
-
+        self.storage_id = None
         self._is_persistent = False
 
     def delete_persistent(self):
-        if not self._is_persistent:
-            raise RuntimeError("This Object is not persistent")
-
+        self.storage_id = None
         self._is_persistent = False
-
-    def _set_name(self, name):
-        if not isinstance(name, str):
-            raise TypeError("Name -{}-  should be an instance of str".format(str(name)))
-        self._name = name
-
-    def _get_name(self):
-        try:
-            return self._name
-        except AttributeError:
-            return ''
-
-    def getID(self):
-        """
-        Method to retrieve the storage id as string. Used by PyCOMPSs solely.
-        :return: Storage_id as str
-        """
-        return str(self.storage_id)
 
     def split(self):
         """
@@ -102,16 +75,12 @@ class IStorage(object):
         Returns:
             a subobject everytime is called
         """
-        from .tools import tokens_partitions
-        try:
-            tokens = self._build_args.tokens
-        except AttributeError as ex:
-            raise RuntimeError("Object {} does not have tokens".format(self._get_name()))
+        raise NotImplemented("Split not supported yet")
 
-        for token_split in tokens_partitions(self._ksp, self._table, tokens):
-            storage_id = uuid.uuid4()
-            log.debug('assigning to {} num tokens {}'.format(str(storage_id), len(token_split)))
-            new_args = self._build_args._replace(tokens=token_split, storage_id=storage_id)
-            args_dict = new_args._asdict()
-            args_dict["built_remotely"] = True
-            yield build_remotely(args_dict)
+    def set_name(self, name):
+        if not isinstance(name, str):
+            raise TypeError("Name -{}-  should be an instance of str".format(str(name)))
+        self._name = name
+
+    def get_name(self):
+        return self._name
