@@ -206,12 +206,32 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             cass_iterator_free(tuple_iterator);
             return 0;
         }
+        case CASS_VALUE_TYPE_DATE: {
+            cass_uint32_t year_month_day;
+            CassError rc = cass_value_get_uint32(lhs, &year_month_day);
+            CHECK_CASS("TupleRowFactory: Cassandra to C parse uint32 unsuccessful, column:" + std::to_string(col));
+            if (rc == CASS_ERROR_LIB_NULL_VALUE) return -1;
+            int64_t time = (int64_t) cass_date_time_to_epoch(year_month_day, 0);
+            memcpy(data, &time, sizeof(int64_t *));
+            return 0;
+        }
+        case CASS_VALUE_TYPE_TIME: {
+            CassError rc = cass_value_get_int64(lhs, reinterpret_cast<int64_t * >(data));
+            CHECK_CASS("TupleRowFactory: Cassandra to C parse int64 unsuccessful, column:" + std::to_string(col));
+            if (rc == CASS_ERROR_LIB_NULL_VALUE) return -1;
+            return 0;
+        }
+        case CASS_VALUE_TYPE_TIMESTAMP: {
+            cass_int64_t time_of_day;
+            CassError rc = cass_value_get_int64(lhs, &time_of_day);
+            CHECK_CASS("TupleRowFactory: Cassandra to C parse int64 unsuccessful, column:" + std::to_string(col));
+            if (rc == CASS_ERROR_LIB_NULL_VALUE) return -1;
+            memcpy(data, &time_of_day, sizeof(int64_t *));
+            return 0;
+        }
         case CASS_VALUE_TYPE_DECIMAL:
-        case CASS_VALUE_TYPE_TIMESTAMP:
         case CASS_VALUE_TYPE_TIMEUUID:
         case CASS_VALUE_TYPE_INET:
-        case CASS_VALUE_TYPE_DATE:
-        case CASS_VALUE_TYPE_TIME:
         case CASS_VALUE_TYPE_LIST:
         case CASS_VALUE_TYPE_MAP:
         case CASS_VALUE_TYPE_SET:
@@ -326,12 +346,29 @@ TupleRowFactory::bind(CassTuple *tuple, const TupleRow *row) const {
                     CHECK_CASS("TupleRowFactory: Cassandra unsuccessful binding a new Tuple to the existing tuple");
                     break;
                 }
+                case CASS_VALUE_TYPE_DATE: {
+                    const time_t time = *((time_t *) element_i);
+                    uint32_t year_month_day = cass_date_from_epoch(time);
+                    CassError rc = cass_tuple_set_uint32(tuple, (size_t) bind_pos, year_month_day);
+                    CHECK_CASS("TupleRowFactory: Cassandra unsuccessful binding int64 to the tuple");
+                    break;
+                }
+                case CASS_VALUE_TYPE_TIME: {
+                    int64_t time = *((int64_t *) element_i);
+                    CassError rc = cass_tuple_set_int64(tuple, (size_t) bind_pos, time);
+                    CHECK_CASS("TupleRowFactory: Cassandra unsuccessful binding int64 to the tuple");
+                    break;
+                }
+                case CASS_VALUE_TYPE_TIMESTAMP: {
+                    cass_int64_t time = *((int64_t *) element_i);
+                    CassError rc = cass_tuple_set_int64(tuple, (size_t) bind_pos, time);
+                    CHECK_CASS("TupleRowFactory: Cassandra unsuccessful binding int64 to the tuple");
+                    break;
+
+                }
                 case CASS_VALUE_TYPE_DECIMAL:
-                case CASS_VALUE_TYPE_TIMESTAMP:
                 case CASS_VALUE_TYPE_TIMEUUID:
                 case CASS_VALUE_TYPE_INET:
-                case CASS_VALUE_TYPE_DATE:
-                case CASS_VALUE_TYPE_TIME:
                 case CASS_VALUE_TYPE_LIST:
                 case CASS_VALUE_TYPE_MAP:
                 case CASS_VALUE_TYPE_SET:
@@ -466,7 +503,6 @@ TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t o
                     CassError rc = cass_statement_bind_int8(statement, bind_pos, *data);
                     CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [tiny int as int8], column:" +
                                metadata->at(i).info.begin()->second);
-
                     break;
                 }
                 case CASS_VALUE_TYPE_TUPLE: {
@@ -480,12 +516,31 @@ TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t o
                     cass_tuple_free(tuple);
                     break;
                 }
+                case CASS_VALUE_TYPE_DATE: {
+                    const time_t time = *((time_t *) element_i);
+                    cass_uint32_t year_month_day = cass_date_from_epoch(time);
+                    CassError rc = cass_statement_bind_uint32(statement, bind_pos, year_month_day);
+                    CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [date as int64], column:" +
+                               metadata->at(i).info.begin()->second);
+                    break;
+                }
+                case CASS_VALUE_TYPE_TIME: {
+                    int64_t time = *((int64_t *) element_i);
+                    CassError rc = cass_statement_bind_int64(statement, bind_pos, time);
+                    CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [time as int64], column:" +
+                               metadata->at(i).info.begin()->second);
+                    break;
+                }
+                case CASS_VALUE_TYPE_TIMESTAMP: {
+                    cass_int64_t time = *((int64_t *) element_i);
+                    CassError rc = cass_statement_bind_int64(statement, bind_pos, time);
+                    CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [timestamp as int64], column:" +
+                               metadata->at(i).info.begin()->second);
+                    break;
+                }
                 case CASS_VALUE_TYPE_DECIMAL:
-                case CASS_VALUE_TYPE_TIMESTAMP:
                 case CASS_VALUE_TYPE_TIMEUUID:
                 case CASS_VALUE_TYPE_INET:
-                case CASS_VALUE_TYPE_DATE:
-                case CASS_VALUE_TYPE_TIME:
                 case CASS_VALUE_TYPE_LIST:
                 case CASS_VALUE_TYPE_MAP:
                 case CASS_VALUE_TYPE_SET:

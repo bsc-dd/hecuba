@@ -13,7 +13,7 @@ class TestConfig:
 
 test_config = TestConfig()
 test_config.n_nodes = int(os.environ.get('TEST_CASSANDRA_N_NODES', '2'))
-TEST_DEBUG = strtobool(os.environ.get("TEST_DEBUG", "True").lower())
+TEST_DEBUG = strtobool(os.environ.get("TEST_DEBUG", "False").lower())
 if TEST_DEBUG:
     logging.warning(("You are using TEST_DEBUG=True, a Cassandra cluster must be already running. "
                      "Keep in mind that the results of the test might be altered by data already existing."))

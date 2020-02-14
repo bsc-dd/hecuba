@@ -12,7 +12,10 @@
 #include <stdexcept>
 #include <memory>
 #include <stdlib.h>
-
+#include <datetime.h>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 
 #include "../TupleRow.h"
 #include "../ModuleException.h"
@@ -170,7 +173,6 @@ private:
 };
 
 class TupleParser : public UnitParser {
-
 public:
 
     TupleParser(const ColumnMeta &CM);
@@ -179,10 +181,39 @@ public:
 
     virtual PyObject *c_to_py(const void *payload) const;
 
+
 private:
     ColumnMeta col_meta;
 
 };
 
+class DateParser : public UnitParser {
+public:
+    DateParser(const ColumnMeta &CM);
+
+    virtual int16_t py_to_c(PyObject *obj, void *payload) const;
+
+    virtual PyObject *c_to_py(const void *payload) const;
+};
+
+class TimeParser : public UnitParser {
+public:
+    TimeParser(const ColumnMeta &CM);
+
+    virtual int16_t py_to_c(PyObject *obj, void *payload) const;
+
+    virtual PyObject *c_to_py(const void *payload) const;
+};
+
+class TimestampParser : public UnitParser {
+public:
+    TimestampParser(const ColumnMeta &CM);
+
+    virtual int16_t py_to_c(PyObject *obj, void *payload) const;
+
+    virtual PyObject *c_to_py(const void *payload) const;
+
+    int64_t time_from_timezone(struct tm *timeinfo) const;
+};
 
 #endif //HFETCH_UNITPARSER_H
