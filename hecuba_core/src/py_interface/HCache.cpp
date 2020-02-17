@@ -52,8 +52,8 @@ static PyObject *disconnectCassandra(PyObject *self) {
 /*** HCACHE DATA TYPE METHODS AND SETUP ***/
 
 static PyObject *put_row(HCache *self, PyObject *args) {
-    PyObject *py_keys, *py_values;
-    if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_values)) {
+    PyObject *py_keys, *py_values, *py_union_k;
+    if (!PyArg_ParseTuple(args, "OOO", &py_keys, &py_values, &py_union_k)) {
         return NULL;
     }
     for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
@@ -63,9 +63,27 @@ static PyObject *put_row(HCache *self, PyObject *args) {
             return NULL;
         }
     }
+    std::set<std::string> keys;
+    PyObject *elem = NULL, *format_text = NULL;
+    Py_ssize_t l_size;
+    char *permanent;
+    const char *l_temp;
+    for (uint16_t value_i = 0; value_i < PyList_Size(py_union_k); ++value_i) {
+        l_temp = PyUnicode_AsUTF8AndSize(PyList_GetItem(py_union_k, value_i), &l_size);
+        if (!l_temp) {
+            std::string error_msg = "PyString cannot be parsed";
+            PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+            return NULL;
+        }
+        permanent = (char *) malloc(l_size + 1);
+        memcpy(permanent, l_temp, l_size);
+        permanent[l_size] = '\0';
+        keys.insert(std::string(permanent));
+    }
     TupleRow *k;
     try {
         k = self->keysParser->make_tuple(py_keys);
+        k->set_keys(keys);
     }
     catch (TypeErrorException &e) {
         PyErr_SetString(PyExc_TypeError, e.what());
@@ -78,6 +96,7 @@ static PyObject *put_row(HCache *self, PyObject *args) {
     }
     try {
         TupleRow *v = self->valuesParser->make_tuple(py_values);
+        v->set_keys(keys);
         self->T->put_crow(k, v);
         delete (k);
         delete (v);

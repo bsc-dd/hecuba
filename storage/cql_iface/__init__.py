@@ -1,8 +1,8 @@
 from cassandra.cluster import Cluster
 from cassandra.policies import RetryPolicy, RoundRobinPolicy, TokenAwarePolicy
 
-from storage.cql_iface.config import log
-from storage.cql_iface.tests.cassandra_cluster_manager import *
+from .config import log
+from .tests.cassandra_cluster_manager import *
 
 
 # Set default log.handler to avoid "No handler found" warnings.
@@ -123,7 +123,7 @@ class Config(object):
             singleton.max_cache_size = int(os.environ['MAX_CACHE_SIZE'])
             log.info('MAX_CACHE_SIZE: %d', singleton.max_cache_size)
         except KeyError:
-            singleton.max_cache_size = 1000
+            singleton.max_cache_size = 0  # TODO: when the data is inserted into cassandra we should merge the new data and the one that is already in the cache
             log.warn('using default MAX_CACHE_SIZE: %d', singleton.max_cache_size)
 
         try:
@@ -223,5 +223,3 @@ class Config(object):
 
 # set_up_default_cassandra()
 config = Config()
-from .storageobj import StorageObj
-__all__ = ['StorageObj']

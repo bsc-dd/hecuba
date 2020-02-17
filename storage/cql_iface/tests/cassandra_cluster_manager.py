@@ -4,8 +4,8 @@ import os
 import sys
 import tempfile
 import logging
-from distutils.util import strtobool
 
+from distutils.util import strtobool
 
 class TestConfig:
     pass
@@ -42,11 +42,6 @@ def set_up_default_cassandra():
         else:
             raise a
 
-    if 'hecuba' in sys.modules:
-        import importlib
-        import hecuba
-        importlib.reload(hecuba)
-
 
 @atexit.register
 def turning_down_cassandra():
@@ -54,9 +49,6 @@ def turning_down_cassandra():
     if test_config is None or not hasattr(test_config, "ccm_cluster"):
         return
 
-    print("Turning down Cassandra")
-    from hfetch import disconnectCassandra
-    disconnectCassandra()
     test_config.ccm_cluster.stop()
     test_config.ccm_cluster.clear()
 

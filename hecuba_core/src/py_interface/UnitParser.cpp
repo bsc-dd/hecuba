@@ -77,7 +77,7 @@ int16_t Int16Parser::py_to_c(PyObject *myint, void *payload) const {
     int16_t temp;
 
 
-    if (PyLong_Check(myint) && PyArg_Parse(myint, Py_SHORT_INT, &temp)) {
+    if (PyArg_Parse(myint, Py_SHORT_INT, &temp)) {
         memcpy(payload, &temp, sizeof(int16_t));
         return 0;
     }
@@ -450,7 +450,7 @@ TupleParser::TupleParser(const ColumnMeta &CM) : UnitParser(CM) {
 
 
 int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
-    if (obj == Py_None) throw ModuleException("Error parsing PyObject from py to c, expected a non-none object");
+    if (obj == Py_None) return -1;
     if (!PyTuple_Check(obj)) throw ModuleException("Error parsing PyObject from py to c, expected a tuple object");
     if (PyTuple_Size(obj) != col_meta.pointer->size())
         throw ModuleException(

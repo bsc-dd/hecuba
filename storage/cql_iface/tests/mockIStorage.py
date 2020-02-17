@@ -1,6 +1,5 @@
 import uuid
 from collections import namedtuple
-from .tools import storage_id_from_name
 
 
 class AlreadyPersistentError(RuntimeError):
@@ -14,13 +13,14 @@ class DataModelNode(object):
         self.args = args
 
 
+def storage_id_from_name(name):
+    return uuid.uuid3(uuid.NAMESPACE_DNS, name)
+
+
 class IStorage(object):
     args_names = ["storage_id"]
     args = namedtuple("IStorage", args_names)
     _build_args = args(storage_id="")
-
-    _data_model_def = None
-    _data_model_id = None
 
     def getID(self):
         return self.__storage_id
@@ -32,13 +32,22 @@ class IStorage(object):
 
     storage_id = property(getID, setID)
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, name='', *args, **kwargs):
         toret = super(IStorage, cls).__new__(cls)
         toret._ksp = ''
         toret._table = ''
         toret._is_persistent = False
         toret.__storage_id = None
         toret._name = ''
+        storage_id = kwargs.get('storage_id', None)
+
+        if storage_id is None and name:
+            storage_id = storage_id_from_name(name)
+
+        if name or storage_id:
+            toret.setID(storage_id)
+            toret.set_name(name)
+            toret._is_persistent = True
         return toret
 
     def __eq__(self, other):
@@ -51,13 +60,16 @@ class IStorage(object):
         """
         return self.__class__ == other.__class__ and self.getID() == other.getID()
 
+    def is_persistent(self):
+        return self.getID() is not None and self.get_name() is not None
+
     @staticmethod
     def _store_meta(storage_args):
         pass
 
     def make_persistent(self, name):
-        if not self.storage_id:
-            self.storage_id = storage_id_from_name(name)
+        # if not self.storage_id:
+        #    self.storage_id = storage_id_from_name(name)
         self._is_persistent = True
         self._name = name
 

@@ -390,18 +390,17 @@ TupleRowFactory::bind(CassTuple *tuple, const TupleRow *row) const {
 void
 TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t offset) const {
 
-
     if (!row || !statement)
         throw ModuleException("Statement bind: Null tuple row or statement received");
-
     if (metadata->size() != row->n_elem())
         throw ModuleException("Statement bind: Found " + std::to_string(row->n_elem()) + ", expected " +
                               std::to_string(metadata->size()));
-
+    std::set<std::string> keys = row->get_keys();
     for (uint16_t i = 0; i < row->n_elem(); ++i) {
         uint16_t bind_pos = offset + i;
         const void *element_i = row->get_element(i);
-        if (element_i != nullptr && !row->isNull(i)) {
+        if (element_i != nullptr && !row->isNull(i)) { //if the element is null, the bind will use the default behaviour (if the table have data,
+                                                       //the bind will not touch it, if the table does not have data will insert null)
             switch (metadata->at(i).type) {
                 case CASS_VALUE_TYPE_VARCHAR:
                 case CASS_VALUE_TYPE_TEXT:
@@ -552,10 +551,12 @@ TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t o
                     throw ModuleException("Default behaviour not supported");
             }
         } else {
-            //Element is a nullptr
-            CassError rc = cass_statement_bind_null(statement, bind_pos);
-            CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [Null value], column:" +
-                       metadata->at(i).info.begin()->second);
+            if (keys.find(metadata->at(i).info.find("name")->second) != keys.end()) {
+                //Element is a nullptr
+                CassError rc = cass_statement_bind_null(statement, bind_pos);
+                CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [Null value], column:" +
+                           metadata->at(i).info.begin()->second);
+            }
         }
     }
 }

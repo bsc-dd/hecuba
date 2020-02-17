@@ -1,8 +1,14 @@
 import uuid
-import typing
-from collections import OrderedDict
-import hecuba
-from storage.cql_iface import config
+
+from cassandra.metadata import Token
+
+from . import config
+
+valid_types = ['counter', 'text', 'boolean', 'decimal', 'double', 'int', 'list', 'set', 'map', 'bigint', 'blob',
+               'tuple', 'dict', 'float', 'numpy.ndarray']
+
+basic_types = valid_types[:-1]
+
 
 def storage_id_from_name(name):
     return uuid.uuid3(uuid.NAMESPACE_DNS, name)
@@ -63,7 +69,7 @@ def extract_ks_tab(name):
     return ksp.lower(), table.lower()
 
 
-def tokens_partitions(ksp, table, tokens_ranges):
+def tokens_partitions(ksp, table, tokens_ranges, subsets):
     """
     Method that calculates the new token partitions for a given object
     Args:
@@ -99,7 +105,7 @@ def tokens_partitions(ksp, table, tokens_ranges):
             tokens_per_node[tmap[tm.ring[point]][0]].append((tmumur.value, t_to))
 
     n_nodes = len(tokens_per_node)
-    step_size = _max_token // (splits_per_node * n_nodes)
+    step_size = _max_token // subsets
     if token_range_size:
         step_size = token_range_size
     elif target_token_range_size:
@@ -110,7 +116,7 @@ def tokens_partitions(ksp, table, tokens_ranges):
             if estimated_size > 0:
                 step_size = _max_token // (
                     max(estimated_size / target_token_range_size,
-                        splits_per_node * n_nodes)
+                        subsets)
                 )
 
     for tokens_in_node in tokens_per_node.values():
@@ -120,7 +126,7 @@ def tokens_partitions(ksp, table, tokens_ranges):
                 partition.append((fraction, fraction + step_size))
                 fraction += step_size
             partition.append((fraction, to))
-        group_size = max(len(partition) // splits_per_node, 1)
+        group_size = max(len(partition) // (subsets // n_nodes), 1)
         for i in range(0, len(partition), group_size):
             yield partition[i:i + group_size]
 
@@ -129,6 +135,15 @@ def generate_token_ring_ranges():
     ring = config.cluster.metadata.token_map.ring
     tokens = [token.value for token in ring]
     return discrete_token_ranges(tokens)
+
+
+def get_hosts(tokens, table_name):
+    tm = config.cluster.metadata.token_map
+    hosts = set()
+    for token in tokens:
+        t = Token(token)
+        hosts.add(tm.get_replicas(table_name.split('.')[0], t)[0])
+    return list(hosts)[0]
 
 
 def discrete_token_ranges(tokens):
@@ -181,90 +196,22 @@ def build_remotely(args):
     if obj_type is None:
         raise TypeError("Trying to build an IStorage obj without giving the type")
 
-    imported_class = obj_type
+    # Import the class defined by obj_type
+    cname, module = process_path(obj_type)
+
+    '''
+    if obj_type == str(StorageNumpy.__class__):
+        return StorageNumpy(name=args["name"], storage_id=args["storage_id"])
+    '''
+    try:
+        mod = __import__(module, globals(), locals(), [cname], 0)
+    except ValueError:
+        raise ValueError("Can't import class {} from module {}".format(cname, module))
+
+    imported_class = getattr(mod, cname)
 
     args = {k: v for k, v in args.items() if k in imported_class.args_names}
     args.pop('class_name', None)
     args["built_remotely"] = built_remotely
 
     return imported_class(**args)
-
-
-def import_class(module_path):
-    """
-    Method to obtain module and class_name from a module path
-    Args:
-        module_path(String): path in the format module.class_name
-    Returns:
-        tuple containing class_name and module
-    """
-    class_name, mod = process_path(module_path)
-
-    try:
-        mod = __import__(mod, globals(), locals(), [class_name], 0)
-    except ValueError:
-        raise ValueError("Can't import class {} from module {}".format(class_name, mod))
-
-    imported_class = getattr(mod, class_name)
-    return imported_class
-
-
-def build_data_model(description):
-    res = {}
-    for k, v in description.items():
-        dt = update_type(v["type"])
-        try:
-            keys = build_data_model(v["primary_keys"])
-            values = build_data_model(v["columns"])
-            res[k] = {"keys": keys, "cols": values, "type": dt}
-        except KeyError:
-            res[k] = dt
-    return res
-    # {k: update_type(v['type']) for k, v in persistent_props.items()}
-
-
-def update_type(d):
-    if d == 'text':
-        return str
-    res = import_class(d)
-    return res
-
-
-def transform_to_dm(ob, depth=0):
-    """
-
-    :param ob:
-    :return: List or dict
-    """
-    if issubclass(ob, hecuba.IStorage.IStorage) and depth>0:
-        return ob
-    elif issubclass(ob, typing.Dict):
-        fields = {}
-
-        keys = transform_to_dm(ob.__args__[0], depth+1)  # Keys
-        cols = transform_to_dm(ob.__args__[1], depth+1)  # Cols
-
-        if isinstance(keys, list):
-            keys = {"key{}".format(i): transform_to_dm(v, depth+1) for i, v in enumerate(keys)}
-        if isinstance(cols, list):
-            cols = {"col{}".format(i): transform_to_dm(v,depth+1) for i, v in enumerate(cols)}
-
-        fields["value_id"] = keys
-        fields["cols"] = cols
-        return fields
-
-    elif hasattr(ob, '__annotations__'):
-        annot = ob.__annotations__
-        if isinstance(annot, OrderedDict):
-            return {k: transform_to_dm(v, depth+1) for k,v in annot.items()}
-        elif isinstance(annot, dict):
-            return {k: transform_to_dm(v, depth+1) for k,v in annot.items()}
-        else:
-            raise NotImplemented
-
-    elif hasattr(ob, '__args__'):
-        if issubclass(ob, typing.Tuple):
-            t = [transform_to_dm(cl, depth+1) for cl in ob.__args__ if cl != ()]
-            return tuple(t)
-        return [transform_to_dm(cl, depth+1) for cl in ob.__args__ if cl != ()]
-    return ob
