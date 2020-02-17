@@ -4,7 +4,8 @@ from datetime import time, date, datetime
 from typing import Tuple
 
 import numpy
-from hecuba import StorageObj
+
+from hecuba.storageobj import StorageObj
 
 
 class TestInt(StorageObj):
