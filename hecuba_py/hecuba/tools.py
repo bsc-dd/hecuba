@@ -1,7 +1,7 @@
 import uuid
 import typing
 from collections import OrderedDict
-import hecuba
+from .IStorage import IStorage
 from storage.cql_iface import config
 
 def storage_id_from_name(name):
@@ -236,7 +236,7 @@ def transform_to_dm(ob, depth=0):
     :param ob:
     :return: List or dict
     """
-    if issubclass(ob, hecuba.IStorage.IStorage) and depth>0:
+    if issubclass(ob, IStorage) and depth>0:
         return ob
     elif issubclass(ob, typing.Dict):
         fields = {}
