@@ -1,6 +1,5 @@
 import uuid
 from collections import namedtuple
-from .tools import storage_id_from_name
 
 
 class AlreadyPersistentError(RuntimeError):
@@ -57,7 +56,7 @@ class IStorage(object):
 
     def make_persistent(self, name):
         if not self.storage_id:
-            self.storage_id = storage_id_from_name(name)
+            self.storage_id = IStorage.storage_id_from_name(name)
         self._is_persistent = True
         self._name = name
 
@@ -84,3 +83,7 @@ class IStorage(object):
 
     def get_name(self):
         return self._name
+
+    @staticmethod
+    def storage_id_from_name(name):
+        return uuid.uuid3(uuid.NAMESPACE_DNS, name)

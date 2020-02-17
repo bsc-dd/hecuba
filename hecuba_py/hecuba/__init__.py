@@ -224,4 +224,5 @@ class Config(object):
 # set_up_default_cassandra()
 config = Config()
 from .storageobj import StorageObj
+
 __all__ = ['StorageObj']

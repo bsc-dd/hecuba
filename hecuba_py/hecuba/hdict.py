@@ -1,7 +1,7 @@
-from .IStorage import IStorage, AlreadyPersistentError
-from .tools import build_remotely, storage_id_from_name, transform_to_dm
 import storage
 from storage.cql_iface import log
+from .IStorage import IStorage, AlreadyPersistentError
+from .tools import build_remotely, storage_id_from_name, transform_to_dm
 
 
 class StorageDict(IStorage, dict):
@@ -19,7 +19,6 @@ class StorageDict(IStorage, dict):
             args: arguments for base constructor
             kwargs: arguments for base constructor
         """
-
 
         if not cls._data_model_id:
             # User data model
@@ -39,8 +38,8 @@ class StorageDict(IStorage, dict):
                 cls._data_model_def['type'] = cls
 
             # Storage data model
-            #keys = {k: uuid.UUID if issubclass(v, IStorage) else v for k, v in cls._data_model_def["value_id"]}
-            #cols = {k: uuid.UUID if issubclass(v, IStorage) else v for k, v in cls._data_model_def["cols"]}
+            # keys = {k: uuid.UUID if issubclass(v, IStorage) else v for k, v in cls._data_model_def["value_id"]}
+            # cols = {k: uuid.UUID if issubclass(v, IStorage) else v for k, v in cls._data_model_def["cols"]}
 
             cls._data_model_id = storage.StorageAPI.add_data_model(cls._data_model_def)
 
@@ -110,7 +109,6 @@ class StorageDict(IStorage, dict):
                 obj.stop_persistent()
 
         super().stop_persistent()
-
 
     def __delitem__(self, key):
         """

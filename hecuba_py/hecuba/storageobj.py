@@ -29,7 +29,6 @@ class StorageObj(IStorage):
             storage_id = storage_id_from_name(name)
 
         if name or storage_id:
-
             toret.setID(storage_id)
             toret.set_name(name)
             toret._is_persistent = True
@@ -143,7 +142,8 @@ class StorageObj(IStorage):
 
         assert self._is_persistent
 
-        attr = storage.StorageAPI.get_record(self.storage_id, {'k': self.storage_id}) #TODO: save storage_id correctly, otherwise get_record in each call
+        attr = storage.StorageAPI.get_record(self.storage_id, {
+            'k': self.storage_id})  # TODO: save storage_id correctly, otherwise get_record in each call
 
         # if issubclass(value_info, IStorage):
         #     # Build the IStorage obj
@@ -172,7 +172,7 @@ class StorageObj(IStorage):
         if not isinstance(value, IStorage):
             if isinstance(value, np.ndarray):
                 pass
-                #value = StorageNumpy(value)
+                # value = StorageNumpy(value)
             elif isinstance(value, dict):
                 obj_class = self._data_model_defDataModelId["fields"][attribute]["type"]
                 value = obj_class(data_model=self._data_model_def["fields"][attribute], build_remotely=False)
