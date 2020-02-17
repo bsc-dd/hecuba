@@ -67,42 +67,62 @@ class TestNumpy(StorageObj):
     attr1: numpy.ndarray
 
 
+class TestTupleDiff(StorageObj):
+    attr1: Tuple[int, uuid.UUID, float]
+
+
+class TestDifferentAttributes(StorageObj):
+    attr1: int
+    attr2: Tuple[int, float]
+    attr3: time
+
+
 class MyTestCase(unittest.TestCase):
     # def test_numpy(self):  # TODO: NEEDS TO BE IMPLEMENTED
-    #     a = TestUuid("test_numpy")
+    #     a = TestNumpy("test_numpy")
     #     a.attr1 = numpy.arange(10)
-    #     a = TestUuid("test_numpy")
-    #     self.assertEqual(a.attr1, [uuid.UUID("123e4567-e89b-12d3-a456-426655440000")])
+    #     a = TestNumpy("test_numpy")
+    #     self.assertEqual(a.attr1, numpy.arange(10))
+
+    def test_different_attributes(self):
+        a = TestDifferentAttributes("test_different_attributes")
+        a.attr1 = 9
+        a.attr2 = (6, 3.2)
+        a.attr3 = time(12, 10, 30)
+        a = TestDifferentAttributes("test_different_attributes")
+        self.assertEqual(a.attr1, 9)
+        self.assertAlmostEqual(a.attr2[1], 3.2, places=3)
+        self.assertEqual(a.attr3, time(12, 10, 30))
 
     def test_uuid(self):
         a = TestUuid("test_uuid")
         a.attr1 = uuid.UUID("123e4567-e89b-12d3-a456-426655440000")
         a = TestUuid("test_uuid")
-        self.assertEqual(a.attr1, [uuid.UUID("123e4567-e89b-12d3-a456-426655440000")])
+        self.assertEqual(a.attr1, uuid.UUID("123e4567-e89b-12d3-a456-426655440000"))
 
     def test_int(self):
         a = TestInt("test_int")
         a.attr1 = 1000000
         a = TestInt("test_int")
-        self.assertEqual(a.attr1, [1000000])
+        self.assertEqual(a.attr1, 1000000)
 
     def test_bool(self):
         a = TestBool("test_bool")
         a.attr1 = True
         a = TestBool("test_bool")
-        self.assertEqual(a.attr1, [True])
+        self.assertEqual(a.attr1, True)
 
     def test_float(self):
         a = TestFloat("test_float")
         a.attr1 = 3.14
         a = TestFloat("test_float")
-        self.assertAlmostEqual(a.attr1[0], 3.14, places=3)
+        self.assertAlmostEqual(a.attr1, 3.14, places=3)
 
     def test_string(self):
         a = TestStr("test_string")
         a.attr1 = "hola"
         a = TestStr("test_string")
-        self.assertEqual(a.attr1, ["hola"])
+        self.assertEqual(a.attr1, "hola")
 
     # def test_bytearray(self):
     #     a = TestBytearray("test_bytearray")
@@ -116,29 +136,36 @@ class MyTestCase(unittest.TestCase):
     #     a = TestBytes("test_bytes")
     #     self.assertEqual(a.attr1, ['\x01'])
 
-    def test_tuple(self):
-        a = TestTuple("test_tuple")
+    def test_tuple_2_int(self):
+        a = TestTuple("test_tuple_2_int")
         a.attr1 = (1, 2)
-        a = TestTuple("test_tuple")
-        self.assertEqual(a.attr1, [(1, 2)])
+        a = TestTuple("test_tuple_2_int")
+        self.assertEqual(a.attr1, (1, 2))
+
+    def test_tuple_different_types2(self):
+        a = TestTupleDiff("test_tuple_different_types2")
+        a.attr1 = (1, uuid.UUID("123e4567-e89b-12d3-a456-426655440000"), 3.2)
+        a = TestTupleDiff("test_tuple_different_types2")
+        self.assertAlmostEqual(a.attr1[2], 3.2)
+        self.assertEqual(a.attr1[:2], (1, uuid.UUID("123e4567-e89b-12d3-a456-426655440000")))
 
     def test_time(self):
         a = TestTime("test_time")
         a.attr1 = time(12, 10, 30)
         a = TestTime("test_time")
-        self.assertEqual(a.attr1, [time(12, 10, 30)])
+        self.assertEqual(a.attr1, time(12, 10, 30))
 
     def test_date(self):
         a = TestDate("test_date")
         a.attr1 = date(2020, 2, 1)
         a = TestDate("test_date")
-        self.assertEqual(a.attr1, [date(2020, 2, 1)])
+        self.assertEqual(a.attr1, date(2020, 2, 1))
 
     def test_datetime(self):
         a = TestDatetime("test_datetime")
         a.attr1 = datetime(2020, 2, 1, 12, 10, 30)
         a = TestDatetime("test_datetime")
-        self.assertEqual(a.attr1, [datetime(2020, 2, 1, 12, 10, 30)])
+        self.assertEqual(a.attr1, datetime(2020, 2, 1, 12, 10, 30))
 
     # def test_tinyint(self):
     #     a = TestTinyint("test_tinyint")

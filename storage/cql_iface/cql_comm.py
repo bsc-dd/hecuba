@@ -45,18 +45,13 @@ class CqlCOMM(object):
 
     @staticmethod
     def parse_definition_to_cass_format(fields_dict):
-        all_values = ""
+        all_values = ''
         for k, v in fields_dict.items():
             try:
-                all_values = all_values + f'{k} {_hecuba2cassandra_typemap[v]}, '
+                value = f'{k} {_hecuba2cassandra_typemap[v]},'
             except KeyError:
-                try:
-                    check = v.__origin__
-                except AttributeError:
-                    check = v
-                # check if types exist
-                    val = str(v)
-                    all_values = all_values + f'{k} tuple<{", ".join(a.__name__ for a in v)}>, '
+                value = f'{k} tuple<{", ".join(_hecuba2cassandra_typemap[a] for a in v)}>, '
+            all_values = f'{all_values} {value}'
         return all_values
 
     @staticmethod

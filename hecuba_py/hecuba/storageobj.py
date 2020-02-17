@@ -143,7 +143,7 @@ class StorageObj(IStorage):
 
         assert self._is_persistent
 
-        attr = storage.StorageAPI.get_record(self.storage_id, {'k': self.storage_id})
+        attr = storage.StorageAPI.get_record(self.storage_id, {'k': self.storage_id}) #TODO: save storage_id correctly, otherwise get_record in each call
 
         # if issubclass(value_info, IStorage):
         #     # Build the IStorage obj
@@ -151,9 +151,9 @@ class StorageObj(IStorage):
         #                       data_model=self._data_model_def["fields"][attribute], build_remotely=True)
         # elif not attr:
         #     raise AttributeError('Value not found for {}'.format(attribute))
-
-        object.__setattr__(self, attribute, attr)
-        return attr
+        index = list(self._data_model_def["fields"]).index(attribute)
+        object.__setattr__(self, attribute, attr[index])
+        return attr[index]
 
     def __setattr__(self, attribute, value):
         """
