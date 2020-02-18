@@ -27,7 +27,6 @@ install:
   - python setup.py install
 
 #caches dependencies
-cache: bundler
 addons:
   apt:
     packages:
@@ -40,9 +39,5 @@ addons:
 
 # command to run tests
 script:
-  - nosetests --with-coverage -v -s hecuba_py/tests/interface_tests
-
-# Push the results back to codecov
-after_success:
-  - codecov
+  - nosetests hecuba_py/tests/interface_tests
 
