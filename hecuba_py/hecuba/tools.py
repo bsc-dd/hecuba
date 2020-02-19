@@ -3,7 +3,7 @@ import uuid
 from collections import OrderedDict
 
 from storage.cql_iface import config
-from .IStorage import IStorage
+from hecuba.IStorage import IStorage
 
 
 def storage_id_from_name(name):

@@ -58,3 +58,16 @@ class StorageIface(metaclass=ABCMeta):
         """
         pass
 
+    # @abstractmethod
+    # def keys(self):
+    #     pass
+    #
+    # @abstractmethod
+    # def values(self):
+    #     pass
+    #
+    # @abstractmethod
+    # def items(self):
+    #     pass
+
+

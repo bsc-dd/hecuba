@@ -194,3 +194,9 @@ class CQLIface(StorageIface):
         hosts = set([get_hosts(worker_partition, res.one().table_name) for worker_partition in tokens])
         hosts_list.append(str(hosts))
         return hosts_list
+
+    # def keys(self):
+    #     #prefetch
+    #     #hiterator
+    #     #ret iterator class
+    #     pass

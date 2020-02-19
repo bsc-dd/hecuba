@@ -5,7 +5,7 @@ from typing import Tuple
 
 import numpy
 
-from hecuba.storageobj import StorageObj
+from hecuba import StorageObj
 
 
 class TestInt(StorageObj):
