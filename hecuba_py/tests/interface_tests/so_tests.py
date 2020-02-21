@@ -77,8 +77,25 @@ class TestDifferentAttributes(StorageObj):
     attr2: Tuple[int, float]
     attr3: time
 
+class TestInnerStorageObject(StorageObj):
+    attr1: TestDifferentAttributes
+    attr2: int
 
 class MyTestCase(unittest.TestCase):
+
+    # NOT PERSISTENT
+
+    def test_different_attributes_np(self):
+        a = TestDifferentAttributes()
+        a.attr1 = 9
+        a.attr2 = (6, 3.2)
+        a.attr3 = time(12, 10, 30)
+        self.assertEqual(a.attr1, 9)
+        self.assertAlmostEqual(a.attr2[1], 3.2, places=3)
+        self.assertEqual(a.attr3, time(12, 10, 30))
+
+    # PERSISTENT
+
     # def test_numpy(self):  # TODO: NEEDS TO BE IMPLEMENTED
     #     a = TestNumpy("test_numpy")
     #     a.attr1 = numpy.arange(10)
@@ -185,6 +202,50 @@ class MyTestCase(unittest.TestCase):
     #     a.attr1 = numpy.int64(50000000000)
     #     a = TestDouble("test_double")
     #     self.assertEqual(a.attr1, [numpy.int64(50000000000)])
+
+    def test_delete_attr(self):
+        a = TestDifferentAttributes("test_delete_attr")
+        a.attr1 = 9
+        a.attr2 = (6, 3.2)
+        a.attr3 = time(12, 10, 30)
+        a.__delattr__('attr3')
+        a = TestDifferentAttributes("test_delete_attr")
+        self.assertEqual(a.attr1, 9)
+        self.assertAlmostEqual(a.attr2[1], 3.2, places=3)
+        self.assertEqual(a.attr3, None)
+
+    def test_delete_persistent(self):
+        a = TestDifferentAttributes("test_delete_persistent")
+        a.attr1 = 9
+        a.attr2 = (6, 3.2)
+        a.attr3 = time(12, 10, 30)
+        self.assertTrue(a.delete_persistent())
+
+    def test_stop_persistent(self):
+        a = TestDifferentAttributes("test_stop_persistent")
+        a.attr1 = 9
+        a.attr2 = (6, 3.2)
+        a.attr3 = time(12, 10, 30)
+        a.stop_persistent()
+        self.assertFalse(a._is_persistent)
+
+    def test_make_persistent(self):
+        a = TestDifferentAttributes()
+        a.attr1 = 9
+        a.attr2 = (6, 3.2)
+        a.attr3 = time(12, 10, 30)
+        a.make_persistent('test_make_persistent')
+        self.assertTrue(a._is_persistent)
+
+    def test_inner_StorageObject(self):
+        a = TestInnerStorageObject("test_inner_StorageObject")
+        b = TestDifferentAttributes("test_stop_persistent")
+        b.attr1 = 9
+        b.attr2 = (6, 3.2)
+        b.attr3 = time(12, 10, 30)
+        a.attr1 = b
+        a.attr2 = 8
+
 
 if __name__ == '__main__':
     unittest.main()

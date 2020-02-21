@@ -4,7 +4,7 @@ from uuid import UUID
 
 import numpy
 from hfetch import Hcache, HNumpyStore
-
+from hecuba.IStorage import IStorage
 from . import config
 from .config import _hecuba2cassandra_typemap, log
 from .queries import istorage_prepared_st, istorage_read_entry, istorage_remove_entry
@@ -50,7 +50,10 @@ class CqlCOMM(object):
             try:
                 value = f'{k} {_hecuba2cassandra_typemap[v]},'
             except KeyError:
-                value = f'{k} tuple<{", ".join(_hecuba2cassandra_typemap[a] for a in v)}>, '
+                if isinstance(v, tuple):
+                    value = f'{k} tuple<{", ".join(_hecuba2cassandra_typemap[a] for a in v)}>, '
+                elif issubclass(v, IStorage):
+                    value = f'{k} uuid,'
             all_values = f'{all_values} {value}'
         return all_values
 

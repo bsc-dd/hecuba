@@ -1,7 +1,7 @@
 from cassandra.cluster import Cluster
 from cassandra.policies import RetryPolicy, RoundRobinPolicy, TokenAwarePolicy
 
-from storage.cql_iface.config import log
+from hecuba.config import log
 from storage.cql_iface.tests.cassandra_cluster_manager import *
 
 

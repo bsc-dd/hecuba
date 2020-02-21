@@ -8,6 +8,8 @@ from typing import Tuple
 import numpy
 
 # User class to Cassandra data type
+from storage.cql_iface.tests.mockStorageObj import StorageObj
+
 _hecuba2cassandra_typemap = {
     bool: 'boolean',
     int: 'int',
@@ -26,7 +28,8 @@ _hecuba2cassandra_typemap = {
     numpy.int16: 'smallint',
     numpy.int64: 'double',
     numpy.ndarray: 'hecuba.hnumpy.StorageNumpy',
-    uuid.UUID: 'uuid'
+    uuid.UUID: 'uuid',
+    StorageObj: 'uuid'
 }
 
 stderrLogger = logging.StreamHandler()

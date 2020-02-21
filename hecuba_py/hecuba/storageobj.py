@@ -3,7 +3,6 @@ import uuid
 import numpy as np
 
 import storage
-from storage.cql_iface.config import log
 from .IStorage import IStorage, AlreadyPersistentError
 from .tools import storage_id_from_name, transform_to_dm
 
@@ -68,34 +67,21 @@ class StorageObj(IStorage):
         storage.StorageAPI.register_persistent_object(self.__class__._data_model_id, self)
         # defined_attrs = [attr for attr in self._data_model_def.keys() if attr in list(set(dir(self)))]
 
-        attrs = []
-        values = []
-        for obj_name, obj_type in self._data_model_def["cols"].items():
+        value_dict = {}
+        for obj_name, obj_type in self._data_model_def["fields"].items():
             try:
                 pd = object.__getattribute__(self, obj_name)
             except AttributeError:
                 # Attribute unset, no action needed
                 continue
-            attrs.append(obj_name)
-            if isinstance(pd, IStorage):
-                if not pd._is_persistent:
-                    sd_name = name + "_" + obj_name
-                    pd.make_persistent(sd_name)
-                values.append(pd.getID())
-            else:
-                values.append(pd)
+            value_dict[obj_name] = pd
 
-        storage.StorageAPI.put_records(self.storage_id, attrs, values)
+        storage.StorageAPI.put_record(self.storage_id, {'k': self.storage_id}, value_dict)
 
     def stop_persistent(self):
         """
             The StorageObj stops being persistent, but keeps the information already stored in Cassandra
         """
-        log.debug("STOP PERSISTENT")
-        for obj_name in self._data_model_def.keys():
-            attr = getattr(self, obj_name, None)
-            if isinstance(attr, IStorage):
-                attr.stop_persistent()
 
         super().stop_persistent()
 
@@ -103,15 +89,9 @@ class StorageObj(IStorage):
         """
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
-        log.debug('DELETE PERSISTENT')
-        for obj_name in self._data_model_def.keys():
-            attr = getattr(self, obj_name, None)
-            if isinstance(attr, IStorage):
-                attr.delete_persistent()
-
-        storage.StorageAPI.delete_persistent_object(self.storage_id)
-
+        response = storage.StorageAPI.delete_persistent_object(self.storage_id)
         super().delete_persistent()
+        return response
 
     def __getattr__(self, attribute):
         """
@@ -143,14 +123,8 @@ class StorageObj(IStorage):
         assert self._is_persistent
 
         attr = storage.StorageAPI.get_record(self.storage_id, {
-            'k': self.storage_id})  # TODO: save storage_id correctly, otherwise get_record in each call
+            'k': self.storage_id})
 
-        # if issubclass(value_info, IStorage):
-        #     # Build the IStorage obj
-        #     attr = value_info(name=self.get_name() + '_' + attribute, storage_id=attr,
-        #                       data_model=self._data_model_def["fields"][attribute], build_remotely=True)
-        # elif not attr:
-        #     raise AttributeError('Value not found for {}'.format(attribute))
         index = list(self._data_model_def["fields"]).index(attribute)
         object.__setattr__(self, attribute, attr[index])
         return attr[index]
@@ -180,13 +154,7 @@ class StorageObj(IStorage):
         if self.storage_id:
             # Write attribute to the storage
             if isinstance(value, IStorage):
-                if not value.storage_id:
-                    attr_name = self._name + '_' + attribute
-                    attr_id = storage_id_from_name(attr_name)
-                    value.make_persistent(attr_name)
-                    storage.StorageAPI.put_records(self.storage_id, [attribute], [attr_id])
-                else:
-                    storage.StorageAPI.put_records(self.storage_id, [attribute], [value.storage_id])
+                storage.StorageAPI.put_record(self.storage_id, {'k': self.storage_id}, {attribute: value.storage_id})
             else:
                 storage.StorageAPI.put_record(self.storage_id, {'k': self.storage_id}, {attribute: value})
 
@@ -199,6 +167,6 @@ class StorageObj(IStorage):
         Args:
             item: the name of the attribute to be deleted
         """
-        if self.storage_id and item in self._data_model_def["cols"].keys():
-            storage.StorageAPI.put_records(self.storage_id, [item], [])
+        if self.storage_id and item in self._data_model_def["fields"].keys():
+            storage.StorageAPI.put_record(self.storage_id, {'k': self.storage_id}, {item: None})
         object.__delattr__(self, item)

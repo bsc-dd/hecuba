@@ -58,16 +58,17 @@ class StorageIface(metaclass=ABCMeta):
         """
         pass
 
-    # @abstractmethod
-    # def keys(self):
-    #     pass
-    #
-    # @abstractmethod
-    # def values(self):
-    #     pass
-    #
-    # @abstractmethod
-    # def items(self):
-    #     pass
+    @abstractmethod
+    def get_keys_iterator(self, object_id):
+        pass
+
+    @abstractmethod
+    def get_values_iterator(self, object_id):
+        pass
+
+    @abstractmethod
+    def get_items_iterator(self, object_id):
+        pass
+
 
 

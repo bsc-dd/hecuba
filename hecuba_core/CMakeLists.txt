@@ -131,7 +131,6 @@ FIND_LIBRARY(CASS NAMES cassandra PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_L
 FIND_LIBRARY(LIBUV NAMES uv PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
 FIND_LIBRARY(TBB NAMES tbb PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
 
-IF (NOT LIBUV)
     message("Downloading LIBUV (requisite for Cassandra C++ driver)")
     unset(LIBUV) #to avoid name clash
     ExternalProject_Add(
@@ -148,14 +147,9 @@ IF (NOT LIBUV)
     set(LIBUV_ROOT_DIR ${C_BINDING_INSTALL_PREFIX})
     add_dependencies(hfetch LIBUV)
     target_link_libraries(hfetch uv)
-else ()
-    set(LIBUV_EXTERNAL)
-    set(LIBUV_ROOT_DIR ${LIBUV}/..)
-    set(ALL_LIBS ${ALL_LIBS} ${LIBUV})
-endif ()
 
 
-if (NOT CASS)
+if (true)
     message("Downloading C++ Cassandra Driver")
     unset(CASS) #to avoid name clash
 
@@ -185,7 +179,7 @@ endif ()
 
 
 
-if (NOT TBB_FOUND)
+if (true)
     message("Downloading Intel TBB")
     unset(TBB)
     set(build_prefix tbb_prefix)

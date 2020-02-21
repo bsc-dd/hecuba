@@ -3,9 +3,12 @@ from typing import List, Generator
 from uuid import UUID
 
 from hecuba.IStorage import IStorage
+from storage.cql_iface.storageiter import NamedItemsIterator
+
 from .config import _hecuba2cassandra_typemap
 from .cql_comm import CqlCOMM
 from .queries import istorage_read_entry, istorage_prepared_st
+from .storageiter import NamedIterator
 from .tools import generate_token_ring_ranges, config, get_hosts
 from ..storage_iface import StorageIface
 
@@ -47,7 +50,7 @@ class CQLIface(StorageIface):
             except AttributeError:
                 my_type = definition
 
-            if my_type not in _hecuba2cassandra_typemap:
+            if my_type not in _hecuba2cassandra_typemap and not issubclass(my_type, IStorage):
                 raise TypeError(f"The type {definition} is not supported")
 
     def add_data_model(self, definition: dict) -> int:
@@ -195,8 +198,21 @@ class CQLIface(StorageIface):
         hosts_list.append(str(hosts))
         return hosts_list
 
-    # def keys(self):
-    #     #prefetch
-    #     #hiterator
-    #     #ret iterator class
-    #     pass
+    def get_keys_iterator(self, object_id):
+        if object_id:
+            ik = self.hcache_by_id[object_id].iterkeys(config.prefetch_size)
+            iterator = NamedIterator(ik, list(self.data_models_cache[self.object_to_data_model[object_id]]['value_id'].keys()))
+            return iterator
+
+    def get_values_iterator(self, object_id):
+        if object_id:
+            ik = self.hcache_by_id[object_id].itervalues(config.prefetch_size)
+            iterator = NamedIterator(ik, list(self.data_models_cache[self.object_to_data_model[object_id]]['fields'].keys()))
+            return iterator
+
+    def get_items_iterator(self, object_id):
+        if object_id:
+            ik = self.hcache_by_id[object_id].iteritems(config.prefetch_size)
+            data_model = self.data_models_cache[self.object_to_data_model[object_id]]
+            iterator = NamedItemsIterator(list(data_model.keys()), list(data_model.values()), len(list(data_model.keys())), ik)
+            return iterator
