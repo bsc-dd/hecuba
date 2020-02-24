@@ -27,7 +27,7 @@ _hecuba2cassandra_typemap = {
     numpy.int8: 'tinyint',
     numpy.int16: 'smallint',
     numpy.int64: 'double',
-    numpy.ndarray: 'hecuba.hnumpy.StorageNumpy',
+    numpy.ndarray: 'uuid',
     uuid.UUID: 'uuid',
     StorageObj: 'uuid'
 }

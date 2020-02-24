@@ -1,6 +1,7 @@
 import uuid
 
 import numpy as np
+from hecuba.hnumpy import StorageNumpy
 
 import storage
 from .IStorage import IStorage, AlreadyPersistentError
@@ -154,18 +155,19 @@ class StorageObj(IStorage):
         # Transform numpy.ndarrays and python dicts to StorageNumpy and StorageDicts
         if not isinstance(value, IStorage):
             if isinstance(value, np.ndarray):
-                pass
-                # value = StorageNumpy(value)
+                value = StorageNumpy(value)
             elif isinstance(value, dict):
                 obj_class = self._data_model_defDataModelId["fields"][attribute]["type"]
                 value = obj_class(data_model=self._data_model_def["fields"][attribute], build_remotely=False)
 
         if self.storage_id:
             # Write attribute to the storage
-            if isinstance(value, IStorage):
+            if isinstance(value, StorageNumpy):
+                storage.StorageAPI.put_record(self.storage_id, {'k': self.storage_id}, {attribute: value})
+            elif isinstance(value, IStorage):
                 storage.StorageAPI.put_record(self.storage_id, {'k': self.storage_id}, {attribute: value.storage_id})
             else:
-                storage.StorageAPI.put_record(self.storage_id, {'k': self.storage_id}, {attribute: value})
+                raise Exception("something wrong happened") #TODO change
 
         # We store all the attributes in memory
         object.__setattr__(self, attribute, value)

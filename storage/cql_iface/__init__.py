@@ -207,7 +207,8 @@ class Config(object):
                 """,
                 'CREATE TYPE IF NOT EXISTS hecuba.np_meta(dims frozen<list<int>>,type int,block_id int);',
                 """CREATE TABLE IF NOT EXISTS hecuba.istorage (storage_id uuid,table_name text, obj_name text,
-                data_model blob,   tokens list<frozen<tuple<bigint,bigint>>>, PRIMARY KEY(storage_id));
+                data_model blob, tokens list<frozen<tuple<bigint,bigint>>>, numpy_meta frozen<np_meta>, block_id int,  
+                base_numpy uuid, PRIMARY KEY(storage_id));
                 """]
             for query in queries:
                 try:
