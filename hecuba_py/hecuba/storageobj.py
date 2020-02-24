@@ -16,11 +16,14 @@ class StorageObj(IStorage):
 
     def __new__(cls, name='', *args, **kwargs):
         if not cls._data_model_id:
-            cls._data_model_def = dict()
-            cls._data_model_def['type'] = cls
-            cls._data_model_def['value_id'] = {'k': uuid.UUID}
-            cls._data_model_def['fields'] = transform_to_dm(cls)
-            cls._data_model_id = storage.StorageAPI.add_data_model(cls._data_model_def)
+            try:
+                cls._data_model_def = kwargs['data_model']
+            except KeyError:
+                cls._data_model_def = dict()
+                cls._data_model_def['type'] = cls
+                cls._data_model_def['value_id'] = {'k': uuid.UUID}
+                cls._data_model_def['fields'] = transform_to_dm(cls)
+                cls._data_model_id = storage.StorageAPI.add_data_model(cls._data_model_def)
 
         toret = super(StorageObj, cls).__new__(cls)
         storage_id = kwargs.get('storage_id', None)
@@ -125,6 +128,12 @@ class StorageObj(IStorage):
         attr = storage.StorageAPI.get_record(self.storage_id, {
             'k': self.storage_id})
 
+        # if issubclass(value_info, IStorage):
+        #     # Build the IStorage obj
+        #     attr = value_info(name=self.get_name() + '_' + attribute, storage_id=attr,
+        #                       data_model=self._data_model_def["fields"][attribute], build_remotely=True)
+        # elif not attr:
+        #     raise AttributeError('Value not found for {}'.format(attribute))
         index = list(self._data_model_def["fields"]).index(attribute)
         object.__setattr__(self, attribute, attr[index])
         return attr[index]

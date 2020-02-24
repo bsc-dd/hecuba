@@ -96,11 +96,11 @@ class MyTestCase(unittest.TestCase):
 
     # PERSISTENT
 
-    # def test_numpy(self):  # TODO: NEEDS TO BE IMPLEMENTED
-    #     a = TestNumpy("test_numpy")
-    #     a.attr1 = numpy.arange(10)
-    #     a = TestNumpy("test_numpy")
-    #     self.assertEqual(a.attr1, numpy.arange(10))
+    def test_numpy(self):  # TODO: NEEDS TO BE IMPLEMENTED
+        a = TestNumpy("test_numpy")
+        a.attr1 = numpy.arange(10)
+        a = TestNumpy("test_numpy")
+        self.assertEqual(a.attr1, numpy.arange(10))
 
     def test_different_attributes(self):
         a = TestDifferentAttributes("test_different_attributes")
@@ -239,12 +239,23 @@ class MyTestCase(unittest.TestCase):
 
     def test_inner_StorageObject(self):
         a = TestInnerStorageObject("test_inner_StorageObject")
-        b = TestDifferentAttributes("test_stop_persistent")
+        b = TestDifferentAttributes("test_different_attributes")
         b.attr1 = 9
         b.attr2 = (6, 3.2)
         b.attr3 = time(12, 10, 30)
         a.attr1 = b
         a.attr2 = 8
+        self.assertEqual(a.attr1, b)
+        self.assertEqual(a.attr2, 8)
+
+    def test_inner_StorageObject2(self):
+        a = TestInnerStorageObject("test_inner_StorageObject")
+        a.attr1 = TestDifferentAttributes("test_different_attributes")
+        a.attr2 = 8
+        self.assertEqual(a.attr1, TestDifferentAttributes("test_different_attributes"))
+        self.assertEqual(a.attr2, 8)
+
+
 
 
 if __name__ == '__main__':
