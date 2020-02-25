@@ -36,8 +36,9 @@ class IStorage(object):
         toret._ksp = ''
         toret._table = ''
         toret._is_persistent = False
-        toret.__storage_id = None
+        toret.storage_id = kwargs.pop("storage_id", None)
         toret._name = ''
+        toret._built_remotely = kwargs.pop("built_remotely", False)
         return toret
 
     def __eq__(self, other):

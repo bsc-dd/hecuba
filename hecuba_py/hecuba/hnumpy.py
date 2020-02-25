@@ -201,19 +201,19 @@ class StorageNumpy(IStorage, np.ndarray):
 
     def make_persistent(self, name):
         super().make_persistent(name)
-
-        if not self._built_remotely:
-            self._create_tables(name)
-
+        #
+        # if not self._built_remotely:
+        #     self._create_tables(name)
+        #
         if not getattr(self, '_hcache', None):
-            self._hcache = self._create_hcache(name)
+             self._hcache = self._create_hcache(name)
 
         if None in self or not self.ndim:
-            raise NotImplemented("Empty array persistance")
+             raise NotImplemented("Empty array persistance")
 
         hfetch_metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
                                       self.itemsize, self.flags.num, 0)
-        self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas, self._block_id,
+        self._build_args = self.args(self.storage_id, self._class_name, self.get_name(), hfetch_metas, self._block_id,
                                      None)
 
         if len(self.shape) != 0:

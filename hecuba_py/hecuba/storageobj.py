@@ -163,11 +163,14 @@ class StorageObj(IStorage):
         if self.storage_id:
             # Write attribute to the storage
             if isinstance(value, StorageNumpy):
+                attr_name = self._name + '_' + attribute
+                value.make_persistent(attr_name)
                 storage.StorageAPI.put_record(self.storage_id, {'k': self.storage_id}, {attribute: value})
             elif isinstance(value, IStorage):
                 storage.StorageAPI.put_record(self.storage_id, {'k': self.storage_id}, {attribute: value.storage_id})
             else:
-                raise Exception("something wrong happened") #TODO change
+                storage.StorageAPI.put_record(self.storage_id, {'k': self.storage_id},
+                                              {attribute: value})  # TODO change
 
         # We store all the attributes in memory
         object.__setattr__(self, attribute, value)
