@@ -490,7 +490,7 @@ class HfetchTests(unittest.TestCase):
             for val, ret_val in zip(fields.values(), returned_values[0]):
                 self.assertAlmostEqual(val, ret_val)
 
-    def test_put_record_except_values_not_mach_data_model_type(self):
+    def test_put_record_except_values_not_mach_data_model_type2(self):
         with self.assertRaises(KeyError):
             given_name = 'storage_test.complex_obj'
             config.session.execute("DROP TABLE IF EXISTS {}".format(given_name))

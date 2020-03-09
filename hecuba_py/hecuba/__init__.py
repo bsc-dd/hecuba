@@ -1,11 +1,26 @@
 from cassandra.cluster import Cluster
 from cassandra.policies import RetryPolicy, RoundRobinPolicy, TokenAwarePolicy
 
-from hecuba.config import log
 from storage.cql_iface.tests.cassandra_cluster_manager import *
 
 
+
 # Set default log.handler to avoid "No handler found" warnings.
+
+stderrLogger = logging.StreamHandler()
+f = '%(filename)s: %(levelname)s: %(funcName)s(): %(lineno)d:\t%(message)s'
+stderrLogger.setFormatter(logging.Formatter(f))
+
+log = logging.getLogger('hecuba')
+log.addHandler(stderrLogger)
+
+if 'DEBUG' in os.environ and os.environ['DEBUG'].lower() == "true":
+    log.setLevel(logging.DEBUG)
+elif 'HECUBA_LOG' in os.environ:
+    log.setLevel(os.environ['HECUBA_LOG'].upper())
+else:
+    log.setLevel(logging.ERROR)
+
 
 class _NRetry(RetryPolicy):
     def __init__(self, time_to_retry=5):
@@ -205,7 +220,8 @@ class Config(object):
                 to_point frozen<list<double>>,
                 precision float);
                 """,
-                'CREATE TYPE IF NOT EXISTS hecuba.np_meta(dims frozen<list<int>>,type int,block_id int);',
+                """CREATE TYPE IF NOT EXISTS hecuba.np_meta (flags int, elem_size int, partition_type tinyint,
+                dims list<int>, strides list<int>, typekind text, byteorder text)""",
                 """CREATE TABLE IF NOT EXISTS hecuba.istorage (storage_id uuid,table_name text, obj_name text,
                 data_model blob, tokens list<frozen<tuple<bigint,bigint>>>, numpy_meta frozen<np_meta>, block_id int,  
                 base_numpy uuid, PRIMARY KEY(storage_id));
@@ -220,10 +236,13 @@ class Config(object):
         from hfetch import connectCassandra, HArrayMetadata
         # connecting c++ bindings
         connectCassandra(singleton.contact_names, singleton.nodePort)
+
         singleton.cluster.register_user_type('hecuba', 'np_meta', HArrayMetadata)
 
-# set_up_default_cassandra()
+
 config = Config()
 from .storageobj import StorageObj
+from .hdict import StorageDict
+from .hnumpy import StorageNumpy
 
-__all__ = ['StorageObj']
+__all__ = ['StorageObj', 'StorageDict', 'StorageNumpy']

@@ -1,10 +1,14 @@
+import uuid
+from typing import NamedTuple
+
 import storage
 from storage.cql_iface import log
 from .IStorage import IStorage, AlreadyPersistentError
 from .tools import build_remotely, storage_id_from_name, transform_to_dm
 
 
-class StorageDict(IStorage, dict):
+
+class StorageDict(IStorage):
     # """
     # Object used to access data from workers.
     # """
@@ -19,23 +23,18 @@ class StorageDict(IStorage, dict):
             args: arguments for base constructor
             kwargs: arguments for base constructor
         """
-
         if not cls._data_model_id:
             # User data model
             keys = {}
             try:
                 cls._data_model_def = kwargs['data_model']
             except KeyError:
-                import typing
-                dms = []
-                for ob in cls.__orig_bases__:
-                    if isinstance(ob, typing.GenericMeta):
-                        dms.append(transform_to_dm(ob))
-                if len(dms) != 1:
-                    raise ValueError("Different orig bases than expected ({})".format(len(dms)))
-
-                cls._data_model_def = dms[0]
+                #{"type": StorageDict, "value_id": {"k1": int}, "fields": {"a": int, "b": str, "c": float}}
+                cls._data_model_def = dict()
                 cls._data_model_def['type'] = cls
+                cls._data_model_def['value_id'] = {'k': uuid.UUID}
+                cls._data_model_def['fields'] = {k: v for k, v in args[0].__annotations__.items()}
+                cls._data_model_id = storage.StorageAPI.add_data_model(cls._data_model_def)
 
             # Storage data model
             # keys = {k: uuid.UUID if issubclass(v, IStorage) else v for k, v in cls._data_model_def["value_id"]}
@@ -138,22 +137,27 @@ class StorageDict(IStorage, dict):
             key = [key]
 
         # Returns always a list with a single entry for the key
-        persistent_result = storage.StorageAPI.get_records(self.storage_id, [key])
+        keys = NamedTuple('keys', [('k', int)])
+        keys = keys(self.storage_id)._asdict()
+        persistent_result = storage.StorageAPI.get_record(self.storage_id, keys)
+        index = list(self._data_model_def["fields"]).index(key[0])
+        object.__setattr__(self, key[0], persistent_result[index])
+        return persistent_result[index]
 
         # we need to transform UUIDs belonging to IStorage objects and rebuild them
-        final_results = []
-
-        for i, element in enumerate(persistent_result):
-            col_type = self.__class__._data_model_def['cols'][i]
-            if issubclass(col_type, IStorage):
-                # element is not a built-in type
-                table_name = self.storage_id + '_' + str(key)
-                info = {"name": table_name, "storage_id": element, "class_name": col_type}
-                element = build_remotely(info)
-
-            final_results.append(element)
-
-        return final_results
+        # final_results = []
+        #
+        # for i, element in enumerate(persistent_result):
+        #     col_type = self.__class__._data_model_def['cols'][i]
+        #     if issubclass(col_type, IStorage):
+        #         # element is not a built-in type
+        #         table_name = self.storage_id + '_' + str(key)
+        #         info = {"name": table_name, "storage_id": element, "class_name": col_type}
+        #         element = build_remotely(info)
+        #
+        #     final_results.append(element)
+        #
+        # return final_results
 
     def __setitem__(self, key, val):
         """
@@ -167,13 +171,20 @@ class StorageDict(IStorage, dict):
         if not isinstance(val, list):
             val = [val]
 
-        keys = [def_type(val[i]) for i, def_type in enumerate(self._data_model_def['value_id'].values())]
-        vals = [def_type(val[i]) for i, def_type in enumerate(self._data_model_def['cols'].values())]
+        #keys = [def_type(val[i]) for i, def_type in enumerate(self._data_model_def['value_id'].values())]
+        #vals = [def_type(val[i]) for i, def_type in enumerate(self._data_model_def['cols'].values())]
 
         if not self._is_persistent:
-            dict.__setitem__(self, keys, vals)
+            dict.__setitem__(self, key, val[0])
         else:
-            storage.StorageAPI.put_records(self.storage_id, [keys], [vals])
+
+            keys = NamedTuple('keys', [('k1', int)])
+            keys = keys(self.storage_id)._asdict()
+
+            fields = NamedTuple('fields', [(key, type(val[0]))])
+            fields = fields(val[0])._asdict()
+
+            storage.StorageAPI.put_record(self.storage_id, keys, fields)
 
     def __repr__(self):
         """

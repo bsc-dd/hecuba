@@ -77,7 +77,7 @@ int16_t Int16Parser::py_to_c(PyObject *myint, void *payload) const {
     int16_t temp;
 
 
-    if (PyArg_Parse(myint, Py_SHORT_INT, &temp)) {
+    if (PyLong_Check(myint) && PyArg_Parse(myint, Py_SHORT_INT, &temp)) {
         memcpy(payload, &temp, sizeof(int16_t));
         return 0;
     }

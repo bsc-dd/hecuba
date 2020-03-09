@@ -123,7 +123,7 @@ class CQLIface(StorageIface):
         #     try:
         #         if not isinstance(value_list[v], data_model["fields"][v]) and value_list[v] is not None:
         #             raise TypeError("The value types don't match the data model specification")
-        #     except TypeError:
+        #     except TypeError:A
         #         try:
         #             if not isinstance(value_list[v], data_model["fields"][v].__origin__):
         #                 raise TypeError("The value types don't match the data model specification")
@@ -149,8 +149,8 @@ class CQLIface(StorageIface):
         #    raise Exception("key_list or value_list have some parameter that does not correspond with the data model")
 
     def get_record(self, object_id: UUID, key_list: dict) -> List[object]:
-        if not isinstance(object_id, UUID):
-            raise ValueError("The object_id is not an UUID")
+        # if not isinstance(object_id, UUID):
+        #     raise ValueError("The object_id is not an UUID")
         try:
             self.hcache_by_id[object_id]
         except KeyError:
@@ -198,21 +198,21 @@ class CQLIface(StorageIface):
         hosts_list.append(str(hosts))
         return hosts_list
 
-    def get_keys_iterator(self, object_id):
-        if object_id:
-            ik = self.hcache_by_id[object_id].iterkeys(config.prefetch_size)
-            iterator = NamedIterator(ik, list(self.data_models_cache[self.object_to_data_model[object_id]]['value_id'].keys()))
-            return iterator
-
-    def get_values_iterator(self, object_id):
-        if object_id:
-            ik = self.hcache_by_id[object_id].itervalues(config.prefetch_size)
-            iterator = NamedIterator(ik, list(self.data_models_cache[self.object_to_data_model[object_id]]['fields'].keys()))
-            return iterator
-
-    def get_items_iterator(self, object_id):
-        if object_id:
-            ik = self.hcache_by_id[object_id].iteritems(config.prefetch_size)
-            data_model = self.data_models_cache[self.object_to_data_model[object_id]]
-            iterator = NamedItemsIterator(list(data_model.keys()), list(data_model.values()), len(list(data_model.keys())), ik)
-            return iterator
+    # def get_keys_iterator(self, object_id):
+    #     if object_id:
+    #         ik = self.hcache_by_id[object_id].iterkeys(config.prefetch_size)
+    #         iterator = NamedIterator(ik, list(self.data_models_cache[self.object_to_data_model[object_id]]['value_id'].keys()))
+    #         return iterator
+    #
+    # def get_values_iterator(self, object_id):
+    #     if object_id:
+    #         ik = self.hcache_by_id[object_id].itervalues(config.prefetch_size)
+    #         iterator = NamedIterator(ik, list(self.data_models_cache[self.object_to_data_model[object_id]]['fields'].keys()))
+    #         return iterator
+    #
+    # def get_items_iterator(self, object_id):
+    #     if object_id:
+    #         ik = self.hcache_by_id[object_id].iteritems(config.prefetch_size)
+    #         data_model = self.data_models_cache[self.object_to_data_model[object_id]]
+    #         iterator = NamedItemsIterator(list(data_model.keys()), list(data_model.values()), len(list(data_model.keys())), ik)
+    #         return iterator

@@ -14,10 +14,10 @@ from .tools import extract_ks_tab, get_istorage_attrs, storage_id_from_name
 class StorageNumpy(IStorage, np.ndarray):
     _build_args = None
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
-                                                  '(storage_id, table_name, obj_name, numpy_meta, block_id, base_numpy)'
+                                                  '(storage_id, obj_name, table_name, numpy_meta, block_id, base_numpy)'
                                                   'VALUES (?,?,?,?,?,?)')
 
-    args_names = ["storage_id", "table_name", "obj_name", "numpy_meta", "block_id", "base_numpy"]
+    args_names = ["storage_id", "obj_name", "table_name", "metas", "block_id", "base_numpy"]
     args = namedtuple('StorageNumpyArgs', args_names)
 
     def np_split(self, block_size: Tuple[int, int]):
@@ -67,7 +67,7 @@ class StorageNumpy(IStorage, np.ndarray):
         return obj
 
     def __init__(self, input_array=None, name=None, storage_id=None, **kwargs):
-        super(StorageNumpy, self).__init__()
+        IStorage.__init__(self)
         metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
                                self.itemsize, self.flags.num, 0)
         self._build_args = self.args(self.storage_id, self._class_name, self.get_name(), metas, self._block_id, None)
@@ -130,8 +130,8 @@ class StorageNumpy(IStorage, np.ndarray):
         log.debug("StorageObj: storing media %s", storage_args)
         try:
             config.session.execute(StorageNumpy._prepared_store_meta,
-                                   [storage_args.storage_id, storage_args.class_name,
-                                    storage_args.name, storage_args.metas, storage_args.block_id,
+                                   [storage_args.storage_id, storage_args.obj_name, storage_args.table_name,
+                                    storage_args.metas, storage_args.block_id,
                                     storage_args.base_numpy])
 
         except Exception as ex:
@@ -203,7 +203,7 @@ class StorageNumpy(IStorage, np.ndarray):
         super().make_persistent(name)
         #
         # if not self._built_remotely:
-        #     self._create_tables(name)
+        self._create_tables(name)
         #
         if not getattr(self, '_hcache', None):
              self._hcache = self._create_hcache(name)
@@ -211,7 +211,8 @@ class StorageNumpy(IStorage, np.ndarray):
         if None in self or not self.ndim:
              raise NotImplemented("Empty array persistance")
 
-        hfetch_metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
+        hfetch_metas = HArrayMetadata(list(self.shape),
+                                      list(self.strides), self.dtype.kind, self.dtype.byteorder,
                                       self.itemsize, self.flags.num, 0)
         self._build_args = self.args(self.storage_id, self._class_name, self.get_name(), hfetch_metas, self._block_id,
                                      None)
@@ -219,7 +220,7 @@ class StorageNumpy(IStorage, np.ndarray):
         if len(self.shape) != 0:
             self._hcache.store_numpy_slices([self.storage_id], self._build_args.metas, [self.base.view(np.ndarray)],
                                             None)
-        StorageNumpy._store_meta(self._build_args)
+        #StorageNumpy._store_meta(self._build_args)
 
     def stop_persistent(self):
         super().stop_persistent()

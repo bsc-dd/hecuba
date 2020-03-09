@@ -2,7 +2,6 @@
 #define HFETCH_UNITPARSER_H
 
 #include <Python.h>
-#include <numpy/arrayobject.h>
 
 #include <cassert>
 #include <cstring>

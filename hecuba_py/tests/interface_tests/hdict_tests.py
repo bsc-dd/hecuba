@@ -1,12 +1,17 @@
 import unittest
-import typing
 
-from hecuba_py.hecuba.hdict import StorageDict
+from hecuba import StorageDict
+from typing_extensions import TypedDict
 
 
 class MyTestCase(unittest.TestCase):
-    def test_something(self):
-        pass
+    def test_dict_str_int(self):
+        b = StorageDict('movie', TypedDict('Movie', {'name': str, 'year': int}))
+        b['year'] = 2000
+        b['name'] = 'ala'
+        a = StorageDict('movie')
+        print(a['year'])
+        print(a['name'])
 
 
 

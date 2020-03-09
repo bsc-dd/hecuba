@@ -41,10 +41,12 @@ class CqlCOMM(object):
     @staticmethod
     def register_data_model(data_model_id: int, definition: dict) -> None:
         # extract keys, values and so on
+        #TODO Are you sure? The overhead retrieving the model from C* later will be probably greater than if we recreate the datamodel again.
+        # A simple test should clarify this
         pass
 
     @staticmethod
-    def parse_definition_to_cass_format(fields_dict):
+    def parse_definition_to_cass_format(fields_dict: dict) -> str:
         all_values = ''
         for k, v in fields_dict.items():
             try:

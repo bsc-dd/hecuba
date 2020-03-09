@@ -647,7 +647,9 @@ static void hnumpy_store_dealloc(HNumpyStore *self) {
 
 static PyObject *hnumpy_store_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     HNumpyStore *self;
+    std::cout << "HOLA" << std::endl;
     self = (HNumpyStore *) type->tp_alloc(type, 0);
+    std::cout << "HOLA" << std::endl;
     return (PyObject *) self;
 }
 
@@ -755,7 +757,9 @@ static PyTypeObject hfetch_HNumpyStoreType = {
 
 static PyObject *harray_metadata_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     HArrayMetadata *self;
+    std::cout << "HOLA" << std::endl;
     self = (HArrayMetadata *) type->tp_alloc(type, 0);
+    std::cout << "HOLA" << std::endl;
     return (PyObject *) self;
 }
 

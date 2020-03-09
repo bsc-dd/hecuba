@@ -129,12 +129,6 @@ class StorageObj(IStorage):
         attr = storage.StorageAPI.get_record(self.storage_id, {
             'k': self.storage_id})
 
-        # if issubclass(value_info, IStorage):
-        #     # Build the IStorage obj
-        #     attr = value_info(name=self.get_name() + '_' + attribute, storage_id=attr,
-        #                       data_model=self._data_model_def["fields"][attribute], build_remotely=True)
-        # elif not attr:
-        #     raise AttributeError('Value not found for {}'.format(attribute))
         index = list(self._data_model_def["fields"]).index(attribute)
         object.__setattr__(self, attribute, attr[index])
         return attr[index]
@@ -165,7 +159,7 @@ class StorageObj(IStorage):
             if isinstance(value, StorageNumpy):
                 attr_name = self._name + '_' + attribute
                 value.make_persistent(attr_name)
-                storage.StorageAPI.put_record(self.storage_id, {'k': self.storage_id}, {attribute: value})
+                #storage.StorageAPI.put_record(self.storage_id, {'k': self.storage_id}, {attribute: value})
             elif isinstance(value, IStorage):
                 storage.StorageAPI.put_record(self.storage_id, {'k': self.storage_id}, {attribute: value.storage_id})
             else:
