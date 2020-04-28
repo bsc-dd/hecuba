@@ -193,7 +193,7 @@ if (NOT TBB_FOUND)
             TBB
             DOWNLOAD_DIR ${CMAKE_CURRENT_LIST_DIR}/dependencies
             URL "https://github.com/intel/tbb/archive/v2020.0.tar.gz"
-            URL_HASH SHA1=0b8e9db0c7672eea6207e6749e14ec80b1b4eaa7
+            URL_HASH SHA1=fd97f9c60e289fb6a45d3238ae5ac9de63b06c50
             CMAKE_COMMAND echo
             BUILD_COMMAND make tbb tbb_build_prefix=${build_prefix}
             BUILD_IN_SOURCE 1
