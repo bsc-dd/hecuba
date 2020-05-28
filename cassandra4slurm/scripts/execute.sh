@@ -48,7 +48,7 @@ fi
 
 CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
 CASS_HOME=$(cat $CFG_FILE | grep -v "#" | grep "CASS_HOME=" | tail -n 1 | sed 's/CASS_HOME=//g' | sed 's/"//g' | sed "s/'//g")
-MODULE_PATH=/apps/HECUBA/0.1.3/lib/cassandra4slurm
+MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
 UNIQ_ID="c4app"$(echo $RANDOM | cut -c -3)
 DEFAULT_APP_NODES=2
 DEFAULT_MAX_TIME="00:30:00"

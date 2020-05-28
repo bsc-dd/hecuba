@@ -24,7 +24,7 @@ CLUSTER_ID=${3}       # Cassandra4Slurm cluster identificator
 #$UNIQ_ID $APP_NODES $PYCOMPSS_SET $CLUSTER_ID
 
 export C4S_HOME=$HOME/.c4s
-MODULE_PATH=/apps/HECUBA/0.1.3/lib/cassandra4slurm
+MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
 CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
 export CASSFILE=$C4S_HOME/casslist-"$CLUSTER_ID".txt
 export APPFILE=$C4S_HOME/applist-"$UNIQ_ID".txt
