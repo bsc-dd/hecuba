@@ -30,6 +30,11 @@ if [ "$(echo "${5}" | sed 's/-//g')" == "infiniband" ]; then
 else
     iface="eth0"
 fi
+
+if [ "x$HECUBA_ROOT" == "x" ]; then
+    HECUBA_ROOT=/apps/HECUBA/0.1.4_dev
+fi
+
 MAKE_SNAPSHOT=0
 STORAGE_PROPS=${6}
 
@@ -42,7 +47,7 @@ source $STORAGE_PROPS
 
 export C4S_HOME=$HOME/.c4s
 export C4S_CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
-export MODULE_PATH=/apps/HECUBA/0.1.3/lib/cassandra4slurm
+export MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
 NODEFILE=$C4S_HOME/hostlist-"$UNIQ_ID".txt
 export CASSFILE=$C4S_HOME/casslist-"$UNIQ_ID".txt
 #export APPFILE=$C4S_HOME/applist-"$UNIQ_ID".txt
@@ -202,6 +207,9 @@ fi
 # THIS IS THE APPLICATION CODE EXECUTING SOME TASKS USING CASSANDRA DATA, ETC
 echo "CHECKING CASSANDRA STATUS: "
 $CASS_HOME/bin/nodetool status
+
+
+$MODULE_PATH/scripts/initialize_hecuba.sh
 
 firstnode=$(echo $seeds | awk -F ',' '{ print $1 }')
 CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $CASSFILE)

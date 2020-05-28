@@ -1,5 +1,5 @@
 #!/bin/bash
-HOME_PATH=${1}
+CASS_HOME=${1}
 DATA_PATH=${2}
 COMM_PATH=${3}
 SAV_CACHE=${4}
@@ -7,8 +7,8 @@ ROOT_PATH=${5}
 CLUSTER=${6}
 UNIQ_ID=${7}
 export C4S_HOME=$HOME/.c4s
-CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
-export CASS_HOME=$(cat $CFG_FILE | grep -v "#" | grep "CASS_HOME=" | tail -n 1 | sed 's/CASS_HOME=//g' | sed 's/"//g' | sed "s/'//g")
+#CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
+#export CASS_HOME=$(cat $CFG_FILE | grep -v "#" | grep "CASS_HOME=" | tail -n 1 | sed 's/CASS_HOME=//g' | sed 's/"//g' | sed "s/'//g")
 CASSFILE=$C4S_HOME/casslist-"$UNIQ_ID".txt
 TEMPLATE_FILE=$C4S_HOME/conf/template-aux-"$SLURM_JOB_ID".yaml
 NODE_YAML=$C4S_HOME/conf/cassandra-$(hostname).yaml
