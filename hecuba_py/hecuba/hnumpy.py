@@ -39,11 +39,11 @@ class StorageNumpy(IStorage, np.ndarray):
             istorage_metas = get_istorage_attrs(storage_id)
             name = name or istorage_metas[0].name
             numpy_metadata = istorage_metas[0].numpy_meta
+            base_metas = numpy_metadata
             base_numpy = istorage_metas[0].base_numpy
             if base_numpy is not None:
                 storage_id = base_numpy
-
-            base_metas = get_istorage_attrs(storage_id)[0].numpy_meta
+                base_metas = get_istorage_attrs(storage_id)[0].numpy_meta
 
             # Load array
             result = cls.reserve_numpy_array(storage_id, name, base_metas)
