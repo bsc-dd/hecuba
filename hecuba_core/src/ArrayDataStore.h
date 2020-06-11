@@ -38,6 +38,8 @@ public:
     std::string TN  = "";
 protected:
 
+    void store_numpy_partition_into_cas(const uint64_t *storage_id , Partition part) const;
+
     CacheTable *cache = nullptr, *read_cache = nullptr;
     CacheTable *metadata_cache = nullptr, *metadata_read_cache=nullptr;
 

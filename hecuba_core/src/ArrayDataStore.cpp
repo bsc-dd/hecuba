@@ -56,7 +56,6 @@ ArrayDataStore::~ArrayDataStore() {
     delete (this->metadata_read_cache);
 };
 
-
 /***
  * Stores the array metadata by setting the cluster and block ids to -1. Deletes the array metadata afterwards.
  * @param storage_id UUID used as part of the key
@@ -127,21 +126,36 @@ void ArrayDataStore::update_metadata(const uint64_t *storage_id, ArrayMetadata *
 /***
  * Write a complete numpy ndarray by using the partitioning mechanism defined in the metadata
  * @param storage_id identifying the numpy ndarray
- * @param np_metas ndarray characteristics
- * @param numpy to be saved into storage
+ * @param part partition to store
  */
-void ArrayDataStore::store_numpy_into_cas(const uint64_t *storage_id, ArrayMetadata &metadata, void *data) const {
-
-    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata, data);
-
+void ArrayDataStore::store_numpy_partition_into_cas(const uint64_t *storage_id , Partition part) const {
     char *keys = nullptr;
     void *values = nullptr;
-    uint32_t offset = 0, keys_size = sizeof(uint64_t *) + sizeof(int32_t) * 2;
-    uint64_t *c_uuid = nullptr;
     uint32_t half_int = 0;//(uint32_t)-1 >> (sizeof(uint32_t)*CHAR_BIT/2); //TODO be done properly
+#define NORMAL
+#ifdef NORMAL
+	struct keys {
+		uint64_t *storage_id;
+		int32_t cluster_id;
+		int32_t block_id;
+	};
+        struct keys * _keys = (struct keys *) malloc(sizeof(struct keys));
+        //UUID
+		uint64_t *c_uuid  = new uint64_t[2]{*storage_id, *(storage_id + 1)};
+        // [0] = storage_id.time_and_version;
+        // [1] = storage_id.clock_seq_and_node;
+        _keys->storage_id = &c_uuid[0]; // Fucking C++ const...
+        _keys->cluster_id = part.cluster_id - half_int; //Cluster id
+        _keys->block_id   = part.block_id   - half_int; //Block id
+
+        keys = (char *)_keys;
+        values = (char *) malloc(sizeof(char *));
+        memcpy(values, &part.data, sizeof(char *));
+#else
+    uint32_t offset = 0, keys_size = sizeof(uint64_t *) + sizeof(int32_t) * 2;
     int32_t cluster_id, block_id;
-    while (!partitions_it->isDone()) {
-        Partition part = partitions_it->getNextPartition();
+    uint64_t *c_uuid = nullptr;
+
         keys = (char *) malloc(keys_size);
         //UUID
         c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
@@ -160,8 +174,25 @@ void ArrayDataStore::store_numpy_into_cas(const uint64_t *storage_id, ArrayMetad
 
         values = (char *) malloc(sizeof(char *));
         memcpy(values, &part.data, sizeof(char *));
+#endif
         //FINALLY WE WRITE THE DATA
         cache->put_crow(keys, values);
+}
+
+
+/***
+ * Write a complete numpy ndarray by using the partitioning mechanism defined in the metadata
+ * @param storage_id identifying the numpy ndarray
+ * @param np_metas ndarray characteristics
+ * @param numpy to be saved into storage
+ */
+void ArrayDataStore::store_numpy_into_cas(const uint64_t *storage_id, ArrayMetadata &metadata, void *data) const {
+
+    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata, data);
+
+    while (!partitions_it->isDone()) {
+        Partition part = partitions_it->getNextPartition();
+        store_numpy_partition_into_cas(storage_id, part);
     }
     //this->partitioner.serialize_metas();
     delete (partitions_it);
@@ -171,13 +202,6 @@ void ArrayDataStore::store_numpy_into_cas(const uint64_t *storage_id, ArrayMetad
 
 void ArrayDataStore::store_numpy_into_cas_by_coords(const uint64_t *storage_id, ArrayMetadata &metadata, void *data,
                                                     std::list<std::vector<uint32_t> > &coord) const {
-
-    char *keys = nullptr;
-    void *values = nullptr;
-    uint32_t offset = 0, keys_size = sizeof(uint64_t *) + sizeof(int32_t) * 2;
-    uint64_t *c_uuid = nullptr;
-    uint32_t half_int = 0;//(uint32_t)-1 >> (sizeof(uint32_t)*CHAR_BIT/2); //TODO be done properly
-    int32_t cluster_id, block_id;
 
     SpaceFillingCurve::PartitionGenerator *partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, data,
                                                                                                         coord);
@@ -195,26 +219,7 @@ void ArrayDataStore::store_numpy_into_cas_by_coords(const uint64_t *storage_id, 
 
     for (auto it = partitions.begin(); it != partitions.end(); ++it) {
         auto part = *it;
-        keys = (char *) malloc(keys_size);
-        //UUID
-        c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
-        // [0] = storage_id.time_and_version;
-        // [1] = storage_id.clock_seq_and_node;
-        memcpy(keys, &c_uuid, sizeof(uint64_t *));
-        offset = sizeof(uint64_t *);
-        //Cluster id
-        cluster_id = part.cluster_id - half_int;
-        memcpy(keys + offset, &cluster_id, sizeof(int32_t));
-        offset += sizeof(int32_t);
-        //Block id
-        block_id = part.block_id - half_int;
-        memcpy(keys + offset, &block_id, sizeof(int32_t));
-        //COPY VALUES
-
-        values = (char *) malloc(sizeof(char *));
-        memcpy(values, &part.data, sizeof(char *));
-        //FINALLY WE WRITE THE DATA
-        cache->put_crow(keys, values);
+        store_numpy_partition_into_cas(storage_id, part);
     }
     //this->partitioner.serialize_metas();
     delete (partitions_it);
