@@ -17,6 +17,21 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
     TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names, session);
     this->cache = new CacheTable(table_meta, session, config);
 
+    std::vector<std::map<std::string, std::string> > keys_arrow_names = {{{"name", "storage_id"}},
+                                                                         {{"name", "col_id"}},
+                                                                         {{"name", "row_id"}}};
+
+    std::vector<std::map<std::string, std::string> > columns_arrow_names = {{{"name", "size_elem"}},
+                                                                            {{"name", "payload"}}};
+    std::string table_arrow = table;
+    table_arrow.append("_arrow");
+    std::string keyspace_arrow = keyspace;
+    keyspace_arrow.append("_arrow");
+
+    TableMetadata *table_meta_arrow = new TableMetadata(table_arrow.c_str(), keyspace_arrow.c_str(),
+                                                        keys_arrow_names, columns_arrow_names, session);
+    this->cache_arrow = new CacheTable(table_meta_arrow, session, config);
+
     std::vector<std::map<std::string, std::string>> read_keys_names(keys_names.begin(), (keys_names.end() - 1));
     std::vector<std::map<std::string, std::string>> read_columns_names = columns_names;
     read_columns_names.insert(read_columns_names.begin(), keys_names.back());
@@ -181,6 +196,58 @@ void ArrayDataStore::store_numpy_partition_into_cas(const uint64_t *storage_id ,
 
 
 /***
+ * Write a complete numpy ndarray by columns (using arrow)
+ * @param storage_id identifying the numpy ndarray
+ * @param np_metas ndarray characteristics
+ * @param numpy to be saved into storage
+ */
+void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
+									ArrayMetadata &metadata, void *data) const {
+
+	assert( metadata.dims.size() <= 2 ); // First version only supports 2 dimensions
+
+	// Calculate row and element sizes
+	uint64_t row_size	= metadata.strides[0];
+	uint32_t elem_size	= metadata.elem_size;
+
+	// Calculate number of rows and columns
+	uint64_t num_columns = metadata.dims[1];
+	uint64_t num_rows	= metadata.dims[0];
+
+	char *column;
+	for(uint64_t i = 0; i < num_columns; i++) {
+		column = (char*) malloc(num_rows*elem_size); //Build a consecutive memory region
+		char * dest = column;
+		for (uint64_t j = 0; j < num_rows; j++) {
+			const char * src = (char*)data + j*row_size + i*elem_size; // data[j][i]
+			memcpy(dest, src, elem_size); // column[j] = data[j][i]
+			dest += elem_size; //Next columnar item
+		}
+		//Store column
+		struct keys {
+			uint64_t storage_id;
+			uint64_t col_id;
+			uint64_t row_id;
+		};
+		struct keys * _keys = (struct keys *) malloc(sizeof(struct keys));
+		//UUID
+		_keys->storage_id = *storage_id;
+		_keys->col_id     = i;
+		_keys->row_id     = 0;
+
+		struct values {
+			uint32_t elem_size;
+			void* payload;
+		};
+		struct values * _values = (struct values *) malloc(sizeof(struct values));
+		_values->elem_size = elem_size;
+		_values->payload   = column; // TODO: DOUBLE CHECK!!
+
+		cache_arrow->put_crow( (void*)_keys, (void*)_values ); //Send column to cassandra
+	}
+}
+
+/***
  * Write a complete numpy ndarray by using the partitioning mechanism defined in the metadata
  * @param storage_id identifying the numpy ndarray
  * @param np_metas ndarray characteristics
@@ -198,6 +265,7 @@ void ArrayDataStore::store_numpy_into_cas(const uint64_t *storage_id, ArrayMetad
     delete (partitions_it);
 
     // No need to flush the elements because the metadata are written after the data thanks to the queue
+    store_numpy_into_cas_as_arrow(storage_id, metadata, data);
 }
 
 void ArrayDataStore::store_numpy_into_cas_by_coords(const uint64_t *storage_id, ArrayMetadata &metadata, void *data,
@@ -223,6 +291,7 @@ void ArrayDataStore::store_numpy_into_cas_by_coords(const uint64_t *storage_id, 
     }
     //this->partitioner.serialize_metas();
     delete (partitions_it);
+    // FIXME store_numpy_into_cas_by_coords_as_arrow(storage_id, metadata, data, coord);
 }
 
 /***
