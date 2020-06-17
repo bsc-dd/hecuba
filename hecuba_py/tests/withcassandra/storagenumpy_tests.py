@@ -222,6 +222,16 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertIsInstance(description, str)
         hecu.delete_persistent()
 
+    def test_slice_from_numpy_array(self):
+        obj = np.arange(8 * 8 * 8).reshape((8, 8, 8))
+        hecu = StorageNumpy(input_array=obj, name='some_name')
+        l = np.array((0,1))
+        hecu_sub = hecu[l]  #Access using an array of indexes
+# FIXME add more testing, currently if it does not segfault, then it works
+#        sum = hecu_sub.sum()
+#        self.assertEqual(sum, obj[l].sum())
+        hecu.delete_persistent()
+
     def test_iter_numpy(self):
         obj = np.arange(8 * 8 * 8).reshape((8, 8, 8))
         hecu = StorageNumpy(input_array=obj, name='some_name')
