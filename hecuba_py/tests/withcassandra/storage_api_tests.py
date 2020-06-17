@@ -2,7 +2,8 @@ import unittest
 
 from storage.api import getByID
 from ..app.words import Words
-from storage.api import StorageDict, StorageObject, StorageNumpy
+from hecuba import StorageDict, StorageNumpy
+from hecuba import StorageObj as StorageObject
 
 
 class ApiTestSDict(StorageDict):
