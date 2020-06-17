@@ -152,17 +152,19 @@ class StorageNumpy(IStorage, np.ndarray):
     def __getitem__(self, sliced_coord):
         log.info("RETRIEVING NUMPY")
         if self._is_persistent and not self._numpy_full_loaded:
-            if sliced_coord == slice(None, None, None):
+            if isinstance(sliced_coord, slice) and sliced_coord == slice(None, None, None):
                 new_coords = []
             else:
                 try:
-                    all_coords = np.argwhere(self.view(np.ndarray) == self.view(np.ndarray)).reshape(
-                        *self.view(np.ndarray).shape, self.view(np.ndarray).ndim) // self._row_elem
-                    new_coords = all_coords[sliced_coord].reshape(-1, self.view(np.ndarray).ndim)
+                    all_coords = np.array(list(np.ndindex(self.shape))).reshape(*self.shape,self.ndim)
+                    new_coords = all_coords[sliced_coord] // self._row_elem
+                    new_coords = new_coords.reshape(-1, self.ndim)
                 except IndexError:
                     return super(StorageNumpy, self).__getitem__(sliced_coord)
+                # yolandab: is this necessary?
                 new_coords = [tuple(coord) for coord in new_coords]
                 new_coords = list(dict.fromkeys(new_coords))
+
             # coordinates is the union between the loaded coordiantes and the new ones
             coordinates = list(set(it.chain.from_iterable((self._loaded_coordinates, new_coords))))
 
@@ -182,15 +184,16 @@ class StorageNumpy(IStorage, np.ndarray):
     def __setitem__(self, sliced_coord, values):
         log.info("WRITING NUMPY")
         if self._is_persistent:
-            if sliced_coord == slice(None, None, None):
+            if isinstance(sliced_coord, slice) and sliced_coord == slice(None, None, None):
                 new_coords = []
             else:
                 try:
-                    all_coords = np.argwhere(self.view(np.ndarray) == self.view(np.ndarray)).reshape(
-                        *self.view(np.ndarray).shape, self.view(np.ndarray).ndim) // self._row_elem
-                    new_coords = all_coords[sliced_coord].reshape(-1, self.view(np.ndarray).ndim)
+                    all_coords =  np.array(list(np.ndindex(self.shape))).reshape(*self.shape,self.ndim)
+                    new_coords = all_coords[sliced_coord] // self._row_elem
+                    new_coords = new_coords.reshape(-1, self.ndim)
                 except IndexError:
-                    return super(StorageNumpy, self).__getitem__(sliced_coord)
+                    return super(StorageNumpy, self).__setitem__(sliced_coord,values)
+
                 new_coords = [tuple(coord) for coord in new_coords]
                 new_coords = list(dict.fromkeys(new_coords))
             # coordinates is the union between the loaded coordiantes and the new ones
