@@ -28,7 +28,7 @@ cd build;make;make install
 
 # getting TBB
 cd;curl -L https://github.com/intel/tbb/archive/v2020.0.tar.gz|tar -xz
-cd tbb-2020.0/
+cd oneTBB-2020.0/
 make tbb
 cp -r build/*_release/libtbb.so*  /usr/lib64
 cp -r include/tbb /usr/include
