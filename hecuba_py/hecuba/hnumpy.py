@@ -52,6 +52,7 @@ class StorageNumpy(IStorage, np.ndarray):
             (obj._ksp, obj._table) = extract_ks_tab(name)
             obj._hcache = result[1]
             obj.storage_id = storage_id
+            obj._row_elem = obj._hcache.get_elements_per_row(storage_id, base_metas)[0]
             if base_numpy is not None:
                 obj._partition_dims = numpy_metadata.dims
         else:
@@ -75,7 +76,6 @@ class StorageNumpy(IStorage, np.ndarray):
         if self._get_name() or self.storage_id:
             if input_array is not None:
                 self.make_persistent(self._get_name())
-            self._row_elem = self._hcache.get_elements_per_row(self.storage_id, metas)[0]
             self._is_persistent = True
 
     # used as copy constructor
@@ -218,11 +218,11 @@ class StorageNumpy(IStorage, np.ndarray):
                                       self.itemsize, self.flags.num, 0)
         self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas, self._block_id,
                                      None)
-
         if len(self.shape) != 0:
             self._hcache.store_numpy_slices([self.storage_id], self._build_args.metas, [self.base.view(np.ndarray)],
                                             None)
         StorageNumpy._store_meta(self._build_args)
+        self._row_elem = self._hcache.get_elements_per_row(self.storage_id, self._build_args.metas)[0]
 
     def stop_persistent(self):
         super().stop_persistent()
