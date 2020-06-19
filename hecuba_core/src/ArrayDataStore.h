@@ -9,6 +9,36 @@
 #include <list>
 #include <set>
 
+#include <arrow/memory_pool.h>
+#include <arrow/io/file.h>
+#include <arrow/status.h>
+#include <arrow/ipc/reader.h>
+#include <arrow/buffer.h>
+#include <arrow/array.h>
+#include <arrow/type.h>
+#include <arrow/type_fwd.h>
+#include <arrow/util/key_value_metadata.h>
+#include <arrow/io/api.h>
+#include <arrow/ipc/writer.h>
+#include <arrow/io/interfaces.h>
+#include <arrow/ipc/feather.h>
+#include "arrow/io/file.h"
+#include "arrow/ipc/reader.h"
+#include "arrow/ipc/writer.h"
+#include "arrow/status.h"
+#include "arrow/util/io_util.h"
+#include <arrow/memory_pool.h>
+#include <arrow/io/file.h>
+#include <arrow/status.h>
+#include <arrow/ipc/reader.h>
+#include <arrow/buffer.h>
+#include <arrow/array.h>
+#include <arrow/type.h>
+#include <arrow/type_fwd.h>
+#include <arrow/util/key_value_metadata.h>
+#include <arrow/array/builder_primitive.h>
+#include <arrow/array/builder_binary.h>
+
 class ArrayDataStore {
 
 public:

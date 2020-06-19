@@ -14,30 +14,37 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
     std::vector<std::map<std::string, std::string> > columns_names = {{{"name", "payload"}}};
 
 
+std::cout << " === ArrayDataStore before TableMetaData" << std::endl;
     TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names, session);
+std::cout << " === ArrayDataStore before CacheTable" << std::endl;
     this->cache = new CacheTable(table_meta, session, config);
+std::cout << " === ArrayDataStore after CacheTable" << std::endl;
 
     std::vector<std::map<std::string, std::string> > keys_arrow_names = {{{"name", "storage_id"}},
-                                                                         {{"name", "col_id"}},
-                                                                         {{"name", "row_id"}}};
+                                                                         {{"name", "col_id"}}}; //!!!!!!ponerlo en columns_arrow_names
 
-    std::vector<std::map<std::string, std::string> > columns_arrow_names = {{{"name", "size_elem"}},
+    std::vector<std::map<std::string, std::string> > columns_arrow_names = {{{"name", "row_id"}},
+                                                                            {{"name", "size_elem"}},
                                                                             {{"name", "payload"}}};
     std::string table_arrow = table;
-    table_arrow.append("_arrow");
+    table_arrow.append("_buffer");
     std::string keyspace_arrow = keyspace;
     keyspace_arrow.append("_arrow");
 
+std::cout << " === ArrayDataStore before TableMetaData arrow" << std::endl;
     TableMetadata *table_meta_arrow = new TableMetadata(table_arrow.c_str(), keyspace_arrow.c_str(),
                                                         keys_arrow_names, columns_arrow_names, session);
+std::cout << " === ArrayDataStore before CacheTable arrow" << std::endl;
     this->cache_arrow = new CacheTable(table_meta_arrow, session, config);
+std::cout << " === ArrayDataStore after CacheTable arrow" << std::endl;
 
     std::vector<std::map<std::string, std::string>> read_keys_names(keys_names.begin(), (keys_names.end() - 1));
     std::vector<std::map<std::string, std::string>> read_columns_names = columns_names;
     read_columns_names.insert(read_columns_names.begin(), keys_names.back());
 
+    std::cout << " === ArrayDataStore before read TableMetaData" << std::endl;
     table_meta = new TableMetadata(table, keyspace, read_keys_names, read_columns_names, session);
-
+    std::cout << " === ArrayDataStore before read CacheTable" << std::endl;
     this->read_cache = new CacheTable(table_meta, session, config);
 
     //Metadata needed only for *reading* numpy metas from hecuba.istorage
@@ -61,6 +68,7 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
 
     this->metadata_read_cache = new CacheTable(metadata_table_meta, session, config);
 
+    std::cout << " === ArrayDataStore after read CacheTable" << std::endl;
 }
 
 
@@ -156,7 +164,7 @@ void ArrayDataStore::store_numpy_partition_into_cas(const uint64_t *storage_id ,
 	};
         struct keys * _keys = (struct keys *) malloc(sizeof(struct keys));
         //UUID
-		uint64_t *c_uuid  = new uint64_t[2]{*storage_id, *(storage_id + 1)};
+        uint64_t *c_uuid  = new uint64_t[2]{*storage_id, *(storage_id + 1)};
         // [0] = storage_id.time_and_version;
         // [1] = storage_id.clock_seq_and_node;
         _keys->storage_id = &c_uuid[0]; // Fucking C++ const...
@@ -214,6 +222,108 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
 	uint64_t num_columns = metadata.dims[1];
 	uint64_t num_rows	= metadata.dims[0];
 
+	std::cout << "row_size: " << row_size << std::endl;
+    std::cout << "elem_size: " << elem_size << std::endl;
+    std::cout << "num_columns: " << num_columns << std::endl;
+    std::cout << "num_rows: " << num_rows << std::endl;
+
+#define ARROW
+#ifdef ARROW
+    //arrow
+	arrow::Status status;
+    //std::cout << "before arrow::default_memory_pool" << std::endl;
+    auto memory_pool = arrow::default_memory_pool(); //arrow
+    //std::cout << "before arrow::field" << std::endl;
+    auto field = arrow::field("field", arrow::binary());
+    //std::cout << "before vector<std::shared_ptr<arrow::Field>> fields" << std::endl;
+    std::vector<std::shared_ptr<arrow::Field>> fields = {field};
+    //std::cout << "before std::make_shared<arrow::Schema>" << std::endl;
+    auto schema = std::make_shared<arrow::Schema>(fields);
+
+    //std::cout << "entering loop..." << std::endl;
+    for(uint64_t i = 0; i < num_columns; ++i) {
+        arrow::BinaryBuilder builder(arrow::binary(), memory_pool); //arrow
+        status = builder.Resize(num_rows); //arrow
+        if (!status.ok())
+            std::cout << "Status: " << status.ToString() << " at builder.Resize" << std::endl;
+        for (uint64_t j = 0; j < num_rows; ++j) {
+            const char * src = (char*)data + j*row_size + i*elem_size; // data[j][i]
+            status = builder.Append(src, elem_size);
+            if (!status.ok())
+                std::cout << "Status: " << status.ToString() << " at builder.Append" << std::endl;
+        }
+        std::shared_ptr<arrow::Array> array;
+        status = builder.Finish(&array);
+        if (!status.ok())
+            std::cout << "Status: " << status.ToString() << " at builder.Finish" << std::endl;
+        auto batch = arrow::RecordBatch::Make(schema, num_rows, {array});
+        std::shared_ptr<arrow::io::BufferOutputStream> bufferOutputStream;
+        status = arrow::io::BufferOutputStream::Create(0, memory_pool, &bufferOutputStream);
+        if (!status.ok())
+            std::cout << "Status: " << status.ToString() << " at BufferOutputStream::Create" << std::endl;
+        std::shared_ptr<arrow::ipc::RecordBatchWriter> file_writer;
+        status = arrow::ipc::RecordBatchFileWriter::Open(bufferOutputStream.get(), schema, &file_writer);
+        if (!status.ok())
+            std::cout << "Status: " << status.ToString() << " at RecordBatchFileWriter::Open" << std::endl;
+
+        status = file_writer->WriteRecordBatch(*batch);
+        if (!status.ok())
+            std::cout << "Status: " << status.ToString() << " at file_writer->WriteRecordBatch" << std::endl;
+        status = file_writer->Close();
+        if (!status.ok())
+            std::cout << "Status: " << status.ToString() << " at file_writer->Close" << std::endl;
+        status = bufferOutputStream->Close();
+        if (!status.ok())
+            std::cout << "Status: " << status.ToString() << " at bufferOutputStream->Close" << std::endl;
+
+        std::shared_ptr<arrow::Buffer> result;
+        status = bufferOutputStream->Finish(&result); //arrow
+        if (!status.ok())
+            std::cout << "Status: " << status.ToString() << " at bufferOutputStream->Finish" << std::endl;
+
+        std::cout << "Arrow processing ended" << std::endl;
+        //Store column
+        struct keys {
+            uint64_t *storage_id;
+            uint64_t col_id;
+        };
+        struct keys * _keys = (struct keys *) malloc(sizeof(struct keys));
+        //UUID
+        uint64_t *c_uuid  = new uint64_t[2]{*storage_id, *(storage_id + 1)};
+        // [0] = storage_id.time_and_version;
+        // [1] = storage_id.clock_seq_and_node;
+        _keys->storage_id = &c_uuid[0]; // Fucking C++ const...
+        _keys->col_id     = i;
+
+        struct values {
+            uint64_t row_id;
+            uint32_t elem_size;
+            void* payload;
+        };
+        struct values * _values = (struct values *) malloc(sizeof(struct values));
+	_values->row_id    = 0;
+        _values->elem_size = elem_size;
+	
+	void *mypayload = malloc(sizeof(uint64_t) + result->size());
+	//FIXME Create payload: Lots of UNNECESSARY copies
+	uint64_t arrow_size = result->size();
+	memcpy(mypayload, &arrow_size, sizeof(uint64_t));
+	memcpy((char*)mypayload +sizeof(uint64_t), result->data(), result->size());
+
+	void *mypayloadptr = malloc(sizeof(char*));
+	memcpy(mypayloadptr, mypayload, sizeof(char*));
+
+	
+        //_values->payload   = reinterpret_cast<void*>(const_cast<uint8_t*>(result->data()));
+        _values->payload   = mypayloadptr;
+
+        std::cout << "before cache_arrow->put_crow" << std::endl;
+        cache_arrow->put_crow( (void*)_keys, (void*)_values ); //Send column to cassandra
+    }
+
+    std::cout << "end store_numpy_into_cas_as_arrow" << std::endl;
+
+#else
 	char *column;
 	for(uint64_t i = 0; i < num_columns; i++) {
 		column = (char*) malloc(num_rows*elem_size); //Build a consecutive memory region
@@ -245,6 +355,7 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
 
 		cache_arrow->put_crow( (void*)_keys, (void*)_values ); //Send column to cassandra
 	}
+#endif
 }
 
 /***

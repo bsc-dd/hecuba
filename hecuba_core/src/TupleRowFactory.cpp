@@ -398,9 +398,11 @@ TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t o
         throw ModuleException("Statement bind: Found " + std::to_string(row->n_elem()) + ", expected " +
                               std::to_string(metadata->size()));
 
+    std::cout << " = = TupleRowFactory::bind " << std::to_string(row->n_elem()) << std::endl;
     for (uint16_t i = 0; i < row->n_elem(); ++i) {
         uint16_t bind_pos = offset + i;
         const void *element_i = row->get_element(i);
+    	std::cout << " = = = element " << std::endl;
         if (element_i != nullptr && !row->isNull(i)) {
             switch (metadata->at(i).type) {
                 case CASS_VALUE_TYPE_VARCHAR:
@@ -423,11 +425,18 @@ TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t o
                     break;
                 }
                 case CASS_VALUE_TYPE_BLOB: {
+    		    std::cout << " = = = = BLOB " << std::endl;
                     unsigned char *byte_array;
                     byte_array = *(unsigned char **) element_i;
                     uint64_t *num_bytes = (uint64_t *) byte_array;
                     const unsigned char *bytes = byte_array + sizeof(uint64_t);
+                    std::cout << "num_bytes: " << num_bytes << std::endl;
+                    std::cout << "*num_bytes: " << *num_bytes << std::endl;
+    		    std::cout << " = = = = BLOB before calling cassandra" << std::endl;
                     cass_statement_bind_bytes(statement, bind_pos, bytes, *num_bytes);
+                    //CassError rc = cass_statement_bind_bytes(statement, bind_pos, bytes, *num_bytes);
+                    //CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [blob], column:" +
+                               //metadata->at(i).info.begin()->second);
                     break;
                 }
                 case CASS_VALUE_TYPE_BOOLEAN: {

@@ -88,12 +88,14 @@ const void CacheTable::flush_elements() const {
 }
 
 void CacheTable::put_crow(const TupleRow *keys, const TupleRow *values) {
+    std::cout << "put_crow TupleRow" << std::endl;
     this->writer->write_to_cassandra(keys, values);
     if (myCache) this->myCache->add(*keys, values); //Inserts if not present, otherwise replaces
 }
 
 
 void CacheTable::put_crow(void *keys, void *values) {
+    std::cout << "put_crow void" << std::endl;
     const TupleRow *k = keys_factory->make_tuple(keys);
     const TupleRow *v = values_factory->make_tuple(values);
     this->put_crow(k, v);
