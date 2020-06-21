@@ -1400,7 +1400,7 @@ static PyObject *create_iter_items(HCache *self, PyObject *args) {
                 config[conf_key] = std::to_string(c_val);
             }
         }
-    } else if PyLong_Check((py_config)) {
+    } else if (PyLong_Check((py_config))) {
         int32_t c_val = (int32_t) PyLong_AsLong(py_config);
         config["prefetch_size"] = std::to_string(c_val);
     }
@@ -1458,7 +1458,7 @@ static PyObject *create_iter_keys(HCache *self, PyObject *args) {
             }
 
         }
-    } else if PyLong_Check((py_config)) {
+    } else if (PyLong_Check((py_config))) {
         int32_t c_val = (int32_t) PyLong_AsLong(py_config);
         config["prefetch_size"] = std::to_string(c_val);
     }
@@ -1512,7 +1512,7 @@ static PyObject *create_iter_values(HCache *self, PyObject *args) {
             }
 
         }
-    } else if PyLong_Check((py_config)) {
+    } else if (PyLong_Check((py_config))) {
         int32_t c_val = (int32_t) PyLong_AsLong(py_config);
         config["prefetch_size"] = std::to_string(c_val);
     }
