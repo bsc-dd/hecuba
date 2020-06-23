@@ -301,19 +301,19 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
             void* payload;
         };
         struct values * _values = (struct values *) malloc(sizeof(struct values));
-	_values->row_id    = 0;
+        _values->row_id    = 0;
         _values->elem_size = elem_size;
-	
-	void *mypayload = malloc(sizeof(uint64_t) + result->size());
-	//FIXME Create payload: Lots of UNNECESSARY copies
-	uint64_t arrow_size = result->size();
-	memcpy(mypayload, &arrow_size, sizeof(uint64_t));
-	memcpy((char*)mypayload +sizeof(uint64_t), result->data(), result->size());
 
-	void *mypayloadptr = malloc(sizeof(char*));
-	memcpy(mypayloadptr, mypayload, sizeof(char*));
+        void *mypayload = malloc(sizeof(uint64_t) + result->size());
+        //FIXME Create payload: Lots of UNNECESSARY copies
+        uint64_t arrow_size = result->size();
+        memcpy(mypayload, &arrow_size, sizeof(uint64_t));
+        memcpy((char*)mypayload + sizeof(uint64_t), result->data(), result->size());
 
-	
+        void *mypayloadptr = malloc(sizeof(char*));
+        memcpy(mypayloadptr, mypayload, sizeof(char*));
+
+
         //_values->payload   = reinterpret_cast<void*>(const_cast<uint8_t*>(result->data()));
         _values->payload   = mypayloadptr;
 
