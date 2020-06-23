@@ -130,6 +130,7 @@ set_property(TARGET hfetch PROPERTY POSITION_INDEPENDENT_CODE ON) # Add -fPIC op
 FIND_LIBRARY(CASS NAMES cassandra PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
 FIND_LIBRARY(LIBUV NAMES uv PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
 FIND_LIBRARY(TBB NAMES tbb PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
+FIND_LIBRARY(ARROW NAMES arrow PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
 
 IF (NOT LIBUV)
     message("Downloading LIBUV (requisite for Cassandra C++ driver)")
@@ -209,6 +210,13 @@ else ()
     set(ALL_LIBS ${ALL_LIBS} ${TBB})
 endif ()
 
+if (NOT ARROW)
+	message("FIXME Arrow not found! Download and compilation instructions missing!")
+	unset(ARROW)
+else ()
+	message(STATUS "Using system's ARROW " ${ARROW})
+	set(ALL_LIBS ${ALL_LIBS} ${ARROW})
+endif ()
 
 target_link_libraries(hfetch ${ALL_LIBS})
 
