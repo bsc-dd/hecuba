@@ -101,10 +101,10 @@ class StorageObj(IStorage):
             Creates the necessary tables on the backend to store the object data.
         """
 
-        log.info("CREATING KEYSPACE AND TABLE %s %s", self._ksp, self._table)
+        log.info("CREATING KEYSPACE AND TABLE %s %s",self._ksp, self._table)
 
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
-        config.session.execute(query_keyspace)
+        config.executelocked(query_keyspace)
 
         query_simple = 'CREATE TABLE IF NOT EXISTS ' + self._ksp + '.' + self._table + \
                        '( storage_id uuid PRIMARY KEY, '
@@ -118,7 +118,7 @@ class StorageObj(IStorage):
             else:
                 query_simple += 'uuid, '
         try:
-            config.session.execute(query_simple[:-2] + ' )')
+            config.executelocked(query_simple[:-2] + ' )')
         except Exception as ir:
             log.error("Unable to execute %s", query_simple)
             raise ir

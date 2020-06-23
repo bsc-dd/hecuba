@@ -100,14 +100,14 @@ class StorageNumpy(IStorage, np.ndarray):
     def _create_tables(name):
         (ksp, table) = extract_ks_tab(name)
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (ksp, config.replication)
-        config.session.execute(query_keyspace)
+        config.executelocked(query_keyspace)
 
-        config.session.execute(
-            'CREATE TABLE IF NOT EXISTS ' + ksp + '.' + table + '(storage_id uuid , '
-                                                                'cluster_id int, '
-                                                                'block_id int, '
-                                                                'payload blob, '
-                                                                'PRIMARY KEY((storage_id,cluster_id),block_id))')
+        query_table='CREATE TABLE IF NOT EXISTS ' + ksp + '.' + table + '(storage_id uuid , ' \
+                                                                         'cluster_id int, '   \
+                                                                         'block_id int, '     \
+                                                                         'payload blob, '     \
+                                                                         'PRIMARY KEY((storage_id,cluster_id),block_id))'
+        config.executelocked(query_table)
 
     @staticmethod
     def _create_hcache(name):

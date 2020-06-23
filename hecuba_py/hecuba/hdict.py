@@ -368,7 +368,7 @@ class StorageDict(IStorage, dict):
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (self._ksp, config.replication)
         try:
             log.debug('MAKE PERSISTENCE: %s', query_keyspace)
-            config.session.execute(query_keyspace)
+            config.executelocked(query_keyspace)
         except Exception as ex:
             log.warn("Error creating the StorageDict keyspace %s, %s", (query_keyspace), ex)
             raise ex
@@ -382,7 +382,7 @@ class StorageDict(IStorage, dict):
                          str.join(',', key_names))
         try:
             log.debug('MAKE PERSISTENCE: %s', query_table)
-            config.session.execute(query_table)
+            config.executelocked(query_table)
         except Exception as ex:
             log.warn("Error creating the StorageDict table: %s %s", query_table, ex)
             raise ex
@@ -392,14 +392,14 @@ class StorageDict(IStorage, dict):
             index_query += self._ksp + '.' + self._table + ' (' + str.join(',', self._indexed_on) + ') '
             index_query += "using 'es.bsc.qbeast.index.QbeastIndex';"
             try:
-                config.session.execute(index_query)
+                config.executelocked(index_query)
             except Exception as ex:
                 log.error("Error creating the Qbeast custom index: %s %s", index_query, ex)
                 raise ex
             trigger_query = "CREATE TRIGGER IF NOT EXISTS %s%s_qtr ON %s.%s USING 'es.bsc.qbeast.index.QbeastTrigger';" % \
                             (self._ksp, self._table, self._ksp, self._table)
             try:
-                config.session.execute(trigger_query)
+                config.executelocked(trigger_query)
             except Exception as ex:
                 log.error("Error creating the Qbeast trigger: %s %s", trigger_query, ex)
                 raise ex
