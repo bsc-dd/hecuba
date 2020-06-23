@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 
 from cassandra.cluster import Cluster
 from cassandra.policies import RetryPolicy, RoundRobinPolicy, TokenAwarePolicy
@@ -54,6 +55,17 @@ class Config:
     def __getattr__(self, item):
         return getattr(Config.instance, item)
 
+    def executelocked(self,query):
+        if self.instance.concurrent_creation:
+            r=self.instance.session.execute(self.instance._query_to_lock,[query])
+            if r[0][0]:
+                self.instance.session.execute(query)
+            else:
+                # FIXME find a better way to do this instead of an sleep... describe?
+                time.sleep(.300)
+        else:
+            self.instance.session.execute(query)
+
     def __init__(self):
         singleton = Config.instance
         if singleton.configured:
@@ -62,11 +74,16 @@ class Config:
 
         singleton.configured = True
 
+        if 'CONCURRENT_CREATION' in os.environ:
+            singleton.concurrent_creation = bool(os.environ['CONCURRENT_CREATION'])
+        else:
+            singleton.concurrent_creation = False
+
         if 'CREATE_SCHEMA' in os.environ:
             singleton.id_create_schema = int(os.environ['CREATE_SCHEMA'])
         else:
             singleton.id_create_schema = -1
-
+        print("YOLIDEBUG: create_schema: %s"%(str(singleton.id_create_schema)))
         try:
             singleton.nodePort = int(os.environ['NODE_PORT'])
             log.info('NODE_PORT: %d', singleton.nodePort)
@@ -203,7 +220,9 @@ class Config:
                                     default_retry_policy=_NRetry(5))
         singleton.session = singleton.cluster.connect()
         singleton.session.encoder.mapping[tuple] = singleton.session.encoder.cql_encode_tuple
+        singleton._query_to_lock=singleton.session.prepare("INSERT into hecuba_locks.table_lock (table_name) values (?) if not exists;")
         if singleton.id_create_schema == -1:
+            print("YOLIDEBUG HEMOS ENTRADO :(")
             queries = [
                 "CREATE KEYSPACE IF NOT EXISTS hecuba  WITH replication = %s" % singleton.replication,
                 """CREATE TYPE IF NOT EXISTS hecuba.q_meta(
@@ -228,10 +247,12 @@ class Config:
                 primary_keys list<frozen<tuple<text,text>>>,
                 columns list<frozen<tuple<text,text>>>,
                 PRIMARY KEY(storage_id));
-                """]
+                """,
+                "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (singleton.execution_name, singleton.replication)]
             for query in queries:
                 try:
-                    singleton.session.execute(query)
+                    self.executelocked(query)
+                    print("YUHUUUUUUUUUUUUU\n")
                 except Exception as e:
                     log.error("Error executing query %s" % query)
                     raise e
@@ -240,7 +261,11 @@ class Config:
         # connecting c++ bindings
         connectCassandra(singleton.contact_names, singleton.nodePort)
 
+        if singleton.id_create_schema == -1:
+            print("YOLIDEBUG: voy a dormir antes de register type")
+            time.sleep(10)
         singleton.cluster.register_user_type('hecuba', 'np_meta', HArrayMetadata)
+        print("YOLIDEBUG: despues de register user type")
 
 
 global config
