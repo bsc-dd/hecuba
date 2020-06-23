@@ -37,6 +37,9 @@ rm -f $NODEFILE $CASSFILE $APPFILE
 scontrol show hostnames $SLURM_NODELIST > $NODEFILE
 
 source $CFG_FILE
+export CASS_HOME
+export DATA_PATH
+export SNAP_PATH
 #export CASS_HOME=$(cat $CFG_FILE | grep -v "#" | grep "CASS_HOME=" | tail -n 1 | sed 's/CASS_HOME=//g' | sed 's/"//g' | sed "s/'//g")
 #export DATA_PATH=$(cat $CFG_FILE | grep -v "#" | grep "DATA_PATH=" | tail -n 1 | sed 's/DATA_PATH=//g' | sed 's/"//g' | sed "s/'//g") 
 #export SNAP_PATH=$(cat $CFG_FILE | grep -v "#" | grep "SNAP_PATH=" | tail -n 1 | sed 's/SNAP_PATH=//g' | sed 's/"//g' | sed "s/'//g")
@@ -233,6 +236,9 @@ echo $CNAMES | tr , '\n' > $PYCOMPSS_STORAGE # Set list of nodes (with interface
 # Workaround: Creating hecuba.istorage before execution.
 #$CASS_HOME/bin/cqlsh $(head -n 1 $CASSFILE)$CASS_IFACE < $MODULE_PATH/hecuba-istorage.cql
 #$CASS_HOME/bin/cqlsh $(head -n 1 $CASSFILE)$CASS_IFACE < $MODULE_PATH/tables_numpy.cql
+
+source $MODULE_PATH/initialize_hecuba.sh $firstnode
+
 if [ "0$SCHEMA" != "0" ]; then
   echo "Connecting to $firstnode for tables creation. Schema $SCHEMA."
   $CASS_HOME/bin/cqlsh $firstnode -f $SCHEMA

@@ -47,7 +47,7 @@ else
 fi
 
 CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
-CASS_HOME=$(cat $CFG_FILE | grep -v "#" | grep "CASS_HOME=" | tail -n 1 | sed 's/CASS_HOME=//g' | sed 's/"//g' | sed "s/'//g")
+source $CFG_FILE
 MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
 UNIQ_ID="c4app"$(echo $RANDOM | cut -c -3)
 DEFAULT_APP_NODES=2
