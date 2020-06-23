@@ -369,6 +369,81 @@ class StorageNumpyTest(unittest.TestCase):
 
         self.assertEqual(i + 1, len(blocks))
 
+    def test_storagenumpy_copy_memory(self):
+        '''
+        Check that the memory from a StorageNumpy does not share original array
+        '''
+        n = np.arange(12).reshape(3,4)
+
+        s1 = StorageNumpy(n, "test_storage_copy_memory")
+
+        # StorageNumpy s1 and n should NOT share memory
+        s1[0][0] = 42
+        self.assertTrue(not np.array_equal(s1, n))
+        s1[0][0] = n[0][0] # Undo
+
+        n[2][2] = 666
+        self.assertTrue(not np.array_equal(s1, n))
+        # Clean up
+        s1.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_storage_copy_memory")
+
+
+    def test_storagenumpy_from_storagenumpy(self):
+        '''
+        Create a StorageNumpy from another StorageNumpy
+        '''
+
+        n = np.arange(12).reshape(3,4)
+
+        s1 = StorageNumpy(n, "test_storage_from_storage")
+
+        s2 = StorageNumpy(s1) # Create a StorageNumpy from another StorageNumpy
+
+        self.assertTrue(s2.storage_id != s1.storage_id)
+        self.assertTrue(s2.name == s1.name)
+        self.assertTrue(np.array_equal(s2, n))
+
+        # StorageNumpy s1 and s2 should share memory
+        s1[0][0] = 42
+        self.assertTrue(np.array_equal(s2, s1))
+
+        s2[2][2] = 666
+        self.assertTrue(np.array_equal(s2, s1))
+
+        # Create a third StorageNumpy
+        s3 = StorageNumpy(s2)
+
+        self.assertTrue(s3.storage_id != s2.storage_id)
+        self.assertTrue(s3.name == s3.name)
+        self.assertTrue(np.array_equal(s3, s2))
+
+        # Clean up
+        s1.delete_persistent()
+        s2.delete_persistent()
+        s3.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_storage_from_storage")
+
+    def test_storagenumpy_reshape(self):
+        '''
+        Reshape a StorageNumpy
+        '''
+
+        n = np.arange(12).reshape(3,4)
+
+        s1 = StorageNumpy(n, "test_storagenumpy_reshape")
+
+        r = s1.reshape(4,3)
+        self.assertTrue(r.storage_id != s1.storage_id)
+        self.assertTrue(r.shape != s1.shape)
+        self.assertTrue(r.strides != s1.strides)
+
+
+        # Clean up
+        s1.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_storage_from_storage")
+
+
 
 if __name__ == '__main__':
     unittest.main()
