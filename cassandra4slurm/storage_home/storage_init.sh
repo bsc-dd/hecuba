@@ -64,6 +64,8 @@ source $C4S_CFG_FILE
 export CASS_HOME
 export DATA_PATH
 export SNAP_PATH
+export DEBUG
+
 mkdir -p $SNAP_PATH
 export THETIME=$(date "+%Y%m%dD%H%Mh%Ss")"-$SLURM_JOB_ID"
 export ROOT_PATH=$DATA_PATH/$THETIME
@@ -209,9 +211,12 @@ echo "CHECKING CASSANDRA STATUS: "
 $CASS_HOME/bin/nodetool status
 
 
-$MODULE_PATH/scripts/initialize_hecuba.sh
-
 firstnode=$(echo $seeds | awk -F ',' '{ print $1 }')
+
+sleep 10
+
+source $MODULE_PATH/initialize_hecuba.sh  $firstnode
+
 CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $CASSFILE)
 CNAMES=$(echo $CNAMES | sed "s/,/-$iface,/g")-$iface
 export CONTACT_NAMES=$CNAMES

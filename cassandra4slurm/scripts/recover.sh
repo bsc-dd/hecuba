@@ -15,8 +15,8 @@
 
 export C4S_HOME=$HOME/.c4s
 CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
-CASS_HOME=$(cat $CFG_FILE | grep -v "#" | grep "CASS_HOME=" | tail -n 1 | sed 's/CASS_HOME=//g' | sed 's/"//g' | sed "s/'//g")
-SNAP_ORIG=$(cat $CFG_FILE | grep -v "#" | grep "SNAP_PATH=" | tail -n 1 | sed 's/SNAP_PATH=//g' | sed 's/"//g' | sed "s/'//g")
+source $CFG_FILE
+SNAP_ORIG=$SNAP_PATH
 ROOT_PATH=${1}
 UNIQ_ID=${2}
 DATA_HOME=$ROOT_PATH/cassandra-data
