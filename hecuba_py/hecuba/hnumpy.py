@@ -58,14 +58,14 @@ class StorageNumpy(IStorage, np.ndarray):
                 obj._partition_dims = numpy_metadata.dims
         else:
             if isinstance(input_array, StorageNumpy):
-                if not input_array._is_persistent:
-                    raise NotImplementedError("Create an StorageNumpy from a volatile StorageNumpy is not supported")
+                if not input_array._is_persistent and name is None:
+                    raise NotImplementedError("Create a volatile StorageNumpy from a volatile StorageNumpy is not supported")
 
                 sid=uuid.uuid4()
                 obj = input_array.view(cls)
                 obj.storage_id=sid
-                name = input_array.name
-
+                if input_array._is_persistent:
+                    name = input_array.name
             else:
                 obj = np.asarray(input_array).copy().view(cls)
 
@@ -94,7 +94,7 @@ class StorageNumpy(IStorage, np.ndarray):
         if obj is None:
             return
         self.storage_id = getattr(obj, 'storage_id', None)
-        self._name = getattr(obj, '_name', None)
+        self.name = getattr(obj, 'name', None)
         self._hcache = getattr(obj, '_hcache', None)
         self._row_elem = getattr(obj, '_row_elem', None)
         self._loaded_coordinates = getattr(obj, '_loaded_coordinates', None)
@@ -371,8 +371,14 @@ class StorageNumpy(IStorage, np.ndarray):
         return obj
 
     def transpose(self,axes=None):
+        '''
         obj = StorageNumpy(self)
         tmp = super(StorageNumpy, obj).transpose(axes)
         obj.update_metadatas(tmp)
+        tmp=super(StorageNumpy, self).transpose(axes)
+        tmp.make_persistent(self.name)
+        obj=StorageNumpy(tmp)
+        '''
 
+        obj=StorageNumpy(super(StorageNumpy, self).transpose(axes),name=self.name)
         return obj
