@@ -14,10 +14,10 @@ from .tools import extract_ks_tab, get_istorage_attrs, storage_id_from_name
 class StorageNumpy(IStorage, np.ndarray):
     _build_args = None
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
-                                                  '(storage_id, class_name, name, numpy_meta, saved_numpy_meta, block_id, base_numpy)'
-                                                  'VALUES (?,?,?,?,?,?,?)')
+                                                  '(storage_id, class_name, name, numpy_meta, block_id, base_numpy)'
+                                                  'VALUES (?,?,?,?,?,?)')
 
-    args_names = ["storage_id", "class_name", "name", "metas", "saved_metas", "block_id", "base_numpy"]
+    args_names = ["storage_id", "class_name", "name", "metas", "block_id", "base_numpy"]
     args = namedtuple('StorageNumpyArgs', args_names)
 
     def np_split(self, block_size: Tuple[int, int]):
@@ -39,7 +39,6 @@ class StorageNumpy(IStorage, np.ndarray):
             istorage_metas = get_istorage_attrs(storage_id)
             name = name or istorage_metas[0].name
             numpy_metadata = istorage_metas[0].numpy_meta
-            saved_numpy_metadata=istorage_metas[0].saved_numpy_meta
             base_metas = numpy_metadata
             base_numpy = istorage_metas[0].base_numpy
             if base_numpy is not None:
@@ -82,7 +81,7 @@ class StorageNumpy(IStorage, np.ndarray):
         IStorage.__init__(self, storage_id=storage_id, name=name, **kwargs)
         metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
                                self.itemsize, self.flags.num, 0)
-        self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), metas, metas, self._block_id, None)
+        self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), metas, self._block_id, None)
 
         if self._get_name() or self.storage_id:
             if input_array is not None:
@@ -142,7 +141,7 @@ class StorageNumpy(IStorage, np.ndarray):
         try:
             config.session.execute(StorageNumpy._prepared_store_meta,
                                    [storage_args.storage_id, storage_args.class_name,
-                                    storage_args.name, storage_args.metas, storage_args.saved_metas,
+                                    storage_args.name, storage_args.metas,
                                     storage_args.block_id,
                                     storage_args.base_numpy])
 
@@ -230,8 +229,7 @@ class StorageNumpy(IStorage, np.ndarray):
 
         hfetch_metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
                                       self.itemsize, self.flags.num, 0)
-        # FIXME hfetch_metas deberia ser saved_metas
-        self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas, hfetch_metas, self._block_id,
+        self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas, self._block_id,
                                      None)
         if len(self.shape) != 0:
             self._hcache.store_numpy_slices([self.storage_id], self._build_args.metas, [self.base.view(np.ndarray)],
@@ -315,29 +313,6 @@ class StorageNumpy(IStorage, np.ndarray):
 
         return results[0] if len(results) == 1 else results
 
-    def update_metadatas(self,tmp):
-        metas = HArrayMetadata(list(tmp.shape),
-                               list(tmp.strides),
-                               tmp.dtype.kind,
-                               tmp.dtype.byteorder,
-                               tmp.itemsize,
-                               tmp.flags.num,
-                               0)
-        self._build_args = self.args(self._build_args.storage_id,
-                                   self._build_args.class_name,
-                                   self._build_args.name,
-                                   metas,	# Change metadata
-                                   self._build_args.saved_metas,
-                                   self._build_args.block_id,
-                                   self._build_args.base_numpy)
-        # Store metadata in Cassandra
-        StorageNumpy._store_meta(self._build_args)
-        self.shape = tmp.shape
-        self.strides = tmp.strides
-        self.setflags(tmp.W,tmp.U,tmp.X)
-        self.dtype.kind =tmp.dtype.kind
-        self.dtype.byteorder =tmp.dtype.byteorder
-        self.itemsize=tmp.itemsize
 
     def reshape(self, newshape, order='C'):
         '''

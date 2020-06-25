@@ -242,7 +242,6 @@ class Config:
                 qbeast_random text,
                 qbeast_meta frozen<q_meta>,
                 numpy_meta frozen<np_meta>,
-                saved_numpy_meta frozen<np_meta>,
                 block_id int,
                 base_numpy uuid,
                 primary_keys list<frozen<tuple<text,text>>>,
