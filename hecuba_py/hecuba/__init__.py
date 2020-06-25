@@ -220,10 +220,16 @@ class Config:
                                     default_retry_policy=_NRetry(5))
         singleton.session = singleton.cluster.connect()
         singleton.session.encoder.mapping[tuple] = singleton.session.encoder.cql_encode_tuple
-        singleton._query_to_lock=singleton.session.prepare("INSERT into hecuba_locks.table_lock (table_name) values (?) if not exists;")
         if singleton.id_create_schema == -1:
             print("YOLIDEBUG HEMOS ENTRADO :(")
             queries = [
+                """CREATE KEYSPACE IF NOT EXISTS hecuba_locks
+                        WITH replication=  {'class': 'SimpleStrategy', 'replication_factor': 1};
+                """,
+                """CREATE TABLE IF NOT EXISTS hecuba_locks.table_lock
+                        (table_name text, PRIMARY KEY (table_name));
+                """,
+                "TRUNCATE table hecuba_locks.table_lock;",
                 "CREATE KEYSPACE IF NOT EXISTS hecuba  WITH replication = %s" % singleton.replication,
                 """CREATE TYPE IF NOT EXISTS hecuba.q_meta(
                 mem_filter text, 
@@ -257,6 +263,7 @@ class Config:
                     log.error("Error executing query %s" % query)
                     raise e
 
+        singleton._query_to_lock=singleton.session.prepare("INSERT into hecuba_locks.table_lock (table_name) values (?) if not exists;")
         from hfetch import connectCassandra, HArrayMetadata
         # connecting c++ bindings
         connectCassandra(singleton.contact_names, singleton.nodePort)
