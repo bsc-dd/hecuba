@@ -256,9 +256,13 @@ class StorageNumpyTest(unittest.TestCase):
         hecu_p_load = StorageNumpy(name="my_array")
         rep = repr(hecu_p_load)
         self.assertIsInstance(rep, str)
+        # StorageNumpy in memory and in database should share data
         load_sub_arr = hecu_p_load[:]
-        self.assertTrue(np.array_equal(load_sub_arr, np.arange(8 * 8 * 4).reshape((8, 8, 4))))
+        self.assertFalse(np.array_equal(load_sub_arr, np.arange(8 * 8 * 4).reshape((8, 8, 4))))
+        self.assertTrue(np.array_equal(sub_hecu, hecu_p_load[:2, 3:]))
+        # Clean up
         hecu_p_load.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.my_array")
 
     def test_assign_element(self):
         base = np.arange(8 * 8 * 4).reshape((8, 8, 4))
@@ -269,8 +273,12 @@ class StorageNumpyTest(unittest.TestCase):
         rep = repr(hecu_p_load)
         self.assertIsInstance(rep, str)
         load_sub_arr = hecu_p_load[:]
-        self.assertTrue(np.array_equal(load_sub_arr, np.arange(8 * 8 * 4).reshape((8, 8, 4))))
+        self.assertFalse(np.array_equal(load_sub_arr, np.arange(8 * 8 * 4).reshape((8, 8, 4))))
+        sub_hecu_load = hecu_p_load[:2, 3:]
+        self.assertTrue(sub_hecu_load[0][1][0] == 0)
+        # Clean up
         hecu_p_load.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.my_array2")
 
     def test_load_2_dif_clusters_same_instance(self):
         base = np.arange(50 * 50).reshape((50, 50))
@@ -455,7 +463,43 @@ class StorageNumpyTest(unittest.TestCase):
         s1.delete_persistent()
         config.session.execute("DROP TABLE IF EXISTS my_app.test_storage_from_storage")
 
+    def test_transpose(self):
+        '''
+        Test the transpose 
+        '''
+        n=np.arange(12).reshape(3,4)
 
+        s=StorageNumpy(n,"testTranspose")
+
+        t=s.transpose()
+        self.assertTrue(t[0,1] == s [1,0])
+
+        t[0,1]=42
+
+        self.assertTrue(t[0,1] == s[1,0])
+
+        # Clean up
+        s.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.testTranspose")
+
+    def test_getByID_do_not_share_memory(self):
+        '''
+        Test that a StorageNumpy obtained by an ID do not share the same data in memory as its original
+        '''
+        n=np.arange(12).reshape(3,4)
+
+        s=StorageNumpy(n,"testgetByID_shared")
+        l=getByID(s.storage_id)
+        self.assertTrue(l.storage_id == s.storage_id)
+        self.assertTrue(l._get_name() == s._get_name())
+        s[0,1]=42
+        self.assertTrue(l[0,1] == s[0,1]) # First access to the matrix, therefore the data is read with the change
+        s[0,1]=666
+        self.assertTrue(l[0,1] != s[0,1]) # Second access to the matrix, therefore the data is read with the old value (change has been persisted to Cassandra, but the memory is NOT shared due to the getByID)
+        # Clean up
+        s.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.testgetByID_shared")
+      
 
 if __name__ == '__main__':
     unittest.main()
