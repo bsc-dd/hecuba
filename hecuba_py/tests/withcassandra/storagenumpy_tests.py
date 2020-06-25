@@ -413,7 +413,7 @@ class StorageNumpyTest(unittest.TestCase):
         s2 = StorageNumpy(s1) # Create a StorageNumpy from another StorageNumpy
 
         self.assertTrue(s2.storage_id != s1.storage_id)
-        self.assertTrue(s2.name == s1.name)
+        self.assertTrue(s2._get_name() == s1._get_name())
         self.assertTrue(np.array_equal(s2, n))
 
         # StorageNumpy s1 and s2 should share memory
@@ -427,7 +427,7 @@ class StorageNumpyTest(unittest.TestCase):
         s3 = StorageNumpy(s2)
 
         self.assertTrue(s3.storage_id != s2.storage_id)
-        self.assertTrue(s3.name == s3.name)
+        self.assertTrue(s3._get_name() == s3._get_name())
         self.assertTrue(np.array_equal(s3, s2))
 
         # Clean up

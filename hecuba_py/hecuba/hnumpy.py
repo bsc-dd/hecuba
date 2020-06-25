@@ -25,7 +25,7 @@ class StorageNumpy(IStorage, np.ndarray):
         bn, bm = block_size
         for block_id, i in enumerate(range(0, self.shape[0], bn)):
             block = [self[i: i + bn, j:j + bm] for j in range(0, self.shape[1], bm)]
-            obj = StorageNumpy(input_array=block, name=self.name, storage_id=uuid.uuid4(), block_id=block_id)
+            obj = StorageNumpy(input_array=block, name=self._get_name(), storage_id=uuid.uuid4(), block_id=block_id)
             yield obj
 
     def __new__(cls, input_array=None, name=None, storage_id=None, block_id=None, **kwargs):
@@ -64,13 +64,13 @@ class StorageNumpy(IStorage, np.ndarray):
                 obj = input_array.view(cls)
                 obj.storage_id=sid
                 if input_array._is_persistent:
-                    name = input_array.name
+                    name = input_array._get_name()
             else:
                 obj = np.asarray(input_array).copy().view(cls)
 
         obj._numpy_full_loaded = False
         obj._loaded_coordinates = []
-        obj.name = name
+        obj._set_name(name)
         if getattr(obj, "_block_id", None) is None:
             obj._block_id = block_id
         # Finally, we must return the newly created object:
@@ -78,6 +78,9 @@ class StorageNumpy(IStorage, np.ndarray):
         return obj
 
     def __init__(self, input_array=None, name=None, storage_id=None, **kwargs):
+        if name == None:
+            name=self._get_name() # To deal with StorageNumpy(StorageNumpy)
+ 
         IStorage.__init__(self, storage_id=storage_id, name=name, **kwargs)
         metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
                                self.itemsize, self.flags.num, 0)
@@ -93,7 +96,7 @@ class StorageNumpy(IStorage, np.ndarray):
         if obj is None:
             return
         self.storage_id = getattr(obj, 'storage_id', None)
-        self.name = getattr(obj, 'name', None)
+        self._name = getattr(obj, '_name', None)
         self._hcache = getattr(obj, '_hcache', None)
         self._row_elem = getattr(obj, '_row_elem', None)
         self._loaded_coordinates = getattr(obj, '_loaded_coordinates', None)
@@ -249,11 +252,11 @@ class StorageNumpy(IStorage, np.ndarray):
         super().delete_persistent()
 
         clusters_query = "SELECT cluster_id FROM %s WHERE storage_id = %s ALLOW FILTERING;" % (
-            self._name, self.storage_id)
+            self._get_name(), self.storage_id)
         clusters = config.session.execute(clusters_query)
         clusters = ",".join([str(cluster[0]) for cluster in clusters])
 
-        query = "DELETE FROM %s WHERE storage_id = %s AND cluster_id in (%s);" % (self._name, self.storage_id, clusters)
+        query = "DELETE FROM %s WHERE storage_id = %s AND cluster_id in (%s);" % (self._get_name(), self.storage_id, clusters)
         query2 = "DELETE FROM hecuba.istorage WHERE storage_id = %s;" % self.storage_id
         log.debug("DELETE PERSISTENT: %s", query)
         config.session.execute(query)
