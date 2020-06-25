@@ -52,7 +52,7 @@ class StorageNumpy(IStorage, np.ndarray):
             (obj._ksp, obj._table) = extract_ks_tab(name)
             obj._hcache = result[1]
             obj.storage_id = storage_id
-            obj._row_elem = obj._hcache.get_elements_per_row(storage_id, base_metas)[0]
+            obj._row_elem = obj._hcache.get_elements_per_row(obj.storage_id, base_metas)[0]
             if base_numpy is not None:
                 obj._partition_dims = numpy_metadata.dims
         else:
@@ -103,11 +103,9 @@ class StorageNumpy(IStorage, np.ndarray):
         self._numpy_full_loaded = getattr(obj, '_numpy_full_loaded', None)
         self._is_persistent = getattr(obj, '_is_persistent', None)
         self._block_id = getattr(obj, '_block_id', None)
-        try:
-            self._build_args = obj._build_args
-        except AttributeError:
-            self._build_args = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind,
-                                              self.dtype.byteorder, self.itemsize, self.flags.num, 0)
+        self._build_args = getattr(obj, '_build_args', HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind,
+                                                       self.dtype.byteorder, self.itemsize, self.flags.num, 0))
+
 
     @staticmethod
     def _create_tables(name):
@@ -323,40 +321,10 @@ class StorageNumpy(IStorage, np.ndarray):
 
         Creates a new StorageNumpy ID to store the metadata, but shares the data
         '''
-        obj = StorageNumpy(self)
-        tmp = super(StorageNumpy, obj).reshape(newshape,order)
-        obj.update_metadatas(tmp)
-        '''
-        metas = HArrayMetadata(list(tmp.shape),
-                               list(tmp.strides),
-                               tmp.dtype.kind,
-                               tmp.dtype.byteorder,
-                               tmp.itemsize,
-                               tmp.flags.num,
-                               0)
-        obj._build_args = obj.args(obj._build_args.storage_id,
-                                   obj._build_args.class_name,
-                                   obj._build_args.name,
-                                   metas,	# Change metadata
-                                   obj._build_args.saved_metas,
-                                   obj._build_args.block_id,
-                                   obj._build_args.base_numpy)
-        # Store metadata in Cassandra
-        StorageNumpy._store_meta(obj._build_args)
-        obj.shape = tmp.shape
-        obj.strides = tmp.strides
-        '''
+        obj=StorageNumpy(super(StorageNumpy, self).reshape(newshape,order),name=self._get_name())
         return obj
 
     def transpose(self,axes=None):
-        '''
-        obj = StorageNumpy(self)
-        tmp = super(StorageNumpy, obj).transpose(axes)
-        obj.update_metadatas(tmp)
-        tmp=super(StorageNumpy, self).transpose(axes)
-        tmp.make_persistent(self.name)
-        obj=StorageNumpy(tmp)
-        '''
-
-        obj=StorageNumpy(super(StorageNumpy, self).transpose(axes),name=self.name)
+        obj=StorageNumpy(super(StorageNumpy, self).transpose(axes),name=self._get_name())
         return obj
+
