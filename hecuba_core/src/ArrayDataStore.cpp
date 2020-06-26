@@ -18,9 +18,9 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
     this->cache = new CacheTable(table_meta, session, config);
 
     std::vector<std::map<std::string, std::string> > keys_arrow_names = {{{"name", "storage_id"}},
-                                                                         {{"name", "col_id"}}}; //!!!!!!ponerlo en columns_arrow_names
+                                                                         {{"name", "col_id"}}};
 
-    std::vector<std::map<std::string, std::string> > columns_arrow_names = {{{"name", "row_id"}},
+    std::vector<std::map<std::string, std::string> > columns_arrow_names = {{{"name", "row_id"}}, // FIXME ponerlo en keys_arrow_names
                                                                             {{"name", "size_elem"}},
                                                                             {{"name", "payload"}}};
     std::string table_arrow = table;
@@ -240,41 +240,36 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
         if (!status.ok())
             std::cout << "Status: " << status.ToString() << " at bufferOutputStream->Finish" << std::endl;
 
-        std::cout << "Arrow processing ended" << std::endl;
-        //Store column
-        struct keys {
-            uint64_t *storage_id;
-            uint64_t col_id;
-        };
-        struct keys * _keys = (struct keys *) malloc(sizeof(struct keys));
+        //Store Column
+        // Allocate memory for keys
+        char* _keys = (char *) malloc(sizeof(uint64_t*) + sizeof(uint64_t));
+        char* _k = _keys;
+        // Copy data
         //UUID
         uint64_t *c_uuid  = new uint64_t[2]{*storage_id, *(storage_id + 1)};
         // [0] = storage_id.time_and_version;
         // [1] = storage_id.clock_seq_and_node;
-        _keys->storage_id = &c_uuid[0]; // Fucking C++ const...
-        _keys->col_id     = i;
+        memcpy(_k, &c_uuid, sizeof(uint64_t*)); //storage_id
+        _k += sizeof(uint64_t*);
+        memcpy(_k, &i, sizeof(uint64_t)); //col_id
 
-        struct values {
-            uint64_t row_id;
-            uint32_t elem_size;
-            void* payload;
-        };
-        struct values * _values = (struct values *) malloc(sizeof(struct values));
-        _values->row_id    = 0;
-        _values->elem_size = elem_size;
+        // Allocate memory for values
+        uint32_t values_size = sizeof(uint64_t) + sizeof(uint32_t) + sizeof(char*);
+        char* _values = (char*) malloc(values_size);
+        char* _val = _values; // Temporal to avoid modifications on the original value
+        // Copy data
+        uint64_t row_id = 0;
+        memcpy(_val, &row_id, sizeof(uint64_t));	//row_id
+        _val += sizeof(uint64_t);
+        memcpy(_val, &elem_size, sizeof(uint32_t)); //elem_size
+        _val += sizeof(uint32_t);
 
-        void *mypayload = malloc(sizeof(uint64_t) + result->size());
-        //FIXME Create payload: Lots of UNNECESSARY copies
         uint64_t arrow_size = result->size();
+        char *mypayload = (char *)malloc(sizeof(uint64_t) + arrow_size);
         memcpy(mypayload, &arrow_size, sizeof(uint64_t));
-        memcpy((char*)mypayload + sizeof(uint64_t), result->data(), result->size());
+        memcpy(mypayload + sizeof(uint64_t), result->data(), arrow_size);
 
-        void *mypayloadptr = malloc(sizeof(char*));
-        memcpy(mypayloadptr, mypayload, sizeof(char*));
-
-
-        //_values->payload   = reinterpret_cast<void*>(const_cast<uint8_t*>(result->data()));
-        _values->payload   = mypayloadptr;
+        memcpy(_val, &mypayload, sizeof(char*));	//payload
 
         cache_arrow->put_crow( (void*)_keys, (void*)_values ); //Send column to cassandra
     }
