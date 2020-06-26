@@ -58,12 +58,14 @@ class StorageNumpy(IStorage, np.ndarray):
         else:
             if isinstance(input_array, StorageNumpy):
                 if not input_array._is_persistent and name is None:
-                    raise NotImplementedError("Create a volatile StorageNumpy from a volatile StorageNumpy is not supported")
+                    log.info("Warning: creation of volatile StorageNumpy from a volatile StorageNumpy. If one of them is persisted a copy will be created")
 
-                sid=uuid.uuid4()
                 obj = input_array.view(cls)
-                obj.storage_id=sid
                 if input_array._is_persistent:
+                    sid=uuid.uuid4()
+                    obj.storage_id=sid
+                    if name is not None:
+                        log.info("Building a Persistent StorageNumpy from another Persistent StorageNumpy: Parameter 'name' is ignored")
                     name = input_array._get_name()
             else:
                 obj = np.asarray(input_array).copy().view(cls)
@@ -163,9 +165,15 @@ class StorageNumpy(IStorage, np.ndarray):
 
     def __getitem__(self, sliced_coord):
         log.info("RETRIEVING NUMPY")
+
         if self._is_persistent and not self._numpy_full_loaded:
             if isinstance(sliced_coord, slice) and sliced_coord == slice(None, None, None):
                 new_coords = []
+            elif isinstance(sliced_coord, np.ndarray): # is there any other slicing case that needs a copy of the array????
+                # FIXME Get the full numpy array and make a copy obtaining a new StorageNumpy from it with a random name
+                n = self[:].view(np.ndarray)[sliced_coord]
+                result=StorageNumpy(n,(self._get_name()+str(uuid.uuid4().hex))[0:48]) #max table name length in cassandra is 48 chars
+                return result
             else:
                 try:
                     all_coords = np.array(list(np.ndindex(self.shape))).reshape(*self.shape,self.ndim)
@@ -328,3 +336,14 @@ class StorageNumpy(IStorage, np.ndarray):
         obj=StorageNumpy(super(StorageNumpy, self).transpose(axes),name=self._get_name())
         return obj
 
+    def copy(self, order='K'):
+        '''
+        Copy a StorageNumpy
+        '''
+        if self._is_persistent:
+            n=self[:].view(np.ndarray) 	# Get the full numpy array and obtain a new StorageNumpy from it with a random name
+            n_sn=StorageNumpy(n,(self._get_name()+str(uuid.uuid4().hex))[0:48])
+        else:
+            # If it is a volatile StorageNumpy, we need to create a numpy view, because otherwise the Constructor would fail
+            n_sn=StorageNumpy(super(StorageNumpy,self).copy(order).view(np.ndarray))
+        return n_sn

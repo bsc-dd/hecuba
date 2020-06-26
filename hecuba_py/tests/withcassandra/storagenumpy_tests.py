@@ -226,8 +226,8 @@ class StorageNumpyTest(unittest.TestCase):
         l = np.array((0,1))
         hecu_sub = hecu[l]  #Access using an array of indexes
 # FIXME add more testing, currently if it does not segfault, then it works
-#        sum = hecu_sub.sum()
-#        self.assertEqual(sum, obj[l].sum())
+        sum = hecu_sub.sum()
+        self.assertEqual(sum, obj[l].sum())
         hecu.delete_persistent()
 
     def test_iter_numpy(self):
@@ -453,7 +453,7 @@ class StorageNumpyTest(unittest.TestCase):
 
     def test_transpose(self):
         '''
-        Test the transpose 
+        Test the transpose
         '''
         n=np.arange(12).reshape(3,4)
 
@@ -487,7 +487,50 @@ class StorageNumpyTest(unittest.TestCase):
         # Clean up
         s.delete_persistent()
         config.session.execute("DROP TABLE IF EXISTS my_app.testgetByID_shared")
-      
+
+    def test_copy_storageNumpyPersist(self):
+        '''
+        Test that a copy of a StorageNumpy does not share memory (Persistent version)
+        '''
+        n=np.arange(12).reshape(3,4)
+
+        s=StorageNumpy(n,"testcopy")
+        c=s.copy()
+
+        self.assertTrue(c.storage_id!=s.storage_id)
+        self.assertTrue(c._get_name()!=s._get_name())
+        self.assertTrue(c[0,0]==s[0,0])
+
+        c[0,0]=42
+        self.assertTrue(c[0,0]!=s[0,0])
+
+        l=getByID(c.storage_id)
+        self.assertTrue(c[0,0]==l[0,0])
+        self.assertTrue(s[0,0]!=l[0,0])
+
+        # Clean up
+        s.delete_persistent()
+        c.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.testcopy")
+        config.session.execute("DROP TABLE IF EXISTS {}".format(c._get_name()))
+
+    def test_copy_storageNumpyVolatile(self):
+        '''
+        Test that a copy of a StorageNumpy does not share memory (Volatile version)
+        '''
+        n=np.arange(12).reshape(3,4)
+
+        s=StorageNumpy(n)
+        c=s.copy()
+
+        self.assertTrue(s.storage_id is None)
+        self.assertTrue(c.storage_id is None)
+
+        self.assertTrue(c[0,0]==s[0,0])
+
+        c[0,0]=42
+
+        self.assertTrue(c[0,0]!=s[0,0])
 
 if __name__ == '__main__':
     unittest.main()
