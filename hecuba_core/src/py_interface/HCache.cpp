@@ -544,9 +544,7 @@ static PyObject *store_numpy_slices(HNumpyStore *self, PyObject *args) {
     }
 
     try {
-        std::cout << "before store_numpy from store_numpy_slices" << std::endl; // enric, delete when debugged
         self->NumpyDataStore->store_numpy(storage_id, np_metas->np_metas, numpy_arr, py_coord);
-        std::cout << "after store_numpy from store_numpy_slices" << std::endl; // enric, delete when debugged
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -633,7 +631,6 @@ static PyObject *hnumpy_store_new(PyTypeObject *type, PyObject *args, PyObject *
 
 
 static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) {
-    std::cout << "C++ from c++" << std::endl; //enric, delete when debugged
 
     const char *table, *keyspace;
     PyObject *py_config;
@@ -674,10 +671,8 @@ static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) 
 
     try {
         self->NumpyDataStore = new NumpyStorage(table, keyspace, storage->get_session(), config);
-        std::cout << "after NumpyStorage constructor" << std::endl; //enric, delete when debugged
     } catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
-        std::cout << "Error in NumpyStorage constructor" << std::endl; //enric, delete when debugged
         return -1;
     }
     return 0;

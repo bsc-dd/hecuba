@@ -41,11 +41,9 @@ std::list<std::vector<uint32_t> > NumpyStorage::generate_coords(PyObject *coord)
 void NumpyStorage::store_numpy(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *numpy, PyObject *coord) const {
     void *data = PyArray_DATA(numpy);
     if (coord != Py_None) {
-        std::cout << "store_numpy_into_cas_by_coords" << std::endl;
         std::list<std::vector<uint32_t> > crd = generate_coords(coord);
         this->store_numpy_into_cas_by_coords(storage_id, np_metas, data, crd);
     } else {
-        std::cout << "store_numpy_into_cas" << std::endl;
         this->store_numpy_into_cas(storage_id, np_metas, data);
     }
 }

@@ -177,7 +177,6 @@ std::map<std::string, ColumnMeta> TableMetadata::getMetaTypes(CassIterator *iter
         metadatas[value].type = cass_data_type_type(type);
         metadatas[value].col_type = cass_column_meta_type(cmeta);
 
-std::cout << " ==== getMetaTypes: " << value << std::endl;
         if (cass_data_type_type(type) == CASS_VALUE_TYPE_TUPLE) {
             uint32_t n_subtypes = (uint32_t) cass_data_type_sub_type_count(type);
             std::vector<ColumnMeta> v(n_subtypes);
@@ -275,9 +274,7 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
 
     CassIterator *iterator = cass_iterator_columns_from_table_meta(table_meta);
 
-std::cout << "--- before getMetaTypes " << std::endl;
     std::map<std::string, ColumnMeta> metadatas = getMetaTypes(iterator);
-std::cout << "--- after getMetaTypes " << std::endl;
     cass_iterator_free(iterator);
     //cass_schema_meta_free(schema_meta);
 

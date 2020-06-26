@@ -80,7 +80,6 @@ class StorageNumpy(IStorage, np.ndarray):
             obj._block_id = block_id
         # Finally, we must return the newly created object:
         obj._class_name = '%s.%s' % (cls.__module__, cls.__name__)
-        print("__new__ done") #enric, delete when debugged
         return obj
 
     def __init__(self, input_array=None, name=None, storage_id=None, **kwargs):
@@ -155,7 +154,6 @@ class StorageNumpy(IStorage, np.ndarray):
         #	_arrow to read
         #	_buffer to write
         ksp_arrow = ksp + "_arrow"
-        print("Creating keyspace {0}".format(ksp_arrow))
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (ksp_arrow, config.replication)
         config.executelocked(query_keyspace)
 

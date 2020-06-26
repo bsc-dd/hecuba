@@ -146,7 +146,6 @@ void Writer::set_error_occurred(std::string error, const void *keys_p, const voi
 
 
 void Writer::write_to_cassandra(const TupleRow *keys, const TupleRow *values) {
-    std::cout << "write_to_cassandra" << std::endl;
     TupleRow *queued_keys = new TupleRow(keys);
     if (!disable_timestamps) queued_keys->set_timestamp(timestamp_gen.next()); // Set write time
 
@@ -167,48 +166,33 @@ void Writer::write_to_cassandra(void *keys, void *values) {
 }
 
 void Writer::call_async() {
-    std::cout << "call_async" << std::endl;
 
     //current write data
     std::pair<const TupleRow *, const TupleRow *> item;
     if (!data.try_pop(item)) {
         ncallbacks--;
-        std::cout << "end call_async inside if (!data.try_pop(item))" << std::endl;
         return;
     }
 
-    std::cout << "\t before cass_prepared_bind" << std::endl;
     CassStatement *statement = cass_prepared_bind(prepared_query);
 
-    std::cout << "\t before k_factory->bind" << std::endl;
     this->k_factory->bind(statement, item.first, 0); //error
-    std::cout << "\t before v_factory->bind" << std::endl;
     this->v_factory->bind(statement, item.second, this->k_factory->n_elements());
 
-    std::cout << "\t before this->disable_timestamps" << std::endl;
     if (!this->disable_timestamps) {
         cass_statement_set_timestamp(statement, item.first->get_timestamp());
     }
 
-    std::cout << "\t before cass_session_execute" << std::endl;
     CassFuture *query_future = cass_session_execute(session, statement);
-    std::cout << "\t before cass_statement_free" << std::endl;
     cass_statement_free(statement);
 
-    std::cout << "\t before **data = (const void **) malloc" << std::endl;
     const void **data = (const void **) malloc(sizeof(void *) * 3);
-    std::cout << "\t before data[0] = this" << std::endl;
     data[0] = this;
-    std::cout << "\t before data[1] = item.first" << std::endl;
     data[1] = item.first;
-    std::cout << "\t before data[2] = item.second" << std::endl;
     data[2] = item.second;
 
-    std::cout << "\t before cass_future_set_callback" << std::endl;
     cass_future_set_callback(query_future, callback, data);
-    std::cout << "\t before cass_future_free" << std::endl;
     cass_future_free(query_future);
 
-    std::cout << "end call_async" << std::endl;
 }
 
