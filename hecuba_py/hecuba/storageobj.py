@@ -285,7 +285,7 @@ class StorageObj(IStorage):
                 attribute: name of the value that we want to set
                 value: value that we want to save
         """
-        if attribute[0] is '_' or attribute not in self._persistent_attrs:
+        if attribute[0] == '_' or attribute not in self._persistent_attrs:
             super().__setattr__(attribute, value)
             return
 

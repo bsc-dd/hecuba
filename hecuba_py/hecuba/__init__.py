@@ -147,7 +147,7 @@ class Config:
             singleton.replication_strategy_options = ""
             log.warn('using default REPLICATION_STRATEGY_OPTIONS: %s', singleton.replication_strategy_options)
 
-        if singleton.replication_strategy is "SimpleStrategy":
+        if singleton.replication_strategy == "SimpleStrategy":
             singleton.replication = "{'class' : 'SimpleStrategy', 'replication_factor': %d}" % \
                                     singleton.replication_factor
         else:
