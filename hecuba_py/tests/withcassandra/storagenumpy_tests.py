@@ -5,7 +5,7 @@ from hecuba import config, StorageNumpy
 import uuid
 import numpy as np
 
-from storageAPI.storage.api import getByID
+from storage.api import getByID
 
 
 class StorageNumpyTest(unittest.TestCase):
