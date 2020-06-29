@@ -76,14 +76,17 @@ class Config:
 
         if 'CONCURRENT_CREATION' in os.environ:
             singleton.concurrent_creation = bool(os.environ['CONCURRENT_CREATION'])
+            log.info('CONCURRENT_CREATION: %s', str(singleton.concurrent_creation))
         else:
             singleton.concurrent_creation = False
+            log.warn('Concurrent creation is DISABLED [CONCURRENT_CREATION=False]')
 
         if 'CREATE_SCHEMA' in os.environ:
             singleton.id_create_schema = int(os.environ['CREATE_SCHEMA'])
+            log.info('CREATE_SCHEMA: %d', singleton.id_create_schema)
         else:
             singleton.id_create_schema = -1
-        print("YOLIDEBUG: create_schema: %s"%(str(singleton.id_create_schema)))
+            log.warn('Creating keyspaces and tables by default [CREATE_SCHEMA=-1]')
         try:
             singleton.nodePort = int(os.environ['NODE_PORT'])
             log.info('NODE_PORT: %d', singleton.nodePort)
@@ -221,7 +224,6 @@ class Config:
         singleton.session = singleton.cluster.connect()
         singleton.session.encoder.mapping[tuple] = singleton.session.encoder.cql_encode_tuple
         if singleton.id_create_schema == -1:
-            print("YOLIDEBUG HEMOS ENTRADO :(")
             queries = [
                 """CREATE KEYSPACE IF NOT EXISTS hecuba_locks
                         WITH replication=  {'class': 'SimpleStrategy', 'replication_factor': 1};
@@ -258,7 +260,6 @@ class Config:
             for query in queries:
                 try:
                     self.executelocked(query)
-                    print("YUHUUUUUUUUUUUUU\n")
                 except Exception as e:
                     log.error("Error executing query %s" % query)
                     raise e
@@ -269,10 +270,8 @@ class Config:
         connectCassandra(singleton.contact_names, singleton.nodePort)
 
         if singleton.id_create_schema == -1:
-            print("YOLIDEBUG: voy a dormir antes de register type")
             time.sleep(10)
         singleton.cluster.register_user_type('hecuba', 'np_meta', HArrayMetadata)
-        print("YOLIDEBUG: despues de register user type")
 
 
 global config
