@@ -470,24 +470,6 @@ class StorageNumpyTest(unittest.TestCase):
         s.delete_persistent()
         config.session.execute("DROP TABLE IF EXISTS my_app.testTranspose")
 
-    def test_getByID_do_not_share_memory(self):
-        '''
-        Test that a StorageNumpy obtained by an ID do not share the same data in memory as its original
-        '''
-        n=np.arange(12).reshape(3,4)
-
-        s=StorageNumpy(n,"testgetByID_shared")
-        l=getByID(s.storage_id)
-        self.assertTrue(l.storage_id == s.storage_id)
-        self.assertTrue(l._get_name() == s._get_name())
-        s[0,1]=42
-        self.assertTrue(l[0,1] == s[0,1]) # First access to the matrix, therefore the data is read with the change
-        s[0,1]=666
-        self.assertTrue(l[0,1] != s[0,1]) # Second access to the matrix, therefore the data is read with the old value (change has been persisted to Cassandra, but the memory is NOT shared due to the getByID)
-        # Clean up
-        s.delete_persistent()
-        config.session.execute("DROP TABLE IF EXISTS my_app.testgetByID_shared")
-
     def test_copy_storageNumpyPersist(self):
         '''
         Test that a copy of a StorageNumpy does not share memory (Persistent version)
