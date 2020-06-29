@@ -270,7 +270,6 @@ class StorageDictSplitTestbase(unittest.TestCase):
         myfinalbook.delete_persistent()
 
     def test_len_on_split(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.test_split_len")
         ninserts = 100
         obj = SDict_SimpleTypeSpec("test_split_len")
         for i in range(ninserts):
