@@ -11,13 +11,18 @@ class PersistentDict(StorageDict):
 
 
 class IStorageTests(unittest.TestCase):
-    def stop_persistent_method_test(self):
+    @classmethod
+    def tearDownClass(cls):
+        config.session.execute("DROP KEYSPACE IF EXISTS test;")
+
+    def tearDown(self):
         from hecuba.tools import storage_id_from_name
         config.session.execute(
             "DROP TABLE IF  EXISTS test.istorage_pers;")
         config.session.execute(
             "DELETE FROM hecuba.istorage WHERE storage_id = {}".format(storage_id_from_name("test.istorage_pers")))
 
+    def stop_persistent_method_test(self):
         key = 123
         value = 456
         name = 'test.istorage_pers'
@@ -54,12 +59,6 @@ class IStorageTests(unittest.TestCase):
         self.assertEqual(external_dict[key], value)
 
     def delete_persistent_method_test(self):
-        from hecuba.tools import storage_id_from_name
-        config.session.execute(
-            "DROP TABLE IF  EXISTS test.istorage_pers;")
-        config.session.execute(
-            "DELETE FROM hecuba.istorage WHERE storage_id = {}".format(storage_id_from_name("test.istorage_pers")))
-
         key = 123
         value = 456
         name = 'test.istorage_pers'

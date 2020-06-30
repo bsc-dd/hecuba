@@ -123,8 +123,30 @@ class MyStorageDictB(StorageDict):
 
 
 class StorageDictTest(unittest.TestCase):
-    def test_init_empty(self):
+    def tearDown(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab1")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab10")
+        config.session.execute("DROP TABLE IF EXISTS test.test_dict_len")
+        config.session.execute("DROP TABLE IF EXISTS test.test_dict_len_words")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t_make")
+        config.session.execute("DROP TABLE IF EXISTS my_app.t_make_words")
+        config.session.execute("DROP TABLE IF EXISTS my_app.Words")
+        config.session.execute("DROP TABLE IF EXISTS my_app.Words_words")
+        config.session.execute("DROP TABLE IF EXISTS my_app.somename")
+        config.session.execute("DROP TABLE IF EXISTS my_app.mydict")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a1")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a2")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a3")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a4")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a5")
+        config.session.execute("DROP TABLE IF EXISTS my_app.wordsso")
+        config.session.execute("DROP TABLE IF EXISTS my_app.wordsso_words")
+        config.session.execute("DROP TABLE IF EXISTS my_app.dict")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab12")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab13")
+        config.session.execute("DROP TABLE IF EXISTS my_app.obj")
+
+    def test_init_empty(self):
         tablename = "ksp.tab1"
         tokens = [(1, 2), (2, 3), (3, 4)]
         nopars = StorageDict(tablename,
@@ -149,9 +171,9 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, tablename), rebuild.storage_id)
 
         self.assertEqual(nopars.storage_id, rebuild.storage_id)
+        rebuild.delete_persistent()
 
     def test_init_empty_def_keyspace(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab1")
         tablename = "tab1"
         tokens = [(1, 2), (2, 3), (3, 4)]
         nopars = StorageDict(tablename,
@@ -176,9 +198,9 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename), rebuild.storage_id)
 
         self.assertEqual(nopars.storage_id, rebuild.storage_id)
+        rebuild.delete_persistent()
 
     def test_simple_insertions(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab10")
         tablename = "tab10"
         tokens = [(1, 2), (2, 3), (3, 4)]
         pd = StorageDict(tablename,
@@ -193,10 +215,16 @@ class StorageDictTest(unittest.TestCase):
         gc.collect()
         count, = config.session.execute('SELECT count(*) FROM my_app.tab10')[0]
         self.assertEqual(count, 100)
+        #clean up
+        pd = StorageDict(tablename,
+                         [('position', 'int')],
+                         [('value', 'text')],
+                         tokens=tokens)
+        pd.delete_persistent()
+
 
     def test_dict_print(self):
         tablename = "tab10"
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         pd = StorageDict(tablename,
                          [('position', 'int')],
                          [('value', 'text')])
@@ -212,19 +240,18 @@ class StorageDictTest(unittest.TestCase):
         for i in range(1100):
             pd[i] = str(i)
         self.assertEquals(pd.__repr__().count(':'), 1000)
+        pd.delete_persistent()
 
     def test_get_strs(self):
         tablename = "tab10"
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         pd = StorageDict(tablename,
                          [('position', 'int')],
                          [('value', 'text')])
         pd[0] = 'str1'
         self.assertEquals(pd[0], 'str1')
+        pd.delete_persistent()
 
     def test_len_memory(self):
-        config.session.execute("DROP TABLE IF EXISTS test.test_dict_len")
-        config.session.execute("DROP TABLE IF EXISTS test.test_dict_len_words")
         ninserts = 1500
         nopars = Words()
         self.assertIsNone(nopars.storage_id)
@@ -239,10 +266,9 @@ class StorageDictTest(unittest.TestCase):
 
         nopars.make_persistent('test.test_dict_len')
         self.assertEqual(len(nopars.words), ninserts)
+        nopars.delete_persistent()
 
     def test_len_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS test.test_dict_len")
-        config.session.execute("DROP TABLE IF EXISTS test.test_dict_len_words")
         ninserts = 1500
         nopars = Words('test.test_dict_len')
         nopars.ciao = 1
@@ -256,10 +282,9 @@ class StorageDictTest(unittest.TestCase):
 
         rebuild = Words('test.test_dict_len')
         self.assertEqual(len(rebuild.words), ninserts)
+        rebuild.delete_persistent()
 
     def test_make_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.t_make")
-        config.session.execute("DROP TABLE IF EXISTS my_app.t_make_words")
         nopars = Words()
         self.assertIsNone(nopars.storage_id)
         nopars.ciao = 1
@@ -281,28 +306,26 @@ class StorageDictTest(unittest.TestCase):
         gc.collect()
         count, = config.session.execute('SELECT count(*) FROM my_app.t_make_words')[0]
         self.assertEqual(10, count)
+        #clean up
+        nopars = Words("t_make")
+        nopars.delete_persistent()
 
     def test_none_value(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.Words")
-        config.session.execute("DROP TABLE IF EXISTS my_app.Words_words")
         mydict = MyStorageDict('somename')
         mydict[0] = None
         self.assertEqual(mydict[0], None)
-        config.session.execute("DROP TABLE IF EXISTS my_app.Words")
-        config.session.execute("DROP TABLE IF EXISTS my_app.Words_words")
+        mydict.delete_persistent()
 
     def test_none_keys(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.somename")
         mydict = MyStorageDict('somename')
 
         def set_none_key():
             mydict[None] = 1
 
         self.assertRaises(TypeError, set_none_key)
-        config.session.execute("DROP TABLE IF EXISTS my_app.somename")
+        mydict.delete_persistent()
 
     def test_paranoid_setitem_nonpersistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.mydict")
         pd = StorageDict("mydict",
                          [('position', 'int')],
                          [('value', 'text')])
@@ -318,9 +341,9 @@ class StorageDictTest(unittest.TestCase):
             pd['bla'] = 'bla'
 
         self.assertRaises(TypeError, set_wrong_val_2)
+        pd.delete_persistent()
 
     def test_paranoid_setitem_multiple_nonpersistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.mydict")
         pd = StorageDict("mydict",
                          [('position1', 'int'), ('position2', 'text')],
                          [('value1', 'text'), ('value2', 'int')])
@@ -336,9 +359,9 @@ class StorageDictTest(unittest.TestCase):
             pd['pos1', 0] = ['bla', 1]
 
         self.assertRaises(TypeError, set_wrong_val_2)
+        pd.delete_persistent()
 
     def test_paranoid_setitem_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a1")
         pd = StorageDict("tab_a1",
                          [('position', 'int')],
                          [('value', 'text')])
@@ -351,9 +374,9 @@ class StorageDictTest(unittest.TestCase):
             pd[0] = 1
 
         self.assertRaises(TypeError, set_wrong_val_test)
+        pd.delete_persistent()
 
     def test_paranoid_setitem_multiple_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a2")
         pd = StorageDict("tab_a2",
                          [('position1', 'int'), ('position2', 'text')],
                          [('value1', 'text'), ('value2', 'int')])
@@ -371,9 +394,9 @@ class StorageDictTest(unittest.TestCase):
             pd['bla', 'pos1'] = ['bla', 1]
 
         self.assertRaises(TypeError, set_wrong_key)
+        pd.delete_persistent()
 
     def test_paranoid_setitemdouble_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a3")
         pd = StorageDict("tab_a3",
                          [('position', 'int')],
                          [('value', 'double')])
@@ -386,19 +409,18 @@ class StorageDictTest(unittest.TestCase):
             pd[0] = 1
 
         set_wrong_val_test()
+        pd.delete_persistent()
 
     def test_paranoid_setitemdouble_multiple_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a4")
         pd = StorageDict("tab_a4",
                          [('position1', 'int'), ('position2', 'text')],
                          [('value1', 'text'), ('value2', 'double')])
         pd[0, 'pos1'] = ['bla', 1.0]
         time.sleep(2)
         self.assertEquals(pd[0, 'pos1'], ('bla', 1.0))
+        pd.delete_persistent()
 
     def test_empty_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.wordsso")
-        config.session.execute("DROP TABLE IF EXISTS my_app.wordsso_words")
         so = Words()
         so.make_persistent("wordsso")
         so.ciao = "an attribute"
@@ -426,7 +448,6 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(0, count)
 
     def test_simple_items_test(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a1")
 
         pd = StorageDict("tab_a1",
                          [('position', 'int')],
@@ -451,9 +472,9 @@ class StorageDictTest(unittest.TestCase):
             count += 1
         self.assertEqual(count, 100)
         self.assertEqual(what_should_be, res)
+        pd.delete_persistent()
 
     def test_simple_values_test(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a2")
         tablename = "tab_a2"
         pd = StorageDict(tablename,
                          [('position', 'int')],
@@ -480,9 +501,9 @@ class StorageDictTest(unittest.TestCase):
             count += 1
         self.assertEqual(count, 100)
         self.assertEqual(what_should_be, res)
+        pd.delete_persistent()
 
     def test_simple_keys_test(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a3")
         tablename = "tab_a3"
         pd = StorageDict(tablename,
                          [('position', 'int')],
@@ -507,9 +528,9 @@ class StorageDictTest(unittest.TestCase):
             count += 1
         self.assertEqual(count, 100)
         self.assertEqual(what_should_be, res)
+        pd.delete_persistent()
 
     def test_simple_contains(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a4")
         tablename = "tab_a4"
         pd = StorageDict(tablename,
                          [('position', 'int')],
@@ -528,6 +549,7 @@ class StorageDictTest(unittest.TestCase):
                          [('value', 'text')])
         for i in range(100):
             self.assertTrue(i in pd)
+        pd.delete_persistent()
 
     def test_deleteitem_nonpersistent(self):
         pd = StorageDict(None,
@@ -554,7 +576,6 @@ class StorageDictTest(unittest.TestCase):
 
     def test_deleteitem_persistent(self):
         tablename = "tab_a5"
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         pd = StorageDict(tablename,
                          [('position', 'int')],
                          [('value', 'text')])
@@ -565,9 +586,9 @@ class StorageDictTest(unittest.TestCase):
             val = pd[0]
 
         self.assertRaises(KeyError, del_val)
+        pd.delete_persistent()
 
         tablename = "tab_a6"
-        config.session.execute("DROP TABLE IF EXISTS my_app." + tablename)
         pd = StorageDict(tablename,
                          [('position', 'text')],
                          [('value', 'int')])
@@ -578,9 +599,9 @@ class StorageDictTest(unittest.TestCase):
             val = pd['pos1']
 
         self.assertRaises(KeyError, del_val)
+        pd.delete_persistent()
 
     def test_delete_two_keys(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.dict")
         o = MyStorageDictB("dict")
         o["0", 0] = 0
         o["1", 1] = 1
@@ -589,9 +610,9 @@ class StorageDictTest(unittest.TestCase):
 
         self.assertEqual(o["1", 1], 1)
         self.assertEqual(o.get(("0", 0), None), None)
+        o.delete_persistent()
 
     def test_composed_items_test(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab12")
         tablename = "tab12"
         pd = StorageDict(tablename,
                          primary_keys=[('pid', 'int'), ('time', 'int')],
@@ -624,9 +645,9 @@ class StorageDictTest(unittest.TestCase):
             self.assertAlmostEquals(a[1], b.x, delta=delta)
             self.assertAlmostEquals(a[2], b.y, delta=delta)
             self.assertAlmostEquals(a[3], b.z, delta=delta)
+        pd.delete_persistent()
 
     def test_composed_key_return_list_items_test(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab13")
         tablename = "tab13"
         pd = StorageDict(tablename,
                          primary_keys=[('pid', 'int'), ('time', 'double')],
@@ -658,9 +679,9 @@ class StorageDictTest(unittest.TestCase):
         data2 = set([(key[0], int(key[1]), val[0], int(val[1]), int(val[2]), int(val[3])) for key, val in
                      what_should_be.items()])
         self.assertEqual(data, data2)
+        pd.delete_persistent()
 
     def test_storagedict_newinterface_localmemory(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.my_dict")
 
         my_dict = MyStorageDict()
         my_dict[0] = 1
@@ -672,7 +693,6 @@ class StorageDictTest(unittest.TestCase):
         self.assertEquals(True, error)
 
     def test_storagedict_newinterface_memorytopersistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.my_dict")
 
         my_dict = MyStorageDict()
         my_dict[0] = 1
@@ -690,9 +710,11 @@ class StorageDictTest(unittest.TestCase):
         gc.collect()
         count, = config.session.execute('SELECT count(*) FROM my_app.my_dict')[0]
         self.assertEquals(1, count)
+        #clean up
+        my_dict = MyStorageDict('my_dict')
+        my_dict.delete_persistent()
 
     def test_storagedict_newinterface_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.my_dict")
 
         my_dict = MyStorageDict()
         my_dict[0] = 1
@@ -709,10 +731,9 @@ class StorageDictTest(unittest.TestCase):
         my_dict2 = MyStorageDict('my_dict')
         self.assertEquals(1, my_dict2[0])
         self.assertEquals(2, my_dict2[1])
+        my_dict2.delete_persistent()
 
     def test_update(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a4")
-        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a5")
         tablename = "tab_a4"
         pd = StorageDict(tablename,
                          [('position', 'int')],
@@ -741,6 +762,10 @@ class StorageDictTest(unittest.TestCase):
         time.sleep(1)
         self.assertEquals(pd[0], 'final_a')
         self.assertEquals(pd[4], 'final_4')
+        pd.delete_persistent()
+        pd2.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a4")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a5")
 
     def test_update_kwargs(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.tab_a6")
@@ -757,15 +782,18 @@ class StorageDictTest(unittest.TestCase):
         time.sleep(2)
         self.assertEquals(pd['val1'], 'new_a')
         self.assertEquals(pd['val2'], 'new_b')
+        pd.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a6")
 
     def test_get_persistent(self):
         table_name = 'tab_a7'
-        config.session.execute("DROP TABLE IF EXISTS my_app." + table_name)
         my_text = MyStorageDict3('my_app.' + table_name)
         self.assertEquals(0, my_text.get('word', 0))
         my_text['word'] = my_text.get('word', 0) + 1
         time.sleep(2)
         self.assertEquals(1, my_text.get('word', 0))
+        my_text.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab_a7")
 
     def test_get_notpersistent(self):
         my_text = MyStorageDict3()
@@ -775,7 +803,6 @@ class StorageDictTest(unittest.TestCase):
         self.assertEquals(1, my_text.get('word', 0))
 
     def test_keys(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.test_keys")
         my_dict = MyStorageDict2('test_keys')
         # int,text - int
         nitems = 100
@@ -818,11 +845,11 @@ class StorageDictTest(unittest.TestCase):
         total_items = list(my_third_dict.items())
         self.assertEqual(len(total_items), 2 * nitems)
 
+        my_third_dict.delete_persistent()
         del my_third_dict
         config.session.execute("DROP TABLE IF EXISTS my_app.test_keys")
 
     def test_values(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.test_values")
         my_dict = MyStorageDict2('test_values')
         # int,text - int
         nitems = 100
@@ -865,11 +892,11 @@ class StorageDictTest(unittest.TestCase):
         total_items = list(my_third_dict.items())
         self.assertEqual(len(total_items), 2 * nitems)
 
+        my_third_dict.delete_persistent()
         del my_third_dict
         config.session.execute("DROP TABLE IF EXISTS my_app.test_values")
 
     def test_items(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.test_items")
         my_dict = MyStorageDict2('test_items')
         # int,text - int
         nitems = 100
@@ -912,6 +939,7 @@ class StorageDictTest(unittest.TestCase):
         total_items = list(my_third_dict.items())
         self.assertEqual(len(total_items), 2 * nitems)
 
+        my_third_dict.delete_persistent()
         del my_third_dict
         config.session.execute("DROP TABLE IF EXISTS my_app.test_items")
 
@@ -919,7 +947,6 @@ class StorageDictTest(unittest.TestCase):
         '''
         check that the prefetch returns the exact same number of elements as inserted 
         '''
-        config.session.execute("DROP TABLE IF EXISTS my_app.test_iterator_sync")
         my_dict = MyStorageDict2('test_iterator_sync')
         # int,text - int
         nitems = 5000
@@ -934,15 +961,11 @@ class StorageDictTest(unittest.TestCase):
         total_items = list(my_dict.items())
 
         self.assertEqual(len(total_items), nitems)
+        my_dict.delete_persistent()
         del my_dict
         config.session.execute("DROP TABLE IF EXISTS my_app.test_iterator_sync")
 
     def test_assign_and_replace(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.MyStorageObjC")
-        config.session.execute("DROP TABLE IF EXISTS my_app.MyStorageObjC_mona")
-        config.session.execute("DROP TABLE IF EXISTS my_app.MyStorageObjC_mona_0")
-        config.session.execute("DROP TABLE IF EXISTS my_app.MyStorageObjC_mona_1")
-        config.session.execute("DROP TABLE IF EXISTS my_app.second_name")
 
         first_storagedict = MyStorageDictA()
         my_storageobj = MyStorageObjC("first_name")
@@ -984,6 +1007,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(len(last_items), 1)
         self.assertEqual(my_storagedict[last_key], last_value)
 
+        my_storageobj.delete_persistent()
         config.session.execute("DROP TABLE IF EXISTS my_app.MyStorageObjC")
         config.session.execute("DROP TABLE IF EXISTS my_app.MyStorageObjC_mona")
         config.session.execute("DROP TABLE IF EXISTS my_app.MyStorageObjC_mona_0")
@@ -991,8 +1015,6 @@ class StorageDictTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.second_name")
 
     def test_make_persistent_with_persistent_obj(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.obj")
-        config.session.execute("DROP TABLE IF EXISTS my_app.dict")
         o2 = myobj2("obj")
         o2.attr1 = 1
         o2.attr2 = "2"
@@ -1003,9 +1025,9 @@ class StorageDictTest(unittest.TestCase):
             d.make_persistent("dict")
         except Exception as ex:
             self.fail("Raised exception unexpectedly.\n" + str(ex))
+        o2.delete_persistent()
 
     def test_int_tuples(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples")
         d = DictWithTuples("my_app.dictwithtuples")
 
         what_should_be = dict()
@@ -1027,10 +1049,11 @@ class StorageDictTest(unittest.TestCase):
 
         self.assertEqual(count, len(what_should_be))
         self.assertEqual(what_should_be, res)
+        d.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples")
 
     def test_values_tuples(self):
         # @TypeSpec dict<<key:int>, val0:int, val1:tuple<long,int>, val2:str, val3:tuple<str,float>>
-        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples3")
         d = DictWithTuples3("my_app.dictwithtuples3")
 
         what_should_be = set()
@@ -1048,9 +1071,10 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(count, len(what_should_be))
         self.assertEqual(what_should_be, res)
         self.assertEqual(what_should_be, res)
+        d.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples3")
 
     def test_tuples_in_key(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples2")
         d = DictWithTuples2("my_app.dictwithtuples2")
 
         for i in range(0, 10):
@@ -1061,9 +1085,10 @@ class StorageDictTest(unittest.TestCase):
             self.assertEqual(d[(i, i), i + 1], str(i))
 
         self.assertEqual(len(list(d.keys())), 10)
+        d.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples2")
 
     def test_keys_tuples(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples2")
         d = DictWithTuples2("my_app.dictwithtuples2")
 
         what_should_be = set()
@@ -1081,9 +1106,10 @@ class StorageDictTest(unittest.TestCase):
 
         self.assertEqual(count, len(what_should_be))
         self.assertEqual(what_should_be, res)
+        d.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples2")
 
     def test_multiple_tuples(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.dictmultipletuples")
         d = DictWithTuples3("my_app.dictmultipletuples")
 
         what_should_be = dict()
@@ -1104,9 +1130,10 @@ class StorageDictTest(unittest.TestCase):
 
         self.assertEqual(count, len(what_should_be))
         self.assertEqual(what_should_be, res)
+        d.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictmultipletuples")
 
     def test_int_tuples_null_values(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples")
         d = DictWithTuples("my_app.dictwithtuples")
 
         for i in range(0, 10):
@@ -1121,9 +1148,10 @@ class StorageDictTest(unittest.TestCase):
                 self.assertEqual(d[i], (None, i + 10))
             else:
                 self.assertEqual(d[i], (i, i + 10))
+        d.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtuples")
 
     def test_multi_tuples(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.multituples")
         d = MultiTuples("my_app.multituples")
         what_should_be = dict()
 
@@ -1139,9 +1167,10 @@ class StorageDictTest(unittest.TestCase):
                               (float(i), float(i), float(i), i), (float(i), float(i), float(i), i),
                               (float(i), float(i), float(i), i), (float(i), float(i), float(i), i),
                               (float(i), float(i), float(i), i), (float(i), float(i), float(i), i)])
+        d.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.multituples")
 
     def test_multiple_tuples_NULL(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.dictmultipletuples")
         d = DictWithTuples3("my_app.dictmultipletuples")
 
         what_should_be = dict()
@@ -1170,11 +1199,11 @@ class StorageDictTest(unittest.TestCase):
 
         self.assertEqual(count, len(what_should_be))
         self.assertEqual(what_should_be, res)
+        d.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictmultipletuples")
 
     def test_storagedict_objs_same_table(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.my_dict")
-        config.session.execute("DROP TABLE IF EXISTS my_app.Test2StorageObj")
-        d = TestDictOfStorageObj("my_app.my_dict")
+        d = TestDictOfStorageObj("my_app.tab1")
         for i in range(0, 10):
             o = Test2StorageObj()
             o.name = "adri" + str(i)
@@ -1185,6 +1214,9 @@ class StorageDictTest(unittest.TestCase):
         for i in range(0, n):
             self.assertEqual(d[i]._ksp.lower(), "my_app")
             self.assertEqual(d[i]._table.lower(), "test2storageobj")
+        d.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.Test2StorageObj")
+        config.session.execute("DROP TABLE IF EXISTS my_app.tab1")
 
     def gen_random_date(self):
         return datetime.date(year=randint(2000, 2019), month=randint(1, 12), day=randint(1, 28))
@@ -1198,7 +1230,6 @@ class StorageDictTest(unittest.TestCase):
                              microsecond=randint(0, 59))
 
     def test_multiple_dates(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithdates")
         d = DictWithDates("my_app.dictwithdates")
         what_should_be = dict()
         for i in range(0, 50):
@@ -1217,9 +1248,10 @@ class StorageDictTest(unittest.TestCase):
             self.assertEqual(what_should_be[k], [d[k]])
 
         self.assertEqual(count, len(list(d)))
+        d.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithdates")
 
     def test_multiple_times(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtimes")
         d = DictWithTimes("my_app.dictwithtimes")
         what_should_be = dict()
         for i in range(0, 50):
@@ -1238,9 +1270,10 @@ class StorageDictTest(unittest.TestCase):
             self.assertEqual(what_should_be[k], [d[k]])
 
         self.assertEqual(count, len(list(d)))
+        d.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithtimes")
 
     def test_datetimes(self):
-        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithdatetimes")
         d = DictWithDateTimes("my_app.dictwithdatetimes")
         what_should_be = dict()
         for i in range(0, 50):
@@ -1257,6 +1290,8 @@ class StorageDictTest(unittest.TestCase):
             self.assertEqual(what_should_be[k], [d[k]])
 
         self.assertEqual(count, len(list(d)))
+        d.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.dictwithdatetimes")
 
 
 if __name__ == '__main__':

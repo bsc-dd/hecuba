@@ -32,8 +32,17 @@ class DictSet4(StorageDict):
 
 
 class EmbeddedSetTest(unittest.TestCase):
+    @classmethod
+    def tearDownClass(cls):
+        config.session.execute("DROP KEYSPACE IF EXISTS pruebas0;")
+
+    def tearDown(self):
+        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset;")
+        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1;")
+        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset2;")
+        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset3;")
+
     def testAddRemove(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset")
         d = DictSet2("pruebas0.dictset")
         d["1", 1] = {"1"}
         d["2", 2] = {"1", "2", "3"}
@@ -49,9 +58,10 @@ class EmbeddedSetTest(unittest.TestCase):
         self.assertTrue("2" in d["2", 2])
         self.assertEqual(1, len(d["1", 1]))
         self.assertEqual(3, len(d["2", 2]))
+        #clean up
+        d.delete_persistent()
 
     def testDoNotCollide(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset")
         d = DictSet2("pruebas0.dictset")
         d["1", 1] = {"1"}
         d["2", 2] = {"1", "2", "3"}
@@ -65,9 +75,10 @@ class EmbeddedSetTest(unittest.TestCase):
         self.assertTrue("1" in d2["1", 1])
         for i in range(1, 4):
             self.assertTrue(str(i) in d2["2", 2])
+        #clean up
+        d2.delete_persistent()
 
     def testDoNotCollideEmptySet(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset")
         d = DictSet2("pruebas0.dictset")
         d["1", 1] = {"1", "2", "3"}
         d["2", 2] = {"4", "5", "6"}
@@ -88,9 +99,10 @@ class EmbeddedSetTest(unittest.TestCase):
 
         self.assertEqual(len(d2["1", 1]), 1)
         self.assertEqual(len(d2["2", 2]), 3)
+        #clean up
+        d2.delete_persistent()
 
     def testAddRemove2(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset")
         d = DictSet4("pruebas0.dictset")
         d["10"] = {1}
         d["20"] = {1, 2, 3}
@@ -106,9 +118,10 @@ class EmbeddedSetTest(unittest.TestCase):
         self.assertTrue(2 in d["20"])
         self.assertEqual(1, len(d["10"]))
         self.assertEqual(3, len(d["20"]))
+        #clean up
+        d.delete_persistent()
 
     def testAddRemoveInt(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset")
         d = DictSet3("pruebas0.dictset")
         d["1", 1] = {1}
         d["2", 2] = {1, 2, 3}
@@ -125,9 +138,10 @@ class EmbeddedSetTest(unittest.TestCase):
         self.assertTrue(2 in d["2", 2])
         self.assertEqual(1, len(d["1", 1]))
         self.assertEqual(3, len(d["2", 2]))
+        #clean up
+        d.delete_persistent()
 
     def testIter(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset")
         d = DictSet2("pruebas0.dictset")
 
         d["2", 2] = set()
@@ -141,9 +155,10 @@ class EmbeddedSetTest(unittest.TestCase):
             self.assertTrue(str(i) in l)
 
         self.assertEqual(len(l), len(d["2", 2]))
+        #clean up
+        d.delete_persistent()
 
     def testAddRemoveTuple(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset")
         d = DictSet("pruebas0.dictset")
         d["1", 1] = {(1, 1)}
         d["2", 2] = {(1, 1), (2, 2), (3, 3)}
@@ -159,9 +174,10 @@ class EmbeddedSetTest(unittest.TestCase):
         self.assertTrue((2, 2) in d["2", 2])
         self.assertEqual(1, len(d["1", 1]))
         self.assertEqual(3, len(d["2", 2]))
+        #clean up
+        d.delete_persistent()
 
     def testIterTuple(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset")
         d = DictSet("pruebas0.dictset")
 
         d["2", 2] = set()
@@ -175,10 +191,10 @@ class EmbeddedSetTest(unittest.TestCase):
             self.assertTrue((i, i) in l)
 
         self.assertEqual(len(l), len(d["2", 2]))
+        #clean up
+        d.delete_persistent()
 
     def testUnion(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset2")
         d1 = DictSet2("pruebas0.dictset1")
         d2 = DictSet2("pruebas0.dictset2")
 
@@ -189,17 +205,18 @@ class EmbeddedSetTest(unittest.TestCase):
         for i in range(10, 20):
             d2["1", 1].add(str(i))
 
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset3")
         d3 = DictSet2("pruebas0.dictset3")
         d3["2", 2] = d1["0", 0].union(d2["1", 1])
         time.sleep(3)
         for i in range(0, 20):
             self.assertTrue(str(i) in d3["2", 2])
         self.assertEqual(20, len(d3["2", 2]))
+        #clean up
+        d1.delete_persistent()
+        d2.delete_persistent()
+        d3.delete_persistent()
 
     def testIntersection(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset2")
         d1 = DictSet2("pruebas0.dictset1")
         d2 = DictSet2("pruebas0.dictset2")
 
@@ -210,16 +227,17 @@ class EmbeddedSetTest(unittest.TestCase):
             if i < 5:
                 d2["1", 1].add(str(i))
 
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset3")
         d3 = DictSet2("pruebas0.dictset3")
         d3["2", 2] = d1["0", 0].intersection(d2["1", 1])
         for i in range(0, 5):
             self.assertTrue(str(i) in d3["2", 2])
         self.assertEqual(5, len(d3["2", 2]))
+        #clean up
+        d1.delete_persistent()
+        d2.delete_persistent()
+        d3.delete_persistent()
 
     def testDifference(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset2")
         d1 = DictSet2("pruebas0.dictset1")
         d2 = DictSet2("pruebas0.dictset2")
 
@@ -230,16 +248,17 @@ class EmbeddedSetTest(unittest.TestCase):
             if i < 5:
                 d2["1", 1].add(str(i))
 
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset3")
         d3 = DictSet2("pruebas0.dictset3")
         d3["2", 2] = d1["0", 0].difference(d2["1", 1])
         for i in range(5, 10):
             self.assertTrue(str(i) in d3["2", 2])
         self.assertEqual(5, len(d3["2", 2]))
+        #clean up
+        d1.delete_persistent()
+        d2.delete_persistent()
+        d3.delete_persistent()
 
     def testUnionWithTuples(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset2")
         d1 = DictSet("pruebas0.dictset1")
         d2 = DictSet("pruebas0.dictset2")
 
@@ -250,17 +269,18 @@ class EmbeddedSetTest(unittest.TestCase):
         for i in range(10, 20):
             d2["1", 1].add((i, i))
 
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset3")
         d3 = DictSet("pruebas0.dictset3")
         d3["2", 2] = d1["0", 0].union(d2["1", 1])
         time.sleep(3)
         for i in range(0, 20):
             self.assertTrue((i, i) in d3["2", 2])
         self.assertEqual(20, len(d3["2", 2]))
+        #clean up
+        d1.delete_persistent()
+        d2.delete_persistent()
+        d3.delete_persistent()
 
     def testIntersectionWithTuples(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset2")
         d1 = DictSet("pruebas0.dictset1")
         d2 = DictSet("pruebas0.dictset2")
 
@@ -271,16 +291,17 @@ class EmbeddedSetTest(unittest.TestCase):
             if i < 5:
                 d2["1", 1].add((i, i))
 
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset3")
         d3 = DictSet("pruebas0.dictset3")
         d3["2", 2] = d1["0", 0].intersection(d2["1", 1])
         for i in range(0, 5):
             self.assertTrue((i, i) in d3["2", 2])
         self.assertEqual(5, len(d3["2", 2]))
+        #clean up
+        d1.delete_persistent()
+        d2.delete_persistent()
+        d3.delete_persistent()
 
     def testDifferenceWithTuples(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset2")
         d1 = DictSet("pruebas0.dictset1")
         d2 = DictSet("pruebas0.dictset2")
 
@@ -291,15 +312,17 @@ class EmbeddedSetTest(unittest.TestCase):
             if i < 5:
                 d2["1", 1].add((i, i))
 
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset3")
         d3 = DictSet("pruebas0.dictset3")
         d3["2", 2] = d1["0", 0].difference(d2["1", 1])
         for i in range(5, 10):
             self.assertTrue((i, i) in d3["2", 2])
         self.assertEqual(5, len(d3["2", 2]))
+        #clean up
+        d1.delete_persistent()
+        d2.delete_persistent()
+        d3.delete_persistent()
 
     def testUnionWithSet(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
         d1 = DictSet2("pruebas0.dictset1")
 
         d1["0", 0] = set()
@@ -308,16 +331,17 @@ class EmbeddedSetTest(unittest.TestCase):
             d1["0", 0].add(str(i))
             s1.add(str(i + 10))
 
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset3")
         d3 = DictSet2("pruebas0.dictset3")
         d3["2", 2] = d1["0", 0].union(s1)
         time.sleep(3)
         for i in range(0, 20):
             self.assertTrue(str(i) in d3["2", 2])
         self.assertEqual(20, len(d3["2", 2]))
+        #clean up
+        d1.delete_persistent()
+        d3.delete_persistent()
 
     def testIntersectionWithSet(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
         d1 = DictSet2("pruebas0.dictset1")
 
         d1["0", 0] = set()
@@ -327,15 +351,16 @@ class EmbeddedSetTest(unittest.TestCase):
             if i < 5:
                 s1.add(str(i))
 
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset3")
         d3 = DictSet2("pruebas0.dictset3")
         d3["2", 2] = d1["0", 0].intersection(s1)
         for i in range(0, 5):
             self.assertTrue(str(i) in d3["2", 2])
         self.assertEqual(5, len(d3["2", 2]))
+        #clean up
+        d1.delete_persistent()
+        d3.delete_persistent()
 
     def testDifferenceWithSet(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
         d1 = DictSet2("pruebas0.dictset1")
 
         d1["0", 0] = set()
@@ -345,15 +370,16 @@ class EmbeddedSetTest(unittest.TestCase):
             if i < 5:
                 s1.add(str(i))
 
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset3")
         d3 = DictSet2("pruebas0.dictset3")
         d3["2", 2] = d1["0", 0].difference(s1)
         for i in range(5, 10):
             self.assertTrue(str(i) in d3["2", 2])
         self.assertEqual(5, len(d3["2", 2]))
+        #clean up
+        d1.delete_persistent()
+        d3.delete_persistent()
 
     def testIterKeys(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
         d1 = DictSet3("pruebas0.dictset1")
 
         d1["0", 0] = {1, 2, 3, 4}
@@ -370,9 +396,10 @@ class EmbeddedSetTest(unittest.TestCase):
         self.assertTrue(("1", 0) in l)
         self.assertTrue(("1", 1) in l)
         self.assertEqual(4, len(l))
+        #clean up
+        d1.delete_persistent()
 
     def testItems(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
         d1 = DictSet3("pruebas0.dictset1")
 
         d1["0", 0] = {1, 2, 3, 4}
@@ -392,9 +419,10 @@ class EmbeddedSetTest(unittest.TestCase):
         self.assertEqual({1, 2, 3, 4}, d["0", 1])
         self.assertEqual({1, 2, 3, 4}, d["1", 0])
         self.assertEqual({1, 2, 3, 4}, d["1", 1])
+        #clean up
+        d1.delete_persistent()
 
     def testIterValues(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
         d1 = DictSet3("pruebas0.dictset1")
 
         d1["0", 0] = {1, 2, 3, 4}
@@ -411,9 +439,10 @@ class EmbeddedSetTest(unittest.TestCase):
         self.assertTrue({5, 6, 7, 8} in l)
         self.assertTrue({8, 7, 6, 5} in l)
         self.assertTrue({4, 3, 2, 1} in l)
+        #clean up
+        d1.delete_persistent()
 
     def testItemsWithTuples(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
         d1 = DictSet("pruebas0.dictset1")
 
         d1["key0", 15] = {(0, 1), (2, 3), (4, 5)}
@@ -427,10 +456,10 @@ class EmbeddedSetTest(unittest.TestCase):
         self.assertEqual(2, len(d))
         self.assertEqual({(0, 1), (2, 3), (4, 5)}, d["key0", 15])
         self.assertEqual({(10, 11), (12, 13), (14, 15)}, d["key1", 30])
+        #clean up
+        d1.delete_persistent()
 
     def testUpdate(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset2")
         d1 = DictSet2("pruebas0.dictset1")
         d2 = DictSet2("pruebas0.dictset2")
 
@@ -447,10 +476,11 @@ class EmbeddedSetTest(unittest.TestCase):
         for i in range(0, 20):
             self.assertTrue(str(i) in d1["0", 0])
         self.assertEqual(20, len(d1["0", 0]))
+        #clean up
+        d1.delete_persistent()
+        d2.delete_persistent()
 
     def testIsSubset(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset2")
         d1 = DictSet2("pruebas0.dictset1")
         d2 = DictSet2("pruebas0.dictset2")
 
@@ -467,10 +497,11 @@ class EmbeddedSetTest(unittest.TestCase):
 
         b = d2["1", 1].issubset(d1["0", 0])
         self.assertFalse(b)
+        #clean up
+        d1.delete_persistent()
+        d2.delete_persistent()
 
     def testIsSuperset(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset2")
         d1 = DictSet2("pruebas0.dictset1")
         d2 = DictSet2("pruebas0.dictset2")
 
@@ -488,9 +519,11 @@ class EmbeddedSetTest(unittest.TestCase):
 
         b = d1["0", 0].issuperset(d2["1", 1])
         self.assertFalse(b)
+        #clean up
+        d1.delete_persistent()
+        d2.delete_persistent()
 
     def testIsSubsetWithSet(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
         d1 = DictSet2("pruebas0.dictset1")
 
         d1["0", 0] = set()
@@ -506,9 +539,10 @@ class EmbeddedSetTest(unittest.TestCase):
 
         b = s.issubset(d1["0", 0])
         self.assertFalse(b)
+        #clean up
+        d1.delete_persistent()
 
     def testIsSupersetWithSet(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
         d1 = DictSet2("pruebas0.dictset1")
 
         d1["0", 0] = set()
@@ -524,9 +558,10 @@ class EmbeddedSetTest(unittest.TestCase):
 
         b = d1["0", 0].issuperset(s)
         self.assertFalse(b)
+        #clean up
+        d1.delete_persistent()
 
     def testRemoveKeyError(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
         d1 = DictSet2("pruebas0.dictset1")
 
         d1["0", 0] = {"0", "1", "2"}
@@ -535,9 +570,10 @@ class EmbeddedSetTest(unittest.TestCase):
         self.assertTrue("1" in d1["0", 0])
         self.assertTrue("2" in d1["0", 0])
         self.assertEqual(False, d1["0", 0].__contains__("0"))
+        #clean up
+        d1.delete_persistent()
 
     def testDiscard(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
         d1 = DictSet2("pruebas0.dictset1")
 
         d1["0", 0] = {"0", "1", "2"}
@@ -546,9 +582,10 @@ class EmbeddedSetTest(unittest.TestCase):
         self.assertTrue("1" in d1["0", 0])
         self.assertTrue("2" in d1["0", 0])
         self.assertEqual(False, d1["0", 0].__contains__("0"))
+        #clean up
+        d1.delete_persistent()
 
     def testClear(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
         d1 = DictSet3("pruebas0.dictset1")
 
         d1["0", 0] = {1, 2}
@@ -556,9 +593,10 @@ class EmbeddedSetTest(unittest.TestCase):
         self.assertEqual(2, len(d1["0", 0]))
         d1["0", 0].clear()
         self.assertEqual(0, len(d1["0", 0]))
+        #clean up
+        d1.delete_persistent()
 
     def testSplit(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
         d = DictSet3("pruebas0.dictset1")
         for i in range(0, 10):
             for j in range(0, 3):
@@ -572,9 +610,10 @@ class EmbeddedSetTest(unittest.TestCase):
         for i in range(0, 10):
             for j in range(0, 3):
                 self.assertEqual(d2[str(i), j], {0, 1, 2, 3, 4, 5})
+        #clean up
+        d.delete_persistent()
 
     def testBuildRemotely(self):
-        config.session.execute("DROP TABLE IF EXISTS pruebas0.dictset1")
         d = DictSet("pruebas0.dictset1")
         for i in range(0, 10):
             d[str(i), i] = {(0, 0), (1, 1), (2, 2)}
@@ -601,6 +640,8 @@ class EmbeddedSetTest(unittest.TestCase):
         for i in range(0, 10):
             # rebuild[str(i), i] does not return data, we must iterate over it
             self.assertEqual({i for i in rebuild[str(i), i]}, {(0, 0), (1, 1), (2, 2)})
+        #clean up
+        d.delete_persistent()
 
 
 if __name__ == '__main__':
