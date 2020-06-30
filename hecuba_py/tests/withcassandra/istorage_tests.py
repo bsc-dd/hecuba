@@ -11,16 +11,28 @@ class PersistentDict(StorageDict):
 
 
 class IStorageTests(unittest.TestCase):
-    def stop_persistent_method_test(self):
-        from hecuba.tools import storage_id_from_name
-        config.session.execute(
-            "DROP TABLE IF  EXISTS test.istorage_pers;")
-        config.session.execute(
-            "DELETE FROM hecuba.istorage WHERE storage_id = {}".format(storage_id_from_name("test.istorage_pers")))
+    @classmethod
+    def setUpClass(cls):
+        cls.old = config.execution_name
+        config.NUM_TEST = 0 # HACK a new attribute to have a global counter
+    @classmethod
+    def tearDownClass(cls):
+        config.execution_name = cls.old
+        del config.NUM_TEST
 
+    # Create a new keyspace per test
+    def setUp(self):
+        config.NUM_TEST = config.NUM_TEST + 1
+        self.current_ksp = "IStorageTests{}".format(config.NUM_TEST).lower()
+        config.execution_name = self.current_ksp
+
+    def tearDown(self):
+        config.session.execute("DROP KEYSPACE IF EXISTS {}".format(self.current_ksp))
+
+    def stop_persistent_method_test(self):
         key = 123
         value = 456
-        name = 'test.istorage_pers'
+        name = 'istorage_pers'
 
         base_dict = PersistentDict()
 
@@ -54,15 +66,9 @@ class IStorageTests(unittest.TestCase):
         self.assertEqual(external_dict[key], value)
 
     def delete_persistent_method_test(self):
-        from hecuba.tools import storage_id_from_name
-        config.session.execute(
-            "DROP TABLE IF  EXISTS test.istorage_pers;")
-        config.session.execute(
-            "DELETE FROM hecuba.istorage WHERE storage_id = {}".format(storage_id_from_name("test.istorage_pers")))
-
         key = 123
         value = 456
-        name = 'test.istorage_pers'
+        name = 'istorage_pers'
 
         base_dict = PersistentDict()
 

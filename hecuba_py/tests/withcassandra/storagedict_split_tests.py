@@ -50,6 +50,10 @@ class StorageDictSplitTestbase(unittest.TestCase):
             "replication = {'class': 'SimpleStrategy', 'replication_factor': 1};",
             timeout=60)
 
+    @classmethod
+    def tearDownClass(cls):
+        config.session.execute("DROP KEYSPACE IF EXISTS my_app", timeout=60)
+
     def test_simple_iterkeys_split(self):
         config.session.execute(
             "CREATE TABLE IF NOT EXISTS my_app.tab30(position int, value text, PRIMARY KEY(position))")
@@ -74,6 +78,7 @@ class StorageDictSplitTestbase(unittest.TestCase):
 
         count, = config.session.execute('SELECT count(*) FROM my_app.tab30')[0]
         self.assertEqual(count, num_inserts)
+        pd.delete_persistent()
 
     def test_remote_build_iterkeys_split(self):
         config.session.execute(
@@ -105,6 +110,7 @@ class StorageDictSplitTestbase(unittest.TestCase):
 
         count, = config.session.execute('SELECT count(*) FROM my_app.tab_b0')[0]
         self.assertEqual(count, num_inserts)
+        pd.delete_persistent()
 
     def test_composed_iteritems(self):
         config.session.execute(
@@ -138,6 +144,7 @@ class StorageDictSplitTestbase(unittest.TestCase):
             self.assertAlmostEquals(a[1], b.x, delta=delta)
             self.assertAlmostEquals(a[2], b.y, delta=delta)
             self.assertAlmostEquals(a[3], b.z, delta=delta)
+        pd.delete_persistent()
 
     def computeItems(self, SDict):
         counter = 0
@@ -170,6 +177,7 @@ class StorageDictSplitTestbase(unittest.TestCase):
             nsplits = nsplits + 1
 
         self.assertEqual(acc, nitems)
+        myfinalbook.delete_persistent()
 
     def test_split_type_spec_complex(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.SObj_ComplexClassField")
@@ -198,6 +206,7 @@ class StorageDictSplitTestbase(unittest.TestCase):
             nsplits = nsplits + 1
 
         self.assertEqual(acc, nitems)
+        myfinalbook.delete_persistent()
 
     def test_split_class_field_simple(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.SObj_SimpleClassField")
@@ -226,6 +235,7 @@ class StorageDictSplitTestbase(unittest.TestCase):
             nsplits = nsplits + 1
 
         self.assertEqual(acc, nitems)
+        myfinalbook.delete_persistent()
 
     def test_split_class_field_complex(self):
         nitems = 50
@@ -257,6 +267,7 @@ class StorageDictSplitTestbase(unittest.TestCase):
             nsplits = nsplits + 1
 
         self.assertEqual(acc, nitems)
+        myfinalbook.delete_persistent()
 
     def test_len_on_split(self):
         config.session.execute("DROP TABLE IF EXISTS my_app.test_split_len")
@@ -271,6 +282,7 @@ class StorageDictSplitTestbase(unittest.TestCase):
             count = count + len(chunk)
 
         self.assertEqual(count, ninserts)
+        obj.delete_persistent()
 
     '''
     def test_remote_build_composed_iteritems(self):
@@ -342,6 +354,7 @@ class StorageDictSlitTestVnodes(StorageDictSplitTestbase):
 
     @classmethod
     def tearDownClass(cls):
+        config.session.execute("DROP KEYSPACE IF EXISTS my_app")
         from .. import test_config
         from hfetch import disconnectCassandra
         disconnectCassandra()
