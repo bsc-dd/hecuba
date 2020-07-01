@@ -12,7 +12,8 @@ class TestSimple(StorageObj):
     pass
 
 
-N_CASS_NODES = 2
+from .. import test_config
+N_CASS_NODES = test_config.n_nodes
 
 
 class StorageObjSplitTest(unittest.TestCase):
