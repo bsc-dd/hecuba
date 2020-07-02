@@ -318,7 +318,16 @@ if [ "$ACTION" == "RUN" ]; then
         JOB_MAX_TIME=$DEFAULT_MAX_TIME
     fi
     if [ "0$LOGS_DIR" == "0" ]; then
-        DEFAULT_LOGS_DIR=$(cat $CFG_FILE | grep "LOG_PATH=" | sed 's/LOG_PATH=//g' | sed 's/"//g')
+        #yolandab
+        DEFAULT_LOGS_DIR=$(cat $CFG_FILE | grep "LOG_PATH=")
+	if [ $? -eq 1 ]; then
+		DEFAULT_LOGS_DIR=$PWD
+	else
+		DEFAULT_LOGS_DIR=$(echo $DEFAULT_LOGS_DIR| sed 's/LOG_PATH=//g' | sed 's/"//g')
+        fi
+        echo "[INFO] This execution will use $DEFAULT_LOGS_DIR as logging dir"
+        #was:
+        #DEFAULT_LOGS_DIR=$(cat $CFG_FILE | grep "LOG_PATH=" | sed 's/LOG_PATH=//g' | sed 's/"//g')
         LOGS_DIR=$DEFAULT_LOGS_DIR
     fi
 
