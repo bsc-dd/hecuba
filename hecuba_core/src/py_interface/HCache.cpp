@@ -762,7 +762,7 @@ static int harray_metadata_init(HArrayMetadata *self, PyObject *args, PyObject *
     self->np_metas.strides.resize(ndims);
 
 
-    for (uint32_t dim_i = 0; dim_i < ndims; ++dim_i) {
+    for (int32_t dim_i = 0; dim_i < ndims; ++dim_i) {
         PyObject *elem_dim = PyList_GetItem(dims, dim_i);
         if (elem_dim == Py_None) throw ModuleException("numpy metadata missing dims");
         if (!PyLong_Check(elem_dim) || !PyArg_Parse(elem_dim, Py_INT, &self->np_metas.dims[dim_i]))
@@ -774,7 +774,7 @@ static int harray_metadata_init(HArrayMetadata *self, PyObject *args, PyObject *
     if (!PyList_Check(strides)) throw ModuleException("numpy metadata missing strides");
 
     if (PyList_Size(strides) != ndims) throw ModuleException("Numpy strides must be a list of ints");
-    for (uint32_t dim_i = 0; dim_i < ndims; ++dim_i) {
+    for (int32_t dim_i = 0; dim_i < ndims; ++dim_i) {
         PyObject *elem_dim = PyList_GetItem(strides, dim_i);
         if (elem_dim == Py_None) throw ModuleException("numpy metadata missing strides");
         if (!PyLong_Check(elem_dim) || !PyArg_Parse(elem_dim, Py_INT, &self->np_metas.strides[dim_i]))
