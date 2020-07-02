@@ -25,6 +25,7 @@ CLUSTER_ID=${3}       # Cassandra4Slurm cluster identificator
 
 export C4S_HOME=$HOME/.c4s
 MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
+HECUBA_ENVIRON=$C4S_HOME/conf/hecuba_environment
 CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
 export CASSFILE=$C4S_HOME/casslist-"$CLUSTER_ID".txt
 export APPFILE=$C4S_HOME/applist-"$UNIQ_ID".txt
@@ -59,6 +60,9 @@ if [ "$APP_NODES" != "0" ]; then
         APP_AND_PARAMS=$(cat $APPPATHFILE)
         PYCOMPSS_FLAGS=$(cat $PYCOMPSS_FLAGS_FILE)
         echo "export CONTACT_NAMES=$CNAMES" > ~/contact_names.sh # Setting Cassandra cluster environment variable for Hecuba
+        if [ -f $HECUBA_ENVIRON ]; then
+		cat $HECUBA_ENVIRON >> ~/contact_names.sh
+	fi
         full_iface=$iface
         if [ "0$iface" != "0" ]; then
             full_iface="-"$iface

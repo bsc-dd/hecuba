@@ -46,6 +46,7 @@ cat $STORAGE_PROPS
 source $STORAGE_PROPS
 
 export C4S_HOME=$HOME/.c4s
+export HECUBA_ENVIRON=$C4S_HOME/conf/hecuba_environment
 export C4S_CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
 export MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
 NODEFILE=$C4S_HOME/hostlist-"$UNIQ_ID".txt
@@ -223,6 +224,10 @@ export CONTACT_NAMES=$CNAMES
 echo "CONTACT_NAMES=$CONTACT_NAMES"
 echo "export CONTACT_NAMES=$CONTACT_NAMES" > ${FILE_TO_SET_ENV_VARS}
 echo "FILE TO EXPORT VARS IS  ${FILE_TO_SET_ENV_VARS}"
+if [ -f $HECUBA_ENVIRON ]; then
+	cat $HECUBA_ENVIRON >> ${FILE_TO_SET_ENV_VARS}
+	echo "FILE WITH HECUBA ENVIRON IS  ${HECUBA_ENVIRON}"
+fi
 cat ${FILE_TO_SET_ENV_VARS}
 #srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES "bash export CONTACT_NAMES=$CONTACT_NAMES" &
 PYCOMPSS_STORAGE=$C4S_HOME/pycompss_storage_"$UNIQ_ID".txt
