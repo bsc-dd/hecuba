@@ -742,13 +742,13 @@ static PyObject *harray_metadata_new(PyTypeObject *type, PyObject *args, PyObjec
 
 
 static int harray_metadata_init(HArrayMetadata *self, PyObject *args, PyObject *kwds) {
-    char *kwlist[] = {"dims", "strides", "typekind", "byteorder", "elem_size", "flags", "partition_type", NULL};
+    const char *kwlist[] = {"dims", "strides", "typekind", "byteorder", "elem_size", "flags", "partition_type", NULL};
 
 
     const char *typekind_tmp, *byteorder_tmp;
     self->np_metas = ArrayMetadata();
     PyObject *dims, *strides;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOssiib", kwlist, &dims, &strides, &typekind_tmp, &byteorder_tmp,
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOssiib", (char **)kwlist, &dims, &strides, &typekind_tmp, &byteorder_tmp,
                                      &self->np_metas.elem_size, &self->np_metas.flags,
                                      &self->np_metas.partition_type)) {
         return -1;
