@@ -16,17 +16,33 @@ class ComplexDict(StorageDict):
 
 
 class LambdaParserTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.old = config.execution_name
+        config.NUM_TEST = 0 # HACK a new attribute to have a global counter
+    @classmethod
+    def tearDownClass(cls):
+        config.execution_name = cls.old
+        del config.NUM_TEST
+
+    # Create a new keyspace per test
+    def setUp(self):
+        config.NUM_TEST = config.NUM_TEST + 1
+        self.current_ksp = "LambdaParserTest{}".format(config.NUM_TEST).lower()
+        config.execution_name = self.current_ksp
+
+    def tearDown(self):
+        config.session.execute("DROP KEYSPACE IF EXISTS {}".format(self.current_ksp))
 
     def test_simple_filter(self):
-        config.session.execute("DROP TABLE IF EXISTS hfilter_tests.simpledict")
-        simple_dict = SimpleDict("hfilter_tests.simpledict")
+        simple_dict = SimpleDict("simpledict")
         res = filter(lambda x: x.key0 == 5, simple_dict.items())
         res = [i for i in res]
         self.assertEqual(0, len(res))
+        simple_dict.delete_persistent()
 
     def test_greater(self):
-        config.session.execute("DROP TABLE IF EXISTS hfilter_tests.simpledict")
-        simple_dict = SimpleDict("hfilter_tests.simpledict")
+        simple_dict = SimpleDict("simpledict")
         for i in range(0, 10):
             simple_dict[i] = i
         time.sleep(1)
@@ -38,18 +54,18 @@ class LambdaParserTest(unittest.TestCase):
         self.assertTrue((7, 7) in res)
         self.assertTrue((8, 8) in res)
         self.assertTrue((9, 9) in res)
+        simple_dict.delete_persistent()
 
     def test_column_not_exist(self):
-        config.session.execute("DROP TABLE IF EXISTS hfilter_tests.simpledict")
-        simple_dict = SimpleDict("hfilter_tests.simpledict")
+        simple_dict = SimpleDict("simpledict")
 
         def filter_nonexisting_key():
             return filter(lambda x: x.key1 == 5, simple_dict.items())
 
         self.assertRaises(Exception, filter_nonexisting_key)
+        simple_dict.delete_persistent()
 
     def test_not_persistent_object(self):
-        config.session.execute("DROP TABLE IF EXISTS hfilter_tests.simpledict")
         simple_dict = SimpleDict()
         for i in range(0, 10):
             simple_dict[i] = i
@@ -63,8 +79,7 @@ class LambdaParserTest(unittest.TestCase):
         self.assertTrue((9, 9) in res)
 
     def test_filter_equal(self):
-        config.session.execute("DROP TABLE IF EXISTS hfilter_tests.simpledict")
-        simple_dict = SimpleDict("hfilter_tests.simpledict")
+        simple_dict = SimpleDict("simpledict")
         for i in range(0, 10):
             simple_dict[i] = i
         time.sleep(1)
@@ -73,10 +88,10 @@ class LambdaParserTest(unittest.TestCase):
         res = [i for i in res]
         self.assertEqual(1, len(res))
         self.assertEqual((5, 5), res[0])
+        simple_dict.delete_persistent()
 
     def test_filter_inside(self):
-        config.session.execute("DROP TABLE IF EXISTS hfilter_tests.simpledict")
-        simple_dict = SimpleDict("hfilter_tests.simpledict")
+        simple_dict = SimpleDict("simpledict")
         for i in range(0, 10):
             simple_dict[i] = i
         time.sleep(1)
@@ -86,10 +101,10 @@ class LambdaParserTest(unittest.TestCase):
         self.assertEqual(2, len(res))
         self.assertTrue((1, 1) in res)
         self.assertTrue((3, 3) in res)
+        simple_dict.delete_persistent()
 
     def test_different_columns(self):
-        config.session.execute("DROP TABLE IF EXISTS hfilter_tests.simpledict")
-        simple_dict = SimpleDict("hfilter_tests.simpledict")
+        simple_dict = SimpleDict("simpledict")
         for i in range(0, 10):
             simple_dict[i] = i
         time.sleep(1)
@@ -101,10 +116,10 @@ class LambdaParserTest(unittest.TestCase):
         self.assertTrue((2, 2) in res)
         self.assertTrue((3, 3) in res)
         self.assertTrue((5, 5) in res)
+        simple_dict.delete_persistent()
 
     def test_complex_filter(self):
-        config.session.execute("DROP TABLE IF EXISTS hfilter_tests.complexdict")
-        complex_dict = ComplexDict("hfilter_tests.complexdict")
+        complex_dict = ComplexDict("complexdict")
         for i in range(0, 20):
             complex_dict[str(i), i] = [str(i), i, float(i), True]
         time.sleep(2)
@@ -116,10 +131,10 @@ class LambdaParserTest(unittest.TestCase):
         self.assertTrue((("2", 2), ("2", 2, 2.0, True)) in res)
         self.assertTrue((("3", 3), ("3", 3, 3.0, True)) in res)
         self.assertTrue((("4", 4), ("4", 4, 4.0, True)) in res)
+        complex_dict.delete_persistent()
 
     def test_bad_type(self):
-        config.session.execute("DROP TABLE IF EXISTS hfilter_tests.simpledict")
-        simple_dict = SimpleDict("hfilter_tests.simpledict")
+        simple_dict = SimpleDict("simpledict")
         for i in range(0, 10):
             simple_dict[i] = i
         time.sleep(1)
@@ -128,10 +143,10 @@ class LambdaParserTest(unittest.TestCase):
             res = filter(lambda x: x.key0 == "1", simple_dict.items())
 
         self.assertRaises(Exception, execute_bad_type)
+        simple_dict.delete_persistent()
 
     def test_several_operators(self):
-        config.session.execute("DROP TABLE IF EXISTS hfilter_tests.simpledict")
-        simple_dict = SimpleDict("hfilter_tests.simpledict")
+        simple_dict = SimpleDict("simpledict")
         for i in range(0, 10):
             simple_dict[i] = i
         time.sleep(1)
@@ -141,10 +156,10 @@ class LambdaParserTest(unittest.TestCase):
         self.assertEqual(2, len(res))
         self.assertTrue((3, 3) in res)
         self.assertTrue((4, 4) in res)
+        simple_dict.delete_persistent()
 
     def test_reversed_operations(self):
-        config.session.execute("DROP TABLE IF EXISTS hfilter_tests.simpledict")
-        simple_dict = SimpleDict("hfilter_tests.simpledict")
+        simple_dict = SimpleDict("simpledict")
         for i in range(0, 10):
             simple_dict[i] = i
         time.sleep(1)
@@ -154,6 +169,7 @@ class LambdaParserTest(unittest.TestCase):
         self.assertEqual(2, len(res))
         self.assertTrue((3, 3) in res)
         self.assertTrue((4, 4) in res)
+        simple_dict.delete_persistent()
 
     def test_non_hecuba_filter(self):
         l = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -161,8 +177,7 @@ class LambdaParserTest(unittest.TestCase):
         self.assertEqual(res, [5, 6, 7, 8, 9])
 
     def test_split_filter(self):
-        config.session.execute("DROP TABLE IF EXISTS hfilter_tests.simpledict")
-        simple_dict = SimpleDict("hfilter_tests.simpledict")
+        simple_dict = SimpleDict("simpledict")
         what_should_be = dict()
         for i in range(0, 10):
             what_should_be[i] = i
@@ -188,6 +203,7 @@ class LambdaParserTest(unittest.TestCase):
         self.assertEqual(len(filtered), len(normal_filtered))
         for row in filtered:
             self.assertTrue(row in normal_filtered)
+        simple_dict.delete_persistent()
 
 
 if __name__ == "__main__":

@@ -9,8 +9,25 @@ from storageAPI.storage.api import getByID
 
 
 class StorageNumpyTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.old = config.execution_name
+        config.NUM_TEST = 0 # HACK a new attribute to have a global counter
+    @classmethod
+    def tearDownClass(cls):
+        config.execution_name = cls.old
+        del config.NUM_TEST
+
+    # Create a new keyspace per test
+    def setUp(self):
+        config.NUM_TEST = config.NUM_TEST + 1
+        self.ksp = "StorageNumpyTest{}".format(config.NUM_TEST).lower()
+        config.execution_name = self.ksp
+
+    def tearDown(self):
+        config.session.execute("DROP KEYSPACE IF EXISTS {}".format(self.ksp))
+
     table = 'numpy_test'
-    ksp = 'my_app'
 
     def test_init_empty(self):
         tablename = None
@@ -79,47 +96,28 @@ class StorageNumpyTest(unittest.TestCase):
             typed_array.delete_persistent()
 
     def test_read_all(self):
-        from cassandra import InvalidRequest
-        try:
-            config.session.execute("TRUNCATE TABLE testing_arrays.first_test;")
-        except InvalidRequest:
-            pass
-        try:
-            config.session.execute("TRUNCATE TABLE testing_arrays.first_test_numpies;")
-        except InvalidRequest:
-            pass
-
         nelem = 2 ** 21
         elem_dim = 2 ** 7
 
         base_array = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim))
-        casted = StorageNumpy(input_array=base_array, name="testing_arrays.first_test")
+        casted = StorageNumpy(input_array=base_array, name="first_test")
 
         test_numpy = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim))
-        casted = StorageNumpy(name="testing_arrays.first_test")
+        casted = StorageNumpy(name="first_test")
         chunk = casted[slice(None, None, None)]
         self.assertTrue(np.allclose(chunk.view(np.ndarray), test_numpy))
         casted.delete_persistent()
 
     def test_numpy_reserved_5d_read_all(self):
-        from cassandra import InvalidRequest
-        try:
-            config.session.execute("TRUNCATE TABLE testing_arrays.first_test;")
-        except InvalidRequest:
-            pass
-        try:
-            config.session.execute("TRUNCATE TABLE testing_arrays.first_test_numpies;")
-        except InvalidRequest:
-            pass
 
         nelem = 100000
         elem_dim = 10
 
         base_array = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim, elem_dim, elem_dim))
-        casted = StorageNumpy(input_array=base_array, name="testing_arrays.first_test")
+        casted = StorageNumpy(input_array=base_array, name="first_test")
 
         test_numpy = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim, elem_dim, elem_dim))
-        casted = StorageNumpy(name="testing_arrays.first_test")
+        casted = StorageNumpy(name="first_test")
         chunk = casted[slice(None, None, None)]
         self.assertTrue(np.allclose(chunk.view(np.ndarray), test_numpy))
         casted.delete_persistent()
@@ -283,9 +281,6 @@ class StorageNumpyTest(unittest.TestCase):
         """
         Tests iterating through the rows of the Hecuba array
         """
-        config.session.execute("DROP TABLE IF EXISTS hecuba_dislib.test_array")
-        config.session.execute("TRUNCATE TABLE hecuba.istorage")
-
         bn, bm = (1, 10)
         x = np.arange(100).reshape(10, -1)
         blocks = []
@@ -293,7 +288,7 @@ class StorageNumpyTest(unittest.TestCase):
             row = [x[i: i + bn, j: j + bm] for j in range(0, x.shape[1], bm)]
             blocks.append(row)
 
-        data = StorageNumpy(input_array=x, name="hecuba_dislib.test_array")
+        data = StorageNumpy(input_array=x, name="test_array")
 
         for i, chunk in enumerate(data.np_split(block_size=(bn, bm))):
             storage_id = chunk.storage_id
@@ -307,9 +302,6 @@ class StorageNumpyTest(unittest.TestCase):
         """
         Tests iterating through the columns of the Hecuba array
         """
-        config.session.execute("DROP TABLE IF EXISTS hecuba_dislib.test_array")
-        config.session.execute("TRUNCATE TABLE hecuba.istorage")
-
         bn, bm = (10, 1)
         x = np.arange(100).reshape(10, -1)
         blocks = []
@@ -317,7 +309,7 @@ class StorageNumpyTest(unittest.TestCase):
             row = [x[i: i + bn, j: j + bm] for j in range(0, x.shape[1], bm)]
             blocks.append(row)
 
-        data = StorageNumpy(input_array=x, name="hecuba_dislib.test_array")
+        data = StorageNumpy(input_array=x, name="test_array")
 
         for i, chunk in enumerate(data.np_split(block_size=(bn, bm))):
             storage_id = chunk.storage_id
@@ -328,8 +320,6 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertEqual(i + 1, len(blocks))
 
     def test_split_rows_and_columns(self):
-        config.session.execute("DROP TABLE IF EXISTS hecuba_dislib.test_array")
-        config.session.execute("TRUNCATE TABLE hecuba.istorage")
 
         bn, bm = (2, 1)
         x = np.arange(100).reshape(10, -1)
@@ -338,7 +328,7 @@ class StorageNumpyTest(unittest.TestCase):
             row = [x[i: i + bn, j: j + bm] for j in range(0, x.shape[1], bm)]
             blocks.append(row)
 
-        data = StorageNumpy(input_array=x, name="hecuba_dislib.test_array")
+        data = StorageNumpy(input_array=x, name="test_array")
 
         for i, chunk in enumerate(data.np_split(block_size=(bn, bm))):
             storage_id = chunk.storage_id
@@ -349,8 +339,6 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertEqual(i + 1, len(blocks))
 
     def test_split_already_persistent(self):
-        config.session.execute("DROP TABLE IF EXISTS hecuba_dislib.test_array")
-        config.session.execute("TRUNCATE TABLE hecuba.istorage")
 
         bn, bm = (2, 1)
         x = np.arange(100).reshape(10, -1)
@@ -359,7 +347,7 @@ class StorageNumpyTest(unittest.TestCase):
             row = [x[i: i + bn, j: j + bm] for j in range(0, x.shape[1], bm)]
             blocks.append(row)
 
-        data = StorageNumpy(input_array=x, name="hecuba_dislib.test_array")
+        data = StorageNumpy(input_array=x, name="test_array")
 
         for i, chunk in enumerate(data.np_split(block_size=(bn, bm))):
             storage_id = chunk.storage_id
@@ -370,7 +358,7 @@ class StorageNumpyTest(unittest.TestCase):
         del data
         gc.collect()
 
-        data = StorageNumpy(name="hecuba_dislib.test_array")
+        data = StorageNumpy(name="test_array")
         self.assertTrue(np.array_equal(list(data), x))
 
         for i, chunk in enumerate(data.np_split(block_size=(bn, bm))):
