@@ -1,4 +1,5 @@
 #include "UnitParser.h"
+#include <datetime.h>
 
 int16_t UnitParser::py_to_c(PyObject *element, void *payload) const {
     throw ModuleException("Not implemented");
@@ -236,7 +237,7 @@ int16_t TimestampParser::py_to_c(PyObject *obj, void *payload) const {
         std::time_t time_epoch = 0;
         time_t timezone = -1 * std::mktime(std::gmtime(&time_epoch));
         int64_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(diff).count() + (timezone * 1000);
-        memcpy(payload, &ms, sizeof(int64_t *));
+        memcpy(payload, &ms, sizeof(int64_t));
         return 0;
     }
     else { //if pyobject is a double it has already the exact date so is no use to call tzset
@@ -248,7 +249,7 @@ int16_t TimestampParser::py_to_c(PyObject *obj, void *payload) const {
         std::time_t time_epoch = 0;
         time_t timezone = -1 * std::mktime(std::gmtime(&time_epoch));
         int64_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(diff).count() + (timezone * 1000);
-        memcpy(payload, &ms, sizeof(int64_t *));
+        memcpy(payload, &ms, sizeof(int64_t));
         return 0;
     }
     error_parsing("PyDateTime_DateType", obj);
@@ -315,7 +316,7 @@ int16_t TimeParser::py_to_c(PyObject *obj, void *payload) const {
                        static_cast<int64_t>(PyDateTime_TIME_GET_MINUTE(obj)) * 60000000000 +
                        static_cast<int64_t>(PyDateTime_TIME_GET_SECOND(obj)) * 1000000000 +
                        PyDateTime_TIME_GET_MICROSECOND(obj) * 1000;
-        memcpy(payload, &date, sizeof(int64_t *));
+        memcpy(payload, &date, sizeof(int64_t));
         return 0;
     }
     error_parsing("PyDateTime_DateType", obj);
@@ -452,15 +453,15 @@ TupleParser::TupleParser(const ColumnMeta &CM) : UnitParser(CM) {
 int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
     if (obj == Py_None) throw ModuleException("Error parsing PyObject from py to c, expected a non-none object");
     if (!PyTuple_Check(obj)) throw ModuleException("Error parsing PyObject from py to c, expected a tuple object");
-    if (PyTuple_Size(obj) != col_meta.pointer->size())
+    size_t size = col_meta.pointer->size();
+    if ((size_t)PyTuple_Size(obj) != size)
         throw ModuleException(
                 "Error parsing PyObject from py to c, expected size of Py_tuple being the same as Column_meta");
     uint32_t total_malloc = 0;
-    for (int i = 0; i < col_meta.pointer->size(); ++i) {
+    for (uint32_t i = 0; i < size; ++i) {
         total_malloc = total_malloc + col_meta.pointer->at(i).size;
     }
     void *internal_payload = malloc(total_malloc);
-    uint32_t size = (uint32_t) PyTuple_Size(obj);
     TupleRow *tr = new TupleRow(col_meta.pointer, total_malloc, internal_payload);
     memcpy(payload, &tr, sizeof(tr));
 

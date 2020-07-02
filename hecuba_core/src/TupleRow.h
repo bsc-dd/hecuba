@@ -127,7 +127,7 @@ private:
         }
 
         void unsetNull(uint32_t position) {
-            if (!null_values.empty()) this->null_values[position >> 5] &= !(0x1 << (position % 32));
+            if (!null_values.empty()) this->null_values[position >> 5] &= ~(0x1 << (position % 32));
         }
 
         void setTimestamp(int64_t timestamp) {
