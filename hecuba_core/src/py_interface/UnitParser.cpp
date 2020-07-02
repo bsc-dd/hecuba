@@ -236,7 +236,7 @@ int16_t TimestampParser::py_to_c(PyObject *obj, void *payload) const {
         std::time_t time_epoch = 0;
         time_t timezone = -1 * std::mktime(std::gmtime(&time_epoch));
         int64_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(diff).count() + (timezone * 1000);
-        memcpy(payload, &ms, sizeof(int64_t *));
+        memcpy(payload, &ms, sizeof(int64_t));
         return 0;
     }
     else { //if pyobject is a double it has already the exact date so is no use to call tzset
@@ -248,7 +248,7 @@ int16_t TimestampParser::py_to_c(PyObject *obj, void *payload) const {
         std::time_t time_epoch = 0;
         time_t timezone = -1 * std::mktime(std::gmtime(&time_epoch));
         int64_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(diff).count() + (timezone * 1000);
-        memcpy(payload, &ms, sizeof(int64_t *));
+        memcpy(payload, &ms, sizeof(int64_t));
         return 0;
     }
     error_parsing("PyDateTime_DateType", obj);
@@ -315,7 +315,7 @@ int16_t TimeParser::py_to_c(PyObject *obj, void *payload) const {
                        static_cast<int64_t>(PyDateTime_TIME_GET_MINUTE(obj)) * 60000000000 +
                        static_cast<int64_t>(PyDateTime_TIME_GET_SECOND(obj)) * 1000000000 +
                        PyDateTime_TIME_GET_MICROSECOND(obj) * 1000;
-        memcpy(payload, &date, sizeof(int64_t *));
+        memcpy(payload, &date, sizeof(int64_t));
         return 0;
     }
     error_parsing("PyDateTime_DateType", obj);
