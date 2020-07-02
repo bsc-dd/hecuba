@@ -452,15 +452,15 @@ TupleParser::TupleParser(const ColumnMeta &CM) : UnitParser(CM) {
 int16_t TupleParser::py_to_c(PyObject *obj, void *payload) const {
     if (obj == Py_None) throw ModuleException("Error parsing PyObject from py to c, expected a non-none object");
     if (!PyTuple_Check(obj)) throw ModuleException("Error parsing PyObject from py to c, expected a tuple object");
-    if (PyTuple_Size(obj) != col_meta.pointer->size())
+    size_t size = col_meta.pointer->size();
+    if ((size_t)PyTuple_Size(obj) != size)
         throw ModuleException(
                 "Error parsing PyObject from py to c, expected size of Py_tuple being the same as Column_meta");
     uint32_t total_malloc = 0;
-    for (int i = 0; i < col_meta.pointer->size(); ++i) {
+    for (uint32_t i = 0; i < size; ++i) {
         total_malloc = total_malloc + col_meta.pointer->at(i).size;
     }
     void *internal_payload = malloc(total_malloc);
-    uint32_t size = (uint32_t) PyTuple_Size(obj);
     TupleRow *tr = new TupleRow(col_meta.pointer, total_malloc, internal_payload);
     memcpy(payload, &tr, sizeof(tr));
 
