@@ -56,6 +56,14 @@ void NumpyStorage::load_numpy(const uint64_t *storage_id, ArrayMetadata &np_meta
     } else this->read_numpy_from_cas(storage_id, np_metas, data);
 }
 
+void NumpyStorage::load_numpy_arrow(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *save, PyObject *cols) {
+    void *data = PyArray_DATA(save);
+    if (cols != Py_None) {
+        std::list<std::vector<uint32_t> > c = generate_coords(cols);
+        this->read_numpy_from_cas_arrow(storage_id, np_metas, c, data);
+    } else this->read_numpy_from_cas(storage_id, np_metas, data);
+}
+
 PyObject *NumpyStorage::reserve_numpy_space(const uint64_t *storage_id, ArrayMetadata &np_metas) {
     npy_intp *dims = new npy_intp[np_metas.dims.size()];
     for (uint32_t i = 0; i < np_metas.dims.size(); ++i) {
