@@ -617,6 +617,81 @@ static PyObject *load_numpy_slices(HNumpyStore *self, PyObject *args) {
     Py_RETURN_NONE;
 }
 
+/***
+ * Receives a uuid (storage_id for the numpy), metadatas, a pointer to the
+ * numpy base address where data will be saved, and a list of columns to
+ * recover. The function will load the numpy columns in the memory at the
+ * pointer according to the columns offsets.
+ * @param self Python HNumpyStore object upon method invocation
+ * @param args Arg tuple containing one list with the the keys.
+ *             Keys are made of:
+ *             - a list with a UUID,
+ *             - an object with the numpy metadata information,
+ *             - a list with a pointer reserved with the numpy size that will
+ *               be used to store the numpy,
+ *             - a list of column IDs which specifies the numpy columns to read
+ * @return None
+ */
+static PyObject *load_numpy_columns(HNumpyStore *self, PyObject *args) {
+    //We need to include the numpy key in the parameters list, results -> reserved numpy
+
+    PyObject *py_keys, *py_np_metas, *py_store, *py_cols;
+    if (!PyArg_ParseTuple(args, "OOOO", &py_keys, &py_np_metas, &py_store, &py_cols)) {
+        return NULL;
+    }
+
+    // Only one uuid as a key
+    if (PyList_Size(py_keys) != 1) {
+        std::string error_msg = "Only one uuid as a key can be passed";
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    };
+
+    // Only one metadata as a value
+    if (py_np_metas == Py_None) {
+        std::string error_msg = "The numpy metadatas can't be None";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    // Only one numpy as a value
+    if (PyList_Size(py_store) != 1) {
+        std::string error_msg = "Only one numpy can be saved at once";
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    };
+
+    PyObject *numpy = PyList_GetItem(py_store, 0);
+    if (numpy == Py_None) {
+        std::string error_msg = "The numpy can't be None";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    // Transform the object to the numpy ndarray
+    PyArrayObject *numpy_arr;
+    if (!PyArray_OutputConverter(numpy, &numpy_arr)) {
+        std::string error_msg = "Can't convert the given numpy to a numpy ndarray";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+    const uint64_t *storage_id = parse_uuid(PyList_GetItem(py_keys, 0));
+    HArrayMetadata *np_metas = reinterpret_cast<HArrayMetadata *>(py_np_metas);
+
+    try {
+        self->NumpyDataStore->load_numpy_arrow(storage_id,
+                                               np_metas->np_metas,
+                                               numpy_arr,
+                                               py_cols);
+    }
+    catch (std::exception &e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    delete[] storage_id;
+    Py_RETURN_NONE;
+}
+
 static void hnumpy_store_dealloc(HNumpyStore *self) {
     delete (self->NumpyDataStore);
     Py_TYPE((PyObject *) self)->tp_free((PyObject *) self);
@@ -683,6 +758,7 @@ static PyMethodDef hnumpy_store_type_methods[] = {
         {"allocate_numpy",       (PyCFunction) allocate_numpy,       METH_VARARGS, NULL},
         {"store_numpy_slices",   (PyCFunction) store_numpy_slices,   METH_VARARGS, NULL},
         {"load_numpy_slices",    (PyCFunction) load_numpy_slices,    METH_VARARGS, NULL},
+        {"load_numpy_columns",   (PyCFunction) load_numpy_columns,   METH_VARARGS, NULL},
         {"get_elements_per_row", (PyCFunction) get_elements_per_row, METH_VARARGS, NULL},
         {NULL, NULL, 0,                                                            NULL}
 };
