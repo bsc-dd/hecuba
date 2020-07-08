@@ -496,3 +496,37 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
     for (const TupleRow *item:all_results) delete (item);
     delete (partitions_it);
 }
+
+void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, ArrayMetadata &metadata,
+                                                   std::list<std::vector<uint32_t> > &cols, void *save) {
+    std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = cache_arrow->get_metadata()->get_keys();
+    uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
+    std::vector<const TupleRow *> result, all_results;
+    uint64_t *c_uuid = nullptr;
+    char *_keys = nullptr;
+    int32_t offset = 0;
+    int32_t *block = nullptr;
+
+    for (uint32_t it = 0; it < cols.size(); ++it) {
+        _keys = (char *) malloc(keys_size);
+        //UUID
+        c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
+        //[0] time_and_version;
+        //[1] clock_seq_and_node;
+        memcpy(_keys, &c_uuid, sizeof(uint64_t *));
+        offset = sizeof(uint64_t *);
+        //col id
+        memcpy(_keys + offset, &(cols[it]), sizeof(cols[it]));
+
+        //We fetch the data
+        TupleRow *block_key = new TupleRow(keys_metas, keys_size, _keys);
+
+        result = cache_arrow->get_crow(block_key);// FIXME use Yolanda's IN instead of a call to cassandra per column
+
+        delete (block_key);
+    }
+
+    partitions_it->merge_partitions(metadata, all_partitions, save);
+    for (const TupleRow *item:all_results) delete (item);
+    delete (partitions_it);
+}
