@@ -521,5 +521,17 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertTrue(np.array_equal(tmp, n[0,:]))
         print(tmp)
 
+    def test_column_access(self):
+
+        n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
+
+        s = StorageNumpy(n, "cols")
+
+        for i in range(0,127):
+            tmp = s[:,i]    # Access a whole column
+
+            self.assertTrue(np.array_equal(tmp, n[:,i]))
+
+
 if __name__ == '__main__':
     unittest.main()
