@@ -81,7 +81,8 @@ protected:
 
     CacheTable *cache = nullptr, *read_cache = nullptr;
     CacheTable *metadata_cache = nullptr, *metadata_read_cache=nullptr;
-    CacheTable *cache_arrow = nullptr;
+    CacheTable *cache_arrow_write = nullptr;
+    CacheTable *cache_arrow       = nullptr;
 
     SpaceFillingCurve partitioner;
 

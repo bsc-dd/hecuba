@@ -17,17 +17,35 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
     TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names, session);
     this->cache = new CacheTable(table_meta, session, config);
 
+	// Arrow tables:
+	//    - Writing to arrow uses temporal 'buffer' table
+	//    - Reading from arrow uses 'arrow' table
+	// Both have the SAME keys but DIFFERENT values!
     std::vector<std::map<std::string, std::string> > keys_arrow_names = {{{"name", "storage_id"}},
                                                                          {{"name", "col_id"}}};
 
-    std::vector<std::map<std::string, std::string> > columns_arrow_names = {{{"name", "row_id"}}, // FIXME ponerlo en keys_arrow_names
+	// Temporal buffer for writing to arrow
+    std::vector<std::map<std::string, std::string> > columns_buffer_names = {{{"name", "row_id"}},
                                                                             {{"name", "size_elem"}},
                                                                             {{"name", "payload"}}};
+
+	// Arrow table (for reading)
+    std::vector<std::map<std::string, std::string> > columns_arrow_names = {{{"name", "arrow_addr"}},
+                                                                            {{"name", "arrow_size"}}};
+	// Create table names: table_buffer, table_arrow, keyspace_arrow
+    std::string table_buffer = table;
+    table_buffer.append("_buffer");
     std::string table_arrow = table;
-    table_arrow.append("_buffer");
+    table_buffer.append("_arrow");
     std::string keyspace_arrow = keyspace;
     keyspace_arrow.append("_arrow");
 
+	// Prepare cache for WRITE
+    TableMetadata *table_meta_arrow_write = new TableMetadata(table_buffer.c_str(), keyspace_arrow.c_str(),
+                                                        keys_arrow_names, columns_buffer_names, session);
+    this->cache_arrow_write = new CacheTable(table_meta_arrow_write, session, config); // FIXME can be removed?
+
+	// Prepare cache for READ
     TableMetadata *table_meta_arrow = new TableMetadata(table_arrow.c_str(), keyspace_arrow.c_str(),
                                                         keys_arrow_names, columns_arrow_names, session);
     this->cache_arrow = new CacheTable(table_meta_arrow, session, config);
@@ -271,7 +289,7 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
 
         memcpy(_val, &mypayload, sizeof(char*));	//payload
 
-        cache_arrow->put_crow( (void*)_keys, (void*)_values ); //Send column to cassandra
+        cache_arrow_write->put_crow( (void*)_keys, (void*)_values ); //Send column to cassandra
     }
 }
 
@@ -524,6 +542,8 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
         result = cache_arrow->get_crow(block_key);// FIXME use Yolanda's IN instead of a call to cassandra per column
 
         delete (block_key);
+        free(_keys);    // FIXME  This should be done everywhere in this file
+        delete(c_uuid); // FIXME  This should be done everywhere in this file
     }
 
     //partitions_it->merge_partitions(metadata, all_partitions, save);
