@@ -17,22 +17,22 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
     TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names, session);
     this->cache = new CacheTable(table_meta, session, config);
 
-	// Arrow tables:
-	//    - Writing to arrow uses temporal 'buffer' table
-	//    - Reading from arrow uses 'arrow' table
-	// Both have the SAME keys but DIFFERENT values!
+    // Arrow tables:
+    //    - Writing to arrow uses temporal 'buffer' table
+    //    - Reading from arrow uses 'arrow' table
+    // Both have the SAME keys but DIFFERENT values!
     std::vector<std::map<std::string, std::string> > keys_arrow_names = {{{"name", "storage_id"}},
                                                                          {{"name", "col_id"}}};
 
-	// Temporal buffer for writing to arrow
+    // Temporal buffer for writing to arrow
     std::vector<std::map<std::string, std::string> > columns_buffer_names = {{{"name", "row_id"}},
                                                                             {{"name", "size_elem"}},
                                                                             {{"name", "payload"}}};
 
-	// Arrow table (for reading)
+    // Arrow table (for reading)
     std::vector<std::map<std::string, std::string> > columns_arrow_names = {{{"name", "arrow_addr"}},
                                                                             {{"name", "arrow_size"}}};
-	// Create table names: table_buffer, table_arrow, keyspace_arrow
+    // Create table names: table_buffer, table_arrow, keyspace_arrow
     std::string table_buffer = table;
     table_buffer.append("_buffer");
     std::string table_arrow = table;
@@ -40,12 +40,12 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
     std::string keyspace_arrow = keyspace;
     keyspace_arrow.append("_arrow");
 
-	// Prepare cache for WRITE
+    // Prepare cache for WRITE
     TableMetadata *table_meta_arrow_write = new TableMetadata(table_buffer.c_str(), keyspace_arrow.c_str(),
                                                         keys_arrow_names, columns_buffer_names, session);
     this->cache_arrow_write = new CacheTable(table_meta_arrow_write, session, config); // FIXME can be removed?
 
-	// Prepare cache for READ
+    // Prepare cache for READ
     TableMetadata *table_meta_arrow = new TableMetadata(table_arrow.c_str(), keyspace_arrow.c_str(),
                                                         keys_arrow_names, columns_arrow_names, session);
     this->cache_arrow = new CacheTable(table_meta_arrow, session, config);
@@ -199,20 +199,20 @@ void ArrayDataStore::store_numpy_partition_into_cas(const uint64_t *storage_id ,
  * @param numpy to be saved into storage
  */
 void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
-									ArrayMetadata &metadata, void *data) const {
+                                                   ArrayMetadata &metadata, void *data) const {
 
-	assert( metadata.dims.size() <= 2 ); // First version only supports 2 dimensions
+    assert( metadata.dims.size() <= 2 ); // First version only supports 2 dimensions
 
-	// Calculate row and element sizes
-	uint64_t row_size	= metadata.strides[0];
-	uint32_t elem_size	= metadata.elem_size;
+    // Calculate row and element sizes
+    uint64_t row_size   = metadata.strides[0];
+    uint32_t elem_size  = metadata.elem_size;
 
-	// Calculate number of rows and columns
-	uint64_t num_columns = metadata.dims[1];
-	uint64_t num_rows	= metadata.dims[0];
+    // Calculate number of rows and columns
+    uint64_t num_columns = metadata.dims[1];
+    uint64_t num_rows    = metadata.dims[0];
 
     //arrow
-	arrow::Status status;
+    arrow::Status status;
     auto memory_pool = arrow::default_memory_pool(); //arrow
     auto field = arrow::field("field", arrow::binary());
     std::vector<std::shared_ptr<arrow::Field>> fields = {field};
@@ -277,7 +277,7 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
         char* _val = _values; // Temporal to avoid modifications on the original value
         // Copy data
         uint64_t row_id = 0;
-        memcpy(_val, &row_id, sizeof(uint64_t));	//row_id
+        memcpy(_val, &row_id, sizeof(uint64_t));    //row_id
         _val += sizeof(uint64_t);
         memcpy(_val, &elem_size, sizeof(uint32_t)); //elem_size
         _val += sizeof(uint32_t);
@@ -287,7 +287,7 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
         memcpy(mypayload, &arrow_size, sizeof(uint64_t));
         memcpy(mypayload + sizeof(uint64_t), result->data(), arrow_size);
 
-        memcpy(_val, &mypayload, sizeof(char*));	//payload
+        memcpy(_val, &mypayload, sizeof(char*));    //payload
 
         cache_arrow_write->put_crow( (void*)_keys, (void*)_values ); //Send column to cassandra
     }

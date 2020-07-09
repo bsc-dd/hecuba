@@ -160,19 +160,19 @@ class StorageNumpy(IStorage, np.ndarray):
         tbl_buffer = table + "_buffer"
 
         query_table_buff ='CREATE TABLE IF NOT EXISTS ' + ksp_arrow + '.' + tbl_buffer + \
-                                                                '(storage_id uuid , '     \
-                                                                'col_id bigint, '         \
-                                                                'row_id bigint, '         \
-                                                                'size_elem int, '         \
-                                                                'payload blob, '          \
+                                                                '(storage_id uuid , '    \
+                                                                'col_id      bigint, '   \
+                                                                'row_id      bigint, '   \
+                                                                'size_elem   int, '      \
+                                                                'payload     blob, '     \
                                                                 'PRIMARY KEY(storage_id,col_id))'
         config.executelocked(query_table_buff)
         tbl_arrow = table + "_arrow"
         query_table_arrow='CREATE TABLE IF NOT EXISTS ' + ksp_arrow + '.' + tbl_arrow + \
                                                                 '(storage_id uuid, '    \
-                                                                'col_id bigint, '       \
-                                                                'arrow_addr bigint, '   \
-                                                                'arrow_size int, '      \
+                                                                'col_id      bigint, '  \
+                                                                'arrow_addr  bigint, '  \
+                                                                'arrow_size  int, '     \
                                                                 'PRIMARY KEY(storage_id,col_id))'
         config.executelocked(query_table_arrow)
 
