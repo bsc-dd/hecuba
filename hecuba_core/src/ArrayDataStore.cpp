@@ -211,6 +211,7 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
     uint64_t num_columns = metadata.dims[1];
     uint64_t num_rows    = metadata.dims[0];
 
+    // FIXME Encapsulate the following code into a function f(data, columns) -> Arrow
     //arrow
     arrow::Status status;
     auto memory_pool = arrow::default_memory_pool(); //arrow
@@ -515,6 +516,13 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
     delete (partitions_it);
 }
 
+/***
+ * Retrieve some Numpy columns from Cassandra in Arrow format into a numpy ndarray
+ * @param storage_id of the array to retrieve
+ * @param metadata ndarray characteristics
+ * @param cols vector of columns identifiers to get
+ * @param save numpy memory object where columns will be saved
+ */
 void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, ArrayMetadata &metadata,
                                                    std::vector<uint32_t> &cols, void *save) {
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = cache_arrow->get_metadata()->get_keys();
@@ -538,15 +546,19 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
 
         //We fetch the data
         TupleRow *block_key = new TupleRow(keys_metas, keys_size, _keys);
-
         result = cache_arrow->get_crow(block_key);// FIXME use Yolanda's IN instead of a call to cassandra per column
-
         delete (block_key);
-        free(_keys);    // FIXME  This should be done everywhere in this file
-        delete(c_uuid); // FIXME  This should be done everywhere in this file
-    }
 
-    //partitions_it->merge_partitions(metadata, all_partitions, save);
-    //for (const TupleRow *item:all_results) delete (item);
-    //delete (partitions_it);
+        for (const TupleRow *row:result) { // FIXME Theoretically, there should be a single row. ENRIC ensure that any data in the buffer table for the current {storage_id, col_id} has been transfered to the arrow table! And in this case, just peek the first row from the vector
+
+            uint64_t *arrow_addr = (uint64_t *) row->get_element(0);
+            uint32_t *arrow_size = (uint32_t *) row->get_element(1);
+
+
+            /* TODO ENRIC do your magic to translate the arrow_addr and arrow_size to memory in base[x, col[it]] */
+			/* hopefulle encapsulated into a function :) */
+            /*** mmap(save, pointer, size)? ***/
+
+        }
+    }
 }
