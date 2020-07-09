@@ -36,7 +36,7 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
     std::string table_buffer = table;
     table_buffer.append("_buffer");
     std::string table_arrow = table;
-    table_buffer.append("_arrow");
+    table_arrow.append("_arrow");
     std::string keyspace_arrow = keyspace;
     keyspace_arrow.append("_arrow");
 
