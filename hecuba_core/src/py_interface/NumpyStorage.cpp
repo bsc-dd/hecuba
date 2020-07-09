@@ -59,7 +59,15 @@ void NumpyStorage::load_numpy(const uint64_t *storage_id, ArrayMetadata &np_meta
 void NumpyStorage::load_numpy_arrow(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *save, PyObject *cols) {
     void *data = PyArray_DATA(save);
     if (cols != Py_None) {
-        std::list<std::vector<uint32_t> > c = generate_coords(cols);
+        // Transform cols to a vector of column IDs
+        std::vector<uint32_t> c = {};
+        if (PyList_Check(cols)) {
+            PyObject *value = nullptr;
+            for (Py_ssize_t i = 0; i < PyList_Size(cols); i++) {
+                value = PyList_GetItem(cols, i);
+                c.push_back(PyLong_AsLong(value));
+            }
+        }
         this->read_numpy_from_cas_arrow(storage_id, np_metas, c, data);
     } else this->read_numpy_from_cas(storage_id, np_metas, data);
 }

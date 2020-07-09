@@ -498,7 +498,7 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
 }
 
 void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, ArrayMetadata &metadata,
-                                                   std::list<std::vector<uint32_t> > &cols, void *save) {
+                                                   std::vector<uint32_t> &cols, void *save) {
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = cache_arrow->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
     std::vector<const TupleRow *> result, all_results;
@@ -507,7 +507,7 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
     int32_t offset = 0;
     int32_t *block = nullptr;
 
-    for (std::list<std::vector<uint32_t> >::iterator it = cols.begin(); it != cols.end(); ++it) {
+    for (uint32_t it = 0; it < cols.size(); ++it) {
         _keys = (char *) malloc(keys_size);
         //UUID
         c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
@@ -516,7 +516,7 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
         memcpy(_keys, &c_uuid, sizeof(uint64_t *));
         offset = sizeof(uint64_t *);
         //col id
-        memcpy(_keys + offset, &(*it)[0], sizeof((*it)[0]));
+        memcpy(_keys + offset, &cols[it], sizeof(cols[it]));
 
         //We fetch the data
         TupleRow *block_key = new TupleRow(keys_metas, keys_size, _keys);

@@ -66,7 +66,7 @@ public:
 
     //lgarrobe
     std::string TN  = "";
-    void read_numpy_from_cas_arrow(const uint64_t *storage_id, ArrayMetadata &metadata, std::list<std::vector<uint32_t> > &cols, void *save);
+    void read_numpy_from_cas_arrow(const uint64_t *storage_id, ArrayMetadata &metadata, std::vector<uint32_t> &cols, void *save);
 
 protected:
 
