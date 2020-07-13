@@ -23,6 +23,7 @@ PYCOMPSS_APP=${4}     # Application execution using PyCOMPSs. 0: No, 1: Yes
 DISJOINT=${5}         # Guarantee disjoint allocation. 1: Yes, empty otherwise
 
 export C4S_HOME=$HOME/.c4s
+HECUBA_ENVIRON=$C4S_HOME/conf/hecuba_environment
 MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
 CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
 NODEFILE=$C4S_HOME/hostlist-"$UNIQ_ID".txt
@@ -252,6 +253,10 @@ if [ "$APP_NODES" != "0" ]; then
         PYCOMPSS_FLAGS=$(cat $PYCOMPSS_FLAGS_FILE)
         # TODO: Check if escaping chars is needed for app parameters
         echo "export CONTACT_NAMES=$CNAMES" > ~/contact_names.sh # Setting Cassandra cluster environment variable for Hecuba
+	if [ -f $HECUBA_ENVIRON ]; then
+		cat $HECUBA_ENVIRON >> ~/contact_names.sh
+	fi
+
         full_iface=$iface
         if [ "0$iface" != "0" ]; then
             full_iface="-"$iface
