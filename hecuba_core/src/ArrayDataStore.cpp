@@ -533,6 +533,8 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
     int32_t offset = 0;
     int32_t *block = nullptr;
 
+    std::shared_ptr<arrow::ipc::RecordBatchFileReader> sptrFileReader;
+
     for (uint32_t it = 0; it < cols.size(); ++it) {
         _keys = (char *) malloc(keys_size);
         //UUID
@@ -554,6 +556,55 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
             uint64_t *arrow_addr = (uint64_t *) row->get_element(0);
             uint32_t *arrow_size = (uint32_t *) row->get_element(1);
 
+            off_t dd_addr = *arrow_addr+PMEM_OFFSET;
+            off_t page_addr = dd_addr & ~(sysconf(_SC_PAGE_SIZE) - 1); //I don't even remember how this works
+
+            //read from devdax
+            int fdIn;
+            unsigned char *src;
+
+            //open devdax access
+            fdIn = open("/home/enricsosa/bsc/cassandra/arrow_persistent_heap", O_RDONLY);  //TODO handle open errors; define file name
+            if (fdIn < 0) {
+                std::cout << ":c" << std::endl;
+            }
+
+            off_t page_offset = dd_addr-page_addr;
+            //allocates in memory [...]
+            src = (unsigned char*) mmap(NULL, *arrow_size+page_offset, PROT_READ, MAP_SHARED, fdIn, page_addr); //TODO handle mmap errors
+            if (src == MAP_FAILED) {
+                std::cout << ":c" << std::endl;
+            }
+            close(fdIn);
+            //read from devdax
+            std::string fileAsString(reinterpret_cast<char*>(&src[page_offset]), *arrow_size);
+            arrow::io::BufferReader bufferReader(fileAsString);
+
+            arrow::Status status;
+            status = arrow::ipc::RecordBatchFileReader::Open(&bufferReader, &sptrFileReader); //TODO handle RecordBatchFileReader::Open errors
+            if (not status.ok()) {
+                std::cout << ":c" << std::endl;
+            }
+
+            int num_batches = sptrFileReader->num_record_batches();
+            for (int i = 0; i < num_batches; ++i) { //for each batch inside arrow File; Theoretically, there should be one batch
+                std::shared_ptr<arrow::RecordBatch> chunk;
+                status = sptrFileReader->ReadRecordBatch(i, &chunk);
+                if (not status.ok()) { //TODO ReadRecordBatch
+                    std::cout << ":c" << std::endl;
+                }
+                std::shared_ptr<arrow::Array> col = chunk->column(0); //Theoretically, there must be one column
+
+                std::shared_ptr<arrow::BinaryArray> data = std::dynamic_pointer_cast<arrow::BinaryArray>(col);
+                const int* offsets = data->raw_value_offsets();
+                uint8_t* dst = (uint8_t*) malloc(data->value_data()->size());
+                int length;
+
+                for (int k = 0; k < col->length(); ++k) {
+                    const uint8_t* bytes = data->GetValue(k, &length);
+                    memcpy(dst+offsets[k], bytes, sizeof(length));
+                }
+            }
 
             /* TODO ENRIC do your magic to translate the arrow_addr and arrow_size to memory in base[x, col[it]] */
 			/* hopefulle encapsulated into a function :) */
