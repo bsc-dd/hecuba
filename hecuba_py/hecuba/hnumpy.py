@@ -272,6 +272,7 @@ class StorageNumpy(IStorage, np.ndarray):
                 self._loaded_coordinates = coordinates
 
     def _select_and_load_blocks(self, sliced_coord):
+        columns_selected = False
         if isinstance(sliced_coord, tuple):
             # If the getitem parameter is a tuple, then we may catch the
             # column accesses: Ex: s[:, i], s[:, [i1,i2]], s[:, slice(...)]
