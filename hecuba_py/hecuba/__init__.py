@@ -75,7 +75,10 @@ class Config:
         singleton.configured = True
 
         if 'CONCURRENT_CREATION' in os.environ:
-            singleton.concurrent_creation = bool(os.environ['CONCURRENT_CREATION'])
+            if os.environ['CONCURRENT_CREATION']=='True':
+                singleton.concurrent_creation = True
+            else:
+                singleton.concurrent_creation = False
             log.info('CONCURRENT_CREATION: %s', str(singleton.concurrent_creation))
         else:
             singleton.concurrent_creation = False
