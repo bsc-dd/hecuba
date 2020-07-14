@@ -84,6 +84,16 @@ class Config:
             singleton.concurrent_creation = False
             log.warn('Concurrent creation is DISABLED [CONCURRENT_CREATION=False]')
 
+        if 'LOAD_ON_DEMAND' in os.environ:
+            if os.environ['LOAD_ON_DEMAND']=='False':
+                singleton.load_on_demand = False
+            else:
+                singleton.load_on_demand = True
+            log.info('LOAD_ON_DEMAND: %s', str(singleton.load_on_demand))
+        else:
+            singleton.load_on_demand = True
+            log.warn('Load data on demand is ENABLED [LOAD_ON_DEMAND=True]')
+
         if 'CREATE_SCHEMA' in os.environ:
             singleton.id_create_schema = int(os.environ['CREATE_SCHEMA'])
             log.info('CREATE_SCHEMA: %d', singleton.id_create_schema)

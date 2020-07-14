@@ -89,9 +89,13 @@ class StorageNumpy(IStorage, np.ndarray):
         self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), metas, self._block_id, None)
 
         if self._get_name() or self.storage_id:
+            load_data= (input_array is None) and (config.load_on_demand == False)
             if input_array is not None:
                 self.make_persistent(self._get_name())
             self._is_persistent = True
+            if load_data:
+                self[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
+
 
     # used as copy constructor
     def __array_finalize__(self, obj):
