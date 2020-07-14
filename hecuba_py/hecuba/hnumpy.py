@@ -260,6 +260,7 @@ class StorageNumpy(IStorage, np.ndarray):
             self._loaded_coordinates = None
         else:
             log.debug("LOADING COORDINATES")
+
             # coordinates is the union between the loaded coordinates and the new ones
             coordinates = list(set(it.chain.from_iterable((self._loaded_coordinates, new_coords))))
             if (len(coordinates) != len(self._loaded_coordinates)):
@@ -271,9 +272,27 @@ class StorageNumpy(IStorage, np.ndarray):
                 self._loaded_coordinates = coordinates
 
     def _select_and_load_blocks(self, sliced_coord):
-        if not self._numpy_full_loaded:
-            block_coord = self._select_blocks(sliced_coord)
-            self._load_blocks(block_coord)
+        if isinstance(sliced_coord, tuple):
+            # If the getitem parameter is a tuple, then we may catch the
+            # column accesses: Ex: s[:, i], s[:, [i1,i2]], s[:, slice(...)]
+            # All these accesses arrive here as a tuple:
+            #   (slice(None,None,None), xxx)
+            # where xxx is the last parameter of the tuple.
+            # FIXME Extend to more than 2 dimensions
+            dims = sliced_coord.__len__()
+            if dims == 2: # Only 2 dimensions
+                if isinstance(sliced_coord[-dims], slice) and sliced_coord[-dims] == slice(None, None, None):
+                    # A WHOLE COLUMN selected!
+                    columns_selected = True
+                    columns = sliced_coord[-1]
+        # Read data by columns or coordinates depending on the requested access
+        if columns_selected:
+            self._hcache.load_numpy_columns([self._build_args.base_numpy], self._build_args.metas, [self.base.view(np.ndarray)],
+                                               columns)
+        else:
+            if not self._numpy_full_loaded:
+                block_coord = self._select_blocks(sliced_coord)
+                self._load_blocks(block_coord)
 
     def __getitem__(self, sliced_coord):
         log.info("RETRIEVING NUMPY {}".format(sliced_coord))
