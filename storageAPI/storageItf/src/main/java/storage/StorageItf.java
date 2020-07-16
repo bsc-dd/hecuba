@@ -26,7 +26,7 @@ public class StorageItf {
  UUID uuid;
 		   int nodePort;
 		   String [] nodeIP = null;
-		   System.out.println("@Hecuba getLocations: storageId is "+storageId);
+		   //System.out.println("@Hecuba getLocations: storageId is "+storageId);
 		   Set<String> IPToReturn = new HashSet<String>();
 		   Set<String> ToReturn = new HashSet<String>();
 		   List<String> list = null;
