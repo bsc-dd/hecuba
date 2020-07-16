@@ -169,15 +169,28 @@ class StorageNumpy(IStorage, np.ndarray):
 
     def __getitem__(self, sliced_coord):
         log.info("RETRIEVING NUMPY")
+        '''
+        where do we come from?
+
+        import traceback
+
+        for line in traceback.format_stack():
+            print(line.strip())
+        '''
+
+        if self._is_persistent:
+            if isinstance(sliced_coord, np.ndarray): # is there any other slicing case that needs a copy of the array????
+                # FIXME Get the full numpy array and make a copy obtaining a new StorageNumpy from it with a random name
+                n = self[:].view(np.ndarray)[sliced_coord]
+                #wanted n = self[sliced_coord].view(np.ndarray)
+                #result=StorageNumpy(n,(self._get_name()+str(uuid.uuid4().hex))[0:48]) #max table name length in cassandra is 48 chars
+                # y si es volatil?
+                result=StorageNumpy(n)
+                return result
 
         if self._is_persistent and not self._numpy_full_loaded:
             if isinstance(sliced_coord, slice) and sliced_coord == slice(None, None, None):
                 new_coords = []
-            elif isinstance(sliced_coord, np.ndarray): # is there any other slicing case that needs a copy of the array????
-                # FIXME Get the full numpy array and make a copy obtaining a new StorageNumpy from it with a random name
-                n = self[:].view(np.ndarray)[sliced_coord]
-                result=StorageNumpy(n,(self._get_name()+str(uuid.uuid4().hex))[0:48]) #max table name length in cassandra is 48 chars
-                return result
             else:
                 try:
                     all_coords = np.array(list(np.ndindex(self.shape))).reshape(*self.shape,self.ndim)
