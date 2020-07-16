@@ -127,10 +127,10 @@ private:
     bool done;
     const ArrayMetadata metas;
     void *data;
-    uint32_t ndims, row_elements;
-    uint64_t block_size, nblocks;
-    std::vector<uint32_t> block_dims, blocks_dim, bound_dims;
-    uint64_t block_counter;
+    uint32_t ndims, row_elements, nreddims;
+    uint64_t block_size, nblocks, nclusters;
+    std::vector<uint32_t> block_dims, blocks_dim, bound_dims, clusters_dim;
+    uint64_t block_counter, cluster_counter;
 
 
     static void tessellate(std::vector<uint32_t> dims, std::vector<uint32_t> block_dims, uint32_t elem_size, char *data,

@@ -72,6 +72,10 @@ ZorderCurveGenerator::ZorderCurveGenerator() : done(true) {}
 ZorderCurveGenerator::ZorderCurveGenerator(const ArrayMetadata &metas, void *data) : done(false), metas(metas),
                                                                                      data(data) {
     ndims = (uint32_t) metas.dims.size();
+
+    nreddims = 2;
+
+    if (ndims<2)nreddims=ndims;
     //Compute the best fitting block
     //Make the block size multiple of the element size
     block_size = BLOCK_SIZE - (BLOCK_SIZE % metas.elem_size);
@@ -85,16 +89,25 @@ ZorderCurveGenerator::ZorderCurveGenerator(const ArrayMetadata &metas, void *dat
 
     //Compute the number of blocks
     nblocks = 1;
+    nclusters = 1;
     blocks_dim = std::vector<uint32_t>(ndims);
+    clusters_dim = std::vector<uint32_t>(ndims);
     for (uint32_t dim = 0; dim < ndims; ++dim) {
         blocks_dim[dim] = (uint32_t) std::ceil((double) metas.dims[dim] / row_elements);
+        if (dim<2){
+            clusters_dim[dim] = (uint32_t) (blocks_dim[dim]+1)/2;
+        } else{
+            clusters_dim[dim] = (uint32_t) (blocks_dim[dim]);
+        }
         nblocks *= blocks_dim[dim];
+        nclusters *=clusters_dim[dim];
     }
 
     block_dims = std::vector<uint32_t>(ndims, row_elements);
     bound_dims = std::vector<uint32_t>(ndims);
     //Create the blocks
     block_counter = 0;
+    cluster_counter = 0;
 
 }
 
@@ -270,17 +283,20 @@ Partition ZorderCurveGenerator::getNextPartition() {
 
 
 int32_t ZorderCurveGenerator::computeNextClusterId() {
-    if (done || block_counter == nblocks) {
+    if (done || block_counter == nclusters) {
         done = true;
         return CLUSTER_END_FLAG;
     }
 
-    std::vector<uint32_t> block_ccs = getIndexes(block_counter, blocks_dim);
+    std::vector<uint32_t> block_ccs = getIndexes(block_counter, clusters_dim);
+    for (uint32_t i =0; i<nreddims; i++){
+        block_ccs[i]*=2;
+    }
     uint64_t zorder_id = computeZorder(block_ccs);
 
-    block_counter += blocks_dim.size() == 2 ? CLUSTER_SIZE << 1 : 1;
+    block_counter++;
 
-    if (block_counter == nblocks) done = true;
+    if (block_counter == nclusters) done = true;
     //Block parameters
     return (uint32_t) (zorder_id >> CLUSTER_SIZE);
 }
