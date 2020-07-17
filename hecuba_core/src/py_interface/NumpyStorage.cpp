@@ -1,4 +1,6 @@
 #include "NumpyStorage.h"
+#include "NumpyStorage.h"
+#include <iostream>
 
 
 NumpyStorage::NumpyStorage(const char *table, const char *keyspace, CassSession *session,
@@ -58,7 +60,15 @@ PyObject *NumpyStorage::reserve_numpy_space(const uint64_t *storage_id, ArrayMet
 
     PyObject *resulting_array;
     try {
-        resulting_array = PyArray_ZEROS((int32_t) np_metas.dims.size(), dims, type, 0);
+	//yolandab
+        int fortran_layout=0;
+        if (np_metas.flags&NPY_ARRAY_F_CONTIGUOUS){
+		fortran_layout=1;
+	}else{
+		fortran_layout=0;
+        }
+        resulting_array = PyArray_ZEROS((int32_t) np_metas.dims.size(), dims, type, fortran_layout);
+        // it was : resulting_array = PyArray_ZEROS((int32_t) np_metas.dims.size(), dims, type, 0);
         PyArrayObject *converted_array;
         PyArray_OutputConverter(resulting_array, &converted_array);
         PyArray_ENABLEFLAGS(converted_array, NPY_ARRAY_OWNDATA);

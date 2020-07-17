@@ -23,6 +23,7 @@ PYCOMPSS_APP=${4}     # Application execution using PyCOMPSs. 0: No, 1: Yes
 DISJOINT=${5}         # Guarantee disjoint allocation. 1: Yes, empty otherwise
 
 export C4S_HOME=$HOME/.c4s
+HECUBA_ENVIRON=$C4S_HOME/conf/hecuba_environment
 MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
 CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
 NODEFILE=$C4S_HOME/hostlist-"$UNIQ_ID".txt
@@ -37,6 +38,9 @@ rm -f $NODEFILE $CASSFILE $APPFILE
 scontrol show hostnames $SLURM_NODELIST > $NODEFILE
 
 source $CFG_FILE
+export CASS_HOME
+export DATA_PATH
+export SNAP_PATH
 #export CASS_HOME=$(cat $CFG_FILE | grep -v "#" | grep "CASS_HOME=" | tail -n 1 | sed 's/CASS_HOME=//g' | sed 's/"//g' | sed "s/'//g")
 #export DATA_PATH=$(cat $CFG_FILE | grep -v "#" | grep "DATA_PATH=" | tail -n 1 | sed 's/DATA_PATH=//g' | sed 's/"//g' | sed "s/'//g") 
 #export SNAP_PATH=$(cat $CFG_FILE | grep -v "#" | grep "SNAP_PATH=" | tail -n 1 | sed 's/SNAP_PATH=//g' | sed 's/"//g' | sed "s/'//g")
@@ -233,6 +237,9 @@ echo $CNAMES | tr , '\n' > $PYCOMPSS_STORAGE # Set list of nodes (with interface
 # Workaround: Creating hecuba.istorage before execution.
 #$CASS_HOME/bin/cqlsh $(head -n 1 $CASSFILE)$CASS_IFACE < $MODULE_PATH/hecuba-istorage.cql
 #$CASS_HOME/bin/cqlsh $(head -n 1 $CASSFILE)$CASS_IFACE < $MODULE_PATH/tables_numpy.cql
+
+source $MODULE_PATH/initialize_hecuba.sh $firstnode
+
 if [ "0$SCHEMA" != "0" ]; then
   echo "Connecting to $firstnode for tables creation. Schema $SCHEMA."
   $CASS_HOME/bin/cqlsh $firstnode -f $SCHEMA
@@ -246,6 +253,10 @@ if [ "$APP_NODES" != "0" ]; then
         PYCOMPSS_FLAGS=$(cat $PYCOMPSS_FLAGS_FILE)
         # TODO: Check if escaping chars is needed for app parameters
         echo "export CONTACT_NAMES=$CNAMES" > ~/contact_names.sh # Setting Cassandra cluster environment variable for Hecuba
+	if [ -f $HECUBA_ENVIRON ]; then
+		cat $HECUBA_ENVIRON >> ~/contact_names.sh
+	fi
+
         full_iface=$iface
         if [ "0$iface" != "0" ]; then
             full_iface="-"$iface

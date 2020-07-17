@@ -46,6 +46,7 @@ cat $STORAGE_PROPS
 source $STORAGE_PROPS
 
 export C4S_HOME=$HOME/.c4s
+export HECUBA_ENVIRON=$C4S_HOME/conf/hecuba_environment
 export C4S_CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
 export MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
 NODEFILE=$C4S_HOME/hostlist-"$UNIQ_ID".txt
@@ -64,6 +65,8 @@ source $C4S_CFG_FILE
 export CASS_HOME
 export DATA_PATH
 export SNAP_PATH
+export DEBUG
+
 mkdir -p $SNAP_PATH
 export THETIME=$(date "+%Y%m%dD%H%Mh%Ss")"-$SLURM_JOB_ID"
 export ROOT_PATH=$DATA_PATH/$THETIME
@@ -209,15 +212,22 @@ echo "CHECKING CASSANDRA STATUS: "
 $CASS_HOME/bin/nodetool status
 
 
-$MODULE_PATH/scripts/initialize_hecuba.sh
-
 firstnode=$(echo $seeds | awk -F ',' '{ print $1 }')
+
+sleep 10
+
+source $MODULE_PATH/initialize_hecuba.sh  $firstnode
+
 CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $CASSFILE)
 CNAMES=$(echo $CNAMES | sed "s/,/-$iface,/g")-$iface
 export CONTACT_NAMES=$CNAMES
 echo "CONTACT_NAMES=$CONTACT_NAMES"
 echo "export CONTACT_NAMES=$CONTACT_NAMES" > ${FILE_TO_SET_ENV_VARS}
 echo "FILE TO EXPORT VARS IS  ${FILE_TO_SET_ENV_VARS}"
+if [ -f $HECUBA_ENVIRON ]; then
+	cat $HECUBA_ENVIRON >> ${FILE_TO_SET_ENV_VARS}
+	echo "FILE WITH HECUBA ENVIRON IS  ${HECUBA_ENVIRON}"
+fi
 cat ${FILE_TO_SET_ENV_VARS}
 #srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES "bash export CONTACT_NAMES=$CONTACT_NAMES" &
 PYCOMPSS_STORAGE=$C4S_HOME/pycompss_storage_"$UNIQ_ID".txt

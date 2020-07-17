@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 
 from cassandra.cluster import Cluster
 from cassandra.policies import RetryPolicy, RoundRobinPolicy, TokenAwarePolicy
@@ -54,6 +55,17 @@ class Config:
     def __getattr__(self, item):
         return getattr(Config.instance, item)
 
+    def executelocked(self,query):
+        if self.instance.concurrent_creation:
+            r=self.instance.session.execute(self.instance._query_to_lock,[query])
+            if r[0][0]:
+                self.instance.session.execute(query)
+            else:
+                # FIXME find a better way to do this instead of an sleep... describe?
+                time.sleep(.300)
+        else:
+            self.instance.session.execute(query)
+
     def __init__(self):
         singleton = Config.instance
         if singleton.configured:
@@ -62,11 +74,32 @@ class Config:
 
         singleton.configured = True
 
+        if 'CONCURRENT_CREATION' in os.environ:
+            if os.environ['CONCURRENT_CREATION']=='True':
+                singleton.concurrent_creation = True
+            else:
+                singleton.concurrent_creation = False
+            log.info('CONCURRENT_CREATION: %s', str(singleton.concurrent_creation))
+        else:
+            singleton.concurrent_creation = False
+            log.warn('Concurrent creation is DISABLED [CONCURRENT_CREATION=False]')
+
+        if 'LOAD_ON_DEMAND' in os.environ:
+            if os.environ['LOAD_ON_DEMAND']=='False':
+                singleton.load_on_demand = False
+            else:
+                singleton.load_on_demand = True
+            log.info('LOAD_ON_DEMAND: %s', str(singleton.load_on_demand))
+        else:
+            singleton.load_on_demand = True
+            log.warn('Load data on demand is ENABLED [LOAD_ON_DEMAND=True]')
+
         if 'CREATE_SCHEMA' in os.environ:
             singleton.id_create_schema = int(os.environ['CREATE_SCHEMA'])
+            log.info('CREATE_SCHEMA: %d', singleton.id_create_schema)
         else:
             singleton.id_create_schema = -1
-
+            log.warn('Creating keyspaces and tables by default [CREATE_SCHEMA=-1]')
         try:
             singleton.nodePort = int(os.environ['NODE_PORT'])
             log.info('NODE_PORT: %d', singleton.nodePort)
@@ -203,6 +236,25 @@ class Config:
                                     default_retry_policy=_NRetry(5))
         singleton.session = singleton.cluster.connect()
         singleton.session.encoder.mapping[tuple] = singleton.session.encoder.cql_encode_tuple
+        if singleton.concurrent_creation:
+            configure_lock=[
+                """CREATE KEYSPACE IF NOT EXISTS hecuba_locks
+                        WITH replication=  {'class': 'SimpleStrategy', 'replication_factor': 1};
+                """,
+                """CREATE TABLE IF NOT EXISTS hecuba_locks.table_lock
+                        (table_name text, PRIMARY KEY (table_name));
+                """,
+                "TRUNCATE table hecuba_locks.table_lock;"
+            ]
+            for query in configure_lock:
+                try:
+                    #self.executelocked(query)
+                    self.instance.session.execute(query)
+                except Exception as e:
+                    log.error("Error executing query %s" % query)
+                    raise e
+            singleton._query_to_lock=singleton.session.prepare("INSERT into hecuba_locks.table_lock (table_name) values (?) if not exists;")
+
         if singleton.id_create_schema == -1:
             queries = [
                 "CREATE KEYSPACE IF NOT EXISTS hecuba  WITH replication = %s" % singleton.replication,
@@ -228,10 +280,11 @@ class Config:
                 primary_keys list<frozen<tuple<text,text>>>,
                 columns list<frozen<tuple<text,text>>>,
                 PRIMARY KEY(storage_id));
-                """]
+                """,
+                "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (singleton.execution_name, singleton.replication)]
             for query in queries:
                 try:
-                    singleton.session.execute(query)
+                    self.executelocked(query)
                 except Exception as e:
                     log.error("Error executing query %s" % query)
                     raise e
@@ -240,6 +293,8 @@ class Config:
         # connecting c++ bindings
         connectCassandra(singleton.contact_names, singleton.nodePort)
 
+        if singleton.id_create_schema == -1:
+            time.sleep(10)
         singleton.cluster.register_user_type('hecuba', 'np_meta', HArrayMetadata)
 
 

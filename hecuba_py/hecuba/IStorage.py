@@ -84,7 +84,7 @@ class IStorage(object):
         self._is_persistent = False
 
     def _set_name(self, name):
-        if not isinstance(name, str):
+        if name is not None and not isinstance(name, str):
             raise TypeError("Name -{}-  should be an instance of str".format(str(name)))
         self._name = name
 
@@ -92,7 +92,7 @@ class IStorage(object):
         try:
             return self._name
         except AttributeError:
-            return ''
+            return None
 
     def _flush_to_storage(self):
         if not self._is_persistent:

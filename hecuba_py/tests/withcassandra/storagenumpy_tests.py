@@ -5,7 +5,7 @@ from hecuba import config, StorageNumpy
 import uuid
 import numpy as np
 
-from storageAPI.storage.api import getByID
+from storage.api import getByID
 
 
 class StorageNumpyTest(unittest.TestCase):
@@ -226,8 +226,8 @@ class StorageNumpyTest(unittest.TestCase):
         l = np.array((0,1))
         hecu_sub = hecu[l]  #Access using an array of indexes
 # FIXME add more testing, currently if it does not segfault, then it works
-#        sum = hecu_sub.sum()
-#        self.assertEqual(sum, obj[l].sum())
+        sum = hecu_sub.sum()
+        self.assertEqual(sum, obj[l].sum())
         hecu.delete_persistent()
 
     def test_iter_numpy(self):
@@ -254,9 +254,13 @@ class StorageNumpyTest(unittest.TestCase):
         hecu_p_load = StorageNumpy(name="my_array")
         rep = repr(hecu_p_load)
         self.assertIsInstance(rep, str)
+        # StorageNumpy in memory and in database should share data
         load_sub_arr = hecu_p_load[:]
-        self.assertTrue(np.array_equal(load_sub_arr, np.arange(8 * 8 * 4).reshape((8, 8, 4))))
+        self.assertFalse(np.array_equal(load_sub_arr, np.arange(8 * 8 * 4).reshape((8, 8, 4))))
+        self.assertTrue(np.array_equal(sub_hecu, hecu_p_load[:2, 3:]))
+        # Clean up
         hecu_p_load.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.my_array")
 
     def test_assign_element(self):
         base = np.arange(8 * 8 * 4).reshape((8, 8, 4))
@@ -267,8 +271,12 @@ class StorageNumpyTest(unittest.TestCase):
         rep = repr(hecu_p_load)
         self.assertIsInstance(rep, str)
         load_sub_arr = hecu_p_load[:]
-        self.assertTrue(np.array_equal(load_sub_arr, np.arange(8 * 8 * 4).reshape((8, 8, 4))))
+        self.assertFalse(np.array_equal(load_sub_arr, np.arange(8 * 8 * 4).reshape((8, 8, 4))))
+        sub_hecu_load = hecu_p_load[:2, 3:]
+        self.assertTrue(sub_hecu_load[0][1][0] == 0)
+        # Clean up
         hecu_p_load.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.my_array2")
 
     def test_load_2_dif_clusters_same_instance(self):
         base = np.arange(50 * 50).reshape((50, 50))
@@ -369,6 +377,142 @@ class StorageNumpyTest(unittest.TestCase):
 
         self.assertEqual(i + 1, len(blocks))
 
+    def test_storagenumpy_copy_memory(self):
+        '''
+        Check that the memory from a StorageNumpy does not share original array
+        '''
+        n = np.arange(12).reshape(3,4)
+
+        s1 = StorageNumpy(n, "test_storage_copy_memory")
+
+        # StorageNumpy s1 and n should NOT share memory
+        s1[0][0] = 42
+        self.assertTrue(not np.array_equal(s1, n))
+        s1[0][0] = n[0][0] # Undo
+
+        n[2][2] = 666
+        self.assertTrue(not np.array_equal(s1, n))
+        # Clean up
+        s1.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_storage_copy_memory")
+
+
+    def test_storagenumpy_from_storagenumpy(self):
+        '''
+        Create a StorageNumpy from another StorageNumpy
+        '''
+
+        n = np.arange(12).reshape(3,4)
+
+        s1 = StorageNumpy(n, "test_storage_from_storage")
+
+        s2 = StorageNumpy(s1) # Create a StorageNumpy from another StorageNumpy
+
+        self.assertTrue(s2.storage_id != s1.storage_id)
+        self.assertTrue(s2._get_name() == s1._get_name())
+        self.assertTrue(np.array_equal(s2, n))
+
+        # StorageNumpy s1 and s2 should share memory
+        s1[0][0] = 42
+        self.assertTrue(np.array_equal(s2, s1))
+
+        s2[2][2] = 666
+        self.assertTrue(np.array_equal(s2, s1))
+
+        # Create a third StorageNumpy
+        s3 = StorageNumpy(s2)
+
+        self.assertTrue(s3.storage_id != s2.storage_id)
+        self.assertTrue(s3._get_name() == s3._get_name())
+        self.assertTrue(np.array_equal(s3, s2))
+
+        # Clean up
+        s1.delete_persistent()
+        s2.delete_persistent()
+        s3.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_storage_from_storage")
+
+    def test_storagenumpy_reshape(self):
+        '''
+        Reshape a StorageNumpy
+        '''
+
+        n = np.arange(12).reshape(3,4)
+
+        s1 = StorageNumpy(n, "test_storagenumpy_reshape")
+
+        r = s1.reshape(4,3)
+        self.assertTrue(r.storage_id != s1.storage_id)
+        self.assertTrue(r.shape != s1.shape)
+        self.assertTrue(r.strides != s1.strides)
+
+
+        # Clean up
+        s1.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_storage_from_storage")
+
+    def test_transpose(self):
+        '''
+        Test the transpose
+        '''
+        n=np.arange(12).reshape(3,4)
+
+        s=StorageNumpy(n,"testTranspose")
+
+        t=s.transpose()
+        self.assertTrue(t[0,1] == s [1,0])
+
+        t[0,1]=42
+
+        self.assertTrue(t[0,1] == s[1,0])
+
+        # Clean up
+        s.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.testTranspose")
+
+    def test_copy_storageNumpyPersist(self):
+        '''
+        Test that a copy of a StorageNumpy does not share memory (Persistent version)
+        '''
+        n=np.arange(12).reshape(3,4)
+
+        s=StorageNumpy(n,"testcopy")
+        c=s.copy()
+
+        self.assertTrue(c.storage_id!=s.storage_id)
+        self.assertTrue(c._get_name()!=s._get_name())
+        self.assertTrue(c[0,0]==s[0,0])
+
+        c[0,0]=42
+        self.assertTrue(c[0,0]!=s[0,0])
+
+        l=getByID(c.storage_id)
+        self.assertTrue(c[0,0]==l[0,0])
+        self.assertTrue(s[0,0]!=l[0,0])
+
+        # Clean up
+        s.delete_persistent()
+        c.delete_persistent()
+        config.session.execute("DROP TABLE IF EXISTS my_app.testcopy")
+        config.session.execute("DROP TABLE IF EXISTS {}".format(c._get_name()))
+
+    def test_copy_storageNumpyVolatile(self):
+        '''
+        Test that a copy of a StorageNumpy does not share memory (Volatile version)
+        '''
+        n=np.arange(12).reshape(3,4)
+
+        s=StorageNumpy(n)
+        c=s.copy()
+
+        self.assertTrue(s.storage_id is None)
+        self.assertTrue(c.storage_id is None)
+
+        self.assertTrue(c[0,0]==s[0,0])
+
+        c[0,0]=42
+
+        self.assertTrue(c[0,0]!=s[0,0])
 
 if __name__ == '__main__':
     unittest.main()
