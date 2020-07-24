@@ -5,9 +5,6 @@
 #include "SpaceFillingCurve.h"
 #include "CacheTable.h"
 
-//#include <climits>
-//#include <list>
-//#include <set>
 
 class ArrayDataStore {
 
@@ -48,7 +45,6 @@ protected:
                                                  void *data, std::list<std::vector<uint32_t> > &coord) const;
 	*/
 
-    //#define PMEM_OFFSET 8
 
     CacheTable *cache = nullptr, *read_cache = nullptr;
     CacheTable *metadata_cache = nullptr, *metadata_read_cache=nullptr;

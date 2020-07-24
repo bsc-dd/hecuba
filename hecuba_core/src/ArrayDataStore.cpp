@@ -608,15 +608,6 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
             off_t page_addr = dd_addr & ~(sysconf(_SC_PAGE_SIZE) - 1); //I don't even remember how this works
 
             //read from devdax
-            //int fdIn;
-            //unsigned char *src;
-
-            //open devdax access
-            //fdIn = open("/home/enricsosa/bsc/cassandra/arrow_persistent_heap", O_RDONLY);  //TODO handle open errors; define file name
-            //if (fdIn < 0) {
-            //    std::cout << ":c" << std::endl;
-            //}
-
             off_t page_offset = dd_addr-page_addr;
             //allocates in memory [...]
             size_t total_arrow_size = *arrow_size+page_offset;
@@ -624,7 +615,7 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
             if (src == MAP_FAILED) {
                 std::cout << ":c" << std::endl;
             }
-            //close(fdIn);
+
             //read from devdax
             std::string fileAsString(reinterpret_cast<char*>(&src[page_offset]), *arrow_size);
             arrow::io::BufferReader bufferReader(fileAsString);
@@ -645,16 +636,10 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
                 std::shared_ptr<arrow::Array> col = chunk->column(0); //Theoretically, there must be one column
 
                 std::shared_ptr<arrow::BinaryArray> data = std::dynamic_pointer_cast<arrow::BinaryArray>(col);
-                //const int* offsets = data->raw_value_offsets();
-                //uint8_t* dst = (uint8_t*) malloc(data->value_data()->size());
                 char* dst = (char*) save;
                 int elem_size_arrow = data->raw_value_offsets()[0]; // ALL values have the same type, therefore the same size
 
                 int length;
-                //for (int k = 0; k < col->length(); ++k) {
-                //    const uint8_t* bytes = data->GetValue(k, &length);
-                //    memcpy(dst+offsets[k], bytes, sizeof(length));
-                //}
                 for (int k = 0; k < col->length(); ++k) {
                     const uint8_t* bytes = data->GetValue(k, &length);
                     dst += cols[it]*elem_size_arrow + row_size*k; //Next column
