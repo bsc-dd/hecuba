@@ -1,5 +1,44 @@
 #include "ArrayDataStore.h"
 
+#include <arrow/memory_pool.h>
+#include <arrow/io/file.h>
+#include <arrow/status.h>
+#include <arrow/ipc/reader.h>
+#include <arrow/buffer.h>
+#include <arrow/array.h>
+#include <arrow/type.h>
+#include <arrow/type_fwd.h>
+#include <arrow/util/key_value_metadata.h>
+#include <arrow/io/api.h>
+#include <arrow/ipc/writer.h>
+#include <arrow/io/interfaces.h>
+#include <arrow/ipc/feather.h>
+#include "arrow/io/file.h"
+#include "arrow/ipc/reader.h"
+#include "arrow/ipc/writer.h"
+#include "arrow/status.h"
+#include "arrow/util/io_util.h"
+#include <arrow/memory_pool.h>
+#include <arrow/io/file.h>
+#include <arrow/status.h>
+#include <arrow/ipc/reader.h>
+#include <arrow/buffer.h>
+#include <arrow/array.h>
+#include <arrow/type.h>
+#include <arrow/type_fwd.h>
+#include <arrow/util/key_value_metadata.h>
+#include <arrow/array/builder_primitive.h>
+#include <arrow/array/builder_binary.h>
+
+#include <unistd.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+
+#include <climits>
+#include <list>
+#include <set>
+
+#define PMEM_OFFSET 8
 
 ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSession *session,
                                std::map<std::string, std::string> &config) {
@@ -535,6 +574,15 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
 
     std::shared_ptr<arrow::ipc::RecordBatchFileReader> sptrFileReader;
 
+    uint64_t row_size   = metadata.strides[0];
+    uint32_t elem_size  = metadata.elem_size;
+
+    //open devdax access
+    int fdIn = open("/home/enricsosa/bsc/cassandra/arrow_persistent_heap", O_RDONLY);  //TODO handle open errors; define file name
+    if (fdIn < 0) {
+        std::cout << ":c" << std::endl;
+    }
+
     for (uint32_t it = 0; it < cols.size(); ++it) {
         _keys = (char *) malloc(keys_size);
         //UUID
@@ -560,22 +608,23 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
             off_t page_addr = dd_addr & ~(sysconf(_SC_PAGE_SIZE) - 1); //I don't even remember how this works
 
             //read from devdax
-            int fdIn;
-            unsigned char *src;
+            //int fdIn;
+            //unsigned char *src;
 
             //open devdax access
-            fdIn = open("/home/enricsosa/bsc/cassandra/arrow_persistent_heap", O_RDONLY);  //TODO handle open errors; define file name
-            if (fdIn < 0) {
-                std::cout << ":c" << std::endl;
-            }
+            //fdIn = open("/home/enricsosa/bsc/cassandra/arrow_persistent_heap", O_RDONLY);  //TODO handle open errors; define file name
+            //if (fdIn < 0) {
+            //    std::cout << ":c" << std::endl;
+            //}
 
             off_t page_offset = dd_addr-page_addr;
             //allocates in memory [...]
-            src = (unsigned char*) mmap(NULL, *arrow_size+page_offset, PROT_READ, MAP_SHARED, fdIn, page_addr); //TODO handle mmap errors
+            size_t total_arrow_size = *arrow_size+page_offset;
+            unsigned char* src = (unsigned char*) mmap(NULL, total_arrow_size, PROT_READ, MAP_SHARED, fdIn, page_addr); //TODO handle mmap errors
             if (src == MAP_FAILED) {
                 std::cout << ":c" << std::endl;
             }
-            close(fdIn);
+            //close(fdIn);
             //read from devdax
             std::string fileAsString(reinterpret_cast<char*>(&src[page_offset]), *arrow_size);
             arrow::io::BufferReader bufferReader(fileAsString);
@@ -596,13 +645,20 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
                 std::shared_ptr<arrow::Array> col = chunk->column(0); //Theoretically, there must be one column
 
                 std::shared_ptr<arrow::BinaryArray> data = std::dynamic_pointer_cast<arrow::BinaryArray>(col);
-                const int* offsets = data->raw_value_offsets();
-                uint8_t* dst = (uint8_t*) malloc(data->value_data()->size());
-                int length;
+                //const int* offsets = data->raw_value_offsets();
+                //uint8_t* dst = (uint8_t*) malloc(data->value_data()->size());
+                char* dst = (char*) save;
+                int elem_size_arrow = data->raw_value_offsets()[0]; // ALL values have the same type, therefore the same size
 
+                int length;
+                //for (int k = 0; k < col->length(); ++k) {
+                //    const uint8_t* bytes = data->GetValue(k, &length);
+                //    memcpy(dst+offsets[k], bytes, sizeof(length));
+                //}
                 for (int k = 0; k < col->length(); ++k) {
                     const uint8_t* bytes = data->GetValue(k, &length);
-                    memcpy(dst+offsets[k], bytes, sizeof(length));
+                    dst += cols[it]*elem_size_arrow + row_size*k; //Next column
+                    memcpy(dst, bytes, length);
                 }
             }
 
@@ -610,6 +666,9 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
 			/* hopefulle encapsulated into a function :) */
             /*** mmap(save, pointer, size)? ***/
 
+            munmap(src, total_arrow_size);
+
         }
     }
+    close(fdIn);
 }
