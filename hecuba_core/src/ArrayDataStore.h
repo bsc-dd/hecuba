@@ -34,22 +34,17 @@ public:
     //lgarrobe
     std::string TN  = "";
     void read_numpy_from_cas_arrow(const uint64_t *storage_id, ArrayMetadata &metadata, std::vector<uint64_t> &cols, void *save);
+    void store_numpy_into_cas_as_arrow(const uint64_t *storage_id, ArrayMetadata &metadata,
+                                       void *data) const;
+    void store_numpy_into_cas_by_cols_as_arrow(const uint64_t *storage_id, ArrayMetadata &metadata, void *data, std::vector<uint32_t> &cols) const;
 
 protected:
 
     void store_numpy_partition_into_cas(const uint64_t *storage_id , Partition part) const;
-    void store_numpy_into_cas_as_arrow(const uint64_t *storage_id, ArrayMetadata &metadata,
-                                       void *data) const;
-    /* FIXME
-	 * void store_numpy_into_cas_by_coords_as_arrow(const uint64_t *storage_id, ArrayMetadata &metadata,
-                                                 void *data, std::list<std::vector<uint32_t> > &coord) const;
-	*/
 
 
     CacheTable *cache = nullptr, *read_cache = nullptr;
     CacheTable *metadata_cache = nullptr, *metadata_read_cache=nullptr;
-    CacheTable *cache_arrow_write = nullptr;
-    CacheTable *cache_arrow       = nullptr;
 
     SpaceFillingCurve partitioner;
 

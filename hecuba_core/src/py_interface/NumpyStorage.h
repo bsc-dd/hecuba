@@ -37,6 +37,7 @@ public:
     void load_numpy(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *save, PyObject *coord);
 
     void load_numpy_arrow(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *save, PyObject *cols);
+    std::vector<uint64_t> get_cols(PyObject *coord) const;
 
 private:
 

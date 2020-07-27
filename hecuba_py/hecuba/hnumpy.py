@@ -15,11 +15,14 @@ from .tools import extract_ks_tab, get_istorage_attrs, storage_id_from_name
 
 class StorageNumpy(IStorage, np.ndarray):
     _build_args = None
-    _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
-                                                  '(storage_id, class_name, name, numpy_meta, block_id, base_numpy)'
-                                                  'VALUES (?,?,?,?,?,?)')
 
-    args_names = ["storage_id", "class_name", "name", "metas", "block_id", "base_numpy"]
+    # twin_id - the storage_id to the 'arrow' companion of this numpy
+    #    (A Numpy has two copies: 1) with rows and 2) with columns (arrow))
+    _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
+                                                  '(storage_id, class_name, name, numpy_meta, block_id, base_numpy, twin_id)'
+                                                  'VALUES (?,?,?,?,?,?,?)')
+
+    args_names = ["storage_id", "class_name", "name", "metas", "block_id", "base_numpy", "twin_id"]
     args = namedtuple('StorageNumpyArgs', args_names)
 
     def _calculate_coords(self):
@@ -41,60 +44,175 @@ class StorageNumpy(IStorage, np.ndarray):
             obj = StorageNumpy(input_array=block, name=self._get_name(), storage_id=uuid.uuid4(), block_id=block_id)
             yield obj
 
-    def __new__(cls, input_array=None, name=None, storage_id=None, block_id=None, **kwargs):
-        log.debug("__new__  input_array=None?%s name=%s storage_id=%s", input_array is None, name, storage_id)
-        if input_array is None and (name is not None or storage_id is not None):
-            if not storage_id:
-                (ksp, table) = extract_ks_tab(name)
-                name = ksp + "." + table
-                storage_id = storage_id_from_name(name)
+    # get_arrow_name: Returns the name of the arrow table (READ) of a table_name
+    @staticmethod
+    def get_arrow_name(name):
+        return "harrow_"+name
 
-            # Load metadata
-            istorage_metas = get_istorage_attrs(storage_id)
-            name = name or istorage_metas[0].name
-            numpy_metadata = istorage_metas[0].numpy_meta
-            base_metas = numpy_metadata
-            base_numpy = istorage_metas[0].base_numpy
-            if base_numpy is not None:
-                storage_id = base_numpy
-                base_metas = get_istorage_attrs(storage_id)[0].numpy_meta
+    @staticmethod
+    def _isarrow(name):
+        '''
+        Returns true if the name is an arrow table
+        '''
+        return name.startswith("harrow_")
 
-            # Load array
-            result = cls.reserve_numpy_array(storage_id, name, base_metas)
-            input_array = result[0]
-            obj = np.asarray(input_array).view(cls)
-            (obj._ksp, obj._table) = extract_ks_tab(name)
-            obj._hcache = result[1]
-            obj.storage_id = storage_id
-            obj._row_elem = obj._hcache.get_elements_per_row(obj.storage_id, base_metas)
-            if base_numpy is not None:
-                obj._partition_dims = numpy_metadata.dims
-            obj._calculate_coords()
-        else:
-            #this is the assignment for both types of input array: StorageNumpy and numpy.ndarray
-            obj = np.asarray(input_array).copy().view(cls)
-        obj._numpy_full_loaded = False
-        obj._loaded_coordinates = []
-        obj._set_name(name)
-        if getattr(obj, "_block_id", None) is None:
-            obj._block_id = block_id
+    # get_temporal_buffer_name: Returns the name of the temporal arrow table
+    # (WRITE) of a table_name
+    @staticmethod
+    def get_temporal_buffer_name(name):
+        return "buffer_"+name
+
+    # _initialize_existing_object : Instantiates a new StorageNumpy
+    # from metadata existent in Hecuba given its name or storage_id.
+    #   Parameters:
+    #       cls       : Class to use for instantiation
+    #       name      : A *qualified* cassandra name (keyspace.table_name) to instantiate
+    #       storage_id: The UUID to instantiate
+    # If both, name and storage_id, are given, name is ignored.
+    # It reserves memory to store the numpy (zeros).
+    @staticmethod
+    def _initialize_existing_object(cls, name, storage_id):
+        #    StorageNumpy(None, name="xxx", none)
+        # or StorageNumpy(None, none, storage_id="xxx")
+        # or StorageNumpy(None, name="xxx", storage_id="yyy") Does it exist?
+        log.debug("name=%s sid=%s", name, storage_id)
+        if not storage_id:  # StorageNumpy(None, name="xxxx", NONE)
+            #(ksp, table) = extract_ks_tab(name)
+            #name = ksp + "." + table
+            storage_id = storage_id_from_name(name)
+
+        # Load metadata
+        istorage_metas = get_istorage_attrs(storage_id)
+        name = istorage_metas[0].name
+        twin_id = istorage_metas[0].twin_id # This MUST match 'storage_id_from_name(_twin_name)'
+        numpy_metadata = istorage_metas[0].numpy_meta
+        base_metas = numpy_metadata
+        base_numpy = istorage_metas[0].base_numpy
+        if base_numpy is not None:
+            storage_id = base_numpy
+            base_metas = get_istorage_attrs(storage_id)[0].numpy_meta
+
+        # Load array
+        result = cls.reserve_numpy_array(storage_id, name, base_metas)
+        input_array = result[0]
+
+        obj = np.asarray(input_array).view(cls)
+
+        obj._hcache = result[1]
+        (obj._ksp, obj._table) = extract_ks_tab(name)
+        obj.storage_id = storage_id
+        obj._twin_id   = twin_id
+        obj._twin_name = obj._ksp + "." + StorageNumpy.get_arrow_name(obj._table)
+        obj._row_elem = obj._hcache.get_elements_per_row(storage_id, base_metas)[0]
+        if base_numpy is not None:
+            obj._partition_dims = numpy_metadata.dims
+        obj._is_persistent = True
+        obj._calculate_coords()
+        #print (" JJ _initialize_existing_object name={} sid={} DONE".format(name, storage_id), flush=True)
+        return obj
+
+    # _complete_initialization: Complete the fields of a new initialized object
+    # To be called as the last step of an StorageNumpy object creation
+    def _complete_initialization(self, cls, name, block_id):
+        self._numpy_full_loaded = False
+        self._loaded_coordinates = []
+        self._set_name(name)
+        if getattr(self, "_block_id", None) is None:
+            self._block_id = block_id
         # Finally, we must return the newly created object:
-        obj._class_name = '%s.%s' % (cls.__module__, cls.__name__)
+        self._class_name = '%s.%s' % (cls.__module__, cls.__name__)
+
+    def __new__(cls, input_array=None, name=None, storage_id=None, block_id=None, **kwargs):
+        log.debug("input_array=%s name=%s storage_id=%s ",input_array is not None, name, storage_id)
+        if name is not None:
+            if (len(name)>40 or name.startswith("HECUBA")):
+                # Cassandra limits name to 48 characters: we reserve 8 characters
+                # for special Hecuba tables
+                raise AttributeError("The name of an user StorageNumpy is limited to 40 chars and can not start 'HECUBA'")
+            # Construct full qualified name to deal with cases where the name does NOT contain keyspace
+            (ksp, table) = extract_ks_tab(name)
+            name = ksp + "." + table
+
+        if input_array is None and (name is not None or storage_id is not None):
+            obj = StorageNumpy._initialize_existing_object(cls, name, storage_id)
+            if obj._twin_id is not None:
+                # Load TWIN array
+                #print ("JJ __new__ twin_name ", obj._twin_name, flush=True);
+                #print ("JJ __new__ twin_id ", obj._twin_id, flush=True);
+                twin = StorageNumpy._initialize_existing_object(cls, obj._twin_name, obj._twin_id)
+                obj._twin_ref = twin
+
+        else:
+            if isinstance(input_array, StorageNumpy): # StorageNumpyDesign
+                # StorageNumpy(Snumpy, None, None)
+                # StorageNumpy(Snumpy, name, None)
+                # StorageNumpy(Snumpy, None, UUID)
+                # StorageNumpy(Snumpy, name, UUID)
+                if storage_id is not None:
+                    log.warn("Creating a StorageNumpy with a specific StorageID")
+                if not input_array._is_persistent and name is None:
+                    raise NotImplemented("Create a volatile StorageNumpy from another volatile StorageNumpy")
+
+                obj = input_array.view(cls)
+                if input_array._is_persistent:
+                    sid=uuid.uuid4()
+                    obj.storage_id=sid
+                    if name is not None:
+                        raise NotImplemented("Build a Persistent StorageNumpy from another Persistent StorageNumpy with a name")
+                    name = input_array._get_name()
+
+                if input_array._twin_ref is not None:
+                    # FIXME Treat the TWIN also!
+                    # Check that the new object has the same ref as base
+                    pass
+            else:
+                # StorageNumpy(numpy, None, None)
+                obj = np.asarray(input_array).copy().view(cls)
+                obj._twin_id  = None
+                obj._twin_name = None
+                if getattr(input_array, 'ndim', 0) == 2:
+                    obj._twin_ref = np.asarray(input_array).T.copy().view(cls)
+                    IStorage.__init__(obj._twin_ref)
+
+        #print("JJ name = ", name, flush=True)
+        #print("JJ _twin_name = ", obj._twin_name, flush=True)
+        #print("JJ _name = ", obj._name, flush=True)
+        obj._complete_initialization(cls, name, block_id)
+        if obj._twin_ref is not None:
+            obj._twin_ref._complete_initialization(cls, obj._twin_name, block_id)
         return obj
 
     def __init__(self, input_array=None, name=None, storage_id=None, **kwargs):
-        log.debug("__init__  input_array=None?%s name=%s storage_id=%s", input_array is None, name, storage_id)
+        log.debug("name=%s sid=%s", name, storage_id)
+        #if we already have a name we keep it and ignore the new one
+        current_name=self._get_name()
+        if current_name is not None:
+            name=current_name
+        # was to ovewrite the former name with the new one
+        #if name == None:
+        #    name=self._get_name() # To deal with StorageNumpy(StorageNumpy)
 
         IStorage.__init__(self, storage_id=storage_id, name=name, **kwargs)
         metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
                                self.itemsize, self.flags.num, 0)
-        self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), metas, self._block_id, self.storage_id)
+        self._build_args = self.args(self.storage_id, self._class_name,
+                self._get_name(), metas, self._block_id, self.storage_id, self._twin_id)
 
         if self._get_name() or self.storage_id:
             load_data= (input_array is None) and (config.load_on_demand == False)
             if input_array is not None:
-                self.make_persistent(self._get_name())
-            self._is_persistent = True
+                if isinstance(input_array,StorageNumpy):
+                    self._build_args = self.args(self.storage_id,
+                                                 self._class_name,
+                                                 self._get_name(),
+                                                 metas,
+                                                 self._block_id,
+                                                 input_array._build_args.base_numpy, # Update base_numpy with original_data
+                                                 self._twin_id)
+                    self._store_meta(self._build_args) # StoreNumpy from persistent StorageNumpy (reshape): we only need to update the metadata
+                else:
+                    self.make_persistent(self._get_name())
+            self._is_persistent = True # IStorage.__init__ resets this! Therefore enable it again
             if load_data:
                 self[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
 
@@ -113,15 +231,20 @@ class StorageNumpy(IStorage, np.ndarray):
             self._hcache = getattr(obj, '_hcache', None)
             self._row_elem = getattr(obj, '_row_elem', None)
             # if we are a view we have ALREADY loaded all the subarray
-            self._loaded_coordinates = None #Magic value because it should NOT be used
-            self._numpy_full_loaded = True
+            self._loaded_coordinates = getattr(obj, '_loaded_coordinates', None)
+            self._numpy_full_loaded = getattr(obj, '_numpy_full_loaded', None)
             self._is_persistent = getattr(obj, '_is_persistent', None)
             self._block_id = getattr(obj, '_block_id', None)
+            self._twin_id   = getattr(obj, '_twin_id', None)
+            self._twin_ref  = getattr(obj, '_twin_ref', None)
+            self._twin_name = getattr(obj, '_twin_name', None)
             self._all_coords = getattr(obj, '_all_coords', None)
             self._n_blocks = getattr(obj, '_n_blocks', None)
             self._class_name = getattr(obj,'_class_name',None)
-            self._build_args = getattr(obj, '_build_args', HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind,
-                                                                          self.dtype.byteorder, self.itemsize, self.flags.num, 0))
+            hfetch_metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
+                                          self.itemsize, self.flags.num, 0)
+            self._build_args = getattr(obj, '_build_args', self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas,
+                                        self._block_id, None, self._twin_id))
         else:
             log.debug("  __array_finalize__ copy")
             # Initialize fields as the __new__ case with input_array and not name
@@ -140,6 +263,9 @@ class StorageNumpy(IStorage, np.ndarray):
     @staticmethod
     def _create_tables(name):
         (ksp, table) = extract_ks_tab(name)
+        log.debug("Create table %s %s", ksp, table)
+        if StorageNumpy._isarrow(table): # Arrow tables are already created, skip them
+                return
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (ksp, config.replication)
         config.executelocked(query_keyspace)
 
@@ -150,16 +276,12 @@ class StorageNumpy(IStorage, np.ndarray):
                                                                 'payload blob, '             \
                                                                 'PRIMARY KEY((storage_id,cluster_id),block_id))'
         config.executelocked(query_table)
-        # Add 'arrow' keyspace and table
-        #	_arrow to read
-        #	_buffer to write
-        ksp_arrow = ksp + "_arrow"
-        query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (ksp_arrow, config.replication)
-        config.executelocked(query_keyspace)
+        # Add 'arrow' tables
+        #	harrow_ to read
+        #	buffer_ to write
+        tbl_buffer = StorageNumpy.get_temporal_buffer_name(table)
 
-        tbl_buffer = table + "_buffer"
-
-        query_table_buff ='CREATE TABLE IF NOT EXISTS ' + ksp_arrow + '.' + tbl_buffer + \
+        query_table_buff ='CREATE TABLE IF NOT EXISTS ' + ksp + '.' + tbl_buffer + \
                                                                 '(storage_id uuid , '    \
                                                                 'col_id      bigint, '   \
                                                                 'row_id      bigint, '   \
@@ -167,8 +289,8 @@ class StorageNumpy(IStorage, np.ndarray):
                                                                 'payload     blob, '     \
                                                                 'PRIMARY KEY(storage_id,col_id))'
         config.executelocked(query_table_buff)
-        tbl_arrow = table + "_arrow"
-        query_table_arrow='CREATE TABLE IF NOT EXISTS ' + ksp_arrow + '.' + tbl_arrow + \
+        tbl_arrow = StorageNumpy.get_arrow_name(table)
+        query_table_arrow='CREATE TABLE IF NOT EXISTS ' + ksp + '.' + tbl_arrow + \
                                                                 '(storage_id uuid, '    \
                                                                 'col_id      bigint, '  \
                                                                 'arrow_addr  bigint, '  \
@@ -179,6 +301,7 @@ class StorageNumpy(IStorage, np.ndarray):
     @staticmethod
     def _create_hcache(name):
         (ksp, table) = extract_ks_tab(name)
+        log.debug("Create cache for %s %s", ksp, table)
         hcache_params = (ksp, table,
                          {'cache_size': config.max_cache_size,
                           'writer_par': config.write_callbacks_number,
@@ -198,9 +321,11 @@ class StorageNumpy(IStorage, np.ndarray):
         try:
             config.session.execute(StorageNumpy._prepared_store_meta,
                                    [storage_args.storage_id, storage_args.class_name,
-                                    storage_args.name, storage_args.metas,
+                                    storage_args.name,
+                                    storage_args.metas,
                                     storage_args.block_id,
-                                    storage_args.base_numpy])
+                                    storage_args.base_numpy,
+                                    storage_args.twin_id])
 
         except Exception as ex:
             log.warn("Error creating the StorageNumpy metadata with args: %s" % str(storage_args))
@@ -209,7 +334,7 @@ class StorageNumpy(IStorage, np.ndarray):
     @staticmethod
     def reserve_numpy_array(storage_id, name, metas):
         '''Provides a numpy array with the number of elements obtained through storage_id'''
-
+        log.debug(" Reserve memory for %s %s ", name, storage_id)
         hcache = StorageNumpy._create_hcache(name)
         result = hcache.allocate_numpy(storage_id, metas)
         if len(result) == 1:
@@ -272,6 +397,11 @@ class StorageNumpy(IStorage, np.ndarray):
                 self._loaded_coordinates = coordinates
 
     def _select_and_load_data(self, sliced_coord):
+        """
+        Given the 'sliced_coord' as a parameter to a getitem, loads the
+        corresponding data from cassandra.
+        Returns True if the parameter corresponds to a columnar access.
+        """
         if config.arrow_enabled:
             # Check if the access is columnar...
             columns_selected = False
@@ -291,12 +421,15 @@ class StorageNumpy(IStorage, np.ndarray):
                         columns.append(sliced_coord[-1])
             # Read data by columns or coordinates depending on the requested access
             if columns_selected:
-                self._hcache.load_numpy_columns([self._build_args.base_numpy], self._build_args.metas, [self.base.view(np.ndarray)],
-                                                   columns)
-                return
+                self._twin_ref._hcache.load_numpy_slices([self._twin_ref.base_numpy],
+                                                self._twin_ref._build_args.metas,
+                                                [self._twin_ref.base.view(np.ndarray)],
+                                                columns)
+                return True
 
         # Normal array access
         self._select_and_load_blocks(sliced_coord)
+        return False
 
     def _select_and_load_blocks(self, sliced_coord):
         if not self._numpy_full_loaded:
@@ -306,16 +439,20 @@ class StorageNumpy(IStorage, np.ndarray):
     def __getitem__(self, sliced_coord):
         log.info("RETRIEVING NUMPY {}".format(sliced_coord))
         if self._is_persistent:
-            self._select_and_load_data(sliced_coord)
+            columns_selected = self._select_and_load_data(sliced_coord)
             #if the slice is a npndarray numpy creates a copy and we do the same
             if isinstance(sliced_coord, np.ndarray): # is there any other slicing case that needs a copy of the array????
                 result = self.view(np.ndarray)[sliced_coord]
                 return StorageNumpy(result) # Creates a copy (A StorageNumpy from a Numpy)
 
-        return super(StorageNumpy, self).__getitem__(sliced_coord)
+        if columns_selected:
+            return super(StorageNumpy, self._twin_ref).__getitem__(sliced_coord)
+        else:
+            return super(StorageNumpy, self).__getitem__(sliced_coord)
 
     def __setitem__(self, sliced_coord, values):
-        log.info("WRITING NUMPY ")
+        log.info("WRITING NUMPY")
+        log.debug("setitem %s", sliced_coord)
         if self._is_persistent:
             block_coords = self._select_blocks(sliced_coord)
             if not self._numpy_full_loaded: # Load the block before writing!
@@ -331,6 +468,8 @@ class StorageNumpy(IStorage, np.ndarray):
         return super(StorageNumpy, self).__setitem__(sliced_coord, values)
 
     def make_persistent(self, name):
+        log.debug("Make %s persistent", name)
+
         super().make_persistent(name)
 
         if not self._built_remotely:
@@ -342,16 +481,58 @@ class StorageNumpy(IStorage, np.ndarray):
         if None in self or not self.ndim:
             raise NotImplemented("Empty array persistance")
 
+        twin = self._twin_ref
+        if twin is not None:
+            # If there is a twin, make it persistent FIRST
+            twksp, twtbl = extract_ks_tab(name)
+            twinname = twksp + "." + StorageNumpy.get_arrow_name(twtbl)
+            # 1) make it persistent
+            super(StorageNumpy, twin).make_persistent(twinname)
+            self._twin_id = twin.storage_id
+            self._twin_name = twin._get_name()
+
+            if not getattr(twin, '_hcache', None):
+                twin._hcache = twin._create_hcache(twinname)
+
+            # 2) Build metadatas for Twin with different metadata
+            twin_metas = HArrayMetadata(
+                                        list(twin.shape),
+                                        list(twin.strides),
+                                        twin.dtype.kind,
+                                        twin.dtype.byteorder,
+                                        twin.itemsize,
+                                        twin.flags.num,
+                                        2)  # 2 == COLUMNAR (find it at SpaceFillingCurve.h)
+            twin._build_args = twin.args(
+                                         self._twin_id,
+                                         self._class_name,
+                                         self._twin_name,
+                                         twin_metas,
+                                         None, #self._block_id,
+                                         self._twin_id, # base numpy
+                                         None) #twin_id
+            # 3) Store metadata
+            StorageNumpy._store_meta(twin._build_args)
+
+            # 4) Store the data in cassandra
+            if len(twin.shape) != 0:
+                twin._hcache.store_numpy_slices([self._twin_ref._build_args.base_numpy], twin._build_args.metas, [twin.base.view(np.ndarray)],
+                                                None)
+
+        # Persist current object
         hfetch_metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
-                                      self.itemsize, self.flags.num, 0)
+                                      self.itemsize, self.flags.num, 0)# 0 ==Z_ORDER (find it at SpaceFillingCurve.h)
         self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas, self._block_id,
-                                     self.storage_id)
+                                     self.storage_id, # base_numpy is storage_id because until now we only reach this point if we are not inheriting from a StorageNumpy. We should update this if we allow StorageNumpy from volatile StorageNumpy
+                                     self._twin_id)
         if len(self.shape) != 0:
-            self._hcache.store_numpy_slices([self.storage_id], self._build_args.metas, [StorageNumpy._get_base_array(self)],
+            self._hcache.store_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [StorageNumpy._get_base_array(self)],
                                             None)
         StorageNumpy._store_meta(self._build_args)
         self._row_elem = self._hcache.get_elements_per_row(self.storage_id, self._build_args.metas)
         self._calculate_coords()
+
+
 
     def stop_persistent(self):
         super().stop_persistent()

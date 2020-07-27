@@ -306,6 +306,7 @@ class Config:
                 numpy_meta frozen<np_meta>,
                 block_id int,
                 base_numpy uuid,
+                twin_id uuid,
                 primary_keys list<frozen<tuple<text,text>>>,
                 columns list<frozen<tuple<text,text>>>,
                 PRIMARY KEY(storage_id));

@@ -16,6 +16,7 @@
 
 #define ZORDER_ALGORITHM 0
 #define NO_PARTITIONS 1
+#define COLUMNAR 2
 
 //Represents a block of data belonging to an array
 struct Partition {

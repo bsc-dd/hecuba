@@ -46,19 +46,6 @@
 
 ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSession *session,
                                std::map<std::string, std::string> &config) {
-    char * full_name=(char *)malloc(strlen(table)+strlen(keyspace)+ 2);
-    sprintf(full_name,"%s.%s",keyspace,table);
-    this->TN = std::string(full_name); //lgarrobe
-
-    std::vector<std::map<std::string, std::string> > keys_names = {{{"name", "storage_id"}},
-                                                                   {{"name", "cluster_id"}},
-                                                                   {{"name", "block_id"}}};
-
-    std::vector<std::map<std::string, std::string> > columns_names = {{{"name", "payload"}}};
-
-
-    TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names, session);
-    this->cache = new CacheTable(table_meta, session, config);
 
     char * env_path = std::getenv("HECUBA_ARROW");
     if (env_path != nullptr) {
@@ -72,47 +59,65 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
             arrow_enabled = true;
         }
     }
-    if (arrow_enabled) {
+
+    char * full_name=(char *)malloc(strlen(table)+strlen(keyspace)+ 2);
+    sprintf(full_name,"%s.%s",keyspace,table);
+    this->TN = std::string(full_name); //lgarrobe
+
+    std::string table_name (table);
+    if (table_name.rfind("harrow_", 0) != 0) {	// !table_name.starts_with("harrow_") // == COLUMNAR
+    //	std::cout<< " JJ ArrayDataStore::ArrayDataStore table=" << table << std::endl;
+        std::vector<std::map<std::string, std::string> > keys_names = {{{"name", "storage_id"}},
+                                                                       {{"name", "cluster_id"}},
+                                                                       {{"name", "block_id"}}};
+
+        std::vector<std::map<std::string, std::string> > columns_names = {{{"name", "payload"}}};
+
+
+        TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names, session);
+        this->cache = new CacheTable(table_meta, session, config);
+
+        std::vector<std::map<std::string, std::string>> read_keys_names(keys_names.begin(), (keys_names.end() - 1));
+        std::vector<std::map<std::string, std::string>> read_columns_names = columns_names;
+        read_columns_names.insert(read_columns_names.begin(), keys_names.back());
+
+        table_meta = new TableMetadata(table, keyspace, read_keys_names, read_columns_names, session);
+        this->read_cache = new CacheTable(table_meta, session, config);
+
+    } else {
+        if (arrow_enabled) {
         // Arrow tables:
         //    - Writing to arrow uses temporal 'buffer' table
         //    - Reading from arrow uses 'arrow' table
         // Both have the SAME keys but DIFFERENT values!
+        // FIXME  These tables should be the same (or at least not visible from here)
         std::vector<std::map<std::string, std::string> > keys_arrow_names = {{{"name", "storage_id"}},
-            {{"name", "col_id"}}};
+                                                                             {{"name", "col_id"}}};
 
         // Temporal buffer for writing to arrow
         std::vector<std::map<std::string, std::string> > columns_buffer_names = {{{"name", "row_id"}},
-            {{"name", "size_elem"}},
-            {{"name", "payload"}}};
+                                                                                 {{"name", "size_elem"}},
+                                                                                 {{"name", "payload"}}};
 
         // Arrow table (for reading)
         std::vector<std::map<std::string, std::string> > columns_arrow_names = {{{"name", "arrow_addr"}},
-            {{"name", "arrow_size"}}};
-        // Create table names: table_buffer, table_arrow, keyspace_arrow
-        std::string table_buffer = table;
-        table_buffer.append("_buffer");
-        std::string table_arrow = table;
-        table_arrow.append("_arrow");
-        std::string keyspace_arrow = keyspace;
-        keyspace_arrow.append("_arrow");
+                                                                                {{"name", "arrow_size"}}};
+    //	std::cout<< " JJ ArrayDataStore::ArrayDataStore ARROW " << table << std::endl;
+        // Create table names: table_buffer, table_arrow (must match 'hnumpy.py' names)
+        std::string table_buffer (table);
+        table_buffer.replace(0, 7, "buffer_"); // Change 'arrow_' to 'buffer_'
 
         // Prepare cache for WRITE
-        TableMetadata *table_meta_arrow_write = new TableMetadata(table_buffer.c_str(), keyspace_arrow.c_str(),
-                keys_arrow_names, columns_buffer_names, session);
-        this->cache_arrow_write = new CacheTable(table_meta_arrow_write, session, config); // FIXME can be removed?
+        TableMetadata *table_meta_arrow_write = new TableMetadata(table_buffer.c_str(), keyspace,
+                                                                  keys_arrow_names, columns_buffer_names, session);
+        this->cache = new CacheTable(table_meta_arrow_write, session, config); // FIXME can be removed?
 
         // Prepare cache for READ
-        TableMetadata *table_meta_arrow = new TableMetadata(table_arrow.c_str(), keyspace_arrow.c_str(),
-                keys_arrow_names, columns_arrow_names, session);
-        this->cache_arrow = new CacheTable(table_meta_arrow, session, config);
+        TableMetadata *table_meta_arrow = new TableMetadata(table_name.c_str(), keyspace,
+                                                            keys_arrow_names, columns_arrow_names, session);
+        this->read_cache = new CacheTable(table_meta_arrow, session, config);
+        }
     }
-
-    std::vector<std::map<std::string, std::string>> read_keys_names(keys_names.begin(), (keys_names.end() - 1));
-    std::vector<std::map<std::string, std::string>> read_columns_names = columns_names;
-    read_columns_names.insert(read_columns_names.begin(), keys_names.back());
-
-    table_meta = new TableMetadata(table, keyspace, read_keys_names, read_columns_names, session);
-    this->read_cache = new CacheTable(table_meta, session, config);
 
     //Metadata needed only for *reading* numpy metas from hecuba.istorage
     //lgarrobe
@@ -349,7 +354,115 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
 
         memcpy(_val, &mypayload, sizeof(char*));    //payload
 
-        cache_arrow_write->put_crow( (void*)_keys, (void*)_values ); //Send column to cassandra
+        cache->put_crow( (void*)_keys, (void*)_values ); //Send column to cassandra
+    }
+}
+
+/***
+ * Write a complete numpy ndarray by columns (using arrow)
+ * @param storage_id	UUID identifying the numpy ndarray
+ * @param np_metas		ndarray characteristics
+ * @param numpy			Memory for the whole numpy whose columns must be stored
+ * @param cols			Vector of columns ids to store
+ */
+void ArrayDataStore::store_numpy_into_cas_by_cols_as_arrow(const uint64_t *storage_id,
+                                                   ArrayMetadata &metadata, void *data,
+                                                   std::vector<uint32_t> &cols) const {
+
+    throw ModuleException("NOT IMPLEMENTED YET");
+
+    assert( metadata.dims.size() <= 2 ); // First version only supports 2 dimensions
+
+    // Calculate row and element sizes
+    uint64_t row_size   = metadata.strides[0];
+    uint32_t elem_size  = metadata.elem_size;
+
+    // Calculate number of rows and columns
+    uint64_t num_columns = cols.size();
+    uint64_t num_rows    = metadata.dims[0];
+
+
+    // FIXME Encapsulate the following code into a function f(data, columns) -> Arrow
+    //arrow
+    arrow::Status status;
+    auto memory_pool = arrow::default_memory_pool(); //arrow
+    auto field = arrow::field("field", arrow::binary());
+    std::vector<std::shared_ptr<arrow::Field>> fields = {field};
+    auto schema = std::make_shared<arrow::Schema>(fields);
+
+    for(uint64_t i = 0; i < num_columns; ++i) {
+        arrow::BinaryBuilder builder(arrow::binary(), memory_pool); //arrow
+        status = builder.Resize(num_rows); //arrow
+        if (!status.ok())
+            std::cout << "Status: " << status.ToString() << " at builder.Resize" << std::endl;
+        for (uint64_t j = 0; j < num_rows; ++j) {
+            const char * src = (char*)data + j*row_size + i*elem_size; // data[j][i]
+            status = builder.Append(src, elem_size);
+            if (!status.ok())
+                std::cout << "Status: " << status.ToString() << " at builder.Append" << std::endl;
+        }
+        std::shared_ptr<arrow::Array> array;
+        status = builder.Finish(&array);
+        if (!status.ok())
+            std::cout << "Status: " << status.ToString() << " at builder.Finish" << std::endl;
+        auto batch = arrow::RecordBatch::Make(schema, num_rows, {array});
+        std::shared_ptr<arrow::io::BufferOutputStream> bufferOutputStream;
+        status = arrow::io::BufferOutputStream::Create(0, memory_pool, &bufferOutputStream);
+        if (!status.ok())
+            std::cout << "Status: " << status.ToString() << " at BufferOutputStream::Create" << std::endl;
+        std::shared_ptr<arrow::ipc::RecordBatchWriter> file_writer;
+        status = arrow::ipc::RecordBatchFileWriter::Open(bufferOutputStream.get(), schema, &file_writer);
+        if (!status.ok())
+            std::cout << "Status: " << status.ToString() << " at RecordBatchFileWriter::Open" << std::endl;
+
+        status = file_writer->WriteRecordBatch(*batch);
+        if (!status.ok())
+            std::cout << "Status: " << status.ToString() << " at file_writer->WriteRecordBatch" << std::endl;
+        status = file_writer->Close();
+        if (!status.ok())
+            std::cout << "Status: " << status.ToString() << " at file_writer->Close" << std::endl;
+        status = bufferOutputStream->Close();
+        if (!status.ok())
+            std::cout << "Status: " << status.ToString() << " at bufferOutputStream->Close" << std::endl;
+
+        std::shared_ptr<arrow::Buffer> result;
+        status = bufferOutputStream->Finish(&result); //arrow
+        if (!status.ok())
+            std::cout << "Status: " << status.ToString() << " at bufferOutputStream->Finish" << std::endl;
+
+        //Store Column
+        // Allocate memory for keys
+        char* _keys = (char *) malloc(sizeof(uint64_t*) + sizeof(uint64_t));
+        char* _k = _keys;
+        // Copy data
+        //UUID
+        uint64_t *c_uuid  = new uint64_t[2]{*storage_id, *(storage_id + 1)};
+        // [0] = storage_id.time_and_version;
+        // [1] = storage_id.clock_seq_and_node;
+        memcpy(_k, &c_uuid, sizeof(uint64_t*)); //storage_id
+        _k += sizeof(uint64_t*);
+        memcpy(_k, &i, sizeof(uint64_t)); //col_id
+
+        // Allocate memory for values
+        uint32_t values_size = sizeof(uint64_t) + sizeof(uint32_t) + sizeof(char*);
+        char* _values = (char*) malloc(values_size);
+        char* _val = _values; // Temporal to avoid modifications on the original value
+        // Copy data
+        uint64_t row_id = 0;
+        memcpy(_val, &row_id, sizeof(uint64_t));    //row_id
+        _val += sizeof(uint64_t);
+        memcpy(_val, &elem_size, sizeof(uint32_t)); //elem_size
+        _val += sizeof(uint32_t);
+
+        uint64_t arrow_size = result->size();
+        char *mypayload = (char *)malloc(sizeof(uint64_t) + arrow_size);
+        memcpy(mypayload, &arrow_size, sizeof(uint64_t));
+        memcpy(mypayload + sizeof(uint64_t), result->data(), arrow_size);
+
+        memcpy(_val, &mypayload, sizeof(char*));    //payload
+
+        //cache_arrow_write->put_crow( (void*)_keys, (void*)_values ); //Send column to cassandra
+        cache->put_crow( (void*)_keys, (void*)_values ); //Send column to cassandra
     }
 }
 
@@ -361,24 +474,34 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
  */
 void ArrayDataStore::store_numpy_into_cas(const uint64_t *storage_id, ArrayMetadata &metadata, void *data) const {
 
-    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata, data);
+    if (metadata.partition_type != COLUMNAR) {
+        SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata, data);
 
-    while (!partitions_it->isDone()) {
-        Partition part = partitions_it->getNextPartition();
-        store_numpy_partition_into_cas(storage_id, part);
+        while (!partitions_it->isDone()) {
+            Partition part = partitions_it->getNextPartition();
+            store_numpy_partition_into_cas(storage_id, part);
+        }
+        //this->partitioner.serialize_metas();
+        delete (partitions_it);
+
+        // No need to flush the elements because the metadata are written after the data thanks to the queue
+
+    } else {
+        store_numpy_into_cas_as_arrow(storage_id, metadata, data);
     }
-    //this->partitioner.serialize_metas();
-    delete (partitions_it);
-
-    // No need to flush the elements because the metadata are written after the data thanks to the queue
-    store_numpy_into_cas_as_arrow(storage_id, metadata, data);
 }
 
 void ArrayDataStore::store_numpy_into_cas_by_coords(const uint64_t *storage_id, ArrayMetadata &metadata, void *data,
                                                     std::list<std::vector<uint32_t> > &coord) const {
 
-    SpaceFillingCurve::PartitionGenerator *partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, data,
-                                                                                                        coord);
+
+    if (metadata.partition_type == COLUMNAR) {
+        // FIXME store_numpy_into_cas_by_coords_as_arrow(storage_id, metadata, data, coord);
+        //		 if we decide to store partial columns
+        throw ModuleException("Unexpected case: Are you calling store_numpy_from_cas with an Arrow format?");
+    }
+    SpaceFillingCurve::PartitionGenerator *
+    partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, data, coord);
 
     std::set<int32_t> clusters = {};
     std::list<Partition> partitions = {};
@@ -397,7 +520,8 @@ void ArrayDataStore::store_numpy_into_cas_by_coords(const uint64_t *storage_id, 
     }
     //this->partitioner.serialize_metas();
     delete (partitions_it);
-    // FIXME store_numpy_into_cas_by_coords_as_arrow(storage_id, metadata, data, coord);
+    // No need to flush the elements because the metadata are written after the data thanks to the queue
+
 }
 
 /***
@@ -471,6 +595,10 @@ ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
  * @return Numpy ndarray as a Python object
  */
 void ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetadata &metadata, void *save) {
+
+    if (metadata.partition_type == COLUMNAR) {
+        throw ModuleException("Unexpected case: Are you calling read_numpy_from_cas to an Arrow format");
+    }
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
 
@@ -484,8 +612,8 @@ void ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetada
     int32_t *block = nullptr;
     int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
 
-    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata,
-                                                                                                       nullptr);
+    SpaceFillingCurve::PartitionGenerator *
+	partitions_it = this->partitioner.make_partitions_generator(metadata, nullptr);
     this->cache->flush_elements();
     while (!partitions_it->isDone()) {
         cluster_id = partitions_it->computeNextClusterId();
@@ -508,7 +636,7 @@ void ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetada
             block = (int32_t *) row->get_element(0);
             char **chunk = (char **) row->get_element(1);
             all_partitions.emplace_back(
-                    Partition((uint32_t) cluster_id + half_int, (uint32_t) *block + half_int, *chunk));
+                   Partition((uint32_t) cluster_id + half_int, (uint32_t) *block + half_int, *chunk));
         }
     }
 
@@ -519,59 +647,65 @@ void ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetada
     partitions_it->merge_partitions(metadata, all_partitions, save);
     for (const TupleRow *item:all_results) delete (item);
     delete (partitions_it);
+
 }
 
 void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, ArrayMetadata &metadata,
                                                    std::list<std::vector<uint32_t> > &coord, void *save) {
-    std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
-    uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
-    std::vector<const TupleRow *> result, all_results;
-    std::vector<Partition> all_partitions;
-    uint64_t *c_uuid = nullptr;
-    char *buffer = nullptr;
-    int32_t offset = 0;
-    int32_t *block = nullptr;
-    int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
 
-    SpaceFillingCurve::PartitionGenerator *partitions_it = SpaceFillingCurve::make_partitions_generator(metadata,
-                                                                                                        nullptr, coord);
-    std::set<int32_t> clusters = {};
+	if (metadata.partition_type == COLUMNAR) {
+		throw ModuleException("Unexpected case: Are you calling read_numpy_from_cas_by_coords with an Arrow format?");
+	}
+	std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
+	uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
+	std::vector<const TupleRow *> result, all_results;
+	std::vector<Partition> all_partitions;
+	uint64_t *c_uuid = nullptr;
+	char *buffer = nullptr;
+	int32_t offset = 0;
+	int32_t *block = nullptr;
+	int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
 
-    while (!partitions_it->isDone()) {
-        clusters.insert(partitions_it->computeNextClusterId());
-    }
+	SpaceFillingCurve::PartitionGenerator *
+	partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, coord);
+	std::set<int32_t> clusters = {};
 
-    std::set<int32_t>::iterator it = clusters.begin();
-    for (; it != clusters.end(); ++it) {
-        buffer = (char *) malloc(keys_size);
-        //UUID
-        c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
-        //[0] time_and_version;
-        //[1] clock_seq_and_node;
-        memcpy(buffer, &c_uuid, sizeof(uint64_t *));
-        offset = sizeof(uint64_t *);
-        //Cluster id
-        memcpy(buffer + offset, &(*it), sizeof(*it));
-        //We fetch the data
-        TupleRow *block_key = new TupleRow(keys_metas, keys_size, buffer);
-        result = read_cache->get_crow(block_key);
-        delete (block_key);
-        //build cluster
-        all_results.insert(all_results.end(), result.begin(), result.end());
-        for (const TupleRow *row:result) {
-            block = (int32_t *) row->get_element(0);
-            char **chunk = (char **) row->get_element(1);
-            all_partitions.emplace_back(
-                    Partition((uint32_t) *it + half_int, (uint32_t) *block + half_int, *chunk));
-        }
-    }
+	while (!partitions_it->isDone()) {
+		clusters.insert(partitions_it->computeNextClusterId());
+	}
 
-    if (all_partitions.empty()) {
-        throw ModuleException("no npy found on sys");
-    }
-    partitions_it->merge_partitions(metadata, all_partitions, save);
-    for (const TupleRow *item:all_results) delete (item);
-    delete (partitions_it);
+	std::set<int32_t>::iterator it = clusters.begin();
+	for (; it != clusters.end(); ++it) {
+		buffer = (char *) malloc(keys_size);
+		//UUID
+		c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
+		//[0] time_and_version;
+		//[1] clock_seq_and_node;
+		memcpy(buffer, &c_uuid, sizeof(uint64_t *));
+		offset = sizeof(uint64_t *);
+		//Cluster id
+		memcpy(buffer + offset, &(*it), sizeof(*it));
+		//We fetch the data
+		TupleRow *block_key = new TupleRow(keys_metas, keys_size, buffer);
+		result = read_cache->get_crow(block_key);
+		delete (block_key);
+		//build cluster
+		all_results.insert(all_results.end(), result.begin(), result.end());
+		for (const TupleRow *row:result) {
+			block = (int32_t *) row->get_element(0);
+			char **chunk = (char **) row->get_element(1);
+			all_partitions.emplace_back(
+					Partition((uint32_t) *it + half_int, (uint32_t) *block + half_int, *chunk));
+		}
+	}
+
+	if (all_partitions.empty()) {
+		throw ModuleException("no npy found on sys");
+	}
+	partitions_it->merge_partitions(metadata, all_partitions, save);
+	for (const TupleRow *item:all_results) delete (item);
+	delete (partitions_it);
+
 }
 
 /***
@@ -584,7 +718,7 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
 void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, ArrayMetadata &metadata,
                                                    std::vector<uint64_t> &cols, void *save) {
     if (!arrow_enabled) return;
-    std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = cache_arrow->get_metadata()->get_keys();
+    std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
     std::vector<const TupleRow *> result;
     uint64_t *c_uuid = nullptr;
@@ -615,7 +749,7 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
 
         //We fetch the data
         TupleRow *block_key = new TupleRow(keys_metas, keys_size, _keys);
-        result = cache_arrow->get_crow(block_key);// FIXME use Yolanda's IN instead of a call to cassandra per column
+        result = read_cache->get_crow(block_key);// FIXME use Yolanda's IN instead of a call to cassandra per column
         delete (block_key);
 
         for (const TupleRow *row:result) { // FIXME Theoretically, there should be a single row. ENRIC ensure that any data in the buffer table for the current {storage_id, col_id} has been transfered to the arrow table! And in this case, just peek the first row from the vector
