@@ -56,16 +56,19 @@ class StorageNumpy(IStorage, np.ndarray):
             if base_numpy is not None:
                 obj._partition_dims = numpy_metadata.dims
         else:
-            if isinstance(input_array, StorageNumpy):
+            if isinstance(input_array, StorageNumpy): # StorageNumpyDesign
+                if storage_id is not None:
+                    log.warn("Creating a StorageNumpy with a specific StorageID")
+
                 if not input_array._is_persistent and name is None:
-                    log.info("Warning: creation of volatile StorageNumpy from a volatile StorageNumpy. If one of them is persisted a copy will be created")
+                    raise NotImplemented("Create a volatile StorageNumpy from another volatile StorageNumpy")
 
                 obj = input_array.view(cls)
                 if input_array._is_persistent:
                     sid=uuid.uuid4()
                     obj.storage_id=sid
                     if name is not None:
-                        log.info("Building a Persistent StorageNumpy from another Persistent StorageNumpy: Parameter 'name' is ignored")
+                        raise NotImplemented("Build a Persistent StorageNumpy from another Persistent StorageNumpy with a name")
                     name = input_array._get_name()
             else:
                 obj = np.asarray(input_array).copy().view(cls)
@@ -86,12 +89,21 @@ class StorageNumpy(IStorage, np.ndarray):
         IStorage.__init__(self, storage_id=storage_id, name=name, **kwargs)
         metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
                                self.itemsize, self.flags.num, 0)
-        self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), metas, self._block_id, None)
+        self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), metas, self._block_id, self.storage_id)
 
         if self._get_name() or self.storage_id:
             load_data= (input_array is None) and (config.load_on_demand == False)
             if input_array is not None:
-                self.make_persistent(self._get_name())
+                if isinstance(input_array,StorageNumpy):
+                    self._build_args = self.args(self.storage_id,
+                                                 self._class_name,
+                                                 self._get_name(),
+                                                 metas,
+                                                 self._block_id,
+                                                 input_array._build_args.base_numpy) # Update base_numpy with original_data
+                    self._store_meta(self._build_args) # StoreNumpy from persistent StorageNumpy (reshape): we only need to update the metadata
+                else:
+                    self.make_persistent(self._get_name())
             self._is_persistent = True
             if load_data:
                 self[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
@@ -213,7 +225,7 @@ class StorageNumpy(IStorage, np.ndarray):
                     self._numpy_full_loaded = True
                     new_coords = None
 
-                self._hcache.load_numpy_slices([self.storage_id], self._build_args.metas, [self.base.view(np.ndarray)],
+                self._hcache.load_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [self.base.view(np.ndarray)],
                                                new_coords)
                 self._loaded_coordinates = coordinates
         return super(StorageNumpy, self).__getitem__(sliced_coord)
@@ -237,7 +249,7 @@ class StorageNumpy(IStorage, np.ndarray):
             coordinates = list(set(it.chain.from_iterable((self._loaded_coordinates, new_coords))))
             #yolandab: execute first the super to modified the base numpy
             modified_np=super(StorageNumpy, self).__setitem__(sliced_coord, values)
-            self._hcache.store_numpy_slices([self.storage_id], self._build_args.metas, [self.base.view(np.ndarray)], coordinates)
+            self._hcache.store_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [self.base.view(np.ndarray)], coordinates)
             return modified_np
         return super(StorageNumpy, self).__setitem__(sliced_coord, values)
 
@@ -256,7 +268,7 @@ class StorageNumpy(IStorage, np.ndarray):
         hfetch_metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
                                       self.itemsize, self.flags.num, 0)
         self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas, self._block_id,
-                                     None)
+                                     self.storage_id) # base_numpy is storage_id because until now we only reach this point if we are not inheriting from a StorageNumpy. We should update this if we allow StorageNumpy from volatile StorageNumpy
         if len(self.shape) != 0:
             self._hcache.store_numpy_slices([self.storage_id], self._build_args.metas, [self.base.view(np.ndarray)],
                                             None)
@@ -315,7 +327,7 @@ class StorageNumpy(IStorage, np.ndarray):
         else:
             outputs = (None,) * ufunc.nout
         if self._is_persistent and len(self.shape) and self._numpy_full_loaded is False:
-            self._hcache.load_numpy_slices([self.storage_id], self._build_args.metas, [self.base.view(np.ndarray)],
+            self._hcache.load_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [self.base.view(np.ndarray)],
                                            None)
 
         results = super(StorageNumpy, self).__array_ufunc__(ufunc, method,
@@ -327,7 +339,7 @@ class StorageNumpy(IStorage, np.ndarray):
             return
 
         if self._is_persistent and len(self.shape):
-            self._hcache.store_numpy_slices([self.storage_id], self._build_args.metas, [self.base.view(np.ndarray)],
+            self._hcache.store_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [self.base.view(np.ndarray)],
                                             None)
 
         if ufunc.nout == 1:
@@ -346,11 +358,11 @@ class StorageNumpy(IStorage, np.ndarray):
 
         Creates a new StorageNumpy ID to store the metadata, but shares the data
         '''
-        obj=StorageNumpy(super(StorageNumpy, self).reshape(newshape,order),name=self._get_name())
+        obj=StorageNumpy(super(StorageNumpy, self).reshape(newshape,order))
         return obj
 
     def transpose(self,axes=None):
-        obj=StorageNumpy(super(StorageNumpy, self).transpose(axes),name=self._get_name())
+        obj=StorageNumpy(super(StorageNumpy, self).transpose(axes))
         return obj
 
     def copy(self, order='K'):

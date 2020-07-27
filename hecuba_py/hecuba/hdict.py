@@ -632,7 +632,7 @@ class StorageDict(IStorage, dict):
                 vals_istorage.append(val_istorage)
 
             val = vals_istorage
-        elif isinstance(val, np.ndarray):
+        elif isinstance(val, np.ndarray) and not isinstance(val, StorageNumpy):
             val = StorageNumpy(val)
         elif isinstance(val, set):
             val = self.__create_embeddedset(key=key, val=val)
