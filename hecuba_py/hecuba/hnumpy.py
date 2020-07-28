@@ -103,7 +103,7 @@ class StorageNumpy(IStorage, np.ndarray):
         obj.storage_id = storage_id
         obj._twin_id   = twin_id
         obj._twin_name = obj._ksp + "." + StorageNumpy.get_arrow_name(obj._table)
-        obj._row_elem = obj._hcache.get_elements_per_row(storage_id, base_metas)[0]
+        obj._row_elem = obj._hcache.get_elements_per_row(storage_id, base_metas)
         if base_numpy is not None:
             obj._partition_dims = numpy_metadata.dims
         obj._is_persistent = True
