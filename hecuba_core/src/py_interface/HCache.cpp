@@ -452,18 +452,15 @@ static PyObject *get_elements_per_row(HNumpyStore *self, PyObject *args) {
     HArrayMetadata *np_metas = reinterpret_cast<HArrayMetadata *>(py_np_metas);
 
     const uint64_t *storage_id = parse_uuid(py_keys);
-    PyObject *obj;
+    PyObject *obj=Py_None;
     try {
         obj = self->NumpyDataStore->get_row_elements(storage_id, np_metas->np_metas);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
-        return NULL;
     }
     delete[] storage_id;
-    PyObject *result_list = PyList_New(1);
-    PyList_SetItem(result_list, 0, obj ? obj : Py_None);
-    return result_list;
+    return obj;
 }
 
 static PyObject *allocate_numpy(HNumpyStore *self, PyObject *args) {
