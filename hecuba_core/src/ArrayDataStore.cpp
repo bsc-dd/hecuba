@@ -258,7 +258,7 @@ void ArrayDataStore::store_numpy_partition_into_cas(const uint64_t *storage_id ,
  * Write a complete numpy ndarray by columns (using arrow)
  * @param storage_id identifying the numpy ndarray
  * @param np_metas ndarray characteristics
- * @param numpy to be saved into storage
+ * @param numpy to be saved into storage (columns are consecutive in memory)
  */
 void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
                                                    ArrayMetadata &metadata, void *data) const {
@@ -283,13 +283,14 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
     std::vector<std::shared_ptr<arrow::Field>> fields = {field};
     auto schema = std::make_shared<arrow::Schema>(fields);
 
+    char * src = (char*)data;
     for(uint64_t i = 0; i < num_columns; ++i) {
         arrow::BinaryBuilder builder(arrow::binary(), memory_pool); //arrow
         status = builder.Resize(num_rows); //arrow
         if (!status.ok())
             std::cout << "Status: " << status.ToString() << " at builder.Resize" << std::endl;
         for (uint64_t j = 0; j < num_rows; ++j) {
-            const char * src = (char*)data + j*row_size + i*elem_size; // data[j][i]
+            src = src + elem_size; // data[j][i]
             status = builder.Append(src, elem_size);
             if (!status.ok())
                 std::cout << "Status: " << status.ToString() << " at builder.Append" << std::endl;
