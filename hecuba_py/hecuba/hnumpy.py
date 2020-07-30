@@ -285,7 +285,8 @@ class StorageNumpy(IStorage, np.ndarray):
                 if isinstance(sliced_coord[-dims], slice) and sliced_coord[-dims] == slice(None, None, None):
                     # A WHOLE COLUMN selected!
                     columns_selected = True
-                    columns = sliced_coord[-1]
+                    columns = []
+                    columns.append(sliced_coord[-1])
         # Read data by columns or coordinates depending on the requested access
         if columns_selected:
             self._hcache.load_numpy_columns([self._build_args.base_numpy], self._build_args.metas, [self.base.view(np.ndarray)],
