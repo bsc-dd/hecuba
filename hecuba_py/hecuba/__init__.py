@@ -74,6 +74,9 @@ class Config:
 
         singleton.configured = True
 
+        # intercepted : list of numpy intercepted calls
+        singleton.intercepted = {}
+
         if 'CONCURRENT_CREATION' in os.environ:
             if os.environ['CONCURRENT_CREATION']=='True':
                 singleton.concurrent_creation = True
@@ -312,5 +315,12 @@ if not filter == hfilter:
 
     builtins.python_filter = filter
     builtins.filter = hfilter
+
+# INTERCEPT Numpy METHODS
+import numpy as np
+
+if not 'dot' in config.intercepted:
+    config.intercepted['dot'] = np.__dict__['dot']
+    np.__dict__['dot'] = StorageNumpy.dot
 
 __all__ = ['StorageObj', 'StorageDict', 'StorageNumpy', 'Parser']

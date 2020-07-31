@@ -376,3 +376,13 @@ class StorageNumpy(IStorage, np.ndarray):
             # If it is a volatile StorageNumpy, we need to create a numpy view, because otherwise the Constructor would fail
             n_sn=StorageNumpy(super(StorageNumpy,self).copy(order).view(np.ndarray))
         return n_sn
+
+    ###### INTERCEPTED FUNCTIONS #####
+    def dot(a, b, out=None):
+        if isinstance(a, StorageNumpy) and a._is_persistent and not a._numpy_full_loaded:
+           a[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
+
+        if isinstance(b, StorageNumpy) and b._is_persistent and not b._numpy_full_loaded:
+           b[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
+
+        return config.intercepted['dot'](a,b,out)
