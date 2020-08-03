@@ -113,17 +113,34 @@ class StorageNumpy(IStorage, np.ndarray):
     def __array_finalize__(self, obj):
         if obj is None:
             return
-        self.storage_id = getattr(obj, 'storage_id', None)
-        self._name = getattr(obj, '_name', None)
-        self._hcache = getattr(obj, '_hcache', None)
-        self._row_elem = getattr(obj, '_row_elem', None)
-        self._loaded_coordinates = getattr(obj, '_loaded_coordinates', None)
-        self._numpy_full_loaded = getattr(obj, '_numpy_full_loaded', None)
-        self._is_persistent = getattr(obj, '_is_persistent', None)
-        self._block_id = getattr(obj, '_block_id', None)
-        self._build_args = getattr(obj, '_build_args', HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind,
-                                                       self.dtype.byteorder, self.itemsize, self.flags.num, 0))
+        log.debug("__array_finalize__ in base is not None %s %s", getattr(self, 'base', None) is not None, getattr(obj, 'base', None) is not None)
+        if self.base is not None: # It is a view, therefore, copy data from object
+            self.storage_id = getattr(obj, 'storage_id', None)
+            self._name = getattr(obj, '_name', None)
+            self._hcache = getattr(obj, '_hcache', None)
+            self._row_elem = getattr(obj, '_row_elem', None)
+            self._loaded_coordinates = getattr(obj, '_loaded_coordinates', None)
+            self._numpy_full_loaded = getattr(obj, '_numpy_full_loaded', None)
+            self._is_persistent = getattr(obj, '_is_persistent', None)
+            self._block_id = getattr(obj, '_block_id', None)
+            self._build_args = getattr(obj, '_build_args', HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind,
+                                                                          self.dtype.byteorder, self.itemsize, self.flags.num, 0))
+        else:
+            # Initialize fields as the __new__ case with input_array and not name
+            self._loaded_coordinates = []
+            self._numpy_full_loaded  = False
+            self._name               = None
+            self.storage_id          = None
+            self._is_persistent      = False
 
+
+    @staticmethod
+    def _get_base_array(self):
+        if self.base is None:
+            base_n=np.frombuffer(self.data,dtype=self.dtype)
+        else:
+            base_n=self.base.view(np.ndarray)
+        return base_n
 
     @staticmethod
     def _create_tables(name):
@@ -249,7 +266,7 @@ class StorageNumpy(IStorage, np.ndarray):
             coordinates = list(set(it.chain.from_iterable((self._loaded_coordinates, new_coords))))
             #yolandab: execute first the super to modified the base numpy
             modified_np=super(StorageNumpy, self).__setitem__(sliced_coord, values)
-            self._hcache.store_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [self.base.view(np.ndarray)], coordinates)
+            self._hcache.store_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [StorageNumpy._get_base_array(self)], coordinates)
             return modified_np
         return super(StorageNumpy, self).__setitem__(sliced_coord, values)
 
@@ -270,7 +287,7 @@ class StorageNumpy(IStorage, np.ndarray):
         self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas, self._block_id,
                                      self.storage_id) # base_numpy is storage_id because until now we only reach this point if we are not inheriting from a StorageNumpy. We should update this if we allow StorageNumpy from volatile StorageNumpy
         if len(self.shape) != 0:
-            self._hcache.store_numpy_slices([self.storage_id], self._build_args.metas, [self.base.view(np.ndarray)],
+            self._hcache.store_numpy_slices([self.storage_id], self._build_args.metas, [StorageNumpy._get_base_array(self)],
                                             None)
         StorageNumpy._store_meta(self._build_args)
         self._row_elem = self._hcache.get_elements_per_row(self.storage_id, self._build_args.metas)
@@ -339,7 +356,7 @@ class StorageNumpy(IStorage, np.ndarray):
             return
 
         if self._is_persistent and len(self.shape):
-            self._hcache.store_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [self.base.view(np.ndarray)],
+            self._hcache.store_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [StorageNumpy._get_base_array(self)],
                                             None)
 
         if ufunc.nout == 1:
@@ -376,3 +393,13 @@ class StorageNumpy(IStorage, np.ndarray):
             # If it is a volatile StorageNumpy, we need to create a numpy view, because otherwise the Constructor would fail
             n_sn=StorageNumpy(super(StorageNumpy,self).copy(order).view(np.ndarray))
         return n_sn
+
+    ###### INTERCEPTED FUNCTIONS #####
+    def dot(a, b, out=None):
+        if isinstance(a, StorageNumpy) and a._is_persistent and not a._numpy_full_loaded:
+           a[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
+
+        if isinstance(b, StorageNumpy) and b._is_persistent and not b._numpy_full_loaded:
+           b[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
+
+        return config.intercepted['dot'](a,b,out)
