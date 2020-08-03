@@ -14,8 +14,8 @@
 #include "Prefetch.h"
 #include "Writer.h"
 #include "CacheTable.h"
-
 #include "ArrayDataStore.h"
+#include "MetaManager.h"
 
 typedef std::map<std::string, std::string> config_map;
 
@@ -59,6 +59,13 @@ public:
     Prefetch *get_iterator(const TableMetadata *table_meta,
                            const std::vector<std::pair<int64_t, int64_t>> &tokens,
                            config_map &config);
+
+
+    MetaManager *make_meta_manager(const char *table, const char *keyspace,
+                                   std::vector<config_map> &keys_names,
+                                   std::vector<config_map> &columns_names,
+                                   config_map &config);
+
 
     inline CassSession *get_session() {
         if (!this->session) throw ModuleException("Cassandra not connected yet, session unavailable");
