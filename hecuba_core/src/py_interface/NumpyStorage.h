@@ -2,7 +2,7 @@
 #define HFETCH_NUMPYSTORAGE_H
 
 #include "../ArrayDataStore.h"
-
+#include "../MetaManager.h"
 #include <Python.h>
 #include <climits>
 
@@ -38,6 +38,7 @@ public:
 
 private:
 
+    MetaManager *MM;
     ArrayMetadata *get_np_metadata(PyArrayObject *numpy) const;
 
 };

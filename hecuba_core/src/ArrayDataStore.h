@@ -28,9 +28,18 @@ public:
 
     void read_numpy_from_cas(const uint64_t *storage_id, ArrayMetadata &metadata, void *save);
 
+    // Returns the metadata of the array identified by the storage_id
+    ArrayMetadata *read_metadata(const uint64_t *storage_id) const;
+
+    // Overwrite the metadata of the array identified by the given storage_id
+    void update_metadata(const uint64_t *storage_id, ArrayMetadata *metadata) const;
+
+    //lgarrobe
+    std::string TN  = "";
 protected:
 
     CacheTable *cache = nullptr, *read_cache = nullptr;
+    CacheTable *metadata_cache = nullptr, *metadata_read_cache=nullptr;
 
     SpaceFillingCurve partitioner;
 

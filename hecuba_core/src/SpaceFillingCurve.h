@@ -42,6 +42,7 @@ struct ArrayMetadata {
     uint32_t elem_size = 0, flags = 0;
     uint8_t partition_type = ZORDER_ALGORITHM;
     char typekind = ' ', byteorder = ' ';
+    int32_t inner_type = 0;
 };
 
 

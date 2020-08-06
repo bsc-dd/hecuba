@@ -4,6 +4,8 @@
 ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSession *session,
                                std::map<std::string, std::string> &config) {
 
+    this->TN = table; //lgarrobe
+
     std::vector<std::map<std::string, std::string> > keys_names = {{{"name", "storage_id"}},
                                                                    {{"name", "cluster_id"}},
                                                                    {{"name", "block_id"}}};
@@ -21,6 +23,24 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
     table_meta = new TableMetadata(table, keyspace, read_keys_names, read_columns_names, session);
 
     this->read_cache = new CacheTable(table_meta, session, config);
+
+    //lgarrobe
+    std::vector<std::map<std::string, std::string> > metadata_keys = {{{"name", "storage_id"}}};
+
+    std::vector<std::map<std::string, std::string> > metadata_columns = {{{"name", "numpy_meta"}}};
+
+    TableMetadata *metadata_table_meta = new TableMetadata("istorage", "hecuba", metadata_keys, metadata_columns, session);
+
+    this->metadata_cache = new CacheTable(metadata_table_meta, session, config);
+
+
+    std::vector<std::map<std::string, std::string>> read_metadata_keys  (metadata_keys.begin(), (metadata_keys.end() ));
+    std::vector<std::map<std::string, std::string>> read_metadata_columns = metadata_columns;
+
+    metadata_table_meta = new TableMetadata("istorage", "hecuba", read_metadata_keys, read_metadata_columns, session);
+
+    this->metadata_read_cache = new CacheTable(metadata_table_meta, session, config);
+
 }
 
 
@@ -29,6 +49,71 @@ ArrayDataStore::~ArrayDataStore() {
     delete (this->read_cache);
 };
 
+
+/***
+ * Stores the array metadata by setting the cluster and block ids to -1. Deletes the array metadata afterwards.
+ * @param storage_id UUID used as part of the key
+ * @param np_metas ArrayMetadata
+ */
+
+void ArrayDataStore::update_metadata(const uint64_t *storage_id, ArrayMetadata *metadata) const {
+    uint32_t offset = 0, keys_size = sizeof(uint64_t *) + sizeof(int32_t) * 2;
+    int32_t cluster_id = -1, block_id = -1;
+
+    char *keys = (char *) malloc(keys_size);
+    //UUID
+    uint64_t *c_uuid = (uint64_t *) malloc(sizeof(uint64_t) * 2);//new uint64_t[2];
+    c_uuid[0] = *storage_id;
+    c_uuid[1] = *(storage_id + 1);
+    // [0] = storage_id.time_and_version;
+    // [1] = storage_id.clock_seq_and_node;
+    memcpy(keys, &c_uuid, sizeof(uint64_t *));
+    offset = sizeof(uint64_t *);
+    //Cluster id
+    memcpy(keys + offset, &cluster_id, sizeof(int32_t));
+    offset += sizeof(int32_t);
+    //Block id
+    memcpy(keys + offset, &block_id, sizeof(int32_t));
+
+
+
+
+    //COPY VALUES
+    offset = 0;
+    void *values = (char *) malloc(sizeof(char *));
+
+    //size of the vector of dims
+    uint64_t size = sizeof(uint32_t) * metadata->dims.size();
+
+    //plus the other metas
+    size += sizeof(metadata->elem_size) + sizeof(metadata->inner_type) + sizeof(metadata->partition_type);
+
+    //allocate plus the bytes counter
+    unsigned char *byte_array = (unsigned char *) malloc(size + sizeof(uint64_t));
+
+    // Copy num bytes
+    memcpy(byte_array, &size, sizeof(uint64_t));
+    offset += sizeof(uint64_t);
+
+    //copy everything from the metas
+    memcpy(byte_array + offset, &metadata->elem_size, sizeof(metadata->elem_size));
+    offset += sizeof(metadata->elem_size);
+    memcpy(byte_array + offset, &metadata->inner_type, sizeof(metadata->inner_type));
+    offset += sizeof(metadata->inner_type);
+    memcpy(byte_array + offset, &metadata->partition_type, sizeof(metadata->partition_type));
+    offset += sizeof(metadata->partition_type);
+    memcpy(byte_array + offset, metadata->dims.data(), sizeof(uint32_t) * metadata->dims.size());
+
+
+    // Copy ptr to bytearray
+    memcpy(values, &byte_array, sizeof(unsigned char *));
+
+    // Finally, we write the data
+    cache->put_crow(keys, values);
+
+   
+
+}
 
 /***
  * Write a complete numpy ndarray by using the partitioning mechanism defined in the metadata
@@ -125,6 +210,64 @@ void ArrayDataStore::store_numpy_into_cas_by_coords(const uint64_t *storage_id, 
     //this->partitioner.serialize_metas();
     delete (partitions_it);
 }
+
+/***
+ * Reads the metadata from the storage as an ArrayMetadata for latter use
+ * @param storage_id identifing the numpy ndarray
+ * @param cache
+ * @return
+ */
+ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
+    // Get metas from Cassandra
+    //int32_t cluster_id = -1, block_id = -1;
+    //char *buffer = (char *) malloc(sizeof(uint64_t *) + sizeof(int32_t) * 2);
+    char *buffer = (char *) malloc(sizeof(uint64_t *));
+    // UUID
+    uint64_t *c_uuid = (uint64_t *) malloc(sizeof(uint64_t) * 2);
+    c_uuid[0] = *storage_id;
+    c_uuid[1] = *(storage_id + 1);
+    // Copy uuid
+    memcpy(buffer, &c_uuid, sizeof(uint64_t *));
+   
+    //int32_t offset = sizeof(uint64_t *);
+    // Cluster id
+    //memcpy(buffer + offset, &cluster_id, sizeof(int32_t));
+    //offset += sizeof(int32_t);
+    // Cluster id
+    //memcpy(buffer + offset, &block_id, sizeof(int32_t));
+
+    // We fetch the data
+    std::vector<const TupleRow *> results = metadata_cache->get_crow(buffer);
+
+    if (results.empty()) throw ModuleException("Metadata for the array can't be found");
+    // pos 0 is block id, pos 1 is payload
+    const unsigned char *payload = *((const unsigned char **) (results[0]->get_element(0))); //lgarrobe canvio el 1 per un 0
+
+    const uint64_t num_bytes = *((uint64_t *) payload);
+    // Move pointer to the beginning of the data
+    payload = payload + sizeof(num_bytes);
+
+
+    uint32_t bytes_offset = 0;
+    ArrayMetadata *arr_metas = new ArrayMetadata();
+    // Load data
+    memcpy(&arr_metas->elem_size, payload, sizeof(arr_metas->elem_size));
+    bytes_offset += sizeof(arr_metas->elem_size);
+    memcpy(&arr_metas->inner_type, payload + bytes_offset, sizeof(arr_metas->inner_type));
+    bytes_offset += sizeof(arr_metas->inner_type);
+    memcpy(&arr_metas->partition_type, payload + bytes_offset, sizeof(arr_metas->partition_type));
+    bytes_offset += sizeof(arr_metas->partition_type);
+
+    uint64_t nbytes = num_bytes - bytes_offset;
+    uint32_t nelem = (uint32_t) nbytes / sizeof(uint32_t);
+    if (nbytes % sizeof(uint32_t) != 0) throw ModuleException("something went wrong reading the dims of a numpy");
+    arr_metas->dims = std::vector<uint32_t>(nelem);
+    memcpy(arr_metas->dims.data(), payload + bytes_offset, nbytes);
+
+    for (const TupleRow *&v : results) delete (v);
+    return arr_metas;
+}
+
 
 /***
  * Reads a numpy ndarray by fetching the clusters indipendently
