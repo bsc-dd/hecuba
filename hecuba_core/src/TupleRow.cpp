@@ -24,7 +24,8 @@ TupleRow::TupleRow(std::shared_ptr<const std::vector<ColumnMeta>> metas,
                                                                 int64_t *addr = (int64_t *) ((char *) holder->data +
                                                                                              metas->at(i).position);
                                                                 uint64_t *uuid = reinterpret_cast<uint64_t *>(*addr);
-                                                                delete[] uuid;
+                                                                //delete[] uuid;
+                                                                free(uuid);
                                                                 break;
                                                             }
                                                             case CASS_VALUE_TYPE_TUPLE: {
@@ -33,6 +34,12 @@ TupleRow::TupleRow(std::shared_ptr<const std::vector<ColumnMeta>> metas,
                                                                 TupleRow *tr = reinterpret_cast<TupleRow *>(*addr);
                                                                 delete (tr);
                                                                 break;
+                                                            }
+                                                            case CASS_VALUE_TYPE_UDT: {
+                                                                int64_t *addr = (int64_t *) ((char *) holder->data +
+                                                                                             metas->at(i).position);
+                                                                char *udt = reinterpret_cast<char *>(*addr);
+								free(udt);
                                                             }
                                                             default:
                                                                 break;

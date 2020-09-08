@@ -539,13 +539,107 @@ TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t o
                                metadata->at(i).info.begin()->second);
                     break;
                 }
+                case CASS_VALUE_TYPE_UDT: {
+                    int64_t *addr = *((int64_t **) element_i);
+                    int64_t size = *addr;
+                    addr=(int64_t *)(((char *) addr)+sizeof(int64_t));
+                    CassError rc;
+
+                    CassUserType* cass_np_meta = cass_user_type_new_from_data_type(metadata->at(i).dtype);
+
+                    ////////
+                    // NOTE: The code here MUST match the code in 'MetaManager.register_obj'
+                    ////////
+
+                    ArrayMetadata np_metas = ArrayMetadata(); // Dummy ArrayMetadata to store temporal values
+
+                    /* Minimum size of ArrayMetaData. 'sizeof' can not be used as the compiler may add some padding */
+
+
+                    int64_t sizeof_ArrayMetaData = sizeof(np_metas.elem_size)
+                            + sizeof(np_metas.partition_type)
+                            + sizeof(np_metas.flags)
+                            + sizeof(np_metas.typekind)
+                            + sizeof(np_metas.byteorder);
+                    if (size < sizeof_ArrayMetaData) {
+                            throw ModuleException("Corrupted data. Data does not fit ArrayMetaData");
+                    }
+                    int offset = 0;
+                    unsigned char *byte_array = reinterpret_cast<unsigned char*>(addr);
+                    memcpy(&np_metas.flags, byte_array + offset, sizeof(np_metas.flags));
+                    offset += sizeof(np_metas.flags);
+                    memcpy(&np_metas.elem_size, byte_array + offset, sizeof(np_metas.elem_size));
+                    offset += sizeof(np_metas.elem_size);
+                    memcpy(&np_metas.partition_type, byte_array + offset, sizeof(np_metas.partition_type));
+                    offset += sizeof(np_metas.partition_type);
+                    memcpy(&np_metas.typekind, byte_array + offset, sizeof(np_metas.typekind));
+                    offset += sizeof(np_metas.typekind);
+                    memcpy(&np_metas.byteorder, byte_array + offset, sizeof(np_metas.byteorder));
+                    offset += sizeof(np_metas.byteorder);
+                    // The remaining elements will be read later to avoid the recreation the vectors                        
+                    uint32_t remain = (size - offset)/sizeof(uint32_t);
+
+                    if ((remain <= 0) || ((remain % 2) != 0)) {
+                            throw ModuleException("Corrupted data. Data does not fit ArrayMetaData or even number of dims/strides");
+                    }
+                    uint32_t nelems = remain / 2;
+                    std::string field_name;
+
+                    field_name  = "flags";
+                    rc = cass_user_type_set_int32_by_name(cass_np_meta, field_name.c_str(), np_metas.flags);
+                    CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UDT], field:" + field_name);
+                    field_name  = "elem_size";
+                    rc = cass_user_type_set_int32_by_name(cass_np_meta, field_name.c_str(), np_metas.elem_size);
+                    CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UDT], field:" + field_name);
+                    field_name  = "partition_type";
+                    rc = cass_user_type_set_int8_by_name(cass_np_meta, field_name.c_str(), np_metas.partition_type);
+                    CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UDT], field:" + field_name);
+                    field_name  = "typekind";
+                    rc = cass_user_type_set_string_by_name_n(cass_np_meta, field_name.c_str(), field_name.length(), &np_metas.typekind, 1);
+                    CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UDT], field:" + field_name);
+                    field_name  = "byteorder";
+                    rc = cass_user_type_set_string_by_name_n(cass_np_meta, field_name.c_str(), field_name.length(), &np_metas.byteorder, 1);
+                    CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UDT], field:" + field_name);
+
+                    field_name="dims";
+                    CassCollection* dims_collection = cass_collection_new(CASS_COLLECTION_TYPE_LIST, nelems);
+                    for (int pos = 0; pos < nelems; pos++ ) {
+                        uint32_t value;
+                        memcpy(&value, byte_array + offset, sizeof(value));
+                        offset += sizeof(value);
+                        rc = cass_collection_append_int32(dims_collection, value);
+                        CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UDT], field:" + field_name);
+                    }
+
+                    rc = cass_user_type_set_collection_by_name(cass_np_meta,field_name.c_str(),dims_collection);
+                    CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UDT], field:" + field_name);
+                    field_name="strides";
+                    CassCollection* str_collection = cass_collection_new(CASS_COLLECTION_TYPE_LIST,nelems);
+                    for (int pos = 0; pos < nelems; pos++ ) {
+                           uint32_t value;
+                           memcpy(&value, byte_array + offset, sizeof(value));
+                        offset += sizeof(value);
+                        rc = cass_collection_append_int32(str_collection, value);
+                        CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UDT], field:" + field_name);
+                    }
+
+                    rc = cass_user_type_set_collection_by_name(cass_np_meta,field_name.c_str(),str_collection);
+                    CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UDT], field:" + field_name);
+
+                    rc = cass_statement_bind_user_type(statement, bind_pos, cass_np_meta);
+                    CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UDT], column:" +
+                               metadata->at(i).info.begin()->second);
+
+
+                    break;
+
+                }
                 case CASS_VALUE_TYPE_DECIMAL:
                 case CASS_VALUE_TYPE_TIMEUUID:
                 case CASS_VALUE_TYPE_INET:
                 case CASS_VALUE_TYPE_LIST:
                 case CASS_VALUE_TYPE_MAP:
                 case CASS_VALUE_TYPE_SET:
-                case CASS_VALUE_TYPE_UDT:
                 case CASS_VALUE_TYPE_CUSTOM:
                 case CASS_VALUE_TYPE_UNKNOWN:
                 default:

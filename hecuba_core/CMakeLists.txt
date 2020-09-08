@@ -244,6 +244,14 @@ if (DEFINED ENV{GTEST_ROOT})
             add_dependencies(cache_imp_test hfetch)
             add_test(test cache_imp_test)
 
+            # Meta manager tests
+            add_executable(meta_manager_test tests/meta_manager_tests.cpp)
+            #add_executable(meta_manager_test_laia tests/meta_manager_tests_laia.cpp)
+            set_target_properties(meta_manager_test
+                    PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
+            target_link_libraries(meta_manager_test ${ALL_LIBS} ${GTEST_BOTH_LIBRARIES} hfetch ${PT})
+            add_dependencies(meta_manager_test hfetch)
+            add_test(test meta_manager_test)
 
             # Mixed Python Tests
             find_package(Python3 COMPONENTS Interpreter Development)
