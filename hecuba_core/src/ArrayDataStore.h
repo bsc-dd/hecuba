@@ -32,7 +32,7 @@ public:
     ArrayMetadata *read_metadata(const uint64_t *storage_id) const;
 
     // Overwrite the metadata of the array identified by the given storage_id
-    void update_metadata(const uint64_t *storage_id, ArrayMetadata *metadata) const;
+    //void update_metadata(const uint64_t *storage_id, ArrayMetadata *metadata) const;
 
     //lgarrobe
     std::string TN  = "";

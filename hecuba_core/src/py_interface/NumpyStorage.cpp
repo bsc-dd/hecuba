@@ -100,6 +100,7 @@ PyObject *NumpyStorage::get_row_elements(const uint64_t *storage_id, ArrayMetada
  * @param numpy Ndarray to extract the metadata
  * @return ArrayMetadata defining the information to reconstruct a numpy ndarray
  */
+/*
 ArrayMetadata *NumpyStorage::get_np_metadata(PyArrayObject *numpy) const {
     int64_t ndims = PyArray_NDIM(numpy);
     npy_intp *shape = PyArray_SHAPE(numpy);
@@ -137,3 +138,4 @@ ArrayMetadata *NumpyStorage::get_np_metadata(PyArrayObject *numpy) const {
     }
     return shape_and_type;
 }
+*/

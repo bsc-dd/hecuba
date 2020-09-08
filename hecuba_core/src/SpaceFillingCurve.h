@@ -38,11 +38,14 @@ struct Partition {
 struct ArrayMetadata {
     ArrayMetadata() = default;
 
-    std::vector<uint32_t> dims, strides;
-    uint32_t elem_size = 0, flags = 0;
+    uint32_t flags=0;
+    uint32_t elem_size=0;
     uint8_t partition_type = ZORDER_ALGORITHM;
-    char typekind = ' ', byteorder = ' ';
-    int32_t inner_type = 0;
+    char typekind = ' ';
+    char  byteorder = ' ';
+    std::vector<uint32_t> dims;
+    std::vector<uint32_t> strides;
+    //int32_t inner_type = 0;
 };
 
 

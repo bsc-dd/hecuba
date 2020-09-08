@@ -1,6 +1,6 @@
 #include <iostream>
 #include <cassandra.h>
-//#include "gtest/gtest.h"
+#include "gtest/gtest.h"
 #include "../src/MetaManager.h"
 #include "../src/StorageInterface.h"
 
@@ -18,10 +18,9 @@ const std::string keyspace_hecuba = "hecuba";
 const std::string create_ksp = "CREATE KEYSPACE " + keyspace +
                                +" WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};";
 const std::string drop_ksp = "DROP KEYSPACE IF EXISTS " + keyspace + ";";
-const std::string create_table = "CREATE TABLE " + keyspace + "." + table +
-                                 +"(storage_id uuid PRIMARY KEY, class_name text, name text, numpy_meta frozen<np_meta>);";
 
-const std::string create_table = "CREATE TABLE " + keyspace_hecuba + "." + table_is +
+// yolandab added if not exists
+const std::string create_table = "CREATE TABLE IF NOT EXISTS " + keyspace_hecuba + "." + table_is +
                                  +  "(storage_id uuid,   class_name text,name text, istorage_props map<text,text>, tokens list<frozen<tuple<bigint,bigint>>>, indexed_on list<text>, qbeast_random text, qbeast_meta frozen<q_meta>, numpy_meta frozen<np_meta>, primary_keys list<frozen<tuple<text,text>>>, columns list<frozen<tuple<text,text>>>, PRIMARY KEY(storage_id));";
 
 const std::string create_np_dt = "CREATE TYPE IF NOT EXISTS "+ keyspace +" .np_meta(dims frozen<list<int>>,type int,block_id int);";
@@ -75,9 +74,8 @@ void teardown() {
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
-
-    std::string contact_p = "127.0.0.1";
-    uint32_t nodePort = 9042;
+    std::string contact_p = "minerva-1";
+    uint32_t nodePort = 49042;
 
     setupcassandra(contact_p, nodePort);
 
@@ -108,7 +106,7 @@ TEST(TestMetaManager, RegisterObj) {
     CassUuid cass_uuid = {storage_id[0], storage_id[1]};
 
     std::string obj_name = "obj_name_0";
-    ArrayMetadata *metas = nullptr;
+    ArrayMetadata *metas = new ArrayMetadata()
 
 
     meta_manager_is->register_obj(storage_id, obj_name, metas);
@@ -131,8 +129,8 @@ TEST(TestMetaManager, RegisterObj) {
     cass_future_free(connect_future);
     cass_statement_free(statement);
 
-    delete (meta_manager);
-    delete (table_meta);
+    delete (meta_manager_is);
+    delete (table_meta_is);
 }
 
 

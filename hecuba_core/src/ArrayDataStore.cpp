@@ -3,8 +3,9 @@
 
 ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSession *session,
                                std::map<std::string, std::string> &config) {
-
-    this->TN = table; //lgarrobe
+    char * full_name=(char *)malloc(strlen(table)+strlen(keyspace)+ 2);
+    sprintf(full_name,"%s.%s",keyspace,table);
+    this->TN = std::string(full_name); //lgarrobe
 
     std::vector<std::map<std::string, std::string> > keys_names = {{{"name", "storage_id"}},
                                                                    {{"name", "cluster_id"}},
@@ -24,10 +25,14 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
 
     this->read_cache = new CacheTable(table_meta, session, config);
 
+    //Metadata needed only for *reading* numpy metas from hecuba.istorage
     //lgarrobe
     std::vector<std::map<std::string, std::string> > metadata_keys = {{{"name", "storage_id"}}};
 
-    std::vector<std::map<std::string, std::string> > metadata_columns = {{{"name", "numpy_meta"}}};
+    std::vector<std::map<std::string, std::string> > metadata_columns = {{{"name", "base_numpy"}}
+									,{{"name", "class_name"}}
+									,{{"name", "name"}}
+									,{{"name", "numpy_meta"}}};
 
     TableMetadata *metadata_table_meta = new TableMetadata("istorage", "hecuba", metadata_keys, metadata_columns, session);
 
@@ -47,6 +52,8 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
 ArrayDataStore::~ArrayDataStore() {
     delete (this->cache);
     delete (this->read_cache);
+    delete (this->metadata_cache);
+    delete (this->metadata_read_cache);
 };
 
 
@@ -56,6 +63,7 @@ ArrayDataStore::~ArrayDataStore() {
  * @param np_metas ArrayMetadata
  */
 
+/*
 void ArrayDataStore::update_metadata(const uint64_t *storage_id, ArrayMetadata *metadata) const {
     uint32_t offset = 0, keys_size = sizeof(uint64_t *) + sizeof(int32_t) * 2;
     int32_t cluster_id = -1, block_id = -1;
@@ -114,6 +122,7 @@ void ArrayDataStore::update_metadata(const uint64_t *storage_id, ArrayMetadata *
    
 
 }
+*/
 
 /***
  * Write a complete numpy ndarray by using the partitioning mechanism defined in the metadata
@@ -251,18 +260,25 @@ ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
     uint32_t bytes_offset = 0;
     ArrayMetadata *arr_metas = new ArrayMetadata();
     // Load data
-    memcpy(&arr_metas->elem_size, payload, sizeof(arr_metas->elem_size));
+
+    memcpy(&arr_metas->flags, payload + bytes_offset, sizeof(arr_metas->flags));
+    bytes_offset += sizeof(arr_metas->flags);
+    memcpy(&arr_metas->elem_size, payload + bytes_offset, sizeof(arr_metas->elem_size));
     bytes_offset += sizeof(arr_metas->elem_size);
-    memcpy(&arr_metas->inner_type, payload + bytes_offset, sizeof(arr_metas->inner_type));
-    bytes_offset += sizeof(arr_metas->inner_type);
     memcpy(&arr_metas->partition_type, payload + bytes_offset, sizeof(arr_metas->partition_type));
     bytes_offset += sizeof(arr_metas->partition_type);
-
-    uint64_t nbytes = num_bytes - bytes_offset;
+    memcpy(&arr_metas->typekind, payload + bytes_offset, sizeof(arr_metas->typekind));
+    bytes_offset += sizeof(arr_metas->typekind);
+    memcpy(&arr_metas->byteorder, payload + bytes_offset, sizeof(arr_metas->byteorder));
+    bytes_offset += sizeof(arr_metas->byteorder);
+    uint64_t nbytes = (num_bytes - bytes_offset)/2;
     uint32_t nelem = (uint32_t) nbytes / sizeof(uint32_t);
     if (nbytes % sizeof(uint32_t) != 0) throw ModuleException("something went wrong reading the dims of a numpy");
     arr_metas->dims = std::vector<uint32_t>(nelem);
     memcpy(arr_metas->dims.data(), payload + bytes_offset, nbytes);
+    bytes_offset += nbytes;
+    arr_metas->strides = std::vector<uint32_t>(nelem);
+    memcpy(arr_metas->strides.data(), payload + bytes_offset, nbytes);
 
     for (const TupleRow *&v : results) delete (v);
     return arr_metas;

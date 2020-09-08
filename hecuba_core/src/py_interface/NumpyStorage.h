@@ -39,7 +39,8 @@ public:
 private:
 
     MetaManager *MM;
-    ArrayMetadata *get_np_metadata(PyArrayObject *numpy) const;
+
+    //ArrayMetadata *get_np_metadata(PyArrayObject *numpy) const;
 
 };
 
