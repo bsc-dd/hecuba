@@ -555,7 +555,6 @@ TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t o
 
                     /* Minimum size of ArrayMetaData. 'sizeof' can not be used as the compiler may add some padding */
 
-                    /*
 
                     int64_t sizeof_ArrayMetaData = sizeof(np_metas.elem_size)
                             + sizeof(np_metas.partition_type)
@@ -626,7 +625,7 @@ TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t o
 
                     rc = cass_user_type_set_collection_by_name(cass_np_meta,field_name.c_str(),str_collection);
                     CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UDT], field:" + field_name);
-                        */
+
                     rc = cass_statement_bind_user_type(statement, bind_pos, cass_np_meta);
                     CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UDT], column:" +
                                metadata->at(i).info.begin()->second);

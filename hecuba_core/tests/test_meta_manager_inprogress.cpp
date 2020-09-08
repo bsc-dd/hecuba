@@ -118,15 +118,11 @@ int main() {
     }
 
 	uint32_t n_metrics=2,lon_counter=3,n_levels=2;
-	std::vector <uint32_t> dims = {n_metrics};
-	std::vector <uint32_t> strides = {(uint32_t)sizeof(double)};
 
-	/*
 	std::vector <uint32_t> dims = {n_metrics, lon_counter, n_levels};
 	std::vector <uint32_t> strides = {lon_counter * n_levels * (uint32_t)sizeof(double),
 		n_levels * (uint32_t)sizeof(double),
 		(uint32_t)sizeof(double)};
-	*/
 	uint32_t flags=NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE | NPY_ARRAY_ALIGNED;
 
 
@@ -162,15 +158,14 @@ int main() {
         ArrayDataStore *array_store = new ArrayDataStore(table_name.c_str(), keyspace.c_str(), SI->get_session(), config);
 	std::cout << "JCOSTA DESPUS DE ARRAY STORE=========" << std::endl;
 	sleep(5);
-#if 0
 
 
 
-        std::vector<double> values = {2.0, 42.0};
+        std::vector<double> values = {2.0, 42.0, 1.0, 2.0, 3.0, 4.0
+                                     ,5.0, 6.0, 7.0, 8.0, 9.0, 10.0, };
 
 	array_store->store_numpy_into_cas(c_uuid, arr_metas, values.data());
 	std::cout << "JCOSTA DESPUS DE store numpy" << std::endl;
 	sleep(5);
-#endif
 
 }
