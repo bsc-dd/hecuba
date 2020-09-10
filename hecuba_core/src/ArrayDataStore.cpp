@@ -563,14 +563,13 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
  * @param save numpy memory object where columns will be saved
  */
 void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, ArrayMetadata &metadata,
-                                                   std::vector<uint32_t> &cols, void *save) {
+                                                   std::vector<uint64_t> &cols, void *save) {
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = cache_arrow->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
     std::vector<const TupleRow *> result, all_results;
     uint64_t *c_uuid = nullptr;
     char *_keys = nullptr;
     int32_t offset = 0;
-    int32_t *block = nullptr;
 
     std::shared_ptr<arrow::ipc::RecordBatchFileReader> sptrFileReader;
 
@@ -580,7 +579,7 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
     //open devdax access
     int fdIn = open("/home/enricsosa/bsc/cassandra/arrow_persistent_heap", O_RDONLY);  //TODO handle open errors; define file name
     if (fdIn < 0) {
-        std::cout << ":c" << std::endl;
+        throw ModuleException("open error");
     }
 
     for (uint32_t it = 0; it < cols.size(); ++it) {
@@ -592,7 +591,7 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
         memcpy(_keys, &c_uuid, sizeof(uint64_t *));
         offset = sizeof(uint64_t *);
         //col id
-        memcpy(_keys + offset, &cols[it], sizeof(cols[it]));
+        memcpy(_keys + offset, &cols[it], sizeof(uint64_t *));
 
         //We fetch the data
         TupleRow *block_key = new TupleRow(keys_metas, keys_size, _keys);
@@ -600,7 +599,6 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
         delete (block_key);
 
         for (const TupleRow *row:result) { // FIXME Theoretically, there should be a single row. ENRIC ensure that any data in the buffer table for the current {storage_id, col_id} has been transfered to the arrow table! And in this case, just peek the first row from the vector
-
             uint64_t *arrow_addr = (uint64_t *) row->get_element(0);
             uint32_t *arrow_size = (uint32_t *) row->get_element(1);
 
@@ -613,7 +611,7 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
             size_t total_arrow_size = *arrow_size+page_offset;
             unsigned char* src = (unsigned char*) mmap(NULL, total_arrow_size, PROT_READ, MAP_SHARED, fdIn, page_addr); //TODO handle mmap errors
             if (src == MAP_FAILED) {
-                std::cout << ":c" << std::endl;
+                throw ModuleException("mmap error");
             }
 
             //read from devdax
@@ -623,36 +621,39 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
             arrow::Status status;
             status = arrow::ipc::RecordBatchFileReader::Open(&bufferReader, &sptrFileReader); //TODO handle RecordBatchFileReader::Open errors
             if (not status.ok()) {
-                std::cout << ":c" << std::endl;
+                throw ModuleException("RecordBatchFileReader::Open error");
             }
 
-            int num_batches = sptrFileReader->num_record_batches();
+            const std::shared_ptr<arrow::ipc::RecordBatchFileReader> localPtr = sptrFileReader;
+            int num_batches = localPtr->num_record_batches();
+
             for (int i = 0; i < num_batches; ++i) { //for each batch inside arrow File; Theoretically, there should be one batch
                 std::shared_ptr<arrow::RecordBatch> chunk;
-                status = sptrFileReader->ReadRecordBatch(i, &chunk);
+                status = localPtr->ReadRecordBatch(i, &chunk);
                 if (not status.ok()) { //TODO ReadRecordBatch
-                    std::cout << ":c" << std::endl;
+                    throw ModuleException("ReadRecordBatch error");
                 }
                 std::shared_ptr<arrow::Array> col = chunk->column(0); //Theoretically, there must be one column
 
                 std::shared_ptr<arrow::BinaryArray> data = std::dynamic_pointer_cast<arrow::BinaryArray>(col);
+
                 char* dst = (char*) save;
-                int elem_size_arrow = data->raw_value_offsets()[0]; // ALL values have the same type, therefore the same size
+                dst += cols[it]*elem_size;
 
                 int length;
                 for (int k = 0; k < col->length(); ++k) {
                     const uint8_t* bytes = data->GetValue(k, &length);
-                    dst += cols[it]*elem_size_arrow + row_size*k; //Next column
                     memcpy(dst, bytes, length);
+                    dst += row_size;
                 }
             }
 
-            /* TODO ENRIC do your magic to translate the arrow_addr and arrow_size to memory in base[x, col[it]] */
-			/* hopefulle encapsulated into a function :) */
-            /*** mmap(save, pointer, size)? ***/
 
-            munmap(src, total_arrow_size);
+            // TODO ENRIC create a function to translate the arrow_addr and arrow_size to memory in base[x, col[it]]
 
+            if (munmap(src, total_arrow_size) < 0) {
+                throw ModuleException("munmap error");
+            }
         }
     }
     close(fdIn);

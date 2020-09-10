@@ -7,6 +7,8 @@ import numpy as np
 
 from storage.api import getByID
 
+from time import time as timer
+import random
 
 class StorageNumpyTest(unittest.TestCase):
     @classmethod
@@ -522,16 +524,64 @@ class StorageNumpyTest(unittest.TestCase):
         print(tmp)
 
     def test_column_access(self):
-
         n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
-
         s = StorageNumpy(n, "cols")
-
         for i in range(0,127):
             tmp = s[:,i]    # Access a whole column
-
             self.assertTrue(np.array_equal(tmp, n[:,i]))
 
+    def test_performance_storage_numpy_arrow(self):
+        # Test the time to retrieve a column from Cassandra
+
+        # Times to repeat the test
+        TIMES = 10
+
+        # Matrix sizes to test
+        matrix_size = (100, 200, 300, 400, 500, 600, 700, 800, 900, 1000)
+        n_cols = 3
+
+        times = {}
+        # Test 1 column
+        for s in matrix_size:
+            times[s] = []  # empty list for size 's'
+
+            # Create a numpy
+            n = np.arange(1000*s * n_cols).reshape(1000*s, n_cols)
+            matrix_name = "matrix{}x{}".format(1000*s, n_cols)
+
+            # Make it persistent
+            o = StorageNumpy(n, matrix_name)
+
+            # Clean memory
+            del o
+
+            for i in range(TIMES):
+                # Retrieve numpy from cassandra (NO data in memory)
+                o = StorageNumpy(None, matrix_name)
+
+                # LOAD_ON_DEMAND must be DISABLED!
+                self.assertTrue(o.data.hex()[:40], '0' * 40)
+
+                #import pdb; pdb.set_trace();
+
+                start = timer()
+
+                # Load column
+                column = random.randint(0, (n_cols-1))
+
+                o[:, column]
+
+                end = timer()
+
+                # Store time
+                times[s].append(end - start)
+                del o
+
+        # All tests done, print results
+        print("\nRESULTS:")
+        for s in matrix_size:
+            print("Matrix size{}x{} = ".format(1000*s, n_cols), times[s])
+        print("\n")
 
 if __name__ == '__main__':
     unittest.main()

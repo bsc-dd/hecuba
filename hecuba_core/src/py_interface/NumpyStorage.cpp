@@ -60,7 +60,7 @@ void NumpyStorage::load_numpy_arrow(const uint64_t *storage_id, ArrayMetadata &n
     void *data = PyArray_DATA(save);
     if (cols != Py_None) {
         // Transform cols to a vector of column IDs
-        std::vector<uint32_t> c = {};
+        std::vector<uint64_t> c = {};
         if (PyList_Check(cols)) {
             PyObject *value = nullptr;
             for (Py_ssize_t i = 0; i < PyList_Size(cols); i++) {
