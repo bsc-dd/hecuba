@@ -17,6 +17,8 @@
 # Parameters
 UNIQ_ID=${1}          # Unique ID to identify related files
 C4S_HOME=$HOME/.c4s
+MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
+
 #CASSANDRA_NODES=${2}  # Number of Cassandra nodes to spawn
 # I guess we dont need any of these.
 SNAPSHOT_FILE=$C4S_HOME/cassandra-snapshot-file-"$UNIQ_ID".txt # EXPORTS IN STORAGE_INIT ARE NOT AVAILABLE HERE? LOL
@@ -58,4 +60,8 @@ then
     rm -f $C4S_HOME/snap-status-$SNAP_NAME-*-file.txt
     rm -f $SNAPSHOT_FILE
 fi
-srun  --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 bash $MODULE_PATH/killer.sh
+if [ -f $C4S_HOME/stop."$UNIQ_ID".txt ]; then
+        if $(cat $C4S_HOME/stop."$UNIQ_ID".txt)" == "1" then
+		#if cassandra was launched with the application then it exists a file stop with a 1 inside to kill it
+		srun  --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 bash $MODULE_PATH/killer.sh
+fi
