@@ -514,5 +514,20 @@ class StorageNumpyTest(unittest.TestCase):
 
         self.assertTrue(c[0,0]!=s[0,0])
 
+    def test_columnar_access(self):
+        # Test accessing a column that traverses different blocks in cassandra
+
+        n = np.arange(2*180).reshape(2,180)
+        s = StorageNumpy(n, "mykk")
+
+        del s
+
+        s = StorageNumpy(None, "mykk")
+
+        tmp=s[0,:]
+
+        self.assertTrue(np.array_equal(tmp, n[0,:]))
+        print(tmp)
+
 if __name__ == '__main__':
     unittest.main()
