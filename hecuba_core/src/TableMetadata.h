@@ -115,6 +115,8 @@ private:
     std::shared_ptr<const std::vector<ColumnMeta> > items;
     std::string keyspace, table;
     std::string select, insert, select_tokens_all, select_tokens_values, select_keys_tokens, delete_row;
+    //bool checkSchemaAgreement(const CassSession *session);
+    const CassTableMeta *getCassTableMeta(const CassSession * session);
 
 };
 
