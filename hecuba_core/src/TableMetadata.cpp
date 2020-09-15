@@ -1,4 +1,5 @@
 #include "TableMetadata.h"
+#include <unistd.h>
 
 /***
  * Returns the allocation number of bytes required to allocate a type of data
@@ -103,6 +104,66 @@ uint16_t TableMetadata::compute_size_of(const ColumnMeta &CM) const {
     return 0;
 }
 
+
+/***
+ * Checks if all cassandra nodes agree on the schema. It may BLOCK the caller.
+ * @return True if there is an agreement on the schema
+ * Not in use right now
+ */
+
+#if 0
+bool TableMetadata::checkSchemaAgreement(const CassSession *session) {
+
+    CassSession * tmp = (CassSession *)session;
+    static CassStatement * getLocalSchemaVersion = cass_statement_new("SELECT schema_version FROM system.local WHERE key='local'",0);
+    static CassStatement * getPeersSchemaVersion = cass_statement_new("SELECT schema_version FROM system.peers",0);
+
+    CassFuture *future_local = cass_session_execute(tmp, getLocalSchemaVersion);
+    CassFuture *future_peers = cass_session_execute(tmp, getPeersSchemaVersion);
+
+    CassError rc = cass_future_error_code(future_local);
+    if (rc != CASS_OK) {
+        /* Handle error */
+        std::string error(cass_error_desc(rc));
+        cass_future_free(future_local);
+        throw ModuleException("TableMetadata: checkSchemaAgreement Get row error on result local" + error);
+    }
+    const CassResult *localresult = cass_future_get_result(future_local);
+
+    rc = cass_future_error_code(future_peers);
+    if (rc != CASS_OK) {
+        /* Handle error */
+        std::string error(cass_error_desc(rc));
+        cass_future_free(future_peers);
+        throw ModuleException("TableMetadata: checkSchemaAgreement Get row error on result peers" + error);
+    }
+    const CassResult *peer_result = cass_future_get_result(future_peers);
+
+
+    CassUuid local_schema_version;
+    const CassRow* rowLocal = cass_result_first_row(localresult);
+    cass_value_get_uuid(cass_row_get_column_by_name(rowLocal, "schema_version"), &local_schema_version);
+    cass_result_free(localresult);
+
+
+    bool match = true;
+    CassIterator *it = cass_iterator_from_result(peer_result);
+    while (cass_iterator_next(it) && match) {
+        CassUuid peer_schema_version;
+        const CassRow *row = cass_iterator_get_row(it);
+        cass_value_get_uuid(cass_row_get_column_by_name(row, "schema_version"), &peer_schema_version);
+        match = ((local_schema_version.time_and_version   == peer_schema_version.time_and_version) &&
+                (local_schema_version.clock_seq_and_node == peer_schema_version.clock_seq_and_node));
+    }
+    cass_iterator_free(it);
+    cass_result_free(peer_result);
+
+    return match;
+}
+
+#endif
+
+
 std::map<std::string, ColumnMeta> TableMetadata::getMetaTypes(CassIterator *iterator) {
     std::map<std::string, ColumnMeta> metadatas;
     const char *value;
@@ -148,6 +209,27 @@ std::map<std::string, ColumnMeta> TableMetadata::getMetaTypes(CassIterator *iter
     return metadatas;
 }
 
+const CassTableMeta *TableMetadata::getCassTableMeta(const CassSession * session) {
+    const CassSchemaMeta *schema_meta = cass_session_get_schema_meta(session);
+    if (!schema_meta) {
+        std::string error_msg = "TableMetadata constructor: Cassandra schema doesn't exist, probably not connected...";
+        if (session == NULL) error_msg += "session with cassandra not stablished";
+        throw ModuleException(error_msg.c_str());
+    }
+
+    const CassKeyspaceMeta *keyspace_meta = cass_schema_meta_keyspace_by_name(schema_meta, this->keyspace.c_str());
+    if (!keyspace_meta) {
+        throw ModuleException("The keyspace " + this->keyspace + " has no metadatas,"
+                                                                             "check the keyspace name and make sure it exists");
+    }
+
+
+    const CassTableMeta *table_meta = cass_keyspace_meta_table_by_name(keyspace_meta, this->table.c_str());
+    cass_schema_meta_free(schema_meta);
+
+    return table_meta;
+}
+
 TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
                              std::vector<std::map<std::string, std::string>> &keys_names,
                              std::vector<std::map<std::string, std::string>> &columns_names,
@@ -172,24 +254,20 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
     std::transform(this->keyspace.begin(), this->keyspace.end(), this->keyspace.begin(), ::tolower);
 
 
-    const CassSchemaMeta *schema_meta = cass_session_get_schema_meta(session);
-    if (!schema_meta) {
-        std::string error_msg = "TableMetadata constructor: Cassandra schema doesn't exist, probably not connected...";
-        if (session == NULL) error_msg += "session with cassandra not stablished";
-        throw ModuleException(error_msg.c_str());
-    }
-
-    const CassKeyspaceMeta *keyspace_meta = cass_schema_meta_keyspace_by_name(schema_meta, this->keyspace.c_str());
-    if (!keyspace_meta) {
-        throw ModuleException("The keyspace " + std::string(keyspace_name) + " has no metadatas,"
-                                                                             "check the keyspace name and make sure it exists");
-    }
-
-
-    const CassTableMeta *table_meta = cass_keyspace_meta_table_by_name(keyspace_meta, this->table.c_str());
+    const CassTableMeta *table_meta = getCassTableMeta(session);
     if (!table_meta || (cass_table_meta_column_count(table_meta) == 0)) {
-        throw ModuleException("The table " + std::string(table_name) + " has no metadatas,"
-                                                                       " check the table name and make sure it exists");
+        uint32_t i = 0;
+
+        do {// wait until all nodes agree with the schema
+            sleep(1);
+            table_meta=getCassTableMeta(session);
+            i++;
+        }
+        while ( (i<20) &&  (!table_meta || (cass_table_meta_column_count(table_meta) == 0)));
+        if (i==20) {
+            throw ModuleException("The table " + std::string(table_name) + " has no metadatas,"
+                    " check the table name and make sure it exists");
+        }
     }
 
 //TODO Switch to unordered maps for efficiency
@@ -198,7 +276,7 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
 
     std::map<std::string, ColumnMeta> metadatas = getMetaTypes(iterator);
     cass_iterator_free(iterator);
-    cass_schema_meta_free(schema_meta);
+    //cass_schema_meta_free(schema_meta);
 
     std::string key = keys_names[0]["name"];
     if (key.empty()) throw ModuleException("Empty key name given on position 0");
