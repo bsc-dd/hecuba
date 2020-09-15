@@ -73,6 +73,7 @@ class StorageNumpy(IStorage, np.ndarray):
             else:
                 obj = np.asarray(input_array).copy().view(cls)
 
+        obj._all_coords = np.array(list(np.ndindex(obj.shape))).reshape(*obj.shape,obj.ndim)
         obj._numpy_full_loaded = False
         obj._loaded_coordinates = []
         obj._set_name(name)
@@ -123,6 +124,7 @@ class StorageNumpy(IStorage, np.ndarray):
             self._numpy_full_loaded = getattr(obj, '_numpy_full_loaded', None)
             self._is_persistent = getattr(obj, '_is_persistent', None)
             self._block_id = getattr(obj, '_block_id', None)
+            self._all_coords = getattr(obj, '_all_coords', None)
             self._build_args = getattr(obj, '_build_args', HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind,
                                                                           self.dtype.byteorder, self.itemsize, self.flags.num, 0))
         else:
@@ -222,8 +224,7 @@ class StorageNumpy(IStorage, np.ndarray):
                 new_coords = []
             else:
                 try:
-                    all_coords = np.array(list(np.ndindex(self.shape))).reshape(*self.shape,self.ndim)
-                    new_coords = all_coords[sliced_coord] // self._row_elem
+                    new_coords = self._all_coords[sliced_coord] // self._row_elem
                     new_coords = new_coords.reshape(-1, self.ndim)
                 except IndexError:
                     return super(StorageNumpy, self).__getitem__(sliced_coord)
@@ -236,11 +237,12 @@ class StorageNumpy(IStorage, np.ndarray):
 
             # checks if we already loaded the coordinates
 
-            if ((len(coordinates) != len(self._loaded_coordinates)) and not self._numpy_full_loaded) or (
-                    not self._numpy_full_loaded and not coordinates):
+            if (len(coordinates) != len(self._loaded_coordinates)) or (not coordinates):
                 if not coordinates:
                     self._numpy_full_loaded = True
                     new_coords = None
+                else:
+                    self._numpy_full_loaded = (len(coordinates) == len(self._all_coords))
 
                 self._hcache.load_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [self.base.view(np.ndarray)],
                                                new_coords)
@@ -254,8 +256,7 @@ class StorageNumpy(IStorage, np.ndarray):
                 new_coords = []
             else:
                 try:
-                    all_coords =  np.array(list(np.ndindex(self.shape))).reshape(*self.shape,self.ndim)
-                    new_coords = all_coords[sliced_coord] // self._row_elem
+                    new_coords = self._all_coords[sliced_coord] // self._row_elem
                     new_coords = new_coords.reshape(-1, self.ndim)
                 except IndexError:
                     return super(StorageNumpy, self).__setitem__(sliced_coord,values)
@@ -264,6 +265,13 @@ class StorageNumpy(IStorage, np.ndarray):
                 new_coords = list(dict.fromkeys(new_coords))
             # coordinates is the union between the loaded coordiantes and the new ones
             coordinates = list(set(it.chain.from_iterable((self._loaded_coordinates, new_coords))))
+            if (len(coordinates) != len(self._loaded_coordinates)) or (not coordinates):
+                if not coordinates:
+                    self._numpy_full_loaded = True
+                    new_coords = None
+                else:
+                    self._numpy_full_loaded = (len(coordinates) == len(self._all_coords))
+            self._loaded_coordinates = coordinates
             #yolandab: execute first the super to modified the base numpy
             modified_np=super(StorageNumpy, self).__setitem__(sliced_coord, values)
             self._hcache.store_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [StorageNumpy._get_base_array(self)], coordinates)
