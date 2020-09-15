@@ -449,7 +449,7 @@ class StorageNumpyTest(unittest.TestCase):
 
         # Clean up
         s1.delete_persistent()
-        config.session.execute("DROP TABLE IF EXISTS my_app.test_storage_from_storage")
+        config.session.execute("DROP TABLE IF EXISTS my_app.test_storagenumpy_reshape")
 
     def test_transpose(self):
         '''
