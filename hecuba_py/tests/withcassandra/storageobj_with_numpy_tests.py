@@ -28,7 +28,8 @@ class StorageNumpyTest(unittest.TestCase):
         config.execution_name = self.ksp
 
     def tearDown(self):
-        config.session.execute("DROP KEYSPACE IF EXISTS {}".format(self.ksp))
+        #config.session.execute("DROP KEYSPACE IF EXISTS {}".format(self.ksp))
+        pass
 
     table = 'numpy_test'
 

@@ -177,7 +177,8 @@ class StorageObjTest(unittest.TestCase):
         config.execution_name = self.current_ksp
 
     def tearDown(self):
-        config.session.execute("DROP KEYSPACE IF EXISTS {}".format(self.current_ksp))
+        #config.session.execute("DROP KEYSPACE IF EXISTS {}".format(self.current_ksp))
+        pass
 
     def test_build_remotely(self):
         obj = TestStorageObj(config.execution_name + ".tt1")
