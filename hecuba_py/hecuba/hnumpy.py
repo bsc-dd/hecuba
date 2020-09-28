@@ -20,6 +20,17 @@ class StorageNumpy(IStorage, np.ndarray):
     args_names = ["storage_id", "class_name", "name", "metas", "block_id", "base_numpy"]
     args = namedtuple('StorageNumpyArgs', args_names)
 
+    def _calculate_coords(self):
+        ''' Calculate all the coordinates given the shape of a numpy array to avoid calculate them at each get&set
+            This is used to determine if a numpy is full loaded on memory and avoid accesses to cassandra.
+        '''
+        self._all_coords = np.array(list(np.ndindex(self.shape))).reshape(*self.shape,self.ndim)
+        all_blocks = self._all_coords //self._row_elem
+        all_blocks = all_blocks.reshape(-1, self.ndim)
+        all_blocks = [tuple(coord) for coord in all_blocks]
+        all_blocks = list(dict.fromkeys(all_blocks ))
+        self._n_blocks = len(all_blocks) ## Precalculated length of the total number of blocks
+
     def np_split(self, block_size: Tuple[int, int]):
         # For now, only split in two dimensions is supported
         bn, bm = block_size
@@ -56,6 +67,7 @@ class StorageNumpy(IStorage, np.ndarray):
             obj._row_elem = obj._hcache.get_elements_per_row(obj.storage_id, base_metas)
             if base_numpy is not None:
                 obj._partition_dims = numpy_metadata.dims
+            obj._calculate_coords()
         else:
             #this is the assignment for both types of input array: StorageNumpy and numpy.ndarray
             obj = np.asarray(input_array).copy().view(cls)
@@ -88,21 +100,28 @@ class StorageNumpy(IStorage, np.ndarray):
     # used as copy constructor
     def __array_finalize__(self, obj):
         if obj is None:
+            log.debug("  __array_finalize__ NEW")
             return
-        log.debug("__array_finalize__ in base is not None %s %s", getattr(self, 'base', None) is not None, getattr(obj, 'base', None) is not None)
+        log.debug("__array_finalize__ self.base=None?%s obj.base=None?%s", getattr(self, 'base', None) is None, getattr(obj, 'base', None) is None)
         if self.base is not None: # It is a view, therefore, copy data from object
+            log.debug("  __array_finalize__ view (new_from_template/view)")
+
             self.storage_id = getattr(obj, 'storage_id', None)
             self._name = getattr(obj, '_name', None)
             self._hcache = getattr(obj, '_hcache', None)
             self._row_elem = getattr(obj, '_row_elem', None)
-            self._loaded_coordinates = getattr(obj, '_loaded_coordinates', None)
-            self._numpy_full_loaded = getattr(obj, '_numpy_full_loaded', None)
+            # if we are a view we have ALREADY loaded all the subarray
+            self._loaded_coordinates = None #Magic value because it should NOT be used
+            self._numpy_full_loaded = True
             self._is_persistent = getattr(obj, '_is_persistent', None)
             self._block_id = getattr(obj, '_block_id', None)
             self._all_coords = getattr(obj, '_all_coords', None)
+            self._n_blocks = getattr(obj, '_n_blocks', None)
+            self._class_name = getattr(obj,'_class_name',None)
             self._build_args = getattr(obj, '_build_args', HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind,
                                                                           self.dtype.byteorder, self.itemsize, self.flags.num, 0))
         else:
+            log.debug("  __array_finalize__ copy")
             # Initialize fields as the __new__ case with input_array and not name
             self._loaded_coordinates = []
             self._numpy_full_loaded  = False
@@ -113,11 +132,8 @@ class StorageNumpy(IStorage, np.ndarray):
 
     @staticmethod
     def _get_base_array(self):
-        if self.base is None:
-            base_n=np.frombuffer(self.data,dtype=self.dtype)
-        else:
-            base_n=self.base.view(np.ndarray)
-        return base_n
+        ''' Returns the 'base' numpy from this SN.  '''
+        return (getattr(self,'base',self))
 
     @staticmethod
     def _create_tables(name):
@@ -173,83 +189,91 @@ class StorageNumpy(IStorage, np.ndarray):
         else:
             raise KeyError
 
-    def __getitem__(self, sliced_coord):
-        log.info("RETRIEVING NUMPY")
-        '''
-        where do we come from?
+    def _select_blocks(self,sliced_coord):
+        """
+            Calculate the list of block coordinates to load given a specific numpy slice syntax.
+            Args:
+                self: StorageNumpy to apply list of coordinates.
+            Calculate the list of block coordinates to load given a specific numpy slice syntax.
+            Args:
+                self: StorageNumpy to apply list of coordinates.
+                sliced_coord: Slice syntax to evaluate.
+            May raise an IndexError exception
+        """
+        if isinstance(sliced_coord, slice) and sliced_coord == slice(None, None, None):
+            new_coords = None
+        else:
+            new_coords = self._all_coords[sliced_coord] // self._row_elem
+            new_coords = new_coords.reshape(-1, self.ndim)
+            new_coords = [tuple(coord) for coord in new_coords]
+            new_coords = list(dict.fromkeys(new_coords))
 
-        import traceback
+        log.debug("selecting blocks :{} -> {}".format(sliced_coord,new_coords))
+        return new_coords
 
-        for line in traceback.format_stack():
-            print(line.strip())
-        '''
 
-        if self._is_persistent:
-            if isinstance(sliced_coord, np.ndarray): # is there any other slicing case that needs a copy of the array????
-                # FIXME Get the full numpy array and make a copy obtaining a new StorageNumpy from it with a random name
-                n = self[:].view(np.ndarray)[sliced_coord]
-                #wanted n = self[sliced_coord].view(np.ndarray)
-                #result=StorageNumpy(n,(self._get_name()+str(uuid.uuid4().hex))[0:48]) #max table name length in cassandra is 48 chars
-                # y si es volatil?
-                result=StorageNumpy(n)
-                return result
+    def _load_blocks(self, new_coords):
+        """
+            Load the provided block coordinates from cassandra into memory
+            Args:
+                self: The StorageNumpy to load data into
+                new_coords: The coordinates to load (using ZOrder identification)
+        """
+        if self._is_persistent is False:
+            raise NotImplemented("NOT SUPPORTED to load coordinates on a volatile object")
 
-        if self._is_persistent and not self._numpy_full_loaded:
-            if isinstance(sliced_coord, slice) and sliced_coord == slice(None, None, None):
-                new_coords = []
-            else:
-                try:
-                    new_coords = self._all_coords[sliced_coord] // self._row_elem
-                    new_coords = new_coords.reshape(-1, self.ndim)
-                except IndexError:
-                    return super(StorageNumpy, self).__getitem__(sliced_coord)
-                # yolandab: is this necessary?
-                new_coords = [tuple(coord) for coord in new_coords]
-                new_coords = list(dict.fromkeys(new_coords))
-
-            # coordinates is the union between the loaded coordiantes and the new ones
+        if not new_coords: # Special case: Load everything
+            log.debug("LOADING ALL BLOCKS OF NUMPY")
+            self._numpy_full_loaded = True
+            new_coords = None
+            base_numpy = StorageNumpy._get_base_array(self)
+            self._hcache.load_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [base_numpy],
+                                       new_coords)
+            self._loaded_coordinates = None
+        else:
+            log.debug("LOADING COORDINATES")
+            # coordinates is the union between the loaded coordinates and the new ones
             coordinates = list(set(it.chain.from_iterable((self._loaded_coordinates, new_coords))))
+            if (len(coordinates) != len(self._loaded_coordinates)):
+                self._numpy_full_loaded = (len(coordinates) == self._n_blocks)
 
-            # checks if we already loaded the coordinates
-
-            if (len(coordinates) != len(self._loaded_coordinates)) or (not coordinates):
-                if not coordinates:
-                    self._numpy_full_loaded = True
-                    new_coords = None
-                else:
-                    self._numpy_full_loaded = (len(coordinates) == len(self._all_coords))
-
-                self._hcache.load_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [self.base.view(np.ndarray)],
-                                               new_coords)
+                base_numpy = StorageNumpy._get_base_array(self)
+                self._hcache.load_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [base_numpy],
+                                       new_coords)
                 self._loaded_coordinates = coordinates
+
+    def _select_and_load_blocks(self, sliced_coord):
+        if not self._numpy_full_loaded:
+            block_coord = self._select_blocks(sliced_coord)
+            self._load_blocks(block_coord)
+
+    def __getitem__(self, sliced_coord):
+        log.info("RETRIEVING NUMPY {}".format(sliced_coord))
+        if self._is_persistent:
+            #if the slice is a npndarray numpy creates a copy and we do the same
+            if isinstance(sliced_coord, np.ndarray): # is there any other slicing case that needs a copy of the array????
+                self._select_and_load_blocks(sliced_coord)
+                result = self.view(np.ndarray)[sliced_coord]
+
+                return StorageNumpy(result) # Creates a copy (A StorageNumpy from a Numpy)
+
+            self._select_and_load_blocks(sliced_coord)
         return super(StorageNumpy, self).__getitem__(sliced_coord)
 
-    def __setitem__(self, sliced_coord, values):
-        log.info("WRITING NUMPY")
-        if self._is_persistent:
-            if isinstance(sliced_coord, slice) and sliced_coord == slice(None, None, None):
-                new_coords = []
-            else:
-                try:
-                    new_coords = self._all_coords[sliced_coord] // self._row_elem
-                    new_coords = new_coords.reshape(-1, self.ndim)
-                except IndexError:
-                    return super(StorageNumpy, self).__setitem__(sliced_coord,values)
 
-                new_coords = [tuple(coord) for coord in new_coords]
-                new_coords = list(dict.fromkeys(new_coords))
-            # coordinates is the union between the loaded coordiantes and the new ones
-            coordinates = list(set(it.chain.from_iterable((self._loaded_coordinates, new_coords))))
-            if (len(coordinates) != len(self._loaded_coordinates)) or (not coordinates):
-                if not coordinates:
-                    self._numpy_full_loaded = True
-                    new_coords = None
-                else:
-                    self._numpy_full_loaded = (len(coordinates) == len(self._all_coords))
-            self._loaded_coordinates = coordinates
+    def __setitem__(self, sliced_coord, values):
+        log.info("WRITING NUMPY ")
+        if self._is_persistent:
+            block_coords = self._select_blocks(sliced_coord)
+            if not self._numpy_full_loaded: # Load the block before writing!
+                self._load_blocks(block_coords)
+
             #yolandab: execute first the super to modified the base numpy
+
             modified_np=super(StorageNumpy, self).__setitem__(sliced_coord, values)
-            self._hcache.store_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [StorageNumpy._get_base_array(self)], coordinates)
+
+            base_numpy = StorageNumpy._get_base_array(self) # self.base is  numpy.ndarray
+            self._hcache.store_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [base_numpy], block_coords)
             return modified_np
         return super(StorageNumpy, self).__setitem__(sliced_coord, values)
 
@@ -268,12 +292,13 @@ class StorageNumpy(IStorage, np.ndarray):
         hfetch_metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
                                       self.itemsize, self.flags.num, 0)
         self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas, self._block_id,
-                                     self.storage_id) # base_numpy is storage_id because until now we only reach this point if we are not inheriting from a StorageNumpy. We should update this if we allow StorageNumpy from volatile StorageNumpy
+                                     self.storage_id)
         if len(self.shape) != 0:
             self._hcache.store_numpy_slices([self.storage_id], self._build_args.metas, [StorageNumpy._get_base_array(self)],
                                             None)
         StorageNumpy._store_meta(self._build_args)
         self._row_elem = self._hcache.get_elements_per_row(self.storage_id, self._build_args.metas)
+        self._calculate_coords()
 
     def stop_persistent(self):
         super().stop_persistent()
@@ -326,10 +351,11 @@ class StorageNumpy(IStorage, np.ndarray):
             kwargs['out'] = tuple(out_args)
         else:
             outputs = (None,) * ufunc.nout
-        if self._is_persistent and len(self.shape) and self._numpy_full_loaded is False:
-            self._hcache.load_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [self.base.view(np.ndarray)],
-                                           None)
 
+        base_numpy = StorageNumpy._get_base_array(self)
+        if self._is_persistent and len(self.shape) and self._numpy_full_loaded is False:
+            self._hcache.load_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [base_numpy],
+                                           None)
         results = super(StorageNumpy, self).__array_ufunc__(ufunc, method,
                                                             *args, **kwargs)
         if results is NotImplemented:
@@ -339,7 +365,7 @@ class StorageNumpy(IStorage, np.ndarray):
             return
 
         if self._is_persistent and len(self.shape):
-            self._hcache.store_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [StorageNumpy._get_base_array(self)],
+            self._hcache.store_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [base_numpy],
                                             None)
 
         if ufunc.nout == 1:
