@@ -29,6 +29,7 @@ class StorageNumpy(IStorage, np.ndarray):
             yield obj
 
     def __new__(cls, input_array=None, name=None, storage_id=None, block_id=None, **kwargs):
+        log.debug("__new__  input_array=None?%s name=%s storage_id=%s", input_array is None, name, storage_id)
         if input_array is None and (name is not None or storage_id is not None):
             if not storage_id:
                 (ksp, table) = extract_ks_tab(name)
@@ -56,24 +57,8 @@ class StorageNumpy(IStorage, np.ndarray):
             if base_numpy is not None:
                 obj._partition_dims = numpy_metadata.dims
         else:
-            if isinstance(input_array, StorageNumpy): # StorageNumpyDesign
-                if storage_id is not None:
-                    log.warn("Creating a StorageNumpy with a specific StorageID")
-
-                if not input_array._is_persistent and name is None:
-                    raise NotImplemented("Create a volatile StorageNumpy from another volatile StorageNumpy")
-
-                obj = input_array.view(cls)
-                if input_array._is_persistent:
-                    sid=uuid.uuid4()
-                    obj.storage_id=sid
-                    if name is not None:
-                        raise NotImplemented("Build a Persistent StorageNumpy from another Persistent StorageNumpy with a name")
-                    name = input_array._get_name()
-            else:
-                obj = np.asarray(input_array).copy().view(cls)
-
-        obj._all_coords = np.array(list(np.ndindex(obj.shape))).reshape(*obj.shape,obj.ndim)
+            #this is the assignment for both types of input array: StorageNumpy and numpy.ndarray
+            obj = np.asarray(input_array).copy().view(cls)
         obj._numpy_full_loaded = False
         obj._loaded_coordinates = []
         obj._set_name(name)
@@ -84,9 +69,8 @@ class StorageNumpy(IStorage, np.ndarray):
         return obj
 
     def __init__(self, input_array=None, name=None, storage_id=None, **kwargs):
-        if name == None:
-            name=self._get_name() # To deal with StorageNumpy(StorageNumpy)
- 
+        log.debug("__init__  input_array=None?%s name=%s storage_id=%s", input_array is None, name, storage_id)
+
         IStorage.__init__(self, storage_id=storage_id, name=name, **kwargs)
         metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
                                self.itemsize, self.flags.num, 0)
@@ -95,16 +79,7 @@ class StorageNumpy(IStorage, np.ndarray):
         if self._get_name() or self.storage_id:
             load_data= (input_array is None) and (config.load_on_demand == False)
             if input_array is not None:
-                if isinstance(input_array,StorageNumpy):
-                    self._build_args = self.args(self.storage_id,
-                                                 self._class_name,
-                                                 self._get_name(),
-                                                 metas,
-                                                 self._block_id,
-                                                 input_array._build_args.base_numpy) # Update base_numpy with original_data
-                    self._store_meta(self._build_args) # StoreNumpy from persistent StorageNumpy (reshape): we only need to update the metadata
-                else:
-                    self.make_persistent(self._get_name())
+                self.make_persistent(self._get_name())
             self._is_persistent = True
             if load_data:
                 self[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
