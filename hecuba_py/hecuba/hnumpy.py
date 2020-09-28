@@ -378,30 +378,30 @@ class StorageNumpy(IStorage, np.ndarray):
         return results[0] if len(results) == 1 else results
 
 
-    def reshape(self, newshape, order='C'):
+    def reshape(self, newshape, order="C"):
         '''
         reshape the StorageNumpy
-
-        Creates a new StorageNumpy ID to store the metadata, but shares the data
+        Creates a view of the StorageNumpy sharing data with the original data (Both in disk and memory)
         '''
-        obj=StorageNumpy(super(StorageNumpy, self).reshape(newshape,order))
+        log.debug("reshape from %s to %s", self.shape, newshape)
+        obj=super(StorageNumpy, self).reshape(newshape, order)
         return obj
 
     def transpose(self,axes=None):
-        obj=StorageNumpy(super(StorageNumpy, self).transpose(axes))
+        '''
+        transpose the StorageNumpy
+        Creates a view of the StorageNumpy sharing data with the original data (Both in disk and memory)
+        '''
+        obj=super(StorageNumpy, self).transpose(axes)
         return obj
 
     def copy(self, order='K'):
         '''
-        Copy a StorageNumpy
+        Copy a StorageNumpy: new **volatile** StorageNumpy with the data of the parameter
         '''
-        if self._is_persistent:
-            n=self[:].view(np.ndarray) 	# Get the full numpy array and obtain a new StorageNumpy from it with a random name
-            n_sn=StorageNumpy(n,(self._get_name()+str(uuid.uuid4().hex))[0:48])
-        else:
-            # If it is a volatile StorageNumpy, we need to create a numpy view, because otherwise the Constructor would fail
-            n_sn=StorageNumpy(super(StorageNumpy,self).copy(order).view(np.ndarray))
+        n_sn=super(StorageNumpy,self).copy(order)
         return n_sn
+
 
     ###### INTERCEPTED FUNCTIONS #####
     def dot(a, b, out=None):
