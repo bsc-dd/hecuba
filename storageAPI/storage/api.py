@@ -2,6 +2,7 @@
 
 def init(config_file_path=None):
     """
+    Executed by Master
     Function that can be useful when running the application with COMPSs >= 2.0
     It is executed at the beginning of the application
     """
@@ -10,6 +11,7 @@ def init(config_file_path=None):
 
 def finish():
     """
+    Executed by master
     Function that can be useful when running the application with COMPSs >= 2.0
     It is executed at the end of the application
     """
@@ -18,6 +20,7 @@ def finish():
 
 def initWorker(config_file_path=None):
     """
+    Executed by Each java Worker before spawning the executors
     Function that can be useful when running the application with COMPSs >= 2.0
     It is executed at the beginning of the application
     """
@@ -26,11 +29,23 @@ def initWorker(config_file_path=None):
 
 def finishWorker():
     """
+    Executed by each python Worker before ending
     Function that can be useful when running the application with COMPSs >= 2.0
     It is executed at the end of the application
     """
     pass
 
+def initWorkerPostFork():
+    """
+    Executed by each executor at the beginning of their execution
+    """
+    pass
+
+def finishWorkerPostFork():
+    """
+    Executed by each executor before ending
+    """
+    pass
 
 def start_task(params):
     """
