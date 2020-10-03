@@ -252,16 +252,13 @@ class StorageNumpy(IStorage, np.ndarray):
     def __getitem__(self, sliced_coord):
         log.info("RETRIEVING NUMPY {}".format(sliced_coord))
         if self._is_persistent:
+            self._select_and_load_blocks(sliced_coord)
             #if the slice is a npndarray numpy creates a copy and we do the same
             if isinstance(sliced_coord, np.ndarray): # is there any other slicing case that needs a copy of the array????
-                self._select_and_load_blocks(sliced_coord)
                 result = self.view(np.ndarray)[sliced_coord]
-
                 return StorageNumpy(result) # Creates a copy (A StorageNumpy from a Numpy)
 
-            self._select_and_load_blocks(sliced_coord)
         return super(StorageNumpy, self).__getitem__(sliced_coord)
-
 
     def __setitem__(self, sliced_coord, values):
         log.info("WRITING NUMPY ")
