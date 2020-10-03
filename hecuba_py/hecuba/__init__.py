@@ -55,16 +55,35 @@ class Config:
     def __getattr__(self, item):
         return getattr(Config.instance, item)
 
+    def executequery_withretries(self, query):
+        """
+            Executes 'query' to cassandra. If the query fails (for example due
+            to a timeout) it will resend the query a maximum of NRETRIES(5)
+        """
+        executed=False
+        nretries=0
+        while not executed:
+            try:
+                self.instance.session.execute(query)
+                executed=True
+            except Exception as ir:
+                log.warn("Unable to execute %s %s/5", query, nretries)
+                nretries+=1
+                if nretries==5: #FIXME the number of retries should be configurable
+                    log.error("Too many retries. Aborting. Unable to execute %s", query)
+                    raise ir
+                time.sleep(1)
+
     def executelocked(self,query):
         if self.instance.concurrent_creation:
             r=self.instance.session.execute(self.instance._query_to_lock,[query])
             if r[0][0]:
-                self.instance.session.execute(query)
+                self.executequery_withretries(query)
             else:
                 # FIXME find a better way to do this instead of an sleep... describe?
                 time.sleep(.300)
         else:
-            self.instance.session.execute(query)
+            self.executequery_withretries(query)
 
     def __init__(self):
         singleton = Config.instance
@@ -251,7 +270,6 @@ class Config:
             ]
             for query in configure_lock:
                 try:
-                    #self.executelocked(query)
                     self.instance.session.execute(query)
                 except Exception as e:
                     log.error("Error executing query %s" % query)
