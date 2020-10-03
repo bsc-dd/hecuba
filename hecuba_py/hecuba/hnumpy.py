@@ -3,6 +3,8 @@ import uuid
 from collections import namedtuple
 from typing import Tuple
 
+from math import ceil
+
 import numpy as np
 from hfetch import HNumpyStore, HArrayMetadata
 
@@ -25,11 +27,11 @@ class StorageNumpy(IStorage, np.ndarray):
             This is used to determine if a numpy is full loaded on memory and avoid accesses to cassandra.
         '''
         self._all_coords = np.array(list(np.ndindex(self.shape))).reshape(*self.shape,self.ndim)
-        all_blocks = self._all_coords //self._row_elem
-        all_blocks = all_blocks.reshape(-1, self.ndim)
-        all_blocks = [tuple(coord) for coord in all_blocks]
-        all_blocks = list(dict.fromkeys(all_blocks ))
-        self._n_blocks = len(all_blocks) ## Precalculated length of the total number of blocks
+        num_blocks = 1
+        for i in range(0, self.ndim):
+            b = ceil(self.shape[i] / self._row_elem)
+            num_blocks = num_blocks * b
+        self._n_blocks = num_blocks
 
     def np_split(self, block_size: Tuple[int, int]):
         # For now, only split in two dimensions is supported
