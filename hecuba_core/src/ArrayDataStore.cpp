@@ -38,6 +38,10 @@
 #include <list>
 #include <set>
 
+#include <algorithm>
+#include <cctype>
+#include <string>
+
 #define PMEM_OFFSET 8
 
 ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSession *session,
@@ -56,38 +60,52 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
     TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names, session);
     this->cache = new CacheTable(table_meta, session, config);
 
-    // Arrow tables:
-    //    - Writing to arrow uses temporal 'buffer' table
-    //    - Reading from arrow uses 'arrow' table
-    // Both have the SAME keys but DIFFERENT values!
-    std::vector<std::map<std::string, std::string> > keys_arrow_names = {{{"name", "storage_id"}},
-                                                                         {{"name", "col_id"}}};
+    char * env_path = std::getenv("HECUBA_ARROW");
+    if (env_path != nullptr) {
+        std::string hecuba_arrow(env_path);
+        std::transform(hecuba_arrow.begin(), hecuba_arrow.end(), hecuba_arrow.begin(),
+                        [](unsigned char c){ return std::tolower(c); });
+        if ((hecuba_arrow.compare("no")==0) ||
+            (hecuba_arrow.compare("false")==0) ) {
+            arrow_enabled = false;
+        } else {
+            arrow_enabled = true;
+        }
+    }
+    if (arrow_enabled) {
+        // Arrow tables:
+        //    - Writing to arrow uses temporal 'buffer' table
+        //    - Reading from arrow uses 'arrow' table
+        // Both have the SAME keys but DIFFERENT values!
+        std::vector<std::map<std::string, std::string> > keys_arrow_names = {{{"name", "storage_id"}},
+            {{"name", "col_id"}}};
 
-    // Temporal buffer for writing to arrow
-    std::vector<std::map<std::string, std::string> > columns_buffer_names = {{{"name", "row_id"}},
-                                                                            {{"name", "size_elem"}},
-                                                                            {{"name", "payload"}}};
+        // Temporal buffer for writing to arrow
+        std::vector<std::map<std::string, std::string> > columns_buffer_names = {{{"name", "row_id"}},
+            {{"name", "size_elem"}},
+            {{"name", "payload"}}};
 
-    // Arrow table (for reading)
-    std::vector<std::map<std::string, std::string> > columns_arrow_names = {{{"name", "arrow_addr"}},
-                                                                            {{"name", "arrow_size"}}};
-    // Create table names: table_buffer, table_arrow, keyspace_arrow
-    std::string table_buffer = table;
-    table_buffer.append("_buffer");
-    std::string table_arrow = table;
-    table_arrow.append("_arrow");
-    std::string keyspace_arrow = keyspace;
-    keyspace_arrow.append("_arrow");
+        // Arrow table (for reading)
+        std::vector<std::map<std::string, std::string> > columns_arrow_names = {{{"name", "arrow_addr"}},
+            {{"name", "arrow_size"}}};
+        // Create table names: table_buffer, table_arrow, keyspace_arrow
+        std::string table_buffer = table;
+        table_buffer.append("_buffer");
+        std::string table_arrow = table;
+        table_arrow.append("_arrow");
+        std::string keyspace_arrow = keyspace;
+        keyspace_arrow.append("_arrow");
 
-    // Prepare cache for WRITE
-    TableMetadata *table_meta_arrow_write = new TableMetadata(table_buffer.c_str(), keyspace_arrow.c_str(),
-                                                        keys_arrow_names, columns_buffer_names, session);
-    this->cache_arrow_write = new CacheTable(table_meta_arrow_write, session, config); // FIXME can be removed?
+        // Prepare cache for WRITE
+        TableMetadata *table_meta_arrow_write = new TableMetadata(table_buffer.c_str(), keyspace_arrow.c_str(),
+                keys_arrow_names, columns_buffer_names, session);
+        this->cache_arrow_write = new CacheTable(table_meta_arrow_write, session, config); // FIXME can be removed?
 
-    // Prepare cache for READ
-    TableMetadata *table_meta_arrow = new TableMetadata(table_arrow.c_str(), keyspace_arrow.c_str(),
-                                                        keys_arrow_names, columns_arrow_names, session);
-    this->cache_arrow = new CacheTable(table_meta_arrow, session, config);
+        // Prepare cache for READ
+        TableMetadata *table_meta_arrow = new TableMetadata(table_arrow.c_str(), keyspace_arrow.c_str(),
+                keys_arrow_names, columns_arrow_names, session);
+        this->cache_arrow = new CacheTable(table_meta_arrow, session, config);
+    }
 
     std::vector<std::map<std::string, std::string>> read_keys_names(keys_names.begin(), (keys_names.end() - 1));
     std::vector<std::map<std::string, std::string>> read_columns_names = columns_names;
@@ -239,6 +257,8 @@ void ArrayDataStore::store_numpy_partition_into_cas(const uint64_t *storage_id ,
  */
 void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
                                                    ArrayMetadata &metadata, void *data) const {
+
+    if (!arrow_enabled) return;
 
     assert( metadata.dims.size() <= 2 ); // First version only supports 2 dimensions
 
@@ -563,6 +583,7 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
  */
 void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, ArrayMetadata &metadata,
                                                    std::vector<uint64_t> &cols, void *save) {
+    if (!arrow_enabled) return;
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = cache_arrow->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
     std::vector<const TupleRow *> result;

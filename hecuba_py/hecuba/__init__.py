@@ -96,6 +96,14 @@ class Config:
         # intercepted : list of numpy intercepted calls
         singleton.intercepted = {}
 
+        if 'HECUBA_ARROW' in os.environ:
+            env_var = os.environ['HECUBA_ARROW'].lower()
+            singleton.arrow_enabled = False if env_var == 'no' or env_var == 'false' else True
+            log.info('HECUBA_ARROW: {}'.format(singleton.arrow_enabled))
+        else:
+            singleton.arrow_enabled = False
+            log.warn('Arrow access is DISABLED [HECUBA_ARROW=%s]', singleton.arrow_enabled)
+
         if 'CONCURRENT_CREATION' in os.environ:
             if os.environ['CONCURRENT_CREATION']=='True':
                 singleton.concurrent_creation = True

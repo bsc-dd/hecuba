@@ -53,8 +53,7 @@ protected:
 
     SpaceFillingCurve partitioner;
 
-
-
+    bool arrow_enabled = false;
 };
 
 
