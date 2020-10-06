@@ -100,12 +100,12 @@ RETRY_MAX=500 # This value is around 50, higher now to test big clusters that ne
 
 #check if the user wants to start from a stored snapshot
 if [ "X$RECOVER" !=  "X" ]; then
-        echo $RECOVER > $RECOVER_FILE
-        export CLUSTER=$RECOVER
-        RECOVERING=$CLUSTER
-        echo "[INFO] Recovering snapshot: $RECOVERING"
+    echo $RECOVER > $RECOVER_FILE
+    export CLUSTER=$RECOVER
+    RECOVERING=$CLUSTER
+    echo "[INFO] Recovering snapshot: $RECOVERING"
 else
-        export CLUSTER=$THETIME
+    export CLUSTER=$THETIME
 fi
 
 
