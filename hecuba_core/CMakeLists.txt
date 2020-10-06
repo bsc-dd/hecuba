@@ -252,6 +252,15 @@ if (DEFINED ENV{GTEST_ROOT})
             add_dependencies(cache_imp_test hfetch)
             add_test(test cache_imp_test)
 
+            #Arrow tests
+            #add_executable(cache_imp_test tests/enrictests_stdcassandra.cpp) # Enric tests std cassandra
+            #add_executable(cache_imp_test tests/enrictests_intelcassandra.cpp) # Enric tests intel cassandra
+            #set_target_properties(cache_imp_test
+            #        PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
+            #target_link_libraries(cache_imp_test ${ALL_LIBS} ${GTEST_BOTH_LIBRARIES} hfetch ${PT})
+            #add_dependencies(cache_imp_test hfetch)
+            #add_test(test cache_imp_test)
+
             # Meta manager tests
             add_executable(meta_manager_test tests/meta_manager_tests.cpp)
             #add_executable(meta_manager_test_laia tests/meta_manager_tests_laia.cpp)

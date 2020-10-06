@@ -27,7 +27,8 @@ class StorageNumpyTest(unittest.TestCase):
         config.execution_name = self.ksp
 
     def tearDown(self):
-        config.session.execute("DROP KEYSPACE IF EXISTS {}".format(self.ksp))
+        #config.session.execute("DROP KEYSPACE IF EXISTS {}".format(self.ksp))
+        pass
 
     table = 'numpy_test'
 
@@ -522,6 +523,16 @@ class StorageNumpyTest(unittest.TestCase):
 
         self.assertTrue(np.array_equal(tmp, n[0,:]))
         print(tmp)
+
+    def test_row_access(self):
+        n = np.arange(64*128).reshape(64,128) # A matrix with "some" columns
+        s = StorageNumpy(n, "rows")
+        del s
+        s = StorageNumpy(None, "rows")
+        for i in range(0,64):
+            print("\ni: ", i)
+            tmp = s[i,:]    # Access a whole row
+            self.assertTrue(np.array_equal(tmp, n[i,:]))
 
     def test_column_access(self):
         n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns

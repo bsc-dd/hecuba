@@ -451,7 +451,6 @@ ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
  * @return Numpy ndarray as a Python object
  */
 void ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetadata &metadata, void *save) {
-
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
 
@@ -566,7 +565,7 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
                                                    std::vector<uint64_t> &cols, void *save) {
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = cache_arrow->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
-    std::vector<const TupleRow *> result, all_results;
+    std::vector<const TupleRow *> result;
     uint64_t *c_uuid = nullptr;
     char *_keys = nullptr;
     int32_t offset = 0;
@@ -656,5 +655,7 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
             }
         }
     }
+    for (const TupleRow *item:result) delete (item);
+    sptrFileReader.reset();
     close(fdIn);
 }
