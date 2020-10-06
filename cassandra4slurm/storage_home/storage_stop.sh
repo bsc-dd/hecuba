@@ -61,7 +61,7 @@ then
     rm -f $SNAPSHOT_FILE
 fi
 if [ -f $C4S_HOME/stop."$UNIQ_ID".txt ]; then
-        if $(cat $C4S_HOME/stop."$UNIQ_ID".txt)" == "1" then
+        if [ "$(cat $C4S_HOME/stop."$UNIQ_ID".txt)" == "1" ]; then
 		#if cassandra was launched with the application then it exists a file stop with a 1 inside to kill it
 		srun  --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 bash $MODULE_PATH/killer.sh
 fi

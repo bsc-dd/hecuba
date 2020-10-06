@@ -121,9 +121,9 @@ scontrol show hostnames $SLURM_NODELIST > $NODEFILE
 # Generating nodefiles
 #yolandab: this assumes that the n initial nodes are worker nodes. We have the variable worker nodes with the nodes separated by blanks, for the run command we need to use comma as the separator
 #head -n $CASSANDRA_NODES $NODEFILE > $CASSFILE
-casslist=$(echo $WORKER_NODES |sed s/\ /,/)
-echo $casslist > $CASSFILE
-NODETOOL_HOST=$(echo $casslist |cut -d" " -f1)-$iface
+CASSANDRA_NODELIST=$(echo $WORKER_NODES |sed s/\ /,/g)
+echo $CASSANDRA_NODELIST |tr "," "\n" > $CASSFILE
+NODETOOL_HOST=$(echo $CASSANDRA_NODELIST |cut -d"," -f1)-$iface
 
 echo "[DEBUG] iter="$iter
 echo "[DEBUG] app_count="$app_count
@@ -131,7 +131,7 @@ echo "[DEBUG] APP_NODES="$APP_NODES
 echo "[DEBUG] CASSANDRA_NODES="$CASSANDRA_NODES
 echo "[DEBUG] DISJOINT="$DISJOINT
 
-export N_NODES=$(cat $CASSFILE | wc -l)
+export N_NODES=$CASSANDRA_NODES
 
 
 function exit_bad_node_status () {
@@ -184,9 +184,7 @@ sed "s/.*seeds:.*/          - seeds: \"$seeds\"/" $C4S_HOME/conf/template.yaml |
 ls -la $C4S_HOME/conf/template-aux-"$SLURM_JOB_ID".yaml
 
 TIME_START=`date +"%T.%3N"`
-echo "Launching Cassandra in the following hosts: $casslist"
-export CASSANDRA_NODELIST=$(echo $casslist | sed -e 's+ +,+g')
-echo "CASSANDRA_NODELIST var: "$CASSANDRA_NODELIST
+echo "Launching Cassandra in the following hosts: $CASSANDRA_NODELIST"
 
 # If a snapshot is needed
 
@@ -200,6 +198,7 @@ if [ "$MAKE_SNAPSHOT" == "1" ]; then
 fi
 
 # Clearing data from previous executions and checking symlink coherence
+echo "srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES $MODULE_PATH/tmp-set.sh $CASS_HOME $DATA_HOME $COMM_HOME $SAV_CACHE $ROOT_PATH $CLUSTER $UNIQ_ID"
 srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES $MODULE_PATH/tmp-set.sh $CASS_HOME $DATA_HOME $COMM_HOME $SAV_CACHE $ROOT_PATH $CLUSTER $UNIQ_ID
 sleep 5
 
