@@ -110,17 +110,57 @@ def getByID(objid):
     from hecuba import StorageNumpy, StorageDict
     from hecuba import StorageObj as StorageObject
     import uuid
+    from multiprocessing import shared_memory
+    import numpy as np
+ 
+    try:
+        existing_shm = shared_memory.SharedMemory(name=str(objid))
+        in_cache= True
+    except:
+        in_cache= False
+    
 
-    query = "SELECT * FROM hecuba.istorage WHERE storage_id = %s"
+    if in_cache:
+        query = "SELECT * FROM hecuba.istorage WHERE storage_id = %s"
 
-    if isinstance(objid, str):
-        objid = uuid.UUID(objid)
+        if isinstance(objid, str):
+            objid = uuid.UUID(objid)
 
-    results = config.session.execute(query, [objid])
-    if not results:
-        raise RuntimeError("Object {} not found on hecuba.istorage".format(objid))
+        results = config.session.execute(query, [objid])
 
-    results = results[0]
+        t=results[0]._asdict()
+        shape=t['numpy_meta'].dims
 
-    log.debug("IStorage API:getByID(%s) of class %s", objid, results.class_name)
-    return build_remotely(results._asdict())
+        # StorageNumpy no persistent, for correct data type
+        value = StorageNumpy(np.ndarray(shape, dtype=np.float64, buffer=existing_shm.buf))
+
+        # Fix for being not real persistent
+        value._is_persistent=True
+        value.name=t["name"]
+        value._numpy_full_loaded=True
+        value.storage_id=objid
+
+        return value
+ 
+    else:
+        query = "SELECT * FROM hecuba.istorage WHERE storage_id = %s"
+
+        if isinstance(objid, str):
+            objid = uuid.UUID(objid)
+
+        results = config.session.execute(query, [objid])
+
+        if not results:
+            raise RuntimeError("Object {} not found on hecuba.istorage".format(objid))
+
+        results = results[0]
+
+        log.debug("IStorage API:getByID(%s) of class %s", objid, results.class_name)
+        
+        built_numpy = build_remotely(results._asdict())
+
+        shm = shared_memory.SharedMemory(create=True, size=built_numpy.nbytes,name=str(objid))
+        d = np.ndarray(built_numpy.shape, dtype=built_numpy.dtype, buffer=shm.buf)
+        d[:] = built_numpy[:]
+
+        return built_numpy
