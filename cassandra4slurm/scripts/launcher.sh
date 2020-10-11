@@ -358,16 +358,16 @@ if [ "0$UNK_FLAGS" != "0" ]; then
     exit
 fi
 
-if [ ! -f $C4S_HOME/conf/cassandra4slurm.cfg ]; then
+if [ ! -f $CFG_FILE ]; then
     set_workspace
     echo "INFO: A default Cassandra4Slurm config has been generated. Edit the following file and try again:"
-    echo "$C4S_HOME/conf/cassandra4slurm.cfg"
+    echo "$CFG_FILE"
     exit
 fi
 
 if [ ! -f $CASS_HOME/bin/cassandra ]; then
     echo "ERROR: Cassandra binary is not where it was expected. ($CASS_HOME/bin/cassandra)"
-    echo "Edit the following file to continue: $C4S_HOME/conf/cassandra4slurm.cfg"
+    echo "Edit the following file to continue: $CFG_FILE"
     exit
 fi 
 
