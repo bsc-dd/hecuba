@@ -48,7 +48,8 @@ class EmbeddedSetTest(unittest.TestCase):
         config.execution_name = self.current_ksp
 
     def tearDown(self):
-        config.session.execute("DROP KEYSPACE IF EXISTS {}".format(self.current_ksp))
+        #config.session.execute("DROP KEYSPACE IF EXISTS {}".format(self.current_ksp))
+        pass
 
     def testAddRemove(self):
         d = DictSet2(self.current_ksp+".dictset")

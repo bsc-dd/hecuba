@@ -32,7 +32,8 @@ class LambdaParserTest(unittest.TestCase):
         config.execution_name = self.current_ksp
 
     def tearDown(self):
-        config.session.execute("DROP KEYSPACE IF EXISTS {}".format(self.current_ksp))
+        #config.session.execute("DROP KEYSPACE IF EXISTS {}".format(self.current_ksp))
+        pass
 
     def test_simple_filter(self):
         simple_dict = SimpleDict("simpledict")

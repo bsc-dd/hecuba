@@ -346,14 +346,14 @@ class StorageDictSlitTestVnodes(StorageDictSplitTestbase):
         importlib.reload(hfetch)
         import importlib
         importlib.reload(hecuba)
-        config.session.execute("DROP KEYSPACE IF EXISTS my_app")
+        config.session.execute("DROP KEYSPACE IF EXISTS my_app", timeout=60)
         config.session.execute(
             "CREATE KEYSPACE IF NOT EXISTS my_app WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};")
         super(StorageDictSplitTestbase, cls).setUpClass()
 
     @classmethod
     def tearDownClass(cls):
-        config.session.execute("DROP KEYSPACE IF EXISTS my_app")
+        config.session.execute("DROP KEYSPACE IF EXISTS my_app", timeout=60)
         from .. import test_config
         from hfetch import disconnectCassandra
         disconnectCassandra()

@@ -12,11 +12,12 @@ class StorageDictTest(unittest.TestCase):
 
     @staticmethod
     def tearDownClass():
-        config.session.execute(
-                "DROP KEYSPACE ksp;")
+        config.session.execute( "DROP KEYSPACE ksp;")
+        pass
 
     def tearDown(self):
-        config.session.execute("DROP TABLE IF EXISTS ksp.tb1")
+        config.session.execute("DROP TABLE IF EXISTS ksp.tb1", timeout=60)
+        pass
 
     def test_flush_items_100(self):
         config.session.execute("CREATE TABLE ksp.tb1(pk1 int, val1 text,PRIMARY KEY(pk1))")
