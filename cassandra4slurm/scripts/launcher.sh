@@ -375,7 +375,7 @@ if [ "0$LOGS_DIR" == "0" ]; then
 	#yolandab
     DEFAULT_LOGS_DIR=$(cat $CFG_FILE | grep "LOG_PATH=")
     if [ $? -eq 1 ]; then
-            DEFAULT_LOGS_DIR=$HOME
+            DEFAULT_LOGS_DIR=$PWD
     else
             DEFAULT_LOGS_DIR=$(echo $DEFAULT_LOGS_DIR| sed 's/LOG_PATH=//g' | sed 's/"//g')
     fi
