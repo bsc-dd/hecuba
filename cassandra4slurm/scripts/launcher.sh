@@ -358,19 +358,32 @@ if [ "0$UNK_FLAGS" != "0" ]; then
     exit
 fi
 
-if [ ! -f $C4S_HOME/conf/cassandra4slurm.cfg ]; then
+if [ ! -f $CFG_FILE ]; then
     set_workspace
     echo "INFO: A default Cassandra4Slurm config has been generated. Edit the following file and try again:"
-    echo "$C4S_HOME/conf/cassandra4slurm.cfg"
+    echo "$CFG_FILE"
     exit
 fi
 
 if [ ! -f $CASS_HOME/bin/cassandra ]; then
     echo "ERROR: Cassandra binary is not where it was expected. ($CASS_HOME/bin/cassandra)"
-    echo "Edit the following file to continue: $C4S_HOME/conf/cassandra4slurm.cfg"
+    echo "Edit the following file to continue: $CFG_FILE"
     exit
 fi 
 
+if [ "0$LOGS_DIR" == "0" ]; then
+	#yolandab
+    DEFAULT_LOGS_DIR=$(cat $CFG_FILE | grep "LOG_PATH=")
+    if [ $? -eq 1 ]; then
+            DEFAULT_LOGS_DIR=$PWD
+    else
+            DEFAULT_LOGS_DIR=$(echo $DEFAULT_LOGS_DIR| sed 's/LOG_PATH=//g' | sed 's/"//g')
+    fi
+    echo "[INFO] This execution will use $DEFAULT_LOGS_DIR as logging dir"
+    #was:
+    #DEFAULT_LOGS_DIR=$(cat $CFG_FILE | grep "LOG_PATH=" | sed 's/LOG_PATH=//g' | sed 's/"//g')
+    LOGS_DIR=$DEFAULT_LOGS_DIR
+fi
 if [ "$ACTION" == "RUN" ]; then
     # Updates UNIQ_ID related paths and files if needed
     set_utils_paths
@@ -546,19 +559,6 @@ if [ "$ACTION" == "RUN" ]; then
     if [ "0$JOB_MAX_TIME" == "0" ]; then
         JOB_MAX_TIME=$DEFAULT_MAX_TIME
     fi
-    if [ "0$LOGS_DIR" == "0" ]; then
-	#yolandab
-        DEFAULT_LOGS_DIR=$(cat $CFG_FILE | grep "LOG_PATH=")
-        if [ $? -eq 1 ]; then
-                DEFAULT_LOGS_DIR=$HOME
-        else
-                DEFAULT_LOGS_DIR=$(echo $DEFAULT_LOGS_DIR| sed 's/LOG_PATH=//g' | sed 's/"//g')
-        fi
-        echo "[INFO] This execution will use $DEFAULT_LOGS_DIR as logging dir"
-        #was:
-        #DEFAULT_LOGS_DIR=$(cat $CFG_FILE | grep "LOG_PATH=" | sed 's/LOG_PATH=//g' | sed 's/"//g')
-        LOGS_DIR=$DEFAULT_LOGS_DIR
-    fi
     echo "SUBMITTING sbatch --job-name="$UNIQ_ID" --nodes=$TOTAL_NODES --time=$JOB_MAX_TIME --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $QUEUE $CONSTRAINTS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT"
 
     SUBMIT_MSG=$(sbatch --job-name="$UNIQ_ID" --nodes=$TOTAL_NODES --time=$JOB_MAX_TIME --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $QUEUE $CONSTRAINTS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT) #nproc result is 48 here
@@ -686,10 +686,6 @@ then
 
     # Enables/Disables the snapshot option after the execution
     set_snapshot_value
-    if [ "0$LOGS_DIR" == "0" ]; then
-        DEFAULT_LOGS_DIR=$(cat $CFG_FILE | grep "LOG_PATH=" | sed 's/LOG_PATH=//g' | sed 's/"//g')
-        LOGS_DIR=$DEFAULT_LOGS_DIR
-    fi
 
     CASSANDRA_NODES=$N_NODES
     if [ "$DISJOINT" == "1" ]; then 
@@ -709,10 +705,6 @@ then
     if [ "0$JOB_MAX_TIME" == "0" ]; then
         JOB_MAX_TIME=$DEFAULT_MAX_TIME
     fi
-    if [ "0$LOGS_DIR" == "0" ]; then
-        DEFAULT_LOGS_DIR=$(cat $CFG_FILE | grep "LOG_PATH=" | sed 's/LOG_PATH=//g' | sed 's/"//g')
-        LOGS_DIR=$DEFAULT_LOGS_DIR
-    fi
 
     echo "[ PARAM DEBUG ]"
     echo "UNIQ_ID: "$UNIQ_ID
@@ -721,6 +713,7 @@ then
     echo "PYCOMPSS_SET: "$PYCOMPSS_SET
     echo "DISJOINT: "$DISJOINT
      
+    echo sbatch --job-name="$UNIQ_ID" --nodes=$TOTAL_NODES --time=$JOB_MAX_TIME --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $QUEUE $CONSTRAINTS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT
     SUBMIT_MSG=$(sbatch --job-name="$UNIQ_ID" --nodes=$TOTAL_NODES --time=$JOB_MAX_TIME --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $QUEUE $CONSTRAINTS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT) 
     echo $SUBMIT_MSG" ("$UNIQ_ID")"
     JOB_NUMBER=$(echo $SUBMIT_MSG | awk '{ print $NF }')
