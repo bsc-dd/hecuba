@@ -413,59 +413,72 @@ class StorageNumpy(IStorage, np.ndarray):
                                        new_coords)
                 self._loaded_coordinates = coordinates
 
-    def _select_and_load_data(self, sliced_coord):
+    def _accessed_columns(self, sliced_coord):
         """
-        Given the 'sliced_coord' as a parameter to a getitem, loads the
-        corresponding data from cassandra.
-        Returns True if the parameter corresponds to a columnar access.
+        Returns None or a list of columns accesed
         """
-        if config.arrow_enabled:
-            # Check if the access is columnar...
-            columns_selected = False
-            if isinstance(sliced_coord, tuple):
-                # If the getitem parameter is a tuple, then we may catch the
-                # column accesses: Ex: s[:, i], s[:, [i1,i2]], s[:, slice(...)]
-                # All these accesses arrive here as a tuple:
-                #   (slice(None,None,None), xxx)
-                # where xxx is the last parameter of the tuple.
-                # FIXME Extend to more than 2 dimensions
-                dims = sliced_coord.__len__()
-                if dims == 2: # Only 2 dimensions
-                    if isinstance(sliced_coord[-dims], slice) and sliced_coord[-dims] == slice(None, None, None):
-                        # A WHOLE COLUMN selected!
-                        columns_selected = True
-                        columns = []
-                        columns.append(sliced_coord[-1])
-            # Read data by columns or coordinates depending on the requested access
-            if columns_selected:
-                self._twin_ref._hcache.load_numpy_slices([self._twin_ref.base_numpy],
-                                                self._twin_ref._build_args.metas,
-                                                [self._twin_ref.base.view(np.ndarray)],
-                                                columns)
-                return True
+        columns = None
+        if isinstance(sliced_coord, tuple):
+            # If the getitem parameter is a tuple, then we may catch the
+            # column accesses: Ex: s[:, i], s[:, [i1,i2]], s[:, slice(...)]
+            # All these accesses arrive here as a tuple:
+            #   (slice(None,None,None), xxx)
+            # where xxx is the last parameter of the tuple.
+            # FIXME Extend to more than 2 dimensions
+            dims = sliced_coord.__len__()
+            if dims == 2: # Only 2 dimensions
+                if isinstance(sliced_coord[-dims], slice) and sliced_coord[-dims] == slice(None, None, None):
+                    # A WHOLE COLUMN selected!
+                    columns = []
+                    columns.append(sliced_coord[-1])
+        return columns
 
-        # Normal array access
-        self._select_and_load_blocks(sliced_coord)
-        return False
+    def _load_columns(self, columns):
+        """
+            Load from Cassandra the list of columns.
+            This accesses the twin.
+            Args:
+                self: The StorageNumpy to load data into
+                columns: The coordinates to load (column position)
+        """
+
+        if self._twin_ref._is_persistent:
+            log.debug("LOADING COLUMNS {}".format(columns))
+            base_numpy = StorageNumpy._get_base_array(self._twin_ref)
+            self._twin_ref._hcache.load_numpy_slices([self._twin_ref._build_args.base_numpy],
+                                        self._twin_ref._build_args.metas,
+                                        [base_numpy],
+                                        columns)
 
     def _select_and_load_blocks(self, sliced_coord):
-        if not self._numpy_full_loaded:
-            block_coord = self._select_blocks(sliced_coord)
-            self._load_blocks(block_coord)
+        if self._is_persistent:
+            if not self._numpy_full_loaded:
+                block_coord = self._select_blocks(sliced_coord)
+                self._load_blocks(block_coord)
 
     def __getitem__(self, sliced_coord):
         log.info("RETRIEVING NUMPY {}".format(sliced_coord))
         if self._is_persistent:
-            columns_selected = self._select_and_load_data(sliced_coord)
             #if the slice is a npndarray numpy creates a copy and we do the same
             if isinstance(sliced_coord, np.ndarray): # is there any other slicing case that needs a copy of the array????
                 result = self.view(np.ndarray)[sliced_coord]
                 return StorageNumpy(result) # Creates a copy (A StorageNumpy from a Numpy)
 
-        if columns_selected:
-            return super(StorageNumpy, self._twin_ref).__getitem__(sliced_coord)
-        else:
+        if self._build_args.metas.partition_type == 2 :
+            #HACK if the accessed numpy is a columnar one, assume that it is already in memory
+            log.warn("Accessing a twin directly. Assuming is already in memory")
             return super(StorageNumpy, self).__getitem__(sliced_coord)
+
+        # Check if the access is columnar...
+        columns = self._accessed_columns(sliced_coord)
+        if columns is not None :
+            self._load_columns(columns)
+            return super(StorageNumpy,
+                    self._twin_ref).__getitem__((columns[0], slice(None, None, None)))
+
+        # Normal array access...
+        self._select_and_load_blocks(sliced_coord)
+        return super(StorageNumpy, self).__getitem__(sliced_coord)
 
     def __setitem__(self, sliced_coord, values):
         log.info("WRITING NUMPY")
