@@ -674,6 +674,10 @@ class StorageNumpy(IStorage, np.ndarray):
         Copy a StorageNumpy: new **volatile** StorageNumpy with the data of the parameter
         '''
         n_sn=super(StorageNumpy,self).copy(order)
+        if self._twin_ref is not None:
+            n_sn._twin_id = None
+            n_sn._twin_name = None
+            n_sn._twin_ref = super(StorageNumpy, self._twin_ref).copy(order)
         return n_sn
 
 
