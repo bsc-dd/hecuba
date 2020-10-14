@@ -263,7 +263,6 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertTrue(np.array_equal(sub_hecu, hecu_p_load[:2, 3:]))
         # Clean up
         hecu_p_load.delete_persistent()
-        config.session.execute("DROP TABLE IF EXISTS my_app.my_array")
 
     def test_assign_element(self):
         base = np.arange(8 * 8 * 4).reshape((8, 8, 4))
@@ -279,7 +278,6 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertTrue(sub_hecu_load[0][1][0] == 0)
         # Clean up
         hecu_p_load.delete_persistent()
-        config.session.execute("DROP TABLE IF EXISTS my_app.my_array2")
 
     def test_load_2_dif_clusters_same_instance(self):
         base = np.arange(50 * 50).reshape((50, 50))
@@ -397,7 +395,6 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertTrue(not np.array_equal(s1, n))
         # Clean up
         s1.delete_persistent()
-        config.session.execute("DROP TABLE IF EXISTS my_app.test_storage_copy_memory")
 
 
     def test_storagenumpy_from_storagenumpy(self):
@@ -431,7 +428,6 @@ class StorageNumpyTest(unittest.TestCase):
 
         # Clean up
         s1.delete_persistent()
-        config.session.execute("DROP TABLE IF EXISTS my_app.test_storage_from_storage")
 
     def test_storagenumpy_reshape(self):
         #'''
@@ -450,7 +446,6 @@ class StorageNumpyTest(unittest.TestCase):
 
         # Clean up
         s1.delete_persistent()
-        config.session.execute("DROP TABLE IF EXISTS my_app.test_storage_from_storage")
 
     def test_transpose(self):
         #'''
@@ -469,7 +464,6 @@ class StorageNumpyTest(unittest.TestCase):
 
         # Clean up
         s.delete_persistent()
-        config.session.execute("DROP TABLE IF EXISTS my_app.testTranspose")
 
     def test_copy_storageNumpyPersist(self):
         #'''
@@ -489,7 +483,6 @@ class StorageNumpyTest(unittest.TestCase):
 
         # Clean up
         s.delete_persistent()
-        config.session.execute("DROP TABLE IF EXISTS my_app.testcopy")
 
     def test_copy_storageNumpyVolatile(self):
         #'''
