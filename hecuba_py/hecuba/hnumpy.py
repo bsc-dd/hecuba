@@ -182,6 +182,7 @@ class StorageNumpy(IStorage, np.ndarray):
                 if input_array._twin_ref is not None:
                     # FIXME Treat the TWIN also!
                     # Check that the new object has the same ref as base
+                    log.warn("Creating a volatile StorageNumpy. Ignoring TWIN")
                     pass
             else:
                 # StorageNumpy(numpy, None, None)
@@ -227,6 +228,8 @@ class StorageNumpy(IStorage, np.ndarray):
                                                  input_array._build_args.base_numpy, # Update base_numpy with original_data
                                                  self._twin_id)
                     self._store_meta(self._build_args) # StoreNumpy from persistent StorageNumpy (reshape): we only need to update the metadata
+                    # FIXME twin?
+                    log.warn("Creating a Persistent StorageNumpy. Ignoring TWIN")
                 else:
                     self.make_persistent(self._get_name())
             self._is_persistent = True # IStorage.__init__ resets this! Therefore enable it again
