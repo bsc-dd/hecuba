@@ -496,14 +496,14 @@ class StorageNumpy(IStorage, np.ndarray):
             self._hcache.store_numpy_slices([self._build_args.base_numpy],
                     self._build_args.metas, [base_numpy],
                     block_coords)
-            if self._twin_ref:
+            if self._twin_ref is not None:
                 super(StorageNumpy, self._twin_ref).__setitem__(sliced_coord, values)
                 self._twin_ref._hcache.store_numpy_slices([self._twin_ref.base_numpy],
                         self._twin_ref._build_args.metas,
                         [self._twin_ref.base.view(np.ndarray)],
                         new_coords[-1])
             return modified_np
-        if self._twin_ref:
+        if self._twin_ref is not None:
             super(StorageNumpy, self._twin_ref).__setitem__(sliced_coord, values)
         return super(StorageNumpy, self).__setitem__(sliced_coord, values)
 
@@ -522,7 +522,7 @@ class StorageNumpy(IStorage, np.ndarray):
             raise NotImplemented("Empty array persistance")
 
         twin = self._twin_ref
-        if twin is not None:
+        if twin is not None :
             # If there is a twin, make it persistent FIRST
             twksp, twtbl = extract_ks_tab(name)
             twinname = twksp + "." + StorageNumpy.get_arrow_name(twtbl)
