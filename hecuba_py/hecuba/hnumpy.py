@@ -101,8 +101,30 @@ class StorageNumpy(IStorage, np.ndarray):
         obj._hcache = result[1]
         (obj._ksp, obj._table) = extract_ks_tab(name)
         obj.storage_id = storage_id
-        obj._twin_id   = twin_id
-        obj._twin_name = obj._ksp + "." + StorageNumpy.get_arrow_name(obj._table)
+        if twin_id is not None:
+            # Load TWIN array
+            #print ("JJ __new__ twin_name ", obj._twin_name, flush=True);
+            #print ("JJ __new__ twin_id ", obj._twin_id, flush=True);
+            obj._twin_id   = twin_id
+            obj._twin_name = obj._ksp + "." + StorageNumpy.get_arrow_name(obj._table)
+            twin = StorageNumpy._initialize_existing_object(cls, obj._twin_name, obj._twin_id)
+            obj._twin_ref = twin
+            twin_metas = HArrayMetadata(
+                                        list(twin.shape),
+                                        list(twin.strides),
+                                        twin.dtype.kind,
+                                        twin.dtype.byteorder,
+                                        twin.itemsize,
+                                        twin.flags.num,
+                                        2)  # 2 == COLUMNAR (find it at SpaceFillingCurve.h)
+            twin._build_args = twin.args(
+                                         obj._twin_id,
+                                         obj._class_name,
+                                         obj._twin_name,
+                                         twin_metas,
+                                         None, #self._block_id,
+                                         obj._twin_id, # base numpy
+                                         None) #twin_id
         obj._row_elem = obj._hcache.get_elements_per_row(storage_id, base_metas)
         if base_numpy is not None:
             obj._partition_dims = numpy_metadata.dims
@@ -121,6 +143,8 @@ class StorageNumpy(IStorage, np.ndarray):
             self._block_id = block_id
         # Finally, we must return the newly created object:
         self._class_name = '%s.%s' % (cls.__module__, cls.__name__)
+        if self._twin_ref is not None:
+            self._twin_ref._complete_initialization(cls, self._twin_name, block_id)
 
     def __new__(cls, input_array=None, name=None, storage_id=None, block_id=None, **kwargs):
         log.debug("input_array=%s name=%s storage_id=%s ",input_array is not None, name, storage_id)
@@ -135,12 +159,6 @@ class StorageNumpy(IStorage, np.ndarray):
 
         if input_array is None and (name is not None or storage_id is not None):
             obj = StorageNumpy._initialize_existing_object(cls, name, storage_id)
-            if obj._twin_id is not None:
-                # Load TWIN array
-                #print ("JJ __new__ twin_name ", obj._twin_name, flush=True);
-                #print ("JJ __new__ twin_id ", obj._twin_id, flush=True);
-                twin = StorageNumpy._initialize_existing_object(cls, obj._twin_name, obj._twin_id)
-                obj._twin_ref = twin
 
         else:
             if isinstance(input_array, StorageNumpy): # StorageNumpyDesign
@@ -168,18 +186,17 @@ class StorageNumpy(IStorage, np.ndarray):
             else:
                 # StorageNumpy(numpy, None, None)
                 obj = np.asarray(input_array).copy().view(cls)
-                obj._twin_id  = None
-                obj._twin_name = None
                 if getattr(input_array, 'ndim', 0) == 2:
+                    obj._twin_id  = None
+                    obj._twin_name = None
                     obj._twin_ref = np.asarray(input_array).T.copy().view(cls)
                     IStorage.__init__(obj._twin_ref)
+                    log.debug("Created TWIN")
 
         #print("JJ name = ", name, flush=True)
         #print("JJ _twin_name = ", obj._twin_name, flush=True)
         #print("JJ _name = ", obj._name, flush=True)
         obj._complete_initialization(cls, name, block_id)
-        if obj._twin_ref is not None:
-            obj._twin_ref._complete_initialization(cls, obj._twin_name, block_id)
         return obj
 
     def __init__(self, input_array=None, name=None, storage_id=None, **kwargs):
