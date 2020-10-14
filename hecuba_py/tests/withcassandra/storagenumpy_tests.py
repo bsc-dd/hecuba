@@ -453,9 +453,9 @@ class StorageNumpyTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.test_storage_from_storage")
 
     def test_transpose(self):
-        '''
-        Test the transpose
-        '''
+        #'''
+        #Test the transpose
+        #'''
         n=np.arange(12).reshape(3,4)
 
         s=StorageNumpy(n,"testTranspose")
@@ -492,9 +492,9 @@ class StorageNumpyTest(unittest.TestCase):
         config.session.execute("DROP TABLE IF EXISTS my_app.testcopy")
 
     def test_copy_storageNumpyVolatile(self):
-        '''
-        Test that a copy of a StorageNumpy does not share memory (Volatile version)
-        '''
+        #'''
+        #Test that a copy of a StorageNumpy does not share memory (Volatile version)
+        #'''
         n=np.arange(12).reshape(3,4)
 
         s=StorageNumpy(n)
@@ -572,8 +572,6 @@ class StorageNumpyTest(unittest.TestCase):
 
                 # LOAD_ON_DEMAND must be DISABLED!
                 self.assertTrue(o.data.hex()[:40], '0' * 40)
-
-                #import pdb; pdb.set_trace();
 
                 start = timer()
 
