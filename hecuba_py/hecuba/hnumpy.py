@@ -100,6 +100,7 @@ class StorageNumpy(IStorage, np.ndarray):
 
         obj._hcache = result[1]
         (obj._ksp, obj._table) = extract_ks_tab(name)
+        obj._set_name(name)
         obj.storage_id = storage_id
         if twin_id is not None:
             # Load TWIN array
@@ -159,6 +160,7 @@ class StorageNumpy(IStorage, np.ndarray):
 
         if input_array is None and (name is not None or storage_id is not None):
             obj = StorageNumpy._initialize_existing_object(cls, name, storage_id)
+            name = obj._get_name()
 
         else:
             if isinstance(input_array, StorageNumpy): # StorageNumpyDesign
