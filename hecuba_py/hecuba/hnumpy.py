@@ -149,13 +149,13 @@ class StorageNumpy(IStorage, np.ndarray):
     def __new__(cls, input_array=None, name=None, storage_id=None, block_id=None, **kwargs):
         log.debug("input_array=%s name=%s storage_id=%s ",input_array is not None, name, storage_id)
         if name is not None:
-            if (len(name)>40 or name.startswith("HECUBA")):
-                # Cassandra limits name to 48 characters: we reserve 8 characters
-                # for special Hecuba tables
-                raise AttributeError("The name of an user StorageNumpy is limited to 40 chars and can not start 'HECUBA'")
             # Construct full qualified name to deal with cases where the name does NOT contain keyspace
             (ksp, table) = extract_ks_tab(name)
             name = ksp + "." + table
+            if (len(table)>40 or table.startswith("HECUBA")):
+                # Cassandra limits name to 48 characters: we reserve 8 characters
+                # for special Hecuba tables
+                raise AttributeError("The name of an user StorageNumpy is limited to 40 chars and can not start 'HECUBA'")
 
         if input_array is None and (name is not None or storage_id is not None):
             obj = StorageNumpy._initialize_existing_object(cls, name, storage_id)
