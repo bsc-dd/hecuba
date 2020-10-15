@@ -110,22 +110,6 @@ class StorageNumpy(IStorage, np.ndarray):
             obj._twin_name = obj._ksp + "." + StorageNumpy.get_arrow_name(obj._table)
             twin = StorageNumpy._initialize_existing_object(cls, obj._twin_name, obj._twin_id)
             obj._twin_ref = twin
-            twin_metas = HArrayMetadata(
-                                        list(twin.shape),
-                                        list(twin.strides),
-                                        twin.dtype.kind,
-                                        twin.dtype.byteorder,
-                                        twin.itemsize,
-                                        twin.flags.num,
-                                        2)  # 2 == COLUMNAR (find it at SpaceFillingCurve.h)
-            twin._build_args = twin.args(
-                                         obj._twin_id,
-                                         obj._class_name,
-                                         obj._twin_name,
-                                         twin_metas,
-                                         None, #self._block_id,
-                                         obj._twin_id, # base numpy
-                                         None) #twin_id
         obj._row_elem = obj._hcache.get_elements_per_row(storage_id, base_metas)
         if base_numpy is not None:
             obj._partition_dims = numpy_metadata.dims
@@ -217,6 +201,24 @@ class StorageNumpy(IStorage, np.ndarray):
                                self.itemsize, self.flags.num, 0)
         self._build_args = self.args(self.storage_id, self._class_name,
                 self._get_name(), metas, self._block_id, self.storage_id, self._twin_id)
+        twin = self._twin_ref
+        if twin is not None:
+            twin_metas = HArrayMetadata(
+                                        list(twin.shape),
+                                        list(twin.strides),
+                                        twin.dtype.kind,
+                                        twin.dtype.byteorder,
+                                        twin.itemsize,
+                                        twin.flags.num,
+                                        2)  # 2 == COLUMNAR (find it at SpaceFillingCurve.h)
+            twin._build_args = twin.args(
+                                         self._twin_id,
+                                         self._class_name,
+                                         self._twin_name,
+                                         twin_metas,
+                                         None, #self._block_id,
+                                         self._twin_id, # base numpy
+                                         None) #twin_id
 
         if self._get_name() or self.storage_id:
             load_data= (input_array is None) and (config.load_on_demand == False)
