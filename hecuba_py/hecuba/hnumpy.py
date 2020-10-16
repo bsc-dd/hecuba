@@ -420,7 +420,7 @@ class StorageNumpy(IStorage, np.ndarray):
                                        new_coords)
                 self._loaded_coordinates = coordinates
 
-    def _accessed_columns(self, sliced_coord):
+    def _select_columns(self, sliced_coord):
         """
         Returns None or a list of columns accesed
         """
@@ -477,7 +477,7 @@ class StorageNumpy(IStorage, np.ndarray):
             return super(StorageNumpy, self).__getitem__(sliced_coord)
 
         # Check if the access is columnar...
-        columns = self._accessed_columns(sliced_coord)
+        columns = self._select_columns(sliced_coord)
         if columns is not None :
             self._load_columns(columns)
             return super(StorageNumpy,
