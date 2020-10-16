@@ -471,10 +471,10 @@ class StorageNumpy(IStorage, np.ndarray):
                 result = self.view(np.ndarray)[sliced_coord]
                 return StorageNumpy(result) # Creates a copy (A StorageNumpy from a Numpy)
 
-        if self._build_args.metas.partition_type == 2 :
-            #HACK if the accessed numpy is a columnar one, assume that it is already in memory
-            log.warn("Accessing a twin directly. Assuming is already in memory")
-            return super(StorageNumpy, self).__getitem__(sliced_coord)
+            if self._build_args.metas.partition_type == 2 :
+                #HACK if the accessed numpy is a columnar one, assume that it is already in memory
+                log.warn("Accessing a twin directly. Assuming it is already in memory")
+                return super(StorageNumpy, self).__getitem__(sliced_coord)
 
         # Check if the access is columnar...
         columns = self._select_columns(sliced_coord)
