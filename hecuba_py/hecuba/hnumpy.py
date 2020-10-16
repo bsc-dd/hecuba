@@ -436,6 +436,9 @@ class StorageNumpy(IStorage, np.ndarray):
             if dims == 2: # Only 2 dimensions
                 if isinstance(sliced_coord[-dims], slice) and sliced_coord[-dims] == slice(None, None, None):
                     # A WHOLE COLUMN selected!
+                    if isinstance(sliced_coord[-1], slice):
+                        log.warn("Columnar access and slice is not implemented")
+                        return None
                     columns = []
                     columns.append(sliced_coord[-1])
         return columns
