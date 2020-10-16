@@ -506,15 +506,15 @@ class StorageNumpy(IStorage, np.ndarray):
             self._hcache.store_numpy_slices([self._build_args.base_numpy],
                     self._build_args.metas, [base_numpy],
                     block_coords)
-            if self._twin_ref is not None:
-                super(StorageNumpy, self._twin_ref).__setitem__(sliced_coord, values)
-                self._twin_ref._hcache.store_numpy_slices([self._twin_ref.base_numpy],
-                        self._twin_ref._build_args.metas,
-                        [self._twin_ref.base.view(np.ndarray)],
-                        new_coords[-1])
+            #if self._twin_ref is not None:
+            #    super(StorageNumpy, self._twin_ref).__setitem__(sliced_coord, values)
+            #    self._twin_ref._hcache.store_numpy_slices([self._twin_ref._build_args.base_numpy],
+            #            self._twin_ref._build_args.metas,
+            #            [self._twin_ref.base.view(np.ndarray)],
+            #            sliced_coord[-1])
             return modified_np
-        if self._twin_ref is not None:
-            super(StorageNumpy, self._twin_ref).__setitem__(sliced_coord, values)
+        #if self._twin_ref is not None:
+        #    super(StorageNumpy, self._twin_ref).__setitem__(sliced_coord, values)
         return super(StorageNumpy, self).__setitem__(sliced_coord, values)
 
     def make_persistent(self, name):
