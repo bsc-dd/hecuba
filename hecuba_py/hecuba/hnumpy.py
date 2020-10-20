@@ -177,7 +177,6 @@ class StorageNumpy(IStorage, np.ndarray):
                     obj._twin_id  = None
                     obj._twin_name = None
                     obj._twin_ref = np.asarray(input_array).T.copy().view(cls)
-                    IStorage.__init__(obj._twin_ref)
                     log.debug("Created TWIN")
 
         #print("JJ name = ", name, flush=True)
@@ -203,6 +202,8 @@ class StorageNumpy(IStorage, np.ndarray):
                 self._get_name(), metas, self._block_id, self.storage_id, self._twin_id)
         twin = self._twin_ref
         if twin is not None:
+            t_name=getattr(twin, 'name', None)
+            IStorage.__init__(twin, storage_id=twin.storage_id, name=t_name, **kwargs)
             twin_metas = HArrayMetadata(
                                         list(twin.shape),
                                         list(twin.strides),
