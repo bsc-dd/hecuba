@@ -84,8 +84,11 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
         table_meta = new TableMetadata(table, keyspace, read_keys_names, read_columns_names, session);
         this->read_cache = new CacheTable(table_meta, session, config);
 
-    } else {
-        if (arrow_enabled) {
+    } else { // COLUMNAR access...
+        if (!arrow_enabled){
+            std::cerr<< "Creating ArrayDataStore for " << full_name << ", but HECUBA_ARROW is not enabled" << std::endl;
+            return;
+        }
         // Arrow tables:
         //    - Writing to arrow uses temporal 'buffer' table
         //    - Reading from arrow uses 'arrow' table
@@ -116,7 +119,6 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
         TableMetadata *table_meta_arrow = new TableMetadata(table_name.c_str(), keyspace,
                                                             keys_arrow_names, columns_arrow_names, session);
         this->read_cache = new CacheTable(table_meta_arrow, session, config);
-        }
     }
 
     //Metadata needed only for *reading* numpy metas from hecuba.istorage
@@ -263,7 +265,10 @@ void ArrayDataStore::store_numpy_partition_into_cas(const uint64_t *storage_id ,
 void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
                                                    ArrayMetadata &metadata, void *data) const {
 
-    if (!arrow_enabled) return;
+    if (!arrow_enabled) {
+        std::cerr<< "store_numpy_into_cas_as_arrow called, but HECUBA_ARROW is not enabled" << std::endl;
+        return;
+    }
 
     assert( metadata.dims.size() <= 2 ); // First version only supports 2 dimensions
 
@@ -718,7 +723,10 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
  */
 void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, ArrayMetadata &metadata,
                                                    std::vector<uint64_t> &cols, void *save) {
-    if (!arrow_enabled) return;
+    if (!arrow_enabled) {
+        std::cerr<< "read_numpy_from_cas_arrow called, but HECUBA_ARROW is not enabled" << std::endl;
+        return;
+    }
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
     std::vector<const TupleRow *> result;
