@@ -44,23 +44,24 @@ class StorageNumpy(IStorage, np.ndarray):
             obj = StorageNumpy(input_array=block, name=self._get_name(), storage_id=uuid.uuid4(), block_id=block_id)
             yield obj
 
-    # get_arrow_name: Returns the name of the arrow table (READ) of a table_name
     @staticmethod
-    def get_arrow_name(name):
-        return "harrow_"+name
+    def get_arrow_name(ksp, name):
+        # get_arrow_name: Returns the name of the arrow table (READ) of a table_name
+        return ksp + "_arrow." + name +"_arrow"
 
     @staticmethod
     def _isarrow(name):
         '''
         Returns true if the name is an arrow table
         '''
-        return name.startswith("harrow_")
+        return name.endswith("_arrow")
 
-    # get_temporal_buffer_name: Returns the name of the temporal arrow table
-    # (WRITE) of a table_name
     @staticmethod
-    def get_temporal_buffer_name(name):
-        return "buffer_"+name
+    def get_buffer_name(ksp, name):
+        """
+        Returns a full qualified name for a table name in the arrow keyspace
+        """
+        return ksp+"_arrow." + name +"_buffer"
 
     # _initialize_existing_object : Instantiates a new StorageNumpy
     # from metadata existent in Hecuba given its name or storage_id.
@@ -107,7 +108,7 @@ class StorageNumpy(IStorage, np.ndarray):
             #print ("JJ __new__ twin_name ", obj._twin_name, flush=True);
             #print ("JJ __new__ twin_id ", obj._twin_id, flush=True);
             obj._twin_id   = twin_id
-            obj._twin_name = obj._ksp + "." + StorageNumpy.get_arrow_name(obj._table)
+            obj._twin_name = StorageNumpy.get_arrow_name(obj._ksp, obj._table)
             twin = StorageNumpy._initialize_existing_object(cls, obj._twin_name, obj._twin_id)
             obj._twin_ref = twin
         obj._row_elem = obj._hcache.get_elements_per_row(storage_id, base_metas)
@@ -301,12 +302,16 @@ class StorageNumpy(IStorage, np.ndarray):
                                                                 'payload blob, '             \
                                                                 'PRIMARY KEY((storage_id,cluster_id),block_id))'
         config.executelocked(query_table)
+
         # Add 'arrow' tables
         #	harrow_ to read
         #	buffer_ to write
-        tbl_buffer = StorageNumpy.get_temporal_buffer_name(table)
+        query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (ksp+"_arrow", config.replication)
+        config.executelocked(query_keyspace)
 
-        query_table_buff ='CREATE TABLE IF NOT EXISTS ' + ksp + '.' + tbl_buffer + \
+        tbl_buffer = StorageNumpy.get_buffer_name(ksp, table)
+
+        query_table_buff ='CREATE TABLE IF NOT EXISTS ' + tbl_buffer + \
                                                                 '(storage_id uuid , '    \
                                                                 'col_id      bigint, '   \
                                                                 'row_id      bigint, '   \
@@ -314,8 +319,8 @@ class StorageNumpy(IStorage, np.ndarray):
                                                                 'payload     blob, '     \
                                                                 'PRIMARY KEY(storage_id,col_id))'
         config.executelocked(query_table_buff)
-        tbl_arrow = StorageNumpy.get_arrow_name(table)
-        query_table_arrow='CREATE TABLE IF NOT EXISTS ' + ksp + '.' + tbl_arrow + \
+        tbl_arrow = StorageNumpy.get_arrow_name(ksp, table)
+        query_table_arrow='CREATE TABLE IF NOT EXISTS ' + tbl_arrow + \
                                                                 '(storage_id uuid, '    \
                                                                 'col_id      bigint, '  \
                                                                 'arrow_addr  bigint, '  \
@@ -536,7 +541,7 @@ class StorageNumpy(IStorage, np.ndarray):
         if twin is not None :
             # If there is a twin, make it persistent FIRST
             twksp, twtbl = extract_ks_tab(name)
-            twinname = twksp + "." + StorageNumpy.get_arrow_name(twtbl)
+            twinname = StorageNumpy.get_arrow_name(twksp, twtbl)
             # 1) make it persistent
             super(StorageNumpy, twin).make_persistent(twinname)
             self._twin_id = twin.storage_id

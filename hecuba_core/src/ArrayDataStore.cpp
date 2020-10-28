@@ -65,7 +65,7 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
     this->TN = std::string(full_name); //lgarrobe
 
     std::string table_name (table);
-    if (table_name.rfind("harrow_", 0) != 0) {	// !table_name.starts_with("harrow_") // == COLUMNAR
+    if (table_name.find("_arrow", table_name.length()-6) == std::string::npos) {// != COLUMNAR
     //	std::cout<< " JJ ArrayDataStore::ArrayDataStore table=" << table << std::endl;
         std::vector<std::map<std::string, std::string> > keys_names = {{{"name", "storage_id"}},
                                                                        {{"name", "cluster_id"}},
@@ -108,7 +108,7 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
     //	std::cout<< " JJ ArrayDataStore::ArrayDataStore ARROW " << table << std::endl;
         // Create table names: table_buffer, table_arrow (must match 'hnumpy.py' names)
         std::string table_buffer (table);
-        table_buffer.replace(0, 7, "buffer_"); // Change 'arrow_' to 'buffer_'
+        table_buffer.replace(table_buffer.length()-6, 7, "_buffer"); // Change '_arrow' to '_buffer'
 
         // Prepare cache for WRITE
         TableMetadata *table_meta_arrow_write = new TableMetadata(table_buffer.c_str(), keyspace,

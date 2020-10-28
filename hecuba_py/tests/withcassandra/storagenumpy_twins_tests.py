@@ -66,9 +66,9 @@ class StorageNumpyTwinsTest(unittest.TestCase):
         s = StorageNumpy(n, 'kk')
 
         self.assertTrue(s._twin_id is not None)
-        self.assertEqual(s._twin_name, self.ksp+'.harrow_kk')
+        self.assertEqual(s._twin_name, self.ksp+'_arrow.kk_arrow')
         self.assertTrue(np.array_equal(s._twin_ref, n.T))
-        self.assertEqual(s._twin_ref._name, self.ksp+'.harrow_kk')
+        self.assertEqual(s._twin_ref._name, self.ksp+'_arrow.kk_arrow')
         self.assertEqual(s._twin_ref.storage_id, s._twin_id)
         self.assertEqual(n.T.shape, s._twin_ref.shape)
         self.assertEqual(s._build_args.twin_id, s._twin_id) #stored data in cassandra
@@ -84,8 +84,8 @@ class StorageNumpyTwinsTest(unittest.TestCase):
         s.make_persistent('kk')
 
         self.assertTrue(s._twin_id is not None)
-        self.assertEqual(s._twin_name, self.ksp+'.harrow_kk')
-        self.assertEqual(s._twin_ref._name, self.ksp+'.harrow_kk')
+        self.assertEqual(s._twin_name, self.ksp+'_arrow.kk_arrow')
+        self.assertEqual(s._twin_ref._name, self.ksp+'_arrow.kk_arrow')
         self.assertEqual(s._twin_ref.storage_id, s._twin_id)
         self.assertEqual(n.T.shape, s._twin_ref.shape)
         self.assertEqual(s._build_args.twin_id, s._twin_id) #stored data in cassandra
@@ -104,8 +104,8 @@ class StorageNumpyTwinsTest(unittest.TestCase):
         s2 = StorageNumpy(s)
 
         self.assertTrue(s2._twin_id is not None)
-        self.assertEqual(s2._twin_name, self.ksp+'.harrow_kk')
-        self.assertEqual(s2._twin_ref._name, self.ksp+'.harrow_kk')
+        self.assertEqual(s2._twin_name, self.ksp+'_arrow.kk_arrow')
+        self.assertEqual(s2._twin_ref._name, self.ksp+'_arrow.kk_arrow')
         self.assertEqual(s2._twin_ref.storage_id, s2._twin_id)
         self.assertEqual(s2._build_args.twin_id, s2._twin_id) #stored data in cassandra
         self.assertEqual(n.T.shape, s2._twin_ref.shape)
@@ -140,8 +140,8 @@ class StorageNumpyTwinsTest(unittest.TestCase):
         s2 = StorageNumpy(None, 'kk')
 
         self.assertTrue(s2._twin_id is not None)
-        self.assertEqual(s2._twin_name, self.ksp+'.harrow_kk')
-        self.assertEqual(s2._twin_ref._name, self.ksp+'.harrow_kk')
+        self.assertEqual(s2._twin_name, self.ksp+'_arrow.kk_arrow')
+        self.assertEqual(s2._twin_ref._name, self.ksp+'_arrow.kk_arrow')
         self.assertEqual(s2._twin_ref.storage_id, s2._twin_id)
         self.assertEqual(sid, s2.storage_id)
         self.assertEqual(n.T.shape, s2._twin_ref.shape)
@@ -159,8 +159,8 @@ class StorageNumpyTwinsTest(unittest.TestCase):
         s2 = StorageNumpy(None, None, sid)
 
         self.assertTrue(s2._twin_id is not None)
-        self.assertEqual(s2._twin_name, self.ksp+'.harrow_kk')
-        self.assertEqual(s2._twin_ref._name, self.ksp+'.harrow_kk')
+        self.assertEqual(s2._twin_name, self.ksp+'_arrow.kk_arrow')
+        self.assertEqual(s2._twin_ref._name, self.ksp+'_arrow.kk_arrow')
         self.assertEqual(s2._twin_ref.storage_id, s2._twin_id)
         self.assertEqual(sid, s2.storage_id)
         self.assertEqual(n.T.shape, s2._twin_ref.shape)
