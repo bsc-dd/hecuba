@@ -211,11 +211,38 @@ else ()
 endif ()
 
 if (NOT ARROW)
-	message("FIXME Arrow not found! Download and compilation instructions missing!")
-	unset(ARROW)
+    message("Downloading Apache ARROW")
+    unset(ARROW) #to avoid name clash
+    # The following code is a hack to solve an issue with the boost library.
+    # By default, the installation detects the Boost library correctly, but
+    # when creating the scripts to link, a wrong name is used for the static
+    # libraries adding a '_static' suffix to the library name...  (which is
+    # a file that does not exist) making the linkage step to fail.
+    # This hack executes the following steps to solve the situation:
+    # 1) Make an initial (wrong) compilation, but it generates the link scripts,
+    # 2) modify the scripts to use the right names, and
+    # 3) re-compile and install as expected.
+    ExternalProject_Add(
+            ARROW	#ARROW-prefix
+            DOWNLOAD_DIR ${CMAKE_CURRENT_LIST_DIR}/dependencies
+            URL "https://archive.apache.org/dist/arrow/arrow-0.15.1/apache-arrow-0.15.1.tar.gz"
+            URL_HASH SHA256=9a2c58c72310eafebb4997244cbeeb8c26696320d0ae3eb3e8512f75ef856fc9
+            CONFIGURE_COMMAND ""
+            BUILD_COMMAND     ${CMAKE_COMMAND} -E echo "==== Starting configure build"
+            COMMAND           ${CMAKE_COMMAND} -build cpp -DCMAKE_INSTALL_PREFIX=${C_BINDING_INSTALL_PREFIX} -DARROW_BUILD_STATIC=false
+            COMMAND           ${CMAKE_COMMAND} -E echo "==== Starting Patch"
+            COMMAND           sed -i s/_static//g src/arrow/CMakeFiles/arrow_shared.dir/link.txt
+            COMMAND           ${CMAKE_COMMAND} -E echo "==== Finished Patch"
+            INSTALL_COMMAND   make
+            COMMAND           make install
+            BUILD_IN_SOURCE 1
+            INSTALL_DIR ${C_BINDING_INSTALL_PREFIX}
+    )
+    add_dependencies(hfetch ARROW)
+    set(ALL_LIBS ${ALL_LIBS} ${C_BINDING_INSTALL_PREFIX}/lib)
 else ()
-	message(STATUS "Using system's ARROW " ${ARROW})
-	set(ALL_LIBS ${ALL_LIBS} ${ARROW})
+    message(STATUS "Using system's ARROW " ${ARROW})
+    set(ALL_LIBS ${ALL_LIBS} ${ARROW})
 endif ()
 
 target_link_libraries(hfetch ${ALL_LIBS})
