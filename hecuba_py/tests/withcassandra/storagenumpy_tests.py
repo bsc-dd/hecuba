@@ -534,6 +534,7 @@ class StorageNumpyTest(unittest.TestCase):
             tmp = s[:,i]    # Access a whole column
             self.assertTrue(np.array_equal(tmp, n[:,i]))
 
+    @unittest.skip("Only execute for performance reasons")
     def test_performance_storage_numpy_arrow(self):
         # Test the time to retrieve a column from Cassandra
 

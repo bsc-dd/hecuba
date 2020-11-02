@@ -41,7 +41,7 @@ class StorageNumpyTwinsTest(unittest.TestCase):
         self.assertEqual(s._twin_ref._name, None)
         self.assertEqual(s._twin_ref.storage_id, None)
         self.assertEqual(n.T.shape, s._twin_ref.shape)
-        self.assertTrue(np.array_equal(s._twin_ref, n.T))
+        self.assertTrue(np.allclose(s._twin_ref, n.T))
 
 # FIXME currently the StorageNumpy from volatile StorageNumpy is not implemented
 #    def test_twin_volatile_from_storagenumpy(self):
@@ -93,7 +93,7 @@ class StorageNumpyTwinsTest(unittest.TestCase):
                         "SELECT twin_id FROM hecuba.istorage WHERE storage_id = %s",
                         [s.storage_id] )
         self.assertEqual(res.one().twin_id, s._twin_id)
-        self.assertTrue(np.array_equal(s._twin_ref, n.T))
+        self.assertTrue(np.allclose(s._twin_ref, n.T))
 
     def test_twin_persistent_from_storagenumpy(self):
 
@@ -101,15 +101,15 @@ class StorageNumpyTwinsTest(unittest.TestCase):
 
         s = StorageNumpy(n, 'kk')
 
-        s2 = StorageNumpy(s)
+        s2 = StorageNumpy(s)    # Create a volatile SN
 
-        self.assertTrue(s2._twin_id is not None)
-        self.assertEqual(s2._twin_name, self.ksp+'_arrow.kk_arrow')
-        self.assertEqual(s2._twin_ref._name, self.ksp+'_arrow.kk_arrow')
-        self.assertEqual(s2._twin_ref.storage_id, s2._twin_id)
-        self.assertEqual(s2._build_args.twin_id, s2._twin_id) #stored data in cassandra
+        self.assertTrue(s2._twin_id is None)
+        self.assertTrue(s2._twin_name is None)
+        self.assertTrue(s2._twin_ref._name is None)
+        self.assertTrue(s2._twin_ref.storage_id is None)
+        self.assertTrue(s2._build_args.twin_id is None)
         self.assertEqual(n.T.shape, s2._twin_ref.shape)
-        self.assertTrue(np.array_equal(s2._twin_ref, n.T))
+        self.assertTrue(np.allclose(s2._twin_ref, n.T))
 
 # FIXME currently this case is not implemented
 #    def test_twin_persistent_from_storagenumpy2(self):
@@ -145,7 +145,8 @@ class StorageNumpyTwinsTest(unittest.TestCase):
         self.assertEqual(s2._twin_ref.storage_id, s2._twin_id)
         self.assertEqual(sid, s2.storage_id)
         self.assertEqual(n.T.shape, s2._twin_ref.shape)
-        self.assertTrue(np.array_equal(s2._twin_ref, n.T))
+        self.assertTrue(np.allclose(s2._twin_ref, n.T))
+        self.assertTrue(np.allclose(s2, n))
 
     def test_load_persistent_twin_by_id(self):
 
@@ -164,7 +165,8 @@ class StorageNumpyTwinsTest(unittest.TestCase):
         self.assertEqual(s2._twin_ref.storage_id, s2._twin_id)
         self.assertEqual(sid, s2.storage_id)
         self.assertEqual(n.T.shape, s2._twin_ref.shape)
-        self.assertTrue(np.array_equal(s2._twin_ref, n.T))
+        self.assertTrue(np.allclose(s2, n))
+        self.assertTrue(np.allclose(s2._twin_ref, n.T))
 
     def test_load_persistent_twin_by_name_and_id(self):
 
