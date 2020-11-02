@@ -43,6 +43,7 @@
 #include <string>
 
 #define PMEM_OFFSET 8
+#define MAX_RETRIES 5
 
 ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSession *session,
                                std::map<std::string, std::string> &config) {
@@ -57,6 +58,20 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
             arrow_enabled = false;
         } else {
             arrow_enabled = true;
+        }
+    }
+    env_path = std::getenv("HECUBA_ARROW_PATH");
+    if (env_path != nullptr) {
+        std::string hecuba_arrow(env_path);
+        arrow_path = hecuba_arrow;
+    }
+    env_path = std::getenv("HECUBA_ARROW_OPTANE");
+    if (env_path != nullptr) {
+        std::string hecuba_arrow(env_path);
+        std::transform(hecuba_arrow.begin(), hecuba_arrow.end(), hecuba_arrow.begin(),
+                        [](unsigned char c){ return std::tolower(c); });
+        if (hecuba_arrow.compare("true")==0) {
+            arrow_optane = true;
         }
     }
 
@@ -273,12 +288,12 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
     assert( metadata.dims.size() <= 2 ); // First version only supports 2 dimensions
 
     // Calculate row and element sizes
-    uint64_t row_size   = metadata.strides[0];
+    uint64_t row_size   = metadata.strides[1];
     uint32_t elem_size  = metadata.elem_size;
 
     // Calculate number of rows and columns
-    uint64_t num_columns = metadata.dims[1];
-    uint64_t num_rows    = metadata.dims[0];
+    uint64_t num_columns = metadata.dims[0];
+    uint64_t num_rows    = metadata.dims[1];
 
     // FIXME Encapsulate the following code into a function f(data, columns) -> Arrow
     //arrow
@@ -295,11 +310,12 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
         if (!status.ok())
             std::cout << "Status: " << status.ToString() << " at builder.Resize" << std::endl;
         for (uint64_t j = 0; j < num_rows; ++j) {
-            src = src + elem_size; // data[j][i]
             status = builder.Append(src, elem_size);
             if (!status.ok())
                 std::cout << "Status: " << status.ToString() << " at builder.Append" << std::endl;
+            src = src + elem_size; // data[j][i]
         }
+
         std::shared_ptr<arrow::Array> array;
         status = builder.Finish(&array);
         if (!status.ok())
@@ -368,7 +384,7 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
  * Write a complete numpy ndarray by columns (using arrow)
  * @param storage_id	UUID identifying the numpy ndarray
  * @param np_metas		ndarray characteristics
- * @param numpy			Memory for the whole numpy whose columns must be stored
+ * @param numpy			Memory for the whole numpy whose columns must be stored (columns consecutive in memory)
  * @param cols			Vector of columns ids to store
  */
 void ArrayDataStore::store_numpy_into_cas_by_cols_as_arrow(const uint64_t *storage_id,
@@ -719,7 +735,7 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
  * @param storage_id of the array to retrieve
  * @param metadata ndarray characteristics
  * @param cols vector of columns identifiers to get
- * @param save numpy memory object where columns will be saved
+ * @param save numpy memory object where columns will be saved (columns consecutive in memory)
  */
 void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, ArrayMetadata &metadata,
                                                    std::vector<uint64_t> &cols, void *save) {
@@ -736,16 +752,51 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
 
     std::shared_ptr<arrow::ipc::RecordBatchFileReader> sptrFileReader;
 
-    uint64_t row_size   = metadata.strides[0];
+    uint64_t row_size   = metadata.strides[0]; // Columns are stored in rows, therefore even the name, this is the number of columns
     uint32_t elem_size  = metadata.elem_size;
 
+    int fdIn;
     //open devdax access
-    int fdIn = open("/home/enricsosa/bsc/cassandra/arrow_persistent_heap", O_RDONLY);  //TODO handle open errors; define file name
-    if (fdIn < 0) {
-        throw ModuleException("open error");
+    std::string arrow_file_name;
+    std::string base_arrow_file_name;
+    if (this->arrow_optane) {
+        arrow_file_name = std::string(this->arrow_path + "/arrow_persistent_heap");
+        fdIn = open(arrow_file_name.c_str(), O_RDONLY);  //TODO handle open errors; define file name
+        if (fdIn < 0) {
+            throw ModuleException("open error "+ arrow_file_name);
+        }
+    } else {
+        std::string name (this->TN);
+        uint32_t pos = name.find_first_of(".",0);
+        name.replace(pos, 1, "/");
+        base_arrow_file_name = std::string(this->arrow_path + "/arrow/" + name);
     }
 
     for (uint32_t it = 0; it < cols.size(); ++it) {
+        if (!this->arrow_optane) {
+            arrow_file_name = base_arrow_file_name + std::to_string(cols[it]);
+            long retries = 0;
+            do {
+                fdIn = open(arrow_file_name.c_str(), O_RDONLY);  //TODO handle open errors; define file name
+                if (fdIn < 0) {
+                    int err = errno;
+                    char buff[4096];
+                    sprintf(buff, "open error %s", arrow_file_name.c_str());
+                    perror(buff);
+                    if (err == ENOENT) { //File does not exist... retry
+                        retries ++;
+                        std::cout << "read_numpy_from_cas_arrow  retry " << retries << "/"<< MAX_RETRIES << std::endl;
+                        sleep(1);
+                    }
+                    if ((err != ENOENT) || (retries == MAX_RETRIES)) {
+                        char buff[4096];
+                        sprintf(buff, "open error %s", arrow_file_name.c_str());
+                        perror(buff);
+                        throw ModuleException("open error "+ arrow_file_name);
+                    }
+                }
+            } while(fdIn<0);
+        }
         _keys = (char *) malloc(keys_size);
         //UUID
         c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
@@ -765,13 +816,26 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
             uint64_t *arrow_addr = (uint64_t *) row->get_element(0);
             uint32_t *arrow_size = (uint32_t *) row->get_element(1);
 
-            off_t dd_addr = *arrow_addr+PMEM_OFFSET;
-            off_t page_addr = dd_addr & ~(sysconf(_SC_PAGE_SIZE) - 1); //I don't even remember how this works
+            off_t page_addr;
 
             //read from devdax
-            off_t page_offset = dd_addr-page_addr;
+            off_t page_offset;
             //allocates in memory [...]
-            size_t total_arrow_size = *arrow_size+page_offset;
+            size_t total_arrow_size;
+            if (this->arrow_optane) {
+                off_t dd_addr = *arrow_addr+PMEM_OFFSET;
+                page_addr = dd_addr & ~(sysconf(_SC_PAGE_SIZE) - 1); //I don't even remember how this works
+
+                //read from devdax
+                page_offset = dd_addr-page_addr;
+                //allocates in memory [...]
+                total_arrow_size = *arrow_size+page_offset;
+            } else { /* !OPTANE */
+                page_addr = 0;
+                total_arrow_size = *arrow_size;
+                page_offset = 0;
+
+            }
             unsigned char* src = (unsigned char*) mmap(NULL, total_arrow_size, PROT_READ, MAP_SHARED, fdIn, page_addr); //TODO handle mmap errors
             if (src == MAP_FAILED) {
                 throw ModuleException("mmap error");
@@ -801,14 +865,10 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
                 std::shared_ptr<arrow::BinaryArray> data = std::dynamic_pointer_cast<arrow::BinaryArray>(col);
 
                 char* dst = (char*) save;
-                dst += cols[it]*elem_size;
+                dst += cols[it]*row_size;
 
-                int length;
-                for (int k = 0; k < col->length(); ++k) {
-                    const uint8_t* bytes = data->GetValue(k, &length);
-                    memcpy(dst, bytes, length);
-                    dst += row_size;
-                }
+                const uint8_t* bytes = data->value_data()->data();
+                memcpy(dst, bytes, col->length()*elem_size); // Copy the whole column
             }
 
 
@@ -818,8 +878,14 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
                 throw ModuleException("munmap error");
             }
         }
+        if (!this->arrow_optane) {
+            close(fdIn);
+        }
     }
     for (const TupleRow *item:result) delete (item);
     sptrFileReader.reset();
+    if (this->arrow_optane) {
+        close(fdIn);
+    }
     close(fdIn);
 }

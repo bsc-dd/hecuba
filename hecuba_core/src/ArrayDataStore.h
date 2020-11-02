@@ -49,6 +49,8 @@ protected:
     SpaceFillingCurve partitioner;
 
     bool arrow_enabled = false;
+    bool arrow_optane  = false; // Intel OPTANE disk enabled?
+    std::string arrow_path  = "";
 };
 
 

@@ -103,7 +103,7 @@ class StorageNumpy(IStorage, np.ndarray):
         (obj._ksp, obj._table) = extract_ks_tab(name)
         obj._set_name(name)
         obj.storage_id = storage_id
-        if twin_id is not None:
+        if config.arrow_enabled and twin_id is not None:
             # Load TWIN array
             #print ("JJ __new__ twin_name ", obj._twin_name, flush=True);
             #print ("JJ __new__ twin_id ", obj._twin_id, flush=True);
@@ -155,26 +155,11 @@ class StorageNumpy(IStorage, np.ndarray):
                 # StorageNumpy(Snumpy, name, UUID)
                 if storage_id is not None:
                     log.warn("Creating a StorageNumpy with a specific StorageID")
-                if not input_array._is_persistent and name is None:
-                    raise NotImplemented("Create a volatile StorageNumpy from another volatile StorageNumpy")
-
-                obj = input_array.view(cls)
-                if input_array._is_persistent:
-                    sid=uuid.uuid4()
-                    obj.storage_id=sid
-                    if name is not None:
-                        raise NotImplemented("Build a Persistent StorageNumpy from another Persistent StorageNumpy with a name")
-                    name = input_array._get_name()
-
-                if input_array._twin_ref is not None:
-                    # FIXME Treat the TWIN also!
-                    # Check that the new object has the same ref as base
-                    log.warn("Creating a volatile StorageNumpy. Ignoring TWIN")
-                    pass
+                obj = input_array.copy()
             else:
                 # StorageNumpy(numpy, None, None)
                 obj = np.asarray(input_array).copy().view(cls)
-                if getattr(input_array, 'ndim', 0) == 2:
+                if config.arrow_enabled and getattr(input_array, 'ndim', 0) == 2:
                     obj._twin_id  = None
                     obj._twin_name = None
                     obj._twin_ref = np.asarray(input_array).T.copy().view(cls)
@@ -200,7 +185,7 @@ class StorageNumpy(IStorage, np.ndarray):
         metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
                                self.itemsize, self.flags.num, 0)
         self._build_args = self.args(self.storage_id, self._class_name,
-                self._get_name(), metas, self._block_id, self.storage_id, self._twin_id)
+                self._get_name(), metas, self._block_id, self.storage_id, getattr(self, '_twin_id', None))
         twin = self._twin_ref
         if twin is not None:
             t_name=getattr(twin, 'name', None)
@@ -239,6 +224,8 @@ class StorageNumpy(IStorage, np.ndarray):
                 else:
                     self.make_persistent(self._get_name())
             self._is_persistent = True # IStorage.__init__ resets this! Therefore enable it again
+            if self._twin_ref is not None:
+                self._twin_ref._is_persistent = True # IStorage.__init__ resets this! Reenable it again.
             if load_data:
                 self[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
 
@@ -267,6 +254,7 @@ class StorageNumpy(IStorage, np.ndarray):
             self._all_coords = getattr(obj, '_all_coords', None)
             self._n_blocks = getattr(obj, '_n_blocks', None)
             self._class_name = getattr(obj,'_class_name',None)
+            self._tokens = getattr(obj,'_tokens',None)
             hfetch_metas = HArrayMetadata(list(self.shape), list(self.strides), self.dtype.kind, self.dtype.byteorder,
                                           self.itemsize, self.flags.num, 0)
             self._build_args = getattr(obj, '_build_args', self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas,
@@ -279,6 +267,7 @@ class StorageNumpy(IStorage, np.ndarray):
             self._name               = None
             self.storage_id          = None
             self._is_persistent      = False
+            self._twin_ref           = getattr(obj, '_twin_ref', None)
 
 
     @staticmethod
@@ -290,8 +279,6 @@ class StorageNumpy(IStorage, np.ndarray):
     def _create_tables(name):
         (ksp, table) = extract_ks_tab(name)
         log.debug("Create table %s %s", ksp, table)
-        if StorageNumpy._isarrow(table): # Arrow tables are already created, skip them
-                return
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (ksp, config.replication)
         config.executelocked(query_keyspace)
 
@@ -303,30 +290,31 @@ class StorageNumpy(IStorage, np.ndarray):
                                                                 'PRIMARY KEY((storage_id,cluster_id),block_id))'
         config.executelocked(query_table)
 
-        # Add 'arrow' tables
-        #	harrow_ to read
-        #	buffer_ to write
-        query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (ksp+"_arrow", config.replication)
-        config.executelocked(query_keyspace)
+        if config.arrow_enabled:
+            # Add 'arrow' tables
+            #	harrow_ to read
+            #	buffer_ to write
+            query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (ksp+"_arrow", config.replication)
+            config.executelocked(query_keyspace)
 
-        tbl_buffer = StorageNumpy.get_buffer_name(ksp, table)
+            tbl_buffer = StorageNumpy.get_buffer_name(ksp, table)
 
-        query_table_buff ='CREATE TABLE IF NOT EXISTS ' + tbl_buffer + \
-                                                                '(storage_id uuid , '    \
-                                                                'col_id      bigint, '   \
-                                                                'row_id      bigint, '   \
-                                                                'size_elem   int, '      \
-                                                                'payload     blob, '     \
-                                                                'PRIMARY KEY(storage_id,col_id))'
-        config.executelocked(query_table_buff)
-        tbl_arrow = StorageNumpy.get_arrow_name(ksp, table)
-        query_table_arrow='CREATE TABLE IF NOT EXISTS ' + tbl_arrow + \
-                                                                '(storage_id uuid, '    \
-                                                                'col_id      bigint, '  \
-                                                                'arrow_addr  bigint, '  \
-                                                                'arrow_size  int, '     \
-                                                                'PRIMARY KEY(storage_id,col_id))'
-        config.executelocked(query_table_arrow)
+            query_table_buff ='CREATE TABLE IF NOT EXISTS ' + tbl_buffer + \
+                                                                    '(storage_id uuid , '    \
+                                                                    'col_id      bigint, '   \
+                                                                    'row_id      bigint, '   \
+                                                                    'size_elem   int, '      \
+                                                                    'payload     blob, '     \
+                                                                    'PRIMARY KEY(storage_id,col_id))'
+            config.executelocked(query_table_buff)
+            tbl_arrow = StorageNumpy.get_arrow_name(ksp, table)
+            query_table_arrow='CREATE TABLE IF NOT EXISTS ' + tbl_arrow + \
+                                                                    '(storage_id uuid, '    \
+                                                                    'col_id      bigint, '  \
+                                                                    'arrow_addr  bigint, '  \
+                                                                    'arrow_size  int, '     \
+                                                                    'PRIMARY KEY(storage_id,col_id))'
+            config.executelocked(query_table_arrow)
 
     @staticmethod
     def _create_hcache(name):
@@ -403,7 +391,7 @@ class StorageNumpy(IStorage, np.ndarray):
                 new_coords: The coordinates to load (using ZOrder identification)
         """
         if self._is_persistent is False:
-            raise NotImplemented("NOT SUPPORTED to load coordinates on a volatile object")
+            raise NotImplementedError("NOT SUPPORTED to load coordinates on a volatile object")
 
         if not new_coords: # Special case: Load everything
             log.debug("LOADING ALL BLOCKS OF NUMPY")
@@ -430,6 +418,11 @@ class StorageNumpy(IStorage, np.ndarray):
         """
         Returns None or a list of columns accesed
         """
+        if not config.arrow_enabled:
+            log.debug("HECUBA_ARROW is not enabled. Columnar acces disabled.")
+            return None
+        if self.ndim > 2:   # Not supported case. Only 2 dimensions!
+            return None
         columns = None
         if isinstance(sliced_coord, tuple):
             # If the getitem parameter is a tuple, then we may catch the
