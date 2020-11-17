@@ -34,6 +34,21 @@ struct Partition {
 
 };
 
+//Represents the indexes of a block of data belonging to an array (a Partition)
+struct PartitionIdxs {
+    PartitionIdxs(uint64_t id, uint32_t cluster, uint32_t block, std::vector<uint32_t> ccs) {
+        this->id         = id;
+        this->cluster_id = cluster;
+        this->block_id   = block;
+        this->ccs        = ccs;
+    }
+
+    uint64_t              id;         // The Zorder_id of the block (0..num_blocks)
+    uint32_t              cluster_id; // (derived from 'id') Zorder cluster_id
+    uint32_t              block_id;   // (derived from 'id') Zorder block_id
+    std::vector<uint32_t> ccs;        // (derived form 'id' and the array dimensions) The indexes of the blocks at each dimension
+};
+
 //TODO Inherit from CassUserType, pass the user type directly
 //Represents the shape and type of an array
 struct ArrayMetadata {
@@ -46,6 +61,7 @@ struct ArrayMetadata {
     char  byteorder = ' ';
     std::vector<uint32_t> dims;
     std::vector<uint32_t> strides;
+    std::vector<uint32_t> offsets;
     //int32_t inner_type = 0;
 };
 
@@ -63,6 +79,8 @@ public:
         virtual Partition getNextPartition() = 0;
 
         virtual int32_t computeNextClusterId() = 0;
+
+        virtual PartitionIdxs getNextPartitionIdxs()  = 0;
 
         virtual void merge_partitions(const ArrayMetadata &metas, std::vector<Partition> chunks, void *data) = 0;
     };
@@ -88,6 +106,8 @@ protected:
 
         int32_t computeNextClusterId() override;
 
+        PartitionIdxs getNextPartitionIdxs() override;
+
         bool isDone() override { return done; };
 
         void merge_partitions(const ArrayMetadata &metas, std::vector<Partition> chunks, void *data) override;
@@ -112,6 +132,8 @@ public:
     Partition getNextPartition() override;
 
     int32_t computeNextClusterId() override;
+
+    PartitionIdxs getNextPartitionIdxs() override;
 
     bool isDone() override {
         if (block_counter >= nblocks) done = true;

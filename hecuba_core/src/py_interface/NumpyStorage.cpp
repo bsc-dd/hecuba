@@ -71,12 +71,12 @@ void NumpyStorage::store_numpy(const uint64_t *storage_id, ArrayMetadata &np_met
 	}
 }
 
-void NumpyStorage::load_numpy(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *save, PyObject *coord) {
+void NumpyStorage::load_numpy(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *save, PyObject *coord, bool direct_copy) {
 	void *data = PyArray_DATA(save);
 	if (np_metas.partition_type != COLUMNAR) {
 		if (coord != Py_None) {
 			std::list<std::vector<uint32_t> > crd = generate_coords(coord);
-			this->read_numpy_from_cas_by_coords(storage_id, np_metas, crd, data);
+			this->read_numpy_from_cas_by_coords(storage_id, np_metas, crd, direct_copy, data);
 		} else this->read_numpy_from_cas(storage_id, np_metas, data);
 
 	} else {

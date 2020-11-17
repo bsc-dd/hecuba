@@ -534,6 +534,96 @@ class StorageNumpyTest(unittest.TestCase):
             tmp = s[:,i]    # Access a whole column
             self.assertTrue(np.array_equal(tmp, n[:,i]))
 
+    def test_slice_after_load(self):
+        n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
+        s = StorageNumpy(n, "bug")
+        del s
+        s = StorageNumpy(None, "bug")
+        tmp = s[0,110:150]  # Doing an slice on an unloaded numpy
+        self.assertTrue(np.array_equal(tmp, n[0,110:150]))
+
+    def test_get_cluster_ids(self):
+        n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
+        s = StorageNumpy(n, "cols")
+        x = s._hcache.get_block_ids(s._build_args.metas)
+        # Assuming a BLOCK_SIZE of 4096!! FIXME use an environment variable!
+        print(x)
+        self.assertTrue(len(x) == 6)
+        #
+        #Each element elt of x:
+        #    elt[0]==zorderix
+        #    elt[1]==cluster_id
+        #    elt[2]==block_id
+        #    elt[3]==block_coord
+        goal=[(0, 0, 0, (0, 0)), (2, 0, 2, (0, 1)), (8, 2, 0, (0, 2)), (10, 2, 2, (0, 3)), (32, 8, 0, (0, 4)), (34, 8, 2, (0, 5))]
+        for i,elt in enumerate(x):
+            self.assertEqual(elt[0], goal[i][0])
+            self.assertEqual(elt[1], goal[i][1])
+            self.assertEqual(elt[2], goal[i][2])
+            self.assertEqual(elt[3], goal[i][3])
+
+    def test_split(self):
+        n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
+        s = StorageNumpy(n, "cols")
+        splits = 0
+        for i in s.split():
+            # Assuming a BLOCK_SIZE of 4096!! FIXME use an environment variable!
+            if splits <= 4:
+                self.assertEqual(i.shape, (2,22))
+            else:
+                self.assertEqual(i.shape, (2,18))
+            self.assertTrue(i._offsets == [0, splits*22])
+            self.assertTrue(i[0,0] == splits*22)
+            splits = splits + 1
+        self.assertTrue(splits == 6)
+
+    def test_split_access(self):
+        n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
+        s = StorageNumpy(n, "cols")
+        splits = 0
+        for i in s.split():
+            # Assuming a BLOCK_SIZE of 4096!! FIXME use an environment variable!
+            if splits <= 4:
+                self.assertTrue(np.array_equal(i[:], n[0:22, 22*splits:22*(splits+1)]))
+            else:
+                self.assertTrue(np.array_equal(i[:], n[0:22, 22*splits:22*(splits)+18]))
+            splits = splits + 1
+
+    def test_split_nomem(self):
+        n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
+        s = StorageNumpy(n, "cols")
+        splits = 0
+        for i in s.split():
+            sid = i.storage_id
+            del i
+            i = StorageNumpy(None,None,sid)
+            # Assuming a BLOCK_SIZE of 4096!! FIXME use an environment variable!
+            if splits <= 4:
+                self.assertEqual(i.shape, (2,22))
+            else:
+                self.assertEqual(i.shape, (2,18))
+            self.assertTrue(i._offsets == [0, splits*22])
+            self.assertTrue(i[0,0] == splits*22)
+            splits = splits + 1
+        self.assertTrue(splits == 6)
+
+    def test_split_access_nomem(self):
+        n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
+        s = StorageNumpy(n, "cols")
+        u = s.storage_id
+        splits = 0
+        for i in s.split():
+            sid = i.storage_id
+            del i
+            i = StorageNumpy(None,None,sid)
+            # Assuming a BLOCK_SIZE of 4096!! FIXME use an environment variable!
+            if splits <= 4:
+                self.assertTrue(np.array_equal(i[:], n[0:22, 22*splits:22*(splits+1)]))
+            else:
+                self.assertTrue(np.array_equal(i[:], n[0:22, 22*splits:22*(splits)+18]))
+
+            splits = splits + 1
+
     @unittest.skip("Only execute for performance reasons")
     def test_performance_storage_numpy_arrow(self):
         # Test the time to retrieve a column from Cassandra

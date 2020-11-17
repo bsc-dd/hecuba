@@ -21,7 +21,7 @@ public:
     void store_numpy_into_cas(const uint64_t *storage_id, ArrayMetadata &metadata, void *data) const;
 
     void read_numpy_from_cas_by_coords(const uint64_t *storage_id, ArrayMetadata &metadata,
-                                       std::list<std::vector<uint32_t> > &coord, void *save);
+                                       std::list<std::vector<uint32_t> > &coord, bool direct_copy, void *save);
 
     void read_numpy_from_cas(const uint64_t *storage_id, ArrayMetadata &metadata, void *save);
 
@@ -37,6 +37,8 @@ public:
     void store_numpy_into_cas_as_arrow(const uint64_t *storage_id, ArrayMetadata &metadata,
                                        void *data) const;
     void store_numpy_into_cas_by_cols_as_arrow(const uint64_t *storage_id, ArrayMetadata &metadata, void *data, std::vector<uint32_t> &cols) const;
+    std::list<int32_t> get_cluster_ids(ArrayMetadata &metadata) const;
+    std::list<std::tuple<uint64_t, uint32_t, uint32_t, std::vector<uint32_t>>> get_block_ids(ArrayMetadata &metadata) const;
 
 protected:
 

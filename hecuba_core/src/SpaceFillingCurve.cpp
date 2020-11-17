@@ -41,6 +41,9 @@ Partition SpaceFillingCurve::SpaceFillingGenerator::getNextPartition() {
     done = true;
     return {CLUSTER_END_FLAG, 0, nullptr};
 }
+PartitionIdxs SpaceFillingCurve::SpaceFillingGenerator::getNextPartitionIdxs() {
+    return {CLUSTER_END_FLAG, CLUSTER_END_FLAG, 0, {}}; // NOT IMPLEMENTED
+}
 
 
 int32_t SpaceFillingCurve::SpaceFillingGenerator::computeNextClusterId() {
@@ -208,6 +211,36 @@ ZorderCurveGenerator::tessellate(std::vector<uint32_t> dims, std::vector<uint32_
     }
 }
 
+/** 
+ *  Args:
+ *      block_ccs   Vector of indexes to blocks
+ *  Returns:
+ *      cluster_id  (CLUSTER_END_FLAG if done)
+ *      block_id
+ *      block_size
+ *  PRE: Always called with block_counter < nblocks
+ */
+ /*
+std::tuple<int32_t,int32_t> ZorderCurveGenerator::getNextBlockIds(std::vector<uint32_t> * block_ccs){
+
+    uint64_t zorder_id;
+
+    if (block_ccs == nullptr){
+        std::vector<uint32_t> ix_blocks = getIndexes(block_counter, blocks_dim);
+        zorder_id = computeZorder(ix_blocks);
+    }
+    else {
+        zorder_id = computeZorder(*block_ccs);
+    }
+
+    //Block parameters
+    uint32_t cluster_id = (uint32_t) (zorder_id >> CLUSTER_SIZE);
+    uint64_t mask = (uint64_t) -1 >> (sizeof(uint64_t) * CHAR_BIT - CLUSTER_SIZE);
+    uint32_t block_id = (uint32_t) (zorder_id & mask);
+    std::cout<< " JCOSTA cluster_id "<<cluster_id<< " block_id " << block_id << std::endl;
+    return std::make_tuple(cluster_id, block_id);
+}
+*/
 
 Partition ZorderCurveGenerator::getNextPartition() {
     if (block_counter == nblocks) return {CLUSTER_END_FLAG, 0, nullptr};
@@ -235,6 +268,12 @@ Partition ZorderCurveGenerator::getNextPartition() {
 
     //Compute the real offset as: position inside the array * sizeof(element)
     char *input_start = ((char *) data) + offset * metas.elem_size;
+
+    ++block_counter;
+    if (block_counter == nblocks) done = true;
+
+    if (data == NULL)
+        return {cluster_id, block_id, nullptr};
 
     if (!bound) {
         //In this case the block has size of row_elements in every_dimension
@@ -276,10 +315,23 @@ Partition ZorderCurveGenerator::getNextPartition() {
         tessellate(metas.dims, bound_dims, metas.elem_size, input_start, output_data, output_data_end);
     }
 
-    ++block_counter;
-    if (block_counter == nblocks) done = true;
     return {cluster_id, block_id, output_data - sizeof(uint64_t)};
 }
+
+PartitionIdxs ZorderCurveGenerator::getNextPartitionIdxs() {
+    if (block_counter == nblocks) return {CLUSTER_END_FLAG, CLUSTER_END_FLAG, 0, {}};
+
+    std::vector<uint32_t> ix_blocks = getIndexes(block_counter, blocks_dim);
+    uint64_t zorder_id = computeZorder(ix_blocks);
+    uint32_t cluster_id = (uint32_t) (zorder_id >> CLUSTER_SIZE);
+    uint64_t mask = (uint64_t) -1 >> (sizeof(uint64_t) * CHAR_BIT - CLUSTER_SIZE);
+    uint32_t block_id = (uint32_t) (zorder_id & mask);
+
+    block_counter ++;
+    if (block_counter == nblocks) done = true;
+    return {zorder_id, cluster_id, block_id, ix_blocks};
+}
+
 
 
 int32_t ZorderCurveGenerator::computeNextClusterId() {

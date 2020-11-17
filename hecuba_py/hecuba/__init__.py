@@ -294,7 +294,7 @@ class Config:
                 precision float);
                 """,
                 """CREATE TYPE IF NOT EXISTS hecuba.np_meta (flags int, elem_size int, partition_type tinyint,
-                dims list<int>, strides list<int>, typekind text, byteorder text)""",
+                dims list<int>, strides list<int>, typekind text, byteorder text, offsets list<int>)""",
                 """CREATE TABLE IF NOT EXISTS hecuba
                 .istorage (storage_id uuid, 
                 class_name text,name text, 

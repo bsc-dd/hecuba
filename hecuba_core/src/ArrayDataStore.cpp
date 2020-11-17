@@ -513,6 +513,32 @@ void ArrayDataStore::store_numpy_into_cas(const uint64_t *storage_id, ArrayMetad
     }
 }
 
+/* get_cluster_ids - Returns a 'list' with the cluster identifiers (it may be empty) */
+std::list<int32_t> ArrayDataStore::get_cluster_ids(ArrayMetadata &metadata) const{
+    std::set<int32_t> clusters = {};
+    SpaceFillingCurve::PartitionGenerator* partitions_it = this->partitioner.make_partitions_generator(metadata, NULL); // For this case the 'data' is not needed because we only need the cluster_ids
+
+    while (!partitions_it->isDone()) { clusters.insert(partitions_it->computeNextClusterId()); }
+    std::list<int32_t> result = {};
+    for(int32_t x : clusters) { result.push_back(x); };
+    return result;
+}
+
+/* get_block_ids - Returns a 'list' with the cluster + block identifiers (it may be empty) */
+std::list<std::tuple<uint64_t, uint32_t, uint32_t, std::vector<uint32_t> >> ArrayDataStore::get_block_ids(ArrayMetadata &metadata) const{
+    // TODO Create a new iterator instead of using this 'data = NULL' hack
+    SpaceFillingCurve::PartitionGenerator* partitions_it = this->partitioner.make_partitions_generator(metadata, NULL); // For this case the 'data' is not needed because we only need the cluster_ids
+
+    std::list<std::tuple<uint64_t, uint32_t, uint32_t, std::vector<uint32_t>>> result = {};
+    while (!partitions_it->isDone()) {
+        PartitionIdxs res = partitions_it->getNextPartitionIdxs();
+        std::tuple<uint64_t, uint32_t, uint32_t, std::vector<uint32_t>> ids  = std::make_tuple((int64_t)res.id, res.cluster_id, res.block_id, res.ccs);
+        result.push_back(ids);
+    }
+
+    return result;
+}
+
 void ArrayDataStore::store_numpy_into_cas_by_coords(const uint64_t *storage_id, ArrayMetadata &metadata, void *data,
                                                     std::list<std::vector<uint32_t> > &coord) const {
 
@@ -673,7 +699,7 @@ void ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetada
 }
 
 void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, ArrayMetadata &metadata,
-                                                   std::list<std::vector<uint32_t> > &coord, void *save) {
+                                                   std::list<std::vector<uint32_t> > &coord, bool direct_copy, void *save) {
 
 	if (metadata.partition_type == COLUMNAR) {
 		throw ModuleException("Unexpected case: Are you calling read_numpy_from_cas_by_coords with an Arrow format?");
@@ -724,7 +750,21 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
 	if (all_partitions.empty()) {
 		throw ModuleException("no npy found on sys");
 	}
-	partitions_it->merge_partitions(metadata, all_partitions, save);
+    if (!direct_copy) {
+	    partitions_it->merge_partitions(metadata, all_partitions, save);
+    } else {
+        uint32_t wanted_block = ((ZorderCurveGenerator*)partitions_it)->computeZorder(coord.front()) & ((1<<(CLUSTER_SIZE+1))-1);
+        for ( Partition p : all_partitions ) {
+            // A single block is supported, all the others are DISCARDED
+            if (p.block_id == wanted_block) {
+                char *input = (char *) p.data;
+                uint64_t *retrieved_block_size = (uint64_t *) input;
+                input += sizeof(uint64_t);
+                memcpy(save, input, *retrieved_block_size);
+                break;
+            }
+        }
+    }
 	for (const TupleRow *item:all_results) delete (item);
 	delete (partitions_it);
 
