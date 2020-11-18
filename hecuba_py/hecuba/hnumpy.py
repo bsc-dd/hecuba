@@ -65,6 +65,9 @@ class StorageNumpy(IStorage, np.ndarray):
 
     def split(self):
         # TODO this should work for VOLATILE objects too! Now only works for PERSISTENT
+        if self._build_args.metas.partition_type == 2:
+            raise NotImplementedError("Split on columnar data is not supported")
+
         blocks = self._hcache.get_block_ids(self._build_args.metas) # returns a list of tuples (cluster_id, block_id)
 
         #Build map cluster_id -> token
@@ -299,6 +302,7 @@ class StorageNumpy(IStorage, np.ndarray):
             twin_metas = HArrayMetadata(
                                         list(twin.shape),
                                         list(twin.strides),
+                                        [-1]*len(twin.shape), # NOT USED
                                         twin.dtype.kind,
                                         twin.dtype.byteorder,
                                         twin.itemsize,
