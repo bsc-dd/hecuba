@@ -908,6 +908,25 @@ static PyObject *harray_metadata_repr(PyObject *self) {
     std::string repr = "Typekind: " + std::to_string(array_metas->np_metas.typekind) + ", elem_size:" +
                        std::to_string(array_metas->np_metas.elem_size) + ", partition_type: " +
                        std::to_string(array_metas->np_metas.partition_type);
+    repr += ", dims[ ";
+    for(uint32_t i : array_metas->np_metas.dims) {
+        repr += std::to_string(i) + " ";
+    }
+    repr += "], ";
+    repr += "strides[ ";
+    for(uint32_t i : array_metas->np_metas.strides) {
+        repr += std::to_string(i) + " ";
+    }
+    repr += "], ";
+    repr += "offsets[ ";
+    for(uint32_t i : array_metas->np_metas.offsets) {
+        repr += std::to_string(i) + " ";
+    }
+    repr += "], ";
+    repr += "Flags: " + std::to_string(array_metas->np_metas.flags);
+    repr += ", ";
+    repr += "Byteorder: " + std::to_string(array_metas->np_metas.byteorder);
+
     PyObject *py_repr = PyUnicode_FromStringAndSize(repr.c_str(), repr.length());
     if (!py_repr) {
         std::string error = "Can't represent the numpy metadatas";
