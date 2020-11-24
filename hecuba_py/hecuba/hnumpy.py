@@ -135,10 +135,8 @@ class StorageNumpy(IStorage, np.ndarray):
 
     @staticmethod
     def _comes_from_split(metas):
-        for o in metas.offsets:
-            if o != -1:
-                return True
-        return False
+        # FIXME Use an 'offsets' value of None instead of this
+        return (metas.offsets[0] != -1);    # Optimization: Just check the first coordinate
 
     # _initialize_existing_object : Instantiates a new StorageNumpy
     # from metadata existent in Hecuba given its name or storage_id.
@@ -506,6 +504,8 @@ class StorageNumpy(IStorage, np.ndarray):
             x[[..],[...]]   list  NOT SUPPORTED!
 
         '''
+        if not StorageNumpy._comes_from_split(self._build_args.metas):
+            return sliced_coord
         new_coord = sliced_coord
         if isinstance(sliced_coord, int):
             off1 = self._build_args.metas.offsets[0]
