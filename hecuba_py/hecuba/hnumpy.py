@@ -193,6 +193,7 @@ class StorageNumpy(IStorage, np.ndarray):
         result = cls.reserve_numpy_array(storage_id, name, metas_to_reserve) # storage_id is NOT used at all
         input_array = result[0]
         obj = np.asarray(input_array).view(cls)
+        obj._numpy_full_loaded = False
         obj._hcache = result[1]
 
 
@@ -218,18 +219,6 @@ class StorageNumpy(IStorage, np.ndarray):
         #print (" JJ _initialize_existing_object name={} sid={} DONE".format(name, storage_id), flush=True)
         return obj
 
-    # _complete_initialization: Complete the fields of a new initialized object
-    # To be called as the last step of an StorageNumpy object creation
-    def _complete_initialization(self, cls, name, block_id):
-        self._numpy_full_loaded = False
-        self._loaded_coordinates = []
-        self._set_name(name)
-        if getattr(self, "_block_id", None) is None:
-            self._block_id = block_id
-        # Finally, we must return the newly created object:
-        self._class_name = '%s.%s' % (cls.__module__, cls.__name__)
-        if self._twin_ref is not None:
-            self._twin_ref._complete_initialization(cls, self._twin_name, block_id)
 
     def __new__(cls, input_array=None, name=None, storage_id=None, block_id=None, **kwargs):
         log.debug("input_array=%s name=%s storage_id=%s ",input_array is not None, name, storage_id)
@@ -267,7 +256,6 @@ class StorageNumpy(IStorage, np.ndarray):
         #print("JJ name = ", name, flush=True)
         #print("JJ _twin_name = ", obj._twin_name, flush=True)
         #print("JJ _name = ", obj._name, flush=True)
-        obj._complete_initialization(cls, name, block_id)
         return obj
 
     def __init__(self, input_array=None, name=None, storage_id=None, **kwargs):
@@ -354,8 +342,17 @@ class StorageNumpy(IStorage, np.ndarray):
             self._hcache = getattr(obj, '_hcache', None)
             self._row_elem = getattr(obj, '_row_elem', None)
             # if we are a view we have ALREADY loaded all the subarray
-            self._loaded_coordinates = getattr(obj, '_loaded_coordinates', None)
-            self._numpy_full_loaded = getattr(obj, '_numpy_full_loaded', None)
+            self._loaded_coordinates = getattr(obj, '_loaded_coordinates', [])
+            if type(obj) == StorageNumpy:
+                if obj.shape == self.shape:
+                    self._numpy_full_loaded = obj._numpy_full_loaded
+                else:
+                    self._numpy_full_loaded = True # We come from a getitem and it has been already loaded
+            else:
+                # three cases: 1) StorageNumpy from a numpy (True) 2) split (False) or 3) instantiate an existing obj (False)
+                # Is there any other?
+                self._numpy_full_loaded = True # Default value
+
             self._is_persistent = getattr(obj, '_is_persistent', None)
             self._block_id = getattr(obj, '_block_id', None)
             self._twin_id   = getattr(obj, '_twin_id', None)
@@ -363,7 +360,7 @@ class StorageNumpy(IStorage, np.ndarray):
             self._twin_name = getattr(obj, '_twin_name', None)
             self._all_coords = getattr(obj, '_all_coords', None)
             self._n_blocks = getattr(obj, '_n_blocks', None)
-            self._class_name = getattr(obj,'_class_name',None)
+            self._class_name = getattr(obj,'_class_name', 'hecuba.hnumpy.StorageNumpy')
             self._tokens = getattr(obj,'_tokens',None)
             self._offsets = getattr(obj,'_offsets', [-1] * self.ndim) # Initialize offsets to '-1'
             hfetch_metas = HArrayMetadata(list(self.shape), list(self.strides),
@@ -377,12 +374,14 @@ class StorageNumpy(IStorage, np.ndarray):
             log.debug("  __array_finalize__ copy")
             # Initialize fields as the __new__ case with input_array and not name
             self._loaded_coordinates = []
-            self._numpy_full_loaded  = False
+            self._numpy_full_loaded  = True # FIXME we only support copy for already loaded objects
             self._name               = None
             self.storage_id          = None
             self._is_persistent      = False
-            self._twin_ref           = getattr(obj, '_twin_ref', None)
-            self._offsets             = [-1] * self.ndim # Initialize offsets to '-1'
+            self._twin_ref           = getattr(obj, '_twin_ref', None) # FIXME If it is a copy, it should copy the twin also(already done at copy... but move it here)
+            self._offsets            = [-1] * self.ndim # Initialize offsets to '-1'
+            self._class_name         = getattr(obj,'_class_name', 'hecuba.hnumpy.StorageNumpy')
+            self._block_id           = getattr(obj, '_block_id', None)
 
 
     @staticmethod
