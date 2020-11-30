@@ -387,7 +387,10 @@ class StorageNumpy(IStorage, np.ndarray):
     @staticmethod
     def _get_base_array(self):
         ''' Returns the 'base' numpy from this SN.  '''
-        return (getattr(self,'base',self))
+        base = getattr(self, 'base',None)
+        if base is None:
+            base = self
+        return base
 
     @staticmethod
     def _create_tables(name):
