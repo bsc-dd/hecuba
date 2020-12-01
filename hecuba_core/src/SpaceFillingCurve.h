@@ -17,6 +17,7 @@
 #define ZORDER_ALGORITHM 0
 #define NO_PARTITIONS 1
 #define COLUMNAR 2
+#define FORTRANORDER 3
 
 //Represents a block of data belonging to an array
 struct Partition {
@@ -184,4 +185,48 @@ private:
     bool done = false;
 };
 
+
+class FortranOrderGenerator : public SpaceFillingCurve::PartitionGenerator {
+public:
+
+    FortranOrderGenerator();
+
+    FortranOrderGenerator(const ArrayMetadata &metas, void *data);
+
+    Partition getNextPartition() override;
+
+    int32_t computeNextClusterId() override;
+
+    PartitionIdxs getNextPartitionIdxs() override;
+
+    bool isDone() override;
+
+    uint64_t computeZorder(std::vector<uint32_t> cc);
+
+    std::vector<uint32_t> zorderInverse(uint64_t id, uint64_t ndims);
+
+    std::vector<uint32_t> getIndexes(uint64_t id, const std::vector<uint32_t> &dims);
+
+    uint64_t getIdFromIndexes(const std::vector<uint32_t> &dims, const std::vector<uint32_t> &indexes);
+
+    void merge_partitions(const ArrayMetadata &metas, std::vector<Partition> chunks, void *data) override;
+
+private:
+    bool done;
+    const ArrayMetadata metas;
+    void *data;
+    uint32_t ndims, row_elements, nreddims;
+    uint64_t block_size, nblocks, nclusters;
+    std::vector<uint32_t> block_dims, blocks_dim, bound_dims, clusters_dim;
+    uint64_t block_counter, cluster_counter;
+
+
+    static void tessellate(std::vector<uint32_t> dims, std::vector<uint32_t> block_dims, uint32_t elem_size, char *data,
+                           char *output_data, char *output_data_end);
+
+    static void
+    copy_block_to_array(std::vector<uint32_t> dims, std::vector<uint32_t> block_dims, uint32_t elem_size, char *data,
+                        char *output_data, char *output_data_end);
+
+};
 #endif //HFETCH_SPACEFILLINGCURVE_H

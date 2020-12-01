@@ -11,6 +11,7 @@
 SpaceFillingCurve::PartitionGenerator *
 SpaceFillingCurve::make_partitions_generator(const ArrayMetadata &metas, void *data) {
     if (metas.partition_type == ZORDER_ALGORITHM) return new ZorderCurveGenerator(metas, data);
+    if (metas.partition_type == FORTRANORDER) return new FortranOrderGenerator(metas, data);
     return new SpaceFillingGenerator(metas, data);
 }
 
@@ -18,6 +19,7 @@ SpaceFillingCurve::PartitionGenerator *
 SpaceFillingCurve::make_partitions_generator(const ArrayMetadata &metas, void *data,
                                              std::list<std::vector<uint32_t> > &coord) {
     if (metas.partition_type == ZORDER_ALGORITHM) return new ZorderCurveGeneratorFiltered(metas, data, coord);
+    if (metas.partition_type == FORTRANORDER) return new FortranOrderGeneratorFiltered(metas, data, coord);
     return new SpaceFillingGenerator(metas, data);
 }
 
