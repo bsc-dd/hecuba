@@ -12,7 +12,7 @@ from .hnumpy import StorageNumpy
 from hfetch import Hcache
 
 from .IStorage import IStorage
-from .tools import get_istorage_attrs, count_name_collision, build_remotely, basic_types, _min_token, _max_token
+from .tools import get_istorage_attrs, build_remotely, basic_types, _min_token, _max_token
 
 
 class EmbeddedSet(set):
@@ -604,14 +604,11 @@ class StorageDict(IStorage, dict):
             for index, element in enumerate(val):
                 val[index] = self.__make_val_persistent(element, index)
         elif isinstance(val, IStorage) and not val._is_persistent:
-            val.storage_id = uuid.uuid4()
+            valstorage_id = uuid.uuid4()
             attribute = self._columns[col]["name"]
-            count = count_name_collision(self._ksp, self._table, attribute)
-            if count == 0:
-                name = self._ksp + "." + self._table + "_" + attribute
-            else:
-                name = self._ksp + "." + self._table + "_" + attribute + "_" + str(count - 1)
-            # new name as ksp+table+obj_class_name
+
+            name = self._ksp + "." + ("D" + str(valstorage_id).replace('-','_') + self._table + attribute)[:40] # 48 is the max length of table names, this may have collisions but this would only affect to object instantiation that are not really expected (user should give the name of the object instead of relying on the system to generate it)
+            # new name as ksp.Dra_n_dom_table_attrname[:40]
             val.make_persistent(name)
         return val
 

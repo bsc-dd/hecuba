@@ -1,12 +1,13 @@
 from collections import namedtuple
 
 import numpy as np
+import uuid
 from . import config, log, Parser
 
 from .hnumpy import StorageNumpy
 from .IStorage import IStorage
 
-from .tools import count_name_collision, get_istorage_attrs, build_remotely, storage_id_from_name, basic_types, \
+from .tools import get_istorage_attrs, build_remotely, storage_id_from_name, basic_types, \
     valid_types
 
 
@@ -259,19 +260,18 @@ class StorageObj(IStorage):
         if is_istorage_attr:
             # Value is uuid or None, because it was not found
 
-            attr_name = attribute.lower()
-            my_name = self._get_name()
-            trailing_name = my_name[my_name.rfind('.') + 1:]
-
-            count = count_name_collision(self._ksp, trailing_name, attr_name)
-            attr_name = self._ksp + '.' + trailing_name + '_' + attr_name
-            if count > 1:
-                attr_name += '_' + str(count - 2)
-
+            attr_name = None
             if value is None:
-                value = storage_id_from_name(attr_name)
+                # Value not found, persist it BY NAME using a random name so we can retrieve it later
+                attr_name = attribute.lower()
+                my_name   = self._get_name()
+                trailing_name = my_name[my_name.rfind('.') + 1:]
+                number    = uuid.uuid4() # Random value
+                attr_name = self._ksp + "." + ("O" + str(number).replace('-','_') + trailing_name + attr_name)[:40]
+                value = self._build_is_attribute(attribute, persistence_name=attr_name, storage_id=None)
 
-            value = self._build_is_attribute(attribute, persistence_name=attr_name, storage_id=value)
+            else :
+                value = self._build_is_attribute(attribute, persistence_name=attr_name, storage_id=value)
 
         super().__setattr__(attribute, value)
         return value
@@ -306,15 +306,13 @@ class StorageObj(IStorage):
             # Write attribute to the storage
             if isinstance(value, IStorage):
                 if not value.storage_id:
+                    # Value is volatile, persist it BY NAME using a random name so we can retrieve it later
                     attr_name = attribute.lower()
                     my_name = self._get_name()
                     trailing_name = my_name[my_name.rfind('.') + 1:]
-
-                    count = count_name_collision(self._ksp, trailing_name, attr_name)
-                    attr_name = self._ksp + '.' + trailing_name + '_' + attr_name
-                    if count != 0:
-                        attr_name += '_' + str(count - 1)
-                    value.make_persistent(attr_name)
+                    number = uuid.uuid4() # Random value
+                    name   = self._ksp + "." + ("O" + str(number).replace('-','_') + trailing_name + attr_name)[:40]
+                    value.make_persistent(name)   # Persist BY NAME
                 # We store the storage_id when the object belongs to an Hecuba class
                 values = [self.storage_id, value.storage_id]
                 # We store the IStorage object in memory, to avoid rebuilding when it is not necessary
