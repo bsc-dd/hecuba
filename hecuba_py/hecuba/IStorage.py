@@ -21,19 +21,23 @@ class IStorage(object):
 
     def __init__(self, *args, **kwargs):
         super().__init__()
-        self._ksp = None
-        self._table = None
-        given_name = kwargs.pop("name", None)
-        if given_name:
-            self._ksp, self._table = extract_ks_tab(given_name)
-            name = self._ksp + '.' + self._table
-            self._set_name(name)
-
         if not getattr(self, "storage_id", None):
             self.storage_id = kwargs.pop("storage_id", None)
-        self._built_remotely = kwargs.pop("built_remotely", False)
         self._tokens = kwargs.pop("tokens", None)
-        self._is_persistent = False
+        given_name = kwargs.pop("name", None)
+        if given_name or self.storage_id:
+            if self.storage_id:
+                metas = get_istorage_attrs(self.storage_id)
+                given_name   = metas[0].name
+                self._tokens = metas[0].tokens
+            # Warning: In order to inherit _tokens and storage_id, they MUST be set before the next call
+            IStorage.make_persistent(self, given_name)
+        else:
+            self._ksp = None
+            self._table = None
+            self._is_persistent = False
+
+        self._built_remotely = kwargs.pop("built_remotely", False)
 
     @classmethod
     def get_by_alias(cls, alias=""):
@@ -50,7 +54,7 @@ class IStorage(object):
         return self.__class__ == other.__class__ and self.storage_id == other.storage_id
 
     def make_persistent(self, name):
-        if self._is_persistent:
+        if getattr(self, '_is_persistent', False):
             raise AlreadyPersistentError("This Object is already persistent [Before:{}.{}][After:{}]",
                                          self._ksp, self._table, name)
 

@@ -48,7 +48,8 @@ class StorageObj(IStorage):
         parser = Parser("ClassField")
         return parser._parse_comments(comments)
 
-    def __init__(self, name='', storage_id=None, *args, **kwargs):
+
+    def __init__(self, name=None, storage_id=None, *args, **kwargs):
         """
             Creates a new storageobj.
             Args:
@@ -63,15 +64,20 @@ class StorageObj(IStorage):
         self._persistent_attrs = self._persistent_props.keys()
         self._class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
 
-        super().__init__(*args, **kwargs)
+        super().__init__(name=name, storage_id=storage_id, *args, **kwargs)
+        self._table = self.__class__.__name__.lower()
+        args        = self.args(self._get_name(), self._tokens, self.storage_id, self._class_name, self._built_remotely)
 
-        self._build_args = self.args('', [], None, self._class_name, self._built_remotely)
+        self._build_args = args
 
-        if storage_id and not name:
-            name = get_istorage_attrs(storage_id)[0].name
+        if name or storage_id:  # therefore... are we doing an Instantiation or a Creation? (built_remotely may be used to instantiate a mockup)
+            try:
+                data    = get_istorage_attrs(self.storage_id)[0]
+                # Instantiation
+            except Exception:
+                self._persist_data(name)
+                pass # Creation
 
-        if name or storage_id:
-            self.make_persistent(name)
         log.debug("CREATED StorageObj(%s)", self._get_name())
 
     def __eq__(self, other):
@@ -132,20 +138,7 @@ class StorageObj(IStorage):
             if isinstance(attr, IStorage):
                 attr._flush_to_storage()
 
-    def make_persistent(self, name):
-        """
-            Once a StorageObj has been created, it can be made persistent. This function retrieves the information about
-            the Object class schema, and creates a Cassandra table with those parameters, where information will be
-            saved from now on, until execution finishes or StorageObj is no longer persistent.
-            It also inserts into the new table all information that was in memory assigned to the StorageObj prior to
-            this call.
-            Args:
-                name (string): name with which the table in the DB will be created
-        """
-        # Update name
-
-        super().make_persistent(name)
-
+    def _persist_data(self, name):
         self._table = self.__class__.__name__.lower()
 
         # Arguments used to build objects remotely
@@ -164,6 +157,21 @@ class StorageObj(IStorage):
         self._persist_attributes()
 
         StorageObj._store_meta(self._build_args)
+
+    def make_persistent(self, name):
+        """
+            Once a StorageObj has been created, it can be made persistent. This function retrieves the information about
+            the Object class schema, and creates a Cassandra table with those parameters, where information will be
+            saved from now on, until execution finishes or StorageObj is no longer persistent.
+            It also inserts into the new table all information that was in memory assigned to the StorageObj prior to
+            this call.
+            Args:
+                name (string): name with which the table in the DB will be created
+        """
+        # Update name
+        super().make_persistent(name)
+
+        self._persist_data(name)
 
     def stop_persistent(self):
         """

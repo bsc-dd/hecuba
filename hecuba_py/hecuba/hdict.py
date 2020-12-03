@@ -232,7 +232,7 @@ class StorageDict(IStorage, dict):
             log.error("Error creating the StorageDict metadata: %s %s", storage_args, ex)
             raise ex
 
-    def __init__(self, name='', primary_keys=None, columns=None, indexed_on=None, storage_id=None, **kwargs):
+    def __init__(self, name=None, primary_keys=None, columns=None, indexed_on=None, storage_id=None, **kwargs):
         """
         Creates a new StorageDict.
 
@@ -323,7 +323,7 @@ class StorageDict(IStorage, dict):
             name = get_istorage_attrs(storage_id)[0].name
 
         if name or storage_id:
-            self.make_persistent(name)
+            self._persist_data(name)
 
     @classmethod
     def _parse_comments(self, comments):
@@ -496,15 +496,14 @@ class StorageDict(IStorage, dict):
         """
         return self.keys()
 
-    def make_persistent(self, name):
+    def _persist_data(self, name):
         """
-        Method to transform a StorageDict into a persistent object.
+        Private Method to store a StorageDict into cassandra
         This will make it use a persistent DB as the main location
         of its data.
         Args:
             name:
         """
-        super().make_persistent(name)
         # Update local StorageDict metadata
         self._build_args = self._build_args._replace(storage_id=self.storage_id, name=self._ksp + "." + self._table,
                                                      tokens=self._tokens)
@@ -517,6 +516,17 @@ class StorageDict(IStorage, dict):
         self._persist_data_from_memory()
 
         StorageDict._store_meta(self._build_args)
+
+    def make_persistent(self, name):
+        """
+        Method to transform a StorageDict into a persistent object.
+        This will make it use a persistent DB as the main location
+        of its data.
+        Args:
+            name:
+        """
+        super().make_persistent(name)
+        self._persist_data(name)
 
     def stop_persistent(self):
         """

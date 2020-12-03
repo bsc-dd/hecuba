@@ -130,8 +130,12 @@ class StorageNumpy(IStorage, np.ndarray):
     def get_buffer_name(ksp, name):
         """
         Returns a full qualified name for a table name in the arrow keyspace
+        Args:
+            ksp : keyspace_arrow
+            name: table_arrow
+        Returns: keyspace_arrow.table_buffer
         """
-        return ksp+"_arrow." + name +"_buffer"
+        return ksp + "." + name[:-6] +"_buffer"
 
     @staticmethod
     def _comes_from_split(metas):
@@ -193,14 +197,11 @@ class StorageNumpy(IStorage, np.ndarray):
         result = cls.reserve_numpy_array(storage_id, name, metas_to_reserve) # storage_id is NOT used at all
         input_array = result[0]
         obj = np.asarray(input_array).view(cls)
+        IStorage.__init__(obj, name=name, storage_id=storage_id, tokens=tokens)
         obj._numpy_full_loaded = False
         obj._hcache = result[1]
 
 
-        (obj._ksp, obj._table) = extract_ks_tab(name)
-        obj._set_name(name)
-        obj.storage_id = storage_id # Use the passed argument instead of the loaded id
-        obj._tokens = tokens
         obj._offsets = metas_to_reserve.offsets
         obj._build_args = obj.args(obj.storage_id, istorage_metas[0].class_name,
                 istorage_metas[0].name, metas_to_reserve, istorage_metas[0].block_id, base_numpy, twin_id,
@@ -214,7 +215,6 @@ class StorageNumpy(IStorage, np.ndarray):
             twin = StorageNumpy._initialize_existing_object(cls, obj._twin_name, obj._twin_id)
             obj._twin_ref = twin
         obj._row_elem = obj._hcache.get_elements_per_row(storage_id, metas_to_calculate)
-        obj._is_persistent = True
         obj._calculate_coords(metas_to_calculate)
         #print (" JJ _initialize_existing_object name={} sid={} DONE".format(name, storage_id), flush=True)
         return obj
@@ -249,9 +249,18 @@ class StorageNumpy(IStorage, np.ndarray):
                 obj = np.asarray(input_array).copy().view(cls)
                 if config.arrow_enabled and getattr(input_array, 'ndim', 0) == 2:
                     obj._twin_id  = None
-                    obj._twin_name = None
                     obj._twin_ref = np.asarray(input_array).T.copy().view(cls)
                     log.debug("Created TWIN")
+            IStorage.__init__(obj, name=name, storage_id=storage_id, kwargs=kwargs)
+
+            if name or storage_id: # The object needs to be persisted
+                load_data= (input_array is None) and (config.load_on_demand == False)
+                if input_array is not None:
+                    if isinstance(input_array,StorageNumpy):
+                        log.warn("Creating a Persistent StorageNumpy.")
+                    obj._persist_data(obj._get_name())
+                if load_data: #FIXME aixo hauria d'afectar a l'objecte existent (aqui ja existeix a memoria... o hauria)
+                    obj[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
 
         #print("JJ name = ", name, flush=True)
         #print("JJ _twin_name = ", obj._twin_name, flush=True)
@@ -259,73 +268,7 @@ class StorageNumpy(IStorage, np.ndarray):
         return obj
 
     def __init__(self, input_array=None, name=None, storage_id=None, **kwargs):
-        log.debug("name=%s sid=%s", name, storage_id)
-        #if we already have a name we keep it and ignore the new one
-        current_name=self._get_name()
-        if current_name is not None:
-            name=current_name
-        # was to ovewrite the former name with the new one
-        #if name == None:
-        #    name=self._get_name() # To deal with StorageNumpy(StorageNumpy)
-
-        toks = getattr(self, '_tokens', None)
-        kwargs['tokens'] = toks
-        IStorage.__init__(self, storage_id=storage_id, name=name, **kwargs)
-
-        if getattr(self, '_build_args',None) is None:
-            log.debug(" JCOSTA _build_args is None")
-            metas = HArrayMetadata(list(self.shape), list(self.strides),
-                                list(self._offsets),
-                                self.dtype.kind, self.dtype.byteorder,
-                                self.itemsize, self.flags.num, 0 )
-            self._build_args = self.args(self.storage_id, self._class_name,
-                    self._get_name(), metas, self._block_id, self.storage_id, getattr(self, '_twin_id', None),
-                    toks)
-        twin = self._twin_ref
-        if twin is not None:
-            t_name=getattr(twin, 'name', None)
-            IStorage.__init__(twin, storage_id=twin.storage_id, name=t_name, **kwargs)
-            twin_metas = HArrayMetadata(
-                                        list(twin.shape),
-                                        list(twin.strides),
-                                        [-1]*len(twin.shape), # NOT USED
-                                        twin.dtype.kind,
-                                        twin.dtype.byteorder,
-                                        twin.itemsize,
-                                        twin.flags.num,
-                                        2)  # 2 == COLUMNAR (find it at SpaceFillingCurve.h)
-            twin._build_args = twin.args(
-                                         self._twin_id,
-                                         self._class_name,
-                                         self._twin_name,
-                                         twin_metas,
-                                         None, #self._block_id,
-                                         self._twin_id, # base numpy
-                                         None, #twin_id
-                                         toks)
-
-        if self._get_name() or self.storage_id:
-            load_data= (input_array is None) and (config.load_on_demand == False)
-            if input_array is not None:
-                if isinstance(input_array,StorageNumpy):
-                    self._build_args = self.args(self.storage_id,
-                                                 self._class_name,
-                                                 self._get_name(),
-                                                 metas,
-                                                 self._block_id,
-                                                 input_array._build_args.base_numpy, # Update base_numpy with original_data
-                                                 self._twin_id,
-                                                 toks)
-                    self._store_meta(self._build_args) # StoreNumpy from persistent StorageNumpy (reshape): we only need to update the metadata
-                    # FIXME twin?
-                    log.warn("Creating a Persistent StorageNumpy. Ignoring TWIN")
-                else:
-                    self.make_persistent(self._get_name())
-            self._is_persistent = True # IStorage.__init__ resets this! Therefore enable it again
-            if self._twin_ref is not None:
-                self._twin_ref._is_persistent = True # IStorage.__init__ resets this! Reenable it again.
-            if load_data:
-                self[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
+        pass # DO NOT REMOVE THIS FUNCTION!!! Yolanda's eyes bleed!
 
 
     # used as copy constructor
@@ -363,12 +306,15 @@ class StorageNumpy(IStorage, np.ndarray):
             self._class_name = getattr(obj,'_class_name', 'hecuba.hnumpy.StorageNumpy')
             self._tokens = getattr(obj,'_tokens',None)
             self._offsets = getattr(obj,'_offsets', [-1] * self.ndim) # Initialize offsets to '-1'
-            hfetch_metas = HArrayMetadata(list(self.shape), list(self.strides),
-                                          self._offsets, self.dtype.kind, self.dtype.byteorder,
-                                          self.itemsize, self.flags.num, 0)
-            self._build_args = getattr(obj, '_build_args', self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas,
-                                        self._block_id, None, self._twin_id, self._tokens))
-            log.debug("  __array_finalize__ build_args.metas.offsets {}".format(self._build_args.metas.offsets))
+            self._build_args = getattr(obj, '_build_args', None)
+            #if objargs is None and self._is_persistent:
+            #    hfetch_metas = HArrayMetadata(list(self.shape), list(self.strides),
+            #                              self._offsets, self.dtype.kind, self.dtype.byteorder,
+            #                              self.itemsize, self.flags.num, 0)
+            #    objargs = self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas,
+            #                            self._block_id, None, self._twin_id, self._tokens)
+            #self._build_args = objargs
+            #log.debug("  __array_finalize__ build_args.metas.offsets {}".format(self._build_args.metas.offsets))
             log.debug("  __array_finalize__ _offsets {}".format(self._offsets))
         else:
             log.debug("  __array_finalize__ copy")
@@ -407,11 +353,15 @@ class StorageNumpy(IStorage, np.ndarray):
                                                                 'PRIMARY KEY((storage_id,cluster_id),block_id))'
         config.executelocked(query_table)
 
+
+    @staticmethod
+    def _create_tables_arrow(name):
+        (ksp, table) = extract_ks_tab(name)
         if config.arrow_enabled:
             # Add 'arrow' tables
             #	harrow_ to read
             #	buffer_ to write
-            query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (ksp+"_arrow", config.replication)
+            query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (ksp, config.replication)
             config.executelocked(query_keyspace)
 
             tbl_buffer = StorageNumpy.get_buffer_name(ksp, table)
@@ -424,13 +374,13 @@ class StorageNumpy(IStorage, np.ndarray):
                                                                     'payload     blob, '     \
                                                                     'PRIMARY KEY(storage_id,col_id))'
             config.executelocked(query_table_buff)
-            tbl_arrow = StorageNumpy.get_arrow_name(ksp, table)
-            query_table_arrow='CREATE TABLE IF NOT EXISTS ' + tbl_arrow + \
+            query_table_arrow='CREATE TABLE IF NOT EXISTS ' + name + \
                                                                     '(storage_id uuid, '    \
                                                                     'col_id      bigint, '  \
                                                                     'arrow_addr  bigint, '  \
                                                                     'arrow_size  int, '     \
                                                                     'PRIMARY KEY(storage_id,col_id))'
+            log.debug("Create table %s and %s", name, tbl_buffer)
             config.executelocked(query_table_arrow)
 
     @staticmethod
@@ -707,13 +657,26 @@ class StorageNumpy(IStorage, np.ndarray):
         #    super(StorageNumpy, self._twin_ref).__setitem__(sliced_coord, values)
         return super(StorageNumpy, self).__setitem__(sliced_coord, values)
 
-    def make_persistent(self, name):
-        log.debug("Make %s persistent", name)
-
-        super().make_persistent(name)
+    def _persist_data(self, name, formato=0):
+        """
+        Persist data to cassandra, the common attributes have been generated by IStorage.make_persistent
+        Args:
+            StorageNumpy to persist
+            name to use
+            [formato] to store the data (0-ZOrder, 2-columnar) # 0 ==Z_ORDER (find it at SpaceFillingCurve.h)
+        """
+        twin = self._twin_ref
+        if twin is not None: # Persist Twin before current object (to obtain _twin_id)
+            self._twin_name = StorageNumpy.get_arrow_name(self._ksp, self._table)
+            IStorage.__init__(twin, storage_id=None, name=self._twin_name)
+            self._twin_id   = twin.storage_id
+            twin._persist_data(self._twin_name, 2)
 
         if not self._built_remotely:
-            self._create_tables(name)
+            if formato != 2:
+                self._create_tables(name)
+            else :
+                self._create_tables_arrow(name)
 
         if not getattr(self, '_hcache', None):
             self._hcache = self._create_hcache(name)
@@ -721,62 +684,29 @@ class StorageNumpy(IStorage, np.ndarray):
         if None in self or not self.ndim:
             raise NotImplemented("Empty array persistance")
 
-        twin = self._twin_ref
-        if twin is not None :
-            # If there is a twin, make it persistent FIRST
-            twksp, twtbl = extract_ks_tab(name)
-            twinname = StorageNumpy.get_arrow_name(twksp, twtbl)
-            # 1) make it persistent
-            super(StorageNumpy, twin).make_persistent(twinname)
-            self._twin_id = twin.storage_id
-            self._twin_name = twin._get_name()
-
-            if not getattr(twin, '_hcache', None):
-                twin._hcache = twin._create_hcache(twinname)
-
-            # 2) Build metadatas for Twin with different metadata
-            twin_metas = HArrayMetadata(
-                                        list(twin.shape),
-                                        list(twin.strides),
-                                        list(twin._offsets),
-                                        twin.dtype.kind,
-                                        twin.dtype.byteorder,
-                                        twin.itemsize,
-                                        twin.flags.num,
-                                        2  # 2 == COLUMNAR (find it at SpaceFillingCurve.h)
-                                        )
-            twin._build_args = twin.args(
-                                         self._twin_id,
-                                         self._class_name,
-                                         self._twin_name,
-                                         twin_metas,
-                                         None, #self._block_id,
-                                         self._twin_id, # base numpy
-                                         None, #twin_id
-                                         self._tokens)
-            # 3) Store metadata
-            StorageNumpy._store_meta(twin._build_args)
-
-            # 4) Store the data in cassandra
-            if len(twin.shape) != 0:
-                twin._hcache.store_numpy_slices([self._twin_ref._build_args.base_numpy], twin._build_args.metas, [twin.base.view(np.ndarray)],
-                                                None)
 
         # Persist current object
         hfetch_metas = HArrayMetadata(list(self.shape), list(self.strides),
                                       list(self._offsets), self.dtype.kind, self.dtype.byteorder,
-                                      self.itemsize, self.flags.num, 0)# 0 ==Z_ORDER (find it at SpaceFillingCurve.h)
+                                      self.itemsize, self.flags.num, formato)
         self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas, self._block_id,
                                      self.storage_id, # base_numpy is storage_id because until now we only reach this point if we are not inheriting from a StorageNumpy. We should update this if we allow StorageNumpy from volatile StorageNumpy
-                                     self._twin_id,
+                                     getattr(self,'_twin_id', None),
                                      self._tokens)
         if len(self.shape) != 0:
             self._hcache.store_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [StorageNumpy._get_base_array(self)],
                                             None)
         StorageNumpy._store_meta(self._build_args)
-        self._row_elem = self._hcache.get_elements_per_row(self.storage_id, self._build_args.metas)
-        self._calculate_coords(self._build_args.metas)
+        if formato != 2:
+            self._row_elem = self._hcache.get_elements_per_row(self.storage_id, self._build_args.metas)
+            self._calculate_coords(self._build_args.metas)
 
+
+    def make_persistent(self, name):
+        log.debug("Make %s persistent", name)
+
+        super().make_persistent(name)
+        self._persist_data(name)
 
 
     def stop_persistent(self):
