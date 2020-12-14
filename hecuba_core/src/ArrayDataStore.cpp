@@ -110,6 +110,7 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
         // Both have the SAME keys but DIFFERENT values!
         // FIXME  These tables should be the same (or at least not visible from here)
         std::vector<std::map<std::string, std::string> > keys_arrow_names = {{{"name", "storage_id"}},
+                                                                             {{"name", "cluster_id"}},
                                                                              {{"name", "col_id"}}};
 
         // Temporal buffer for writing to arrow
@@ -270,6 +271,15 @@ void ArrayDataStore::store_numpy_partition_into_cas(const uint64_t *storage_id ,
         cache->put_crow(keys, values);
 }
 
+/* get_row_elements - Calculate #elements per dimension 
+ * FIXME This code MUST BE equal to the one in NumpyStorage (No questions please, I cried also) and on SpaceFilling.cpp
+ */
+uint32_t ArrayDataStore::get_row_elements(ArrayMetadata &metadata) const {
+    uint32_t ndims = (uint32_t) metadata.dims.size();
+    uint64_t block_size = BLOCK_SIZE - (BLOCK_SIZE % metadata.elem_size);
+    uint32_t row_elements = (uint32_t) std::floor(pow(block_size / metadata.elem_size, (1.0 / ndims)));
+    return row_elements;
+}
 
 /***
  * Write a complete numpy ndarray by columns (using arrow)
@@ -302,6 +312,10 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
     auto field = arrow::field("field", arrow::binary());
     std::vector<std::shared_ptr<arrow::Field>> fields = {field};
     auto schema = std::make_shared<arrow::Schema>(fields);
+
+    uint32_t cluster_id = 0;
+    uint32_t row_elements = get_row_elements(metadata);
+    std::cout<< "store_numpy_into_cas_as_arrow cols="<<num_columns<<", rows="<<num_rows<<", row_elements="<<row_elements<<std::endl;
 
     char * src = (char*)data;
     for(uint64_t i = 0; i < num_columns; ++i) {
@@ -347,7 +361,7 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
 
         //Store Column
         // Allocate memory for keys
-        char* _keys = (char *) malloc(sizeof(uint64_t*) + sizeof(uint64_t));
+        char* _keys = (char *) malloc(sizeof(uint64_t*) + sizeof(uint32_t) + sizeof(uint64_t));
         char* _k = _keys;
         // Copy data
         //UUID
@@ -356,7 +370,11 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
         // [1] = storage_id.clock_seq_and_node;
         memcpy(_k, &c_uuid, sizeof(uint64_t*)); //storage_id
         _k += sizeof(uint64_t*);
+        if ((i>0) && ((i%row_elements)==0)) cluster_id++; // cluster_id = i % row_elements
+        memcpy( _k, &cluster_id, sizeof(uint32_t)); //cluster_id
+        _k += sizeof(uint32_t);
         memcpy(_k, &i, sizeof(uint64_t)); //col_id
+        std::cout<< "store_numpy_into_cas_as_arrow storage_id="<<c_uuid<<"cluster_id="<<cluster_id<<", col_id="<<i<<std::endl;
 
         // Allocate memory for values
         uint32_t values_size = sizeof(uint64_t) + sizeof(uint32_t) + sizeof(char*);
@@ -405,6 +423,10 @@ void ArrayDataStore::store_numpy_into_cas_by_cols_as_arrow(const uint64_t *stora
 
 
     // FIXME Encapsulate the following code into a function f(data, columns) -> Arrow
+
+    uint32_t cluster_id = 0;
+    uint32_t row_elements = get_row_elements(metadata);
+
     //arrow
     arrow::Status status;
     auto memory_pool = arrow::default_memory_pool(); //arrow
@@ -454,7 +476,7 @@ void ArrayDataStore::store_numpy_into_cas_by_cols_as_arrow(const uint64_t *stora
 
         //Store Column
         // Allocate memory for keys
-        char* _keys = (char *) malloc(sizeof(uint64_t*) + sizeof(uint64_t));
+        char* _keys = (char *) malloc(sizeof(uint64_t*) + sizeof(uint32_t) + sizeof(uint64_t));
         char* _k = _keys;
         // Copy data
         //UUID
@@ -463,7 +485,11 @@ void ArrayDataStore::store_numpy_into_cas_by_cols_as_arrow(const uint64_t *stora
         // [1] = storage_id.clock_seq_and_node;
         memcpy(_k, &c_uuid, sizeof(uint64_t*)); //storage_id
         _k += sizeof(uint64_t*);
+        if ((i>0) && ((i%row_elements)==0)) cluster_id++; // cluster_id = i % row_elements
+        memcpy( _k, &cluster_id, sizeof(uint32_t)); //cluster_id
+        _k += sizeof(uint32_t);
         memcpy(_k, &i, sizeof(uint64_t)); //col_id
+        std::cout<< "store_numpy_into_cas_by_cols_as_arrow storage_id="<<c_uuid<<"cluster_id="<<cluster_id<<", col_id="<<i<<std::endl;
 
         // Allocate memory for values
         uint32_t values_size = sizeof(uint64_t) + sizeof(uint32_t) + sizeof(char*);
@@ -812,6 +838,8 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
         base_arrow_file_name = std::string(this->arrow_path + "/arrow/" + name);
     }
 
+    uint32_t cluster_id = 0;
+    uint32_t row_elements = get_row_elements(metadata);
     for (uint32_t it = 0; it < cols.size(); ++it) {
         if (!this->arrow_optane) {
             arrow_file_name = base_arrow_file_name + std::to_string(cols[it]);
@@ -844,8 +872,13 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
         //[1] clock_seq_and_node;
         memcpy(_keys, &c_uuid, sizeof(uint64_t *));
         offset = sizeof(uint64_t *);
+        //cluster_id
+        cluster_id = cols[it] % row_elements; // Calculate manually the cluster_id...
+        memcpy( _keys + offset, &cluster_id, sizeof(uint32_t)); //cluster_id
+        offset += sizeof(uint32_t);
         //col id
         memcpy(_keys + offset, &cols[it], sizeof(uint64_t *));
+        std::cout<< "read_numpy_from_cas_arrow storage_id="<<c_uuid<<"cluster_id="<<cluster_id<<", col_id="<<cols[it]<<std::endl;
 
         //We fetch the data
         TupleRow *block_key = new TupleRow(keys_metas, keys_size, _keys);

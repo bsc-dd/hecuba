@@ -43,6 +43,7 @@ public:
 protected:
 
     void store_numpy_partition_into_cas(const uint64_t *storage_id , Partition part) const;
+    uint32_t get_row_elements(ArrayMetadata &metadata) const;
 
 
     CacheTable *cache = nullptr, *read_cache = nullptr;
