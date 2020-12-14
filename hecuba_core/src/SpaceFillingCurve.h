@@ -83,6 +83,9 @@ public:
 
         virtual PartitionIdxs getNextPartitionIdxs()  = 0;
 
+        virtual uint32_t getBlockID(std::vector<uint32_t> cc) = 0;
+        virtual uint32_t getClusterID(std::vector<uint32_t> cc) = 0;
+
         virtual void merge_partitions(const ArrayMetadata &metas, std::vector<Partition> chunks, void *data) = 0;
     };
 
@@ -108,6 +111,9 @@ protected:
         int32_t computeNextClusterId() override;
 
         PartitionIdxs getNextPartitionIdxs() override;
+
+        uint32_t getBlockID(std::vector<uint32_t> cc) override;
+        uint32_t getClusterID(std::vector<uint32_t> cc) override;
 
         bool isDone() override { return done; };
 
@@ -135,6 +141,9 @@ public:
     int32_t computeNextClusterId() override;
 
     PartitionIdxs getNextPartitionIdxs() override;
+
+    uint32_t getBlockID(std::vector<uint32_t> cc) override;
+    uint32_t getClusterID(std::vector<uint32_t> cc) override;
 
     bool isDone() override {
         if (block_counter >= nblocks) done = true;
@@ -209,15 +218,27 @@ public:
 
     uint64_t getIdFromIndexes(const std::vector<uint32_t> &dims, const std::vector<uint32_t> &indexes);
 
+    uint32_t getBlockID(std::vector<uint32_t> cc) override;
+    uint32_t getClusterID(std::vector<uint32_t> cc) override;
+
     void merge_partitions(const ArrayMetadata &metas, std::vector<Partition> chunks, void *data) override;
+
 
 private:
     bool done;
     const ArrayMetadata metas;
     void *data;
     uint32_t ndims, row_elements, nreddims;
-    uint64_t block_size, nblocks, nclusters;
-    std::vector<uint32_t> block_dims, blocks_dim, bound_dims, clusters_dim;
+    //uint64_t block_size, nblocks, nclusters;
+    //std::vector<uint32_t> block_dims, blocks_dim, bound_dims, clusters_dim;
+    uint64_t block_size;
+    uint64_t nblocks;   // Total number of blocks
+    uint64_t nclusters; // Total number of clusters
+    std::vector<uint32_t> blocks_dim;   // Num blocks per dimension
+    std::vector<uint32_t> clusters_dim; // Num clusters per dimension (half the number of blocks for the first 2 dims)
+    std::vector<uint32_t> block_dims;   // ???? 
+    std::vector<uint32_t> bound_dims;   // ????
+
     uint64_t block_counter, cluster_counter;
 
 
@@ -228,5 +249,18 @@ private:
     copy_block_to_array(std::vector<uint32_t> dims, std::vector<uint32_t> block_dims, uint32_t elem_size, char *data,
                         char *output_data, char *output_data_end);
 
+};
+class FortranOrderGeneratorFiltered : public FortranOrderGenerator {
+public:
+
+    FortranOrderGeneratorFiltered(const ArrayMetadata &metas, void *data, std::list<std::vector<uint32_t> > &coord);
+
+    int32_t computeNextClusterId() override;
+
+    bool isDone() override;
+
+private:
+    std::list<std::vector<uint32_t> > coord;
+    bool done = false;
 };
 #endif //HFETCH_SPACEFILLINGCURVE_H

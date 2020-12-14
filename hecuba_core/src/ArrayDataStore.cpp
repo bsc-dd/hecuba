@@ -753,7 +753,7 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
     if (!direct_copy) {
 	    partitions_it->merge_partitions(metadata, all_partitions, save);
     } else {
-        uint32_t wanted_block = ((ZorderCurveGenerator*)partitions_it)->computeZorder(coord.front()) & ((1<<(CLUSTER_SIZE+1))-1);
+        uint32_t wanted_block = partitions_it->getBlockID(coord.front());
         for ( Partition p : all_partitions ) {
             // A single block is supported, all the others are DISCARDED
             if (p.block_id == wanted_block) {
