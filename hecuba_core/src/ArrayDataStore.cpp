@@ -909,13 +909,13 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
                 page_offset = 0;
 
             }
-            auto* src = (const uint8_t*) mmap(NULL, total_arrow_size, PROT_READ, MAP_SHARED, fdIn, page_addr); //TODO handle mmap errors
+            auto* src = (uint8_t*) mmap(NULL, total_arrow_size, PROT_READ, MAP_SHARED, fdIn, page_addr); //TODO handle mmap errors
             if (src == MAP_FAILED) {
                 throw ModuleException("mmap error");
             }
 
             //read from devdax
-            arrow::io::BufferReader bufferReader(&src[page_offset], *arrow_size);
+            arrow::io::BufferReader bufferReader((const uint8_t*)&src[page_offset], *arrow_size);
 
             arrow::Status status;
             status = arrow::ipc::RecordBatchFileReader::Open(&bufferReader, &sptrFileReader); //TODO handle RecordBatchFileReader::Open errors

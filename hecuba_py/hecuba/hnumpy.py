@@ -367,21 +367,21 @@ class StorageNumpy(IStorage, np.ndarray):
             tbl_buffer = StorageNumpy.get_buffer_name(ksp, table)
 
             query_table_buff ='CREATE TABLE IF NOT EXISTS ' + tbl_buffer + \
-                                                                    '(storage_id uuid , ' \
-                                                                    'cluster_id  int, ' \
-                                                                    'col_id      bigint, ' \
+                                                                    '(storage_id uuid , '    \
+                                                                    'cluster_id  int, '      \
+                                                                    'col_id      bigint, '   \
                                                                     'row_id      bigint, '   \
                                                                     'size_elem   int, '      \
                                                                     'payload     blob, '     \
-                                                                    'PRIMARY KEY(storage_id, cluster_id, col_id))'
+                                                                    'PRIMARY KEY((storage_id, cluster_id), col_id))'
             config.executelocked(query_table_buff)
             query_table_arrow='CREATE TABLE IF NOT EXISTS ' + name + \
-                                                                    '(storage_id uuid, ' \
-                                                                    'cluster_id  int, ' \
+                                                                    '(storage_id uuid, '    \
+                                                                    'cluster_id  int, '     \
                                                                     'col_id      bigint, '  \
                                                                     'arrow_addr  bigint, '  \
                                                                     'arrow_size  int, '     \
-                                                                    'PRIMARY KEY(storage_id, cluster_id, col_id))'
+                                                                    'PRIMARY KEY((storage_id, cluster_id), col_id))'
             log.debug("Create table %s and %s", name, tbl_buffer)
             config.executelocked(query_table_arrow)
 
