@@ -603,7 +603,7 @@ TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t o
 
                     field_name="dims";
                     CassCollection* dims_collection = cass_collection_new(CASS_COLLECTION_TYPE_LIST, nelems);
-                    for (int pos = 0; pos < nelems; pos++ ) {
+                    for (uint32_t pos = 0; pos < nelems; pos++ ) {
                         uint32_t value;
                         memcpy(&value, byte_array + offset, sizeof(value));
                         offset += sizeof(value);
@@ -615,7 +615,7 @@ TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t o
                     CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UDT], field:" + field_name);
                     field_name="strides";
                     CassCollection* str_collection = cass_collection_new(CASS_COLLECTION_TYPE_LIST,nelems);
-                    for (int pos = 0; pos < nelems; pos++ ) {
+                    for (uint32_t pos = 0; pos < nelems; pos++ ) {
                            uint32_t value;
                            memcpy(&value, byte_array + offset, sizeof(value));
                         offset += sizeof(value);
