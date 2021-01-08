@@ -326,6 +326,7 @@ class Config:
         if singleton.id_create_schema == -1:
             time.sleep(10)
         singleton.cluster.register_user_type('hecuba', 'np_meta', HArrayMetadata)
+        # Create a dummy arrayDataStore to generate the TokensToHost variable
 
 
 global config

@@ -4,6 +4,7 @@
 
 #include "SpaceFillingCurve.h"
 #include "CacheTable.h"
+#include "StorageInterface.h"
 
 
 class ArrayDataStore {
@@ -12,6 +13,9 @@ public:
 
     ArrayDataStore(const char *table, const char *keyspace, CassSession *session,
                    std::map<std::string, std::string> &config);
+    ArrayDataStore(const char *table, const char *keyspace, std::shared_ptr<StorageInterface> storage,
+                   std::map<std::string, std::string> &config);
+
 
     ~ArrayDataStore();
 
@@ -54,6 +58,11 @@ protected:
     bool arrow_enabled = false;
     bool arrow_optane  = false; // Intel OPTANE disk enabled?
     std::string arrow_path  = "";
+
+    std::shared_ptr<StorageInterface> storage; //StorageInterface* storage;
+private:
+    int open_arrow_file(std::string arrow_file_name) ;
+    int find_and_open_arrow_file(const uint64_t * storage_id, const uint32_t cluster_id, const std::string arrow_file_name);
 };
 
 

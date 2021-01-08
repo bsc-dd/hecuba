@@ -34,6 +34,14 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 
+#include <netdb.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+#include "murmur3.hpp"
+#include <endian.h>
+
 #include <climits>
 #include <list>
 #include <set>
@@ -160,6 +168,12 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
 
 }
 
+ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, std::shared_ptr<StorageInterface> storage,
+                               std::map<std::string, std::string> &config) :
+    ArrayDataStore(table, keyspace, storage->get_session(), config) {
+    this->storage = storage;
+}
+
 
 ArrayDataStore::~ArrayDataStore() {
     delete (this->cache);
@@ -235,6 +249,60 @@ void ArrayDataStore::update_metadata(const uint64_t *storage_id, ArrayMetadata *
 }
 */
 
+/* Generate a token for composite key (storage_id, cluster_id)
+ * Args:
+ *      storage_id: Points to a CassUuid
+ *      cluster_id: Contains a cluster_id
+ * Returns an int64_t with the token that Cassandra assigns to the composite key
+ */
+int64_t murmur(const uint64_t *storage_id, const uint32_t cluster_id) {
+        char mykey[256];
+        uint64_t sidBE_high;
+        uint64_t sidBE_low;
+        uint32_t cidBE;
+        uint16_t sidlenBE = sizeof(uint64_t)*2;
+        uint16_t cidlenBE = sizeof(uint32_t);
+        if (htonl(0x12345678) == 0x12345678) { //BIGENDIAN
+            sidBE_high = *storage_id;
+            sidBE_low  = *(storage_id+1);
+            cidBE =  cluster_id;
+        } else {  // LittleEndian // --> Transform to BigEndian needed.
+            //Transform the fields from the cassandra 'CassUuid' type. Check also parse_uuid from HCache.cpp
+            uint32_t time_low = htobe32((*storage_id) & 0xFFFFFFFF);
+            uint16_t time_mid = htobe16(((*storage_id)>>32) & 0xFFFF);
+            uint16_t time_hi  = htobe16(((*storage_id)>>48));
+            sidBE_high        = (time_low | ((uint64_t) time_mid)<<32 | ((uint64_t)time_hi)<<48 );
+
+            uint64_t node     = htobe64((*(storage_id+1)) & 0xFFFFFFFFFFFF);
+            uint16_t clock    = htobe16((*(storage_id+1))>>48);
+            sidBE_low         = node | clock; //This works because 'node' has been translated to BigEndian
+
+            cidBE = htobe32(cluster_id);
+            sidlenBE = htobe16(sidlenBE);
+            cidlenBE = htobe16(cidlenBE);
+        }
+        char* p = mykey;
+        memcpy(p, &sidlenBE, sizeof(sidlenBE)); // The 'CassUuid' type
+        p+= sizeof(sidlenBE);
+        memcpy(p, &sidBE_high, sizeof(sidBE_high));
+        p+= sizeof(sidBE_high);
+        memcpy(p, &sidBE_low, sizeof(sidBE_low));
+        p+= sizeof(sidBE_low);
+        memcpy(p, "", 1); // The byte '0'
+        p+= 1;
+
+        memcpy(p, &cidlenBE, sizeof(cidlenBE));
+        p+= sizeof(cidlenBE);
+        memcpy(p, &cidBE, sizeof(cidBE));
+        p+= sizeof(cidBE);
+        memcpy(p, "", 1); // The byte '0'
+        p+= 1;
+
+        int64_t token =  datastax::internal::MurmurHash3_x64_128(mykey, (int)(p-mykey), 0);
+
+        std::cout<< "murmur storage_id="<<std::hex<<*storage_id<<" cluster_id="<<std::dec<<cluster_id<<"-->"<<token<<std::endl;
+        return token;
+}
 /***
  * Write a complete numpy ndarray by using the partitioning mechanism defined in the metadata
  * @param storage_id identifying the numpy ndarray
@@ -263,6 +331,9 @@ void ArrayDataStore::store_numpy_partition_into_cas(const uint64_t *storage_id ,
         block_id = part.block_id - half_int;
         memcpy(keys + offset, &block_id, sizeof(int32_t));
         //COPY VALUES
+    // Create token from storage_id+cluster_id (partition key)
+    int64_t token = murmur(c_uuid, cluster_id);
+    std::cout<< "JCOSTA storing partition sid="<<std::hex<<*c_uuid<<"-cid="<<std::dec<<cluster_id<<"-->"<<token<<std::endl;
 
         values = (char *) malloc(sizeof(char *));
         memcpy(values, &part.data, sizeof(char *));
@@ -370,11 +441,13 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
         // [1] = storage_id.clock_seq_and_node;
         memcpy(_k, &c_uuid, sizeof(uint64_t*)); //storage_id
         _k += sizeof(uint64_t*);
-        if ((i>0) && ((i%row_elements)==0)) cluster_id++; // cluster_id = i % row_elements
+        if ((i>0) && ((i%row_elements)==0)) cluster_id++; // cluster_id = i / row_elements
         memcpy( _k, &cluster_id, sizeof(uint32_t)); //cluster_id
         _k += sizeof(uint32_t);
         memcpy(_k, &i, sizeof(uint64_t)); //col_id
-        std::cout<< "store_numpy_into_cas_as_arrow storage_id="<<c_uuid<<"cluster_id="<<cluster_id<<", col_id="<<i<<std::endl;
+    int64_t token = murmur(storage_id, cluster_id);
+    char *host = storage->get_host_per_token(token);
+        std::cout<< "store_numpy_into_cas_as_arrow storage_id="<<std::hex<<*storage_id<<" cluster_id="<<std::dec<<cluster_id<<", col_id="<<i<<"-->"<<token<<" @"<<host<<std::endl;
 
         // Allocate memory for values
         uint32_t values_size = sizeof(uint64_t) + sizeof(uint32_t) + sizeof(char*);
@@ -489,7 +562,7 @@ void ArrayDataStore::store_numpy_into_cas_by_cols_as_arrow(const uint64_t *stora
         memcpy( _k, &cluster_id, sizeof(uint32_t)); //cluster_id
         _k += sizeof(uint32_t);
         memcpy(_k, &i, sizeof(uint64_t)); //col_id
-        std::cout<< "store_numpy_into_cas_by_cols_as_arrow storage_id="<<c_uuid<<"cluster_id="<<cluster_id<<", col_id="<<i<<std::endl;
+        std::cout<< "store_numpy_into_cas_by_cols_as_arrow storage_id="<<*c_uuid<<"cluster_id="<<cluster_id<<", col_id="<<i<<std::endl;
 
         // Allocate memory for values
         uint32_t values_size = sizeof(uint64_t) + sizeof(uint32_t) + sizeof(char*);
@@ -796,6 +869,121 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
 
 }
 
+/* Open an 'arrow_file_name' in a local environment.
+ * It always succeed or raises exception
+ */
+int ArrayDataStore::open_arrow_file(std::string arrow_file_name) {
+    int fdIn = -1;
+    long retries = 0;
+    std::cout<< "open_arrow_file "<<arrow_file_name<<std::endl;
+    do {
+        fdIn = open(arrow_file_name.c_str(), O_RDONLY);  //TODO handle open errors; define file name
+        if (fdIn < 0) {
+            int err = errno;
+            char buff[4096];
+            sprintf(buff, "open error %s", arrow_file_name.c_str());
+            perror(buff);
+            if (err == ENOENT) { //File does not exist... retry
+                retries ++;
+                std::cout << "open_arrow_file  retry " << retries << "/"<< MAX_RETRIES << std::endl;
+                sleep(1);
+            }
+            if ((err != ENOENT) || (retries == MAX_RETRIES)) {
+                char buff[4096];
+                sprintf(buff, "open error %s", arrow_file_name.c_str());
+                perror(buff);
+                throw ModuleException("open error "+ arrow_file_name);
+            }
+        }
+    } while(fdIn<0);
+    return fdIn;
+}
+
+
+/* Copy file 'dst'@'host' to 'src'
+ * Uses the 'scp' function and the logged user
+ */
+void scp(const char *host, const char *src, const char *dst) {
+    char exec[180];
+
+    fprintf(stdout, " Remote copy %s from host %s to path %s\n", src, host, dst);
+    // Get USERNAME
+    char user[32];
+    if (getlogin_r(user, sizeof(user))<0) {
+        std::cerr<<" scp: getlogin_r failed "<<std::endl;
+        perror("scp: getlogin_r");
+        exit(1); //FIXME
+    }
+
+    // Run scp user@host:src dst
+    sprintf(exec,"scp %s@%s:%s %s", user, host, src, dst);
+
+    if(system(exec)==0)
+        printf("\nFile %s copied successfully\n",src);
+    else
+        printf("\nFile %s not copied successfully\n",src);
+}
+
+/* Open an 'arrow_file_name' from (a distributed environment) node corresponding to partition key (storage_id, cluster_id)
+ * There are 2 cases>
+ *  1) The file exists LOCALLY, or
+ *  2) The file is REMOTE
+ * In the second case, the file is retrieved from its owner, copied locally and opened.
+ * It always succeed or raises exception
+ * Args:
+ *      storage_id, cluster_id : partition key
+ *      arrow_file_name        : KEYSPACE/TABLE path to open (relative to arrow_path)
+ */
+int ArrayDataStore::find_and_open_arrow_file(const uint64_t * storage_id, const uint32_t cluster_id, const std::string arrow_file_name) {
+
+    std::string local_path = this->arrow_path;
+    if (!this->arrow_optane) { // FIXME Fix this at creation time
+        local_path = local_path + "arrow/";
+    }
+
+    // Where I am running?
+    char hostname[128];
+    gethostname(hostname, sizeof(hostname));
+    struct hostent *ent = gethostbyname(hostname);
+    struct in_addr ip_addr = *(struct in_addr *)(ent->h_addr);
+    char * whoami = inet_ntoa(ip_addr);
+    printf("Hostname: %s, was resolved to: %s\n", hostname, whoami);
+
+    // Create token from storage_id+cluster_id (partition key)
+    int64_t token = murmur(storage_id, cluster_id);
+
+    // Find host corresponding to token
+    char *host = storage->get_host_per_token(token);
+
+    // Detect the location of the file
+    if ((strcmp(host, "127.0.0.1") != 0) && (strcmp(host, whoami) != 0)) { // The file is remote, get a copy //TODO improve local management instead of the 127.0.0.1 hack
+        std::string remote_path;
+        remote_path = local_path + "REMOTES/";
+
+        // Ensure that 'remote_path/KEYSPACE' exists
+        std::string ksp;
+        uint32_t pos = arrow_file_name.find_last_of("/");
+        ksp = arrow_file_name.substr(0, pos);
+        int r = mkdir((remote_path + ksp).c_str(), 0770);
+        if (r<0) {
+            if (errno != EEXIST) {
+                std::cerr<<" scp: mkdir "<< (remote_path + ksp) <<" failed "<<std::endl;
+                perror("scp: mkdir");
+                exit(1); //FIXME
+            }
+        } else {
+            std::cout<<" scp: created directory "<<(remote_path + ksp)<<std::endl;
+        }
+
+        // Get a copy of arrow_file_name to REMOTES path
+        scp(host, (local_path + arrow_file_name).c_str(), (remote_path + ksp).c_str());
+
+        // Now it is local
+        local_path = remote_path;
+    }
+    return open_arrow_file(local_path + arrow_file_name);
+}
+
 /***
  * Retrieve some Numpy columns from Cassandra in Arrow format into a numpy ndarray
  * @param storage_id of the array to retrieve
@@ -821,50 +1009,23 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
     uint64_t row_size   = metadata.strides[0]; // Columns are stored in rows, therefore even the name, this is the number of columns
     uint32_t elem_size  = metadata.elem_size;
 
-    int fdIn;
-    //open devdax access
+    int fdIn = -1;
     std::string arrow_file_name;
     std::string base_arrow_file_name;
     if (this->arrow_optane) {
+        //open devdax access
         arrow_file_name = std::string(this->arrow_path + "/arrow_persistent_heap");
-        fdIn = open(arrow_file_name.c_str(), O_RDONLY);  //TODO handle open errors; define file name
-        if (fdIn < 0) {
-            throw ModuleException("open error "+ arrow_file_name);
-        }
+        fdIn = open_arrow_file(arrow_file_name.c_str()); // FIXME a distributed version is needed...
     } else {
         std::string name (this->TN);
         uint32_t pos = name.find_first_of(".",0);
         name.replace(pos, 1, "/");
-        base_arrow_file_name = std::string(this->arrow_path + "/arrow/" + name);
+        base_arrow_file_name = name;
     }
 
     uint32_t cluster_id = 0;
     uint32_t row_elements = get_row_elements(metadata);
     for (uint32_t it = 0; it < cols.size(); ++it) {
-        if (!this->arrow_optane) {
-            arrow_file_name = base_arrow_file_name + std::to_string(cols[it]);
-            long retries = 0;
-            do {
-                fdIn = open(arrow_file_name.c_str(), O_RDONLY);  //TODO handle open errors; define file name
-                if (fdIn < 0) {
-                    int err = errno;
-                    char buff[4096];
-                    sprintf(buff, "open error %s", arrow_file_name.c_str());
-                    perror(buff);
-                    if (err == ENOENT) { //File does not exist... retry
-                        retries ++;
-                        std::cout << "read_numpy_from_cas_arrow  retry " << retries << "/"<< MAX_RETRIES << std::endl;
-                        sleep(1);
-                    }
-                    if ((err != ENOENT) || (retries == MAX_RETRIES)) {
-                        char buff[4096];
-                        sprintf(buff, "open error %s", arrow_file_name.c_str());
-                        perror(buff);
-                        throw ModuleException("open error "+ arrow_file_name);
-                    }
-                }
-            } while(fdIn<0);
-        }
         _keys = (char *) malloc(keys_size);
         //UUID
         c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
@@ -873,22 +1034,29 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
         memcpy(_keys, &c_uuid, sizeof(uint64_t *));
         offset = sizeof(uint64_t *);
         //cluster_id
-        cluster_id = cols[it] % row_elements; // Calculate manually the cluster_id...
+        cluster_id = cols[it] / row_elements; // Calculate manually the cluster_id...
         memcpy( _keys + offset, &cluster_id, sizeof(uint32_t)); //cluster_id
         offset += sizeof(uint32_t);
         //col id
-        memcpy(_keys + offset, &cols[it], sizeof(uint64_t *));
-        std::cout<< "read_numpy_from_cas_arrow storage_id="<<c_uuid<<"cluster_id="<<cluster_id<<", col_id="<<cols[it]<<std::endl;
+        memcpy(_keys + offset, &cols[it], sizeof(uint64_t));
+        std::cout<< "read_numpy_from_cas_arrow storage_id="<<std::hex<<*c_uuid<<", cluster_id="<<std::dec<<cluster_id<<", col_id="<<cols[it]<<std::endl;
+
+        if (!this->arrow_optane) {
+            arrow_file_name = base_arrow_file_name + std::to_string(cols[it]);
+            fdIn = find_and_open_arrow_file( storage_id, cluster_id, arrow_file_name );
+        }
 
         //We fetch the data
         TupleRow *block_key = new TupleRow(keys_metas, keys_size, _keys);
         result = read_cache->get_crow(block_key);// FIXME use Yolanda's IN instead of a call to cassandra per column
         delete (block_key);
 
+        std::cout<< " JCOSTA read_numpy_from_cas_arrow rows="<<result.size()<<std::endl;
         for (const TupleRow *row:result) { // FIXME Theoretically, there should be a single row. ENRIC ensure that any data in the buffer table for the current {storage_id, col_id} has been transfered to the arrow table! And in this case, just peek the first row from the vector
             uint64_t *arrow_addr = (uint64_t *) row->get_element(0);
             uint32_t *arrow_size = (uint32_t *) row->get_element(1);
 
+            std::cout<< "read_numpy_from_cas_arrow addr="<<*arrow_addr<<" size="<<*arrow_size<<std::endl;
             off_t page_addr;
 
             //read from devdax

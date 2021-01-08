@@ -764,7 +764,7 @@ static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) 
     /*** PARSE TABLE METADATA ***/
 
     try {
-        self->NumpyDataStore = new NumpyStorage(table, keyspace, storage->get_session(), config);
+        self->NumpyDataStore = new NumpyStorage(table, keyspace, storage, config);
     } catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return -1;

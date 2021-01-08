@@ -21,7 +21,7 @@ class NumpyStorage : public ArrayDataStore {
 
 public:
 
-    NumpyStorage(const char *table, const char *keyspace, CassSession *session,
+    NumpyStorage(const char *table, const char *keyspace, std::shared_ptr<StorageInterface> storage,
                  std::map<std::string, std::string> &config);
 
     ~NumpyStorage();

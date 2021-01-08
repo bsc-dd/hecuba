@@ -3,19 +3,19 @@
 #include <iostream>
 
 
-NumpyStorage::NumpyStorage(const char *table, const char *keyspace, CassSession *session,
-                           std::map<std::string, std::string> &config) :
-        ArrayDataStore(table, keyspace, session, config) {
+NumpyStorage::NumpyStorage(const char *table, const char *keyspace, std::shared_ptr<StorageInterface> storage,
+                 std::map<std::string, std::string> &config) :
+        ArrayDataStore(table, keyspace, storage, config) {
 
     //lgarrobe preparant per metadates
     std::vector<std::map<std::string, std::string> > keys_names = {{{"name", "storage_id"}}};
 
     std::vector<std::map<std::string, std::string> > columns_names = {{{"name", "name"}},{{"name", "numpy_meta"}}};
 
+    CassSession* session = storage->get_session();
     TableMetadata *table_meta = new TableMetadata("istorage", "hecuba", keys_names, columns_names, session);
     this ->MM = new MetaManager(table_meta, session, config);
 }
-
 
 NumpyStorage::~NumpyStorage() {
 
