@@ -82,6 +82,7 @@ class StorageNumpy(IStorage, np.ndarray):
             log.debug(" split : Create block {} {} -> {}".format(cluster_id, block_id, storage_id))
             token_split = []
             hash_key = cluster_id_to_token[cluster_id]
+            log.debug(" storage_id {} -> hash_key {}".format(storage_id, hash_key))
             for t in self._tokens:
                 if hash_key >= t[0] and hash_key < t[1]:
                     token_split.append(t)
@@ -158,10 +159,8 @@ class StorageNumpy(IStorage, np.ndarray):
         #    StorageNumpy(None, name="xxx", none)
         # or StorageNumpy(None, none, storage_id="xxx")
         # or StorageNumpy(None, name="xxx", storage_id="yyy") Does it exist?
-        log.debug("name=%s sid=%s", name, storage_id)
+        log.debug("INITIALIZE EXISTING OBJECT name=%s sid=%s", name, storage_id)
         if not storage_id:  # StorageNumpy(None, name="xxxx", NONE)
-            #(ksp, table) = extract_ks_tab(name)
-            #name = ksp + "." + table
             storage_id = storage_id_from_name(name)
 
         # Load metadata
@@ -192,8 +191,8 @@ class StorageNumpy(IStorage, np.ndarray):
         # the original objet
 
         if StorageNumpy._comes_from_split(my_metas):
-            metas_to_reserve   =  my_metas
-            metas_to_calculate =  base_metas
+            metas_to_reserve   =  my_metas  # reserve only for the current piece
+            metas_to_calculate =  base_metas # but keep the global metadata in memory
         else:
             metas_to_reserve   =  base_metas
             metas_to_calculate =  my_metas
@@ -232,7 +231,7 @@ class StorageNumpy(IStorage, np.ndarray):
             if (len(table)>40 or table.startswith("HECUBA")):
                 # Cassandra limits name to 48 characters: we reserve 8 characters
                 # for special Hecuba tables
-                raise AttributeError("The name of an user StorageNumpy is limited to 40 chars and can not start 'HECUBA'")
+                raise AttributeError("The name of an user StorageNumpy is limited to 40 chars and can not start 'HECUBA' {}".format(table))
 
         if input_array is None and (name is not None or storage_id is not None):
             obj = StorageNumpy._initialize_existing_object(cls, name, storage_id)
@@ -816,6 +815,7 @@ class StorageNumpy(IStorage, np.ndarray):
         '''
         Copy a StorageNumpy: new **volatile** StorageNumpy with the data of the parameter
         '''
+        #FIXME if self is not full loaded... load it
         n_sn=super(StorageNumpy,self).copy(order)
         if self._twin_ref is not None:
             n_sn._twin_id = None
