@@ -262,8 +262,7 @@ char * StorageInterface::get_host_per_token(int64_t token) {
     uint32_t i=0;
     for (; (i < tokensInCluster.size() - 1) && (!found); i++) {
         //printf("token: %ld %s\n", tokensInCluster[i].token, tokensInCluster[i].host);
-        if (tokensInCluster[i].token   <= token &&
-            tokensInCluster[i+1].token >  token) {
+        if (tokensInCluster[i].token   >= token ) {
             found = true;
             th = &tokensInCluster[i];
         }
