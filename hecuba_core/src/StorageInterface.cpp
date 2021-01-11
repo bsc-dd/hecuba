@@ -56,10 +56,10 @@ StorageInterface::StorageInterface(int nodePort, std::string contact_points) {
     std::string node = contact_points.substr(0, contact_points.find_first_of(","));
     set_tokens_per_host(node.c_str(), nodePort);
 
-    printf("-----------------\n");
-    for (int i = 0; i < tokensInCluster.size(); i++) {
-                printf("token: %ld %s\n", tokensInCluster[i].token, tokensInCluster[i].host);
-    }
+    //printf("-----------------\n");
+    //for (uint32_t i = 0; i < tokensInCluster.size(); i++) {
+    //            printf("token: %ld %s\n", tokensInCluster[i].token, tokensInCluster[i].host);
+    //}
 }
 
 
@@ -259,7 +259,7 @@ void StorageInterface::get_tokens_per_host(std::vector< struct tokenHost > &toke
 
 /* Returns the host associated to a 'token' */
 char * StorageInterface::get_host_per_token(int64_t token) {
-    std::cout<<"JCOSTA =================" << std::endl;
+    //std::cout<<"JCOSTA =================" << std::endl;
     struct tokenHost *th = NULL; //tokensInCluster.find(token)
     bool found = false;
     uint32_t i=0;
@@ -274,6 +274,6 @@ char * StorageInterface::get_host_per_token(int64_t token) {
     if (!found) {
         th = &tokensInCluster[i];
     }
-    printf("JCOSTA token found %ld -> %ld %s\n", token, th->token, th->host);
+    //printf("JCOSTA token found %ld -> %ld %s\n", token, th->token, th->host);
     return th->host;
 }

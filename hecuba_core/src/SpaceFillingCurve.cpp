@@ -546,7 +546,7 @@ FortranOrderGenerator::FortranOrderGenerator(const ArrayMetadata &metas, void *d
     row_elements = (uint32_t) std::floor(pow(block_size / metas.elem_size, (1.0 / ndims)));
     //TODO nth root returns an approximated value, which is later truncated by floor
     // Example: 125^(1.0/3) returns 4.9 -> 4: Correct is 5
-    std::cout<< "row_elements for "<<ndims<<" dimensions -> "<<row_elements<<std::endl;
+    //std::cout<< "row_elements for "<<ndims<<" dimensions -> "<<row_elements<<std::endl;
 
     //Compute the final block size
     block_size = (uint64_t) pow(row_elements, ndims) * metas.elem_size;
@@ -557,7 +557,7 @@ FortranOrderGenerator::FortranOrderGenerator(const ArrayMetadata &metas, void *d
     for (uint32_t dim = 0; dim < ndims; ++dim) {
         blocks_dim[dim] = (uint32_t) std::ceil((double) metas.dims[dim] / row_elements);
         nblocks   *= blocks_dim[dim];
-        std::cout<< "blocks_dim["<<dim<<"] = "<<blocks_dim[dim]<<std::endl;
+        //std::cout<< "blocks_dim["<<dim<<"] = "<<blocks_dim[dim]<<std::endl;
     }
     nclusters = blocks_dim[blocks_dim.size()-1]; //Number of blocks in the last dimension
 
@@ -685,7 +685,7 @@ uint32_t FortranOrderGenerator::getBlockID(std::vector<uint32_t> cc) {
         uint32_t curr = cc[i];   // Current position
         uint32_t BITS = (uint32_t) log2(blocks_dim[i]) + 1; //Number of bits to codify current dimension value
         block_id <<= BITS;
-        std::cout<< "   cc["<<i<<"]="<<cc[i]<<" bits="<<BITS<<" block_id="<<block_id<<std::endl;
+        //std::cout<< "   cc["<<i<<"]="<<cc[i]<<" bits="<<BITS<<" block_id="<<block_id<<std::endl;
         block_id += curr;
     }
     return block_id;
@@ -712,7 +712,7 @@ Partition FortranOrderGenerator::getNextPartition() {
     // Block_id == block_ccs[0] | block_ccs[1] | ... | block_ccs[N-2]
     uint32_t block_id   = getBlockID(block_ccs);
 
-    std::cout<< " getNextPartition "<<nclusters<<"-> block_counter "<<block_counter<< "--> "<<block_id<< "."<<cluster_id<<std::endl;
+    //std::cout<< " getNextPartition "<<nclusters<<"-> block_counter "<<block_counter<< "--> "<<block_id<< "."<<cluster_id<<std::endl;
 
     //Compute position in memory and chunks of data to copy
 
@@ -828,7 +828,7 @@ void FortranOrderGenerator::copy_block_to_array(std::vector<uint32_t> dims, std:
 void FortranOrderGenerator::merge_partitions(const ArrayMetadata &metas, std::vector<Partition> chunks, void *data) {
     uint32_t ndims = (uint32_t) metas.dims.size();
 
-    std::cout << " Fortranorder:merge_partitions "<<chunks.size() << " chunks"<<std::endl;
+    //std::cout << " Fortranorder:merge_partitions "<<chunks.size() << " chunks"<<std::endl;
 
     //Shape of the average block
     std::vector<uint32_t> block_shape(ndims, row_elements);
@@ -845,14 +845,14 @@ void FortranOrderGenerator::merge_partitions(const ArrayMetadata &metas, std::ve
             uint32_t curr = block_id & ~(-1<< BITS);
             block_id >>= BITS;
             ccs[i] = curr;
-            std::cout<< "         ccs["<<i<<"]="<<ccs[i]<<" bits="<<BITS<<" block_id="<<block_id<<std::endl;
+            //std::cout<< "         ccs["<<i<<"]="<<ccs[i]<<" bits="<<BITS<<" block_id="<<block_id<<std::endl;
         }
 
         //if any element of the ccs is equal to dim_split -> is a limit of the array -> recompute chunk
         bool bound = false;
-        std::cout << "Blocks ";
+        //std::cout << "Blocks ";
         for (uint32_t i = 0; i < ndims; ++i) {
-        std::cout << "ccs["<<i<<"]="<<ccs[i]<<" blocks_dim["<<i<<"]="<<blocks_dim[i]<<std::endl;
+        //std::cout << "ccs["<<i<<"]="<<ccs[i]<<" blocks_dim["<<i<<"]="<<blocks_dim[i]<<std::endl;
             if (ccs[i] == blocks_dim[i] - 1) bound = true;
             ccs[i] *= row_elements;
         }
@@ -865,7 +865,7 @@ void FortranOrderGenerator::merge_partitions(const ArrayMetadata &metas, std::ve
         uint64_t *retrieved_block_size = (uint64_t *) input;
         input += +sizeof(uint64_t);
         char *input_ends = input + *retrieved_block_size;
-        std::cout << " - bid:cid "<<chunk.block_id<<":"<<chunk.cluster_id<<" -> offset="<<offset<< " block_size="<<block_size<<" current block_size="<<*retrieved_block_size<<(bound?"BOUND":"")<<std::endl;
+        //std::cout << " - bid:cid "<<chunk.block_id<<":"<<chunk.cluster_id<<" -> offset="<<offset<< " block_size="<<block_size<<" current block_size="<<*retrieved_block_size<<(bound?"BOUND":"")<<std::endl;
 
 
         if (!bound) {
@@ -915,7 +915,7 @@ PartitionIdxs FortranOrderGenerator::getNextPartitionIdxs() {
         uint32_t curr = block_ccs[i];   // Current position
         uint32_t BITS = (uint32_t) log2(blocks_dim[i]) + 1; //Number of bits to codify current dimension value
         block_id <<= BITS;
-        std::cout<< "   block_ccs["<<i<<"]="<<block_ccs[i]<<" bits="<<BITS<<" block_id="<<block_id<<std::endl;
+        //std::cout<< "   block_ccs["<<i<<"]="<<block_ccs[i]<<" bits="<<BITS<<" block_id="<<block_id<<std::endl;
         block_id += curr;
     }
     block_counter ++;

@@ -300,7 +300,7 @@ int64_t murmur(const uint64_t *storage_id, const uint32_t cluster_id) {
 
         int64_t token =  datastax::internal::MurmurHash3_x64_128(mykey, (int)(p-mykey), 0);
 
-        std::cout<< "murmur storage_id="<<std::hex<<*storage_id<<" cluster_id="<<std::dec<<cluster_id<<"-->"<<token<<std::endl;
+        //std::cout<< "murmur storage_id="<<std::hex<<*storage_id<<" cluster_id="<<std::dec<<cluster_id<<"-->"<<token<<std::endl;
         return token;
 }
 /***
@@ -331,9 +331,9 @@ void ArrayDataStore::store_numpy_partition_into_cas(const uint64_t *storage_id ,
         block_id = part.block_id - half_int;
         memcpy(keys + offset, &block_id, sizeof(int32_t));
         //COPY VALUES
-    // Create token from storage_id+cluster_id (partition key)
-    int64_t token = murmur(c_uuid, cluster_id);
-    std::cout<< "JCOSTA storing partition sid="<<std::hex<<*c_uuid<<"-cid="<<std::dec<<cluster_id<<"-->"<<token<<std::endl;
+    //// Create token from storage_id+cluster_id (partition key)
+    //int64_t token = murmur(c_uuid, cluster_id);
+    //std::cout<< "JCOSTA storing partition sid="<<std::hex<<*c_uuid<<"-cid="<<std::dec<<cluster_id<<"-->"<<token<<std::endl;
 
         values = (char *) malloc(sizeof(char *));
         memcpy(values, &part.data, sizeof(char *));
@@ -369,7 +369,7 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
     assert( metadata.dims.size() <= 2 ); // First version only supports 2 dimensions
 
     // Calculate row and element sizes
-    uint64_t row_size   = metadata.strides[1];
+    //uint64_t row_size   = metadata.strides[1];
     uint32_t elem_size  = metadata.elem_size;
 
     // Calculate number of rows and columns
@@ -386,7 +386,7 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
 
     uint32_t cluster_id = 0;
     uint32_t row_elements = get_row_elements(metadata);
-    std::cout<< "store_numpy_into_cas_as_arrow cols="<<num_columns<<", rows="<<num_rows<<", row_elements="<<row_elements<<std::endl;
+    //std::cout<< "store_numpy_into_cas_as_arrow cols="<<num_columns<<", rows="<<num_rows<<", row_elements="<<row_elements<<std::endl;
 
     char * src = (char*)data;
     for(uint64_t i = 0; i < num_columns; ++i) {
@@ -445,9 +445,9 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
         memcpy( _k, &cluster_id, sizeof(uint32_t)); //cluster_id
         _k += sizeof(uint32_t);
         memcpy(_k, &i, sizeof(uint64_t)); //col_id
-    int64_t token = murmur(storage_id, cluster_id);
-    char *host = storage->get_host_per_token(token);
-        std::cout<< "store_numpy_into_cas_as_arrow storage_id="<<std::hex<<*storage_id<<" cluster_id="<<std::dec<<cluster_id<<", col_id="<<i<<"-->"<<token<<" @"<<host<<std::endl;
+    //int64_t token = murmur(storage_id, cluster_id);
+    //char *host = storage->get_host_per_token(token);
+    //    std::cout<< "store_numpy_into_cas_as_arrow storage_id="<<std::hex<<*storage_id<<" cluster_id="<<std::dec<<cluster_id<<", col_id="<<i<<"-->"<<token<<" @"<<host<<std::endl;
 
         // Allocate memory for values
         uint32_t values_size = sizeof(uint64_t) + sizeof(uint32_t) + sizeof(char*);
@@ -875,7 +875,7 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
 int ArrayDataStore::open_arrow_file(std::string arrow_file_name) {
     int fdIn = -1;
     long retries = 0;
-    std::cout<< "open_arrow_file "<<arrow_file_name<<std::endl;
+    //std::cout<< "open_arrow_file "<<arrow_file_name<<std::endl;
     do {
         fdIn = open(arrow_file_name.c_str(), O_RDONLY);  //TODO handle open errors; define file name
         if (fdIn < 0) {
@@ -906,7 +906,7 @@ int ArrayDataStore::open_arrow_file(std::string arrow_file_name) {
 void scp(const char *host, const char *src, const char *dst) {
     char exec[180];
 
-    fprintf(stdout, " Remote copy %s from host %s to path %s\n", src, host, dst);
+    //fprintf(stdout, " Remote copy %s from host %s to path %s\n", src, host, dst);
     // Get USERNAME
     char user[32];
     if (getlogin_r(user, sizeof(user))<0) {
@@ -916,12 +916,12 @@ void scp(const char *host, const char *src, const char *dst) {
     }
 
     // Run scp user@host:src dst
-    sprintf(exec,"scp %s@%s:%s %s", user, host, src, dst);
-
-    if(system(exec)==0)
-        printf("\nFile %s copied successfully\n",src);
-    else
+    sprintf(exec,"scp -q %s@%s:%s %s", user, host, src, dst);
+    int res = system(exec);
+    if(res!=0)
         printf("\nFile %s not copied successfully\n",src);
+    //else
+    //    printf("\nFile %s copied successfully\n",src);
 }
 
 /* Open an 'arrow_file_name' from (a distributed environment) node corresponding to partition key (storage_id, cluster_id)
@@ -947,7 +947,7 @@ int ArrayDataStore::find_and_open_arrow_file(const uint64_t * storage_id, const 
     struct hostent *ent = gethostbyname(hostname);
     struct in_addr ip_addr = *(struct in_addr *)(ent->h_addr);
     char * whoami = inet_ntoa(ip_addr);
-    printf("Hostname: %s, was resolved to: %s\n", hostname, whoami);
+    //printf("Hostname: %s, was resolved to: %s\n", hostname, whoami);
 
     // Create token from storage_id+cluster_id (partition key)
     int64_t token = murmur(storage_id, cluster_id);
@@ -1039,7 +1039,7 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
         offset += sizeof(uint32_t);
         //col id
         memcpy(_keys + offset, &cols[it], sizeof(uint64_t));
-        std::cout<< "read_numpy_from_cas_arrow storage_id="<<std::hex<<*c_uuid<<", cluster_id="<<std::dec<<cluster_id<<", col_id="<<cols[it]<<std::endl;
+        //std::cout<< "read_numpy_from_cas_arrow storage_id="<<std::hex<<*c_uuid<<", cluster_id="<<std::dec<<cluster_id<<", col_id="<<cols[it]<<std::endl;
 
         if (!this->arrow_optane) {
             arrow_file_name = base_arrow_file_name + std::to_string(cols[it]);
@@ -1051,12 +1051,12 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
         result = read_cache->get_crow(block_key);// FIXME use Yolanda's IN instead of a call to cassandra per column
         delete (block_key);
 
-        std::cout<< " JCOSTA read_numpy_from_cas_arrow rows="<<result.size()<<std::endl;
+        //std::cout<< " JCOSTA read_numpy_from_cas_arrow rows="<<result.size()<<std::endl;
         for (const TupleRow *row:result) { // FIXME Theoretically, there should be a single row. ENRIC ensure that any data in the buffer table for the current {storage_id, col_id} has been transfered to the arrow table! And in this case, just peek the first row from the vector
             uint64_t *arrow_addr = (uint64_t *) row->get_element(0);
             uint32_t *arrow_size = (uint32_t *) row->get_element(1);
 
-            std::cout<< "read_numpy_from_cas_arrow addr="<<*arrow_addr<<" size="<<*arrow_size<<std::endl;
+            //std::cout<< "read_numpy_from_cas_arrow addr="<<*arrow_addr<<" size="<<*arrow_size<<std::endl;
             off_t page_addr;
 
             //read from devdax
