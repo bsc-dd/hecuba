@@ -554,6 +554,8 @@ class StorageNumpy(IStorage, np.ndarray):
                 log.debug(" load_block from {} ".format(self._build_args.base_numpy))
                 istorage_metas = get_istorage_attrs(self._build_args.base_numpy)
                 metas = istorage_metas[0].numpy_meta
+                self._numpy_full_loaded = True  # Mark the piece of numpy as loaded
+                self._loaded_coordinates = None
             else:
                 metas = self._build_args.metas
             self._hcache.load_numpy_slices([self._build_args.base_numpy], metas, [base_numpy],
