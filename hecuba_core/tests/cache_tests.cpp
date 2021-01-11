@@ -156,7 +156,7 @@ TEST(TestCache, VerifyLRUWorks) {
     KVCache<TupleRow, TupleRow> TestCache(cache_size);
 
     std::map<std::string, std::string> info = {};
-    std::vector<ColumnMeta> col_meta = {{info, CASS_VALUE_TYPE_BIGINT, 0, sizeof(uint64_t)}};
+    std::vector<ColumnMeta> col_meta = {{info, CASS_VALUE_TYPE_BIGINT, nullptr, 0, sizeof(uint64_t)}};
 
     std::shared_ptr<const std::vector<ColumnMeta> > metas = std::make_shared<std::vector<ColumnMeta> >(col_meta);
 
@@ -222,7 +222,7 @@ TEST(TestCache, VerifyDeleteIsCalled) {
     KVCache<TupleRow, TupleRow> TestCache(cache_size);
 
     std::map<std::string, std::string> info = {};
-    std::vector<ColumnMeta> col_meta = {{info, CASS_VALUE_TYPE_BIGINT, 0, sizeof(uint64_t)}};
+    std::vector<ColumnMeta> col_meta = {{info, CASS_VALUE_TYPE_BIGINT, nullptr, 0, sizeof(uint64_t)}};
 
     std::shared_ptr<const std::vector<ColumnMeta> > metas = std::make_shared<std::vector<ColumnMeta> >(col_meta);
 
