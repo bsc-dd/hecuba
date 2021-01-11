@@ -978,8 +978,8 @@ int ArrayDataStore::find_and_open_arrow_file(const uint64_t * storage_id, const 
 
             // Get a copy of arrow_file_name to REMOTES path
             scp(host, (local_path + arrow_file_name).c_str(), (remote_path + ksp).c_str());
-        } else {
-            std::cout<<" scp: Already existing file "<<(remote_path + arrow_file_name)<<std::endl;
+        //} else {
+        //    std::cout<<" scp: Already existing file "<<(remote_path + arrow_file_name)<<std::endl;
         }
 
         // Now it is local
