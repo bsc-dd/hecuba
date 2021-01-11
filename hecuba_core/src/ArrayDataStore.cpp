@@ -960,23 +960,27 @@ int ArrayDataStore::find_and_open_arrow_file(const uint64_t * storage_id, const 
         std::string remote_path;
         remote_path = local_path + "REMOTES/";
 
-        // Ensure that 'remote_path/KEYSPACE' exists
         std::string ksp;
         uint32_t pos = arrow_file_name.find_last_of("/");
         ksp = arrow_file_name.substr(0, pos);
-        int r = mkdir((remote_path + ksp).c_str(), 0770);
-        if (r<0) {
-            if (errno != EEXIST) {
-                std::cerr<<" scp: mkdir "<< (remote_path + ksp) <<" failed "<<std::endl;
-                perror("scp: mkdir");
-                exit(1); //FIXME
+        // Check that the file exists to avoid copy
+        if (access((remote_path + arrow_file_name).c_str(), R_OK) != 0) { //File DOES NOT exist
+            int r = mkdir((remote_path + ksp).c_str(), 0770);
+            if (r<0) {
+                if (errno != EEXIST) {
+                    std::cerr<<" scp: mkdir "<< (remote_path + ksp) <<" failed "<<std::endl;
+                    perror("scp: mkdir");
+                    exit(1); //FIXME
+                }
+            //} else {
+            //    std::cout<<" scp: created directory "<<(remote_path + ksp)<<std::endl;
             }
-        } else {
-            std::cout<<" scp: created directory "<<(remote_path + ksp)<<std::endl;
-        }
 
-        // Get a copy of arrow_file_name to REMOTES path
-        scp(host, (local_path + arrow_file_name).c_str(), (remote_path + ksp).c_str());
+            // Get a copy of arrow_file_name to REMOTES path
+            scp(host, (local_path + arrow_file_name).c_str(), (remote_path + ksp).c_str());
+        } else {
+            std::cout<<" scp: Already existing file "<<(remote_path + arrow_file_name)<<std::endl;
+        }
 
         // Now it is local
         local_path = remote_path;
