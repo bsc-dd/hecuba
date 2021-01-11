@@ -172,8 +172,7 @@ void StorageInterface::query_tokens( const char * peer, const char* tokens, cons
 	CassStatement* statement  = cass_statement_new(stmnt,0);
     // Pick the firs contact_point
     if (cass_statement_set_host(statement, node, nodePort) != CASS_OK) {
-        write(2, "ooops", 5);
-        write(2, "\n",1);
+        std::cerr<< "query_tokens ooops setting host "<< node << ":"<<nodePort<<std::endl;
         exit(1);
     }
 	CassFuture* query_future = cass_session_execute(session, statement);
@@ -182,12 +181,10 @@ void StorageInterface::query_tokens( const char * peer, const char* tokens, cons
 
     const CassResult* result = cass_future_get_result(query_future);
     if (result == NULL) {
-        CassError error_code = cass_future_error_code(query_future);
         const char* error_message;
         size_t error_message_length;
         cass_future_error_message(query_future, &error_message, &error_message_length);
-        write(2, error_message, error_message_length);
-        write(2, "\n",1);
+        std::cerr<<error_message<<std::endl;
         exit(1);
     }
 
@@ -236,7 +233,7 @@ void StorageInterface::query_tokens( const char * peer, const char* tokens, cons
             cass_iterator_free(col_it);
             //printf("num tokens: %u\n", rows);
         } else {
-            write(2, "tokens is not a collection\n",26);
+            std::cerr << "tokens is not a collection" << std::endl;
             exit(1);
         }
     }
