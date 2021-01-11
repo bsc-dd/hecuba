@@ -224,9 +224,11 @@ class StorageObj(IStorage):
         if attribute.startswith('_') or attribute not in self._persistent_attrs:
             return super().__getattribute__(attribute)
 
+        is_istorage_attr = self._persistent_props[attribute]["type"] not in basic_types
+
         if not self.storage_id:
-            if self._persistent_props[attribute]["type"] not in basic_types:
-                value = self._build_is_attribute(attribute, persistence_name='', storage_id=None)
+            if is_istorage_attr:
+                value = self._build_is_attribute(attribute, persistence_name=None, storage_id=None)
                 super().__setattr__(attribute, value)
             return super().__getattribute__(attribute)
 
@@ -249,8 +251,6 @@ class StorageObj(IStorage):
         except Exception as ex:
             log.warn("GETATTR ex %s", ex)
             raise ex
-
-        is_istorage_attr = self._persistent_props[attribute]["type"] not in basic_types
 
         try:
             value = result[0][0]
@@ -277,6 +277,12 @@ class StorageObj(IStorage):
                 number    = uuid.uuid4() # Random value
                 attr_name = self._ksp + "." + ("O" + str(number).replace('-','_') + trailing_name + attr_name)[:40]
                 value = self._build_is_attribute(attribute, persistence_name=attr_name, storage_id=None)
+                # Following lines emulate "self.__setattr__(attribute, value)" without the checks
+                values = [self.storage_id, value.storage_id]
+                query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, attribute)
+                query += " VALUES (%s,%s)"
+                log.debug("SETATTR: " + query)
+                config.session.execute(query, values)
 
             else :
                 value = self._build_is_attribute(attribute, persistence_name=attr_name, storage_id=value)
