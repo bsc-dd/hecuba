@@ -95,6 +95,9 @@ class StorageNumpy(IStorage, np.ndarray):
 
             new_sn = self.view(np.ndarray)[tuple(slc)]  # The final view
 
+            data_distrib = 0 # ZORDER_ALGORITHM
+            if config.arrow_enabled:
+                data_distrib = 3 # FORTRANORDER
             metas = HArrayMetadata(
                                    list(new_sn.shape),
                                    list(new_sn.strides),
@@ -103,7 +106,7 @@ class StorageNumpy(IStorage, np.ndarray):
                                    new_sn.dtype.byteorder,
                                    new_sn.itemsize,
                                    new_sn.flags.num,
-                                   0)
+                                   data_distrib)
 
             # Store new metadata for the block into istorage
             new_args = self._build_args._replace(metas=metas, tokens=token_split, storage_id=storage_id)
@@ -665,20 +668,21 @@ class StorageNumpy(IStorage, np.ndarray):
         Args:
             StorageNumpy to persist
             name to use
-            [formato] to store the data (0-ZOrder, 2-columnar) # 0 ==Z_ORDER (find it at SpaceFillingCurve.h)
+            [formato] to store the data (0-ZOrder, 2-columnar, 3-FortranOrder) # 0 ==Z_ORDER (find it at SpaceFillingCurve.h)
         """
         twin = self._twin_ref
         if twin is not None: # Persist Twin before current object (to obtain _twin_id)
             self._twin_name = StorageNumpy.get_arrow_name(self._ksp, self._table)
             IStorage.__init__(twin, storage_id=None, name=self._twin_name)
             self._twin_id   = twin.storage_id
+            twin._twin_id = self.storage_id # Parent's ID
             twin._persist_data(self._twin_name, 2)
 
         if not self._built_remotely:
-            if formato != 2:
-                self._create_tables(name)
-            else :
+            if formato == 2:    # COLUMNAR
                 self._create_tables_arrow(name)
+            else :
+                self._create_tables(name)
 
         if not getattr(self, '_hcache', None):
             self._hcache = self._create_hcache(name)
@@ -688,6 +692,8 @@ class StorageNumpy(IStorage, np.ndarray):
 
 
         # Persist current object
+        if formato == 0 and config.arrow_enabled: # If arrow & ZORDER -> FortranOrder
+            formato = 3
         hfetch_metas = HArrayMetadata(list(self.shape), list(self.strides),
                                       list(self._offsets), self.dtype.kind, self.dtype.byteorder,
                                       self.itemsize, self.flags.num, formato)
