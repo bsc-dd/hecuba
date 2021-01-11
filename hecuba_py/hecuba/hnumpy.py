@@ -208,7 +208,7 @@ class StorageNumpy(IStorage, np.ndarray):
         obj._build_args = obj.args(obj.storage_id, istorage_metas[0].class_name,
                 istorage_metas[0].name, metas_to_reserve, istorage_metas[0].block_id, base_numpy, twin_id,
                 istorage_metas[0].tokens)
-        if config.arrow_enabled and twin_id is not None:
+        if config.arrow_enabled and twin_id is not None and my_metas.partition_type != 2:
             # Load TWIN array
             #print ("JJ __new__ twin_name ", obj._twin_name, flush=True);
             #print ("JJ __new__ twin_id ", obj._twin_id, flush=True);
@@ -216,6 +216,7 @@ class StorageNumpy(IStorage, np.ndarray):
             obj._twin_name = StorageNumpy.get_arrow_name(obj._ksp, obj._table)
             twin = StorageNumpy._initialize_existing_object(cls, obj._twin_name, obj._twin_id)
             obj._twin_ref = twin
+            twin._twin_id = obj.storage_id # Use the parent ID
         obj._row_elem = obj._hcache.get_elements_per_row(storage_id, metas_to_calculate)
         obj._calculate_coords(metas_to_calculate)
         #print (" JJ _initialize_existing_object name={} sid={} DONE".format(name, storage_id), flush=True)
@@ -598,7 +599,7 @@ class StorageNumpy(IStorage, np.ndarray):
         if self._twin_ref._is_persistent:
             log.debug("LOADING COLUMNS {}".format(columns))
             base_numpy = StorageNumpy._get_base_array(self._twin_ref)
-            self._twin_ref._hcache.load_numpy_slices([self._twin_ref._build_args.base_numpy],
+            self._twin_ref._hcache.load_numpy_slices([self._build_args.base_numpy],
                                         self._twin_ref._build_args.metas,
                                         [base_numpy],
                                         columns,
@@ -701,7 +702,12 @@ class StorageNumpy(IStorage, np.ndarray):
                                      getattr(self,'_twin_id', None),
                                      self._tokens)
         if len(self.shape) != 0:
-            self._hcache.store_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [StorageNumpy._get_base_array(self)],
+            if formato == 2:    # If we are in columnar format we are the twin and _twin_id field contains the original storage_id of the parent
+                sid = self._twin_id
+            else:
+                sid = self._build_args.base_numpy
+
+            self._hcache.store_numpy_slices([sid], self._build_args.metas, [StorageNumpy._get_base_array(self)],
                                             None)
         StorageNumpy._store_meta(self._build_args)
         if formato != 2:
