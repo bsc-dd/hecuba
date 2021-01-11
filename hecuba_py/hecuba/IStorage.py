@@ -25,11 +25,14 @@ class IStorage(object):
             self.storage_id = kwargs.pop("storage_id", None)
         self._tokens = kwargs.pop("tokens", None)
         given_name = kwargs.pop("name", None)
-        if given_name or self.storage_id:
-            if self.storage_id:
+        if self.storage_id:
+            try:
                 metas = get_istorage_attrs(self.storage_id)
                 given_name   = metas[0].name
                 self._tokens = metas[0].tokens
+            except IndexError:
+                pass
+        if given_name :
             # Warning: In order to inherit _tokens and storage_id, they MUST be set before the next call
             IStorage.make_persistent(self, given_name)
         else:
