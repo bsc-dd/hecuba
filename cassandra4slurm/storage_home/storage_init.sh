@@ -116,7 +116,7 @@ export CASSFILE=$C4S_HOME/casslist-"$UNIQ_ID".txt
 export ENVFILE=$C4S_HOME/environ-"$UNIQ_ID".txt
 if [ -f $HECUBA_ENVIRON ]; then
     cp $HECUBA_ENVIRON $ENVFILE
-    HECUBA_ARROW_PATH=$DATA_HOME
+    HECUBA_ARROW_PATH=$DATA_HOME/
     echo "export HECUBA_ARROW_PATH="$HECUBA_ARROW_PATH >> ${ENVFILE}
 fi
 
