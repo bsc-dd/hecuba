@@ -908,10 +908,11 @@ void scp(const char *host, const char *src, const char *dst) {
 
     //fprintf(stdout, " Remote copy %s from host %s to path %s\n", src, host, dst);
     // Get USERNAME
-    char user[32];
-    if (getlogin_r(user, sizeof(user))<0) {
-        std::cerr<<" scp: getlogin_r failed "<<std::endl;
-        perror("scp: getlogin_r");
+    char *user;
+    user = getenv("LOGNAME");
+    if ( user == NULL ) {
+        std::cerr<<" scp: User name unavailable"<<std::endl;
+        perror("scp: getenv");
         exit(1); //FIXME
     }
 
