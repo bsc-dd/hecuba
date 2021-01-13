@@ -23,6 +23,11 @@ if [ "$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt | grep $(hostname))" != "" ]; then
         echo "Node "$(hostname)" will sleep for "$SLEEP_TIME" seconds."
         sleep $SLEEP_TIME
     fi
+    ENVIRON_TO_LOAD=$C4S_HOME/environ-"$UNIQ_ID".txt
+    if [ -f $ENVIRON_TO_LOAD ]; then
+        echo "ENVIRON_TO_LOAD=$ENVIRON_TO_LOAD"
+        source $ENVIRON_TO_LOAD
+    fi
     echo "JAVA_HOME="$JAVA_HOME
     echo "Cassandra node $(hostname) is starting now..."
     echo "CASS_HOME="$CASS_HOME

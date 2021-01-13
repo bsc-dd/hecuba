@@ -25,7 +25,7 @@ SNAPSHOT_FILE=$C4S_HOME/cassandra-snapshot-file-"$UNIQ_ID".txt # EXPORTS IN STOR
 echo "[INFO] Checking if taking a snapshot is necessary..."
 echo "[DEBUG] SNAPSHOT_FILE=$SNAPSHOT_FILE"
 # If an snapshot was ordered, it is done
-if [ "$(cat $SNAPSHOT_FILE)" != "" ]
+if [[ -f $SNAPSHOT_FILE   &&  "$(cat $SNAPSHOT_FILE)" != "" ]]
 then
     source $SNAPSHOT_FILE 
     TIME1=`date +"%T.%3N"`
@@ -60,8 +60,10 @@ then
     rm -f $C4S_HOME/snap-status-$SNAP_NAME-*-file.txt
     rm -f $SNAPSHOT_FILE
 fi
-if [ -f $C4S_HOME/stop."$UNIQ_ID".txt ]; then
-        if [ "$(cat $C4S_HOME/stop."$UNIQ_ID".txt)" == "1" ]; then
-		#if cassandra was launched with the application then it exists a file stop with a 1 inside to kill it
-		srun  --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 bash $MODULE_PATH/killer.sh
+FINISHED=$C4S_HOME/stop."$UNIQ_ID".txt
+if [[ -f $FINISHED && "$(cat $FINISHED)" == "1" ]]; then
+    echo "[DEBUG] CASSANDRA_NODELIST=$CASSANDRA_NODELIST"
+    echo "[DEBUG] N_NODES           =$N_NODES"
+    #if cassandra was launched with the application then it exists a file stop with a 1 inside to kill it
+    srun  --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 bash $MODULE_PATH/killer.sh
 fi
