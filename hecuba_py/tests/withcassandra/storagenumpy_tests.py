@@ -629,6 +629,15 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertTrue(s2._is_persistent)
         self.assertEqual(s.storage_id, s2.storage_id)
 
+    def test_np_dot(self):
+        n1 = np.arange(8*8).reshape(8,8)
+        n2 = np.arange(8*8).reshape(8,8)
+        s1 = StorageNumpy(n1, "test_np_dot1")
+        s2 = StorageNumpy(n2, "test_np_dot2")
+        res = np.dot(s1, s2)
+        res.make_persistent("test_np_dots1xs2")
+        self.assertTrue(np.array_equal(res, np.dot(n1,n2)))
+
     @unittest.skip("Only execute for performance reasons")
     def test_performance_storage_numpy_arrow(self):
         # Test the time to retrieve a column from Cassandra

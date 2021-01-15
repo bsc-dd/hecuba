@@ -680,7 +680,7 @@ class StorageNumpy(IStorage, np.ndarray):
             twin._twin_id = self.storage_id # Parent's ID
             twin._persist_data(self._twin_name, 2)
 
-        if not self._built_remotely:
+        if not getattr(self,'_built_remotely', None):
             if formato == 2:    # COLUMNAR
                 self._create_tables_arrow(name)
             else :

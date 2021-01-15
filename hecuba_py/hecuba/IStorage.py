@@ -69,7 +69,7 @@ class IStorage(object):
             self.storage_id = storage_id_from_name(name)
 
         # If found data, replace the constructor data
-        if self._tokens is None:
+        if not getattr(self,'_tokens', None) :
             metas = get_istorage_attrs(self.storage_id)
             try:
                 self._tokens = metas[0].tokens
