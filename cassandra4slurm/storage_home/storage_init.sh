@@ -63,7 +63,7 @@ RECOVER_FILE=$C4S_HOME/cassandra-recover-file-"$UNIQ_ID".txt
 
 #check if cassandra is already running and then just configure hecuba environment
 # CONTACT_NAMES sould be set in STORAGE_PROPS file
-grep -q -v ^# $STORAGE_PROPS | grep -q CONTACT_NAMES
+grep -v ^# $STORAGE_PROPS | grep -q CONTACT_NAMES
 if [ $? -eq 0 ]; then
         firstnode=$(echo $CONTACT_NAMES | awk -F ',' '{ print $1 }')
         source $MODULE_PATH/initialize_hecuba.sh  $firstnode
@@ -76,8 +76,7 @@ if [ $? -eq 0 ]; then
                 echo "FILE WITH HECUBA ENVIRON IS  ${HECUBA_ENVIRON}"
         fi
         cat ${FILE_TO_SET_ENV_VARS}
-exit
-
+        exit
 fi
 
 export THETIME=$(date "+%Y%m%dD%H%Mh%Ss")"-$SLURM_JOB_ID"
