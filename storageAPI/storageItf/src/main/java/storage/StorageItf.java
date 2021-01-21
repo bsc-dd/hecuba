@@ -77,20 +77,21 @@ public class StorageItf {
 			   nodePort = Integer.parseInt(port);               
 
 		   if (resolution == null) {   
-			   resolution = new HashMap<String, String>();
+			   resolution = new HashMap<String, String>(); // resolution(IP) -> hostame
 			   for (String toResolve:nodeIP){
 				   try {
-					   if (!InetAddresses.isInetAddress(toResolve)) {
+					   if (!InetAddresses.isInetAddress(toResolve)) { // hostname instead address like x.x.x.x
 						   String resolved=InetAddress.getAllByName(toResolve)[0].toString().split("/")[1];
 						   resolution.put(resolved,toResolve);
 						   //System.out.println("@Hecuba getLocation: Resolution[ "+ resolved +"]="+toResolve);
-					   } else {
-						   resolution.put(toResolve,toResolve);
-						   //System.out.println("@Hecuba getLocation: Resolution: ="+toResolve);
+					   } else { // address like x.x.x.x
+						   String resolved=InetAddress.getAllByName(toResolve)[0].getHostName();
+						   resolution.put(toResolve,resolved);
+						   //System.out.println("@Hecuba getLocation: Resolution2[ "+ resolved +"]="+toResolve);
 					   }
 				   } catch (UnknownHostException e) {
 					   // TODO Auto-generated catch block
-					   System.out.println("@Hecuba getLocation: Exception retrieving inetAddr");
+					   System.out.println("@Hecuba getLocation: Exception retrieving inetAddr " + toResolve);
 					   e.printStackTrace();
 				   }            			
 			   }

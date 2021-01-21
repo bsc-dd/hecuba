@@ -130,6 +130,7 @@ set_property(TARGET hfetch PROPERTY POSITION_INDEPENDENT_CODE ON) # Add -fPIC op
 FIND_LIBRARY(CASS NAMES cassandra PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
 FIND_LIBRARY(LIBUV NAMES uv PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
 FIND_LIBRARY(TBB NAMES tbb PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
+FIND_LIBRARY(ARROW NAMES arrow PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
 
 IF (NOT LIBUV)
     message("Downloading LIBUV (requisite for Cassandra C++ driver)")
@@ -209,12 +210,46 @@ else ()
     set(ALL_LIBS ${ALL_LIBS} ${TBB})
 endif ()
 
+if (NOT ARROW)
+    message("Downloading Apache ARROW")
+    unset(ARROW) #to avoid name clash
+    # The following code is a hack to solve an issue with the boost library.
+    # By default, the installation detects the Boost library correctly, but
+    # when creating the scripts to link, a wrong name is used for the static
+    # libraries adding a '_static' suffix to the library name...  (which is
+    # a file that does not exist) making the linkage step to fail.
+    # This hack executes the following steps to solve the situation:
+    # 1) Make an initial (wrong) compilation, but it generates the link scripts,
+    # 2) modify the scripts to use the right names, and
+    # 3) re-compile and install as expected.
+    ExternalProject_Add(
+            ARROW	#ARROW-prefix
+            DOWNLOAD_DIR ${CMAKE_CURRENT_LIST_DIR}/dependencies
+            URL "https://archive.apache.org/dist/arrow/arrow-0.15.1/apache-arrow-0.15.1.tar.gz"
+            URL_HASH SHA256=9a2c58c72310eafebb4997244cbeeb8c26696320d0ae3eb3e8512f75ef856fc9
+            CONFIGURE_COMMAND ""
+            BUILD_COMMAND     ${CMAKE_COMMAND} -E echo "==== Starting configure build"
+            COMMAND           ${CMAKE_COMMAND} -build cpp -DCMAKE_INSTALL_PREFIX=${C_BINDING_INSTALL_PREFIX} -DARROW_BUILD_STATIC=false
+            COMMAND           ${CMAKE_COMMAND} -E echo "==== Starting Patch"
+            COMMAND           sed -i s/_static//g src/arrow/CMakeFiles/arrow_shared.dir/link.txt
+            COMMAND           ${CMAKE_COMMAND} -E echo "==== Finished Patch"
+            INSTALL_COMMAND   make
+            COMMAND           make install
+            BUILD_IN_SOURCE 1
+            INSTALL_DIR ${C_BINDING_INSTALL_PREFIX}
+    )
+    add_dependencies(hfetch ARROW)
+    set(ALL_LIBS ${ALL_LIBS} ${C_BINDING_INSTALL_PREFIX}/lib)
+else ()
+    message(STATUS "Using system's ARROW " ${ARROW})
+    set(ALL_LIBS ${ALL_LIBS} ${ARROW})
+endif ()
 
 target_link_libraries(hfetch ${ALL_LIBS})
 
 set_target_properties(hfetch
         PROPERTIES PUBLIC_HEADER "${HEADER_FILES}")
-INSTALL(TARGETS hfetch LIBRARY DESTINATION ${C_BINDING_INSTALL_PREFIX}/lib PUBLIC_HEADER DESTINATION ${C_BINDING_INSTALL_PREFIX}/include/hecuba)
+INSTALL(TARGETS hfetch PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ GROUP_WRITE WORLD_READ LIBRARY DESTINATION ${C_BINDING_INSTALL_PREFIX}/lib PUBLIC_HEADER DESTINATION ${C_BINDING_INSTALL_PREFIX}/include/hecuba)
 
 
 if (DEFINED ENV{GTEST_ROOT})
@@ -243,6 +278,15 @@ if (DEFINED ENV{GTEST_ROOT})
             target_link_libraries(cache_imp_test ${ALL_LIBS} ${GTEST_BOTH_LIBRARIES} hfetch ${PT})
             add_dependencies(cache_imp_test hfetch)
             add_test(test cache_imp_test)
+
+            #Arrow tests
+            #add_executable(cache_imp_test tests/enrictests_stdcassandra.cpp) # Enric tests std cassandra
+            #add_executable(cache_imp_test tests/enrictests_intelcassandra.cpp) # Enric tests intel cassandra
+            #set_target_properties(cache_imp_test
+            #        PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
+            #target_link_libraries(cache_imp_test ${ALL_LIBS} ${GTEST_BOTH_LIBRARIES} hfetch ${PT})
+            #add_dependencies(cache_imp_test hfetch)
+            #add_test(test cache_imp_test)
 
             # Meta manager tests
             add_executable(meta_manager_test tests/meta_manager_tests.cpp)

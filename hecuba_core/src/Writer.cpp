@@ -176,7 +176,7 @@ void Writer::call_async() {
 
     CassStatement *statement = cass_prepared_bind(prepared_query);
 
-    this->k_factory->bind(statement, item.first, 0);
+    this->k_factory->bind(statement, item.first, 0); //error
     this->v_factory->bind(statement, item.second, this->k_factory->n_elements());
 
     if (!this->disable_timestamps) {
@@ -193,5 +193,6 @@ void Writer::call_async() {
 
     cass_future_set_callback(query_future, callback, data);
     cass_future_free(query_future);
+
 }
 

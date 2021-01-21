@@ -2594,8 +2594,8 @@ TEST(TableMeta, TupleWithTwoInts) {
 
     std::map<std::string, std::string> info = {{"name", "mycolumn"}};
     uint16_t bsize = (sizeof(int32_t));
-    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_INT, 0, bsize);
-    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_INT, bsize, bsize);
+    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_INT, nullptr, 0, bsize);
+    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_INT, nullptr, bsize, bsize);
 
     std::vector<ColumnMeta> v = {cm1, cm2};
 
@@ -2707,8 +2707,8 @@ TEST(TableMeta, BigIntFromCassandra) {
     CassValueType cv_type = CASS_VALUE_TYPE_TUPLE;
     uint16_t offset = 0;
     uint16_t bsize = (sizeof(int64_t));
-    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_BIGINT, 0, bsize);
-    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_BIGINT, bsize, bsize);
+    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_BIGINT, nullptr, 0, bsize);
+    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_BIGINT, nullptr, bsize, bsize);
 
     std::vector<ColumnMeta> v = {cm1, cm2};
 
@@ -2820,8 +2820,8 @@ TEST(TableMeta, TwoTextFromCassandra) {
 
     std::map<std::string, std::string> info = {{"name", "mycolumn"}};
     uint16_t bsize = (sizeof(int64_t));
-    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_TEXT, 0, bsize);
-    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_TEXT, bsize, bsize);
+    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_TEXT, nullptr, 0, bsize);
+    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_TEXT, nullptr, bsize, bsize);
 
     std::vector<ColumnMeta> v = {cm1, cm2};
 
@@ -2935,8 +2935,8 @@ TEST(TableMeta, BigIntANDTextFromCassandra) {
 
     std::map<std::string, std::string> info = {{"name", "mycolumn"}};
     uint16_t bsize = (sizeof(int64_t));
-    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_BIGINT, 0, bsize);
-    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_TEXT, bsize, bsize);
+    ColumnMeta cm1 = ColumnMeta(info, CASS_VALUE_TYPE_BIGINT, nullptr, 0, bsize);
+    ColumnMeta cm2 = ColumnMeta(info, CASS_VALUE_TYPE_TEXT, nullptr, bsize, bsize);
 
     std::vector<ColumnMeta> v = {cm1, cm2};
 

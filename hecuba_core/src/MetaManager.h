@@ -18,7 +18,7 @@ public:
     void create_data_model(const std::string &create_table_query) const;
 
 
-    void register_obj(const uint64_t storage_id[], const std::string &name, const ArrayMetadata &numpy_meta) const;
+    void register_obj(const uint64_t *storage_id, const std::string &name, const ArrayMetadata &numpy_meta) const;
 
 private:
     Writer *writer;

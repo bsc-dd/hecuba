@@ -85,6 +85,7 @@ source $C4S_CFG_FILE
 export CASS_HOME
 export DATA_PATH
 export SNAP_PATH
+export HECUBA_ARROW
 
 mkdir -p $SNAP_PATH
 export ROOT_PATH=$DATA_PATH/$THETIME
@@ -112,6 +113,13 @@ fi
 
 NODEFILE=$C4S_HOME/hostlist-"$UNIQ_ID".txt
 export CASSFILE=$C4S_HOME/casslist-"$UNIQ_ID".txt
+export ENVFILE=$C4S_HOME/environ-"$UNIQ_ID".txt
+if [ -f $HECUBA_ENVIRON ]; then
+    cp $HECUBA_ENVIRON $ENVFILE
+    HECUBA_ARROW_PATH=$DATA_HOME/
+    echo "export HECUBA_ARROW_PATH="$HECUBA_ARROW_PATH >> ${ENVFILE}
+fi
+
 #export APPFILE=$C4S_HOME/applist-"$UNIQ_ID".txt
 APPPATHFILE=$C4S_HOME/app-"$UNIQ_ID".txt
 PYCOMPSS_FLAGS_FILE=$C4S_HOME/pycompss-flags-"$UNIQ_ID".txt
@@ -265,13 +273,27 @@ source $MODULE_PATH/initialize_hecuba.sh  $firstnode
 
 CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $CASSFILE)
 CNAMES=$(echo $CNAMES | sed "s/,/-$iface,/g")-$iface
-export CONTACT_NAMES=$CNAMES
+
+# WARNING! CONTACT_NAMES MUST be IP numbers!
+first=1
+CONTACT_NAMES=""
+COMMA=""
+for node in $(cat $CASSFILE); do
+    if [ "$first" == "1" ]; then
+        first=0
+    else
+        COMMA=","
+    fi
+    IP=$(host $node-$iface |cut -d' ' -f 4) #GET IP Address
+    CONTACT_NAMES="${CONTACT_NAMES}${COMMA}${IP}"
+done
+export CONTACT_NAMES=$CONTACT_NAMES
 echo "CONTACT_NAMES=$CONTACT_NAMES"
 echo "export CONTACT_NAMES=$CONTACT_NAMES" > ${FILE_TO_SET_ENV_VARS}
 echo "FILE TO EXPORT VARS IS  ${FILE_TO_SET_ENV_VARS}"
-if [ -f $HECUBA_ENVIRON ]; then
-	cat $HECUBA_ENVIRON >> ${FILE_TO_SET_ENV_VARS}
-	echo "FILE WITH HECUBA ENVIRON IS  ${HECUBA_ENVIRON}"
+if [ -f $ENVFILE ]; then
+	cat $ENVFILE >> ${FILE_TO_SET_ENV_VARS}
+	echo "FILE WITH HECUBA ENVIRON IS  ${ENVFILE}"
 fi
 cat ${FILE_TO_SET_ENV_VARS}
 #srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES "bash export CONTACT_NAMES=$CONTACT_NAMES" &

@@ -96,6 +96,14 @@ class Config:
         # intercepted : list of numpy intercepted calls
         singleton.intercepted = {}
 
+        if 'HECUBA_ARROW' in os.environ:
+            env_var = os.environ['HECUBA_ARROW'].lower()
+            singleton.arrow_enabled = False if env_var == 'no' or env_var == 'false' else True
+            log.info('HECUBA_ARROW: {}'.format(singleton.arrow_enabled))
+        else:
+            singleton.arrow_enabled = False
+            log.warn('Arrow access is DISABLED [HECUBA_ARROW=%s]', singleton.arrow_enabled)
+
         if 'CONCURRENT_CREATION' in os.environ:
             if os.environ['CONCURRENT_CREATION']=='True':
                 singleton.concurrent_creation = True
@@ -286,7 +294,7 @@ class Config:
                 precision float);
                 """,
                 """CREATE TYPE IF NOT EXISTS hecuba.np_meta (flags int, elem_size int, partition_type tinyint,
-                dims list<int>, strides list<int>, typekind text, byteorder text)""",
+                dims list<int>, strides list<int>, typekind text, byteorder text, offsets list<int>)""",
                 """CREATE TABLE IF NOT EXISTS hecuba
                 .istorage (storage_id uuid, 
                 class_name text,name text, 
@@ -298,6 +306,7 @@ class Config:
                 numpy_meta frozen<np_meta>,
                 block_id int,
                 base_numpy uuid,
+                twin_id uuid,
                 primary_keys list<frozen<tuple<text,text>>>,
                 columns list<frozen<tuple<text,text>>>,
                 PRIMARY KEY(storage_id));
@@ -317,6 +326,7 @@ class Config:
         if singleton.id_create_schema == -1:
             time.sleep(10)
         singleton.cluster.register_user_type('hecuba', 'np_meta', HArrayMetadata)
+        # Create a dummy arrayDataStore to generate the TokensToHost variable
 
 
 global config

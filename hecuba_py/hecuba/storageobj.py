@@ -1,12 +1,13 @@
 from collections import namedtuple
 
 import numpy as np
+import uuid
 from . import config, log, Parser
 
 from .hnumpy import StorageNumpy
 from .IStorage import IStorage
 
-from .tools import count_name_collision, get_istorage_attrs, build_remotely, storage_id_from_name, basic_types, \
+from .tools import get_istorage_attrs, build_remotely, storage_id_from_name, basic_types, \
     valid_types
 
 
@@ -47,7 +48,8 @@ class StorageObj(IStorage):
         parser = Parser("ClassField")
         return parser._parse_comments(comments)
 
-    def __init__(self, name='', storage_id=None, *args, **kwargs):
+
+    def __init__(self, name=None, storage_id=None, *args, **kwargs):
         """
             Creates a new storageobj.
             Args:
@@ -62,15 +64,20 @@ class StorageObj(IStorage):
         self._persistent_attrs = self._persistent_props.keys()
         self._class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
 
-        super().__init__(*args, **kwargs)
+        super().__init__(name=name, storage_id=storage_id, *args, **kwargs)
+        self._table = self.__class__.__name__.lower()
+        args        = self.args(self._get_name(), self._tokens, self.storage_id, self._class_name, self._built_remotely)
 
-        self._build_args = self.args('', [], None, self._class_name, self._built_remotely)
+        self._build_args = args
 
-        if storage_id and not name:
-            name = get_istorage_attrs(storage_id)[0].name
+        if name or storage_id:  # therefore... are we doing an Instantiation or a Creation? (built_remotely may be used to instantiate a mockup)
+            try:
+                data    = get_istorage_attrs(self.storage_id)[0]
+                # Instantiation
+            except Exception:
+                self._persist_data(name)
+                pass # Creation
 
-        if name or storage_id:
-            self.make_persistent(name)
         log.debug("CREATED StorageObj(%s)", self._get_name())
 
     def __eq__(self, other):
@@ -131,20 +138,7 @@ class StorageObj(IStorage):
             if isinstance(attr, IStorage):
                 attr._flush_to_storage()
 
-    def make_persistent(self, name):
-        """
-            Once a StorageObj has been created, it can be made persistent. This function retrieves the information about
-            the Object class schema, and creates a Cassandra table with those parameters, where information will be
-            saved from now on, until execution finishes or StorageObj is no longer persistent.
-            It also inserts into the new table all information that was in memory assigned to the StorageObj prior to
-            this call.
-            Args:
-                name (string): name with which the table in the DB will be created
-        """
-        # Update name
-
-        super().make_persistent(name)
-
+    def _persist_data(self, name):
         self._table = self.__class__.__name__.lower()
 
         # Arguments used to build objects remotely
@@ -163,6 +157,21 @@ class StorageObj(IStorage):
         self._persist_attributes()
 
         StorageObj._store_meta(self._build_args)
+
+    def make_persistent(self, name):
+        """
+            Once a StorageObj has been created, it can be made persistent. This function retrieves the information about
+            the Object class schema, and creates a Cassandra table with those parameters, where information will be
+            saved from now on, until execution finishes or StorageObj is no longer persistent.
+            It also inserts into the new table all information that was in memory assigned to the StorageObj prior to
+            this call.
+            Args:
+                name (string): name with which the table in the DB will be created
+        """
+        # Update name
+        super().make_persistent(name)
+
+        self._persist_data(name)
 
     def stop_persistent(self):
         """
@@ -215,9 +224,11 @@ class StorageObj(IStorage):
         if attribute.startswith('_') or attribute not in self._persistent_attrs:
             return super().__getattribute__(attribute)
 
+        is_istorage_attr = self._persistent_props[attribute]["type"] not in basic_types
+
         if not self.storage_id:
-            if self._persistent_props[attribute]["type"] not in basic_types:
-                value = self._build_is_attribute(attribute, persistence_name='', storage_id=None)
+            if is_istorage_attr:
+                value = self._build_is_attribute(attribute, persistence_name=None, storage_id=None)
                 super().__setattr__(attribute, value)
             return super().__getattribute__(attribute)
 
@@ -241,8 +252,6 @@ class StorageObj(IStorage):
             log.warn("GETATTR ex %s", ex)
             raise ex
 
-        is_istorage_attr = self._persistent_props[attribute]["type"] not in basic_types
-
         try:
             value = result[0][0]
             # if exists but is set to None, the current behaviour is raising AttributeError
@@ -259,19 +268,24 @@ class StorageObj(IStorage):
         if is_istorage_attr:
             # Value is uuid or None, because it was not found
 
-            attr_name = attribute.lower()
-            my_name = self._get_name()
-            trailing_name = my_name[my_name.rfind('.') + 1:]
-
-            count = count_name_collision(self._ksp, trailing_name, attr_name)
-            attr_name = self._ksp + '.' + trailing_name + '_' + attr_name
-            if count > 1:
-                attr_name += '_' + str(count - 2)
-
+            attr_name = None
             if value is None:
-                value = storage_id_from_name(attr_name)
+                # Value not found, persist it BY NAME using a random name so we can retrieve it later
+                attr_name = attribute.lower()
+                my_name   = self._get_name()
+                trailing_name = my_name[my_name.rfind('.') + 1:]
+                number    = uuid.uuid4() # Random value
+                attr_name = self._ksp + "." + ("O" + str(number).replace('-','_') + trailing_name + attr_name)[:40]
+                value = self._build_is_attribute(attribute, persistence_name=attr_name, storage_id=None)
+                # Following lines emulate "self.__setattr__(attribute, value)" without the checks
+                values = [self.storage_id, value.storage_id]
+                query = "INSERT INTO %s.%s (storage_id,%s)" % (self._ksp, self._table, attribute)
+                query += " VALUES (%s,%s)"
+                log.debug("SETATTR: " + query)
+                config.session.execute(query, values)
 
-            value = self._build_is_attribute(attribute, persistence_name=attr_name, storage_id=value)
+            else :
+                value = self._build_is_attribute(attribute, persistence_name=attr_name, storage_id=value)
 
         super().__setattr__(attribute, value)
         return value
@@ -306,15 +320,13 @@ class StorageObj(IStorage):
             # Write attribute to the storage
             if isinstance(value, IStorage):
                 if not value.storage_id:
+                    # Value is volatile, persist it BY NAME using a random name so we can retrieve it later
                     attr_name = attribute.lower()
                     my_name = self._get_name()
                     trailing_name = my_name[my_name.rfind('.') + 1:]
-
-                    count = count_name_collision(self._ksp, trailing_name, attr_name)
-                    attr_name = self._ksp + '.' + trailing_name + '_' + attr_name
-                    if count != 0:
-                        attr_name += '_' + str(count - 1)
-                    value.make_persistent(attr_name)
+                    number = uuid.uuid4() # Random value
+                    name   = self._ksp + "." + ("O" + str(number).replace('-','_') + trailing_name + attr_name)[:40]
+                    value.make_persistent(name)   # Persist BY NAME
                 # We store the storage_id when the object belongs to an Hecuba class
                 values = [self.storage_id, value.storage_id]
                 # We store the IStorage object in memory, to avoid rebuilding when it is not necessary

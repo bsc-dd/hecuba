@@ -3,19 +3,19 @@
 #include <iostream>
 
 
-NumpyStorage::NumpyStorage(const char *table, const char *keyspace, CassSession *session,
-                           std::map<std::string, std::string> &config) :
-        ArrayDataStore(table, keyspace, session, config) {
+NumpyStorage::NumpyStorage(const char *table, const char *keyspace, std::shared_ptr<StorageInterface> storage,
+                 std::map<std::string, std::string> &config) :
+        ArrayDataStore(table, keyspace, storage, config) {
 
     //lgarrobe preparant per metadates
     std::vector<std::map<std::string, std::string> > keys_names = {{{"name", "storage_id"}}};
 
     std::vector<std::map<std::string, std::string> > columns_names = {{{"name", "name"}},{{"name", "numpy_meta"}}};
 
+    CassSession* session = storage->get_session();
     TableMetadata *table_meta = new TableMetadata("istorage", "hecuba", keys_names, columns_names, session);
     this ->MM = new MetaManager(table_meta, session, config);
 }
-
 
 NumpyStorage::~NumpyStorage() {
 
@@ -38,20 +38,59 @@ std::list<std::vector<uint32_t> > NumpyStorage::generate_coords(PyObject *coord)
     return crd;
 }
 
-void NumpyStorage::store_numpy(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *numpy, PyObject *coord) const {
-    void *data = PyArray_DATA(numpy);
-    if (coord != Py_None) {
-        std::list<std::vector<uint32_t> > crd = generate_coords(coord);
-        this->store_numpy_into_cas_by_coords(storage_id, np_metas, data, crd);
-    } else this->store_numpy_into_cas(storage_id, np_metas, data);
+// Transform a Python list of columns to a vector of column IDs (uints)
+std::vector<uint64_t> NumpyStorage::get_cols(PyObject *coord) const {
+	std::vector<uint64_t> c = {};
+	if (PyList_Check(coord)) {
+		PyObject *value = nullptr;
+		for (Py_ssize_t i = 0; i < PyList_Size(coord); i++) {
+			value = PyList_GetItem(coord, i);
+			c.push_back(PyLong_AsLong(value));
+		}
+	}
+	return c;
 }
 
-void NumpyStorage::load_numpy(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *save, PyObject *coord) {
-    void *data = PyArray_DATA(save);
-    if (coord != Py_None) {
-        std::list<std::vector<uint32_t> > crd = generate_coords(coord);
-        this->read_numpy_from_cas_by_coords(storage_id, np_metas, crd, data);
-    } else this->read_numpy_from_cas(storage_id, np_metas, data);
+void NumpyStorage::store_numpy(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *numpy, PyObject *coord) const {
+    void *data = PyArray_DATA(numpy);
+	if (np_metas.partition_type != COLUMNAR) {
+		if (coord != Py_None) {
+			std::list<std::vector<uint32_t> > crd = generate_coords(coord);
+			this->store_numpy_into_cas_by_coords(storage_id, np_metas, data, crd);
+		} else {
+			this->store_numpy_into_cas(storage_id, np_metas, data);
+		}
+	} else {
+		if (coord != Py_None) {
+			// FIXME NOT WORKING
+			throw ModuleException("Storing a column range is NOT IMPLEMENTED");
+			//this->store_numpy_into_cas_by_cols_as_arrow(storage_id, np_metas, data, get_cols(coord));
+		}else {
+			this->store_numpy_into_cas_as_arrow(storage_id, np_metas, data);
+		}
+	}
+}
+
+void NumpyStorage::load_numpy(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *save, PyObject *coord, bool direct_copy) {
+	void *data = PyArray_DATA(save);
+	if (np_metas.partition_type != COLUMNAR) {
+		if (coord != Py_None) {
+			std::list<std::vector<uint32_t> > crd = generate_coords(coord);
+			this->read_numpy_from_cas_by_coords(storage_id, np_metas, crd, direct_copy, data);
+		} else this->read_numpy_from_cas(storage_id, np_metas, data);
+
+	} else {
+		std::vector<uint64_t> c = {};
+		if (coord != Py_None) {
+			c = get_cols( coord );
+		} else {
+			// None == ALL => Build a list with ALL COLUMNS #FIXME Avoid creating this list!
+			for(uint64_t i = 0 ; i < np_metas.dims[np_metas.dims.size()-2]; i++) { // Traverse all the columns --> dims[-2]
+				c.push_back(i);
+			}
+		}
+		this->read_numpy_from_cas_arrow(storage_id, np_metas, c, data);
+	}
 }
 
 PyObject *NumpyStorage::reserve_numpy_space(const uint64_t *storage_id, ArrayMetadata &np_metas) {

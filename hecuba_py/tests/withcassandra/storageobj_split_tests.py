@@ -20,25 +20,25 @@ class StorageObjSplitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.old = config.execution_name
-        config.NUM_TEST = 0 # HACK a new attribute to have a global counter
+        config.execution_name = "StorageObjSplitTest".lower()
+
     @classmethod
     def tearDownClass(cls):
+        config.session.execute("DROP KEYSPACE IF EXISTS {}".format(config.execution_name))
         config.execution_name = cls.old
-        del config.NUM_TEST
 
     # Create a new keyspace per test
     def setUp(self):
-        config.NUM_TEST = config.NUM_TEST + 1
-        self.ksp = "StorageObjSplitTest{}".format(config.NUM_TEST).lower()
-        config.execution_name = self.ksp
+        self.ksp = config.execution_name
 
     def tearDown(self):
-        config.session.execute("DROP KEYSPACE IF EXISTS {}".format(self.ksp))
+        pass
 
     def test_simple_keys_split_test(self):
-        tablename = "tab30"
+        tablename = "tabskst"
         sto = TestSimple(tablename)
         pd = sto.words
+        tbl_name = pd._table
         num_inserts = 1000
         what_should_be = set()
         for i in range(num_inserts):
@@ -47,7 +47,7 @@ class StorageObjSplitTest(unittest.TestCase):
         del pd, sto
 
         gc.collect()
-        count, = config.session.execute('SELECT count(*) FROM '+self.ksp+'.{}_words'.format(tablename))[0]
+        count, = config.session.execute('SELECT count(*) FROM '+self.ksp+'.{}'.format(tbl_name))[0]
         self.assertEqual(count, num_inserts)
 
         sto = TestSimple(tablename)
@@ -71,6 +71,7 @@ class StorageObjSplitTest(unittest.TestCase):
         tablename = 'tab30'
         sto = TestSimple(tablename)
         pd = sto.words
+        tbl_name = pd._table
         num_inserts = 1000
 
         what_should_be = set()
@@ -80,7 +81,7 @@ class StorageObjSplitTest(unittest.TestCase):
         del pd, sto
 
         gc.collect()
-        count, = config.session.execute('SELECT count(*) FROM '+self.ksp+'.{}_words'.format(tablename))[0]
+        count, = config.session.execute('SELECT count(*) FROM '+self.ksp+'.{}'.format(tbl_name))[0]
         self.assertEqual(count, num_inserts)
 
         sto = TestSimple(tablename)
@@ -107,6 +108,7 @@ class StorageObjSplitTest(unittest.TestCase):
         tablename = "tab31"
         sto = TestSimple(tablename)
         pd = sto.words
+        tbl_name = pd._table
         num_inserts = 1000
         what_should_be = set()
         for i in range(num_inserts):
@@ -115,7 +117,7 @@ class StorageObjSplitTest(unittest.TestCase):
         del pd, sto
 
         gc.collect()
-        count, = config.session.execute('SELECT count(*) FROM '+self.ksp+'.{}_words'.format(tablename))[0]
+        count, = config.session.execute('SELECT count(*) FROM '+self.ksp+'.{}'.format(tbl_name))[0]
         self.assertEqual(count, num_inserts)
 
         sto = TestSimple(tablename)
@@ -137,6 +139,7 @@ class StorageObjSplitTest(unittest.TestCase):
         tablename = "tab32"
         sto = TestSimple(tablename)
         pd = sto.words
+        tbl_name = pd._table
         num_inserts = 1000
         what_should_be = set()
         for i in range(num_inserts):
@@ -145,7 +148,7 @@ class StorageObjSplitTest(unittest.TestCase):
         del pd, sto
 
         gc.collect()
-        count, = config.session.execute('SELECT count(*) FROM '+self.ksp+'.{}_words'.format(tablename))[0]
+        count, = config.session.execute('SELECT count(*) FROM '+self.ksp+'.{}'.format(tbl_name))[0]
         self.assertEqual(count, num_inserts)
 
         sto = TestSimple(tablename)

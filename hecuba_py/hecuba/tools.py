@@ -140,7 +140,7 @@ def discrete_token_ranges(tokens):
     Args:
         tokens:  a list of tokens [1, 0, 10]
     Returns:
-         a rationalized list [(-1, 0),(0,10),(10, max)]
+         a rationalized list [(min, -1) (-1, 0),(0,10),(10, max)]
     """
     tokens.sort()
     if len(tokens) == 0:

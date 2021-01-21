@@ -7,25 +7,27 @@ import numpy as np
 
 from storage.api import getByID
 
+from time import time as timer
+import random
 
 class StorageNumpyTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.old = config.execution_name
-        config.NUM_TEST = 0 # HACK a new attribute to have a global counter
+        config.execution_name = "StorageNumpyTest".lower()
+
     @classmethod
     def tearDownClass(cls):
+        config.session.execute("DROP KEYSPACE IF EXISTS {}".format(config.execution_name), timeout=60)
         config.execution_name = cls.old
-        del config.NUM_TEST
 
     # Create a new keyspace per test
     def setUp(self):
-        config.NUM_TEST = config.NUM_TEST + 1
-        self.ksp = "StorageNumpyTest{}".format(config.NUM_TEST).lower()
-        config.execution_name = self.ksp
+        self.ksp = config.execution_name
+        pass
 
     def tearDown(self):
-        config.session.execute("DROP KEYSPACE IF EXISTS {}".format(self.ksp))
+        pass
 
     table = 'numpy_test'
 
@@ -54,8 +56,7 @@ class StorageNumpyTest(unittest.TestCase):
 
     def test_reconstruct(self):
         base_array = np.arange(256)
-        tablename = self.ksp + '.' + self.table
-
+        tablename = self.ksp + '.' + "test_reconstruct"
         typecode = 'mytype'
         niter = 2
 
@@ -71,7 +72,7 @@ class StorageNumpyTest(unittest.TestCase):
 
     def test_types_persistence(self):
         base_array = np.arange(256)
-        tablename = self.ksp + '.' + self.table
+        tablename = self.ksp + '.' + "test_types_persistence"
 
         for typecode in np.typecodes['Integer']:
             if typecode == 'p':
@@ -100,10 +101,10 @@ class StorageNumpyTest(unittest.TestCase):
         elem_dim = 2 ** 7
 
         base_array = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim))
-        casted = StorageNumpy(input_array=base_array, name="first_test")
+        casted = StorageNumpy(input_array=base_array, name="test_read_all")
 
         test_numpy = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim))
-        casted = StorageNumpy(name="first_test")
+        casted = StorageNumpy(name="test_read_all")
         chunk = casted[slice(None, None, None)]
         self.assertTrue(np.allclose(chunk.view(np.ndarray), test_numpy))
         casted.delete_persistent()
@@ -114,10 +115,10 @@ class StorageNumpyTest(unittest.TestCase):
         elem_dim = 10
 
         base_array = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim, elem_dim, elem_dim))
-        casted = StorageNumpy(input_array=base_array, name="first_test")
+        casted = StorageNumpy(input_array=base_array, name="test_5d_read_all")
 
         test_numpy = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim, elem_dim, elem_dim))
-        casted = StorageNumpy(name="first_test")
+        casted = StorageNumpy(name="test_5d_read_all")
         chunk = casted[slice(None, None, None)]
         self.assertTrue(np.allclose(chunk.view(np.ndarray), test_numpy))
         casted.delete_persistent()
@@ -155,8 +156,8 @@ class StorageNumpyTest(unittest.TestCase):
 
     def test_get_subarray(self):
         base = np.arange(8 * 8 * 4).reshape((8, 8, 4))
-        hecu_p = StorageNumpy(input_array=base, name='my_array')
-        hecu_r2 = StorageNumpy(name="my_array")
+        hecu_p = StorageNumpy(input_array=base, name='test_get_subarray')
+        hecu_r2 = StorageNumpy(name="test_get_subarray")
         res = hecu_r2[:3, :2]
         sum = res.sum()
         res = hecu_r2[:3, :2]
@@ -166,12 +167,12 @@ class StorageNumpyTest(unittest.TestCase):
 
     def test_slicing_3d(self):
         base = np.arange(8 * 8 * 4).reshape((8, 8, 4))
-        hecu = StorageNumpy(input_array=base, name='my_array')
+        hecu = StorageNumpy(input_array=base, name='test_slicing_3d')
         res_hecu = hecu[6:7, 4:]
         res = base[6:7, 4:]
         self.assertTrue(np.array_equal(res, res_hecu))
 
-        hecu = StorageNumpy(name="my_array")
+        hecu = StorageNumpy(name="test_slicing_3d")
         res_hecu = hecu[6:7, 4:]
         self.assertTrue(np.array_equal(res, res_hecu))
 
@@ -186,12 +187,12 @@ class StorageNumpyTest(unittest.TestCase):
             select = (slice(random.randint(0, elem_per_dim)),) * dims
             base = np.arange(elem_per_dim ** dims).reshape((elem_per_dim,) * dims)
 
-            hecu = StorageNumpy(input_array=base, name='my_array')
+            hecu = StorageNumpy(input_array=base, name='test_slicing_ndims')
             res_hecu = hecu[select]
             res = base[select]
             self.assertTrue(np.array_equal(res, res_hecu))
 
-            hecu = StorageNumpy(name="my_array")
+            hecu = StorageNumpy(name="test_slicing_ndims")
             res_hecu = hecu[select]
             res = base[select]
             self.assertTrue(np.array_equal(res, res_hecu))
@@ -201,7 +202,7 @@ class StorageNumpyTest(unittest.TestCase):
 
     def test_slice_ops(self):
         obj = np.arange(8 * 8 * 8).reshape((8, 8, 8))
-        hecu = StorageNumpy(input_array=obj, name='some_name')
+        hecu = StorageNumpy(input_array=obj, name='test_slice_ops')
         hecu_sub = hecu[:2, 3:, 4:]
         sum = hecu_sub.sum()
         self.assertGreater(sum, 0)
@@ -211,7 +212,7 @@ class StorageNumpyTest(unittest.TestCase):
 
     def test_slice_ops2(self):
         obj = np.arange(8 * 8 * 8).reshape((8, 8, 8))
-        hecu = StorageNumpy(input_array=obj, name='some_name')
+        hecu = StorageNumpy(input_array=obj, name='test_slice_ops2')
         hecu_sub = hecu[:2, 3:, 4:]
         hecu_sub2 = hecu_sub[:1, 2:, 3:]
         sum = hecu_sub2.sum()
@@ -222,7 +223,7 @@ class StorageNumpyTest(unittest.TestCase):
 
     def test_slice_from_numpy_array(self):
         obj = np.arange(8 * 8 * 8).reshape((8, 8, 8))
-        hecu = StorageNumpy(input_array=obj, name='some_name')
+        hecu = StorageNumpy(input_array=obj, name='test_slice_numpy')
         l = np.array((0,1))
         hecu_sub = hecu[l]  #Access using an array of indexes
 # FIXME add more testing, currently if it does not segfault, then it works
@@ -232,7 +233,7 @@ class StorageNumpyTest(unittest.TestCase):
 
     def test_iter_numpy(self):
         obj = np.arange(8 * 8 * 8).reshape((8, 8, 8))
-        hecu = StorageNumpy(input_array=obj, name='some_name')
+        hecu = StorageNumpy(input_array=obj, name='test_iter_numpy')
         acc = 0
         for i in hecu:
             acc = acc + 1
@@ -248,10 +249,10 @@ class StorageNumpyTest(unittest.TestCase):
 
     def test_assign_slice(self):
         base = np.arange(8 * 8 * 4).reshape((8, 8, 4))
-        hecu_p = StorageNumpy(input_array=base, name='my_array')
+        hecu_p = StorageNumpy(input_array=base, name='test_assign_slice')
         sub_hecu = hecu_p[:2, 3:]
         sub_hecu[0][2:] = 0
-        hecu_p_load = StorageNumpy(name="my_array")
+        hecu_p_load = StorageNumpy(name="test_assign_slice")
         rep = repr(hecu_p_load)
         self.assertIsInstance(rep, str)
         # StorageNumpy in memory and in database should share data
@@ -260,14 +261,13 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertTrue(np.array_equal(sub_hecu, hecu_p_load[:2, 3:]))
         # Clean up
         hecu_p_load.delete_persistent()
-        config.session.execute("DROP TABLE IF EXISTS my_app.my_array")
 
     def test_assign_element(self):
         base = np.arange(8 * 8 * 4).reshape((8, 8, 4))
-        hecu_p = StorageNumpy(input_array=base, name='my_array2')
+        hecu_p = StorageNumpy(input_array=base, name='test_assign_element')
         sub_hecu = hecu_p[:2, 3:]
         sub_hecu[0][1][0] = 0
-        hecu_p_load = StorageNumpy(name="my_array2")
+        hecu_p_load = StorageNumpy(name="test_assign_element")
         rep = repr(hecu_p_load)
         self.assertIsInstance(rep, str)
         load_sub_arr = hecu_p_load[:]
@@ -276,12 +276,11 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertTrue(sub_hecu_load[0][1][0] == 0)
         # Clean up
         hecu_p_load.delete_persistent()
-        config.session.execute("DROP TABLE IF EXISTS my_app.my_array2")
 
     def test_load_2_dif_clusters_same_instance(self):
         base = np.arange(50 * 50).reshape((50, 50))
-        hecu_p = StorageNumpy(input_array=base, name='my_array3')
-        hecu_p_load = StorageNumpy(name="my_array3")
+        hecu_p = StorageNumpy(input_array=base, name='load_2_clustrs_same_inst')
+        hecu_p_load = StorageNumpy(name="load_2_clustrs_same_inst")
         hecu_p_load[0:1, 0:1]
         self.assertTrue(np.array_equal(hecu_p_load[40:50, 40:50], base[40:50, 40:50]))
 
@@ -296,7 +295,7 @@ class StorageNumpyTest(unittest.TestCase):
             row = [x[i: i + bn, j: j + bm] for j in range(0, x.shape[1], bm)]
             blocks.append(row)
 
-        data = StorageNumpy(input_array=x, name="test_array")
+        data = StorageNumpy(input_array=x, name="test_split_by_rows")
 
         for i, chunk in enumerate(data.np_split(block_size=(bn, bm))):
             storage_id = chunk.storage_id
@@ -317,7 +316,7 @@ class StorageNumpyTest(unittest.TestCase):
             row = [x[i: i + bn, j: j + bm] for j in range(0, x.shape[1], bm)]
             blocks.append(row)
 
-        data = StorageNumpy(input_array=x, name="test_array")
+        data = StorageNumpy(input_array=x, name="test_split_by_columns")
 
         for i, chunk in enumerate(data.np_split(block_size=(bn, bm))):
             storage_id = chunk.storage_id
@@ -336,7 +335,7 @@ class StorageNumpyTest(unittest.TestCase):
             row = [x[i: i + bn, j: j + bm] for j in range(0, x.shape[1], bm)]
             blocks.append(row)
 
-        data = StorageNumpy(input_array=x, name="test_array")
+        data = StorageNumpy(input_array=x, name="test_split_rows_and_columns")
 
         for i, chunk in enumerate(data.np_split(block_size=(bn, bm))):
             storage_id = chunk.storage_id
@@ -355,7 +354,7 @@ class StorageNumpyTest(unittest.TestCase):
             row = [x[i: i + bn, j: j + bm] for j in range(0, x.shape[1], bm)]
             blocks.append(row)
 
-        data = StorageNumpy(input_array=x, name="test_array")
+        data = StorageNumpy(input_array=x, name="test_split_already_persistent")
 
         for i, chunk in enumerate(data.np_split(block_size=(bn, bm))):
             storage_id = chunk.storage_id
@@ -366,7 +365,7 @@ class StorageNumpyTest(unittest.TestCase):
         del data
         gc.collect()
 
-        data = StorageNumpy(name="test_array")
+        data = StorageNumpy(name="test_split_already_persistent")
         self.assertTrue(np.array_equal(list(data), x))
 
         for i, chunk in enumerate(data.np_split(block_size=(bn, bm))):
@@ -383,7 +382,7 @@ class StorageNumpyTest(unittest.TestCase):
         #'''
         n = np.arange(12).reshape(3,4)
 
-        s1 = StorageNumpy(n, "test_storage_copy_memory")
+        s1 = StorageNumpy(n, "test_storagenumpy_copy_memory")
 
         # StorageNumpy s1 and n should NOT share memory
         s1[0][0] = 42
@@ -394,7 +393,6 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertTrue(not np.array_equal(s1, n))
         # Clean up
         s1.delete_persistent()
-        config.session.execute("DROP TABLE IF EXISTS my_app.test_storage_copy_memory")
 
 
     def test_storagenumpy_from_storagenumpy(self):
@@ -404,7 +402,7 @@ class StorageNumpyTest(unittest.TestCase):
 
         n = np.arange(12).reshape(3,4)
 
-        s1 = StorageNumpy(n, "test_storage_from_storage")
+        s1 = StorageNumpy(n, "test_sn_from_sn")
 
         s2 = StorageNumpy(s1) # Create a StorageNumpy from another StorageNumpy
 
@@ -428,7 +426,6 @@ class StorageNumpyTest(unittest.TestCase):
 
         # Clean up
         s1.delete_persistent()
-        config.session.execute("DROP TABLE IF EXISTS my_app.test_storage_from_storage")
 
     def test_storagenumpy_reshape(self):
         #'''
@@ -447,12 +444,11 @@ class StorageNumpyTest(unittest.TestCase):
 
         # Clean up
         s1.delete_persistent()
-        config.session.execute("DROP TABLE IF EXISTS my_app.test_storage_from_storage")
 
     def test_transpose(self):
-        '''
-        Test the transpose
-        '''
+        #'''
+        #Test the transpose
+        #'''
         n=np.arange(12).reshape(3,4)
 
         s=StorageNumpy(n,"testTranspose")
@@ -466,7 +462,6 @@ class StorageNumpyTest(unittest.TestCase):
 
         # Clean up
         s.delete_persistent()
-        config.session.execute("DROP TABLE IF EXISTS my_app.testTranspose")
 
     def test_copy_storageNumpyPersist(self):
         #'''
@@ -474,7 +469,7 @@ class StorageNumpyTest(unittest.TestCase):
         #'''
         n=np.arange(12).reshape(3,4)
 
-        s=StorageNumpy(n,"testcopy")
+        s=StorageNumpy(n,"test_copy_storageNumpyPersist")
         c=s.copy()
 
         self.assertTrue(c.storage_id is None)
@@ -486,12 +481,11 @@ class StorageNumpyTest(unittest.TestCase):
 
         # Clean up
         s.delete_persistent()
-        config.session.execute("DROP TABLE IF EXISTS my_app.testcopy")
 
     def test_copy_storageNumpyVolatile(self):
-        '''
-        Test that a copy of a StorageNumpy does not share memory (Volatile version)
-        '''
+        #'''
+        #Test that a copy of a StorageNumpy does not share memory (Volatile version)
+        #'''
         n=np.arange(12).reshape(3,4)
 
         s=StorageNumpy(n)
@@ -510,16 +504,191 @@ class StorageNumpyTest(unittest.TestCase):
         # Test accessing a column that traverses different blocks in cassandra
 
         n = np.arange(2*180).reshape(2,180)
-        s = StorageNumpy(n, "mykk")
+        s = StorageNumpy(n, "test_columnar_access")
 
         del s
 
-        s = StorageNumpy(None, "mykk")
+        s = StorageNumpy(None, "test_columnar_access")
 
         tmp=s[0,:]
 
         self.assertTrue(np.array_equal(tmp, n[0,:]))
         print(tmp)
+
+    def test_row_access(self):
+        n = np.arange(64*128).reshape(64,128) # A matrix with "some" columns
+        s = StorageNumpy(n, "test_row_access")
+        del s
+        s = StorageNumpy(None, "test_row_access")
+        for i in range(0,64):
+            print("\ni: ", i)
+            tmp = s[i,:]    # Access a whole row
+            self.assertTrue(np.array_equal(tmp, n[i,:]))
+
+    def test_column_access(self):
+        n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
+        s = StorageNumpy(n, "test_column_access")
+        for i in range(0,127):
+            tmp = s[:,i]    # Access a whole column
+            self.assertTrue(np.array_equal(tmp, n[:,i]))
+
+    def test_slice_after_load(self):
+        n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
+        s = StorageNumpy(n, "test_slice_after_load")
+        del s
+        s = StorageNumpy(None, "test_slice_after_load")
+        tmp = s[0,110:150]  # Doing an slice on an unloaded numpy
+        self.assertTrue(np.array_equal(tmp, n[0,110:150]))
+
+    def test_get_cluster_ids(self):
+        n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
+        s = StorageNumpy(n, "test_get_cluster_ids")
+        x = s._hcache.get_block_ids(s._build_args.metas)
+        # Assuming a BLOCK_SIZE of 4096!! FIXME use an environment variable!
+        print(x)
+        self.assertTrue(len(x) == 6)
+        #
+        #Each element elt of x:
+        #    elt[0]==zorderix
+        #    elt[1]==cluster_id
+        #    elt[2]==block_id
+        #    elt[3]==block_coord
+        goal=[(0, 0, 0, (0, 0)), (2, 0, 2, (0, 1)), (8, 2, 0, (0, 2)), (10, 2, 2, (0, 3)), (32, 8, 0, (0, 4)), (34, 8, 2, (0, 5))]
+        for i,elt in enumerate(x):
+            self.assertEqual(elt[0], goal[i][0])
+            self.assertEqual(elt[1], goal[i][1])
+            self.assertEqual(elt[2], goal[i][2])
+            self.assertEqual(elt[3], goal[i][3])
+
+    def test_split(self):
+        n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
+        s = StorageNumpy(n, "test_split")
+        splits = 0
+        for i in s.split():
+            # Assuming a BLOCK_SIZE of 4096!! FIXME use an environment variable!
+            if splits <= 4:
+                self.assertEqual(i.shape, (2,22))
+            else:
+                self.assertEqual(i.shape, (2,18))
+            self.assertTrue(i._offsets == [0, splits*22])
+            self.assertTrue(i[0,0] == splits*22)
+            splits = splits + 1
+        self.assertTrue(splits == 6)
+
+    def test_split_access(self):
+        n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
+        s = StorageNumpy(n, "test_split_access")
+        splits = 0
+        for i in s.split():
+            # Assuming a BLOCK_SIZE of 4096!! FIXME use an environment variable!
+            if splits <= 4:
+                self.assertTrue(np.array_equal(i[:], n[0:22, 22*splits:22*(splits+1)]))
+            else:
+                self.assertTrue(np.array_equal(i[:], n[0:22, 22*splits:22*(splits)+18]))
+            splits = splits + 1
+
+    def test_split_nomem(self):
+        n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
+        s = StorageNumpy(n, "test_split_nomem")
+        splits = 0
+        for i in s.split():
+            sid = i.storage_id
+            del i
+            i = StorageNumpy(None,None,sid)
+            # Assuming a BLOCK_SIZE of 4096!! FIXME use an environment variable!
+            if splits <= 4:
+                self.assertEqual(i.shape, (2,22))
+            else:
+                self.assertEqual(i.shape, (2,18))
+            self.assertTrue(i._offsets == [0, splits*22])
+            self.assertTrue(i[0,0] == splits*22)
+            splits = splits + 1
+        self.assertTrue(splits == 6)
+
+    def test_split_access_nomem(self):
+        n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
+        s = StorageNumpy(n, "test_split_access_nomem")
+        u = s.storage_id
+        splits = 0
+        for i in s.split():
+            sid = i.storage_id
+            del i
+            i = StorageNumpy(None,None,sid)
+            # Assuming a BLOCK_SIZE of 4096!! FIXME use an environment variable!
+            if splits <= 4:
+                self.assertTrue(np.array_equal(i[:], n[0:22, 22*splits:22*(splits+1)]))
+            else:
+                self.assertTrue(np.array_equal(i[:], n[0:22, 22*splits:22*(splits)+18]))
+
+            splits = splits + 1
+
+    def test_load_StorageNumpy(self):
+        n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
+        s = StorageNumpy(n, "test_load_StorageNumpy")
+        s2 = StorageNumpy(None, "test_load_StorageNumpy")
+        self.assertTrue(s2._is_persistent)
+        self.assertEqual(s.storage_id, s2.storage_id)
+
+    def test_np_dot(self):
+        n1 = np.arange(8*8).reshape(8,8)
+        n2 = np.arange(8*8).reshape(8,8)
+        s1 = StorageNumpy(n1, "test_np_dot1")
+        s2 = StorageNumpy(n2, "test_np_dot2")
+        res = np.dot(s1, s2)
+        res.make_persistent("test_np_dots1xs2")
+        self.assertTrue(np.array_equal(res, np.dot(n1,n2)))
+
+    @unittest.skip("Only execute for performance reasons")
+    def test_performance_storage_numpy_arrow(self):
+        # Test the time to retrieve a column from Cassandra
+
+        # Times to repeat the test
+        TIMES = 10
+
+        # Matrix sizes to test
+        matrix_size = (100, 200, 300, 400, 500, 600, 700, 800, 900, 1000)
+        n_cols = 3
+
+        times = {}
+        # Test 1 column
+        for s in matrix_size:
+            times[s] = []  # empty list for size 's'
+
+            # Create a numpy
+            n = np.arange(1000*s * n_cols).reshape(1000*s, n_cols)
+            matrix_name = "matrix{}x{}".format(1000*s, n_cols)
+
+            # Make it persistent
+            o = StorageNumpy(n, matrix_name)
+
+            # Clean memory
+            del o
+
+            for i in range(TIMES):
+                # Retrieve numpy from cassandra (NO data in memory)
+                o = StorageNumpy(None, matrix_name)
+
+                # LOAD_ON_DEMAND must be DISABLED!
+                self.assertTrue(o.data.hex()[:40], '0' * 40)
+
+                start = timer()
+
+                # Load column
+                column = random.randint(0, (n_cols-1))
+
+                o[:, column]
+
+                end = timer()
+
+                # Store time
+                times[s].append(end - start)
+                del o
+
+        # All tests done, print results
+        print("\nRESULTS:")
+        for s in matrix_size:
+            print("Matrix size{}x{} = ".format(1000*s, n_cols), times[s])
+        print("\n")
 
 if __name__ == '__main__':
     unittest.main()

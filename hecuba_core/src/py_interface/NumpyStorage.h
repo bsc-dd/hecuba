@@ -21,7 +21,7 @@ class NumpyStorage : public ArrayDataStore {
 
 public:
 
-    NumpyStorage(const char *table, const char *keyspace, CassSession *session,
+    NumpyStorage(const char *table, const char *keyspace, std::shared_ptr<StorageInterface> storage,
                  std::map<std::string, std::string> &config);
 
     ~NumpyStorage();
@@ -34,7 +34,10 @@ public:
 
     void store_numpy(const uint64_t *storage_id, ArrayMetadata &, PyArrayObject *numpy, PyObject *coord) const;
 
-    void load_numpy(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *save, PyObject *coord);
+    void load_numpy(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *save, PyObject *coord, bool direct_copy);
+
+    void load_numpy_arrow(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *save, PyObject *cols);
+    std::vector<uint64_t> get_cols(PyObject *coord) const;
 
 private:
 

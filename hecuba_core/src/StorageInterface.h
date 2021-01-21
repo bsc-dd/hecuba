@@ -15,11 +15,15 @@
 #include "Writer.h"
 #include "CacheTable.h"
 
-#include "ArrayDataStore.h"
+//#include "ArrayDataStore.h"
 #include "MetaManager.h"
 
 typedef std::map<std::string, std::string> config_map;
 
+struct tokenHost {
+    int64_t token;
+    char *  host;
+};
 
 class StorageInterface {
 
@@ -49,7 +53,7 @@ public:
                         config_map &config);
 
 
-    ArrayDataStore *make_array_store(const char *table, const char *keyspace, config_map &config);
+    //ArrayDataStore *make_array_store(const char *table, const char *keyspace, config_map &config);
 
     Prefetch *get_iterator(const char *table, const char *keyspace,
                            std::vector<config_map> &keys_names,
@@ -75,12 +79,20 @@ public:
 
     int disconnectCassandra();
 
+    char * get_host_per_token(int64_t token);
+
 private:
 
+    std::vector< struct tokenHost > tokensInCluster;
 
     CassSession *session;
 
     CassCluster *cluster;
+
+    void query_tokens( const char * peer, const char* tokens, const char* table, const char * node, int nodePort);
+    void set_tokens_per_host( const char * node, int nodePort);
+    void get_tokens_per_host(std::vector< struct tokenHost > &tokensInCluster);
+
 };
 
 

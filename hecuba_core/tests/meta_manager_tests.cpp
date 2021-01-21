@@ -129,7 +129,7 @@ TEST(TestMetaManager, RegisterObj) {
     CassUuid cass_uuid = {storage_id[0], storage_id[1]};
 
     std::string obj_name = "obj_name_0";
-    ArrayMetadata *metas = new ArrayMetadata()
+    ArrayMetadata metas = ArrayMetadata();
 
 
     meta_manager_is->register_obj(storage_id, obj_name, metas);
