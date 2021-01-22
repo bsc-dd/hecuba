@@ -53,13 +53,26 @@ StorageInterface::StorageInterface(int nodePort, std::string contact_points) {
     cass_future_free(connect_future);
 
     // Query tokens
-    std::string node = contact_points.substr(0, contact_points.find_first_of(","));
-    set_tokens_per_host(node.c_str(), nodePort);
+    char *hecuba_arrow = std::getenv("HECUBA_ARROW");
+    if (hecuba_arrow != nullptr) {
+        char t[5] = "true";
+        bool discard = false;
+        int i=0;
+        // Check that HECUBA_ARROW is enabled
+        while(i<5  && ! discard){
+            discard = (std::tolower(hecuba_arrow[i]) != t[i]);
+            i++;
+        }
+        if (! discard) {
+            std::string node = contact_points.substr(0, contact_points.find_first_of(","));
+            set_tokens_per_host(node.c_str(), nodePort);
 
-    //printf("-----------------\n");
-    //for (uint32_t i = 0; i < tokensInCluster.size(); i++) {
-    //            printf("token: %ld %s\n", tokensInCluster[i].token, tokensInCluster[i].host);
-    //}
+            //printf("-----------------\n");
+            //for (uint32_t i = 0; i < tokensInCluster.size(); i++) {
+            //            printf("token: %ld %s\n", tokensInCluster[i].token, tokensInCluster[i].host);
+            //}
+        }
+    }
 }
 
 
