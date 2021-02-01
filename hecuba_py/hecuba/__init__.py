@@ -140,6 +140,19 @@ class Config:
         try:
             singleton.contact_names = os.environ['CONTACT_NAMES'].split(",")
             log.info('CONTACT_NAMES: %s', str.join(" ", singleton.contact_names))
+            # Convert node names to ips if needed
+            import socket
+            contact_names_ips = []
+            show_translation = False
+            for h_name in singleton.contact_names:
+                IP_addres = socket.gethostbyname(h_name)
+                if (IP_addres != h_name):
+                    show_translation=True
+                contact_names_ips.append(IP_addres)
+            singleton.contact_names = contact_names_ips
+            if show_translation:
+                log.info('CONTACT_NAMES: %s', str.join(" ", singleton.contact_names))
+
         except KeyError:
             log.warn('using default contact point localhost')
             singleton.contact_names = ['127.0.0.1']
