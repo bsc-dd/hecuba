@@ -33,11 +33,16 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include <netdb.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <ifaddrs.h>
+
 
 #include "murmur3.hpp"
 #include <endian.h>
@@ -904,7 +909,6 @@ int ArrayDataStore::open_arrow_file(std::string arrow_file_name) {
  * Uses the 'scp' function and the logged user
  */
 void scp(const char *host, const char *src, const char *dst) {
-    char exec[180];
 
     //fprintf(stdout, " Remote copy %s from host %s to path %s\n", src, host, dst);
     // Get USERNAME
@@ -913,16 +917,53 @@ void scp(const char *host, const char *src, const char *dst) {
     if ( user == NULL ) {
         std::cerr<<" scp: User name unavailable"<<std::endl;
         perror("scp: getenv");
-        exit(1); //FIXME
+        exit(1);
     }
 
     // Run scp user@host:src dst
-    sprintf(exec,"scp -q %s@%s:%s %s", user, host, src, dst);
-    int res = system(exec);
-    if(res!=0)
-        printf("\nFile %s not copied successfully\n",src);
-    //else
-    //    printf("\nFile %s copied successfully\n",src);
+#define MAX_CMD_LEN 1024
+    char parsrc[MAX_CMD_LEN];
+    if (snprintf(parsrc, MAX_CMD_LEN, "%s@%s:%s",user,host,src)>=MAX_CMD_LEN) {
+        std::cerr<<" scp: Ooops max cmd line achieved! Exitting!!!"<<std::endl;
+        exit(1);
+    }
+    int pidh,status;
+    pidh=fork();
+    switch(pidh){
+    case -1: perror("scp: Error forking");
+             exit(1);
+    case 0: execlp("scp","scp","-q",parsrc,dst,NULL);
+            perror("scp: Error mutating to scp");
+            exit(1);
+    default: waitpid(pidh,&status,0);
+            if (WIFEXITED(status)){
+                if(WEXITSTATUS(status) != 0) {
+                    std::cerr<<" scp: error copying file" <<std::endl;
+                }
+            }
+    }
+}
+
+/* itsme: Check if 'target' hostname corresponds to this local node */
+bool itsme(const char *target) {
+    struct ifaddrs *result;
+    getifaddrs(&result);
+
+    char host[256];
+    struct ifaddrs *rp;
+    for(rp = result; rp != NULL; rp = rp->ifa_next) {
+        struct sockaddr *sa = rp->ifa_addr;
+        if (sa == NULL) {
+            printf("no address");
+        } else {
+            if (sa->sa_family== AF_INET) {
+                getnameinfo(sa, sizeof(struct sockaddr_in), host, 256, NULL, 0, NI_NUMERICHOST);
+                if (strcmp(host, target) == 0) return true ;
+            }
+        }
+    }
+
+    return false;
 }
 
 /* Open an 'arrow_file_name' from (a distributed environment) node corresponding to partition key (storage_id, cluster_id)
@@ -942,14 +983,6 @@ int ArrayDataStore::find_and_open_arrow_file(const uint64_t * storage_id, const 
         local_path = local_path + "arrow/";
     }
 
-    // Where I am running?
-    char hostname[128];
-    gethostname(hostname, sizeof(hostname));
-    struct hostent *ent = gethostbyname(hostname);
-    struct in_addr ip_addr = *(struct in_addr *)(ent->h_addr);
-    char * whoami = inet_ntoa(ip_addr);
-    //printf("Hostname: %s, was resolved to: %s\n", hostname, whoami);
-
     // Create token from storage_id+cluster_id (partition key)
     int64_t token = murmur(storage_id, cluster_id);
 
@@ -957,7 +990,7 @@ int ArrayDataStore::find_and_open_arrow_file(const uint64_t * storage_id, const 
     char *host = storage->get_host_per_token(token);
 
     // Detect the location of the file
-    if ((strcmp(host, "127.0.0.1") != 0) && (strcmp(host, whoami) != 0)) { // The file is remote, get a copy //TODO improve local management instead of the 127.0.0.1 hack
+    if ( !itsme(host) ) {
         std::string remote_path;
         remote_path = local_path + "REMOTES/";
 
