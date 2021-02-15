@@ -39,11 +39,9 @@ else
 fi
 
 MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
-CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg    # Feel free to change this to a "source" if you want, but I don't recommend it.
+CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
+HECUBA_ENV=$C4S_HOME/conf/hecuba_environment
 
-source $CFG_FILE
-#CASS_HOME=$(cat $CFG_FILE | grep -v "#" | grep "CASS_HOME=" | tail -n 1 | sed 's/CASS_HOME=//g' | sed 's/"//g' | sed "s/'//g")
-#SNAP_PATH=$(cat $CFG_FILE | grep -v "#" | grep "SNAP_PATH=" | tail -n 1 | sed 's/SNAP_PATH=//g' | sed 's/"//g' | sed "s/'//g")
 UNIQ_ID="c4s"$(echo $RANDOM | cut -c -5)
 DEFAULT_NUM_NODES=4
 DEFAULT_MAX_TIME="04:00:00"
@@ -365,11 +363,18 @@ if [ ! -f $CFG_FILE ]; then
     exit
 fi
 
+# Feel free to change this to a "source" if you want, but I don't recommend it.
+source $CFG_FILE
+#CASS_HOME=$(cat $CFG_FILE | grep -v "#" | grep "CASS_HOME=" | tail -n 1 | sed 's/CASS_HOME=//g' | sed 's/"//g' | sed "s/'//g")
+#SNAP_PATH=$(cat $CFG_FILE | grep -v "#" | grep "SNAP_PATH=" | tail -n 1 | sed 's/SNAP_PATH=//g' | sed 's/"//g' | sed "s/'//g")
+# Feel free to change this to a "source" if you want, but I don't recommend it.
+source $HECUBA_ENV
+
 if [ ! -f $CASS_HOME/bin/cassandra ]; then
     echo "ERROR: Cassandra binary is not where it was expected. ($CASS_HOME/bin/cassandra)"
     echo "Edit the following file to continue: $CFG_FILE"
     exit
-fi 
+fi
 
 if [ "0$LOGS_DIR" == "0" ]; then
 	#yolandab
