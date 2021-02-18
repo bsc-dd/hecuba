@@ -29,6 +29,7 @@ HST_IFACE="-ib0" #interface configured in the cassandra.yaml file
 
 casslist=`cat $CASSFILE`
 
+echo " [I] Creating Snapshot directory $SNAP_PATH"
 mkdir -p $SNAP_PATH
 
 if [ "x$REPLICA_FACTOR" != "x" ]; then
@@ -44,16 +45,19 @@ fi
 
 first_node=`head -n1 $CASSFILE`
 
+echo " [I] Generating RingFile $RINGFILE"
 rm -f $RINGFILE $RINGDONE
 $CASS_HOME/bin/nodetool -h ${first_node} ring > $RINGFILE
 echo "1" > $RINGDONE
 
 
+echo " [I] Generating Snapshot $SNAP_NAME"
 for u_host in $casslist
 do
     $CASS_HOME/bin/nodetool -h ${u_host} snapshot -t $SNAP_NAME
     $CASS_HOME/bin/nodetool -h ${u_host} drain
 done
+echo " [I] Snapshot Done. Copying to GPFS"
 
 sacct --delimiter="," -pj ${SLURM_JOB_ID} | grep cass_node | awk -F ',' '{print $1}' | xargs scancel
 
