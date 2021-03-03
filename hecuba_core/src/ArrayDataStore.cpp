@@ -567,7 +567,7 @@ void ArrayDataStore::store_numpy_into_cas_by_cols_as_arrow(const uint64_t *stora
         memcpy( _k, &cluster_id, sizeof(uint32_t)); //cluster_id
         _k += sizeof(uint32_t);
         memcpy(_k, &i, sizeof(uint64_t)); //col_id
-        std::cout<< "store_numpy_into_cas_by_cols_as_arrow storage_id="<<*c_uuid<<"cluster_id="<<cluster_id<<", col_id="<<i<<std::endl;
+        //std::cout<< "store_numpy_into_cas_by_cols_as_arrow storage_id="<<*c_uuid<<"cluster_id="<<cluster_id<<", col_id="<<i<<std::endl;
 
         // Allocate memory for values
         uint32_t values_size = sizeof(uint64_t) + sizeof(uint32_t) + sizeof(char*);
@@ -908,7 +908,7 @@ int ArrayDataStore::open_arrow_file(std::string arrow_file_name) {
 /* Copy file 'dst'@'host' to 'src'
  * Uses the 'scp' function and the logged user
  */
-void scp(const char *host, const char *src, const char *dst) {
+int scp(const char *host, const char *src, const char *dst) {
 
     //fprintf(stdout, " Remote copy %s from host %s to path %s\n", src, host, dst);
     // Get USERNAME
@@ -939,9 +939,14 @@ void scp(const char *host, const char *src, const char *dst) {
             if (WIFEXITED(status)){
                 if(WEXITSTATUS(status) != 0) {
                     std::cerr<<" scp: error copying file" <<std::endl;
+                    return -1;
                 }
+            } else {
+                std::cerr<<" scp: failed with other error copying file" <<std::endl;
+                return -2;
             }
     }
+    return 0;
 }
 
 /* itsme: Check if 'target' hostname corresponds to this local node */
@@ -959,11 +964,38 @@ bool itsme(const char *target) {
             if (sa->sa_family== AF_INET) {
                 getnameinfo(sa, sizeof(struct sockaddr_in), host, 256, NULL, 0, NI_NUMERICHOST);
                 if (strcmp(host, target) == 0) return true ;
+                else {
+                    std::cout<< " DEBUG Target "<<target<< " is NOT host "<<host<<std::endl;
+                }
             }
         }
     }
 
     return false;
+}
+
+int get_remote_file(const char *host, std::string sourcepath, std::string filename, std::string destination_path)
+{
+    int r = 0;
+    // Check that the file exists to avoid copy
+    if (access((destination_path + filename).c_str(), R_OK) != 0) { //File DOES NOT exist
+        r = mkdir((destination_path).c_str(), 0770);
+        if (r<0) {
+            if (errno != EEXIST) {
+                std::cerr<<" scp: mkdir "<< destination_path <<" failed "<<std::endl;
+                perror("scp: mkdir");
+                exit(1); //FIXME
+            }
+            //} else {
+            //    std::cout<<" scp: created directory "<<(remote_path + ksp)<<std::endl;
+        }
+
+        // Get a copy of arrow_file_name to REMOTES path
+        r = scp(host, (sourcepath + filename).c_str(), (destination_path).c_str());
+    //} else {
+    //    std::cout<<" scp: Already existing file "<<(remote_path + arrow_file_name)<<std::endl;
+    }
+    return r;
 }
 
 /* Open an 'arrow_file_name' from (a distributed environment) node corresponding to partition key (storage_id, cluster_id)
@@ -986,38 +1018,73 @@ int ArrayDataStore::find_and_open_arrow_file(const uint64_t * storage_id, const 
     // Create token from storage_id+cluster_id (partition key)
     int64_t token = murmur(storage_id, cluster_id);
 
+
     // Find host corresponding to token
     char *host = storage->get_host_per_token(token);
+
+    std::cout<< " DEBUG find_and_open_arrow_file " << arrow_file_name<< " sid="<<std::hex<<*storage_id<<" cid="<<std::dec<<cluster_id<<" -> "<<token<< " should be on host "<<host<<std::endl;
 
     // Detect the location of the file
     if ( !itsme(host) ) {
         std::string remote_path;
         remote_path = local_path + "REMOTES/";
+        
 
         std::string ksp;
+        std::string arrow_file;
         uint32_t pos = arrow_file_name.find_last_of("/");
         ksp = arrow_file_name.substr(0, pos);
-        // Check that the file exists to avoid copy
-        if (access((remote_path + arrow_file_name).c_str(), R_OK) != 0) { //File DOES NOT exist
-            int r = mkdir((remote_path + ksp).c_str(), 0770);
-            if (r<0) {
-                if (errno != EEXIST) {
-                    std::cerr<<" scp: mkdir "<< (remote_path + ksp) <<" failed "<<std::endl;
-                    perror("scp: mkdir");
-                    exit(1); //FIXME
-                }
-            //} else {
-            //    std::cout<<" scp: created directory "<<(remote_path + ksp)<<std::endl;
-            }
+        arrow_file = arrow_file_name.substr(pos, arrow_file_name.length());
 
-            // Get a copy of arrow_file_name to REMOTES path
-            scp(host, (local_path + arrow_file_name).c_str(), (remote_path + ksp).c_str());
-        //} else {
-        //    std::cout<<" scp: Already existing file "<<(remote_path + arrow_file_name)<<std::endl;
+        if (get_remote_file(host, local_path + ksp, arrow_file, remote_path + ksp) < 0) {
+            std::cout << " DEBUG but file does not exist remotelly!! Trying local " << (local_path + ksp + arrow_file) << std::endl;
+            remote_path = local_path;
         }
 
         // Now it is local
         local_path = remote_path;
+    } else {
+        std::cout << " DEBUG token is LOCAL " << std::endl;
+        
+        if (access((local_path + arrow_file_name).c_str(), R_OK) != 0) { //File DOES NOT exist
+            std::cout << " DEBUG but file does not exist locally!! Trying remote " << (local_path + arrow_file_name) << std::endl;
+            std::string remote_path;
+            remote_path = local_path + "REMOTES/";
+
+            std::string ksp;
+            std::string arrow_file;
+            uint32_t pos = arrow_file_name.find_last_of("/");
+            ksp = arrow_file_name.substr(0, pos);
+            arrow_file = arrow_file_name.substr(pos, arrow_file_name.length());
+
+            //while ! foud
+            //    for host in all contact_names
+            //        found = get_remote_file
+
+            char * contact_names = std::getenv("CONTACT_NAMES");
+            std::string cn(contact_names);
+            bool found = false;
+            std::size_t current, previous = 0;
+            current = cn.find_first_of(",");
+            while (current != std::string::npos && !found) {
+                const char * h = cn.substr(previous, current-previous).c_str();
+                if (strcmp(h, host) != 0) {
+                    found = (get_remote_file(h, local_path + ksp, arrow_file, remote_path + ksp) == 0);
+                    if (!found) {
+                        std::cout << " DEBUG file " << (local_path + ksp + arrow_file)<<"does not exist remotelly in host "<<h<< std::endl;
+                    }
+                }
+                previous = current + 1;
+                current = cn.find_first_of(",", previous);
+            }
+            if (!found) {
+                std::cout << " DEBUG but file does not exist remotelly!! Where is the file???" << (local_path + ksp + arrow_file) << std::endl;
+                remote_path = local_path;
+            }
+
+            // Now it is local
+            local_path = remote_path;
+        }
     }
     return open_arrow_file(local_path + arrow_file_name);
 }
@@ -1077,7 +1144,9 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
         offset += sizeof(uint32_t);
         //col id
         memcpy(_keys + offset, &cols[it], sizeof(uint64_t));
-        //std::cout<< "read_numpy_from_cas_arrow storage_id="<<std::hex<<*c_uuid<<", cluster_id="<<std::dec<<cluster_id<<", col_id="<<cols[it]<<std::endl;
+        //int64_t token = murmur(storage_id, cluster_id);
+        //char *host = storage->get_host_per_token(token);
+        //std::cout<< "read_numpy_from_cas_arrow storage_id="<<std::hex<<*c_uuid<<", cluster_id="<<std::dec<<cluster_id<<", col_id="<<cols[it]<<"-->"<<token<<" @"<<host<<std::endl;
 
         if (!this->arrow_optane) {
             arrow_file_name = base_arrow_file_name + std::to_string(cols[it]);
