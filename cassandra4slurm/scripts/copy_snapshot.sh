@@ -20,7 +20,10 @@ mkdir -p $SNAP_DEST
 while [ ! -s $RINGDONE ]; do
     sleep 1
 done
-cat $RINGFILE | grep -F " $(cat /etc/hosts | grep $(hostname)"$HST_IFACE" | awk '{ print $1 }') " | awk '{print $NF ","}' | xargs > $SNAP_DEST/$SNAP_NAME-ring.txt
+echo " [INFO] Current RINGFILE $RINGFILE -> $(hostname) $SNAP_DEST/$SNAP_NAME-ring.txt"
+NODE_IP=$(cat /etc/hosts | grep $(hostname)"$HST_IFACE" |awk '{print $1}')
+
+cat $RINGFILE | grep -F $NODE_IP | awk '{print $NF }' | tr "\n" "," > $SNAP_DEST/$SNAP_NAME-ring.txt
 
 # Saving cluster name (to restore it properly)
 echo "$CLUSTER" > $SNAP_DEST/$SNAP_NAME-cluster.txt
