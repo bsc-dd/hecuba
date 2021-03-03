@@ -72,6 +72,24 @@ then
                         cp $SNAP_ORIG/$RECOVERY/$old_node/$clean_folder/$clean_subfolder/snapshots/$RECOVERY/* $DATA_HOME/$clean_folder/$clean_subfolder/
                     done
                 done
+                # Recover Arrow files if needed
+                if [ ! -z $HECUBA_ARROW ]; then
+                    if [ ! -f $SNAP_ORIG/$RECOVERY/$old_node/hecuba_environment.txt ]; then
+                        echo "HECUBA_ARROW is enabled, but snapshot is not ARROW enabled!"
+                        echo " Exitting"
+                        exit
+                    fi
+
+                    # Set HECUBA_ARROW_PATH
+                    export HECUBA_ARROW_PATH=$ROOT_PATH/
+
+                    echo "[INFO] HECUBA_ARROW is enabled"
+                    echo "[INFO]    SNAP_DEST            $SNAP_ORIG/$RECOVERY/$old_node/.arrow"
+                    echo "[INFO]    -> HECUBA_ARROW_PATH $HECUBA_ARROW_PATH/arrow"
+                    mkdir -p $HECUBA_ARROW_PATH/arrow
+                    tar zxf $SNAP_ORIG/$RECOVERY/$old_node/.arrow.tar.gz -C $HECUBA_ARROW_PATH/arrow
+                    echo "[INFO] Recovered Arrow files in $(hostname)"
+                fi
                 break
             fi
         fi  

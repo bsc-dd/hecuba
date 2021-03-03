@@ -51,6 +51,21 @@ DATA_HOME=$ROOT_PATH/cassandra-data
 COMM_HOME=$ROOT_PATH/cassandra-commitlog
 SAV_CACHE=$ROOT_PATH/saved_caches
 CLUSTER=$THETIME
+export ENVFILE=$C4S_HOME/environ-"$UNIQ_ID".txt
+if [ -f $HECUBA_ENVIRON ]; then
+    echo "[INFO] Environment variables to load found at $HECUBA_ENVIRON"
+    echo "[INFO] Generated FILE WITH HECUBA ENVIRON at  ${ENVFILE}"
+
+    source $HECUBA_ENVIRON
+
+    cat $HECUBA_ENVIRON > $ENVFILE
+
+    if [ "X$HECUBA_ARROW" != "X" ]; then
+        #Set HECUBA_ARROW_PATH to the DATA_PATH/TIME
+        export HECUBA_ARROW_PATH=$ROOT_PATH/
+        echo "export HECUBA_ARROW_PATH=$ROOT_PATH/" >> $ENVFILE
+    fi
+fi
 
 if [ "$DISJOINT" == "1" ]; then
     C4S_CASSANDRA_CORES=$(nproc --all)
@@ -120,7 +135,7 @@ fi
 
 echo "STARTING UP CASSANDRA..."
 echo "I am $(hostname)."
-export REPLICA_FACTOR=2
+#export REPLICA_FACTOR=2
 
 # If template is not there, it is copied from cassandra config folder 
 if [ ! -f $C4S_HOME/conf/template.yaml ]; then
@@ -252,10 +267,7 @@ if [ "$APP_NODES" != "0" ]; then
     if [ "$PYCOMPSS_APP" == "1" ]; then
         PYCOMPSS_FLAGS=$(cat $PYCOMPSS_FLAGS_FILE)
         # TODO: Check if escaping chars is needed for app parameters
-        echo "export CONTACT_NAMES=$CNAMES" > ~/contact_names.sh # Setting Cassandra cluster environment variable for Hecuba
-	if [ -f $HECUBA_ENVIRON ]; then
-		cat $HECUBA_ENVIRON >> ~/contact_names.sh
-	fi
+        echo "export CONTACT_NAMES=$CNAMES" >> $ENVFILE # Setting Cassandra cluster environment variable for Hecuba
 
         full_iface=$iface
         if [ "0$iface" != "0" ]; then
@@ -278,7 +290,6 @@ if [ "$APP_NODES" != "0" ]; then
     fi
 else
     echo "[INFO] This job is not configured to run any application. Skipping..."
-    echo "" > ~/contact_names.sh # Reset contact names to avoid re-using previous execution config
 fi
 # End of the application execution code
 

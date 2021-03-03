@@ -40,5 +40,20 @@ do
         fi
     done
  done
+
+# If HECUBA_ARROW is enabled, copy the ARROW directory
+if [ ! -z $HECUBA_ARROW ]; then
+    echo "[INFO] HECUBA ARROW is enabled"
+    echo "[INFO]    HECUBA_ARROW_PATH $HECUBA_ARROW_PATH/arrow"
+    echo "[INFO]    -> SNAP_DEST      $SNAP_DEST/.arrow"
+    #cp -Rf $HECUBA_ARROW_PATH/arrow $SNAP_DEST/.arrow
+    # In GPFS small files are the worst, therefore creata single file with everything
+    pushd $HECUBA_ARROW_PATH/arrow
+    tar czf $SNAP_DEST/.arrow.tar.gz .
+    popd
+    echo "[INFO] Snapshot $SNAP_DEST/.arrow.tar.gz generated"
+    echo "# HECUBA_ARROW Enabled" >> $SNAP_DEST/hecuba_environment.txt
+fi
+
 # When it finishes creates the DONE status file for this host
 echo "DONE" > $SNAP_STATUS_FILE
