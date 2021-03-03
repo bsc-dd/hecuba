@@ -32,16 +32,11 @@ casslist=`cat $CASSFILE`
 echo " [I] Creating Snapshot directory $SNAP_PATH"
 mkdir -p $SNAP_PATH
 
-if [ "x$REPLICA_FACTOR" != "x" ]; then
-    if [[ $REPLICA_FACTOR > 1 ]]; then
-        echo " [I] Repairing cassandra"
-        # The repair is only needed if replication_factor > 1
-        for u_host in $casslist
-        do
-            $CASS_HOME/bin/nodetool -h ${u_host} repair
-        done
-    fi
-fi
+echo " [I] Repairing cassandra"
+for u_host in $casslist
+do
+    $CASS_HOME/bin/nodetool -h ${u_host} repair
+done
 
 first_node=`head -n1 $CASSFILE`
 
