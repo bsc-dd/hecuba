@@ -20,7 +20,10 @@ mkdir -p $SNAP_DEST
 while [ ! -s $RINGDONE ]; do
     sleep 1
 done
-cat $RINGFILE | grep -F " $(cat /etc/hosts | grep $(hostname)"$HST_IFACE" | awk '{ print $1 }') " | awk '{print $NF ","}' | xargs > $SNAP_DEST/$SNAP_NAME-ring.txt
+echo " [INFO] Current RINGFILE $RINGFILE -> $(hostname) $SNAP_DEST/$SNAP_NAME-ring.txt"
+NODE_IP=$(cat /etc/hosts | grep $(hostname)"$HST_IFACE" |awk '{print $1}')
+
+cat $RINGFILE | grep -F $NODE_IP | awk '{print $NF }' | tr "\n" "," > $SNAP_DEST/$SNAP_NAME-ring.txt
 
 # Saving cluster name (to restore it properly)
 echo "$CLUSTER" > $SNAP_DEST/$SNAP_NAME-cluster.txt
@@ -37,5 +40,20 @@ do
         fi
     done
  done
+
+# If HECUBA_ARROW is enabled, copy the ARROW directory
+if [ ! -z $HECUBA_ARROW ]; then
+    echo "[INFO] HECUBA ARROW is enabled"
+    echo "[INFO]    HECUBA_ARROW_PATH $HECUBA_ARROW_PATH/arrow"
+    echo "[INFO]    -> SNAP_DEST      $SNAP_DEST/.arrow"
+    #cp -Rf $HECUBA_ARROW_PATH/arrow $SNAP_DEST/.arrow
+    # In GPFS small files are the worst, therefore creata single file with everything
+    pushd $HECUBA_ARROW_PATH/arrow
+    tar czf $SNAP_DEST/.arrow.tar.gz .
+    popd
+    echo "[INFO] Snapshot $SNAP_DEST/.arrow.tar.gz generated"
+    echo "# HECUBA_ARROW Enabled" >> $SNAP_DEST/hecuba_environment.txt
+fi
+
 # When it finishes creates the DONE status file for this host
 echo "DONE" > $SNAP_STATUS_FILE

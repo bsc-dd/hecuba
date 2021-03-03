@@ -370,6 +370,11 @@ source $CFG_FILE
 # Feel free to change this to a "source" if you want, but I don't recommend it.
 source $HECUBA_ENV
 
+if [ "X$HECUBA_ARROW" != "X" ]; then
+    #Set HECUBA_ARROW_PATH to the DATA_PATH/TIME
+    export HECUBA_ARROW_PATH=$ROOT_PATH/
+fi
+
 if [ ! -f $CASS_HOME/bin/cassandra ]; then
     echo "ERROR: Cassandra binary is not where it was expected. ($CASS_HOME/bin/cassandra)"
     echo "Edit the following file to continue: $CFG_FILE"

@@ -61,6 +61,33 @@ export MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
 SNAPSHOT_FILE=$C4S_HOME/cassandra-snapshot-file-"$UNIQ_ID".txt
 RECOVER_FILE=$C4S_HOME/cassandra-recover-file-"$UNIQ_ID".txt
 
+export THETIME=$(date "+%Y%m%dD%H%Mh%Ss")"-$SLURM_JOB_ID"
+
+source $C4S_CFG_FILE
+export CASS_HOME
+export DATA_PATH
+export SNAP_PATH
+
+export ROOT_PATH=$DATA_PATH/$THETIME
+export DATA_HOME=$ROOT_PATH/cassandra-data
+
+export ENVFILE=$C4S_HOME/environ-"$UNIQ_ID".txt
+if [ -f $HECUBA_ENVIRON ]; then
+    echo "[INFO] Environment variables to load found at $HECUBA_ENVIRON"
+    echo "[INFO] Generated FILE WITH HECUBA ENVIRON at  ${ENVFILE}"
+
+    source $HECUBA_ENVIRON
+
+    cat $HECUBA_ENVIRON > $ENVFILE
+
+    if [ "X$HECUBA_ARROW" != "X" ]; then
+        #Set HECUBA_ARROW_PATH to the DATA_PATH/TIME
+        export HECUBA_ARROW_PATH=$ROOT_PATH/
+        echo "export HECUBA_ARROW_PATH=$ROOT_PATH/" >> $ENVFILE
+    fi
+    cat $ENVFILE > ${FILE_TO_SET_ENV_VARS}
+fi
+
 #check if cassandra is already running and then just configure hecuba environment
 # CONTACT_NAMES sould be set in STORAGE_PROPS file
 grep -v ^# $STORAGE_PROPS | grep -q CONTACT_NAMES
@@ -69,26 +96,13 @@ if [ $? -eq 0 ]; then
         source $MODULE_PATH/initialize_hecuba.sh  $firstnode
 
         echo "CONTACT_NAMES=$CONTACT_NAMES"
-        echo "export CONTACT_NAMES=$CONTACT_NAMES" > ${FILE_TO_SET_ENV_VARS}
+        echo "export CONTACT_NAMES=$CONTACT_NAMES" >> ${FILE_TO_SET_ENV_VARS}
         echo "FILE TO EXPORT VARS IS  ${FILE_TO_SET_ENV_VARS}"
-        if [ -f $HECUBA_ENVIRON ]; then
-                cat $HECUBA_ENVIRON >> ${FILE_TO_SET_ENV_VARS}
-                echo "FILE WITH HECUBA ENVIRON IS  ${HECUBA_ENVIRON}"
-        fi
         cat ${FILE_TO_SET_ENV_VARS}
         exit
 fi
 
-export THETIME=$(date "+%Y%m%dD%H%Mh%Ss")"-$SLURM_JOB_ID"
-source $C4S_CFG_FILE
-export CASS_HOME
-export DATA_PATH
-export SNAP_PATH
-export HECUBA_ARROW
-
 mkdir -p $SNAP_PATH
-export ROOT_PATH=$DATA_PATH/$THETIME
-export DATA_HOME=$ROOT_PATH/cassandra-data
 COMM_HOME=$ROOT_PATH/cassandra-commitlog
 SAV_CACHE=$ROOT_PATH/saved_caches
 if [ "$DISJOINT" == "1" ]; then
@@ -112,12 +126,6 @@ fi
 
 NODEFILE=$C4S_HOME/hostlist-"$UNIQ_ID".txt
 export CASSFILE=$C4S_HOME/casslist-"$UNIQ_ID".txt
-export ENVFILE=$C4S_HOME/environ-"$UNIQ_ID".txt
-if [ -f $HECUBA_ENVIRON ]; then
-    cp $HECUBA_ENVIRON $ENVFILE
-    HECUBA_ARROW_PATH=$DATA_HOME/
-    echo "export HECUBA_ARROW_PATH="$HECUBA_ARROW_PATH >> ${ENVFILE}
-fi
 
 #export APPFILE=$C4S_HOME/applist-"$UNIQ_ID".txt
 APPPATHFILE=$C4S_HOME/app-"$UNIQ_ID".txt
@@ -288,12 +296,8 @@ for node in $(cat $CASSFILE); do
 done
 export CONTACT_NAMES=$CONTACT_NAMES
 echo "CONTACT_NAMES=$CONTACT_NAMES"
-echo "export CONTACT_NAMES=$CONTACT_NAMES" > ${FILE_TO_SET_ENV_VARS}
+echo "export CONTACT_NAMES=$CONTACT_NAMES" >> ${FILE_TO_SET_ENV_VARS}
 echo "FILE TO EXPORT VARS IS  ${FILE_TO_SET_ENV_VARS}"
-if [ -f $ENVFILE ]; then
-	cat $ENVFILE >> ${FILE_TO_SET_ENV_VARS}
-	echo "FILE WITH HECUBA ENVIRON IS  ${ENVFILE}"
-fi
 cat ${FILE_TO_SET_ENV_VARS}
 #srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES "bash export CONTACT_NAMES=$CONTACT_NAMES" &
 PYCOMPSS_STORAGE=$C4S_HOME/pycompss_storage_"$UNIQ_ID".txt
