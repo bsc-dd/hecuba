@@ -974,7 +974,7 @@ bool itsme(const char *target) {
     return false;
 }
 
-int get_remote_file(const char *host, std::string sourcepath, std::string filename, std::string destination_path)
+int get_remote_file(const char *host, const std::string sourcepath, const std::string filename, const std::string destination_path)
 {
     int r = 0;
     // Check that the file exists to avoid copy
@@ -1022,7 +1022,7 @@ int ArrayDataStore::find_and_open_arrow_file(const uint64_t * storage_id, const 
     // Find host corresponding to token
     char *host = storage->get_host_per_token(token);
 
-    std::cout<< " DEBUG find_and_open_arrow_file " << arrow_file_name<< " sid="<<std::hex<<*storage_id<<" cid="<<std::dec<<cluster_id<<" -> "<<token<< " should be on host "<<host<<std::endl;
+    //std::cout<< " DEBUG find_and_open_arrow_file " << arrow_file_name<< " sid="<<std::hex<<*storage_id<<" cid="<<std::dec<<cluster_id<<" -> "<<token<< " should be on host "<<host<<std::endl;
 
     // Detect the location of the file
     if ( !itsme(host) ) {
@@ -1044,7 +1044,7 @@ int ArrayDataStore::find_and_open_arrow_file(const uint64_t * storage_id, const 
         // Now it is local
         local_path = remote_path;
     } else {
-        std::cout << " DEBUG token is LOCAL " << std::endl;
+        //std::cout << " DEBUG token is LOCAL " << std::endl;
         
         if (access((local_path + arrow_file_name).c_str(), R_OK) != 0) { //File DOES NOT exist
             std::cout << " DEBUG but file does not exist locally!! Trying remote " << (local_path + arrow_file_name) << std::endl;
@@ -1061,21 +1061,25 @@ int ArrayDataStore::find_and_open_arrow_file(const uint64_t * storage_id, const 
             //    for host in all contact_names
             //        found = get_remote_file
 
-            char * contact_names = std::getenv("CONTACT_NAMES");
+            const char * contact_names = std::getenv("CONTACT_NAMES");
             std::string cn(contact_names);
             bool found = false;
+            bool end = false;
             std::size_t current, previous = 0;
-            current = cn.find_first_of(",");
-            while (current != std::string::npos && !found) {
-                const char * h = cn.substr(previous, current-previous).c_str();
-                if (strcmp(h, host) != 0) {
-                    found = (get_remote_file(h, local_path + ksp, arrow_file, remote_path + ksp) == 0);
+            while (!end && !found) {
+                current = cn.find_first_of(",", previous);
+                if (current == std::string::npos) { // No more ',' last iteration
+                    current = cn.length();
+                    end = true;
+                }
+                const std::string h = cn.substr(previous, current-previous);
+                if (strcmp(h.c_str(), host) != 0) {
+                    found = (get_remote_file(h.c_str(), local_path + ksp, arrow_file, remote_path + ksp) == 0);
                     if (!found) {
                         std::cout << " DEBUG file " << (local_path + ksp + arrow_file)<<"does not exist remotelly in host "<<h<< std::endl;
                     }
                 }
                 previous = current + 1;
-                current = cn.find_first_of(",", previous);
             }
             if (!found) {
                 std::cout << " DEBUG but file does not exist remotelly!! Where is the file???" << (local_path + ksp + arrow_file) << std::endl;
