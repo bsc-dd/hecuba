@@ -647,7 +647,10 @@ class StorageNumpy(IStorage, np.ndarray):
 
             #yolandab: execute first the super to modified the base numpy
 
-            modified_np=super(StorageNumpy, self).__setitem__(sliced_coord, values)
+            if type(values)==StorageNumpy and not values._numpy_full_loaded:
+                values[:]  # LOAD the values as the numpy.__setitem__ will only use memory
+
+            super(StorageNumpy, self).__setitem__(sliced_coord, values)
 
             base_numpy = StorageNumpy._get_base_array(self) # self.base is  numpy.ndarray
             self._hcache.store_numpy_slices([self._build_args.base_numpy],
@@ -659,10 +662,11 @@ class StorageNumpy(IStorage, np.ndarray):
             #            self._twin_ref._build_args.metas,
             #            [self._twin_ref.base.view(np.ndarray)],
             #            sliced_coord[-1])
-            return modified_np
+            return
         #if self._twin_ref is not None:
         #    super(StorageNumpy, self._twin_ref).__setitem__(sliced_coord, values)
-        return super(StorageNumpy, self).__setitem__(sliced_coord, values)
+        super(StorageNumpy, self).__setitem__(sliced_coord, values)
+        return
 
     def _persist_data(self, name, formato=0):
         """
