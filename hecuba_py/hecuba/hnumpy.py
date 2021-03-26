@@ -647,6 +647,9 @@ class StorageNumpy(IStorage, np.ndarray):
 
             #yolandab: execute first the super to modified the base numpy
 
+            if type(values)==StorageNumpy and not values._numpy_full_loaded:
+                values[:]  # LOAD the values as the numpy.__setitem__ will only use memory
+
             super(StorageNumpy, self).__setitem__(sliced_coord, values)
 
             base_numpy = StorageNumpy._get_base_array(self) # self.base is  numpy.ndarray
