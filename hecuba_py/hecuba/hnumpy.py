@@ -116,6 +116,12 @@ class StorageNumpy(IStorage, np.ndarray):
             args_dict = new_args._asdict()
             args_dict["built_remotely"] = True
             resultado = build_remotely(args_dict)
+
+            # TODO: improve this implementation: goal destroy the twin, and reuse the parent twin
+            resultado._twin_ref  = self._twin_ref
+            resultado._twin_id   = self._twin_id
+            resultado._twin_name = self._twin_name
+
             yield resultado
 
     @staticmethod
@@ -208,15 +214,16 @@ class StorageNumpy(IStorage, np.ndarray):
         obj._build_args = obj.args(obj.storage_id, istorage_metas[0].class_name,
                 istorage_metas[0].name, metas_to_reserve, istorage_metas[0].block_id, base_numpy, twin_id,
                 istorage_metas[0].tokens)
-        if config.arrow_enabled and twin_id is not None and my_metas.partition_type != 2:
-            # Load TWIN array
-            #print ("JJ __new__ twin_name ", obj._twin_name, flush=True);
-            #print ("JJ __new__ twin_id ", obj._twin_id, flush=True);
-            obj._twin_id   = twin_id
-            obj._twin_name = StorageNumpy.get_arrow_name(obj._ksp, obj._table)
-            twin = StorageNumpy._initialize_existing_object(cls, obj._twin_name, obj._twin_id)
-            obj._twin_ref = twin
-            twin._twin_id = obj.storage_id # Use the parent ID
+        if not StorageNumpy._comes_from_split(my_metas):    #If we come from a split, the twin will be shared with the parent!!!
+            if config.arrow_enabled and twin_id is not None and my_metas.partition_type != 2:
+                # Load TWIN array
+                #print ("JJ __new__ twin_name ", obj._twin_name, flush=True);
+                #print ("JJ __new__ twin_id ", obj._twin_id, flush=True);
+                obj._twin_id   = twin_id
+                obj._twin_name = StorageNumpy.get_arrow_name(obj._ksp, obj._table)
+                twin = StorageNumpy._initialize_existing_object(cls, obj._twin_name, obj._twin_id)
+                obj._twin_ref = twin
+                twin._twin_id = obj.storage_id # Use the parent ID
         obj._row_elem = obj._hcache.get_elements_per_row(storage_id, metas_to_calculate)
         obj._calculate_coords(metas_to_calculate)
         #print (" JJ _initialize_existing_object name={} sid={} DONE".format(name, storage_id), flush=True)
@@ -459,6 +466,7 @@ class StorageNumpy(IStorage, np.ndarray):
             *x[-a,-b,...]  tuple of ints  (abs(a)-1) + off1, (abs(b)-1) + off2 (ONLY INTERESTED IN FINAL BLOCK)
             *x[:,:,...]  tuple of slices a.start + off1, a.stop+off1, b.start+off2, b.stop+off2
             x[[..],[...]]   list  NOT SUPPORTED!
+            x[0,:]
 
         '''
         if not StorageNumpy._comes_from_split(self._build_args.metas):
@@ -482,7 +490,10 @@ class StorageNumpy(IStorage, np.ndarray):
                 if isinstance(sliced_coord[i], int):
                     value = StorageNumpy._add_offset(sliced_coord[i], off)
                 elif isinstance(sliced_coord[i], slice):
-                    value = slice(StorageNumpy._add_offset(sliced_coord[i].start, off), StorageNumpy._add_offset(sliced_coord[i].stop, off))
+                    if sliced_coord[i] == slice(None, None, None):
+                        value = slice(off, off+self._row_elem) ## WARNING this works due to the blocks being square (#rows == #cols)
+                    else:
+                        value = slice(StorageNumpy._add_offset(sliced_coord[i].start, off), StorageNumpy._add_offset(sliced_coord[i].stop, off))
                 else:
                     raise NotImplementedError("Not supported type in tuple " + type(sliced_coord[i]))
 
@@ -586,7 +597,7 @@ class StorageNumpy(IStorage, np.ndarray):
                         log.warn("Columnar access and slice is not implemented")
                         return None
                     columns = []
-                    columns.append(sliced_coord[-1])
+                    columns.append(self._adapt_coords(sliced_coord[-1])) #WARNING: Using adapt_coords... but it will work because the block is square (and number of rows and number of columns are equal)
         return columns
 
     def _load_columns(self, columns):
