@@ -113,15 +113,32 @@ class StorageNumpy(IStorage, np.ndarray):
             new_args = self._build_args._replace(metas=metas, tokens=token_split, storage_id=storage_id)
             StorageNumpy._store_meta(new_args)
 
-            args_dict = new_args._asdict()
-            args_dict["built_remotely"] = True
-            resultado = build_remotely(args_dict)
+            #TODO: This reserve_numpy_array creates an HCACHE with the same name as the parent, therefore N HCACHES!!
+            result = StorageNumpy.reserve_numpy_array(storage_id, self._name, metas) # storage_id is NOT used at all
+            input_array = result[0]
+            resultado = np.asarray(input_array).view(StorageNumpy)
+
+            # Forge an IStorage(the order of these 3 instrucions is important)! Yolanda's eyes bleed!
+            IStorage.__init__(resultado, tokens=token_split) #Without storageid to avoid Cassandra access
+            resultado.storage_id = storage_id # Now set the storage_id
+            IStorage.make_persistent(resultado, self._name) # And mark it as persistent
+
+            resultado._numpy_full_loaded = False
+            resultado._hcache = result[1]
+
+            resultado._offsets = metas.offsets
+            resultado._build_args = new_args
+
+            resultado._row_elem = resultado._hcache.get_elements_per_row(storage_id, metas)
+            resultado._all_coords = self._all_coords
+            resultado._n_blocks = self._n_blocks
 
             # TODO: improve this implementation: goal destroy the twin, and reuse the parent twin
             resultado._twin_ref  = self._twin_ref
             resultado._twin_id   = self._twin_id
             resultado._twin_name = self._twin_name
 
+            # TODO: Add a new column into hecuba.istorage with all the splits for the current storageid
             yield resultado
 
     @staticmethod
