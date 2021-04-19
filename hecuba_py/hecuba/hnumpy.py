@@ -599,6 +599,10 @@ class StorageNumpy(IStorage, np.ndarray):
         if self.ndim > 2:   # Not supported case. Only 2 dimensions!
             return None
         columns = None
+        if isinstance(sliced_coord, slice) and sliced_coord == slice(None, None, None):
+            if not StorageNumpy._comes_from_split(self._build_args.metas):
+                log.debug("Access ALL matrix elements detected. Columnar access used")
+                columns = list(range(self.shape[self.ndim-1]))
         if isinstance(sliced_coord, tuple):
             # If the getitem parameter is a tuple, then we may catch the
             # column accesses: Ex: s[:, i], s[:, [i1,i2]], s[:, slice(...)]
