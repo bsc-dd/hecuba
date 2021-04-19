@@ -603,6 +603,12 @@ class StorageNumpy(IStorage, np.ndarray):
             if not StorageNumpy._comes_from_split(self._build_args.metas):
                 log.debug("Access ALL matrix elements detected. Columnar access used")
                 columns = list(range(self.shape[self.ndim-1]))
+            else:
+                columns =[]
+                for c in range(self.shape[self.ndim-1]):
+                    # Add the column offset...
+                    columns.append(StorageNumpy._add_offset(c, self._build_args.metas.offsets[1]))
+
         if isinstance(sliced_coord, tuple):
             # If the getitem parameter is a tuple, then we may catch the
             # column accesses: Ex: s[:, i], s[:, [i1,i2]], s[:, slice(...)]
