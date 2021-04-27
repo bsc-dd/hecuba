@@ -231,19 +231,16 @@ class StorageNumpy(IStorage, np.ndarray):
         obj._build_args = obj.args(obj.storage_id, istorage_metas[0].class_name,
                 istorage_metas[0].name, metas_to_reserve, istorage_metas[0].block_id, base_numpy, twin_id,
                 istorage_metas[0].tokens)
-        if not StorageNumpy._comes_from_split(my_metas):    #If we come from a split, the twin will be shared with the parent!!!
-            if config.arrow_enabled and twin_id is not None and my_metas.partition_type != 2:
-                # Load TWIN array
-                #print ("JJ __new__ twin_name ", obj._twin_name, flush=True);
-                #print ("JJ __new__ twin_id ", obj._twin_id, flush=True);
-                obj._twin_id   = twin_id
-                obj._twin_name = StorageNumpy.get_arrow_name(obj._ksp, obj._table)
-                twin = StorageNumpy._initialize_existing_object(cls, obj._twin_name, obj._twin_id)
-                obj._twin_ref = twin
-                twin._twin_id = obj.storage_id # Use the parent ID
+        #if not StorageNumpy._comes_from_split(my_metas):    #If we come from a split, the twin will be shared with the parent!!!
+        if config.arrow_enabled and twin_id is not None and my_metas.partition_type != 2:
+            # Load TWIN array
+            obj._twin_id   = twin_id
+            obj._twin_name = StorageNumpy.get_arrow_name(obj._ksp, obj._table)
+            twin = StorageNumpy._initialize_existing_object(cls, obj._twin_name, obj._twin_id)
+            obj._twin_ref = twin
+            twin._twin_id = obj.storage_id # Use the parent ID
         obj._row_elem = obj._hcache.get_elements_per_row(storage_id, metas_to_calculate)
         obj._calculate_coords(metas_to_calculate)
-        #print (" JJ _initialize_existing_object name={} sid={} DONE".format(name, storage_id), flush=True)
         return obj
 
 
@@ -323,7 +320,7 @@ class StorageNumpy(IStorage, np.ndarray):
                 # Is there any other?
                 self._numpy_full_loaded = True # Default value
 
-            self._is_persistent = getattr(obj, '_is_persistent', None)
+            self._is_persistent = getattr(obj, '_is_persistent', False)
             self._block_id = getattr(obj, '_block_id', None)
             self._twin_id   = getattr(obj, '_twin_id', None)
             self._twin_ref  = getattr(obj, '_twin_ref', None)
@@ -644,6 +641,20 @@ class StorageNumpy(IStorage, np.ndarray):
                                         [base_numpy],
                                         columns,
                                         False)
+            if len(columns) == self._build_args.metas.dims[1]: #if we are loading ALL columns, we COPY the twin to the normal (2 copies)
+                self._numpy_full_loaded = True
+                # Copy EACH element from one matrix to the other (taking into account that one matrix is the transpose from the other)
+                # TODO figure a better way to do this
+                for i in range(self._build_args.metas.dims[0]):
+                    for j in range(self._build_args.metas.dims[1]):
+                        if StorageNumpy._comes_from_split(self._build_args.metas):
+                            # For the split case we need to consider that the arrow is NOT splitted, 
+                            # and therefore we need to access it through the block offsets
+                            newi=StorageNumpy._add_offset(i, self._build_args.metas.offsets[0])
+                            newj=StorageNumpy._add_offset(j, self._build_args.metas.offsets[1])
+                            self.data[i,j] = self._twin_ref.data[newj,newi]
+                        else:
+                            self.data[i,j] = self._twin_ref.data[j,i]
 
     def _select_and_load_blocks(self, sliced_coord):
         if self._is_persistent:
@@ -668,8 +679,11 @@ class StorageNumpy(IStorage, np.ndarray):
         columns = self._select_columns(sliced_coord)
         if columns is not None :
             self._load_columns(columns)
-            return super(StorageNumpy,
-                    self._twin_ref).__getitem__((columns[0], slice(None, None, None)))
+            if not len(columns) == self._build_args.metas.dims[1]: #if we are loading ALL columns, copy the twin to the normal
+                return super(StorageNumpy,
+                        self._twin_ref).__getitem__((columns, slice(None, None, None)))
+            else:
+                return super(StorageNumpy, self).__getitem__(sliced_coord)
 
         # Normal array access...
         self._select_and_load_blocks(sliced_coord)
@@ -867,7 +881,7 @@ class StorageNumpy(IStorage, np.ndarray):
         '''
         #FIXME if self is not full loaded... load it
         n_sn=super(StorageNumpy,self).copy(order)
-        if self._twin_ref is not None:
+        if getattr(self, '_twin_ref', None) is not None:
             n_sn._twin_id = None
             n_sn._twin_name = None
             n_sn._twin_ref = super(StorageNumpy, self._twin_ref).copy(order)
