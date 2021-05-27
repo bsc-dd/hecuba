@@ -265,7 +265,6 @@ uint32_t ZorderCurveGenerator::getClusterID(std::vector<uint32_t> cc) {
 }
 
 Partition ZorderCurveGenerator::getNextPartition() {
-    if (block_counter == nblocks) return {CLUSTER_END_FLAG, 0, nullptr};
 
     char *output_data, *output_data_end;
 
@@ -341,7 +340,6 @@ Partition ZorderCurveGenerator::getNextPartition() {
 }
 
 PartitionIdxs ZorderCurveGenerator::getNextPartitionIdxs() {
-    if (block_counter == nblocks) return {CLUSTER_END_FLAG, CLUSTER_END_FLAG, 0, {}};
 
     std::vector<uint32_t> ix_blocks = getIndexes(block_counter, blocks_dim);
     uint64_t zorder_id = computeZorder(ix_blocks);
@@ -510,6 +508,12 @@ int32_t ZorderCurveGeneratorFiltered::computeNextClusterId() {
     return zorder;
 }
 
+Partition ZorderCurveGeneratorFiltered::getNextPartition() {
+    block_counter = computeZorder(coord.front());
+    coord.erase(coord.begin());
+    return ZorderCurveGenerator::getNextPartition();
+}
+
 bool ZorderCurveGeneratorFiltered::isDone() {
     if (coord.empty()) done = true;
     return done;
@@ -570,20 +574,31 @@ FortranOrderGenerator::FortranOrderGenerator(const ArrayMetadata &metas, void *d
 }
 
 
-/*
+/***
+ * Given a block coordinates calculate its linear number:
+ * Example:
+ *      (+)==========+           () coordenada inicial del numpy
+ *       I 0 . 1 . 2 I <-- zorder
+ *       I0,0.0,1.0,2I <-- block coordinates
+ *       I---+---+---I
+ *       I 3 . 4 . 5 I
+ *       I1,0.1,1.1,2I
+ *       I---+---+---I
+ *       I 6 . 7 . 8 I
+ *       I2,0.2,1.2,2I
+ *       +===========+
+ * @param cc: Vector of coordinates for the block
+ * @return The Zorder for 'cc'
+ */
 uint64_t FortranOrderGenerator::computeZorder(std::vector<uint32_t> cc) {
     uint64_t ndims = cc.size();
     uint64_t answer = 0;
-    //(sizeof(uint64_t) * CHAR_BIT) equals to the number of bits in a uin64_t (8*8)
-    uint32_t nbits = (sizeof(uint64_t) * CHAR_BIT) / ndims;
-    for (uint64_t i = 0; i < nbits; ++i) {
-        for (uint64_t dim_i = 0; dim_i < ndims; ++dim_i) {
-            if (cc[dim_i] & ((uint64_t) 1 << i)) answer |= 1 << (ndims * i + dim_i);
-        }
+    for (uint64_t i = 0; i < ndims-1; ++i) {
+        answer += cc[i] * blocks_dim[i+1];
     }
+    answer += cc[ndims-1];
     return answer;
 }
-*/
 
 /* Given a block_counter return its initial coordinates */
 std::vector<uint32_t> FortranOrderGenerator::zorderInverse(uint64_t id, uint64_t ndims) {
@@ -939,4 +954,10 @@ int32_t FortranOrderGeneratorFiltered::computeNextClusterId() {
     int32_t zorder = pos[pos.size()-1];
     coord.erase(coord.begin());
     return zorder;
+}
+
+Partition FortranOrderGeneratorFiltered::getNextPartition() {
+    block_counter = computeZorder(coord.front());
+    coord.erase(coord.begin());
+    return FortranOrderGenerator::getNextPartition();
 }

@@ -167,7 +167,6 @@ private:
     uint32_t ndims, row_elements, nreddims;
     uint64_t block_size, nblocks, nclusters;
     std::vector<uint32_t> block_dims, blocks_dim, bound_dims, clusters_dim;
-    uint64_t block_counter, cluster_counter;
 
 
     static void tessellate(std::vector<uint32_t> dims, std::vector<uint32_t> block_dims, uint32_t elem_size, char *data,
@@ -177,6 +176,8 @@ private:
     copy_block_to_array(std::vector<uint32_t> dims, std::vector<uint32_t> block_dims, uint32_t elem_size, char *data,
                         char *output_data, char *output_data_end);
 
+protected:
+    uint64_t block_counter, cluster_counter;
 };
 
 
@@ -186,6 +187,8 @@ public:
     ZorderCurveGeneratorFiltered(const ArrayMetadata &metas, void *data, std::list<std::vector<uint32_t> > &coord);
 
     int32_t computeNextClusterId() override;
+
+    Partition getNextPartition() override;
 
     bool isDone() override;
 
@@ -239,8 +242,6 @@ private:
     std::vector<uint32_t> block_dims;   // ???? 
     std::vector<uint32_t> bound_dims;   // ????
 
-    uint64_t block_counter, cluster_counter;
-
 
     static void tessellate(std::vector<uint32_t> dims, std::vector<uint32_t> block_dims, uint32_t elem_size, char *data,
                            char *output_data, char *output_data_end);
@@ -249,6 +250,9 @@ private:
     copy_block_to_array(std::vector<uint32_t> dims, std::vector<uint32_t> block_dims, uint32_t elem_size, char *data,
                         char *output_data, char *output_data_end);
 
+
+protected:
+    uint64_t block_counter, cluster_counter;
 };
 class FortranOrderGeneratorFiltered : public FortranOrderGenerator {
 public:
@@ -256,6 +260,8 @@ public:
     FortranOrderGeneratorFiltered(const ArrayMetadata &metas, void *data, std::list<std::vector<uint32_t> > &coord);
 
     int32_t computeNextClusterId() override;
+
+    Partition getNextPartition() override;
 
     bool isDone() override;
 

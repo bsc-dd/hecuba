@@ -658,12 +658,9 @@ void ArrayDataStore::store_numpy_into_cas_by_coords(const uint64_t *storage_id, 
     std::set<int32_t> clusters = {};
     std::list<Partition> partitions = {};
 
-    while (!partitions_it->isDone()) { clusters.insert(partitions_it->computeNextClusterId()); }
-    partitions_it = new ZorderCurveGeneratorFiltered(metadata, data, coord);
     while (!partitions_it->isDone()) {
-        clusters.insert(partitions_it->computeNextClusterId());
         auto part = partitions_it->getNextPartition();
-        if (clusters.find(part.cluster_id) != clusters.end()) partitions.push_back(part);
+        partitions.push_back(part);
     }
 
     for (auto it = partitions.begin(); it != partitions.end(); ++it) {

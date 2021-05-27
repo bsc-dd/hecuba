@@ -690,5 +690,56 @@ class StorageNumpyTest(unittest.TestCase):
             print("Matrix size{}x{} = ".format(1000*s, n_cols), times[s])
         print("\n")
 
+    def test_setitem_blocks(self):
+        # Ensure that sets and gets on different blocks in cassandra are
+        # updated and retrieved This test creates a matrix of 3x3 blocks,
+        # modifies an element on each of the blocks and retrieves them.
+        n = np.arange(66*66).reshape(66,66)
+        s = StorageNumpy(n, "test_setitem_blocks")
+        magic = [-660 - i for i in range(10)]
+        pos = [ (0,0), (0,30), (0,64), (30,0), (30,30), (30,64), (64,0), (64,30), (64,64)]
+        # Modify 's' in memory and disk and keep 'n' in the same condition as a baseline
+        for i in range(len(pos)):
+            s[pos[i]] = magic[i]
+            n[pos[i]] = magic[i]
+        # Check modified elements in memory
+        for i in range(len(pos)):
+            self.assertTrue( s[pos[i]] == magic[i] )
+        # Check Rest of elements in memory
+        self.assertTrue(np.array_equal(n,s))
+        del s
+        s = StorageNumpy(None, "test_setitem_blocks", flush=True)
+        # Check modified elements in Cassandra
+        for i in range(len(pos)):
+            self.assertTrue( s[pos[i]] == magic[i] )
+        # Check Rest of elements in Cassandra
+        self.assertTrue(np.array_equal(n,s))
+
+        del s
+        s = StorageNumpy(None, "test_setitem_blocks", flush=True)
+        # Modify memory content (not loaded) with different magic values
+        for i in range(len(pos)):
+            s[pos[i]] = magic[len(pos)-1-i]
+            n[pos[i]] = magic[len(pos)-1-i]
+
+        for i in range(len(pos)):
+            self.assertTrue( s[pos[i]] == magic[len(pos)-1-i] )
+        self.assertTrue(np.array_equal(n,s))
+
+    def test_store_in_view(self):
+        n = np.arange(66*66).reshape(66,66)
+        s = StorageNumpy(n, "test_store_in_view")
+
+        s1 = s[1:65,1:65]
+        s1[0,0] = 666
+
+        self.assertTrue(s[1,1], 666)    # original numpy is modified
+
+        del s
+
+        s = StorageNumpy(None, "test_store_in_view")
+        self.assertTrue(s[1,1], 666)    # Ensure cassandra has been modified
+
+
 if __name__ == '__main__':
     unittest.main()
