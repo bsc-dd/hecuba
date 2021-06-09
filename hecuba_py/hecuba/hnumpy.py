@@ -58,7 +58,7 @@ class StorageNumpy(IStorage, np.ndarray):
         from cassandra import murmur3
         tam_sid = len(storage_id.bytes)
         bytes_storage_id = bytes([0, tam_sid]) + storage_id.bytes + bytes([0])
-        bytes_cluster_id = bytes([0, 4]) + bytes([0, 0, 0, cluster_id]) + bytes([0])
+        bytes_cluster_id = bytes([0, 4]) + cluster_id.to_bytes(4,'big') + bytes([0])
         mykey = bytes_storage_id + bytes_cluster_id
         return murmur3.murmur3(mykey)
 
