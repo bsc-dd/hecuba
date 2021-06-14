@@ -71,12 +71,12 @@ void NumpyStorage::store_numpy(const uint64_t *storage_id, ArrayMetadata &np_met
 	}
 }
 
-void NumpyStorage::load_numpy(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *save, PyObject *coord, bool direct_copy) {
+void NumpyStorage::load_numpy(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *save, PyObject *coord) {
 	void *data = PyArray_DATA(save);
 	if (np_metas.partition_type != COLUMNAR) {
 		if (coord != Py_None) {
 			std::list<std::vector<uint32_t> > crd = generate_coords(coord);
-			this->read_numpy_from_cas_by_coords(storage_id, np_metas, crd, direct_copy, data);
+			this->read_numpy_from_cas_by_coords(storage_id, np_metas, crd, data);
 		} else this->read_numpy_from_cas(storage_id, np_metas, data);
 
 	} else {
@@ -108,9 +108,9 @@ PyObject *NumpyStorage::reserve_numpy_space(const uint64_t *storage_id, ArrayMet
 	//yolandab
         int fortran_layout=0;
         if (np_metas.flags&NPY_ARRAY_F_CONTIGUOUS){
-		fortran_layout=1;
-	}else{
-		fortran_layout=0;
+            fortran_layout=1;
+        }else{
+            fortran_layout=0;
         }
         resulting_array = PyArray_ZEROS((int32_t) np_metas.dims.size(), dims, type, fortran_layout);
         // it was : resulting_array = PyArray_ZEROS((int32_t) np_metas.dims.size(), dims, type, 0);

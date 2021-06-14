@@ -62,7 +62,6 @@ struct ArrayMetadata {
     char  byteorder = ' ';
     std::vector<uint32_t> dims;
     std::vector<uint32_t> strides;
-    std::vector<uint32_t> offsets;
     //int32_t inner_type = 0;
 };
 
@@ -151,6 +150,7 @@ public:
     };
 
     uint64_t computeZorder(std::vector<uint32_t> cc);
+    uint64_t getBlockCounter(std::vector<uint32_t> ccs, const std::vector<uint32_t> &dims);
 
     std::vector<uint32_t> zorderInverse(uint64_t id, uint64_t ndims);
 
@@ -166,7 +166,7 @@ private:
     void *data;
     uint32_t ndims, row_elements, nreddims;
     uint64_t block_size, nblocks, nclusters;
-    std::vector<uint32_t> block_dims, blocks_dim, bound_dims, clusters_dim;
+    std::vector<uint32_t> block_dims, bound_dims, clusters_dim;
 
 
     static void tessellate(std::vector<uint32_t> dims, std::vector<uint32_t> block_dims, uint32_t elem_size, char *data,
@@ -178,6 +178,7 @@ private:
 
 protected:
     uint64_t block_counter, cluster_counter;
+    std::vector<uint32_t> blocks_dim;
 };
 
 
@@ -215,6 +216,8 @@ public:
 
     uint64_t computeZorder(std::vector<uint32_t> cc);
 
+    uint64_t getBlockCounter(std::vector<uint32_t> ccs, const std::vector<uint32_t> &dims);
+
     std::vector<uint32_t> zorderInverse(uint64_t id, uint64_t ndims);
 
     std::vector<uint32_t> getIndexes(uint64_t id, const std::vector<uint32_t> &dims);
@@ -237,7 +240,6 @@ private:
     uint64_t block_size;
     uint64_t nblocks;   // Total number of blocks
     uint64_t nclusters; // Total number of clusters
-    std::vector<uint32_t> blocks_dim;   // Num blocks per dimension
     std::vector<uint32_t> clusters_dim; // Num clusters per dimension (half the number of blocks for the first 2 dims)
     std::vector<uint32_t> block_dims;   // ???? 
     std::vector<uint32_t> bound_dims;   // ????
@@ -253,6 +255,7 @@ private:
 
 protected:
     uint64_t block_counter, cluster_counter;
+    std::vector<uint32_t> blocks_dim;   // Num blocks per dimension
 };
 class FortranOrderGeneratorFiltered : public FortranOrderGenerator {
 public:

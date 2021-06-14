@@ -79,6 +79,12 @@ uint32_t SpaceFillingCurve::SpaceFillingGenerator::getClusterID(std::vector<uint
 
 /*** Zorder (morton encoding) algorithms ***/
 
+/*
+ *   block_counter >--- getIndexes() --> block_coords >-- computeZorder() --> zorderId
+ *             ^                            v    ^                              v
+ *             |                            |    |                              |
+ *              \______ getBlockCounter()__/      \______ zorderInverse()______/
+ */
 ZorderCurveGenerator::ZorderCurveGenerator() : done(true) {}
 
 ZorderCurveGenerator::ZorderCurveGenerator(const ArrayMetadata &metas, void *data) : done(false), metas(metas),
@@ -145,6 +151,17 @@ std::vector<uint32_t> ZorderCurveGenerator::zorderInverse(uint64_t id, uint64_t 
         if ((id >> i & 1) == 1) ccs[i % ndims] |= 1 << step;
     }
     return ccs;
+}
+
+uint64_t ZorderCurveGenerator::getBlockCounter(std::vector<uint32_t> ccs, const std::vector<uint32_t> &dims) {
+    uint64_t total_size = 1;
+    uint64_t valor=0;
+
+    for (int64_t i = ccs.size()-1; i>=0; i--){
+        valor = ccs[i]*total_size+valor;
+        total_size *= dims[i];
+    }
+    return valor;
 }
 
 std::vector<uint32_t> ZorderCurveGenerator::getIndexes(uint64_t id, const std::vector<uint32_t> &dims) {
@@ -509,7 +526,7 @@ int32_t ZorderCurveGeneratorFiltered::computeNextClusterId() {
 }
 
 Partition ZorderCurveGeneratorFiltered::getNextPartition() {
-    block_counter = computeZorder(coord.front());
+    block_counter = getBlockCounter(coord.front(), blocks_dim);
     coord.erase(coord.begin());
     return ZorderCurveGenerator::getNextPartition();
 }
@@ -609,6 +626,17 @@ std::vector<uint32_t> FortranOrderGenerator::zorderInverse(uint64_t id, uint64_t
         if ((id >> i & 1) == 1) ccs[i % ndims] |= 1 << step;
     }
     return ccs;
+}
+
+uint64_t FortranOrderGenerator::getBlockCounter(std::vector<uint32_t> ccs, const std::vector<uint32_t> &dims) {
+    uint64_t total_size = 1;
+    uint64_t valor=0;
+
+    for (int64_t i = ccs.size()-1; i>=0; i--){
+        valor = ccs[i]*total_size+valor;
+        total_size *= dims[i];
+    }
+    return valor;
 }
 
 std::vector<uint32_t> FortranOrderGenerator::getIndexes(uint64_t id, const std::vector<uint32_t> &dims) {
@@ -957,7 +985,7 @@ int32_t FortranOrderGeneratorFiltered::computeNextClusterId() {
 }
 
 Partition FortranOrderGeneratorFiltered::getNextPartition() {
-    block_counter = computeZorder(coord.front());
+    block_counter = getBlockCounter(coord.front(), blocks_dim);
     coord.erase(coord.begin());
     return FortranOrderGenerator::getNextPartition();
 }

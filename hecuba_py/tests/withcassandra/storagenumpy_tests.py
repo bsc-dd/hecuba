@@ -543,6 +543,8 @@ class StorageNumpyTest(unittest.TestCase):
     def test_get_cluster_ids(self):
         n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
         s = StorageNumpy(n, "test_get_cluster_ids")
+        if s._build_args.metas.partition_type != 0: #This test is only valid for ZORDER
+            return
         x = s._hcache.get_block_ids(s._build_args.metas)
         # Assuming a BLOCK_SIZE of 4096!! FIXME use an environment variable!
         print(x)
@@ -570,7 +572,6 @@ class StorageNumpyTest(unittest.TestCase):
                 self.assertEqual(i.shape, (2,22))
             else:
                 self.assertEqual(i.shape, (2,18))
-            self.assertTrue(i._offsets == [0, splits*22])
             self.assertTrue(i[0,0] == splits*22)
             splits = splits + 1
         self.assertTrue(splits == 6)
@@ -578,6 +579,8 @@ class StorageNumpyTest(unittest.TestCase):
     def test_split_access(self):
         n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
         s = StorageNumpy(n, "test_split_access")
+        if s._build_args.metas.partition_type != 0: #This test is only valid for ZORDER
+            return
         splits = 0
         for i in s.split():
             # Assuming a BLOCK_SIZE of 4096!! FIXME use an environment variable!
@@ -590,6 +593,8 @@ class StorageNumpyTest(unittest.TestCase):
     def test_split_nomem(self):
         n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
         s = StorageNumpy(n, "test_split_nomem")
+        if s._build_args.metas.partition_type != 0: #This test is only valid for ZORDER
+            return
         splits = 0
         for i in s.split():
             sid = i.storage_id
@@ -608,6 +613,8 @@ class StorageNumpyTest(unittest.TestCase):
     def test_split_access_nomem(self):
         n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
         s = StorageNumpy(n, "test_split_access_nomem")
+        if s._build_args.metas.partition_type != 0: #This test is only valid for ZORDER
+            return
         u = s.storage_id
         splits = 0
         for i in s.split():
@@ -740,6 +747,20 @@ class StorageNumpyTest(unittest.TestCase):
         s = StorageNumpy(None, "test_store_in_view")
         self.assertTrue(s[1,1], 666)    # Ensure cassandra has been modified
 
+    # Persistent Views
+    def test_pv_slice_slice(self):
+        n = np.arange(66*66).reshape(66,66)
+        sn = StorageNumpy(n,"test_pv_slice_slice")
+        del sn
+        sn = StorageNumpy(None,"test_pv_slice_slice")
+        # Caso: slice, slice
+        s1 = slice(1,65)
+        n1 = sn[s1,s1]
+        i=1
+        j=1
+        self.assertTrue(np.array_equal(n1[i,j], n[s1,s1][i,j]))
+
+    # TODO: Tranform SNadaptcoords.py
 
 if __name__ == '__main__':
     unittest.main()

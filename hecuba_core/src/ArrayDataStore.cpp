@@ -800,7 +800,7 @@ void ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetada
 }
 
 void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, ArrayMetadata &metadata,
-                                                   std::list<std::vector<uint32_t> > &coord, bool direct_copy, void *save) {
+                                                   std::list<std::vector<uint32_t> > &coord, void *save) {
 
 	if (metadata.partition_type == COLUMNAR) {
 		throw ModuleException("Unexpected case: Are you calling read_numpy_from_cas_by_coords with an Arrow format?");
@@ -851,21 +851,7 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
 	if (all_partitions.empty()) {
 		throw ModuleException("no npy found on sys");
 	}
-    if (!direct_copy) {
-	    partitions_it->merge_partitions(metadata, all_partitions, save);
-    } else {
-        uint32_t wanted_block = partitions_it->getBlockID(coord.front());
-        for ( Partition p : all_partitions ) {
-            // A single block is supported, all the others are DISCARDED
-            if (p.block_id == wanted_block) {
-                char *input = (char *) p.data;
-                uint64_t *retrieved_block_size = (uint64_t *) input;
-                input += sizeof(uint64_t);
-                memcpy(save, input, *retrieved_block_size);
-                break;
-            }
-        }
-    }
+	partitions_it->merge_partitions(metadata, all_partitions, save);
 	for (const TupleRow *item:all_results) delete (item);
 	delete (partitions_it);
 

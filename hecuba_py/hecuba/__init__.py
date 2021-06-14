@@ -307,7 +307,7 @@ class Config:
                 precision float);
                 """,
                 """CREATE TYPE IF NOT EXISTS hecuba.np_meta (flags int, elem_size int, partition_type tinyint,
-                dims list<int>, strides list<int>, typekind text, byteorder text, offsets list<int>)""",
+                dims list<int>, strides list<int>, typekind text, byteorder text)""",
                 """CREATE TABLE IF NOT EXISTS hecuba
                 .istorage (storage_id uuid, 
                 class_name text,name text, 
@@ -320,6 +320,7 @@ class Config:
                 block_id int,
                 base_numpy uuid,
                 twin_id uuid,
+                view_serialization blob,
                 primary_keys list<frozen<tuple<text,text>>>,
                 columns list<frozen<tuple<text,text>>>,
                 PRIMARY KEY(storage_id));
