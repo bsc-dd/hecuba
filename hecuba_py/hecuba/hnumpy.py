@@ -257,14 +257,13 @@ class StorageNumpy(IStorage, np.ndarray):
 
         obj = np.asarray(input_array).view(cls) # This must be done BEFORE the view, to keep the BASE numpy loaded (otherwise the 'base' field is overwritten with the base of the view)
 
-        if getattr(istorage_metas[0], 'view_serialization', None):
-            # The data recovered from the istorage is a persistent view, therefore reconstruct the view
-            myview = pickle.loads(istorage_metas[0].view_serialization)
-            log.debug(" view of {}".format(myview))
-            if isinstance(myview, tuple):
-                 obj = super(StorageNumpy, obj).__getitem__(myview)
-            else:
-                 raise TypeError(" WARNING: recovered 'view_serialization' has unexpected type ", type(myview))
+        # The data recovered from the istorage is a persistent view, therefore reconstruct the view
+        myview = pickle.loads(istorage_metas[0].view_serialization)
+        log.debug(" view of {}".format(myview))
+        if isinstance(myview, tuple):
+            obj = super(StorageNumpy, obj).__getitem__(myview)
+        else:
+            raise TypeError(" WARNING: recovered 'view_serialization' has unexpected type ", type(myview))
 
 
         IStorage.__init__(obj, name=name, storage_id=storage_id, tokens=tokens)
