@@ -988,8 +988,16 @@ class StorageNumpy(IStorage, np.ndarray):
             outputs = (None,) * ufunc.nout
 
         base_numpy = StorageNumpy._get_base_array(self)
+        metas = None
         if self._is_persistent and len(self.shape) and self._numpy_full_loaded is False:
-            self._hcache.load_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [base_numpy],
+            if (self.storage_id != self._build_args.base_numpy):
+                #We are a view and therefore we need the metas from the base numpy
+                istorage_metas = get_istorage_attrs(self._build_args.base_numpy)
+                metas = istorage_metas[0].numpy_meta
+            else:
+                metas = self._build_args.metas
+            log.debug(" UFUNC({}) load_block from {} ".format(method, metas))
+            self._hcache.load_numpy_slices([self._build_args.base_numpy], metas, [base_numpy],
                                            None)
         results = super(StorageNumpy, self).__array_ufunc__(ufunc, method,
                                                             *args, **kwargs)
@@ -1000,8 +1008,19 @@ class StorageNumpy(IStorage, np.ndarray):
             return
 
         if self._is_persistent and len(self.shape):
-            self._hcache.store_numpy_slices([self._build_args.base_numpy], self._build_args.metas, [base_numpy],
-                                            None)
+            readonly_methods = ['mean', 'sum', 'reduce'] #methods that DO NOT modify the original memory, and there is NO NEED to store it
+            if method not in readonly_methods:
+                if metas is None: # Ooops... numpy is fully loaded and the metas calculation was skipped
+                    if (self.storage_id != self._build_args.base_numpy):
+                        #We are a view and therefore we need the metas from the base numpy
+                        istorage_metas = get_istorage_attrs(self._build_args.base_numpy)
+                        metas = istorage_metas[0].numpy_meta
+                    else:
+                        metas = self._build_args.metas
+                    log.debug(" UFUNC({}) store_block from {} ".format(method, metas))
+
+                self._hcache.store_numpy_slices([self._build_args.base_numpy], metas, [base_numpy],
+                                                None)
 
         if ufunc.nout == 1:
             results = (results,)
