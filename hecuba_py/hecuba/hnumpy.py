@@ -769,14 +769,13 @@ class StorageNumpy(IStorage, np.ndarray):
         Returns None or a list of columns accesed
         """
         columns = None
-        if self.is_columnar(sliced_coord):
-            sliced_coord = self._view_composer_new(sliced_coord)
-            last = sliced_coord[-1]
-            if isinstance (last,int):
-                columns = [last]
-            else: # it is an slice
-                last = StorageNumpy.removenones(last, self.shape[1])
-                columns = [ c for c in range(last.start, last.stop, last.step)]
+        sliced_coord = self._view_composer_new(sliced_coord)
+        last = sliced_coord[-1]
+        if isinstance (last,int):
+            columns = [last]
+        else: # it is an slice
+            last = StorageNumpy.removenones(last, self.shape[1])
+            columns = [ c for c in range(last.start, last.stop, last.step)]
 
         return columns
 
@@ -828,9 +827,10 @@ class StorageNumpy(IStorage, np.ndarray):
                 return super(StorageNumpy, self).__getitem__(sliced_coord)
 
         # Check if the access is columnar...
-            columns = self._select_columns(sliced_coord)
-            if columns is not None : # Columnar access
-                self._load_columns(columns)
+            if self.is_columnar(sliced_coord):
+                columns = self._select_columns(sliced_coord)
+                if columns is not None : # Columnar access
+                    self._load_columns(columns)
             else: # Normal array access...
                 self._select_and_load_blocks(sliced_coord)
         return super(StorageNumpy, self).__getitem__(sliced_coord)
