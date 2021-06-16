@@ -134,12 +134,17 @@ uint64_t ZorderCurveGenerator::computeZorder(std::vector<uint32_t> cc) {
     uint64_t ndims = cc.size();
     uint64_t answer = 0;
     //(sizeof(uint64_t) * CHAR_BIT) equals to the number of bits in a uin64_t (8*8)
+    //std::cout<< "ZorderCurveGenerator::computeZorder cc={";
+    //for (uint64_t i = 0; i < ndims; ++i) {
+    //    std::cout<< cc[i] << ", ";
+    //}
     uint32_t nbits = (sizeof(uint64_t) * CHAR_BIT) / ndims;
     for (uint64_t i = 0; i < nbits; ++i) {
         for (uint64_t dim_i = 0; dim_i < ndims; ++dim_i) {
             if (cc[dim_i] & ((uint64_t) 1 << i)) answer |= 1 << (ndims * i + dim_i);
         }
     }
+    //std::cout<< "} => " << answer << std::endl;
     return answer;
 }
 
@@ -284,6 +289,14 @@ uint32_t ZorderCurveGenerator::getClusterID(std::vector<uint32_t> cc) {
 Partition ZorderCurveGenerator::getNextPartition() {
 
     char *output_data, *output_data_end;
+
+    //std::cout<< "ZorderCurveGenerator::getNextPartition block_counter " << block_counter << std::endl;
+
+    //std::cout<< "ZorderCurveGenerator::getNextPartition blocks_dim={ ";
+    //for(uint64_t i=0; i< blocks_dim.size(); i++) {
+    //    std::cout<<blocks_dim[i]<<", ";
+    //}
+    //std::cout<<"}"<<std::endl;
 
     //Compute position in memory and chunks of data to copy
     std::vector<uint32_t> block_ccs = getIndexes(block_counter, blocks_dim);
@@ -610,10 +623,15 @@ FortranOrderGenerator::FortranOrderGenerator(const ArrayMetadata &metas, void *d
 uint64_t FortranOrderGenerator::computeZorder(std::vector<uint32_t> cc) {
     uint64_t ndims = cc.size();
     uint64_t answer = 0;
+    //std::cout<< "FortranOrderGenerator::computeZorder cc={";
+    //for (uint64_t i = 0; i < ndims; ++i) {
+    //    std::cout<< cc[i] << ", ";
+    //}
     for (uint64_t i = 0; i < ndims-1; ++i) {
         answer += cc[i] * blocks_dim[i+1];
     }
     answer += cc[ndims-1];
+    //std::cout<< "} => " << answer << std::endl;
     return answer;
 }
 
@@ -746,6 +764,7 @@ Partition FortranOrderGenerator::getNextPartition() {
 
     char *output_data, *output_data_end;
 
+    //std::cout<< "FortranOrderGenerator::getNextPartition block_counter " << block_counter << std::endl;
     // Calculate block coordinates
     std::vector<uint32_t> block_ccs = getIndexes(block_counter, blocks_dim);
 

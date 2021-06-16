@@ -144,6 +144,7 @@ void Prefetch::consume_tokens() {
                     completed = true;
                     data.abort();
                     std::cerr << "Prefetch reached max connection attempts " << MAX_TRIES << std::endl;
+                    std::cerr << "Prefetch query " << this->prepared_query << std::endl;
                     return;
                 }
             }

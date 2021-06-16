@@ -603,8 +603,10 @@ void ArrayDataStore::store_numpy_into_cas(const uint64_t *storage_id, ArrayMetad
     if (metadata.partition_type != COLUMNAR) {
         SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata, data);
 
+        //std::cout<< "store_numpy_into_cas " << std::endl;
         while (!partitions_it->isDone()) {
             Partition part = partitions_it->getNextPartition();
+            //std::cout<< "  cluster_id " << part.cluster_id << " block_id "<<part.block_id<< std::endl;
             store_numpy_partition_into_cas(storage_id, part);
         }
         //this->partitioner.serialize_metas();
@@ -658,15 +660,19 @@ void ArrayDataStore::store_numpy_into_cas_by_coords(const uint64_t *storage_id, 
     std::set<int32_t> clusters = {};
     std::list<Partition> partitions = {};
 
+    //std::cout<< "store_numpy_into_cas_by_coords " << std::endl;
     while (!partitions_it->isDone()) {
         auto part = partitions_it->getNextPartition();
+            //std::cout<< "  cluster_id " << part.cluster_id << " block_id "<<part.block_id<< std::endl;
         partitions.push_back(part);
     }
 
     for (auto it = partitions.begin(); it != partitions.end(); ++it) {
+    //std::cout<< "  store partition" << std::endl;
         auto part = *it;
         store_numpy_partition_into_cas(storage_id, part);
     }
+    //std::cout<< "store_numpy_into_cas_by_coords done" << std::endl;
     //this->partitioner.serialize_metas();
     delete (partitions_it);
     // No need to flush the elements because the metadata are written after the data thanks to the queue
@@ -965,7 +971,7 @@ int get_remote_file(const char *host, const std::string sourcepath, const std::s
         r = mkdir((destination_path).c_str(), 0770);
         if (r<0) {
             if (errno != EEXIST) {
-                std::cerr<<" scp: mkdir "<< destination_path <<" failed "<<std::endl;
+                std::cerr<<" scp: mkdir "<< destination_path <<" failed  at "<< std::getenv("HOSTNAME") <<std::endl;
                 perror("scp: mkdir");
                 exit(1); //FIXME
             }
@@ -1005,7 +1011,7 @@ int ArrayDataStore::find_and_open_arrow_file(const uint64_t * storage_id, const 
     // Find host corresponding to token
     char *host = storage->get_host_per_token(token);
 
-    //std::cout<< " DEBUG find_and_open_arrow_file " << arrow_file_name<< " sid="<<std::hex<<*storage_id<<" cid="<<std::dec<<cluster_id<<" -> "<<token<< " should be on host "<<host<<std::endl;
+    //std::cout<< " DEBUG find_and_open_arrow_file " << local_path + arrow_file_name<< " sid="<<std::hex<<*storage_id<<" cid="<<std::dec<<cluster_id<<" -> "<<token<< " should be on host "<<host<<std::endl;
 
     // Detect the location of the file
     if ( !itsme(host) ) {
@@ -1182,6 +1188,7 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
             arrow::Status status;
             status = arrow::ipc::RecordBatchFileReader::Open(&bufferReader, &sptrFileReader); //TODO handle RecordBatchFileReader::Open errors
             if (not status.ok()) {
+                std::cerr << " OOOOPS: "<< status.message() << std::endl;
                 throw ModuleException("RecordBatchFileReader::Open error");
             }
 

@@ -673,7 +673,7 @@ class StorageNumpy(IStorage, np.ndarray):
     @staticmethod
     def reserve_numpy_array(storage_id, name, metas):
         '''Provides a numpy array with the number of elements obtained through storage_id'''
-        log.debug(" Reserve memory for %s %s ", name, storage_id)
+        log.debug(" Reserve memory for {} {} {}".format(name, storage_id, metas))
         hcache = StorageNumpy._create_hcache(name)
         result = hcache.allocate_numpy(storage_id, metas)
         if len(result) == 1:
@@ -883,6 +883,7 @@ class StorageNumpy(IStorage, np.ndarray):
             name to use
             [formato] to store the data (0-ZOrder, 2-columnar, 3-FortranOrder) # 0 ==Z_ORDER (find it at SpaceFillingCurve.h)
         """
+        log.debug("_persist_data: {} format={} ENTER ".format(name, formato))
         twin = self._twin_ref
         if twin is not None: # Persist Twin before current object (to obtain _twin_id)
             self._twin_name = StorageNumpy.get_arrow_name(self._ksp, self._table)
@@ -926,6 +927,7 @@ class StorageNumpy(IStorage, np.ndarray):
         StorageNumpy._store_meta(self._build_args)
         if formato != 2:
             self._row_elem = self._hcache.get_elements_per_row(self.storage_id, self._build_args.metas)
+        log.debug("_persist_data: {} format={}".format(name, formato))
 
 
     def make_persistent(self, name):
