@@ -799,7 +799,7 @@ class StorageNumpy(IStorage, np.ndarray):
             # TODO figure a better way to do this
             for i in range(self._build_args.metas.dims[0]):
                 for j in columns:
-                    self.data[i,j] = self._twin_ref.data[j,i]
+                    self.base.data[i,j] = self._twin_ref.data[j,i]
             if len(columns) == self._build_args.metas.dims[1]: #if we are loading ALL columns, we COPY the twin to the normal (2 copies)
                 log.debug("LOADED WHOLE ARRAY ")
                 self._numpy_full_loaded = True
