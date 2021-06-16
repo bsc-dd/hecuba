@@ -828,13 +828,11 @@ class StorageNumpy(IStorage, np.ndarray):
                 return super(StorageNumpy, self).__getitem__(sliced_coord)
 
         # Check if the access is columnar...
-        columns = self._select_columns(sliced_coord)
-        if columns is not None :
-            self._load_columns(columns)
-            return super(StorageNumpy, self).__getitem__(sliced_coord)
-
-        # Normal array access...
-        self._select_and_load_blocks(sliced_coord)
+            columns = self._select_columns(sliced_coord)
+            if columns is not None : # Columnar access
+                self._load_columns(columns)
+            else: # Normal array access...
+                self._select_and_load_blocks(sliced_coord)
         return super(StorageNumpy, self).__getitem__(sliced_coord)
 
     def __setitem__(self, sliced_coord, values):
