@@ -421,13 +421,13 @@ class StorageNumpy(IStorage, np.ndarray):
         res = None
         if   isinstance(new, int):
             if isinstance(old0, int):
-                #res = new + old0
-                res = old0
+                res = old0 # 'new' is IGNORED
             elif isinstance(old0, slice):
                 old0 = StorageNumpy.removenones(old0, shape[0])
                 if new < 0:
-                    new = (old0.stop-old0.start) + new
-                res = new*old0.step+old0.start
+                    res = old0.stop  + (new+1)*old0.step
+                else:
+                    res = old0.start + new*old0.step
             else:
                 raise NotImplementedError("Compose an int and a {}".format(type(old0)))
 
@@ -435,24 +435,26 @@ class StorageNumpy(IStorage, np.ndarray):
             new = StorageNumpy.removenones(new, shape[0])
             newstep = new.step
             if isinstance(old0, int):
-                #res = old0*new.step + new.start
-                res = old0
+                res = old0  # 'new' is IGNORED
             elif isinstance(old0, slice):
                 newstart=new.start
                 newstop=new.stop
                 old0 = StorageNumpy.removenones(old0, shape[0])
                 if newstart<0:
-                    #newstart=shapenew[0]+newstart
-                    newstart = (old0.stop - old0.start) + newstart
-                if newstop<0:
-                    #newstop=shapenew[0]+newstop
-                    newstop = (old0.stop - old0.start) + newstop
-                oldstep = old0.step
-                if oldstep > 1 and newstep > 1:
-                    resstep = oldstep + newstep
+                    newstart = old0.stop  + (newstart+1)*old0.step
                 else:
-                    resstep=max(oldstep,newstep)
-                res = slice(old0.start+(newstart*oldstep), min(old0.start+(newstop*oldstep),old0.stop), resstep)
+                    newstart = old0.start + newstart*old0.step
+                if newstop<0:
+                    newstop = old0.stop  + (newstop+1)*old0.step
+                else:
+                    newstop = old0.start + newstop*old0.step
+
+                oldstep = old0.step
+                if oldstep >= 0 and newstep >= 0:
+                    resstep = oldstep * newstep
+                else:
+                    raise NotImplementedError("slice with negative steps") # TODO
+                res = slice(newstart, min(newstop,old0.stop), resstep)
             else:
                 raise NotImplementedError("Compose an slice and a {}".format(type(old0)))
 
@@ -478,7 +480,6 @@ class StorageNumpy(IStorage, np.ndarray):
             raise TypeError("View must be a tuple,int or slice instead of {}".format(type(new_view)))
 
         old = self._build_args.view_serialization
-        #res = StorageNumpy.view_composer_internal(self.base.shape, old, self.shape, new_view)
         res = StorageNumpy.view_composer_internal(self.base.shape, old, new_view)
         print(" view_composer: ======> {}".format(res))
         return  res
