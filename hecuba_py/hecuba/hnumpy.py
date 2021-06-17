@@ -84,7 +84,7 @@ class StorageNumpy(IStorage, np.ndarray):
         return murmur3.murmur3(mykey)
 
 
-    def split(self,cols=True):
+    def split(self,cols=None):
         """
         Divide numpy into persistent views to exploit parallelism.
 
@@ -93,6 +93,12 @@ class StorageNumpy(IStorage, np.ndarray):
         # TODO this should work for VOLATILE objects too! Now only works for PERSISTENT
         if self._build_args.metas.partition_type == 2:
             raise NotImplementedError("Split on columnar data is not supported")
+
+        if not cols:
+            if config.arrow_enabled:
+                cols = True
+            else:
+                cols = False
 
         blocks = self._hcache.get_block_ids(self._build_args.metas) # returns a list of tuples (cluster_id, block_id)
 
@@ -165,9 +171,10 @@ class StorageNumpy(IStorage, np.ndarray):
                 slc = tuple(slc)
             else:
                 # Columns case: clusterID MUST match columnID
-                for i in values:
-                    if i[1] != cluster_id:
-                        raise ValueError("OOOPS! ClusterID does not match with columnID")
+                if config.arrow_enabled:
+                    for i in values:
+                        if i[1] != cluster_id:
+                            raise ValueError("OOOPS! ClusterID does not match with columnID")
                 slc = ( slice(None,None,None), slice(cluster_id*self._row_elem, cluster_id*self._row_elem + self._row_elem ) )
 
             token_split = tokens[cluster_id]
