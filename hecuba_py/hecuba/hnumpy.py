@@ -94,7 +94,7 @@ class StorageNumpy(IStorage, np.ndarray):
         if self._build_args.metas.partition_type == 2:
             raise NotImplementedError("Split on columnar data is not supported")
 
-        if not cols:
+        if cols == None:
             if config.arrow_enabled:
                 cols = True
             else:
