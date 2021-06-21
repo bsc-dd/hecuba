@@ -749,7 +749,7 @@ class StorageNumpy(IStorage, np.ndarray):
         if not config.arrow_enabled:
             log.debug("HECUBA_ARROW is not enabled. Columnar acces disabled.")
             return False
-        if self.ndim != 2:   # Not supported case. Only 2 dimensions!
+        if self.base.ndim != 2:   # Not supported case. Only 2 dimensions!
             return False
 
         if isinstance(sliced_coord, slice) and sliced_coord == slice(None, None, None):
@@ -778,7 +778,7 @@ class StorageNumpy(IStorage, np.ndarray):
         if isinstance (last,int):
             columns = [last]
         else: # it is an slice
-            last = StorageNumpy.removenones(last, self.shape[1])
+            last = StorageNumpy.removenones(last, self.base.shape[1])
             columns = [ c for c in range(last.start, last.stop, last.step)]
 
         return columns
