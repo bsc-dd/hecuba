@@ -432,7 +432,7 @@ class StorageNumpy(IStorage, np.ndarray):
             elif isinstance(old0, slice):
                 old0 = StorageNumpy.removenones(old0, shape[0])
                 if new < 0:
-                    res = old0.stop  + (new+1)*old0.step
+                    res = old0.stop  + (new+1)*old0.step - 1
                 else:
                     res = old0.start + new*old0.step
             else:
@@ -448,7 +448,7 @@ class StorageNumpy(IStorage, np.ndarray):
                 newstop=new.stop
                 old0 = StorageNumpy.removenones(old0, shape[0])
                 if newstart<0:
-                    newstart = old0.stop  + (newstart+1)*old0.step
+                    newstart = old0.stop  + (newstart+1)*old0.step - 1
                 else:
                     newstart = old0.start + newstart*old0.step
                 if newstop<0:
