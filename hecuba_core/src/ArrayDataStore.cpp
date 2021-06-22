@@ -378,8 +378,8 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
     uint32_t elem_size  = metadata.elem_size;
 
     // Calculate number of rows and columns
-    uint64_t num_columns = metadata.dims[0];
-    uint64_t num_rows    = metadata.dims[1];
+    uint64_t num_columns = metadata.dims[1];
+    uint64_t num_rows    = metadata.dims[0];
 
     // FIXME Encapsulate the following code into a function f(data, columns) -> Arrow
     //arrow
@@ -1104,7 +1104,7 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
 
     std::shared_ptr<arrow::ipc::RecordBatchFileReader> sptrFileReader;
 
-    uint64_t row_size   = metadata.strides[0]; // Columns are stored in rows, therefore even the name, this is the number of columns
+    uint64_t row_size   = metadata.strides[1]; // Columns are stored in rows, therefore even the name, this is the number of columns
     uint32_t elem_size  = metadata.elem_size;
 
     int fdIn = -1;
