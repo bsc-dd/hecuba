@@ -1072,11 +1072,29 @@ class StorageNumpy(IStorage, np.ndarray):
 
 
     ###### INTERCEPTED FUNCTIONS #####
-    def dot(a, b, out=None):
+    @staticmethod
+    def _preload_memory(a):
+        """
+            Load a persistent object in memory.
+            If twins are enabled and the object is columnar, returns the twin.
+        """
+        srcA = a
         if isinstance(a, StorageNumpy) and a._is_persistent and not a._numpy_full_loaded:
-           a[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
+            tmp = a[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
+            if tmp._persistent_columnar:
+                srcA = tmp._twin_ref[tmp._build_args.view_serialization]
+        return srcA
 
-        if isinstance(b, StorageNumpy) and b._is_persistent and not b._numpy_full_loaded:
-           b[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
+    def dot(a, b, out=None):
+        log.debug(" DOT: sidA = {} sidB = {}".format(a.storage_id, b.storage_id))
+        srcA = StorageNumpy._preload_memory(a)
+        srcB = StorageNumpy._preload_memory(b)
 
-        return config.intercepted['dot'](a,b,out) # At the end of this 'copy' is called
+        log.debug(" DOT: AFTER PRELOAD ")
+        return config.intercepted['dot'](srcA,srcB,out) # At the end of this 'copy' is called
+
+    def array_equal(a, b):
+        srcA = StorageNumpy._preload_memory(a)
+        srcB = StorageNumpy._preload_memory(b)
+        return config.intercepted['array_equal'](srcA,srcB)
+

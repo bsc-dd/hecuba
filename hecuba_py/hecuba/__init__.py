@@ -361,8 +361,20 @@ if not filter == hfilter:
 # INTERCEPT Numpy METHODS
 import numpy as np
 
-if not 'dot' in config.intercepted:
-    config.intercepted['dot'] = np.__dict__['dot']
-    np.__dict__['dot'] = StorageNumpy.dot
+def _intercept_numpy_method(method_name):
+    """
+    Intercept Numpy.'method_name' and use StorageNumpy.'method_name' instead.
+    """
+    if not isinstance(method_name, str):
+        raise TypeError("Intercepted method name MUST be an string")
+
+    if not method_name in config.intercepted:
+        config.intercepted[method_name] = np.__dict__[method_name]
+        np.__dict__[method_name] = StorageNumpy.__dict__[method_name]
+
+
+
+_intercept_numpy_method('dot')
+_intercept_numpy_method('array_equal')
 
 __all__ = ['StorageObj', 'StorageDict', 'StorageNumpy', 'Parser']
