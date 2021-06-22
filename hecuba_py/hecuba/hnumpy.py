@@ -395,6 +395,24 @@ class StorageNumpy(IStorage, np.ndarray):
         return [b for b in itertools.product(*l)]
 
     @staticmethod
+    def _compose_index(s, pos):
+        """
+        Returns the corresponding index in the slice 's' for argument 'pos'
+            (2,10,2), 1 --> 4
+
+            0  1  2  3  <------------------+
+            2  4  8  10 <=== slice indexes  \
+            -4 -3 -2 -1 <--------------------+- pos
+
+        It works for negative values (...until a new case is found).
+        """
+        if pos < 0:
+            res = s.stop  + pos*s.step
+        else:
+            res = s.start + pos*s.step
+        return res
+
+    @staticmethod
     def view_composer_internal(shape, old, new):
         """
             shape: tuple with the dimensions of the numpy with the 'old' view where the 'new' will be applied
@@ -431,40 +449,26 @@ class StorageNumpy(IStorage, np.ndarray):
                 res = old0 # 'new' is IGNORED
             elif isinstance(old0, slice):
                 old0 = StorageNumpy.removenones(old0, shape[0])
-                if new < 0:
-                    res = old0.stop  + (new+1)*old0.step - 1
-                else:
-                    res = old0.start + new*old0.step
+                res = StorageNumpy._compose_index(old0, new)
             else:
                 raise NotImplementedError("Compose an int and a {}".format(type(old0)))
 
         elif isinstance(new, slice):
-            new = StorageNumpy.removenones(new, shape[0])
-            newstep = new.step
             if isinstance(old0, int):
                 res = old0  # 'new' is IGNORED
             elif isinstance(old0, slice):
-                newstart=new.start
-                newstop=new.stop
                 old0 = StorageNumpy.removenones(old0, shape[0])
-                if newstart<0:
-                    newstart = old0.stop  + (newstart+1)*old0.step - 1
-                else:
-                    newstart = old0.start + newstart*old0.step
-                if newstop<0:
-                    newstop = old0.stop  + (newstop+1)*old0.step
-                else:
-                    newstop = old0.start + newstop*old0.step
+                new = StorageNumpy.removenones(new, shape[0])
+                newstart = StorageNumpy._compose_index(old0, new.start)
+                newstop  = StorageNumpy._compose_index(old0, new.stop)
 
-                oldstep = old0.step
-                if oldstep >= 0 and newstep >= 0:
-                    resstep = oldstep * newstep
+                if old0.step >= 0 and new.step >= 0:
+                    resstep = old0.step * new.step
                 else:
                     raise NotImplementedError("slice with negative steps") # TODO
                 res = slice(newstart, min(newstop,old0.stop), resstep)
             else:
                 raise NotImplementedError("Compose an slice and a {}".format(type(old0)))
-
         else:
             raise NotImplementedError("Compose an {} with previous slice".format(type(new)))
 
