@@ -1081,13 +1081,13 @@ class StorageNumpy(IStorage, np.ndarray):
         """
         srcA = a
         if isinstance(a, StorageNumpy) and a._is_persistent and not a._numpy_full_loaded:
+            log.debug(" DOT: sid = {} ".format(a.storage_id))
             tmp = a[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
             if tmp._persistent_columnar:
                 srcA = tmp._twin_ref[tmp._build_args.view_serialization]
         return srcA
 
     def dot(a, b, out=None):
-        log.debug(" DOT: sidA = {} sidB = {}".format(a.storage_id, b.storage_id))
         srcA = StorageNumpy._preload_memory(a)
         srcB = StorageNumpy._preload_memory(b)
 
