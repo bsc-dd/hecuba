@@ -394,7 +394,7 @@ class StorageNumpy(IStorage, np.ndarray):
                 last.append(i//SIZE)
             else: # It's a slice
                 n = StorageNumpy.removenones(i, shape[idx])
-                print(" {}:    n ={} ".format(idx, n))
+                #print(" {}:    n ={} ".format(idx, n))
                 first.append(n.start//SIZE)
                 last.append((n.stop-1)//SIZE)
         #print(" first ={} last = {}".format(first,last))
@@ -494,7 +494,7 @@ class StorageNumpy(IStorage, np.ndarray):
         """
             Compose a view on top of self.base equivalent to 'new_view' on current object
         """
-        print(" view_composer: shape={} old={} new={}".format(self.base.shape, self._build_args.view_serialization, new_view))
+        log.debug(" view_composer: shape={} old={} new={}".format(self.base.shape, self._build_args.view_serialization, new_view))
         if isinstance(new_view, int) or isinstance(new_view,slice):
             new_view=(new_view,)
         elif not isinstance (new_view,tuple):
@@ -502,7 +502,7 @@ class StorageNumpy(IStorage, np.ndarray):
 
         old = self._build_args.view_serialization
         res = StorageNumpy.view_composer_internal(self.base.shape, old, new_view)
-        print(" view_composer: ======> {}".format(res))
+        log.debug(" view_composer: ======> {}".format(res))
         return  res
 
     def _create_lazy_persistent_view(self, view):

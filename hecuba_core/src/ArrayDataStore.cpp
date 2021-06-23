@@ -954,7 +954,7 @@ bool itsme(const char *target) {
                 getnameinfo(sa, sizeof(struct sockaddr_in), host, 256, NULL, 0, NI_NUMERICHOST);
                 if (strcmp(host, target) == 0) return true ;
                 else {
-                    std::cout<< " DEBUG Target "<<target<< " is NOT host "<<host<<std::endl;
+                    //std::cout<< " DEBUG Target "<<target<< " is NOT host "<<host<<std::endl;
                 }
             }
         }
