@@ -933,6 +933,8 @@ class StorageNumpy(IStorage, np.ndarray):
             else:
                 sid = self._build_args.base_numpy
 
+            if self.shape != self._get_base_array().shape:
+                raise NotImplementedError("Persisting a volatile view with different shape is NOT implemented")
             self._hcache.store_numpy_slices([sid], self._build_args.metas, [self._get_base_array()], # CHECK metas del padre i memoria tienen que coincidir
                                             None)
         StorageNumpy._store_meta(self._build_args)
