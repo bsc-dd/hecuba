@@ -385,7 +385,7 @@ class StorageNumpy(IStorage, np.ndarray):
         """
         first=[]
         last=[]
-        shape = self.base.shape
+        shape = self._get_base_array().shape
         SIZE= self._row_elem # 7 # ROW_ELEM
         for idx, i in enumerate(view):
             #print(" {}:  element ={} ".format(idx, i))
@@ -494,14 +494,14 @@ class StorageNumpy(IStorage, np.ndarray):
         """
             Compose a view on top of self.base equivalent to 'new_view' on current object
         """
-        log.debug(" view_composer: shape={} old={} new={}".format(self.base.shape, self._build_args.view_serialization, new_view))
+        log.debug(" view_composer: shape={} old={} new={}".format(self._get_base_array().shape, self._build_args.view_serialization, new_view))
         if isinstance(new_view, int) or isinstance(new_view,slice):
             new_view=(new_view,)
         elif not isinstance (new_view,tuple):
             raise TypeError("View must be a tuple,int or slice instead of {}".format(type(new_view)))
 
         old = self._build_args.view_serialization
-        res = StorageNumpy.view_composer_internal(self.base.shape, old, new_view)
+        res = StorageNumpy.view_composer_internal(self._get_base_array().shape, old, new_view)
         log.debug(" view_composer: ======> {}".format(res))
         return  res
 
@@ -598,7 +598,6 @@ class StorageNumpy(IStorage, np.ndarray):
             self._persistent_columnar= False
 
 
-    @staticmethod
     def _get_base_array(self):
         ''' Returns the 'base' numpy from this SN.  '''
         base = getattr(self, 'base',None)
@@ -742,7 +741,7 @@ class StorageNumpy(IStorage, np.ndarray):
                 load = False
 
         if load:
-            base_numpy = StorageNumpy._get_base_array(self)
+            base_numpy = self._get_base_array()
             if (self.storage_id != self._build_args.base_numpy):
                 #We are a view and therefore we need the metas from the base numpy
                 log.debug(" load_block from {} ".format(self._build_args.base_numpy))
@@ -758,12 +757,12 @@ class StorageNumpy(IStorage, np.ndarray):
         if not config.arrow_enabled:
             log.debug("HECUBA_ARROW is not enabled. Columnar acces disabled.")
             return False
-        if self.base.ndim != 2:   # Not supported case. Only 2 dimensions!
+        if self._get_base_array().ndim != 2:   # Not supported case. Only 2 dimensions!
             return False
         if self._persistent_columnar == True:
             return True
 
-        if isinstance(sliced_coord, slice) and (sliced_coord == slice(None, None, None) or sliced_coord == slice(0, self.base.shape[0],1)):
+        if isinstance(sliced_coord, slice) and (sliced_coord == slice(None, None, None) or sliced_coord == slice(0, self._get_base_array().shape[0],1)):
             return True
         if isinstance(sliced_coord, tuple):
             # If the getitem parameter is a tuple, then we may catch the
@@ -775,7 +774,7 @@ class StorageNumpy(IStorage, np.ndarray):
             # FIXME Extend to more than 2 dimensions
             dims = sliced_coord.__len__()
             if dims == 2: # Only 2 dimensions
-                if isinstance(sliced_coord[-dims], slice) and (sliced_coord[-dims] == slice(None, None, None) or sliced_coord[-dims]==slice(0,self.base.shape[-dims],1)):
+                if isinstance(sliced_coord[-dims], slice) and (sliced_coord[-dims] == slice(None, None, None) or sliced_coord[-dims]==slice(0,self._get_base_array().shape[-dims],1)):
                     return True
             return False
         return False
@@ -789,7 +788,7 @@ class StorageNumpy(IStorage, np.ndarray):
         if isinstance (last,int):
             columns = [last]
         else: # it is an slice
-            last = StorageNumpy.removenones(last, self.base.shape[1])
+            last = StorageNumpy.removenones(last, self._get_base_array().shape[1])
             columns = [ c for c in range(last.start, last.stop, last.step)]
 
         log.debug(" _select_columns ({}) ==> {}".format(sliced_coord, columns))
@@ -806,7 +805,7 @@ class StorageNumpy(IStorage, np.ndarray):
 
         if self._twin_ref._is_persistent:
             log.debug("LOADING COLUMNS {}".format(columns))
-            base_numpy = StorageNumpy._get_base_array(self._twin_ref)
+            base_numpy = self._twin_ref._get_base_array()
             self._twin_ref._hcache.load_numpy_slices([self._build_args.base_numpy],
                                         self._twin_ref._build_args.metas,
                                         [base_numpy],
@@ -864,7 +863,7 @@ class StorageNumpy(IStorage, np.ndarray):
 
             super(StorageNumpy, self).__setitem__(sliced_coord, values)
 
-            base_numpy = StorageNumpy._get_base_array(self) # self.base is  numpy.ndarray
+            base_numpy = self._get_base_array() # self.base is  numpy.ndarray
             if (self.storage_id != self._build_args.base_numpy):
                 #We are a view and therefore we need the metas from the base numpy
                 log.debug(" load_block from {} ".format(self._build_args.base_numpy))
@@ -926,7 +925,7 @@ class StorageNumpy(IStorage, np.ndarray):
         self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas, self._block_id,
                                      self.storage_id, # base_numpy is storage_id because until now we only reach this point if we are not inheriting from a StorageNumpy. We should update this if we allow StorageNumpy from volatile StorageNumpy
                                      getattr(self,'_twin_id', None),
-                                     tuple([slice(None,None,None)]*self.base.ndim),  #We are a view of everything
+                                     tuple([slice(None,None,None)]*self.ndim),  #We are a view of everything
                                      self._tokens)
         if len(self.shape) != 0:
             if formato == 2:    # If we are in columnar format we are the twin and _twin_id field contains the original storage_id of the parent
@@ -934,7 +933,7 @@ class StorageNumpy(IStorage, np.ndarray):
             else:
                 sid = self._build_args.base_numpy
 
-            self._hcache.store_numpy_slices([sid], self._build_args.metas, [StorageNumpy._get_base_array(self)], # CHECK metas del padre i memoria tienen que coincidir
+            self._hcache.store_numpy_slices([sid], self._build_args.metas, [self._get_base_array()], # CHECK metas del padre i memoria tienen que coincidir
                                             None)
         StorageNumpy._store_meta(self._build_args)
         if formato != 2:
@@ -1001,7 +1000,7 @@ class StorageNumpy(IStorage, np.ndarray):
         else:
             outputs = (None,) * ufunc.nout
 
-        base_numpy = StorageNumpy._get_base_array(self)
+        base_numpy = self._get_base_array()
         metas = None
         if self._is_persistent and len(self.shape) and self._numpy_full_loaded is False:
             if (self.storage_id != self._build_args.base_numpy):
