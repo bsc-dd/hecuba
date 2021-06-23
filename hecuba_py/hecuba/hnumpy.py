@@ -852,7 +852,8 @@ class StorageNumpy(IStorage, np.ndarray):
         log.info("WRITING NUMPY")
         log.debug("setitem %s", sliced_coord)
         if self._is_persistent:
-            block_coords = self._select_blocks(sliced_coord)
+            big_sliced_coord = self._view_composer_new(sliced_coord)
+            block_coords = self._select_blocks(big_sliced_coord)
             if not self._numpy_full_loaded: # Load the block before writing!
                 self._load_blocks(block_coords)
 
