@@ -896,7 +896,7 @@ class StorageNumpy(IStorage, np.ndarray):
             [formato] to store the data (0-ZOrder, 2-columnar, 3-FortranOrder) # 0 ==Z_ORDER (find it at SpaceFillingCurve.h)
         """
         log.debug("_persist_data: {} format={} ENTER ".format(name, formato))
-        twin = self._twin_ref
+        twin = getattr(self, '_twin_ref', None)
         if twin is not None: # Persist Twin before current object (to obtain _twin_id)
             self._twin_name = StorageNumpy.get_arrow_name(self._ksp, self._table)
             IStorage.__init__(twin, storage_id=None, name=self._twin_name)
