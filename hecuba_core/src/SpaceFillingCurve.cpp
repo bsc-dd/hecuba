@@ -307,6 +307,13 @@ Partition ZorderCurveGenerator::getNextPartition() {
     uint64_t mask = (uint64_t) -1 >> (sizeof(uint64_t) * CHAR_BIT - CLUSTER_SIZE);
     uint32_t block_id = (uint32_t) (zorder_id & mask);
 
+    ++block_counter;
+    //if (block_counter == nblocks) done = true;
+
+    if (data == NULL)
+        return {cluster_id, block_id, nullptr};
+
+
     //if any element of the block_ccs is equal to dim_split -> is a limit of the array -> recompute block size
     bool bound = false;
     for (uint32_t i = 0; i < ndims; ++i) {
@@ -319,12 +326,6 @@ Partition ZorderCurveGenerator::getNextPartition() {
 
     //Compute the real offset as: position inside the array * sizeof(element)
     char *input_start = ((char *) data) + offset * metas.elem_size;
-
-    ++block_counter;
-    if (block_counter == nblocks) done = true;
-
-    if (data == NULL)
-        return {cluster_id, block_id, nullptr};
 
     if (!bound) {
         //In this case the block has size of row_elements in every_dimension
@@ -776,6 +777,11 @@ Partition FortranOrderGenerator::getNextPartition() {
 
     //std::cout<< " getNextPartition "<<nclusters<<"-> block_counter "<<block_counter<< "--> "<<block_id<< "."<<cluster_id<<std::endl;
 
+    ++block_counter;
+
+    if (data == NULL)
+        return {cluster_id, block_id, nullptr};
+
     //Compute position in memory and chunks of data to copy
 
     //if any element of the block_ccs is equal to dim_split -> is a limit of the array -> recompute block size
@@ -790,11 +796,6 @@ Partition FortranOrderGenerator::getNextPartition() {
 
     //Compute the real offset as: position inside the array * sizeof(element)
     char *input_start = ((char *) data) + offset;
-
-    ++block_counter;
-
-    if (data == NULL)
-        return {cluster_id, block_id, nullptr};
 
     if (!bound) {
         //In this case the block has size of row_elements in every_dimension
