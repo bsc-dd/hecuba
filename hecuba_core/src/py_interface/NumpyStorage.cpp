@@ -3,6 +3,9 @@
 #include <iostream>
 
 
+#define BLOCK_MODE 1
+#define COLUMN_MODE 2
+
 NumpyStorage::NumpyStorage(const char *table, const char *keyspace, std::shared_ptr<StorageInterface> storage,
                  std::map<std::string, std::string> &config) :
         ArrayDataStore(table, keyspace, storage, config) {
@@ -51,16 +54,16 @@ std::vector<uint64_t> NumpyStorage::get_cols(PyObject *coord) const {
 	return c;
 }
 
-void NumpyStorage::store_numpy(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *numpy, PyObject *coord) const {
+void NumpyStorage::store_numpy(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *numpy, PyObject *coord, int py_order) const {
     void *data = PyArray_DATA(numpy);
-	if (np_metas.partition_type != COLUMNAR) {
+	if (py_order == BLOCK_MODE) {
 		if (coord != Py_None) {
 			std::list<std::vector<uint32_t> > crd = generate_coords(coord);
 			this->store_numpy_into_cas_by_coords(storage_id, np_metas, data, crd);
 		} else {
 			this->store_numpy_into_cas(storage_id, np_metas, data);
 		}
-	} else {
+	} else { // COLUMN_MODE
 		if (coord != Py_None) {
 			// FIXME NOT WORKING
 			throw ModuleException("Storing a column range is NOT IMPLEMENTED");
@@ -71,15 +74,15 @@ void NumpyStorage::store_numpy(const uint64_t *storage_id, ArrayMetadata &np_met
 	}
 }
 
-void NumpyStorage::load_numpy(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *save, PyObject *coord) {
+void NumpyStorage::load_numpy(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *save, PyObject *coord, int py_order) {
 	void *data = PyArray_DATA(save);
-	if (np_metas.partition_type != COLUMNAR) {
+	if (py_order == BLOCK_MODE) {
 		if (coord != Py_None) {
 			std::list<std::vector<uint32_t> > crd = generate_coords(coord);
 			this->read_numpy_from_cas_by_coords(storage_id, np_metas, crd, data);
 		} else this->read_numpy_from_cas(storage_id, np_metas, data);
 
-	} else {
+	} else { // COLUMN_MODE
 		std::vector<uint64_t> c = {};
 		if (coord != Py_None) {
 			c = get_cols( coord );

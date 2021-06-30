@@ -435,6 +435,7 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
         if (!status.ok())
             std::cout << "Status: " << status.ToString() << " at bufferOutputStream->Finish" << std::endl;
 
+
         //Store Column
         // Allocate memory for keys
         char* _keys = (char *) malloc(sizeof(uint64_t*) + sizeof(uint32_t) + sizeof(uint64_t));
@@ -600,23 +601,18 @@ void ArrayDataStore::store_numpy_into_cas_by_cols_as_arrow(const uint64_t *stora
  */
 void ArrayDataStore::store_numpy_into_cas(const uint64_t *storage_id, ArrayMetadata &metadata, void *data) const {
 
-    if (metadata.partition_type != COLUMNAR) {
-        SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata, data);
+    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata, data);
 
-        //std::cout<< "store_numpy_into_cas " << std::endl;
-        while (!partitions_it->isDone()) {
-            Partition part = partitions_it->getNextPartition();
-            //std::cout<< "  cluster_id " << part.cluster_id << " block_id "<<part.block_id<< std::endl;
-            store_numpy_partition_into_cas(storage_id, part);
-        }
-        //this->partitioner.serialize_metas();
-        delete (partitions_it);
-
-        // No need to flush the elements because the metadata are written after the data thanks to the queue
-
-    } else {
-        store_numpy_into_cas_as_arrow(storage_id, metadata, data);
+    //std::cout<< "store_numpy_into_cas " << std::endl;
+    while (!partitions_it->isDone()) {
+        Partition part = partitions_it->getNextPartition();
+        //std::cout<< "  cluster_id " << part.cluster_id << " block_id "<<part.block_id<< std::endl;
+        store_numpy_partition_into_cas(storage_id, part);
     }
+    //this->partitioner.serialize_metas();
+    delete (partitions_it);
+
+    // No need to flush the elements because the metadata are written after the data thanks to the queue
 }
 
 /* get_cluster_ids - Returns a 'list' with the cluster identifiers (it may be empty) */
@@ -649,11 +645,6 @@ void ArrayDataStore::store_numpy_into_cas_by_coords(const uint64_t *storage_id, 
                                                     std::list<std::vector<uint32_t> > &coord) const {
 
 
-    if (metadata.partition_type == COLUMNAR) {
-        // FIXME store_numpy_into_cas_by_coords_as_arrow(storage_id, metadata, data, coord);
-        //		 if we decide to store partial columns
-        throw ModuleException("Unexpected case: Are you calling store_numpy_from_cas with an Arrow format?");
-    }
     SpaceFillingCurve::PartitionGenerator *
     partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, data, coord);
 
@@ -751,9 +742,6 @@ ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
  */
 void ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetadata &metadata, void *save) {
 
-    if (metadata.partition_type == COLUMNAR) {
-        throw ModuleException("Unexpected case: Are you calling read_numpy_from_cas to an Arrow format");
-    }
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
 
@@ -808,9 +796,6 @@ void ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetada
 void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, ArrayMetadata &metadata,
                                                    std::list<std::vector<uint32_t> > &coord, void *save) {
 
-	if (metadata.partition_type == COLUMNAR) {
-		throw ModuleException("Unexpected case: Are you calling read_numpy_from_cas_by_coords with an Arrow format?");
-	}
 	std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
 	uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
 	std::vector<const TupleRow *> result, all_results;

@@ -190,12 +190,23 @@ std::vector<uint32_t> ZorderCurveGenerator::getIndexes(uint64_t id, const std::v
 
 uint64_t
 ZorderCurveGenerator::getIdFromIndexes(const std::vector<uint32_t> &dims, const std::vector<uint32_t> &indexes) {
+    //std::cout<< " ZorderCurveGenerator::getIdFromIndexes dims =";
+    //for (uint64_t i = dims.size() - 1; i >= 0; --i) {
+    //    std::cout<< dims[i] << ", ";
+    //}
+    //std::cout<<" idxs = ";
+    //for (uint64_t i = indexes.size() - 1; i >= 0; --i) {
+    //    std::cout<< indexes[i] << ", ";
+    //}
+    //std::cout<< std::endl;
+
     uint64_t id = *(--indexes.end());
     uint64_t accumulator = 1;
     for (uint64_t i = dims.size() - 1; i > 0; --i) {
         accumulator *= dims[i];
         id += accumulator * indexes[i - 1];
     }
+    //std::cout<< " ZorderCurveGenerator::getIdFromIndexes offset ="<<id<<std::endl;
     return id;
 }
 
@@ -679,12 +690,23 @@ std::vector<uint32_t> FortranOrderGenerator::getIndexes(uint64_t id, const std::
 
 /* Number of elements to skip until the coordinate 'indexes' in matrix with 'dims' dimensions */
 uint64_t FortranOrderGenerator::getIdFromIndexes(const std::vector<uint32_t> &dims, const std::vector<uint32_t> &indexes) {
-    uint64_t id = *(--indexes.end());
+    //std::cout<< " FortranOrderGenerator::getIdFromIndexes dims =";
+    //for (uint64_t i = 0; i< dims.size(); i++) {
+    //    std::cout<< dims[i] << ", ";
+    //}
+    //std::cout<<" idxs = ";
+    //for (uint64_t i = 0; i< indexes.size(); i++) {
+    //    std::cout<< indexes[i] << ", ";
+    //}
+    //std::cout<< std::endl;
+
+    uint64_t id = *(indexes.begin());
     uint64_t accumulator = 1;
-    for (uint64_t i = dims.size() - 1; i > 0; --i) {
+    for (uint64_t i = 0; i < (dims.size() - 1); i++) {
         accumulator *= dims[i];
-        id += accumulator * indexes[i - 1];
+        id += accumulator * indexes[i + 1];
     }
+    //std::cout<< " FortranOrderGenerator::getIdFromIndexes offset ="<<id<<std::endl;
     return id;
 }
 
@@ -701,6 +723,16 @@ void
 FortranOrderGenerator::tessellate(std::vector<uint32_t> dims, std::vector<uint32_t> block_dims, uint32_t elem_size,
                                  char *data,
                                  char *output_data, char *output_data_end) {
+
+    //std::cout<< " FortranOrderGenerator::tessellate dims={";
+    //for (uint32_t i = 0; i < dims.size(); i++) {
+    //    std::cout<< dims[i]<<", ";
+    //}
+    //std::cout<< "} block_dims={";
+    //for (uint32_t i = 0; i < block_dims.size(); i++) {
+    //    std::cout<< block_dims[i]<<", ";
+    //}
+    //std::cout<< "} data="<<(void*)data<<std::endl;
 
     uint32_t elements_last_dim = block_dims[block_dims.size() - 1];
     if (dims.size() == 1) {
@@ -797,6 +829,12 @@ Partition FortranOrderGenerator::getNextPartition() {
     //Compute the real offset as: position inside the array * sizeof(element)
     char *input_start = ((char *) data) + offset;
 
+    std::vector<uint32_t> dimsFortran = metas.dims;
+    if (ndims>=2) { // Exchange last 2 dimensions
+        auto tmp = dimsFortran[ndims-1];
+        dimsFortran[ndims-1] = dimsFortran[ndims - 2];
+        dimsFortran[ndims-2] = tmp;
+    }
     if (!bound) {
         //In this case the block has size of row_elements in every_dimension
         //Create block
@@ -807,12 +845,11 @@ Partition FortranOrderGenerator::getNextPartition() {
         output_data += sizeof(uint64_t);
         output_data_end = output_data + block_size;
         //Copy the data
-        tessellate(metas.dims, block_dims, metas.elem_size, input_start, output_data, output_data_end);
+        tessellate(dimsFortran, block_dims, metas.elem_size, input_start, output_data, output_data_end);
 
     } else {
         //The block is a limit of the array, and its size needs to be recomputed and adjusted
         std::vector<uint32_t> bound_dims(ndims);
-
         //compute block size
         uint64_t bound_size = metas.elem_size;
         for (uint32_t i = 0; i < ndims; ++i) {
@@ -827,6 +864,12 @@ Partition FortranOrderGenerator::getNextPartition() {
             bound_size *= bound_dims[i];
         }
 
+        if (bound_dims.size()>=2) { // bound_dims has been calculated as if the matrix was stored by rows --> exchange last 2 dimensions
+            auto tmp = bound_dims[bound_dims.size()-1];
+            bound_dims[bound_dims.size()-1] = bound_dims[bound_dims.size()-2];
+            bound_dims[bound_dims.size()-2] = tmp;
+        }
+
         //Create block
         output_data = (char *) malloc(bound_size + sizeof(uint64_t)); //chunk_size
         //Create block pointing to the memory
@@ -835,7 +878,7 @@ Partition FortranOrderGenerator::getNextPartition() {
         output_data += sizeof(uint64_t);
         output_data_end = output_data + bound_size;
         //Copy the data
-        tessellate(metas.dims, bound_dims, metas.elem_size, input_start, output_data, output_data_end);
+        tessellate(dimsFortran, bound_dims, metas.elem_size, input_start, output_data, output_data_end);
     }
 
     return {cluster_id, block_id, output_data - sizeof(uint64_t)};
@@ -930,6 +973,12 @@ void FortranOrderGenerator::merge_partitions(const ArrayMetadata &metas, std::ve
         char *input_ends = input + *retrieved_block_size;
         //std::cout << " - bid:cid "<<chunk.block_id<<":"<<chunk.cluster_id<<" -> offset="<<offset<< " block_size="<<block_size<<" current block_size="<<*retrieved_block_size<<(bound?"BOUND":"")<<std::endl;
 
+        std::vector<uint32_t> dimsFortran = metas.dims;
+        if (ndims>=2) { // Exchange last 2 dimensions
+            auto tmp = dimsFortran[ndims-1];
+            dimsFortran[ndims-1] = dimsFortran[ndims - 2];
+            dimsFortran[ndims-2] = tmp;
+        }
 
         if (!bound) {
 
@@ -938,7 +987,7 @@ void FortranOrderGenerator::merge_partitions(const ArrayMetadata &metas, std::ve
                                       "the size of blocks while merging them into an array");
 
 
-            copy_block_to_array(metas.dims, block_shape, metas.elem_size, output_start, input, input_ends);
+            copy_block_to_array(dimsFortran, block_shape, metas.elem_size, output_start, input, input_ends);
 
 
         } else {
@@ -958,9 +1007,14 @@ void FortranOrderGenerator::merge_partitions(const ArrayMetadata &metas, std::ve
                 }
                 bound_size *= bound_dims[i];
             }
+            if (bound_dims.size()>=2) {// bound_dims has been calculated as if the matrix was stored by rows --> exchange last 2 dimensions
+                auto tmp = bound_dims[bound_dims.size()-1];
+                bound_dims[bound_dims.size()-1] = bound_dims[bound_dims.size()-2];
+                bound_dims[bound_dims.size()-2] = tmp;
+            }
 
             //Copy the data
-            copy_block_to_array(metas.dims, bound_dims, metas.elem_size, output_start, input, input_ends);
+            copy_block_to_array(dimsFortran, bound_dims, metas.elem_size, output_start, input, input_ends);
         }
     }
 }

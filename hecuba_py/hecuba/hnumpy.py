@@ -15,15 +15,15 @@ from .tools import extract_ks_tab, get_istorage_attrs, storage_id_from_name, bui
 
 
 class StorageNumpy(IStorage, np.ndarray):
+    BLOCK_MODE = 1
+    COLUMN_MODE = 2
     _build_args = None
 
-    # twin_id - the storage_id to the 'arrow' companion of this numpy
-    #    (A Numpy has two copies: 1) with rows and 2) with columns (arrow))
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
-                                                  '(storage_id, class_name, name, numpy_meta, block_id, base_numpy, twin_id, view_serialization, tokens)'
-                                                  'VALUES (?,?,?,?,?,?,?,?,?)')
+                                                  '(storage_id, class_name, name, numpy_meta, block_id, base_numpy, view_serialization, tokens)'
+                                                  'VALUES (?,?,?,?,?,?,?,?)')
 
-    args_names = ["storage_id", "class_name", "name", "metas", "block_id", "base_numpy", "twin_id", "view_serialization", "tokens"]
+    args_names = ["storage_id", "class_name", "name", "metas", "block_id", "base_numpy", "view_serialization", "tokens"]
     args = namedtuple('StorageNumpyArgs', args_names)
 
 
@@ -186,23 +186,11 @@ class StorageNumpy(IStorage, np.ndarray):
             # TODO: Add a new column into hecuba.istorage with all the splits for the current storageid
             yield resultado
 
-#
-#            data_distrib = 0 # ZORDER_ALGORITHM
-#            if config.arrow_enabled:
-#                data_distrib = 3 # FORTRANORDER
-#            metas = HArrayMetadata(
-#                                   list(new_sn.shape),
-#                                   list(new_sn.strides),
-#                                   new_sn.dtype.kind,
-#                                   new_sn.dtype.byteorder,
-#                                   new_sn.itemsize,
-#                                   new_sn.flags.num,
-#                                   data_distrib)
-
     @staticmethod
-    def get_arrow_name(ksp, name):
-        # get_arrow_name: Returns the name of the arrow table (READ) of a table_name
-        return ksp + "_arrow." + name +"_arrow"
+    def get_arrow_name(name):
+        # get_arrow_name: Returns the keyspace and table name of the arrow table (READ) of table name
+        (ksp,table) = extract_ks_tab(name)
+        return ksp + "_arrow." + table +"_arrow"
 
     @staticmethod
     def _isarrow(name):
@@ -242,14 +230,13 @@ class StorageNumpy(IStorage, np.ndarray):
         # Load metadata
         istorage_metas = get_istorage_attrs(storage_id)
         name = istorage_metas[0].name
-        twin_id = istorage_metas[0].twin_id # This MUST match 'storage_id_from_name(_twin_name)'
         my_metas = istorage_metas[0].numpy_meta
         metas_to_reserve = my_metas
         base_numpy = istorage_metas[0].base_numpy
 
 
         if storage_id != base_numpy:
-            # it is a view or a twin, therefore load the base instead of storage_id
+            # it is a view load the base instead of storage_id
             # base_numpy can be None?
             log.debug("Shared view of {}".format(base_numpy))
             metas_to_reserve = get_istorage_attrs(base_numpy)[0].numpy_meta
@@ -266,10 +253,14 @@ class StorageNumpy(IStorage, np.ndarray):
         #   This must be done BEFORE reconstructing the  view, to keep the BASE
         #   numpy loaded (otherwise the 'base' field is overwritten with the base
         #   of the view)
-        if config.arrow_enabled and (len(metas_to_reserve.dims)==2) and (twin_id is None): # Reserve for Twin
+        if StorageNumpy._arrow_enabled(input_array):
             obj = np.asfortranarray(input_array).view(cls)
+            obj._hcache_arrow = result[2]
         else: # Reserve for normal numpy
             obj = np.asarray(input_array).view(cls)
+
+        obj._hcache = result[1]
+        obj._base_metas = metas_to_reserve #Cache value to avoid cassandra accesses
 
         # The data recovered from the istorage is a persistent view, therefore reconstruct the view
         myview = pickle.loads(istorage_metas[0].view_serialization)
@@ -283,25 +274,20 @@ class StorageNumpy(IStorage, np.ndarray):
         IStorage.__init__(obj, name=name, storage_id=storage_id, tokens=tokens)
 
         obj._numpy_full_loaded = False
-        obj._hcache = result[1]
 
 
         obj._build_args = obj.args(obj.storage_id, istorage_metas[0].class_name,
-                istorage_metas[0].name, my_metas, istorage_metas[0].block_id, base_numpy, twin_id,
+                istorage_metas[0].name, my_metas, istorage_metas[0].block_id, base_numpy,
                 myview,
                 istorage_metas[0].tokens)
-        if config.arrow_enabled and twin_id is not None and my_metas.partition_type != 2:
-            # Load TWIN array
-            obj._twin_id   = twin_id
-            obj._twin_name = StorageNumpy.get_arrow_name(obj._ksp, obj._table)
-            twin = StorageNumpy._initialize_existing_object(cls, obj._twin_name, obj._twin_id)
-            twin._persistent_columnar = True
-            obj._twin_ref = twin
-            twin._twin_id = obj.storage_id # Use the parent ID
         obj._row_elem = obj._hcache.get_elements_per_row(storage_id, metas_to_reserve)
         obj._calculate_nblocks(my_metas)
         return obj
 
+
+    @staticmethod
+    def _arrow_enabled(input_array):
+        return (config.arrow_enabled and getattr(input_array, 'ndim', 0) == 2)
 
     def __new__(cls, input_array=None, name=None, storage_id=None, block_id=None, **kwargs):
         log.debug("input_array=%s name=%s storage_id=%s ENTER ",input_array is not None, name, storage_id)
@@ -330,12 +316,11 @@ class StorageNumpy(IStorage, np.ndarray):
                 obj = input_array.copy()
             else:
                 # StorageNumpy(numpy, None, None)
-                obj = np.asarray(input_array).copy().view(cls)
-                if config.arrow_enabled and getattr(input_array, 'ndim', 0) == 2:
-                    obj._twin_id  = None
-                    obj._twin_ref = np.asfortranarray(input_array).view(cls)# Store a twin in fortran order (but keep same indexes as original)
-                    obj._twin_ref._persistent_columnar=True
-                    log.debug("Created TWIN")
+                if not StorageNumpy._arrow_enabled(input_array):
+                    obj = np.asarray(input_array).copy().view(cls)
+                else:
+                    obj = np.asfortranarray(input_array.copy()).view(cls) #to set the fortran contiguous flag it is necessary to do the copy before
+                    log.debug("Created ARROW")
             IStorage.__init__(obj, name=name, storage_id=storage_id, kwargs=kwargs)
 
             if name or storage_id: # The object needs to be persisted
@@ -348,7 +333,6 @@ class StorageNumpy(IStorage, np.ndarray):
                     obj[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
 
         #print("JJ name = ", name, flush=True)
-        #print("JJ _twin_name = ", obj._twin_name, flush=True)
         #print("JJ _name = ", obj._name, flush=True)
         log.debug("input_array=%s name=%s storage_id=%s ENTER ",input_array is not None, name, storage_id)
         return obj
@@ -543,15 +527,15 @@ class StorageNumpy(IStorage, np.ndarray):
 
             self.storage_id = getattr(obj, 'storage_id', None)
             self._name = getattr(obj, '_name', None)
+            self._base_metas = getattr(obj, '_base_metas', None)
             self._hcache = getattr(obj, '_hcache', None)
+            if StorageNumpy._arrow_enabled(self._get_base_array()):
+                self._hcache_arrow = getattr(obj, '_hcache_arrow', None)
             self._row_elem = getattr(obj, '_row_elem', None)
             # if we are a view we have ALREADY loaded all the subarray
             self._loaded_coordinates = getattr(obj, '_loaded_coordinates', [])
             self._is_persistent = getattr(obj, '_is_persistent', False)
             self._block_id = getattr(obj, '_block_id', None)
-            self._twin_id   = getattr(obj, '_twin_id', None)
-            self._twin_ref  = getattr(obj, '_twin_ref', None)
-            self._twin_name = getattr(obj, '_twin_name', None)
             self._class_name = getattr(obj,'_class_name', 'hecuba.hnumpy.StorageNumpy')
             self._tokens = getattr(obj,'_tokens',None)
             self._build_args = getattr(obj, '_build_args', None)
@@ -586,12 +570,6 @@ class StorageNumpy(IStorage, np.ndarray):
             self._name               = None
             self.storage_id          = None
             self._is_persistent      = False
-            # If it is a copy, it should copy the twin also
-            if getattr(obj, '_twin_ref', None) is not None:
-                self._twin_id = None
-                self._twin_name = None
-                self._twin_ref = super(StorageNumpy, obj._twin_ref).copy()
-                self._twin_ref._persistent_columnar = True
             self._class_name         = getattr(obj,'_class_name', 'hecuba.hnumpy.StorageNumpy')
             self._block_id           = getattr(obj, '_block_id', None)
             self._persistance_needed = False
@@ -679,7 +657,6 @@ class StorageNumpy(IStorage, np.ndarray):
                                     storage_args.metas,
                                     storage_args.block_id,
                                     storage_args.base_numpy,
-                                    storage_args.twin_id,
                                     pickle.dumps(storage_args.view_serialization),
                                     storage_args.tokens])
 
@@ -694,6 +671,9 @@ class StorageNumpy(IStorage, np.ndarray):
         hcache = StorageNumpy._create_hcache(name)
         result = hcache.allocate_numpy(storage_id, metas)
         if len(result) == 1:
+            if StorageNumpy._arrow_enabled(result[0]):
+                hcache_arrow = StorageNumpy._create_hcache(StorageNumpy.get_arrow_name(name))
+                return [result[0], hcache, hcache_arrow]
             return [result[0], hcache]
         else:
             raise KeyError
@@ -720,9 +700,6 @@ class StorageNumpy(IStorage, np.ndarray):
                 self: The StorageNumpy to load data into
                 new_coords: The coordinates to load (using ZOrder identification)
         """
-        if self._is_persistent is False:
-            raise NotImplementedError("NOT SUPPORTED to load coordinates on a volatile object")
-
         load = True # By default, load everything
         if not new_coords: # Special case: Load everything
             log.debug("LOADING ALL BLOCKS OF NUMPY")
@@ -742,22 +719,15 @@ class StorageNumpy(IStorage, np.ndarray):
 
         if load:
             base_numpy = self._get_base_array()
-            if (self.storage_id != self._build_args.base_numpy):
-                #We are a view and therefore we need the metas from the base numpy
-                log.debug(" load_block from {} ".format(self._build_args.base_numpy))
-                istorage_metas = get_istorage_attrs(self._build_args.base_numpy)
-                metas = istorage_metas[0].numpy_meta
-            else:
-                metas = self._build_args.metas
+            metas = self._base_metas
             log.debug("  COORDINATES ARE {} ".format(new_coords))
             self._hcache.load_numpy_slices([self._build_args.base_numpy], metas, [base_numpy],
-                                   new_coords)
+                                   new_coords,
+                                   StorageNumpy.BLOCK_MODE)
 
     def is_columnar(self,sliced_coord):
-        if not config.arrow_enabled:
-            log.debug("HECUBA_ARROW is not enabled. Columnar acces disabled.")
-            return False
-        if self._get_base_array().ndim != 2:   # Not supported case. Only 2 dimensions!
+        if not StorageNumpy._arrow_enabled(self._get_base_array()):
+            log.debug("HECUBA_ARROW is not enabled or dimensions > 2. Columnar acces disabled.")
             return False
         if self._persistent_columnar == True:
             return True
@@ -797,25 +767,23 @@ class StorageNumpy(IStorage, np.ndarray):
     def _load_columns(self, columns):
         """
             Load from Cassandra the list of columns.
-            This accesses the twin.
             Args:
                 self: The StorageNumpy to load data into
                 columns: The coordinates to load (column position)
         """
 
-        if self._twin_ref._is_persistent:
-            log.debug("LOADING COLUMNS {}".format(columns))
-            base_numpy = self._twin_ref._get_base_array()
-            self._twin_ref._hcache.load_numpy_slices([self._build_args.base_numpy],
-                                        self._twin_ref._build_args.metas,
-                                        [base_numpy],
-                                        columns)
+        log.debug("LOADING COLUMNS {}".format(columns))
+        base_numpy = self._get_base_array()
+        self._hcache_arrow.load_numpy_slices([self._build_args.base_numpy],
+                                    self._base_metas,
+                                    [base_numpy],
+                                    columns,
+                                    StorageNumpy.COLUMN_MODE)
 
     def _select_and_load_blocks(self, sliced_coord):
-        if self._is_persistent:
-            if not self._numpy_full_loaded:
-                block_coord = self._select_blocks(sliced_coord)
-                self._load_blocks(block_coord)
+        if not self._numpy_full_loaded:
+            block_coord = self._select_blocks(sliced_coord)
+            self._load_blocks(block_coord)
 
     def __getitem__(self, sliced_coord):
         log.info("RETRIEVING NUMPY {} is_persistent {}".format(sliced_coord, self._is_persistent))
@@ -828,11 +796,6 @@ class StorageNumpy(IStorage, np.ndarray):
                 result = self.view(np.ndarray)[sliced_coord] # TODO: If self is NOT loaded LOAD IT ALL BEFORE
                 return StorageNumpy(result) # Creates a copy (A StorageNumpy from a Numpy)
 
-            if self._build_args.metas.partition_type == 2 :
-                #HACK if the accessed numpy is a columnar one, assume that it is already in memory
-                log.warn("Accessing a twin directly. Assuming it is already in memory")
-                return super(StorageNumpy, self).__getitem__(sliced_coord)
-
             # Use 'big_sliced_coord' to access disk and 'sliced_coord' to access memory
             # Keep 'sliced_coord' to reuse the common return at the end
             big_sliced_coord = self._view_composer_new(sliced_coord)
@@ -840,9 +803,6 @@ class StorageNumpy(IStorage, np.ndarray):
                 columns = self._select_columns(big_sliced_coord)
                 if columns is not None : # Columnar access
                     self._load_columns(columns)
-                x = super(StorageNumpy, self._twin_ref).__getitem__(big_sliced_coord)
-                if np.dtype(type(x)) == self._twin_ref.dtype: #we can NOT return the resulting twin_ref... but we may return the scalar access
-                    return x
             else: # Normal array access...
                 self._select_and_load_blocks(big_sliced_coord)
         return super(StorageNumpy, self).__getitem__(sliced_coord)
@@ -864,25 +824,12 @@ class StorageNumpy(IStorage, np.ndarray):
             super(StorageNumpy, self).__setitem__(sliced_coord, values)
 
             base_numpy = self._get_base_array() # self.base is  numpy.ndarray
-            if (self.storage_id != self._build_args.base_numpy):
-                #We are a view and therefore we need the metas from the base numpy
-                log.debug(" load_block from {} ".format(self._build_args.base_numpy))
-                istorage_metas = get_istorage_attrs(self._build_args.base_numpy)
-                metas = istorage_metas[0].numpy_meta
-            else:
-                metas = self._build_args.metas
+            metas = self._base_metas
             self._hcache.store_numpy_slices([self._build_args.base_numpy],
                     metas, [base_numpy],
-                    block_coords)
-            #if self._twin_ref is not None:
-            #    super(StorageNumpy, self._twin_ref).__setitem__(sliced_coord, values)
-            #    self._twin_ref._hcache.store_numpy_slices([self._twin_ref._build_args.base_numpy],
-            #            self._twin_ref._build_args.metas,
-            #            [self._twin_ref.base.view(np.ndarray)],
-            #            sliced_coord[-1])
+                    block_coords,
+                    StorageNumpy.BLOCK_MODE)
             return
-        #if self._twin_ref is not None:
-        #    super(StorageNumpy, self._twin_ref).__setitem__(sliced_coord, values)
         super(StorageNumpy, self).__setitem__(sliced_coord, values)
         return
 
@@ -895,51 +842,50 @@ class StorageNumpy(IStorage, np.ndarray):
             [formato] to store the data (0-ZOrder, 2-columnar, 3-FortranOrder) # 0 ==Z_ORDER (find it at SpaceFillingCurve.h)
         """
         log.debug("_persist_data: {} format={} ENTER ".format(name, formato))
-        twin = getattr(self, '_twin_ref', None)
-        if twin is not None: # Persist Twin before current object (to obtain _twin_id)
-            self._twin_name = StorageNumpy.get_arrow_name(self._ksp, self._table)
-            IStorage.__init__(twin, storage_id=None, name=self._twin_name)
-            self._twin_id   = twin.storage_id
-            twin._twin_id = self.storage_id # Parent's ID
-            twin._persist_data(self._twin_name, 2)
-
-        if not getattr(self,'_built_remotely', None):
-            if formato == 2:    # COLUMNAR
-                self._create_tables_arrow(name)
-            else :
-                self._create_tables(name)
-
-        if not getattr(self, '_hcache', None):
-            self._hcache = self._create_hcache(name)
 
         if None in self or not self.ndim:
             raise NotImplemented("Empty array persistance")
 
+        if not getattr(self,'_built_remotely', None):
+            if StorageNumpy._arrow_enabled(self._get_base_array()):
+                if formato == 0: # If arrow & ZORDER -> FortranOrder
+                    formato = 3
+                self._create_tables_arrow(StorageNumpy.get_arrow_name(name))
+            self._create_tables(name)
 
+        if not getattr(self, '_hcache', None):
+            if StorageNumpy._arrow_enabled(self._get_base_array()):
+                self._hcache_arrow = self._create_hcache(StorageNumpy.get_arrow_name(name))
+            self._hcache = self._create_hcache(name)
+
+        log.debug("_persist_data: after create tables and cache ")
         # Persist current object
-        if formato == 0 and config.arrow_enabled: # If arrow & ZORDER -> FortranOrder
-            formato = 3
         hfetch_metas = HArrayMetadata(list(self.shape), list(self.strides),
                                       self.dtype.kind, self.dtype.byteorder,
                                       self.itemsize, self.flags.num, formato)
+        self._base_metas = hfetch_metas
         self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas, self._block_id,
                                      self.storage_id, # base_numpy is storage_id because until now we only reach this point if we are not inheriting from a StorageNumpy. We should update this if we allow StorageNumpy from volatile StorageNumpy
-                                     getattr(self,'_twin_id', None),
                                      tuple([slice(None,None,None)]*self.ndim),  #We are a view of everything
                                      self._tokens)
         if len(self.shape) != 0:
-            if formato == 2:    # If we are in columnar format we are the twin and _twin_id field contains the original storage_id of the parent
-                sid = self._twin_id
-            else:
-                sid = self._build_args.base_numpy
+            sid = self._build_args.base_numpy
 
+            log.debug("_persist_data: before store slices ROW")
             if self.shape != self._get_base_array().shape:
                 raise NotImplementedError("Persisting a volatile view with different shape is NOT implemented")
             self._hcache.store_numpy_slices([sid], self._build_args.metas, [self._get_base_array()], # CHECK metas del padre i memoria tienen que coincidir
-                                            None)
+                                            None,
+                                            StorageNumpy.BLOCK_MODE)
+            log.debug("_persist_data: before store slices COLUMN")
+            if StorageNumpy._arrow_enabled(self._get_base_array()):
+                self._hcache_arrow.store_numpy_slices([sid], self._build_args.metas, [self._get_base_array()], # CHECK metas del padre i memoria tienen que coincidir
+                                                None,
+                                                StorageNumpy.COLUMN_MODE)
+        log.debug("_persist_data: before store meta")
         StorageNumpy._store_meta(self._build_args)
-        if formato != 2:
-            self._row_elem = self._hcache.get_elements_per_row(self.storage_id, self._build_args.metas)
+        log.debug("_persist_data: before get_elements_per_row")
+        self._row_elem = self._hcache.get_elements_per_row(self.storage_id, self._build_args.metas)
         log.debug("_persist_data: {} format={}".format(name, formato))
 
 
@@ -1003,17 +949,20 @@ class StorageNumpy(IStorage, np.ndarray):
             outputs = (None,) * ufunc.nout
 
         base_numpy = self._get_base_array()
-        metas = None
+        #metas = None
+        metas = self._base_metas
         if self._is_persistent and len(self.shape) and self._numpy_full_loaded is False:
-            if (self.storage_id != self._build_args.base_numpy):
-                #We are a view and therefore we need the metas from the base numpy
-                istorage_metas = get_istorage_attrs(self._build_args.base_numpy)
-                metas = istorage_metas[0].numpy_meta
-            else:
-                metas = self._build_args.metas
             log.debug(" UFUNC({}) load_block from {} ".format(method, metas))
-            self._hcache.load_numpy_slices([self._build_args.base_numpy], metas, [base_numpy],
-                                           None)
+            if StorageNumpy._arrow_enabled(base_numpy):
+                load_method = StorageNumpy.COLUMN_MODE
+                self._hcache_arrow.load_numpy_slices([self._build_args.base_numpy], metas, [base_numpy],
+                                           None,
+                                           load_method)
+            else:
+                load_method = StorageNumpy.BLOCK_MODE
+                self._hcache.load_numpy_slices([self._build_args.base_numpy], metas, [base_numpy],
+                                           None,
+                                           load_method)
         results = super(StorageNumpy, self).__array_ufunc__(ufunc, method,
                                                             *args, **kwargs)
         if results is NotImplemented:
@@ -1025,17 +974,10 @@ class StorageNumpy(IStorage, np.ndarray):
         if self._is_persistent and len(self.shape):
             readonly_methods = ['mean', 'sum', 'reduce'] #methods that DO NOT modify the original memory, and there is NO NEED to store it
             if method not in readonly_methods:
-                if metas is None: # Ooops... numpy is fully loaded and the metas calculation was skipped
-                    if (self.storage_id != self._build_args.base_numpy):
-                        #We are a view and therefore we need the metas from the base numpy
-                        istorage_metas = get_istorage_attrs(self._build_args.base_numpy)
-                        metas = istorage_metas[0].numpy_meta
-                    else:
-                        metas = self._build_args.metas
-                    log.debug(" UFUNC({}) store_block from {} ".format(method, metas))
 
                 self._hcache.store_numpy_slices([self._build_args.base_numpy], metas, [base_numpy],
-                                                None)
+                                                None,
+                                                StorageNumpy.BLOCK_MODE)
 
         if ufunc.nout == 1:
             results = (results,)
@@ -1078,14 +1020,11 @@ class StorageNumpy(IStorage, np.ndarray):
     def _preload_memory(a):
         """
             Load a persistent object in memory.
-            If twins are enabled and the object is columnar, returns the twin.
         """
         srcA = a
         if isinstance(a, StorageNumpy) and a._is_persistent and not a._numpy_full_loaded:
             log.debug(" DOT: sid = {} ".format(a.storage_id))
-            tmp = a[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
-            if tmp._persistent_columnar:
-                srcA = tmp._twin_ref[tmp._build_args.view_serialization]
+            srcA = a[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
         return srcA
 
     def dot(a, b, out=None):
@@ -1098,5 +1037,6 @@ class StorageNumpy(IStorage, np.ndarray):
     def array_equal(a, b):
         srcA = StorageNumpy._preload_memory(a)
         srcB = StorageNumpy._preload_memory(b)
+        log.debug(" array_equal: AFTER PRELOAD ")
         return config.intercepted['array_equal'](srcA,srcB)
 

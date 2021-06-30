@@ -578,8 +578,9 @@ static PyObject *allocate_numpy(HNumpyStore *self, PyObject *args) {
  * @return A list with two elements: the first has the numpy memory reserved and the second has the row elements
  */
 static PyObject *store_numpy_slices(HNumpyStore *self, PyObject *args) {
+    int py_order;
     PyObject *py_keys, *py_numpy, *py_np_metas, *py_coord;
-    if (!PyArg_ParseTuple(args, "OOOO", &py_keys, &py_np_metas, &py_numpy, &py_coord)) {
+    if (!PyArg_ParseTuple(args, "OOOOi", &py_keys, &py_np_metas, &py_numpy, &py_coord, &py_order)) {
         return NULL;
     }
 
@@ -622,7 +623,7 @@ static PyObject *store_numpy_slices(HNumpyStore *self, PyObject *args) {
     }
 
     try {
-        self->NumpyDataStore->store_numpy(storage_id, np_metas->np_metas, numpy_arr, py_coord);
+        self->NumpyDataStore->store_numpy(storage_id, np_metas->np_metas, numpy_arr, py_coord, py_order);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
@@ -651,8 +652,9 @@ static PyObject *store_numpy_slices(HNumpyStore *self, PyObject *args) {
 static PyObject *load_numpy_slices(HNumpyStore *self, PyObject *args) {
     //We need to include the numpy key in the parameters list, results -> reserved numpy
 
+    int py_order;
     PyObject *py_keys, *py_store, *py_coord, *py_np_metas;
-    if (!PyArg_ParseTuple(args, "OOOO", &py_keys, &py_np_metas, &py_store, &py_coord)) {
+    if (!PyArg_ParseTuple(args, "OOOOi", &py_keys, &py_np_metas, &py_store, &py_coord, &py_order)) {
         return NULL;
     }
 
@@ -694,7 +696,7 @@ static PyObject *load_numpy_slices(HNumpyStore *self, PyObject *args) {
     HArrayMetadata *np_metas = reinterpret_cast<HArrayMetadata *>(py_np_metas);
 
     try {
-        self->NumpyDataStore->load_numpy(storage_id, np_metas->np_metas, numpy_arr, py_coord);
+        self->NumpyDataStore->load_numpy(storage_id, np_metas->np_metas, numpy_arr, py_coord, py_order);
     }
     catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());

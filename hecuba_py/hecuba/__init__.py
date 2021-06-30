@@ -319,7 +319,6 @@ class Config:
                 numpy_meta frozen<np_meta>,
                 block_id int,
                 base_numpy uuid,
-                twin_id uuid,
                 view_serialization blob,
                 primary_keys list<frozen<tuple<text,text>>>,
                 columns list<frozen<tuple<text,text>>>,
