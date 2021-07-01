@@ -283,6 +283,7 @@ class StorageNumpy(IStorage, np.ndarray):
         IStorage.__init__(obj, name=name, storage_id=storage_id, tokens=tokens)
 
         obj._numpy_full_loaded = False
+        obj._columns_full_loaded = False
         obj._hcache = result[1]
 
 
@@ -547,6 +548,7 @@ class StorageNumpy(IStorage, np.ndarray):
             self._row_elem = getattr(obj, '_row_elem', None)
             # if we are a view we have ALREADY loaded all the subarray
             self._loaded_coordinates = getattr(obj, '_loaded_coordinates', [])
+            self._loaded_columns = getattr(obj, '_loaded_columns', set())
             self._is_persistent = getattr(obj, '_is_persistent', False)
             self._block_id = getattr(obj, '_block_id', None)
             self._twin_id   = getattr(obj, '_twin_id', None)
@@ -574,15 +576,19 @@ class StorageNumpy(IStorage, np.ndarray):
                     obj._last_sliced_coord = None
 
                 self._numpy_full_loaded = getattr(obj, '_numpy_full_loaded', False)
+                self._columns_full_loaded = getattr(obj, '_columns_full_loaded', False)
             else:
                 # StorageNumpy from a numpy
                 log.debug("  array_finalize obj != StorageNumpy")
                 self._numpy_full_loaded = True # Default value
+                self._columns_full_loaded = True # Default value
         else:
             log.debug("  __array_finalize__ copy")
             # Initialize fields as the __new__ case with input_array and not name
             self._loaded_coordinates = []
+            self._loaded_columns     = set()
             self._numpy_full_loaded  = True # FIXME we only support copy for already loaded objects
+            self._columns_full_loaded= True # FIXME we only support copy for already loaded objects
             self._name               = None
             self.storage_id          = None
             self._is_persistent      = False
@@ -804,9 +810,17 @@ class StorageNumpy(IStorage, np.ndarray):
         """
 
         if self._twin_ref._is_persistent:
-            log.debug("LOADING COLUMNS {}".format(columns))
-            base_numpy = self._twin_ref._get_base_array()
-            self._twin_ref._hcache.load_numpy_slices([self._build_args.base_numpy],
+            load = True
+            coordinates = self._loaded_columns.union(columns)
+            if (len(coordinates) != len(self._loaded_columns)):
+                self._columns_full_loaded = (len(coordinates) == self.shape[1])
+                self._loaded_columns = coordinates
+            else:
+                load = False
+            if load:
+                log.debug("LOADING COLUMNS {}".format(columns))
+                base_numpy = self._twin_ref._get_base_array()
+                self._twin_ref._hcache.load_numpy_slices([self._build_args.base_numpy],
                                         self._twin_ref._build_args.metas,
                                         [base_numpy],
                                         columns)
@@ -838,7 +852,7 @@ class StorageNumpy(IStorage, np.ndarray):
             big_sliced_coord = self._view_composer_new(sliced_coord)
             if self.is_columnar(big_sliced_coord):
                 columns = self._select_columns(big_sliced_coord)
-                if columns is not None : # Columnar access
+                if not self._columns_full_loaded and columns is not None : # Columnar access
                     self._load_columns(columns)
                 x = super(StorageNumpy, self._twin_ref).__getitem__(big_sliced_coord)
                 if np.dtype(type(x)) == self._twin_ref.dtype: #we can NOT return the resulting twin_ref... but we may return the scalar access
@@ -1081,7 +1095,7 @@ class StorageNumpy(IStorage, np.ndarray):
             If twins are enabled and the object is columnar, returns the twin.
         """
         srcA = a
-        if isinstance(a, StorageNumpy) and a._is_persistent and not a._numpy_full_loaded:
+        if isinstance(a, StorageNumpy) and a._is_persistent and not a._columns_full_loaded:
             log.debug(" DOT: sid = {} ".format(a.storage_id))
             tmp = a[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
             if tmp._persistent_columnar:
