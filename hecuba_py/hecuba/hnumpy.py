@@ -1114,3 +1114,10 @@ class StorageNumpy(IStorage, np.ndarray):
         srcB = StorageNumpy._preload_memory(b)
         return config.intercepted['array_equal'](srcA,srcB)
 
+    def concatenate(sn_list,axis=0, out=None):
+        preloaded_sn=[]
+        for i in range(len(sn_list)):
+             preloaded_sn.append(StorageNumpy._preload_memory(sn_list[i]))
+        log.debug(" concatenate: AFTER PRELOAD ")
+        return config.intercepted['concatenate'](preloaded_sn,axis, out)
+
