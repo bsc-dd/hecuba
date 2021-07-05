@@ -88,102 +88,130 @@ class StorageNumpy(IStorage, np.ndarray):
         """
         Divide numpy into persistent views to exploit parallelism.
 
-        cols: Use a division by columns to exploit arrow. If False, the numpy is divided into the inner blocks stored in cassandra.
+        cols: Decides how to divide the numpy:
+                If None, use the inner blocks stored in cassandra.
+                If True, divide by columns of blocks (this allows to exploit arrow when enabled)
+                If False, divide by rows of blocks.
         """
         # TODO this should work for VOLATILE objects too! Now only works for PERSISTENT
         if self._build_args.metas.partition_type == 2:
             raise NotImplementedError("Split on columnar data is not supported")
 
-        if cols == None:
-            if config.arrow_enabled:
-                cols = True
-            else:
-                cols = False
+
+        tokens = self._get_tokens(cols)
+        log.debug("split: shape %s cols %s", self.shape, cols)
+        if cols is True:
+            return self._split_by_cols(tokens)
+        if cols is False:
+            return self._split_by_rows(tokens)
+        return self._split_by_blocks(tokens)
+
+    def _get_tokens(self, cols):
+
+        exploit_locality = False
+        if StorageNumpy._arrow_enabled(self): #Fortran order
+            exploit_locality = (cols != False) # By blocks or by columns
+        else: #Zorder
+            exploit_locality = (cols == None) # By blocks only
+
+        tokens = None
+        if exploit_locality:
+            # Calculate the blocks of the numpy
+            blocks = self._hcache.get_block_ids(self._build_args.metas) # returns a list of tuples (cluster_id, block_id)
+
+            #Build map cluster_id -> token
+            cluster_id_to_token = {}
+            for (zorder_id, cluster_id, block_id, ccs) in blocks:
+                if not cluster_id_to_token.__contains__(cluster_id):
+                    hash_key = StorageNumpy._composite_key(self.storage_id, cluster_id)
+                    cluster_id_to_token[cluster_id] = hash_key
+
+            #Calculate the tokens for each block
+            tokens = {}
+            for (zorder_id, cluster_id, block_id, ccs) in blocks:
+                log.debug(" split : Create block {} {} ".format(cluster_id, block_id ))
+                if cluster_id not in tokens:
+                    token_split = []
+                    hash_key = cluster_id_to_token[cluster_id]
+                    for t in self._tokens:
+                        if hash_key >= t[0] and hash_key < t[1]:
+                            token_split.append(t)
+                            break; # Finish for
+                    tokens[cluster_id] = token_split
+
+        return tokens
+
+    def _split_by_blocks(self, tokens):
 
         blocks = self._hcache.get_block_ids(self._build_args.metas) # returns a list of tuples (cluster_id, block_id)
-
-        #Build map cluster_id -> token
-        cluster_id_to_token = {}
         for (zorder_id, cluster_id, block_id, ccs) in blocks:
-            if not cluster_id_to_token.__contains__(cluster_id):
-                hash_key = StorageNumpy._composite_key(self.storage_id, cluster_id)
-                cluster_id_to_token[cluster_id] = hash_key
-
-        splitted_block={}   # list of blocks per (cluster_id,block_id)
-        tokens={}   # list of tokens per cluster_id
-        for (zorder_id, cluster_id, block_id, ccs) in blocks:
-            log.debug(" split : Create block {} {} ".format(cluster_id, block_id ))
-            token_split = []
-            hash_key = cluster_id_to_token[cluster_id]
-            for t in self._tokens:
-                if hash_key >= t[0] and hash_key < t[1]:
-                    token_split.append(t)
-                    break; # Finish for
-            if cluster_id not in tokens:
-                tokens[cluster_id] = token_split
-
-            ################
-#
-#            +-----------------+
-#            | 0,0 | 0,1 | 0,2 |
-#            +-----------------+
-#            | 1,0 | 1,1 | 1,2 |
-#            +-----------------+
-#            ...
-#            +-----------------+
-
-            if cols:
-                mykey=(cluster_id,0)    # Group the blockIDs inside the same clusterID
-            else:
-                mykey=(cluster_id,block_id)
-            if mykey not in splitted_block:
-                splitted_block[mykey] = []
-            splitted_block[mykey].append(ccs)
-            #splitted_block[0] = [ (0,0), (1,0), ... (N, 0) ] --> (slice(none,none,none), 0)
-
-
-        for mykey, values in splitted_block.items():
-#            +----------------------+
-#            | 0,0  | 0,22  | 0,44  |
-#            +----------------------+
-#            | 22,0 | 22,22 | 22,44 |
-#            +----------------------+
-#            ...
-#            +----------------------+
-
-#            +======----------------+
-#            I 0,0  I 0,22  | 0,44  |
-#            +----------------------+
-#            I 22,0 I 22,22 | 22,44 |
-#            +----------------------+
-#            ...
-#            +----------------------+
-#            I 22,0 I 22,22 | 22,44 |
-#            +======----------------+
-
-            cluster_id = mykey[0]
-            # Calculate the indexing part using slices array
-            if not cols:
-                ccs = values[0]
-                # 'values' contains block_coords that must be transformed to original_coordinates
-                pyccs = [ i * self._row_elem for i in ccs]
-                slc = [ slice(i, i + self._row_elem) for i in pyccs ]
-                slc = tuple(slc)
-            else:
-                # Columns case: clusterID MUST match columnID
-                if config.arrow_enabled:
-                    for i in values:
-                        if i[1] != cluster_id:
-                            raise ValueError("OOOPS! ClusterID does not match with columnID")
-                slc = ( slice(None,None,None), slice(cluster_id*self._row_elem, cluster_id*self._row_elem + self._row_elem ) )
-
+            # 'values' contains block_coords that must be transformed to original_coordinates
+            pyccs = [ i * self._row_elem for i in ccs]
+            slc = [ slice(i, i + self._row_elem) for i in pyccs ]
+            slc = tuple(slc)
             token_split = tokens[cluster_id]
 
             self._last_sliced_coord = slc # HACK to call '_create_lazy_persistent_view' in 'array_finalize' when calling the next '__getitem__'
             resultado = super(StorageNumpy, self).__getitem__(slc) # Generate view in memory
             resultado._build_args = resultado._build_args._replace(tokens=token_split)
 
-            # TODO: Add a new column into hecuba.istorage with all the splits for the current storageid
+            yield resultado
+#            ################
+##            ccs: Index of blocks
+##            +-----------------+
+##            | 0,0 | 0,1 | 0,2 |
+##            +-----------------+
+##            | 1,0 | 1,1 | 1,2 |
+##            +-----------------+
+##            ...
+##            +-----------------+
+#
+#             pyccs: initial coordinates of each block
+##            +======----------------+
+##            I 0,0  I 0,22  | 0,44  |
+##            +----------------------+
+##            I 22,0 I 22,22 | 22,44 |
+##            +----------------------+
+##            ...
+##            +----------------------+
+##            I 22,0 I 22,22 | 22,44 |
+##            +======----------------+
+
+
+    def _split_by_cols(self, mytokens):
+        """
+        Generator to divide numpy in blocks of columns (taking into account how the data is stored in disk)
+        """
+        log.debug(" split_by_cols shape:%s row_elem:%s ", self.shape, self._row_elem)
+        list_of_clusters= range(0, self.shape[1], self._row_elem)
+
+        for cluster_id in list_of_clusters:
+            log.debug(" split_by_cols cluster_id: %s", cluster_id)
+            slc = ( slice(None,None,None), slice(cluster_id*self._row_elem, cluster_id*self._row_elem + self._row_elem ) )
+
+
+            self._last_sliced_coord = slc # HACK to call '_create_lazy_persistent_view' in 'array_finalize' when calling the next '__getitem__' (we want to AVOID calling 'getitem' directly because it LOADS data)
+            resultado = super(StorageNumpy, self).__getitem__(slc) # Generate view in memory
+            if mytokens is not None:
+                resultado._build_args = resultado._build_args._replace(tokens=mytokens[cluster_id//self._row_elem])
+
+            yield resultado
+
+    def _split_by_rows(self, tokens):
+        """
+        Generator to divide numpy in blocks of columns (taking into account how the data is stored in disk)
+        """
+        log.debug(" split_by_cols shape:%s row_elem:%s ", self.shape, self._row_elem)
+        list_of_clusters= range(0, self.shape[0], self._row_elem)
+
+        for cluster_id in list_of_clusters:
+            log.debug(" split_by_cols cluster_id: %s", cluster_id)
+            slc = ( slice(cluster_id*self._row_elem, cluster_id*self._row_elem + self._row_elem ), slice(None,None,None) )
+
+            self._last_sliced_coord = slc # HACK to call '_create_lazy_persistent_view' in 'array_finalize' when calling the next '__getitem__' (we want to AVOID calling 'getitem' directly because it LOADS data)
+            resultado = super(StorageNumpy, self).__getitem__(slc) # Generate view in memory
+            # TOKENS are ignored in this case
+
             yield resultado
 
     @staticmethod
