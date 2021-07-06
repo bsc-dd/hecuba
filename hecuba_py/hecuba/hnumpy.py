@@ -813,26 +813,42 @@ class StorageNumpy(IStorage, np.ndarray):
             block_coord = self._select_blocks(sliced_coord)
             self._load_blocks(block_coord)
 
+    def _references_single_element(self, sliced_coord):
+        '''
+        Returns True if the 'sliced_coord' references a single element from 'self'
+        '''
+        if isinstance(sliced_coord,tuple):
+            if len(sliced_coord) != self.ndim:
+                return False
+            for i in range(len(sliced_coord)):
+                if not isinstance(sliced_coord[i],int):
+                    return False
+            return True
+        if isinstance(sliced_coord, int):
+            return self.ndim == 1
+        return False
+
     def __getitem__(self, sliced_coord):
         log.info("RETRIEVING NUMPY {} is_persistent {}".format(sliced_coord, self._is_persistent))
         if self._is_persistent:
+            if not (self._numpy_full_loaded and self._references_single_element(sliced_coord)): # Optimization to avoid 'view_composer' for single accessess
 
-            self._last_sliced_coord = sliced_coord  # Remember the last getitem parameter, because it may force a new entry in the istorage at array_finalize
+                self._last_sliced_coord = sliced_coord  # Remember the last getitem parameter, because it may force a new entry in the istorage at array_finalize
 
-            #if the slice is a npndarray numpy creates a copy and we do the same
-            if isinstance(sliced_coord, np.ndarray): # is there any other slicing case that needs a copy of the array????
-                result = self.view(np.ndarray)[sliced_coord] # TODO: If self is NOT loaded LOAD IT ALL BEFORE
-                return StorageNumpy(result) # Creates a copy (A StorageNumpy from a Numpy)
+                #if the slice is a npndarray numpy creates a copy and we do the same
+                if isinstance(sliced_coord, np.ndarray): # is there any other slicing case that needs a copy of the array????
+                    result = self.view(np.ndarray)[sliced_coord] # TODO: If self is NOT loaded LOAD IT ALL BEFORE
+                    return StorageNumpy(result) # Creates a copy (A StorageNumpy from a Numpy)
 
-            # Use 'big_sliced_coord' to access disk and 'sliced_coord' to access memory
-            # Keep 'sliced_coord' to reuse the common return at the end
-            big_sliced_coord = self._view_composer_new(sliced_coord)
-            if self.is_columnar(big_sliced_coord):
-                columns = self._select_columns(big_sliced_coord)
-                if columns is not None : # Columnar access
-                    self._load_columns(columns)
-            else: # Normal array access...
-                self._select_and_load_blocks(big_sliced_coord)
+                # Use 'big_sliced_coord' to access disk and 'sliced_coord' to access memory
+                # Keep 'sliced_coord' to reuse the common return at the end
+                big_sliced_coord = self._view_composer_new(sliced_coord)
+                if self.is_columnar(big_sliced_coord):
+                    columns = self._select_columns(big_sliced_coord)
+                    if columns is not None : # Columnar access
+                        self._load_columns(columns)
+                else: # Normal array access...
+                    self._select_and_load_blocks(big_sliced_coord)
         return super(StorageNumpy, self).__getitem__(sliced_coord)
 
     def __setitem__(self, sliced_coord, values):
