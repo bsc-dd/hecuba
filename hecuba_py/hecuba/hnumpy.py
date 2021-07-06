@@ -1017,12 +1017,15 @@ class StorageNumpy(IStorage, np.ndarray):
         return results[0] if len(results) == 1 else results
 
 
-    def reshape(self, newshape, order="C"):
+    def reshape(self, newshape, order=None):
         '''
         reshape the StorageNumpy
         Creates a view of the StorageNumpy sharing data with the original data (Both in disk and memory)
         '''
         log.debug("reshape from %s to %s", self.shape, newshape)
+        if order == None:
+            if is_columnar(self):
+                order = 'A'
         obj=super(StorageNumpy, self).reshape(newshape, order)
         return obj
 

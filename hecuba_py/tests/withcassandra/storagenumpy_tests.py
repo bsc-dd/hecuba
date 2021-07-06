@@ -436,8 +436,14 @@ class StorageNumpyTest(unittest.TestCase):
 
         s1 = StorageNumpy(n, "test_storagenumpy_reshape")
 
-        r = s1.reshape(4,3)
-        self.assertTrue(r.storage_id == s1.storage_id)
+        try:
+            r = s1.view()
+            r.shape = (4,3)
+            self.assertTrue(r.storage_id == s1.storage_id)
+        except: # If this exception code is executed means that a COPY is needed and therefore the resulting object is VOLATILE!
+            r = s1.reshape(4,3)
+            self.assertTrue(r.storage_id is None)
+            self.assertTrue(r._is_persistent == False)
         self.assertTrue(r.shape != s1.shape)
         self.assertTrue(r.strides != s1.strides)
 
