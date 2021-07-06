@@ -345,7 +345,7 @@ class StorageDictTest(unittest.TestCase):
         pd.delete_persistent()
 
     def test_paranoid_setitem_multiple_nonpersistent(self):
-        tablename = "test_prnoid_set_nonp"
+        tablename = "test_prnoid_set_m_nonp"
         pd = StorageDict(tablename,
                          [('position1', 'int'), ('position2', 'text')],
                          [('value1', 'text'), ('value2', 'int')])
