@@ -375,5 +375,6 @@ def _intercept_numpy_method(method_name):
 
 _intercept_numpy_method('dot')
 _intercept_numpy_method('array_equal')
+_intercept_numpy_method('concatenate')
 
 __all__ = ['StorageObj', 'StorageDict', 'StorageNumpy', 'Parser']

@@ -302,6 +302,7 @@ class StorageNumpy(IStorage, np.ndarray):
         IStorage.__init__(obj, name=name, storage_id=storage_id, tokens=tokens)
 
         obj._numpy_full_loaded = False
+        obj._hcache = result[1]
 
 
         obj._build_args = obj.args(obj.storage_id, istorage_metas[0].class_name,
@@ -562,6 +563,7 @@ class StorageNumpy(IStorage, np.ndarray):
             self._row_elem = getattr(obj, '_row_elem', None)
             # if we are a view we have ALREADY loaded all the subarray
             self._loaded_coordinates = getattr(obj, '_loaded_coordinates', [])
+            self._loaded_columns = getattr(obj, '_loaded_columns', set())
             self._is_persistent = getattr(obj, '_is_persistent', False)
             self._block_id = getattr(obj, '_block_id', None)
             self._class_name = getattr(obj,'_class_name', 'hecuba.hnumpy.StorageNumpy')
@@ -594,6 +596,7 @@ class StorageNumpy(IStorage, np.ndarray):
             log.debug("  __array_finalize__ copy")
             # Initialize fields as the __new__ case with input_array and not name
             self._loaded_coordinates = []
+            self._loaded_columns     = set()
             self._numpy_full_loaded  = True # FIXME we only support copy for already loaded objects
             self._name               = None
             self.storage_id          = None
@@ -798,20 +801,31 @@ class StorageNumpy(IStorage, np.ndarray):
             Args:
                 self: The StorageNumpy to load data into
                 columns: The coordinates to load (column position)
+            PRE: self._is_persistent and not self._numpy_full_loaded
         """
 
-        log.debug("LOADING COLUMNS {}".format(columns))
-        base_numpy = self._get_base_array()
-        self._hcache_arrow.load_numpy_slices([self._build_args.base_numpy],
+        load = True
+        coordinates = self._loaded_columns.union(columns)
+        if (len(coordinates) != len(self._loaded_columns)):
+            self._numpy_full_loaded = (len(coordinates) == self.shape[1])
+            self._loaded_columns = coordinates
+        else:
+            load = False
+        if load:
+            log.debug("LOADING COLUMNS {}".format(columns))
+            base_numpy = self._get_base_array()
+            self._hcache_arrow.load_numpy_slices([self._build_args.base_numpy],
                                     self._base_metas,
                                     [base_numpy],
                                     columns,
                                     StorageNumpy.COLUMN_MODE)
 
     def _select_and_load_blocks(self, sliced_coord):
-        if not self._numpy_full_loaded:
-            block_coord = self._select_blocks(sliced_coord)
-            self._load_blocks(block_coord)
+        """
+            PRE: self._is_persistent and not self._numpy_full_loaded
+        """
+        block_coord = self._select_blocks(sliced_coord)
+        self._load_blocks(block_coord)
 
     def _references_single_element(self, sliced_coord):
         '''
@@ -833,22 +847,23 @@ class StorageNumpy(IStorage, np.ndarray):
         if self._is_persistent:
             if not (self._numpy_full_loaded and self._references_single_element(sliced_coord)): # Optimization to avoid 'view_composer' for single accessess
 
-                self._last_sliced_coord = sliced_coord  # Remember the last getitem parameter, because it may force a new entry in the istorage at array_finalize
-
                 #if the slice is a npndarray numpy creates a copy and we do the same
                 if isinstance(sliced_coord, np.ndarray): # is there any other slicing case that needs a copy of the array????
                     result = self.view(np.ndarray)[sliced_coord] # TODO: If self is NOT loaded LOAD IT ALL BEFORE
                     return StorageNumpy(result) # Creates a copy (A StorageNumpy from a Numpy)
 
-                # Use 'big_sliced_coord' to access disk and 'sliced_coord' to access memory
-                # Keep 'sliced_coord' to reuse the common return at the end
-                big_sliced_coord = self._view_composer_new(sliced_coord)
-                if self.is_columnar(big_sliced_coord):
-                    columns = self._select_columns(big_sliced_coord)
-                    if columns is not None : # Columnar access
-                        self._load_columns(columns)
-                else: # Normal array access...
-                    self._select_and_load_blocks(big_sliced_coord)
+                self._last_sliced_coord = sliced_coord  # Remember the last getitem parameter, because it may force a new entry in the istorage at array_finalize
+
+                if not self._numpy_full_loaded:
+                    # Use 'big_sliced_coord' to access disk and 'sliced_coord' to access memory
+                    # Keep 'sliced_coord' to reuse the common return at the end
+                    big_sliced_coord = self._view_composer_new(sliced_coord)
+                    if self.is_columnar(big_sliced_coord):
+                        columns = self._select_columns(big_sliced_coord)
+                        if columns is not None : # Columnar access
+                            self._load_columns(columns)
+                    else: # Normal array access...
+                        self._select_and_load_blocks(big_sliced_coord)
         return super(StorageNumpy, self).__getitem__(sliced_coord)
 
     def __setitem__(self, sliced_coord, values):
@@ -1086,4 +1101,11 @@ class StorageNumpy(IStorage, np.ndarray):
         srcB = StorageNumpy._preload_memory(b)
         log.debug(" array_equal: AFTER PRELOAD ")
         return config.intercepted['array_equal'](srcA,srcB)
+
+    def concatenate(sn_list,axis=0, out=None):
+        preloaded_sn=[]
+        for i in range(len(sn_list)):
+             preloaded_sn.append(StorageNumpy._preload_memory(sn_list[i]))
+        log.debug(" concatenate: AFTER PRELOAD ")
+        return config.intercepted['concatenate'](preloaded_sn,axis, out)
 
