@@ -791,6 +791,64 @@ class StorageNumpyTest(unittest.TestCase):
         j=1
         self.assertTrue(np.array_equal(n1[i,j], n[s1,s1][i,j]))
 
+    def test_loaded(self):
+        n = np.arange(88*66).reshape(88,66)
+        s = StorageNumpy(n, "test_loaded")
+        self.assertTrue(s._numpy_full_loaded is True)
+        del s
+        s = StorageNumpy(None, "test_loaded")
+        self.assertTrue(s._numpy_full_loaded is False)
+
+        # The accessed element must be FULL loaded
+        row = s[0,:]
+        self.assertTrue(s._numpy_full_loaded is False)
+        self.assertTrue(row._numpy_full_loaded is True)
+
+        del s
+        s = StorageNumpy(None, "test_loaded")
+        col = s[:, 0]
+        self.assertTrue(s._numpy_full_loaded is False)
+        self.assertTrue(col._numpy_full_loaded is True)
+
+        del s
+        s = StorageNumpy(None, "test_loaded")
+        block = s[22:44, 22:44]
+        self.assertTrue(s._numpy_full_loaded is False)
+        self.assertTrue(block._numpy_full_loaded is True)
+
+        # Loading ALL elements must make the object full loaded
+        del s
+        s = StorageNumpy(None, "test_loaded")
+        for i in s.shape[0]:
+            x = s[i,:]
+        self.assertTrue(s._numpy_full_loaded is True)
+
+        del s
+        s = StorageNumpy(None, "test_loaded")
+        for i in s.shape[1]:
+            x = s[:,i]
+        self.assertTrue(s._numpy_full_loaded is True)
+
+        # Split MUST NOT load the object
+        del s
+        s = StorageNumpy(None, "test_loaded")
+        rows = [ i for i in s.split(cols=False) ]
+        for i in rows:
+            self.assertTrue(i._numpy_full_loaded is False)
+
+        del s
+        s = StorageNumpy(None, "test_loaded")
+        columns = [ i for i in s.split(cols=True) ]
+        for i in columns:
+            self.assertTrue(i._numpy_full_loaded is False)
+
+        del s
+        s = StorageNumpy(None, "test_loaded")
+        blocks = [ i for i in s.split() ]
+        for i in blocks:
+            self.assertTrue(i._numpy_full_loaded is False)
+
+
     # TODO: Tranform SNadaptcoords.py
 
 if __name__ == '__main__':

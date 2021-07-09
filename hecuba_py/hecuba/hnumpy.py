@@ -144,6 +144,7 @@ class StorageNumpy(IStorage, np.ndarray):
     def _split_by_blocks(self, tokens):
 
         blocks = self._hcache.get_block_ids(self._build_args.metas) # returns a list of tuples (cluster_id, block_id)
+        _parent_numpy_full_loaded=self._numpy_full_loaded
         for (zorder_id, cluster_id, block_id, ccs) in blocks:
             # 'values' contains block_coords that must be transformed to original_coordinates
             pyccs = [ i * self._row_elem for i in ccs]
@@ -153,6 +154,7 @@ class StorageNumpy(IStorage, np.ndarray):
 
             self._last_sliced_coord = slc # HACK to call '_create_lazy_persistent_view' in 'array_finalize' when calling the next '__getitem__'
             resultado = super(StorageNumpy, self).__getitem__(slc) # Generate view in memory
+            resultado._numpy_full_loaded = _parent_numpy_full_loaded # Due to the HACK, we need to keep the _numpy_full_loaded status
             resultado._build_args = resultado._build_args._replace(tokens=token_split)
 
             yield resultado
@@ -185,6 +187,7 @@ class StorageNumpy(IStorage, np.ndarray):
         log.debug(" split_by_cols shape:%s row_elem:%s ", self.shape, self._row_elem)
         list_of_clusters= range(0, self.shape[1], self._row_elem)
 
+        _parent_numpy_full_loaded=self._numpy_full_loaded
         for cluster_id in list_of_clusters:
             log.debug(" split_by_cols cluster_id: %s", cluster_id)
             slc = ( slice(None,None,None), slice(cluster_id, cluster_id + self._row_elem ) )
@@ -192,6 +195,7 @@ class StorageNumpy(IStorage, np.ndarray):
 
             self._last_sliced_coord = slc # HACK to call '_create_lazy_persistent_view' in 'array_finalize' when calling the next '__getitem__' (we want to AVOID calling 'getitem' directly because it LOADS data)
             resultado = super(StorageNumpy, self).__getitem__(slc) # Generate view in memory
+            resultado._numpy_full_loaded = _parent_numpy_full_loaded # Due to the HACK, we need to keep the _numpy_full_loaded status
             if mytokens is not None:
                 resultado._build_args = resultado._build_args._replace(tokens=mytokens[cluster_id//self._row_elem])
 
@@ -204,12 +208,14 @@ class StorageNumpy(IStorage, np.ndarray):
         log.debug(" split_by_cols shape:%s row_elem:%s ", self.shape, self._row_elem)
         list_of_clusters= range(0, self.shape[0], self._row_elem)
 
+        _parent_numpy_full_loaded=self._numpy_full_loaded
         for cluster_id in list_of_clusters:
             log.debug(" split_by_cols cluster_id: %s", cluster_id)
             slc = ( slice(cluster_id, cluster_id + self._row_elem ), slice(None,None,None) )
 
             self._last_sliced_coord = slc # HACK to call '_create_lazy_persistent_view' in 'array_finalize' when calling the next '__getitem__' (we want to AVOID calling 'getitem' directly because it LOADS data)
             resultado = super(StorageNumpy, self).__getitem__(slc) # Generate view in memory
+            resultado._numpy_full_loaded = _parent_numpy_full_loaded # Due to the HACK, we need to keep the _numpy_full_loaded status
             # TOKENS are ignored in this case
 
             yield resultado
@@ -575,7 +581,7 @@ class StorageNumpy(IStorage, np.ndarray):
             if type(obj) == StorageNumpy: # Instantiate or getitem
                 log.debug("  array_finalize obj == StorageNumpy")
 
-                if getattr(obj, '_last_sliced_coord', None):    #getitem
+                if getattr(obj, '_last_sliced_coord', None):    #getitem or split
                     if obj.shape == self.shape:
                         self._n_blocks = getattr(obj, '_n_blocks', None)
                     else:
@@ -586,8 +592,8 @@ class StorageNumpy(IStorage, np.ndarray):
                         self._persistent_columnar = True
 
                     obj._last_sliced_coord = None
+                    self._numpy_full_loaded = True # By default assume we come from a getitem, otherwise mark it as appropiate (split)
 
-                self._numpy_full_loaded = getattr(obj, '_numpy_full_loaded', False)
             else:
                 # StorageNumpy from a numpy
                 log.debug("  array_finalize obj != StorageNumpy")
