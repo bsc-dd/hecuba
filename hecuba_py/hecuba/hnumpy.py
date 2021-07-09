@@ -875,6 +875,8 @@ class StorageNumpy(IStorage, np.ndarray):
     def __setitem__(self, sliced_coord, values):
         log.info("WRITING NUMPY")
         log.debug("setitem %s", sliced_coord)
+        if isinstance(values, StorageNumpy) and values._is_persistent and not values._numpy_full_loaded:
+            values[:]  # LOAD the values as the numpy.__setitem__ will only use memory
         if self._is_persistent:
             big_sliced_coord = self._view_composer_new(sliced_coord)
             block_coords = self._select_blocks(big_sliced_coord)
@@ -882,10 +884,6 @@ class StorageNumpy(IStorage, np.ndarray):
                 self._load_blocks(block_coords)
 
             #yolandab: execute first the super to modified the base numpy
-
-            if type(values)==StorageNumpy and not values._numpy_full_loaded:
-                values[:]  # LOAD the values as the numpy.__setitem__ will only use memory
-
             super(StorageNumpy, self).__setitem__(sliced_coord, values)
 
             base_numpy = self._get_base_array() # self.base is  numpy.ndarray
