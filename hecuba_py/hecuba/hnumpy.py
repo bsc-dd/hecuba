@@ -187,7 +187,7 @@ class StorageNumpy(IStorage, np.ndarray):
 
         for cluster_id in list_of_clusters:
             log.debug(" split_by_cols cluster_id: %s", cluster_id)
-            slc = ( slice(None,None,None), slice(cluster_id*self._row_elem, cluster_id*self._row_elem + self._row_elem ) )
+            slc = ( slice(None,None,None), slice(cluster_id, cluster_id + self._row_elem ) )
 
 
             self._last_sliced_coord = slc # HACK to call '_create_lazy_persistent_view' in 'array_finalize' when calling the next '__getitem__' (we want to AVOID calling 'getitem' directly because it LOADS data)
@@ -206,7 +206,7 @@ class StorageNumpy(IStorage, np.ndarray):
 
         for cluster_id in list_of_clusters:
             log.debug(" split_by_cols cluster_id: %s", cluster_id)
-            slc = ( slice(cluster_id*self._row_elem, cluster_id*self._row_elem + self._row_elem ), slice(None,None,None) )
+            slc = ( slice(cluster_id, cluster_id + self._row_elem ), slice(None,None,None) )
 
             self._last_sliced_coord = slc # HACK to call '_create_lazy_persistent_view' in 'array_finalize' when calling the next '__getitem__' (we want to AVOID calling 'getitem' directly because it LOADS data)
             resultado = super(StorageNumpy, self).__getitem__(slc) # Generate view in memory

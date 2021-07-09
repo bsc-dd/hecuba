@@ -635,6 +635,31 @@ class StorageNumpyTest(unittest.TestCase):
 
             splits = splits + 1
 
+    def test_split_content(self):
+        n = np.arange(88*66).reshape(88,66)
+        s = StorageNumpy(n,"test_split_content")
+        del s
+        s = StorageNumpy(None,"test_split_content")
+        rows = [i for i in s.split(cols=False)]
+        self.assertTrue(len(rows)==4)
+        columns = [ i for i in s.split(cols=True)]
+        self.assertTrue(len(columns)==3)
+        blocks = [i for i in s.split()]
+        self.assertTrue(len(blocks)==12)
+        for i in rows:
+            self.assertTrue(i.shape == (22,66))
+        for i in columns:
+            self.assertTrue(i.shape == (88,22))
+        for i in blocks:
+            self.assertTrue(i.shape == (22,22))
+        self.assertTrue(np.array_equal(rows[0],n[0:22,:])
+        self.assertTrue(np.array_equal(rows[1],n[22:44,:])
+        self.assertTrue(np.array_equal(rows[2],n[44:66,:])
+        self.assertTrue(np.array_equal(rows[3],n[66:,:])
+        self.assertTrue(np.array_equal(columns[0],n[:,0:22])
+        self.assertTrue(np.array_equal(columns[1],n[:,22:44])
+        self.assertTrue(np.array_equal(columns[2],n[:,44:])
+
     def test_load_StorageNumpy(self):
         n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
         s = StorageNumpy(n, "test_load_StorageNumpy")
