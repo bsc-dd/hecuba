@@ -577,6 +577,7 @@ class StorageNumpy(IStorage, np.ndarray):
             self._build_args = getattr(obj, '_build_args', None)
             self._persistance_needed = getattr(obj, '_persistance_needed', False)
             self._persistent_columnar = getattr(obj, '_persistent_columnar', False)
+            self._numpy_full_loaded = getattr(obj, '_numpy_full_loaded', False)
 
             if type(obj) == StorageNumpy: # Instantiate or getitem
                 log.debug("  array_finalize obj == StorageNumpy")
