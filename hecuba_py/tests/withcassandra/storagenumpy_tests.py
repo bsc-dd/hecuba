@@ -599,8 +599,6 @@ class StorageNumpyTest(unittest.TestCase):
     def test_split_nomem(self):
         n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
         s = StorageNumpy(n, "test_split_nomem")
-        if s._build_args.metas.partition_type != 0: #This test is only valid for ZORDER
-            return
         splits = 0
         for i in s.split():
             sid = i.storage_id
@@ -611,7 +609,6 @@ class StorageNumpyTest(unittest.TestCase):
                 self.assertEqual(i.shape, (2,22))
             else:
                 self.assertEqual(i.shape, (2,18))
-            self.assertTrue(i._offsets == [0, splits*22])
             self.assertTrue(i[0,0] == splits*22)
             splits = splits + 1
         self.assertTrue(splits == 6)
@@ -652,13 +649,13 @@ class StorageNumpyTest(unittest.TestCase):
             self.assertTrue(i.shape == (88,22))
         for i in blocks:
             self.assertTrue(i.shape == (22,22))
-        self.assertTrue(np.array_equal(rows[0],n[0:22,:])
-        self.assertTrue(np.array_equal(rows[1],n[22:44,:])
-        self.assertTrue(np.array_equal(rows[2],n[44:66,:])
-        self.assertTrue(np.array_equal(rows[3],n[66:,:])
-        self.assertTrue(np.array_equal(columns[0],n[:,0:22])
-        self.assertTrue(np.array_equal(columns[1],n[:,22:44])
-        self.assertTrue(np.array_equal(columns[2],n[:,44:])
+        self.assertTrue(np.array_equal(rows[0],n[0:22,:]))
+        self.assertTrue(np.array_equal(rows[1],n[22:44,:]))
+        self.assertTrue(np.array_equal(rows[2],n[44:66,:]))
+        self.assertTrue(np.array_equal(rows[3],n[66:,:]))
+        self.assertTrue(np.array_equal(columns[0],n[:,0:22]))
+        self.assertTrue(np.array_equal(columns[1],n[:,22:44]))
+        self.assertTrue(np.array_equal(columns[2],n[:,44:]))
 
     def test_load_StorageNumpy(self):
         n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
@@ -746,7 +743,7 @@ class StorageNumpyTest(unittest.TestCase):
         # Check Rest of elements in memory
         self.assertTrue(np.array_equal(n,s))
         del s
-        s = StorageNumpy(None, "test_setitem_blocks", flush=True)
+        s = StorageNumpy(None, "test_setitem_blocks")
         # Check modified elements in Cassandra
         for i in range(len(pos)):
             self.assertTrue( s[pos[i]] == magic[i] )
@@ -754,7 +751,7 @@ class StorageNumpyTest(unittest.TestCase):
         self.assertTrue(np.array_equal(n,s))
 
         del s
-        s = StorageNumpy(None, "test_setitem_blocks", flush=True)
+        s = StorageNumpy(None, "test_setitem_blocks")
         # Modify memory content (not loaded) with different magic values
         for i in range(len(pos)):
             s[pos[i]] = magic[len(pos)-1-i]
@@ -819,13 +816,13 @@ class StorageNumpyTest(unittest.TestCase):
         # Loading ALL elements must make the object full loaded
         del s
         s = StorageNumpy(None, "test_loaded")
-        for i in s.shape[0]:
+        for i in range(s.shape[0]):
             x = s[i,:]
         self.assertTrue(s._numpy_full_loaded is True)
 
         del s
         s = StorageNumpy(None, "test_loaded")
-        for i in s.shape[1]:
+        for i in range(s.shape[1]):
             x = s[:,i]
         self.assertTrue(s._numpy_full_loaded is True)
 
