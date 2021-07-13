@@ -952,6 +952,8 @@ class StorageNumpy(IStorage, np.ndarray):
                 self._hcache_arrow.store_numpy_slices([sid], self._build_args.metas, [self._get_base_array()], # CHECK metas del padre i memoria tienen que coincidir
                                                 None,
                                                 StorageNumpy.COLUMN_MODE)
+            self._row_elem = self._hcache.get_elements_per_row(sid, self._build_args.metas)
+            self._calculate_nblocks(self._build_args.metas)
         log.debug("_persist_data: before store meta")
         StorageNumpy._store_meta(self._build_args)
         log.debug("_persist_data: before get_elements_per_row")
