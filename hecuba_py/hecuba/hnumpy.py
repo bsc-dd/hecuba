@@ -375,7 +375,7 @@ class StorageNumpy(IStorage, np.ndarray):
 
         #print("JJ name = ", name, flush=True)
         #print("JJ _name = ", obj._name, flush=True)
-        log.debug("input_array=%s name=%s storage_id=%s ENTER ",input_array is not None, name, storage_id)
+        log.debug("CREATED NEW StorageNumpy storage_id=%s with input_array=%s name=%s ", storage_id, input_array is not None, name)
         return obj
 
     def __init__(self, input_array=None, name=None, storage_id=None, **kwargs):
