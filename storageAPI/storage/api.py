@@ -53,6 +53,11 @@ def start_task(params):
     Args:
         params: a list of objects (Blocks, StorageObjs, strings, ints, ...)
     """
+    #f = open("/home/bsc31/bsc31226/compssDEBUG.txt", "a")
+    #f.write("JCOSTA ENTER =================\n")
+    #f.write("params      = {}\n".format([(i.name, i.direction,type(i.content)) for i in params]))
+    #f.write("JCOSTA ENTER =================\n")
+    #f.close()
     pass
 
 
@@ -63,6 +68,23 @@ def end_task(params):
     Args:
         params: a list of objects (Blocks, StorageObjs, strings, ints, ...)
     """
+    import builtins;
+
+    #f = open("/home/bsc31/bsc31226/compssDEBUG.txt", "a")
+    ##print("JCOSTA =================", flush=True)
+    ##print("params_type = {}".format(type(params)), flush=True)
+    ##print("params_len  = {}".format(len(params)), flush=True)
+    ##print("params      = {}".format([type(i) for i in params]), flush=True)
+    ##print(builtins.__dir__(), flush=True)
+    ##print("JCOSTA =================", flush=True)
+    #f.write("JCOSTA =================\n")
+    #f.write("params_type = {}\n".format(type(params)))
+    #f.write("params_len  = {}\n".format(len(params)))
+    #f.write("params      = {}\n".format([i for i in params]))
+    #f.write("params      = {}\n".format([(i.name, i.direction,type(i.content)) for i in params]))
+    #f.write("builtins dir = {}\n".format(builtins.__dir__()))
+    #f.write("JCOSTA =================\n")
+    #f.close()
     pass
 
 
