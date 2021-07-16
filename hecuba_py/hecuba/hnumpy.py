@@ -1034,18 +1034,19 @@ class StorageNumpy(IStorage, np.ndarray):
 
         base_numpy = self._get_base_array()
         if self._is_persistent and len(self.shape) and self._numpy_full_loaded is False:
-            metas = self._base_metas
-            log.debug(" UFUNC({}) load_block from {} ".format(method, metas))
-            if StorageNumpy._arrow_enabled(base_numpy):
-                load_method = StorageNumpy.COLUMN_MODE
-                self._hcache_arrow.load_numpy_slices([self._build_args.base_numpy], metas, [base_numpy],
-                                           None,
-                                           load_method)
-            else:
-                load_method = StorageNumpy.BLOCK_MODE
-                self._hcache.load_numpy_slices([self._build_args.base_numpy], metas, [base_numpy],
-                                           None,
-                                           load_method)
+            StorageNumpy._preload_memory(self)
+            #metas = self._base_metas
+            #log.debug(" UFUNC({}) load_block from {} ".format(method, metas))
+            #if StorageNumpy._arrow_enabled(base_numpy):
+            #    load_method = StorageNumpy.COLUMN_MODE
+            #    self._hcache_arrow.load_numpy_slices([self._build_args.base_numpy], metas, [base_numpy],
+            #                               None,
+            #                               load_method)
+            #else:
+            #    load_method = StorageNumpy.BLOCK_MODE
+            #    self._hcache.load_numpy_slices([self._build_args.base_numpy], metas, [base_numpy],
+            #                               None,
+            #                               load_method)
         results = super(StorageNumpy, self).__array_ufunc__(ufunc, method,
                                                             *args, **kwargs)
         if results is NotImplemented:
@@ -1057,9 +1058,9 @@ class StorageNumpy(IStorage, np.ndarray):
         if self._is_persistent and len(self.shape):
             readonly_methods = ['mean', 'sum', 'reduce'] #methods that DO NOT modify the original memory, and there is NO NEED to store it
             if method not in readonly_methods:
-
+                block_coord = self._select_blocks(self._build_args.view_serialization)
                 self._hcache.store_numpy_slices([self._build_args.base_numpy], self._base_metas, [base_numpy],
-                                                None,
+                                                block_coord,
                                                 StorageNumpy.BLOCK_MODE)
 
         if ufunc.nout == 1:
