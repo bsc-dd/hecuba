@@ -1112,7 +1112,7 @@ class StorageNumpy(IStorage, np.ndarray):
         """
         srcA = a
         if isinstance(a, StorageNumpy) and a._is_persistent and not a._numpy_full_loaded:
-            log.debug(" DOT: sid = {} ".format(a.storage_id))
+            log.debug(" PRELOAD: sid = {} ".format(a.storage_id))
             srcA = a[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
         return srcA
 
