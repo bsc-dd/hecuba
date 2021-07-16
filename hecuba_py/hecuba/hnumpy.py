@@ -321,6 +321,8 @@ class StorageNumpy(IStorage, np.ndarray):
                 istorage_metas[0].name, my_metas, istorage_metas[0].block_id, base_numpy,
                 myview,
                 istorage_metas[0].tokens)
+        if obj.is_columnar(myview):
+            obj._persistent_columnar = True
         obj._row_elem = obj._hcache.get_elements_per_row(storage_id, metas_to_reserve)
         obj._calculate_nblocks(my_metas)
         return obj
