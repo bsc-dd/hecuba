@@ -4,6 +4,7 @@
 #define MAX_ERRORS 10
 
 #include <thread>
+#include <mutex>
 #include <atomic>
 #include <map>
 
@@ -30,6 +31,8 @@ public:
 
     void write_to_cassandra(void *keys, void *values);
 
+    void wait_writes_completion(void);
+
     void set_error_occurred(std::string error, const void *keys, const void *values);
 
     const TableMetadata *get_metadata() {
@@ -48,6 +51,12 @@ private:
     TupleRowFactory *v_factory;
 
     tbb::concurrent_bounded_queue <std::pair<const TupleRow *, const TupleRow *>> data;
+    struct Par {
+        std::mutex m;
+        bool is_in_flight;
+        const void ** data;
+    };
+    std::map<CassFuture*, struct Par *> in_flight_writes;
 
     uint32_t max_calls;
     std::atomic<uint32_t> ncallbacks;
@@ -58,6 +67,7 @@ private:
     TimestampGenerator timestamp_gen;
 
     static void callback(CassFuture *future, void *ptr);
+    static void _callback(CassFuture *future, void *ptr);
 };
 
 

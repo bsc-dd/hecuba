@@ -991,6 +991,12 @@ class StorageNumpy(IStorage, np.ndarray):
         config.session.execute(query2)
         self.storage_id = None
 
+    def sync(self):
+        """
+            Wait for completion of data persisting operations
+        """
+        self._hcache.wait()
+
     def __iter__(self):
         if self._numpy_full_loaded:
             return iter(self.view(np.ndarray))
@@ -1001,9 +1007,13 @@ class StorageNumpy(IStorage, np.ndarray):
         return item in self.view(np.ndarray)
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        log.debug(" UFUNC method({}) ".format(method))
+        log.debug(" UFUNC self sid ({}) ".format(getattr(self,'storage_id',None)))
         args = []
         for input_ in inputs:
+            log.debug(" UFUNC input loop sid={}".format(getattr(input_,'storage_id',None)))
             if isinstance(input_, StorageNumpy):
+                StorageNumpy._preload_memory(input_)
                 args.append(input_.view(np.ndarray))
             else:
                 args.append(input_)
@@ -1012,7 +1022,9 @@ class StorageNumpy(IStorage, np.ndarray):
         if outputs:
             out_args = []
             for output in outputs:
+                log.debug(" UFUNC output loop sid={}".format(getattr(output,'storage_id',None)))
                 if isinstance(output, StorageNumpy):
+                    StorageNumpy._preload_memory(output)
                     out_args.append(output.view(np.ndarray))
                 else:
                     out_args.append(output)
@@ -1021,9 +1033,8 @@ class StorageNumpy(IStorage, np.ndarray):
             outputs = (None,) * ufunc.nout
 
         base_numpy = self._get_base_array()
-        #metas = None
-        metas = self._base_metas
         if self._is_persistent and len(self.shape) and self._numpy_full_loaded is False:
+            metas = self._base_metas
             log.debug(" UFUNC({}) load_block from {} ".format(method, metas))
             if StorageNumpy._arrow_enabled(base_numpy):
                 load_method = StorageNumpy.COLUMN_MODE
@@ -1047,7 +1058,7 @@ class StorageNumpy(IStorage, np.ndarray):
             readonly_methods = ['mean', 'sum', 'reduce'] #methods that DO NOT modify the original memory, and there is NO NEED to store it
             if method not in readonly_methods:
 
-                self._hcache.store_numpy_slices([self._build_args.base_numpy], metas, [base_numpy],
+                self._hcache.store_numpy_slices([self._build_args.base_numpy], self._base_metas, [base_numpy],
                                                 None,
                                                 StorageNumpy.BLOCK_MODE)
 

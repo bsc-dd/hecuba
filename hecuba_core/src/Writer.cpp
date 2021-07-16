@@ -87,8 +87,28 @@ void Writer::flush_elements() {
     }
 }
 
+void Writer::wait_writes_completion(void) {
+    uint32_t waited = 0;
+    std::cout<< "Writer::wait_writes_completion * Waiting for "<< in_flight_writes.size() << " writes "<< std::endl;
+    for (auto & it : in_flight_writes) {
+        it.second->m.lock();
+        if (it.second->is_in_flight) {
+            it.second->is_in_flight = false;
+            it.second->m.unlock();
+            waited ++;
+            cass_future_wait(it.first);
+            const void **data = reinterpret_cast<const void **>(it.second->data);
+            assert(data != NULL && data[0] != NULL);
+            Writer *W = (Writer *) data[0];
+            W->_callback(it.first, data);
+        } else {
+            it.second->m.unlock();
+        }   
+    }
+    std::cout<< "Writer::wait_writes_completion * NO MORE PENDING OPERATIONS("<<waited<<")"<<std::endl;
+}
 
-void Writer::callback(CassFuture *future, void *ptr) {
+void Writer::_callback(CassFuture *future, void *ptr) {
     void **data = reinterpret_cast<void **>(ptr);
     assert(data != NULL && data[0] != NULL);
     Writer *W = (Writer *) data[0];
@@ -107,6 +127,25 @@ void Writer::callback(CassFuture *future, void *ptr) {
         W->call_async();
     }
     free(data);
+    cass_future_free(future);
+}
+
+void Writer::callback(CassFuture *future, void *ptr) {
+    void **data = reinterpret_cast<void **>(ptr);
+    assert(data != NULL && data[0] != NULL);
+    Writer *W = (Writer *) data[0];
+    auto removed = W->in_flight_writes.find(future);
+    if (removed != W->in_flight_writes.end()) {
+        removed->second->m.lock();
+        if (removed->second->is_in_flight) {
+            removed->second->is_in_flight = false;
+            removed->second->m.unlock();
+            W->_callback(future,ptr);
+        }
+        else {
+            removed->second->m.unlock();
+        }
+    }
 }
 
 
@@ -140,8 +179,14 @@ void Writer::set_error_occurred(std::string error, const void *keys_p, const voi
     data[0] = this;
     data[1] = keys_p;
     data[2] = values_p;
+
+    struct Par *p = new Par();
+    p->is_in_flight = true;
+    p-> data        = data;
+    in_flight_writes[query_future] = p;
     cass_future_set_callback(query_future, callback, data);
-    cass_future_free(query_future);
+    // as we are using query_future to enable syncronization we cannot deallocate it until the query ends
+    //cass_future_free(query_future);
 }
 
 
@@ -191,8 +236,13 @@ void Writer::call_async() {
     data[1] = item.first;
     data[2] = item.second;
 
+    struct Par *p = new Par();
+    p->is_in_flight = true;
+    p-> data        = data;
+    in_flight_writes[query_future] = p;
     cass_future_set_callback(query_future, callback, data);
-    cass_future_free(query_future);
+    // as we are using query_future to enable syncronization we cannot deallocate it until the query ends
+    //  cass_future_free(query_future);
 
 }
 

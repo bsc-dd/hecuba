@@ -87,6 +87,10 @@ const void CacheTable::flush_elements() const {
     this->writer->flush_elements();
 }
 
+const void CacheTable::wait_elements() const {
+    this->writer->wait_writes_completion();
+}
+
 void CacheTable::put_crow(const TupleRow *keys, const TupleRow *values) {
     this->writer->write_to_cassandra(keys, values);
     if (myCache) this->myCache->add(*keys, values); //Inserts if not present, otherwise replaces

@@ -633,6 +633,23 @@ static PyObject *store_numpy_slices(HNumpyStore *self, PyObject *args) {
     Py_RETURN_NONE;
 }
 
+static PyObject *wait(HNumpyStore *self, PyObject *args) {
+    try {
+        self->NumpyDataStore->wait_stores();
+    }
+    catch (TypeErrorException &e) {
+        PyErr_SetString(PyExc_TypeError, e.what());
+        return NULL;
+    }
+    catch (std::exception &e) {
+        std::string err_msg = "Waiting write of elements failed with " + std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
 /***
  * Receives a uuid (storage_id for the numpy), metadatas, a pointer to the
  * numpy base address where data will be saved, and a list of coordinates/columns to
@@ -772,6 +789,7 @@ static int hnumpy_store_init(HNumpyStore *self, PyObject *args, PyObject *kwds) 
 static PyMethodDef hnumpy_store_type_methods[] = {
         {"allocate_numpy",       (PyCFunction) allocate_numpy,       METH_VARARGS, NULL},
         {"store_numpy_slices",   (PyCFunction) store_numpy_slices,   METH_VARARGS, NULL},
+        {"wait",                 (PyCFunction) wait,                 METH_VARARGS, NULL},
         {"load_numpy_slices",    (PyCFunction) load_numpy_slices,    METH_VARARGS, NULL},
         {"get_elements_per_row", (PyCFunction) get_elements_per_row, METH_VARARGS, NULL},
         {"get_cluster_ids",      (PyCFunction) get_cluster_ids,      METH_VARARGS, NULL},

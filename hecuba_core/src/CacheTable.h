@@ -28,6 +28,7 @@ public:
     }
 
     const void flush_elements() const;
+    const void wait_elements() const ;
 
     /*** TupleRow ops ***/
 

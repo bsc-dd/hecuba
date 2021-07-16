@@ -44,6 +44,7 @@ public:
     void store_numpy_into_cas_by_cols_as_arrow(const uint64_t *storage_id, ArrayMetadata &metadata, void *data, std::vector<uint32_t> &cols) const;
     std::list<int32_t> get_cluster_ids(ArrayMetadata &metadata) const;
     std::list<std::tuple<uint64_t, uint32_t, uint32_t, std::vector<uint32_t>>> get_block_ids(ArrayMetadata &metadata) const;
+    void wait_stores(void) const;
 
 protected:
 
