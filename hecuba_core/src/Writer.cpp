@@ -79,35 +79,23 @@ void Writer::set_timestamp_gen(TimestampGenerator *time_gen) {
     this->timestamp_gen = time_gen;
 }
 
-
+// flush all the pending write requests: send them to Cassandra driver
 void Writer::flush_elements() {
-    while (!data.empty() || ncallbacks > 0) {
-        if (ncallbacks < max_calls) {
-            ncallbacks++;
-            call_async();
-        } else std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    //std::cout<< "Writer::flush_elements * Waiting for "<< data.size() << " Pending "<<ncallbacks<<" callbacks" <<std::endl;
+    while(data.size()>0){
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
+    //std::cout<< "Writer::flush_elements2* Waiting for "<< data.size() << " Pending "<<ncallbacks<<" callbacks" <<std::endl;
 }
 
+// wait for callbacks execution for all sent write requests
 void Writer::wait_writes_completion(void) {
-    uint32_t waited = 0;
-    std::cout<< "Writer::wait_writes_completion * Waiting for "<< in_flight_writes.size() << " writes "<< std::endl;
-    for (auto & it : in_flight_writes) {
-        it.second->m.lock();
-        if (it.second->is_in_flight) {
-            it.second->is_in_flight = false;
-            it.second->m.unlock();
-            waited ++;
-            cass_future_wait(it.first);
-            const void **data = reinterpret_cast<const void **>(it.second->data);
-            assert(data != NULL && data[0] != NULL);
-            Writer *W = (Writer *) data[0];
-            W->_callback(it.first, data);
-        } else {
-            it.second->m.unlock();
-        }   
+    //std::cout<< "Writer::wait_writes_completion * Waiting for "<< data.size() << " Pending "<<ncallbacks<<" callbacks" <<" inflight"<<std::endl;
+    flush_elements();
+    while(ncallbacks>0) {
+        std::this_thread::yield();
     }
-    std::cout<< "Writer::wait_writes_completion * NO MORE PENDING OPERATIONS("<<waited<<")"<<std::endl;
+    //std::cout<< "Writer::wait_writes_completion2* Waiting for "<< data.size() << " Pending "<<ncallbacks<<" callbacks" <<" inflight"<<std::endl;
 }
 
 void Writer::_callback(CassFuture *future, void *ptr) {
