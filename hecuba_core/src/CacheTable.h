@@ -55,7 +55,7 @@ private:
     const CassPrepared *prepared_query, *delete_query;
 
     bool disable_timestamps;
-    TimestampGenerator timestamp_gen;
+    TimestampGenerator *timestamp_gen;
 
     //Key and Value copy constructed
     KVCache<TupleRow, TupleRow> *myCache;

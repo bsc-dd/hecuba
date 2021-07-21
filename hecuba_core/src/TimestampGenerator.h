@@ -6,6 +6,8 @@
 
 #include "ModuleException.h"
 
+#include <mutex>
+
 /***
  * Generates a monotonic strictly increasing timestamp.
  */
@@ -20,6 +22,7 @@ public:
 private:
 
     int64_t last;
+    std::mutex m;
 };
 
 

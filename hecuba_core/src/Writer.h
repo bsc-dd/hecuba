@@ -21,7 +21,7 @@ public:
 
     ~Writer();
 
-    void set_timestamp_gen(TimestampGenerator &time_gen);
+    void set_timestamp_gen(TimestampGenerator *time_gen);
 
     void call_async();
 
@@ -64,7 +64,7 @@ private:
     const TableMetadata *table_metadata;
 
     bool disable_timestamps;
-    TimestampGenerator timestamp_gen;
+    TimestampGenerator *timestamp_gen;
 
     static void callback(CassFuture *future, void *ptr);
     static void _callback(CassFuture *future, void *ptr);

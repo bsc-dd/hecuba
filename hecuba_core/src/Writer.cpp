@@ -58,7 +58,7 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
     this->max_calls = (uint32_t) max_callbacks;
     this->ncallbacks = 0;
     this->error_count = 0;
-    this->timestamp_gen = TimestampGenerator();
+    this->timestamp_gen = new TimestampGenerator();
 }
 
 
@@ -70,10 +70,12 @@ Writer::~Writer() {
     }
     delete (this->k_factory);
     delete (this->v_factory);
+    delete (this->timestamp_gen);
 }
 
 
-void Writer::set_timestamp_gen(TimestampGenerator &time_gen) {
+void Writer::set_timestamp_gen(TimestampGenerator *time_gen) {
+    delete(this->timestamp_gen);
     this->timestamp_gen = time_gen;
 }
 
@@ -192,7 +194,7 @@ void Writer::set_error_occurred(std::string error, const void *keys_p, const voi
 
 void Writer::write_to_cassandra(const TupleRow *keys, const TupleRow *values) {
     TupleRow *queued_keys = new TupleRow(keys);
-    if (!disable_timestamps) queued_keys->set_timestamp(timestamp_gen.next()); // Set write time
+    if (!disable_timestamps) queued_keys->set_timestamp(timestamp_gen->next()); // Set write time
 
     std::pair<const TupleRow *, const TupleRow *> item = std::make_pair(queued_keys, new TupleRow(values));
     data.push(item);

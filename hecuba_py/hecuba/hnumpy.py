@@ -682,7 +682,7 @@ class StorageNumpy(IStorage, np.ndarray):
                          {'cache_size': config.max_cache_size,
                           'writer_par': config.write_callbacks_number,
                           'write_buffer': config.write_buffer_size,
-                          'timestamped_writes': False})
+                          'timestamped_writes': True})
 
         return HNumpyStore(*hcache_params)
 
