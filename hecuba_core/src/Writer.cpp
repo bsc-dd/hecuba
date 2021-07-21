@@ -98,7 +98,7 @@ void Writer::wait_writes_completion(void) {
     //std::cout<< "Writer::wait_writes_completion2* Waiting for "<< data.size() << " Pending "<<ncallbacks<<" callbacks" <<" inflight"<<std::endl;
 }
 
-void Writer::_callback(CassFuture *future, void *ptr) {
+void Writer::callback(CassFuture *future, void *ptr) {
     void **data = reinterpret_cast<void **>(ptr);
     assert(data != NULL && data[0] != NULL);
     Writer *W = (Writer *) data[0];
@@ -114,30 +114,37 @@ void Writer::_callback(CassFuture *future, void *ptr) {
     } else {
         delete ((TupleRow *) data[1]);
         delete ((TupleRow *) data[2]);
-        W->call_async();
+        bool more_work = W->call_async();
+        if (!more_work) {
+            W->ncallbacks--;
+        }
     }
     free(data);
-    cass_future_free(future);
 }
 
-void Writer::callback(CassFuture *future, void *ptr) {
-    void **data = reinterpret_cast<void **>(ptr);
-    assert(data != NULL && data[0] != NULL);
-    Writer *W = (Writer *) data[0];
-    auto removed = W->in_flight_writes.find(future);
-    if (removed != W->in_flight_writes.end()) {
-        removed->second->m.lock();
-        if (removed->second->is_in_flight) {
-            removed->second->is_in_flight = false;
-            removed->second->m.unlock();
-            W->_callback(future,ptr);
-        }
-        else {
-            removed->second->m.unlock();
-        }
+
+void Writer::async_query_execute(const TupleRow *keys, const TupleRow *values) {
+
+    CassStatement *statement = cass_prepared_bind(prepared_query);
+
+    this->k_factory->bind(statement, keys, 0); //error
+    this->v_factory->bind(statement, values, this->k_factory->n_elements());
+
+    if (!this->disable_timestamps) {
+        cass_statement_set_timestamp(statement, keys->get_timestamp());
     }
-}
 
+    CassFuture *query_future = cass_session_execute(session, statement);
+    cass_statement_free(statement);
+
+    const void **data = (const void **) malloc(sizeof(void *) * 3);
+    data[0] = this;
+    data[1] = keys;
+    data[2] = values;
+
+    cass_future_set_callback(query_future, callback, data);
+    cass_future_free(query_future);
+}
 
 void Writer::set_error_occurred(std::string error, const void *keys_p, const void *values_p) {
     ++error_count;
@@ -154,29 +161,7 @@ void Writer::set_error_occurred(std::string error, const void *keys_p, const voi
     const TupleRow *values = (TupleRow *) values_p;
 
     /** write the data which hasn't been written successfully **/
-    CassStatement *statement = cass_prepared_bind(prepared_query);
-
-
-    this->k_factory->bind(statement, keys, 0);
-    this->v_factory->bind(statement, values, this->k_factory->n_elements());
-
-    if (!this->disable_timestamps) cass_statement_set_timestamp(statement, keys->get_timestamp());
-    CassFuture *query_future = cass_session_execute(session, statement);
-
-    cass_statement_free(statement);
-
-    const void **data = (const void **) malloc(sizeof(void *) * 3);
-    data[0] = this;
-    data[1] = keys_p;
-    data[2] = values_p;
-
-    struct Par *p = new Par();
-    p->is_in_flight = true;
-    p-> data        = data;
-    in_flight_writes[query_future] = p;
-    cass_future_set_callback(query_future, callback, data);
-    // as we are using query_future to enable syncronization we cannot deallocate it until the query ends
-    //cass_future_free(query_future);
+    async_query_execute(keys, values);
 }
 
 
@@ -185,10 +170,17 @@ void Writer::write_to_cassandra(const TupleRow *keys, const TupleRow *values) {
     if (!disable_timestamps) queued_keys->set_timestamp(timestamp_gen->next()); // Set write time
 
     std::pair<const TupleRow *, const TupleRow *> item = std::make_pair(queued_keys, new TupleRow(values));
+
+    ncallbacks_lock.lock();
     data.push(item);
     if (ncallbacks < max_calls) {
         ncallbacks++;
-        call_async();
+        ncallbacks_lock.unlock();
+        if (!call_async()) {
+            ncallbacks --;
+        }
+    }else{
+        ncallbacks_lock.unlock();
     }
 }
 
@@ -200,39 +192,17 @@ void Writer::write_to_cassandra(void *keys, void *values) {
     delete (v);
 }
 
-void Writer::call_async() {
+/* Returns True if there is still work to do */
+bool Writer::call_async() {
 
     //current write data
     std::pair<const TupleRow *, const TupleRow *> item;
     if (!data.try_pop(item)) {
-        ncallbacks--;
-        return;
+        return false;
     }
 
-    CassStatement *statement = cass_prepared_bind(prepared_query);
+    async_query_execute(item.first, item.second);
 
-    this->k_factory->bind(statement, item.first, 0); //error
-    this->v_factory->bind(statement, item.second, this->k_factory->n_elements());
-
-    if (!this->disable_timestamps) {
-        cass_statement_set_timestamp(statement, item.first->get_timestamp());
-    }
-
-    CassFuture *query_future = cass_session_execute(session, statement);
-    cass_statement_free(statement);
-
-    const void **data = (const void **) malloc(sizeof(void *) * 3);
-    data[0] = this;
-    data[1] = item.first;
-    data[2] = item.second;
-
-    struct Par *p = new Par();
-    p->is_in_flight = true;
-    p-> data        = data;
-    in_flight_writes[query_future] = p;
-    cass_future_set_callback(query_future, callback, data);
-    // as we are using query_future to enable syncronization we cannot deallocate it until the query ends
-    //  cass_future_free(query_future);
-
+    return true;
 }
 

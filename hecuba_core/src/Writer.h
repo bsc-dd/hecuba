@@ -23,7 +23,7 @@ public:
 
     void set_timestamp_gen(TimestampGenerator *time_gen);
 
-    void call_async();
+    bool call_async();
 
     void flush_elements();
 
@@ -51,23 +51,19 @@ private:
     TupleRowFactory *v_factory;
 
     tbb::concurrent_bounded_queue <std::pair<const TupleRow *, const TupleRow *>> data;
-    struct Par {
-        std::mutex m;
-        bool is_in_flight;
-        const void ** data;
-    };
-    std::map<CassFuture*, struct Par *> in_flight_writes;
 
     uint32_t max_calls;
     std::atomic<uint32_t> ncallbacks;
+    std::mutex ncallbacks_lock;
     std::atomic<uint32_t> error_count;
     const TableMetadata *table_metadata;
 
     bool disable_timestamps;
     TimestampGenerator *timestamp_gen;
 
+
+    void async_query_execute(const TupleRow *keys, const TupleRow *values);
     static void callback(CassFuture *future, void *ptr);
-    static void _callback(CassFuture *future, void *ptr);
 };
 
 
