@@ -982,12 +982,7 @@ class StorageNumpy(IStorage, np.ndarray):
         """
         super().delete_persistent()
 
-        clusters_query = "SELECT cluster_id FROM %s WHERE storage_id = %s ALLOW FILTERING;" % (
-            self._get_name(), self.storage_id)
-        clusters = config.session.execute(clusters_query)
-        clusters = ",".join([str(cluster[0]) for cluster in clusters])
-
-        query = "DELETE FROM %s WHERE storage_id = %s AND cluster_id in (%s);" % (self._get_name(), self.storage_id, clusters)
+        query = "DROP TABLE %s;" %(self._get_name())
         query2 = "DELETE FROM hecuba.istorage WHERE storage_id = %s;" % self.storage_id
         log.debug("DELETE PERSISTENT: %s", query)
         config.session.execute(query)
