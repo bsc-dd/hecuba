@@ -157,8 +157,6 @@ class StorageNumpy(IStorage, np.ndarray):
             resultado._numpy_full_loaded = _parent_numpy_full_loaded # Due to the HACK, we need to keep the _numpy_full_loaded status
             resultado._build_args = resultado._build_args._replace(tokens=token_split)
 
-            resultado.getID() # Explicit call to persist the data
-
             yield resultado
 #            ################
 ##            ccs: Index of blocks
@@ -201,8 +199,6 @@ class StorageNumpy(IStorage, np.ndarray):
             if mytokens is not None:
                 resultado._build_args = resultado._build_args._replace(tokens=mytokens[cluster_id//self._row_elem])
 
-            resultado.getID() # Explicit call to persist the data
-
             yield resultado
 
     def _split_by_rows(self, tokens):
@@ -221,8 +217,6 @@ class StorageNumpy(IStorage, np.ndarray):
             resultado = super(StorageNumpy, self).__getitem__(slc) # Generate view in memory
             resultado._numpy_full_loaded = _parent_numpy_full_loaded # Due to the HACK, we need to keep the _numpy_full_loaded status
             # TOKENS are ignored in this case
-
-            resultado.getID() # Explicit call to persist the data
 
             yield resultado
 

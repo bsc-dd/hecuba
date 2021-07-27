@@ -602,6 +602,7 @@ class StorageNumpyTest(unittest.TestCase):
         splits = 0
         for i in s.split():
             sid = i.storage_id
+            i.getID() # Store split in hecuba.istorage
             del i
             i = StorageNumpy(None,None,sid)
             # Assuming a BLOCK_SIZE of 4096!! FIXME use an environment variable!
@@ -622,6 +623,7 @@ class StorageNumpyTest(unittest.TestCase):
         splits = 0
         for i in s.split():
             sid = i.storage_id
+            i.getID() # Store split in hecuba.istorage
             del i
             i = StorageNumpy(None,None,sid)
             # Assuming a BLOCK_SIZE of 4096!! FIXME use an environment variable!
