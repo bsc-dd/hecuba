@@ -35,12 +35,14 @@ class StorageNumpy(IStorage, np.ndarray):
         :return: Storage_id as str
         """
         sid = super().getID()
-        if sid != 'None' and self._persistance_needed:
-            # build args should contain the right metas: calculate them at getitem
-            # we should avoid the store meta for the SN that has been persisted through a make_persistent.
-            # We mark it as persistentance_needed=true at getitem and at this point create the entry
-            StorageNumpy._store_meta(self._build_args)
-            self._persistance_needed = False
+        if sid != 'None':
+            if self._persistance_needed:
+                # build args should contain the right metas: calculate them at getitem
+                # we should avoid the store meta for the SN that has been persisted through a make_persistent.
+                # We mark it as persistentance_needed=true at getitem and at this point create the entry
+                StorageNumpy._store_meta(self._build_args)
+                self._persistance_needed = False
+            self.sync() # Data may be needed in another node, flush data
         return sid
 
 
@@ -974,6 +976,7 @@ class StorageNumpy(IStorage, np.ndarray):
         """
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
+        self.sync() # TODO: we should discard pending writes
         super().delete_persistent()
 
         query = "DROP TABLE %s;" %(self._get_name())

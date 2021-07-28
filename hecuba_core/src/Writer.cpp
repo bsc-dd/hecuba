@@ -59,11 +59,13 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
     this->ncallbacks = 0;
     this->error_count = 0;
     this->timestamp_gen = new TimestampGenerator();
+    this->lazy_write_enabled = true;
+    this->dirty_blocks = new tbb::concurrent_hash_map <const TupleRow *, const TupleRow *, Writer::HashCompare >();
 }
 
 
 Writer::~Writer() {
-    flush_elements();
+    wait_writes_completion(); // WARNING! It is necessary to wait for ALL CALLBACKS to finish, because the 'data' structure required by the callback will dissapear with this destructor
     if (this->prepared_query != NULL) {
         cass_prepared_free(this->prepared_query);
         prepared_query = NULL;
@@ -71,6 +73,7 @@ Writer::~Writer() {
     delete (this->k_factory);
     delete (this->v_factory);
     delete (this->timestamp_gen);
+    delete (this->dirty_blocks);
 }
 
 
@@ -79,10 +82,48 @@ void Writer::set_timestamp_gen(TimestampGenerator *time_gen) {
     this->timestamp_gen = time_gen;
 }
 
+/* Queue a new pair {keys, values} into the 'data' queue to be executed later.
+ * Args are copied, therefore they may be deleted after calling this method. */
+void Writer::queue_async_query( const TupleRow *keys, const TupleRow *values) {
+    TupleRow *queued_keys = new TupleRow(keys);
+    if (!disable_timestamps) queued_keys->set_timestamp(timestamp_gen->next()); // Set write time
+    std::pair<const TupleRow *, const TupleRow *> item = std::make_pair(queued_keys, new TupleRow(values));
+
+    //std::cout<< "  Writer::flushing item created pair"<<std::endl;
+    ncallbacks_lock.lock();
+    data.push(item);
+    //std::cout<< "  Writer::flushing item pushed into data"<<std::endl;
+    if (ncallbacks < max_calls) {
+        //std::cout<< "  Writer::flushing item call_async "<<std::endl;
+        ncallbacks++;
+        ncallbacks_lock.unlock();
+        if (!call_async()) {
+            ncallbacks --;
+        }
+    }else{
+        ncallbacks_lock.unlock();
+    }
+}
+
+void Writer::flush_dirty_blocks() {
+    //std::cout<< "Writer::flush_dirty_blocks "<<std::endl;
+    for (auto x : *dirty_blocks) {
+        //std::cout<< "  Writer::flushing item "<<std::endl;
+        queue_async_query(x.first, x.second);
+        delete(x.first);
+        delete(x.second);
+    }
+    dirty_blocks->clear();
+    //std::cout<< "Writer::flush_dirty_blocks FLUSHED"<<std::endl;
+}
+
 // flush all the pending write requests: send them to Cassandra driver
 void Writer::flush_elements() {
     //std::cout<< "Writer::flush_elements * Waiting for "<< data.size() << " Pending "<<ncallbacks<<" callbacks" <<std::endl;
-    while(data.size()>0){
+    //Move dirty blocks to 'data' first
+    flush_dirty_blocks();
+
+    while(!data.empty()){
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     //std::cout<< "Writer::flush_elements2* Waiting for "<< data.size() << " Pending "<<ncallbacks<<" callbacks" <<std::endl;
@@ -166,21 +207,28 @@ void Writer::set_error_occurred(std::string error, const void *keys_p, const voi
 
 
 void Writer::write_to_cassandra(const TupleRow *keys, const TupleRow *values) {
-    TupleRow *queued_keys = new TupleRow(keys);
-    if (!disable_timestamps) queued_keys->set_timestamp(timestamp_gen->next()); // Set write time
 
-    std::pair<const TupleRow *, const TupleRow *> item = std::make_pair(queued_keys, new TupleRow(values));
+    if (lazy_write_enabled) {
+        //put into dirty_blocks. Skip the repeated 'keys' requests replacing the value.
+        tbb::concurrent_hash_map <const TupleRow*, const TupleRow*, Writer::HashCompare>::accessor a;
 
-    ncallbacks_lock.lock();
-    data.push(item);
-    if (ncallbacks < max_calls) {
-        ncallbacks++;
-        ncallbacks_lock.unlock();
-        if (!call_async()) {
-            ncallbacks --;
+        if (!dirty_blocks->find(a, keys)) {
+            const TupleRow* k = new TupleRow(keys);
+            const TupleRow* v = new TupleRow(values);
+            if (dirty_blocks->insert(a, k)) {
+                a->second = v;
+            }
+        } else { // Replace value
+            delete a->second;
+            const TupleRow* v = new TupleRow(values);
+            a->second = v;
         }
-    }else{
-        ncallbacks_lock.unlock();
+
+        if (dirty_blocks->size() > max_calls) {//if too many dirty_blocks
+            flush_dirty_blocks();
+        }
+    } else {
+        queue_async_query(keys, values);
     }
 }
 

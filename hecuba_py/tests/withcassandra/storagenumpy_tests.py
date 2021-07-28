@@ -64,7 +64,7 @@ class StorageNumpyTest(unittest.TestCase):
             # Build array and store
             typed_array = StorageNumpy(base_array, tablename)
             self.assertTrue(np.array_equal(typed_array, base_array))
-
+            typed_array.sync() # Flush values to cassandra
             # Load array
             typed_array = StorageNumpy(None, tablename)
             self.assertTrue(np.allclose(typed_array, base_array))
@@ -81,6 +81,8 @@ class StorageNumpyTest(unittest.TestCase):
             typed_array = StorageNumpy(base_array.astype(typecode), tablename)
             self.assertTrue(np.array_equal(typed_array, base_array.astype(typecode)))
 
+            typed_array.sync() # Flush values to cassandra
+
             typed_array = StorageNumpy(None, tablename)
             self.assertTrue(np.allclose(typed_array, base_array.astype(typecode)))
             typed_array.delete_persistent()
@@ -91,6 +93,8 @@ class StorageNumpyTest(unittest.TestCase):
                 pass
             typed_array = StorageNumpy(base_array.astype(typecode), tablename)
             self.assertTrue(np.allclose(typed_array, base_array.astype(typecode)))
+
+            typed_array.sync() # Flush values to cassandra
 
             typed_array = StorageNumpy(None, tablename)
             self.assertTrue(np.allclose(typed_array, base_array.astype(typecode)))
@@ -103,6 +107,7 @@ class StorageNumpyTest(unittest.TestCase):
         base_array = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim))
         casted = StorageNumpy(input_array=base_array, name="test_read_all")
 
+        casted.sync() # Flush values to cassandra
         test_numpy = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim))
         casted = StorageNumpy(name="test_read_all")
         chunk = casted[slice(None, None, None)]
@@ -116,6 +121,8 @@ class StorageNumpyTest(unittest.TestCase):
 
         base_array = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim, elem_dim, elem_dim))
         casted = StorageNumpy(input_array=base_array, name="test_5d_read_all")
+
+        casted.sync() # Flush values to cassandra
 
         test_numpy = np.arange(nelem).reshape((elem_dim, elem_dim, elem_dim, elem_dim, elem_dim))
         casted = StorageNumpy(name="test_5d_read_all")
@@ -157,6 +164,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_get_subarray(self):
         base = np.arange(8 * 8 * 4).reshape((8, 8, 4))
         hecu_p = StorageNumpy(input_array=base, name='test_get_subarray')
+        hecu_p.sync() # Flush values to cassandra
         hecu_r2 = StorageNumpy(name="test_get_subarray")
         res = hecu_r2[:3, :2]
         sum = res.sum()
@@ -172,6 +180,7 @@ class StorageNumpyTest(unittest.TestCase):
         res = base[6:7, 4:]
         self.assertTrue(np.array_equal(res, res_hecu))
 
+        hecu.sync() # Flush values to cassandra
         hecu = StorageNumpy(name="test_slicing_3d")
         res_hecu = hecu[6:7, 4:]
         self.assertTrue(np.array_equal(res, res_hecu))
@@ -191,6 +200,8 @@ class StorageNumpyTest(unittest.TestCase):
             res_hecu = hecu[select]
             res = base[select]
             self.assertTrue(np.array_equal(res, res_hecu))
+
+            hecu.sync() # Flush values to cassandra
 
             hecu = StorageNumpy(name="test_slicing_ndims")
             res_hecu = hecu[select]
@@ -252,6 +263,7 @@ class StorageNumpyTest(unittest.TestCase):
         hecu_p = StorageNumpy(input_array=base, name='test_assign_slice')
         sub_hecu = hecu_p[:2, 3:]
         sub_hecu[0][2:] = 0
+        hecu_p.sync() # Flush values to cassandra
         hecu_p_load = StorageNumpy(name="test_assign_slice")
         rep = repr(hecu_p_load)
         self.assertIsInstance(rep, str)
@@ -267,6 +279,7 @@ class StorageNumpyTest(unittest.TestCase):
         hecu_p = StorageNumpy(input_array=base, name='test_assign_element')
         sub_hecu = hecu_p[:2, 3:]
         sub_hecu[0][1][0] = 0
+        hecu_p.sync()
         hecu_p_load = StorageNumpy(name="test_assign_element")
         rep = repr(hecu_p_load)
         self.assertIsInstance(rep, str)
@@ -280,6 +293,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_load_2_dif_clusters_same_instance(self):
         base = np.arange(50 * 50).reshape((50, 50))
         hecu_p = StorageNumpy(input_array=base, name='load_2_clustrs_same_inst')
+        hecu_p.sync() # Flush values to cassandra
         hecu_p_load = StorageNumpy(name="load_2_clustrs_same_inst")
         hecu_p_load[0:1, 0:1]
         self.assertTrue(np.array_equal(hecu_p_load[40:50, 40:50], base[40:50, 40:50]))
@@ -297,8 +311,10 @@ class StorageNumpyTest(unittest.TestCase):
 
         data = StorageNumpy(input_array=x, name="test_split_by_rows")
 
+        data.sync() # Flush values to cassandra
         for i, chunk in enumerate(data.np_split(block_size=(bn, bm))):
             storage_id = chunk.storage_id
+            chunk.sync() #Flush data
             del chunk
             chunk = getByID(storage_id)
             self.assertTrue(np.array_equal(list(chunk), blocks[i]))
@@ -317,9 +333,10 @@ class StorageNumpyTest(unittest.TestCase):
             blocks.append(row)
 
         data = StorageNumpy(input_array=x, name="test_split_by_columns")
-
+        data.sync() # Flush values to cassandra
         for i, chunk in enumerate(data.np_split(block_size=(bn, bm))):
             storage_id = chunk.storage_id
+            chunk.sync() #Flush data
             del chunk
             chunk = getByID(storage_id)
             self.assertTrue(np.array_equal(list(chunk), blocks[i]))
@@ -337,8 +354,10 @@ class StorageNumpyTest(unittest.TestCase):
 
         data = StorageNumpy(input_array=x, name="test_split_rows_and_columns")
 
+        data.sync() # Flush values to cassandra
         for i, chunk in enumerate(data.np_split(block_size=(bn, bm))):
             storage_id = chunk.storage_id
+            chunk.sync() #Flush data
             del chunk
             chunk = getByID(storage_id)
             self.assertTrue(np.array_equal(list(chunk), blocks[i]))
@@ -356,8 +375,10 @@ class StorageNumpyTest(unittest.TestCase):
 
         data = StorageNumpy(input_array=x, name="test_split_already_persistent")
 
+        data.sync() # Flush values to cassandra
         for i, chunk in enumerate(data.np_split(block_size=(bn, bm))):
             storage_id = chunk.storage_id
+            chunk.sync() #Flush data
             del chunk
             chunk = getByID(storage_id)
             self.assertTrue(np.array_equal(list(chunk), blocks[i]))
@@ -370,6 +391,7 @@ class StorageNumpyTest(unittest.TestCase):
 
         for i, chunk in enumerate(data.np_split(block_size=(bn, bm))):
             storage_id = chunk.storage_id
+            chunk.sync() #Flush data
             del chunk
             chunk = getByID(storage_id)
             self.assertTrue(np.array_equal(list(chunk), blocks[i]))
@@ -512,6 +534,7 @@ class StorageNumpyTest(unittest.TestCase):
         n = np.arange(2*180).reshape(2,180)
         s = StorageNumpy(n, "test_columnar_access")
 
+        s.sync() # Flush values to cassandra
         del s
 
         s = StorageNumpy(None, "test_columnar_access")
@@ -524,6 +547,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_row_access(self):
         n = np.arange(64*128).reshape(64,128) # A matrix with "some" columns
         s = StorageNumpy(n, "test_row_access")
+        s.sync() # Flush values to cassandra
         del s
         s = StorageNumpy(None, "test_row_access")
         for i in range(0,64):
@@ -541,6 +565,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_slice_after_load(self):
         n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
         s = StorageNumpy(n, "test_slice_after_load")
+        s.sync() # Flush values to cassandra
         del s
         s = StorageNumpy(None, "test_slice_after_load")
         tmp = s[0,110:150]  # Doing an slice on an unloaded numpy
@@ -600,6 +625,7 @@ class StorageNumpyTest(unittest.TestCase):
         n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
         s = StorageNumpy(n, "test_split_nomem")
         splits = 0
+        s.sync() # Flush values to cassandra
         for i in s.split():
             sid = i.storage_id
             i.getID() # Store split in hecuba.istorage
@@ -619,6 +645,7 @@ class StorageNumpyTest(unittest.TestCase):
         s = StorageNumpy(n, "test_split_access_nomem")
         if s._build_args.metas.partition_type != 0: #This test is only valid for ZORDER
             return
+        s.sync() # Flush values to cassandra
         u = s.storage_id
         splits = 0
         for i in s.split():
@@ -637,6 +664,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_split_content(self):
         n = np.arange(88*66).reshape(88,66)
         s = StorageNumpy(n,"test_split_content")
+        s.sync() # Flush values to cassandra
         del s
         s = StorageNumpy(None,"test_split_content")
         rows = [i for i in s.split(cols=False)]
@@ -662,6 +690,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_load_StorageNumpy(self):
         n = np.arange(2*128).reshape(2,128) # A matrix with "some" columns
         s = StorageNumpy(n, "test_load_StorageNumpy")
+        s.sync() # Flush values to cassandra
         s2 = StorageNumpy(None, "test_load_StorageNumpy")
         self.assertTrue(s2._is_persistent)
         self.assertEqual(s.storage_id, s2.storage_id)
@@ -698,6 +727,7 @@ class StorageNumpyTest(unittest.TestCase):
             # Make it persistent
             o = StorageNumpy(n, matrix_name)
 
+            o.sync() # Flush values to cassandra
             # Clean memory
             del o
 
@@ -744,6 +774,7 @@ class StorageNumpyTest(unittest.TestCase):
             self.assertTrue( s[pos[i]] == magic[i] )
         # Check Rest of elements in memory
         self.assertTrue(np.array_equal(n,s))
+        s.sync() # Flush values to cassandra
         del s
         s = StorageNumpy(None, "test_setitem_blocks")
         # Check modified elements in Cassandra
@@ -772,6 +803,7 @@ class StorageNumpyTest(unittest.TestCase):
 
         self.assertTrue(s[1,1], 666)    # original numpy is modified
 
+        s.sync() # Flush values to cassandra
         del s
 
         s = StorageNumpy(None, "test_store_in_view")
@@ -781,6 +813,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_pv_slice_slice(self):
         n = np.arange(66*66).reshape(66,66)
         sn = StorageNumpy(n,"test_pv_slice_slice")
+        sn.sync() # Flush values to cassandra
         del sn
         sn = StorageNumpy(None,"test_pv_slice_slice")
         # Caso: slice, slice
@@ -794,6 +827,7 @@ class StorageNumpyTest(unittest.TestCase):
         n = np.arange(88*66).reshape(88,66)
         s = StorageNumpy(n, "test_loaded")
         self.assertTrue(s._numpy_full_loaded is True)
+        s.sync() # Flush values to cassandra
         del s
         s = StorageNumpy(None, "test_loaded")
         self.assertTrue(s._numpy_full_loaded is False)
