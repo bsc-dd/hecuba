@@ -28,6 +28,7 @@ public:
     }
 
     const void flush_elements() const;
+    const void wait_elements() const ;
 
     /*** TupleRow ops ***/
 
@@ -54,7 +55,7 @@ private:
     const CassPrepared *prepared_query, *delete_query;
 
     bool disable_timestamps;
-    TimestampGenerator timestamp_gen;
+    TimestampGenerator *timestamp_gen;
 
     //Key and Value copy constructed
     KVCache<TupleRow, TupleRow> *myCache;

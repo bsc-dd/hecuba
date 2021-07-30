@@ -347,6 +347,11 @@ void ArrayDataStore::store_numpy_partition_into_cas(const uint64_t *storage_id ,
         cache->put_crow(keys, values);
 }
 
+void ArrayDataStore::wait_stores(void) const {
+    cache->wait_elements();
+}
+
+
 /* get_row_elements - Calculate #elements per dimension 
  * FIXME This code MUST BE equal to the one in NumpyStorage (No questions please, I cried also) and on SpaceFilling.cpp
  */

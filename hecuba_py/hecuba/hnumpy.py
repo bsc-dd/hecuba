@@ -35,12 +35,14 @@ class StorageNumpy(IStorage, np.ndarray):
         :return: Storage_id as str
         """
         sid = super().getID()
-        if sid != 'None' and self._persistance_needed:
-            # build args should contain the right metas: calculate them at getitem
-            # we should avoid the store meta for the SN that has been persisted through a make_persistent.
-            # We mark it as persistentance_needed=true at getitem and at this point create the entry
-            StorageNumpy._store_meta(self._build_args)
-            self._persistance_needed = False
+        if sid != 'None':
+            if self._persistance_needed:
+                # build args should contain the right metas: calculate them at getitem
+                # we should avoid the store meta for the SN that has been persisted through a make_persistent.
+                # We mark it as persistentance_needed=true at getitem and at this point create the entry
+                StorageNumpy._store_meta(self._build_args)
+                self._persistance_needed = False
+            self.sync() # Data may be needed in another node, flush data
         return sid
 
 
@@ -157,8 +159,6 @@ class StorageNumpy(IStorage, np.ndarray):
             resultado._numpy_full_loaded = _parent_numpy_full_loaded # Due to the HACK, we need to keep the _numpy_full_loaded status
             resultado._build_args = resultado._build_args._replace(tokens=token_split)
 
-            resultado.getID() # Explicit call to persist the data
-
             yield resultado
 #            ################
 ##            ccs: Index of blocks
@@ -201,8 +201,6 @@ class StorageNumpy(IStorage, np.ndarray):
             if mytokens is not None:
                 resultado._build_args = resultado._build_args._replace(tokens=mytokens[cluster_id//self._row_elem])
 
-            resultado.getID() # Explicit call to persist the data
-
             yield resultado
 
     def _split_by_rows(self, tokens):
@@ -221,8 +219,6 @@ class StorageNumpy(IStorage, np.ndarray):
             resultado = super(StorageNumpy, self).__getitem__(slc) # Generate view in memory
             resultado._numpy_full_loaded = _parent_numpy_full_loaded # Due to the HACK, we need to keep the _numpy_full_loaded status
             # TOKENS are ignored in this case
-
-            resultado.getID() # Explicit call to persist the data
 
             yield resultado
 
@@ -682,7 +678,7 @@ class StorageNumpy(IStorage, np.ndarray):
                          {'cache_size': config.max_cache_size,
                           'writer_par': config.write_callbacks_number,
                           'write_buffer': config.write_buffer_size,
-                          'timestamped_writes': False})
+                          'timestamped_writes': True})
 
         return HNumpyStore(*hcache_params)
 
@@ -822,6 +818,9 @@ class StorageNumpy(IStorage, np.ndarray):
         if (len(coordinates) != len(self._loaded_columns)):
             self._numpy_full_loaded = (len(coordinates) == self.shape[1])
             self._loaded_columns = coordinates
+            if not self._persistent_columnar:
+                log.debug("_load_columns: Enabling columnar access %s", self.storage_id)
+                self._persistent_columnar = True
         else:
             load = False
         if load:
@@ -977,19 +976,21 @@ class StorageNumpy(IStorage, np.ndarray):
         """
             Deletes the Cassandra table where the persistent StorageObj stores data
         """
+        self.sync() # TODO: we should discard pending writes
         super().delete_persistent()
 
-        clusters_query = "SELECT cluster_id FROM %s WHERE storage_id = %s ALLOW FILTERING;" % (
-            self._get_name(), self.storage_id)
-        clusters = config.session.execute(clusters_query)
-        clusters = ",".join([str(cluster[0]) for cluster in clusters])
-
-        query = "DELETE FROM %s WHERE storage_id = %s AND cluster_id in (%s);" % (self._get_name(), self.storage_id, clusters)
+        query = "DROP TABLE %s;" %(self._get_name())
         query2 = "DELETE FROM hecuba.istorage WHERE storage_id = %s;" % self.storage_id
         log.debug("DELETE PERSISTENT: %s", query)
         config.session.execute(query)
         config.session.execute(query2)
         self.storage_id = None
+
+    def sync(self):
+        """
+            Wait for completion of data persisting operations
+        """
+        self._hcache.wait()
 
     def __iter__(self):
         if self._numpy_full_loaded:
@@ -1001,9 +1002,13 @@ class StorageNumpy(IStorage, np.ndarray):
         return item in self.view(np.ndarray)
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        log.debug(" UFUNC method({}) ".format(method))
+        log.debug(" UFUNC self sid ({}) ".format(getattr(self,'storage_id',None)))
         args = []
         for input_ in inputs:
+            log.debug(" UFUNC input loop sid={}".format(getattr(input_,'storage_id',None)))
             if isinstance(input_, StorageNumpy):
+                StorageNumpy._preload_memory(input_)
                 args.append(input_.view(np.ndarray))
             else:
                 args.append(input_)
@@ -1012,7 +1017,9 @@ class StorageNumpy(IStorage, np.ndarray):
         if outputs:
             out_args = []
             for output in outputs:
+                log.debug(" UFUNC output loop sid={}".format(getattr(output,'storage_id',None)))
                 if isinstance(output, StorageNumpy):
+                    StorageNumpy._preload_memory(output)
                     out_args.append(output.view(np.ndarray))
                 else:
                     out_args.append(output)
@@ -1021,20 +1028,20 @@ class StorageNumpy(IStorage, np.ndarray):
             outputs = (None,) * ufunc.nout
 
         base_numpy = self._get_base_array()
-        #metas = None
-        metas = self._base_metas
         if self._is_persistent and len(self.shape) and self._numpy_full_loaded is False:
-            log.debug(" UFUNC({}) load_block from {} ".format(method, metas))
-            if StorageNumpy._arrow_enabled(base_numpy):
-                load_method = StorageNumpy.COLUMN_MODE
-                self._hcache_arrow.load_numpy_slices([self._build_args.base_numpy], metas, [base_numpy],
-                                           None,
-                                           load_method)
-            else:
-                load_method = StorageNumpy.BLOCK_MODE
-                self._hcache.load_numpy_slices([self._build_args.base_numpy], metas, [base_numpy],
-                                           None,
-                                           load_method)
+            StorageNumpy._preload_memory(self)
+            #metas = self._base_metas
+            #log.debug(" UFUNC({}) load_block from {} ".format(method, metas))
+            #if StorageNumpy._arrow_enabled(base_numpy):
+            #    load_method = StorageNumpy.COLUMN_MODE
+            #    self._hcache_arrow.load_numpy_slices([self._build_args.base_numpy], metas, [base_numpy],
+            #                               None,
+            #                               load_method)
+            #else:
+            #    load_method = StorageNumpy.BLOCK_MODE
+            #    self._hcache.load_numpy_slices([self._build_args.base_numpy], metas, [base_numpy],
+            #                               None,
+            #                               load_method)
         results = super(StorageNumpy, self).__array_ufunc__(ufunc, method,
                                                             *args, **kwargs)
         if results is NotImplemented:
@@ -1046,9 +1053,9 @@ class StorageNumpy(IStorage, np.ndarray):
         if self._is_persistent and len(self.shape):
             readonly_methods = ['mean', 'sum', 'reduce'] #methods that DO NOT modify the original memory, and there is NO NEED to store it
             if method not in readonly_methods:
-
-                self._hcache.store_numpy_slices([self._build_args.base_numpy], metas, [base_numpy],
-                                                None,
+                block_coord = self._select_blocks(self._build_args.view_serialization)
+                self._hcache.store_numpy_slices([self._build_args.base_numpy], self._base_metas, [base_numpy],
+                                                block_coord,
                                                 StorageNumpy.BLOCK_MODE)
 
         if ufunc.nout == 1:
@@ -1098,7 +1105,7 @@ class StorageNumpy(IStorage, np.ndarray):
         """
         srcA = a
         if isinstance(a, StorageNumpy) and a._is_persistent and not a._numpy_full_loaded:
-            log.debug(" DOT: sid = {} ".format(a.storage_id))
+            log.debug(" PRELOAD: sid = {} ".format(a.storage_id))
             srcA = a[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
         return srcA
 
