@@ -260,11 +260,18 @@ class StorageNumpy(IStorage, np.ndarray):
         # or StorageNumpy(None, none, storage_id="xxx")
         # or StorageNumpy(None, name="xxx", storage_id="yyy") Does it exist?
         log.debug("INITIALIZE EXISTING OBJECT name=%s sid=%s", name, storage_id)
+        if name and storage_id:
+            log.warning("INITIALIZE EXISTING OBJECT request passing both name {} and storage_id {}. Ignoring parameter 'name'".format(name, storage_id))
         if not storage_id:  # StorageNumpy(None, name="xxxx", NONE)
             storage_id = storage_id_from_name(name)
 
         # Load metadata
         istorage_metas = get_istorage_attrs(storage_id)
+        if len(istorage_metas) == 0:
+            msg = "Persistent StorageNumpy Storage_id={}".format(storage_id)
+            if name:
+                msg = msg + " name={}".format(name)
+            raise ValueError("{} does not exist".format(msg))
         name = istorage_metas[0].name
         my_metas = istorage_metas[0].numpy_meta
         metas_to_reserve = my_metas
