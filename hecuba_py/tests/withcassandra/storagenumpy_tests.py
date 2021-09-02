@@ -902,6 +902,22 @@ class StorageNumpyTest(unittest.TestCase):
         with self.assertRaises(IndexError):
             v[:, 55]
 
+    def views_with_steps(self):
+        n = np.arange(88*66).reshape(88,66)
+        s = StorageNumpy(n, "views_with_steps")
+
+        self.assertTrue(self._row_elem, 22) # HARDCODED VALUE!
+
+        self.assertTrue(s._n_blocks, 12)
+
+        v1 = s[:,23:40]
+        self.assertTrue(v1._n_blocks, 4)
+
+        v = s[:,2:50:2]
+        self.assertTrue(v._n_blocks, 12)
+
+        v2 = s[:, 23:50:2]  # 23/2 == 11 columns
+        self.assertTrue(v2._n_blocks, 8)
 
 if __name__ == '__main__':
     unittest.main()

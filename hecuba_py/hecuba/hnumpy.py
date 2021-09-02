@@ -46,20 +46,19 @@ class StorageNumpy(IStorage, np.ndarray):
         return sid
 
 
-    def _calculate_nblocks(self, metas):
-        ''' Calculate the number of blocks used by 'metas' (aka the number of blocks reserved in memory)
+    def _calculate_nblocks(self, view):
+        ''' Calculate (and set) the number of used blocks in data storage by 'view'
+            (aka the number of blocks reserved in memory)
             This is used to determine if a numpy is full loaded on memory and avoid accesses to cassandra.
             Args:
-                self : object to add new coords
-                metas: metadatas to use to calculate the blocks
+                self : object to use
+                view : view used to calculate the blocks
         '''
 
-        log.debug("JCOSTA _calculate_nblocks ENTER sid={} row_elem={}".format(self.storage_id, self._row_elem))
-        ndim = len(metas.dims)
+        l = self.calculate_list_of_ranges_of_block_coords(view)
         num_blocks = 1
-        for i in range(0, ndim):
-            b = ceil(metas.dims[i] / self._row_elem)
-            num_blocks = num_blocks * b
+        for i in l:
+            num_blocks = num_blocks * len(i)
         self._n_blocks = num_blocks
         log.debug("JCOSTA _calculate_nblocks sid={} _n_blocks={}".format(self.storage_id, self._n_blocks))
 
@@ -325,7 +324,7 @@ class StorageNumpy(IStorage, np.ndarray):
                 myview,
                 istorage_metas[0].tokens)
         obj._row_elem = obj._hcache.get_elements_per_row(storage_id, metas_to_reserve)
-        obj._calculate_nblocks(my_metas)
+        obj._calculate_nblocks(myview)
         return obj
 
 
@@ -407,9 +406,10 @@ class StorageNumpy(IStorage, np.ndarray):
             newstop = n.stop
         return slice(oldstart, newstop, oldstep)
 
-    def calculate_block_coords(self, view):
+    def calculate_list_of_ranges_of_block_coords(self, view):
         """
-        Return a list with all the block coordinates relative to 'self.base.shape' corresponding to the elements in 'view'
+            Return a list with the ranges of block coordinates for each dimension of 'view'.
+            The block coordinates are relative to 'self.base.shape' (big).
         """
         first=[]
         last=[]
@@ -428,10 +428,18 @@ class StorageNumpy(IStorage, np.ndarray):
                 self._check_value_in_shape(n.stop-1, shape[idx], idx)
                 first.append(n.start//SIZE)
                 last.append((n.stop-1)//SIZE)
-        #print(" first ={} last = {}".format(first,last))
+        #print(" calculate_block_coords: first ={} last = {}".format(first,last), flush=True)
         l=[]
         for i in range(len(view)):
             l.append( range(first[i], last[i]+1))
+        #print(" calculate_block_coords: l = {}".format(l), flush=True)
+        return l
+
+    def calculate_block_coords(self, view):
+        """
+        Return a list with all the block coordinates relative to 'self.base.shape' corresponding to the elements in 'view'
+        """
+        l = self.calculate_list_of_ranges_of_block_coords(view)
 
         return [b for b in itertools.product(*l)]
 
@@ -560,7 +568,7 @@ class StorageNumpy(IStorage, np.ndarray):
         new_args = self._build_args._replace(metas=metas, storage_id=storage_id,
                                              view_serialization=new_view_serialization)
         self._build_args = new_args
-        self._calculate_nblocks(self._build_args.metas)
+        self._calculate_nblocks(new_view_serialization)
         self._persistance_needed = True
 
     # used as copy constructor
@@ -975,7 +983,7 @@ class StorageNumpy(IStorage, np.ndarray):
                                                 None,
                                                 StorageNumpy.COLUMN_MODE)
             self._row_elem = self._hcache.get_elements_per_row(sid, self._build_args.metas)
-            self._calculate_nblocks(self._build_args.metas)
+            self._calculate_nblocks(self._build_args.view_serialization)
         log.debug("_persist_data: before store meta")
         StorageNumpy._store_meta(self._build_args)
         log.debug("_persist_data: before get_elements_per_row")
