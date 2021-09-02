@@ -884,5 +884,24 @@ class StorageNumpyTest(unittest.TestCase):
 
     # TODO: Tranform SNadaptcoords.py
 
+    def test_out_of_bounds_in_numpy(self):
+        n = np.arange(88*66).reshape(88,66)
+        s = StorageNumpy(n, "test_bounds_in_numpy")
+        del s
+        s = StorageNumpy(None, "test_bounds_in_numpy")
+
+        with self.assertRaises(IndexError):
+            s[:, 100]
+
+        with self.assertRaises(IndexError):
+            s[100, :]
+
+        v = s[1:10,22:50]
+        with self.assertRaises(IndexError):
+            v[11, :]
+        with self.assertRaises(IndexError):
+            v[:, 55]
+
+
 if __name__ == '__main__':
     unittest.main()

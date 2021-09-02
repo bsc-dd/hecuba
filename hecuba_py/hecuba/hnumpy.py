@@ -411,11 +411,14 @@ class StorageNumpy(IStorage, np.ndarray):
         for idx, i in enumerate(view):
             #print(" {}:  element ={} ".format(idx, i))
             if isinstance(i, int):
+                self._check_value_in_shape(i, shape[idx], idx)
                 first.append(i//SIZE)
                 last.append(i//SIZE)
             else: # It's a slice
                 n = StorageNumpy.removenones(i, shape[idx])
                 #print(" {}:    n ={} ".format(idx, n))
+                self._check_value_in_shape(n.start, shape[idx], idx)
+                self._check_value_in_shape(n.stop-1, shape[idx], idx)
                 first.append(n.start//SIZE)
                 last.append((n.stop-1)//SIZE)
         #print(" first ={} last = {}".format(first,last))
@@ -791,7 +794,8 @@ class StorageNumpy(IStorage, np.ndarray):
 
     def _select_columns(self, sliced_coord):
         """
-        Returns None or a list of columns accesed
+        Returns None or a list of columns accesed by 'sliced_coord'
+            The list of columns is calculated on top of 'self.base'
         """
         columns = None
         last = sliced_coord[-1]
@@ -804,6 +808,17 @@ class StorageNumpy(IStorage, np.ndarray):
         log.debug(" _select_columns ({}) ==> {}".format(sliced_coord, columns))
         return columns
 
+    def _check_value_in_shape(self, value, shape, axis):
+        if (value < 0) or (value > shape):
+            raise IndexError("index {} is out of bounds for axis {} with size {}".format(value, axis, shape))
+
+    def _check_columns_in_bounds(self, columns):
+        """
+            Check that the list of columns belongs to shape in base, or raise an exception
+        """
+        for col in columns:
+            self._check_value_in_shape(col, self._get_base_array().shape[1], 1)
+
     def _load_columns(self, columns):
         """
             Load from Cassandra the list of columns.
@@ -813,6 +828,7 @@ class StorageNumpy(IStorage, np.ndarray):
             PRE: self._is_persistent and not self._numpy_full_loaded
         """
 
+        self._check_columns_in_bounds(self, columns)
         load = True
         coordinates = self._loaded_columns.union(columns)
         if (len(coordinates) != len(self._loaded_columns)):
