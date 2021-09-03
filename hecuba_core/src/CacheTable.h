@@ -46,6 +46,8 @@ public:
 
     void add_to_cache(void *keys, void *values);
 
+    /*** Get access to the writer ***/
+    Writer * get_writer();
 private:
 
     std::vector<const TupleRow *> retrieve_from_cassandra(const TupleRow *keys);

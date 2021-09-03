@@ -40,9 +40,13 @@ public:
     const TableMetadata *get_metadata() {
         return table_metadata;
     }
+    void enable_lazy_write(void);
+    void disable_lazy_write(void);
 
 private:
-    struct HashCompare {
+    struct HashCompare {    // This is used for lazy_write, currently only
+                            // StorageNumpys are supported. The hash generator
+                            // must be generalized to support other types.
         static size_t hash( const TupleRow* key ) {
             void * data= key->get_payload();
             size_t key_length=2*sizeof(uint64_t)+2*sizeof(uint32_t);

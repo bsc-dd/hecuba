@@ -104,6 +104,7 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
 
         TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names, session);
         this->cache = new CacheTable(table_meta, session, config);
+        this->cache->get_writer()->enable_lazy_write();
 
         std::vector<std::map<std::string, std::string>> read_keys_names(keys_names.begin(), (keys_names.end() - 1));
         std::vector<std::map<std::string, std::string>> read_columns_names = columns_names;
@@ -143,6 +144,7 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
         TableMetadata *table_meta_arrow_write = new TableMetadata(table_buffer.c_str(), keyspace,
                                                                   keys_arrow_names, columns_buffer_names, session);
         this->cache = new CacheTable(table_meta_arrow_write, session, config); // FIXME can be removed?
+        this->cache->get_writer()->enable_lazy_write();
 
         // Prepare cache for READ
         TableMetadata *table_meta_arrow = new TableMetadata(table_name.c_str(), keyspace,

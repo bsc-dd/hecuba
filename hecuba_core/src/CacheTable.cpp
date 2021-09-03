@@ -121,6 +121,10 @@ void CacheTable::add_to_cache(void *keys, void *values) {
 }
 
 
+Writer * CacheTable::get_writer() {
+    return this->writer;
+}
+
 /*
  * POST: never returns NULL
  */

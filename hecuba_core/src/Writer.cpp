@@ -59,7 +59,7 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
     this->ncallbacks = 0;
     this->error_count = 0;
     this->timestamp_gen = new TimestampGenerator();
-    this->lazy_write_enabled = true;
+    this->lazy_write_enabled = false; // Disabled by default, will be enabled on ArrayDataStore
     this->dirty_blocks = new tbb::concurrent_hash_map <const TupleRow *, const TupleRow *, Writer::HashCompare >();
 }
 
@@ -205,6 +205,13 @@ void Writer::set_error_occurred(std::string error, const void *keys_p, const voi
     async_query_execute(keys, values);
 }
 
+void Writer::enable_lazy_write(void) {
+    this->lazy_write_enabled = true;
+}
+
+void Writer::disable_lazy_write(void) {
+    this->lazy_write_enabled = false;
+}
 
 void Writer::write_to_cassandra(const TupleRow *keys, const TupleRow *values) {
 
