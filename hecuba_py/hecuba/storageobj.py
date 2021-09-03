@@ -202,7 +202,8 @@ class StorageObj(IStorage):
             if isinstance(attr, IStorage):
                 attr.delete_persistent()
 
-        query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
+        # TODO Drop table _ksp._table if it just contains a single element (non-perfomant :(
+        query = "DELETE FROM {}.{} where storage_id={}".format(self._ksp, self._table, self.storage_id)
         config.session.execute(query)
 
         query = "DELETE FROM hecuba.istorage where storage_id={}".format(self.storage_id)
