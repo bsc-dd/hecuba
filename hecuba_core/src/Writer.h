@@ -78,7 +78,6 @@ private:
 
     uint32_t max_calls;
     std::atomic<uint32_t> ncallbacks;
-    std::mutex ncallbacks_lock;
     std::atomic<uint32_t> error_count;
     const TableMetadata *table_metadata;
 
@@ -90,6 +89,11 @@ private:
     void async_query_execute(const TupleRow *keys, const TupleRow *values);
     void queue_async_query( const TupleRow *keys, const TupleRow *values);
     static void callback(CassFuture *future, void *ptr);
+    std::mutex async_query_thread_lock;
+    bool async_query_thread_created;
+    void async_query_thread_code();
+    bool finish_async_query_thread;
+    std::thread async_query_thread;
 };
 
 

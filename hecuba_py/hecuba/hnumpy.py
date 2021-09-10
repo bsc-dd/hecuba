@@ -349,7 +349,7 @@ class StorageNumpy(IStorage, np.ndarray):
 
         else:
             if isinstance(input_array, StorageNumpy): # StorageNumpyDesign
-                log.debug(" NEW from ", storage_id)
+                log.debug(" NEW from %s", storage_id)
                 # StorageNumpy(Snumpy, None, None)
                 # StorageNumpy(Snumpy, name, None)
                 # StorageNumpy(Snumpy, None, UUID)
@@ -696,7 +696,7 @@ class StorageNumpy(IStorage, np.ndarray):
                          {'cache_size': config.max_cache_size,
                           'writer_par': config.write_callbacks_number,
                           'write_buffer': config.write_buffer_size,
-                          'timestamped_writes': True})
+                          'timestamped_writes': False})
 
         return HNumpyStore(*hcache_params)
 
@@ -1021,6 +1021,7 @@ class StorageNumpy(IStorage, np.ndarray):
         """
             Wait for completion of data persisting operations
         """
+        log.debug("SYNC: %s", self.storage_id)
         self._hcache.wait()
 
     def __iter__(self):
@@ -1077,7 +1078,7 @@ class StorageNumpy(IStorage, np.ndarray):
                                                             *args, **kwargs)
         if results is NotImplemented:
             return NotImplemented
-
+        log.debug(" UFUNC: type(results)=%s results is self? %s outputs[0] is results? %s outputs[0] is self? %s", type(results), results is self, outputs[0] is results, outputs[0] is self)
         if method == 'at':
             return
 

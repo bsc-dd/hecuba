@@ -262,7 +262,7 @@ class Config:
             singleton.timestamped_writes = False if env_var == 'no' or env_var == 'false' else True
             log.info('TIMESTAMPED WRITES ENABLED? {}'.format(singleton.timestamped_writes))
         except KeyError:
-            singleton.timestamped_writes = True
+            singleton.timestamped_writes = False
             log.warn('using default TIMESTAMPED_WRITES: %s', singleton.timestamped_writes)
 
         if singleton.max_cache_size < singleton.write_buffer_size:
