@@ -1019,7 +1019,7 @@ class StorageNumpy(IStorage, np.ndarray):
 
     def sync(self):
         """
-            Wait for completion of data persisting operations
+        Wait until all pending stores to Cassandra have been finished.
         """
         log.debug("SYNC: %s", self.storage_id)
         self._hcache.wait()

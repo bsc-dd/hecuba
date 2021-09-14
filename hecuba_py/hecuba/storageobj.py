@@ -355,3 +355,21 @@ class StorageObj(IStorage):
             query = "UPDATE %s.%s SET %s = null WHERE storage_id = %s" % (
                 self._ksp, self._table, name, self.storage_id)
             config.session.execute(query)
+
+    def sync(self):
+        """
+        Wait until all pending stores to Cassandra have been finished.
+        """
+        if not self.storage_id:
+            return
+
+        # Persistent Object
+        for attribute in self._persistent_props.keys():
+            try:
+                val = super().__getattribute__(attribute)
+                if isinstance(val, IStorage):
+                    log.debug("StorageObj sync: %s.%s of type %s", self.storage_id, attribute,type(val))
+                    val.sync()
+            except AttributeError as ex:
+                # Not present in memory
+                pass

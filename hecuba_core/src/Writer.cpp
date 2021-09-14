@@ -18,7 +18,7 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
                std::map<std::string, std::string> &config) {
 
 
-    std::cout<< " WRITER: Constructor "<< std::endl;
+    //std::cout<< " WRITER: Constructor "<< std::endl;
     int32_t buff_size = default_writer_buff;
     int32_t max_callbacks = default_writer_callbacks;
     this->disable_timestamps = false;
@@ -79,13 +79,13 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
 
 
 Writer::~Writer() {
-    std::cout<< " WRITER: Destructor "<< std::endl;
+    //std::cout<< " WRITER: Destructor "<< std::endl;
     if (this->async_query_thread_created){
         wait_writes_completion(); // WARNING! It is necessary to wait for ALL CALLBACKS to finish, because the 'data' structure required by the callback will dissapear with this destructor
         auto async_query_thread_id = this->async_query_thread.get_id();
         this->finish_async_query_thread = true;
         this->async_query_thread.join();
-        std::cout<< " WRITER: Finished thread "<< async_query_thread_id << std::endl;
+        //std::cout<< " WRITER: Finished thread "<< async_query_thread_id << std::endl;
     }
     if (this->prepared_query != NULL) {
         cass_prepared_free(this->prepared_query);
@@ -128,18 +128,15 @@ void Writer::flush_dirty_blocks() {
     //std::cout<< "Writer::flush_dirty_blocks "<< n << " blocks FLUSHED"<<std::endl;
 }
 
-// flush all the pending write requests: send them to Cassandra driver
+// flush all the pending write requests: send them to Cassandra driver and wait for finalization (called from outside)
 void Writer::flush_elements() {
-    //std::cout<< "Writer::flush_elements * Waiting for "<< data.size() << " Pending "<<ncallbacks<<" callbacks" <<std::endl;
-    //Move dirty blocks to 'data' first
-    flush_dirty_blocks();
-    //std::cout<< "Writer::flush_elements2* FINISHED CALLBACKS "<< data.size() << " Pending "<<ncallbacks<<" callbacks" <<std::endl;
+    wait_writes_completion();
 }
 
 // wait for callbacks execution for all sent write requests
 void Writer::wait_writes_completion(void) {
+    flush_dirty_blocks();
     //std::cout<< "Writer::wait_writes_completion * Waiting for "<< data.size() << " Pending "<<ncallbacks<<" callbacks" <<" inflight"<<std::endl;
-    flush_elements();
     while(!data.empty() || ncallbacks>0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
@@ -223,12 +220,12 @@ void Writer::write_to_cassandra(const TupleRow *keys, const TupleRow *values) {
 
 
     this->async_query_thread_lock.lock();
-    std::cout<< " WRITER: write_to_cassandra" << std::endl;
+    //std::cout<< " WRITER: write_to_cassandra" << std::endl;
     if (this->async_query_thread_created == false) {
         this->async_query_thread_created = true;
         this->async_query_thread_lock.unlock();
         this->async_query_thread = std::thread(&Writer::async_query_thread_code, this);
-        std::cout<< " WRITER: Created thread "<< this->async_query_thread.get_id() << std::endl;
+        //std::cout<< " WRITER: Created thread "<< this->async_query_thread.get_id() << std::endl;
     } else {
         this->async_query_thread_lock.unlock();
     }

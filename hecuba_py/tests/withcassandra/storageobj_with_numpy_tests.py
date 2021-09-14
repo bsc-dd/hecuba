@@ -10,6 +10,14 @@ class TestStorageObjNumpy(StorageObj):
     '''
     pass
 
+class TestStorageObjNumpyEtAl(StorageObj):
+    '''
+       @ClassField mynumpy numpy.ndarray
+       @ClassField name str
+       @ClassField age int
+       @ClassField rec tests.withcassandra.storageobj_with_numpy_tests.TestStorageObjNumpy
+    '''
+    pass
 
 class StorageNumpyTest(unittest.TestCase):
     @classmethod
@@ -345,6 +353,43 @@ class StorageNumpyTest(unittest.TestCase):
         test_numpy = np.zeros((100, 100))
         test_numpy[coordinates] = 1
         self.assertTrue(np.allclose(chunk.view(np.ndarray), test_numpy))
+
+    def test_sync(self):
+        myo = TestStorageObjNumpyEtAl()
+        myo.make_persistent("test_sync")
+        myo.mynumpy = np.arange(22*22).reshape(22,22)
+        myo.name = "uyuyuy"
+        myo.age = 42
+        myo.rec.mynumpy = np.arange(20*20).reshape(20,20)
+        myo.dummy = "Whatever"
+        del myo # Remove from memory
+        myo = TestStorageObjNumpyEtAl("test_sync")
+
+        for i in range(-666, -1):
+            myo.mynumpy[0,0] = i    # Asynchronous write
+        x = TestStorageObjNumpyEtAl("test_sync")
+
+        self.assertTrue(myo.mynumpy[0,0] != x.mynumpy[0,0]) # Data should be still in dirty/flight WARNING! This makes the hypothesis that the time it takes for the writes is high enough to have time to instantiate with a previous value instead of the last one... depending on the environment this may NOT be true.
+
+        myo.sync()
+        print("AFTER SYNC2", flush=True)
+
+        x = TestStorageObjNumpyEtAl("test_sync")
+        self.assertTrue(myo.mynumpy[0,0] == x.mynumpy[0,0])
+        self.assertTrue(x.mynumpy[0,0] == -2)
+
+
+        for i in range(-1666, -1001):
+            myo.rec.mynumpy[0,0] = i    # Asynchronous write
+        x = TestStorageObjNumpyEtAl("test_sync")
+
+        self.assertTrue(myo.rec.mynumpy[0,0] != x.rec.mynumpy[0,0]) # Data is still in dirty/flight
+
+        myo.sync()
+
+        x = TestStorageObjNumpyEtAl("test_sync")
+        self.assertTrue(myo.rec.mynumpy[0,0] == x.rec.mynumpy[0,0])
+        self.assertTrue(x.rec.mynumpy[0,0] == -1002)
 
 if __name__ == '__main__':
     unittest.main()

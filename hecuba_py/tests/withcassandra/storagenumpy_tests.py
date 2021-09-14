@@ -919,5 +919,20 @@ class StorageNumpyTest(unittest.TestCase):
         v2 = s[:, 23:50:2]  # 23/2 == 11 columns
         self.assertTrue(v2._n_blocks, 8)
 
+    def test_sync(self):
+        n = np.arange(22*22).reshape(22,22)
+        s = StorageNumpy(n, "test_sync")
+
+        del s
+        s = StorageNumpy(None, "test_sync")
+        s[0,0] = 666    # Asynchronous write
+        x = StorageNumpy(None, None, s.storage_id)
+        self.assertTrue(s[0,0] != x[0,0]) # Data is still in dirty
+        self.assertTrue(x[0,0] == 0)
+        s.sync()
+        x = StorageNumpy(None, None, s.storage_id)
+        self.assertTrue(s[0,0] == x[0,0])
+        self.assertTrue(x[0,0] == 666)
+
 if __name__ == '__main__':
     unittest.main()
