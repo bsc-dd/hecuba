@@ -937,11 +937,11 @@ int scp(const char *host, const char *src, const char *dst) {
     default: waitpid(pidh,&status,0);
             if (WIFEXITED(status)){
                 if(WEXITSTATUS(status) != 0) {
-                    std::cerr<<" scp: error copying file" <<std::endl;
+                    std::cerr<<" scp -q "<<parsrc<<" "<<dst<<": error copying file" <<std::endl;
                     return -1;
                 }
             } else {
-                std::cerr<<" scp: failed with other error copying file" <<std::endl;
+                std::cerr<<" scp -q "<<parsrc<<" "<<dst<<": failed with other error copying file" <<std::endl;
                 return -2;
             }
     }
