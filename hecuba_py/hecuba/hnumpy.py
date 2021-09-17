@@ -843,7 +843,7 @@ class StorageNumpy(IStorage, np.ndarray):
             PRE: self._is_persistent and not self._numpy_full_loaded
         """
 
-        self._check_columns_in_bounds(self, columns)
+        self._check_columns_in_bounds(columns)
         load = True
         coordinates = self._loaded_columns.union(columns)
         if (len(coordinates) != len(self._loaded_columns)):
