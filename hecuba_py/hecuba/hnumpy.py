@@ -225,7 +225,7 @@ class StorageNumpy(IStorage, np.ndarray):
     def get_arrow_name(name):
         # get_arrow_name: Returns the keyspace and table name of the arrow table (READ) of table name
         (ksp,table) = extract_ks_tab(name)
-        return ksp + "_arrow." + table +"_arrow"
+        return ksp + "_arrow." + table[:42] +"_arrow"
 
     @staticmethod
     def _isarrow(name):
