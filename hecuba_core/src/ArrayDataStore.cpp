@@ -144,7 +144,7 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
         TableMetadata *table_meta_arrow_write = new TableMetadata(table_buffer.c_str(), keyspace,
                                                                   keys_arrow_names, columns_buffer_names, session);
         this->cache = new CacheTable(table_meta_arrow_write, session, config); // FIXME can be removed?
-        this->cache->get_writer()->enable_lazy_write();
+        //this->cache->get_writer()->enable_lazy_write();
 
         // Prepare cache for READ
         TableMetadata *table_meta_arrow = new TableMetadata(table_name.c_str(), keyspace,
