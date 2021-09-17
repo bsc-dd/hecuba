@@ -906,18 +906,18 @@ class StorageNumpyTest(unittest.TestCase):
         n = np.arange(88*66).reshape(88,66)
         s = StorageNumpy(n, "views_with_steps")
 
-        self.assertTrue(self._row_elem, 22) # HARDCODED VALUE!
+        self.assertEqual(self._row_elem, 22) # HARDCODED VALUE!
 
-        self.assertTrue(s._n_blocks, 12)
+        self.assertEqual(s._n_blocks, 12)
 
         v1 = s[:,23:40]
-        self.assertTrue(v1._n_blocks, 4)
+        self.assertEqual(v1._n_blocks, 4)
 
         v = s[:,2:50:2]
-        self.assertTrue(v._n_blocks, 12)
+        self.assertEqual(v._n_blocks, 12)
 
         v2 = s[:, 23:50:2]  # 23/2 == 11 columns
-        self.assertTrue(v2._n_blocks, 8)
+        self.assertEqual(v2._n_blocks, 8)
 
     def test_sync(self):
         n = np.arange(22*22).reshape(22,22)

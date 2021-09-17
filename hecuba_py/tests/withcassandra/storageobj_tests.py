@@ -933,6 +933,7 @@ class StorageObjTest(unittest.TestCase):
         my_so.mynumpy += 1
         self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
 
+        my_so.sync()
         reloaded_so = TestStorageObjNumpy(self.current_ksp+'.test_numpy_ops_persistent')
         self.assertTrue(np.allclose(reloaded_so.mynumpy, base_numpy))
         self.assertEqual(np.average(base_numpy), np.average(reloaded_so.mynumpy))
