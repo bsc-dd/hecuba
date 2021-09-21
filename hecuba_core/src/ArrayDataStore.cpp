@@ -1027,7 +1027,7 @@ int ArrayDataStore::find_and_open_arrow_file(const uint64_t * storage_id, const 
     if ( !itsme(host) ) {
         std::string remote_path;
         remote_path = local_path + "REMOTES/";
-        
+
 
         std::string ksp;
         std::string arrow_file;
@@ -1036,57 +1036,23 @@ int ArrayDataStore::find_and_open_arrow_file(const uint64_t * storage_id, const 
         arrow_file = arrow_file_name.substr(pos, arrow_file_name.length());
 
         if (get_remote_file(host, local_path + ksp, arrow_file, remote_path + ksp) < 0) {
-            std::cout << " DEBUG but file does not exist remotelly!! Trying local " << (local_path + ksp + arrow_file) << std::endl;
-            remote_path = local_path;
+            std::string msg = " ArrayDataStore::find_and_open_arrow_file: File "
+                             + (local_path + ksp + arrow_file)
+                             + " does not exist remotelly at " + host + "!! ";
+            throw ModuleException(msg);
         }
 
         // Now it is local
         local_path = remote_path;
+
     } else {
         //std::cout << " DEBUG token is LOCAL " << std::endl;
-        
+
         if (access((local_path + arrow_file_name).c_str(), R_OK) != 0) { //File DOES NOT exist
-            std::cout << " DEBUG but file does not exist locally!! Trying remote " << (local_path + arrow_file_name) << std::endl;
-            std::string remote_path;
-            remote_path = local_path + "REMOTES/";
-
-            std::string ksp;
-            std::string arrow_file;
-            uint32_t pos = arrow_file_name.find_last_of("/");
-            ksp = arrow_file_name.substr(0, pos);
-            arrow_file = arrow_file_name.substr(pos, arrow_file_name.length());
-
-            //while ! foud
-            //    for host in all contact_names
-            //        found = get_remote_file
-
-            const char * contact_names = std::getenv("CONTACT_NAMES");
-            std::string cn(contact_names);
-            bool found = false;
-            bool end = false;
-            std::size_t current, previous = 0;
-            while (!end && !found) {
-                current = cn.find_first_of(",", previous);
-                if (current == std::string::npos) { // No more ',' last iteration
-                    current = cn.length();
-                    end = true;
-                }
-                const std::string h = cn.substr(previous, current-previous);
-                if (strcmp(h.c_str(), host) != 0) {
-                    found = (get_remote_file(h.c_str(), local_path + ksp, arrow_file, remote_path + ksp) == 0);
-                    if (!found) {
-                        std::cout << " DEBUG file " << (local_path + ksp + arrow_file)<<"does not exist remotelly in host "<<h<< std::endl;
-                    }
-                }
-                previous = current + 1;
-            }
-            if (!found) {
-                std::cout << " DEBUG but file does not exist remotelly!! Where is the file???" << (local_path + ksp + arrow_file) << std::endl;
-                remote_path = local_path;
-            }
-
-            // Now it is local
-            local_path = remote_path;
+            std::string msg = " ArrayDataStore::find_and_open_arrow_file: File "
+                             + (local_path + arrow_file_name)
+                             + " does not exist locally at " + host + "!! ";
+            throw ModuleException(msg);
         }
     }
     return open_arrow_file(local_path + arrow_file_name);
