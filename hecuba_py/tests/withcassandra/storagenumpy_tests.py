@@ -935,6 +935,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_pv_slice_int(self):
         n = np.arange(66*66).reshape(66,66)
         sn = StorageNumpy(n,"test_pv_slice_int")
+        sn.sync()
         del sn
         sn = StorageNumpy(None,"test_pv_slice_int")
         # Caso: slice, int
@@ -948,6 +949,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_pv_int_slice(self):
         n = np.arange(66*66).reshape(66,66)
         sn = StorageNumpy(n,"test_pv_int_slice")
+        sn.sync()
         del sn
         sn = StorageNumpy(None,"test_pv_int_slice")
         # Caso: int, slice
@@ -961,6 +963,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_pv_slice_step(self):
         n = np.arange(66*66).reshape(66,66)
         sn = StorageNumpy(n,"test_pv_slice_step")
+        sn.sync()
         del sn
         sn = StorageNumpy(None,"test_pv_slice_step")
         s1 = slice(1,65,2)
@@ -973,6 +976,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_pv_slice_from_slice(self):
         n = np.arange(66*66).reshape(66,66)
         sn = StorageNumpy(n,"test_pv_slice_from_slice")
+        sn.sync()
         del sn
         sn = StorageNumpy(None,"test_pv_slice_from_slice")
         s1 = slice(1,65)
@@ -985,17 +989,31 @@ class StorageNumpyTest(unittest.TestCase):
     def test_pv_slice_from_from_slice_step(self):
         n = np.arange(66*66).reshape(66,66)
         sn = StorageNumpy(n,"test_pv_slice_from_slice_step")
+        sn.sync()
         del sn
         sn = StorageNumpy(None,"test_pv_slice_from_slice_step")
         s1 = slice(1,65,2)
         s2 = slice(1,20,2)
         n1 = sn[s1][s2]
         self.assertTrue(np.array_equal(n1, n[s1][s2]))
-    
+
+    # Persistent Views: multiple slices
+    def test_pv_slice_from_N_slice(self):
+        n = np.arange(66*66).reshape(66,66)
+        sn = StorageNumpy(n,"test_pv_slice_from_N_slice")
+        sn.sync()
+        del sn
+        sn = StorageNumpy(None,"test_pv_slice_from_N_slice")
+        s1 = slice(1,65,2)
+        s2 = slice(1,20,2)
+        n1 = sn[s1,s1][s2,s2]
+        self.assertTrue(np.array_equal(n1, n[s1,s1][s2,s2]))
+
     # Persistent Views: only_int
     def test_pv_only_int(self):
         n = np.arange(66*66).reshape(66,66)
         sn = StorageNumpy(n,"test_pv_only_int")
+        sn.sync()
         del sn
         sn = StorageNumpy(None,"test_pv_only_int")
         s1 = 1
@@ -1006,6 +1024,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_pv_big_np(self):
         n = np.arange(1000*1000).reshape(1000,1000)
         sn = StorageNumpy(n,"test_pv_big_np")
+        sn.sync()
         del sn
         sn = StorageNumpy(None,"test_pv_big_np")
         s1 = (22,22)
@@ -1015,6 +1034,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_pv_one_dim(self):
         n = np.arange(66*66)
         sn = StorageNumpy(n,"test_pv_one_dim")
+        sn.sync()
         del sn
         sn = StorageNumpy(None,"test_pv_one_dim")
         s1 = 30
@@ -1024,6 +1044,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_pv_negative_indexes(self):
         n = np.arange(66*66).reshape(66,66)
         sn = StorageNumpy(n,"test_pv_negative_indexes")
+        sn.sync()
         del sn
         sn = StorageNumpy(None,"test_pv_negative_indexes")
         s1 = -1
@@ -1038,6 +1059,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_pv_special_case(self):
         n = np.arange(66*66).reshape(66,66)
         sn = StorageNumpy(n,"test_pv_special_case")
+        sn.sync()
         del sn
         sn = StorageNumpy(None,"test_pv_special_case")
         s1 = slice(1,65)
@@ -1049,6 +1071,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_pv_slice_single_row(self):
         n = np.arange(66*66).reshape(66,66)
         sn = StorageNumpy(n,"test_pv_slice_single_row")
+        sn.sync()
         del sn
         sn = StorageNumpy(None,"test_pv_slice_single_row")
         s1 = slice(1,65)
@@ -1061,6 +1084,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_pv_load_correct_blocks(self):
         n = np.arange(66*66).reshape(66,66)
         sn = StorageNumpy(n,"test_pv_load_correct_blocks")
+        sn.sync()
         del sn
         sn = StorageNumpy(None,"test_pv_load_correct_blocks")
         s1 = (0, slice(None, None, None))
@@ -1071,10 +1095,12 @@ class StorageNumpyTest(unittest.TestCase):
     def test_pv_slice_single_column(self):
         n = np.arange(66*66).reshape(66,66)
         sn = StorageNumpy(n,"test_pv_slice_single_column")
+        sn.sync()
         del sn
         sn = StorageNumpy(None,"test_pv_slice_single_column")
         s1 = (slice(None, None, None), 30)
         s2 = slice(1, None, None)
+        self.assertTrue(sn[s1].shape == n[s1].shape)
         self.assertTrue(np.array_equal(sn[s1], n[s1]))
         self.assertTrue(np.array_equal(sn[s1][s2], n[s1][s2]))
         self.assertTrue(np.array_equal(sn[s1][s2][s2], n[s1][s2][s2]))
@@ -1083,6 +1109,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_pv_three_dimensions(self):
         n = np.arange(3*66*66).reshape(3,66,66)
         sn = StorageNumpy(n,"test_pv_three_dimensions")
+        sn.sync()
         del sn
         sn = StorageNumpy(None,"test_pv_three_dimensions")
         s1 = (0, 1, slice(None, None, None))
@@ -1094,6 +1121,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_pv_three_dimensions_easy(self):
         n = np.arange(4*4*4).reshape(4,4,4)
         sn = StorageNumpy(n,"test_pv_three_dimensions_easy")
+        sn.sync()
         del sn
         sn = StorageNumpy(None,"test_pv_three_dimensions_easy")
         orig3 = (slice(None, None, None), slice(None, None, None), slice(None, None, None))
@@ -1107,6 +1135,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_pv_three_dimensions_all_coords(self):
         n = np.arange(8*8*8).reshape(8,8,8)
         sn = StorageNumpy(n,"test_pv_three_dimensions_all_coords")
+        sn.sync()
         del sn
         sn = StorageNumpy(None,"test_pv_three_dimensions_all_coords")
         orig3 = (slice(None, None, None), slice(None, None, None), slice(None, None, None))
@@ -1121,6 +1150,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_pv_three_dimensions_slice_onedim(self):
         n = np.arange(8*8*8).reshape(8,8,8)
         sn = StorageNumpy(n,"test_pv_three_dimensions_slice_onedim")
+        sn.sync()
         del sn
         sn = StorageNumpy(None,"test_pv_three_dimensions_slice_onedim")
         ss = sn[0,0,slice(None,None,None)]
@@ -1135,6 +1165,7 @@ class StorageNumpyTest(unittest.TestCase):
     def test_pv_three_dimensions_slice_twodim(self):
         n = np.arange(8*8*8).reshape(8,8,8)
         sn = StorageNumpy(n,"test_pv_three_dimensions_slice_twodim")
+        sn.sync()
         del sn
         sn = StorageNumpy(None,"test_pv_three_dimensions_slice_twodim")
         ss = sn[(slice(None,None,None), slice(None,None,None),0)]
@@ -1147,23 +1178,24 @@ class StorageNumpyTest(unittest.TestCase):
 
     # Persistent Views: two_dimensions_multiple_accesses 
     def test_pv_two_dimensions_multiple_accesses(self):
-        n = np.arange(8*8*8).reshape(8,8,8)
+        n = np.arange(66*66).reshape(66,66)
         s = StorageNumpy(n,"test_pv_two_dimensions_multiple_accesses")
+        s.sync()
         del s
         s = StorageNumpy(None,"test_pv_two_dimensions_multiple_accesses")
-        s1 = (slice(None, None, None), slice(2,50,2))
+        s1 = (slice(None, None, None), slice(2,50,2)) # slice with step != 1
         x = s[s1]
         res = x.shape == n[s1].shape
         self.assertTrue(np.array_equal( x, n[x._build_args.view_serialization] ))
-        #self.assertTrue(x[0,0] == n[x._build_args.view_serialization][0,0])
-        #self.assertTrue(x[0,1] == n[x._build_args.view_serialization][0,1])
-        #self.assertTrue(x[0,-2] == n[x._build_args.view_serialization][0,-2])
-        #self.assertTrue(x[0,-1] == n[x._build_args.view_serialization][0,-1])
-        #self.assertTrue(x[-2,0] == n[x._build_args.view_serialization][-2,0])
-        #self.assertTrue(x[-1,0] == n[x._build_args.view_serialization][-1,0])
-        #self.assertTrue(x[-2,-2] == n[x._build_args.view_serialization][-2,-2])
-        #self.assertTrue(x[-1,-1] == n[x._build_args.view_serialization][-1,-1])
-        
+        self.assertTrue(x[0,0] == n[x._build_args.view_serialization][0,0])
+        self.assertTrue(x[0,1] == n[x._build_args.view_serialization][0,1])
+        self.assertTrue(x[0,-2] == n[x._build_args.view_serialization][0,-2])
+        self.assertTrue(x[0,-1] == n[x._build_args.view_serialization][0,-1])
+        self.assertTrue(x[-2,0] == n[x._build_args.view_serialization][-2,0])
+        self.assertTrue(x[-1,0] == n[x._build_args.view_serialization][-1,0])
+        self.assertTrue(x[-2,-2] == n[x._build_args.view_serialization][-2,-2])
+        self.assertTrue(x[-1,-1] == n[x._build_args.view_serialization][-1,-1])
+
         del s
         s = StorageNumpy(None,"test_pv_two_dimensions_multiple_accesses")
         s1 = (slice(None, None, None), slice(2,50,2))
