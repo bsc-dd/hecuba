@@ -28,6 +28,7 @@ public:
     }
 
     const void flush_elements() const;
+    const void wait_elements() const ;
 
     /*** TupleRow ops ***/
 
@@ -45,6 +46,8 @@ public:
 
     void add_to_cache(void *keys, void *values);
 
+    /*** Get access to the writer ***/
+    Writer * get_writer();
 private:
 
     std::vector<const TupleRow *> retrieve_from_cassandra(const TupleRow *keys);
@@ -54,7 +57,7 @@ private:
     const CassPrepared *prepared_query, *delete_query;
 
     bool disable_timestamps;
-    TimestampGenerator timestamp_gen;
+    TimestampGenerator *timestamp_gen;
 
     //Key and Value copy constructed
     KVCache<TupleRow, TupleRow> *myCache;

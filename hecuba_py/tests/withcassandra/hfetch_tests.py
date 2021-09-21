@@ -36,7 +36,7 @@ class HfetchTests(unittest.TestCase):
     def test_harray_metadata_init(self):
         base = np.arange(7 * 8 * 9 * 10).reshape((7, 8, 9, 10))
 
-        args = (list(base.shape), list(base.strides), [-1]*base.ndim, base.dtype.kind, base.dtype.byteorder,
+        args = (list(base.shape), list(base.strides), base.dtype.kind, base.dtype.byteorder,
                 base.itemsize, base.flags.num, 0)
 
         obj = HArrayMetadata(*args)
@@ -49,7 +49,7 @@ class HfetchTests(unittest.TestCase):
 
     def test_harray_metadata_refs(self):
         base = np.arange(10)
-        args = (list(base.shape), list(base.strides), [-1], base.dtype.kind, base.dtype.byteorder,
+        args = (list(base.shape), list(base.strides), base.dtype.kind, base.dtype.byteorder,
                 base.itemsize, base.flags.num, 0)
 
         obj = HArrayMetadata(*args)

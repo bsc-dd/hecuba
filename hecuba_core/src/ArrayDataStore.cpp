@@ -104,6 +104,7 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
 
         TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names, session);
         this->cache = new CacheTable(table_meta, session, config);
+        this->cache->get_writer()->enable_lazy_write();
 
         std::vector<std::map<std::string, std::string>> read_keys_names(keys_names.begin(), (keys_names.end() - 1));
         std::vector<std::map<std::string, std::string>> read_columns_names = columns_names;
@@ -143,6 +144,7 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
         TableMetadata *table_meta_arrow_write = new TableMetadata(table_buffer.c_str(), keyspace,
                                                                   keys_arrow_names, columns_buffer_names, session);
         this->cache = new CacheTable(table_meta_arrow_write, session, config); // FIXME can be removed?
+        //this->cache->get_writer()->enable_lazy_write();
 
         // Prepare cache for READ
         TableMetadata *table_meta_arrow = new TableMetadata(table_name.c_str(), keyspace,
@@ -347,6 +349,11 @@ void ArrayDataStore::store_numpy_partition_into_cas(const uint64_t *storage_id ,
         cache->put_crow(keys, values);
 }
 
+void ArrayDataStore::wait_stores(void) const {
+    cache->wait_elements();
+}
+
+
 /* get_row_elements - Calculate #elements per dimension 
  * FIXME This code MUST BE equal to the one in NumpyStorage (No questions please, I cried also) and on SpaceFilling.cpp
  */
@@ -378,8 +385,8 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
     uint32_t elem_size  = metadata.elem_size;
 
     // Calculate number of rows and columns
-    uint64_t num_columns = metadata.dims[0];
-    uint64_t num_rows    = metadata.dims[1];
+    uint64_t num_columns = metadata.dims[1];
+    uint64_t num_rows    = metadata.dims[0];
 
     // FIXME Encapsulate the following code into a function f(data, columns) -> Arrow
     //arrow
@@ -434,6 +441,7 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
         status = bufferOutputStream->Finish(&result); //arrow
         if (!status.ok())
             std::cout << "Status: " << status.ToString() << " at bufferOutputStream->Finish" << std::endl;
+
 
         //Store Column
         // Allocate memory for keys
@@ -567,7 +575,7 @@ void ArrayDataStore::store_numpy_into_cas_by_cols_as_arrow(const uint64_t *stora
         memcpy( _k, &cluster_id, sizeof(uint32_t)); //cluster_id
         _k += sizeof(uint32_t);
         memcpy(_k, &i, sizeof(uint64_t)); //col_id
-        std::cout<< "store_numpy_into_cas_by_cols_as_arrow storage_id="<<*c_uuid<<"cluster_id="<<cluster_id<<", col_id="<<i<<std::endl;
+        //std::cout<< "store_numpy_into_cas_by_cols_as_arrow storage_id="<<*c_uuid<<"cluster_id="<<cluster_id<<", col_id="<<i<<std::endl;
 
         // Allocate memory for values
         uint32_t values_size = sizeof(uint64_t) + sizeof(uint32_t) + sizeof(char*);
@@ -600,21 +608,18 @@ void ArrayDataStore::store_numpy_into_cas_by_cols_as_arrow(const uint64_t *stora
  */
 void ArrayDataStore::store_numpy_into_cas(const uint64_t *storage_id, ArrayMetadata &metadata, void *data) const {
 
-    if (metadata.partition_type != COLUMNAR) {
-        SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata, data);
+    SpaceFillingCurve::PartitionGenerator *partitions_it = this->partitioner.make_partitions_generator(metadata, data);
 
-        while (!partitions_it->isDone()) {
-            Partition part = partitions_it->getNextPartition();
-            store_numpy_partition_into_cas(storage_id, part);
-        }
-        //this->partitioner.serialize_metas();
-        delete (partitions_it);
-
-        // No need to flush the elements because the metadata are written after the data thanks to the queue
-
-    } else {
-        store_numpy_into_cas_as_arrow(storage_id, metadata, data);
+    //std::cout<< "store_numpy_into_cas " << std::endl;
+    while (!partitions_it->isDone()) {
+        Partition part = partitions_it->getNextPartition();
+        //std::cout<< "  cluster_id " << part.cluster_id << " block_id "<<part.block_id<< std::endl;
+        store_numpy_partition_into_cas(storage_id, part);
     }
+    //this->partitioner.serialize_metas();
+    delete (partitions_it);
+
+    // No need to flush the elements because the metadata are written after the data thanks to the queue
 }
 
 /* get_cluster_ids - Returns a 'list' with the cluster identifiers (it may be empty) */
@@ -647,29 +652,25 @@ void ArrayDataStore::store_numpy_into_cas_by_coords(const uint64_t *storage_id, 
                                                     std::list<std::vector<uint32_t> > &coord) const {
 
 
-    if (metadata.partition_type == COLUMNAR) {
-        // FIXME store_numpy_into_cas_by_coords_as_arrow(storage_id, metadata, data, coord);
-        //		 if we decide to store partial columns
-        throw ModuleException("Unexpected case: Are you calling store_numpy_from_cas with an Arrow format?");
-    }
     SpaceFillingCurve::PartitionGenerator *
     partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, data, coord);
 
     std::set<int32_t> clusters = {};
     std::list<Partition> partitions = {};
 
-    while (!partitions_it->isDone()) { clusters.insert(partitions_it->computeNextClusterId()); }
-    partitions_it = new ZorderCurveGeneratorFiltered(metadata, data, coord);
+    //std::cout<< "store_numpy_into_cas_by_coords " << std::endl;
     while (!partitions_it->isDone()) {
-        clusters.insert(partitions_it->computeNextClusterId());
         auto part = partitions_it->getNextPartition();
-        if (clusters.find(part.cluster_id) != clusters.end()) partitions.push_back(part);
+            //std::cout<< "  cluster_id " << part.cluster_id << " block_id "<<part.block_id<< std::endl;
+        partitions.push_back(part);
     }
 
     for (auto it = partitions.begin(); it != partitions.end(); ++it) {
+    //std::cout<< "  store partition" << std::endl;
         auto part = *it;
         store_numpy_partition_into_cas(storage_id, part);
     }
+    //std::cout<< "store_numpy_into_cas_by_coords done" << std::endl;
     //this->partitioner.serialize_metas();
     delete (partitions_it);
     // No need to flush the elements because the metadata are written after the data thanks to the queue
@@ -748,9 +749,6 @@ ArrayMetadata *ArrayDataStore::read_metadata(const uint64_t *storage_id) const {
  */
 void ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetadata &metadata, void *save) {
 
-    if (metadata.partition_type == COLUMNAR) {
-        throw ModuleException("Unexpected case: Are you calling read_numpy_from_cas to an Arrow format");
-    }
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
 
@@ -767,33 +765,42 @@ void ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetada
     SpaceFillingCurve::PartitionGenerator *
 	partitions_it = this->partitioner.make_partitions_generator(metadata, nullptr);
     this->cache->flush_elements();
+    bool cached = false; // Is there any cluster loaded? Needed to distinguish the case where there is no data at all
     while (!partitions_it->isDone()) {
         cluster_id = partitions_it->computeNextClusterId();
-        buffer = (char *) malloc(keys_size);
-        //UUID
-        c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
-        //[0] time_and_version;
-        //[1] clock_seq_and_node;
-        memcpy(buffer, &c_uuid, sizeof(uint64_t *));
-        offset = sizeof(uint64_t *);
-        //Cluster id
-        memcpy(buffer + offset, &cluster_id, sizeof(cluster_id));
-        //We fetch the data
-        TupleRow *block_key = new TupleRow(keys_metas, keys_size, buffer);
-        result = read_cache->get_crow(block_key);
-        delete (block_key);
-        //build cluster
-        all_results.insert(all_results.end(), result.begin(), result.end());
-        for (const TupleRow *row:result) {
-            block = (int32_t *) row->get_element(0);
-            char **chunk = (char **) row->get_element(1);
-            all_partitions.emplace_back(
-                   Partition((uint32_t) cluster_id + half_int, (uint32_t) *block + half_int, *chunk));
+        auto ret = loaded_cluster_ids.insert((uint32_t)cluster_id);
+        if (ret.first == loaded_cluster_ids.end()) {
+            throw ModuleException("ERROR IN SET");
+        }
+        if (ret.second) { // New insert
+            buffer = (char *) malloc(keys_size);
+            //UUID
+            c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
+            //[0] time_and_version;
+            //[1] clock_seq_and_node;
+            memcpy(buffer, &c_uuid, sizeof(uint64_t *));
+            offset = sizeof(uint64_t *);
+            //Cluster id
+            memcpy(buffer + offset, &cluster_id, sizeof(cluster_id));
+            //We fetch the data
+            TupleRow *block_key = new TupleRow(keys_metas, keys_size, buffer);
+            result = read_cache->get_crow(block_key);
+            delete (block_key);
+            //build cluster
+            all_results.insert(all_results.end(), result.begin(), result.end());
+            for (const TupleRow *row:result) {
+                block = (int32_t *) row->get_element(0);
+                char **chunk = (char **) row->get_element(1);
+                all_partitions.emplace_back(
+                       Partition((uint32_t) cluster_id + half_int, (uint32_t) *block + half_int, *chunk));
+            }
+        } else {
+            cached = true;
         }
     }
 
 
-    if (all_partitions.empty()) {
+    if (all_partitions.empty() && !cached) {
         throw ModuleException("no npy found on sys");
     }
     partitions_it->merge_partitions(metadata, all_partitions, save);
@@ -803,11 +810,8 @@ void ArrayDataStore::read_numpy_from_cas(const uint64_t *storage_id, ArrayMetada
 }
 
 void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, ArrayMetadata &metadata,
-                                                   std::list<std::vector<uint32_t> > &coord, bool direct_copy, void *save) {
+                                                   std::list<std::vector<uint32_t> > &coord, void *save) {
 
-	if (metadata.partition_type == COLUMNAR) {
-		throw ModuleException("Unexpected case: Are you calling read_numpy_from_cas_by_coords with an Arrow format?");
-	}
 	std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
 	uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
 	std::vector<const TupleRow *> result, all_results;
@@ -826,49 +830,44 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
 		clusters.insert(partitions_it->computeNextClusterId());
 	}
 
+    bool cached = false; // Is there any cluster loaded? Needed to distinguish the case where there is no data at all
 	std::set<int32_t>::iterator it = clusters.begin();
 	for (; it != clusters.end(); ++it) {
-		buffer = (char *) malloc(keys_size);
-		//UUID
-		c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
-		//[0] time_and_version;
-		//[1] clock_seq_and_node;
-		memcpy(buffer, &c_uuid, sizeof(uint64_t *));
-		offset = sizeof(uint64_t *);
-		//Cluster id
-		memcpy(buffer + offset, &(*it), sizeof(*it));
-		//We fetch the data
-		TupleRow *block_key = new TupleRow(keys_metas, keys_size, buffer);
-		result = read_cache->get_crow(block_key);
-		delete (block_key);
-		//build cluster
-		all_results.insert(all_results.end(), result.begin(), result.end());
-		for (const TupleRow *row:result) {
-			block = (int32_t *) row->get_element(0);
-			char **chunk = (char **) row->get_element(1);
-			all_partitions.emplace_back(
-					Partition((uint32_t) *it + half_int, (uint32_t) *block + half_int, *chunk));
-		}
+        auto ret = loaded_cluster_ids.insert((uint32_t)*it);
+        if (ret.first == loaded_cluster_ids.end()) {
+            throw ModuleException("ERROR IN SET");
+        }
+        if (ret.second) { // New insert
+            buffer = (char *) malloc(keys_size);
+            //UUID
+            c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
+            //[0] time_and_version;
+            //[1] clock_seq_and_node;
+            memcpy(buffer, &c_uuid, sizeof(uint64_t *));
+            offset = sizeof(uint64_t *);
+            //Cluster id
+            memcpy(buffer + offset, &(*it), sizeof(*it));
+            //We fetch the data
+            TupleRow *block_key = new TupleRow(keys_metas, keys_size, buffer);
+            result = read_cache->get_crow(block_key);
+            delete (block_key);
+            //build cluster
+            all_results.insert(all_results.end(), result.begin(), result.end());
+            for (const TupleRow *row:result) {
+                block = (int32_t *) row->get_element(0);
+                char **chunk = (char **) row->get_element(1);
+                all_partitions.emplace_back(
+                        Partition((uint32_t) *it + half_int, (uint32_t) *block + half_int, *chunk));
+            }
+        } else {
+            cached = true;
+        }
 	}
 
-	if (all_partitions.empty()) {
+	if (all_partitions.empty() && !cached) {
 		throw ModuleException("no npy found on sys");
 	}
-    if (!direct_copy) {
-	    partitions_it->merge_partitions(metadata, all_partitions, save);
-    } else {
-        uint32_t wanted_block = partitions_it->getBlockID(coord.front());
-        for ( Partition p : all_partitions ) {
-            // A single block is supported, all the others are DISCARDED
-            if (p.block_id == wanted_block) {
-                char *input = (char *) p.data;
-                uint64_t *retrieved_block_size = (uint64_t *) input;
-                input += sizeof(uint64_t);
-                memcpy(save, input, *retrieved_block_size);
-                break;
-            }
-        }
-    }
+	partitions_it->merge_partitions(metadata, all_partitions, save);
 	for (const TupleRow *item:all_results) delete (item);
 	delete (partitions_it);
 
@@ -908,7 +907,7 @@ int ArrayDataStore::open_arrow_file(std::string arrow_file_name) {
 /* Copy file 'dst'@'host' to 'src'
  * Uses the 'scp' function and the logged user
  */
-void scp(const char *host, const char *src, const char *dst) {
+int scp(const char *host, const char *src, const char *dst) {
 
     //fprintf(stdout, " Remote copy %s from host %s to path %s\n", src, host, dst);
     // Get USERNAME
@@ -938,10 +937,15 @@ void scp(const char *host, const char *src, const char *dst) {
     default: waitpid(pidh,&status,0);
             if (WIFEXITED(status)){
                 if(WEXITSTATUS(status) != 0) {
-                    std::cerr<<" scp: error copying file" <<std::endl;
+                    std::cerr<<" scp -q "<<parsrc<<" "<<dst<<": error copying file" <<std::endl;
+                    return -1;
                 }
+            } else {
+                std::cerr<<" scp -q "<<parsrc<<" "<<dst<<": failed with other error copying file" <<std::endl;
+                return -2;
             }
     }
+    return 0;
 }
 
 /* itsme: Check if 'target' hostname corresponds to this local node */
@@ -959,11 +963,38 @@ bool itsme(const char *target) {
             if (sa->sa_family== AF_INET) {
                 getnameinfo(sa, sizeof(struct sockaddr_in), host, 256, NULL, 0, NI_NUMERICHOST);
                 if (strcmp(host, target) == 0) return true ;
+                else {
+                    //std::cout<< " DEBUG Target "<<target<< " is NOT host "<<host<<std::endl;
+                }
             }
         }
     }
 
     return false;
+}
+
+int get_remote_file(const char *host, const std::string sourcepath, const std::string filename, const std::string destination_path)
+{
+    int r = 0;
+    // Check that the file exists to avoid copy
+    if (access((destination_path + filename).c_str(), R_OK) != 0) { //File DOES NOT exist
+        r = mkdir((destination_path).c_str(), 0770);
+        if (r<0) {
+            if (errno != EEXIST) {
+                std::cerr<<" scp: mkdir "<< destination_path <<" failed  at "<< std::getenv("HOSTNAME") <<std::endl;
+                perror("scp: mkdir");
+                exit(1); //FIXME
+            }
+            //} else {
+            //    std::cout<<" scp: created directory "<<(remote_path + ksp)<<std::endl;
+        }
+
+        // Get a copy of arrow_file_name to REMOTES path
+        r = scp(host, (sourcepath + filename).c_str(), (destination_path).c_str());
+    //} else {
+    //    std::cout<<" scp: Already existing file "<<(remote_path + arrow_file_name)<<std::endl;
+    }
+    return r;
 }
 
 /* Open an 'arrow_file_name' from (a distributed environment) node corresponding to partition key (storage_id, cluster_id)
@@ -986,38 +1017,43 @@ int ArrayDataStore::find_and_open_arrow_file(const uint64_t * storage_id, const 
     // Create token from storage_id+cluster_id (partition key)
     int64_t token = murmur(storage_id, cluster_id);
 
+
     // Find host corresponding to token
     char *host = storage->get_host_per_token(token);
+
+    //std::cout<< " DEBUG find_and_open_arrow_file " << local_path + arrow_file_name<< " sid="<<std::hex<<*storage_id<<" cid="<<std::dec<<cluster_id<<" -> "<<token<< " should be on host "<<host<<std::endl;
 
     // Detect the location of the file
     if ( !itsme(host) ) {
         std::string remote_path;
         remote_path = local_path + "REMOTES/";
 
+
         std::string ksp;
+        std::string arrow_file;
         uint32_t pos = arrow_file_name.find_last_of("/");
         ksp = arrow_file_name.substr(0, pos);
-        // Check that the file exists to avoid copy
-        if (access((remote_path + arrow_file_name).c_str(), R_OK) != 0) { //File DOES NOT exist
-            int r = mkdir((remote_path + ksp).c_str(), 0770);
-            if (r<0) {
-                if (errno != EEXIST) {
-                    std::cerr<<" scp: mkdir "<< (remote_path + ksp) <<" failed "<<std::endl;
-                    perror("scp: mkdir");
-                    exit(1); //FIXME
-                }
-            //} else {
-            //    std::cout<<" scp: created directory "<<(remote_path + ksp)<<std::endl;
-            }
+        arrow_file = arrow_file_name.substr(pos, arrow_file_name.length());
 
-            // Get a copy of arrow_file_name to REMOTES path
-            scp(host, (local_path + arrow_file_name).c_str(), (remote_path + ksp).c_str());
-        //} else {
-        //    std::cout<<" scp: Already existing file "<<(remote_path + arrow_file_name)<<std::endl;
+        if (get_remote_file(host, local_path + ksp, arrow_file, remote_path + ksp) < 0) {
+            std::string msg = " ArrayDataStore::find_and_open_arrow_file: File "
+                             + (local_path + ksp + arrow_file)
+                             + " does not exist remotelly at " + host + "!! ";
+            throw ModuleException(msg);
         }
 
         // Now it is local
         local_path = remote_path;
+
+    } else {
+        //std::cout << " DEBUG token is LOCAL " << std::endl;
+
+        if (access((local_path + arrow_file_name).c_str(), R_OK) != 0) { //File DOES NOT exist
+            std::string msg = " ArrayDataStore::find_and_open_arrow_file: File "
+                             + (local_path + arrow_file_name)
+                             + " does not exist locally at " + host + "!! ";
+            throw ModuleException(msg);
+        }
     }
     return open_arrow_file(local_path + arrow_file_name);
 }
@@ -1044,7 +1080,7 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
 
     std::shared_ptr<arrow::ipc::RecordBatchFileReader> sptrFileReader;
 
-    uint64_t row_size   = metadata.strides[0]; // Columns are stored in rows, therefore even the name, this is the number of columns
+    uint64_t row_size   = metadata.strides[1]; // Columns are stored in rows, therefore even the name, this is the number of columns
     uint32_t elem_size  = metadata.elem_size;
 
     int fdIn = -1;
@@ -1077,7 +1113,9 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
         offset += sizeof(uint32_t);
         //col id
         memcpy(_keys + offset, &cols[it], sizeof(uint64_t));
-        //std::cout<< "read_numpy_from_cas_arrow storage_id="<<std::hex<<*c_uuid<<", cluster_id="<<std::dec<<cluster_id<<", col_id="<<cols[it]<<std::endl;
+        //int64_t token = murmur(storage_id, cluster_id);
+        //char *host = storage->get_host_per_token(token);
+        //std::cout<< "read_numpy_from_cas_arrow storage_id="<<std::hex<<*c_uuid<<", cluster_id="<<std::dec<<cluster_id<<", col_id="<<cols[it]<<"-->"<<token<<" @"<<host<<std::endl;
 
         if (!this->arrow_optane) {
             arrow_file_name = base_arrow_file_name + std::to_string(cols[it]);
@@ -1126,6 +1164,7 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
             arrow::Status status;
             status = arrow::ipc::RecordBatchFileReader::Open(&bufferReader, &sptrFileReader); //TODO handle RecordBatchFileReader::Open errors
             if (not status.ok()) {
+                std::cerr << " OOOOPS: "<< status.message() << std::endl;
                 throw ModuleException("RecordBatchFileReader::Open error");
             }
 

@@ -177,6 +177,16 @@ if (NOT CASS)
             CMAKE_ARGS ${CMAKE_SUBPROJECT_FLAGS}
             -DCMAKE_INSTALL_PREFIX=${C_BINDING_INSTALL_PREFIX} -DCASS_USE_LIBSSH2=OFF -DCASS_USE_OPENSSL=OFF -DLIBUV_ROOT_DIR=${LIBUV_ROOT_DIR}
     )
+    # Hecuba needs access to the hash used to generate keys, aka murmur3, which are not public by default
+    ExternalProject_Add_Step(
+            CASS
+            AFTER_INSTALL
+            DEPENDEES install
+            COMMAND mkdir -p ${C_BINDING_INSTALL_PREFIX}/include
+            COMMAND cp -r ${CMAKE_CURRENT_BINARY_DIR}/CASS-prefix/src/CASS/src/macros.hpp ${C_BINDING_INSTALL_PREFIX}/include
+            COMMAND cp -r ${CMAKE_CURRENT_BINARY_DIR}/CASS-prefix/src/CASS/src/murmur3.hpp ${C_BINDING_INSTALL_PREFIX}/include
+    )
+
     add_dependencies(hfetch CASS)
     set(ALL_LIBS ${ALL_LIBS} ${C_BINDING_INSTALL_PREFIX}/lib/libcassandra.so)
 else ()

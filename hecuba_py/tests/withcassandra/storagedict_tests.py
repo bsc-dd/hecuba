@@ -2,6 +2,7 @@ import unittest
 import uuid
 import datetime
 import time
+import numpy as np
 from random import randint
 
 from hecuba import config, StorageObj, StorageDict
@@ -121,6 +122,30 @@ class MyStorageDictB(StorageDict):
     @TypeSpec dict<<a:str, b:int>, c:int>
     '''
 
+class TestStorageObjNumpy(StorageObj):
+    '''
+       @ClassField mynumpy numpy.ndarray
+    '''
+    pass
+
+class TestStorageObjNumpyEtAl(StorageObj):
+    '''
+       @ClassField mynumpy numpy.ndarray
+       @ClassField name str
+       @ClassField age int
+       @ClassField rec tests.withcassandra.storagedict_tests.TestStorageObjNumpy
+    '''
+    pass
+
+class TestStorageDictRec1(StorageDict):
+    '''
+       @TypeSpec dict<<key:int>, value:tests.withcassandra.storagedict_tests.TestStorageObjNumpyEtAl>
+    '''
+
+class TestStorageDictRec2(StorageDict):
+    '''
+       @TypeSpec dict<<key:int>, mynumpy:numpy.ndarray,name:str,age:int,rec:tests.withcassandra.storagedict_tests.TestStorageObjNumpy>
+    '''
 
 class StorageDictTest(unittest.TestCase):
     @classmethod
@@ -345,7 +370,7 @@ class StorageDictTest(unittest.TestCase):
         pd.delete_persistent()
 
     def test_paranoid_setitem_multiple_nonpersistent(self):
-        tablename = "test_prnoid_set_nonp"
+        tablename = "test_prnoid_set_m_nonp"
         pd = StorageDict(tablename,
                          [('position1', 'int'), ('position2', 'text')],
                          [('value1', 'text'), ('value2', 'int')])
@@ -453,8 +478,12 @@ class StorageDictTest(unittest.TestCase):
 
         self.assertRaises(RuntimeError, delete_already_deleted)
 
-        count, = config.session.execute('SELECT count(*) FROM '+self.current_ksp+'.'+tbl_name)[0]
-        self.assertEqual(0, count)
+        try:
+            count, = config.session.execute('SELECT count(*) FROM '+self.current_ksp+'.'+tbl_name)[0]
+            error = False
+        except Exception as e:
+            error = True
+        self.assertEquals(True, error)
 
     def test_simple_items_test(self):
         tablename = "test_simple_items_test"
@@ -1285,6 +1314,65 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(count, len(list(d)))
         d.delete_persistent()
 
+    def test_sync(self):
+        myo = TestStorageObjNumpyEtAl()
+        myo.mynumpy = np.arange(22*22).reshape(22,22)
+        myo.name = "uyuyuy"
+        myo.age = 42
+        myo.rec.mynumpy = np.arange(20*20).reshape(20,20)
+        myo.dummy = "Whatever"
+
+        myd = TestStorageDictRec1("test_sync")
+
+        # WARNING: We keep each dictionary item reference into a list to AVOID
+        # rebuilding them.  Otherwise, each 'myd[i]' DELETES the
+        # previous instance.
+        o = []
+        for i in range(0,3):
+            myd[i]=myo
+            o.append(myd[i])
+
+        ##print("sids myo={} myd[0]={} ({} myo refs)".format(getattr(myo, 'storage_id',None), o[0].storage_id, sys.getrefcount(myo)), flush=True)
+
+        del myo # Remove from memory
+        del myd # Remove from memory
+        myd = TestStorageDictRec1("test_sync")
+
+        o = []
+        for i in range(0,3):
+            o.append(myd[i])
+
+        for i in range(0,3):
+            o[i].mynumpy[0,0] = -666 + i    # Asynchronous write
+
+        x = TestStorageDictRec1("test_sync")
+
+        for i in range(0,3):
+            ##print("myd[{}].mynumpy={} x[{}].mynumpy={}".format(i,o[i].mynumpy.storage_id,i, x[i].mynumpy.storage_id),flush=True)
+            ##print("myd[{}]: {}  x[{}]:{}".format(i,o[i].mynumpy[0,0], i, x[i].mynumpy[0,0]),flush=True)
+            self.assertTrue(o[i].mynumpy[0,0] != x[i].mynumpy[0,0]) # Data should be still in dirty/flight WARNING! This makes the hypothesis that the time it takes for the writes is high enough to have time to instantiate with a previous value instead of the last one... depending on the environment this may NOT be true.
+
+        #myd.sync()
+        ##print("AFTER SYNC2", flush=True)
+
+        x = TestStorageDictRec1("test_sync")
+        for i in range(0,3):
+            self.assertTrue(myd[i].mynumpy[0,0] == x[i].mynumpy[0,0])
+
+
+        for i in range(0,3):
+            myd[i].rec.mynumpy[0,0] = -1666 + i    # Asynchronous write
+
+        x = TestStorageDictRec1("test_sync")
+        for i in range(0,3):
+            ##print("myd[{}]: {}  x[{}]:{}".format(i,myd[i].rec.mynumpy[0,0], i, x[i].rec.mynumpy[0,0]),flush=True)
+            self.assertTrue(myd[i].rec.mynumpy[0,0] == x[i].rec.mynumpy[0,0]) # Data is still in dirty/flight
+
+        #myd.sync()
+
+        x = TestStorageDictRec1("test_sync")
+        for i in range(0,3):
+            self.assertTrue(myd[i].rec.mynumpy[0,0] == x[i].rec.mynumpy[0,0])
 
 if __name__ == '__main__':
     unittest.main()

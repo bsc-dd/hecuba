@@ -544,7 +544,7 @@ class StorageDict(IStorage, dict):
         self._flush_to_storage()
         super().delete_persistent()
         log.debug('DELETE PERSISTENT: %s', self._table)
-        query = "TRUNCATE TABLE %s.%s;" % (self._ksp, self._table)
+        query = "DROP TABLE %s.%s;" % (self._ksp, self._table)
         config.session.execute(query)
 
         query = "DELETE FROM hecuba.istorage where storage_id={}".format(self.storage_id)

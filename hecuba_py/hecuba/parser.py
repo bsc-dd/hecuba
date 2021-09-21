@@ -260,11 +260,11 @@ class Parser(object):
         if line.count('<') == 1:  # is tuple, set, list
             aux = self._parse_set_tuple_list(line, this)
         elif line.count('<') == 0 and line.count('Index_on') == 0 and line.count('.') == 0 or (
-                line.count('numpy.ndarray') and line.count('dict') == 0):  # is simple type
+                line.count('numpy.ndarray') and line.count(' dict') == 0):  # is simple type
             aux = self._parse_simple(line, this)
         elif line.count('Index_on') == 1:
             aux = self._parse_index(line, this)
-        elif line.count('.') > 0 and line.count('dict') == 0:
+        elif line.count('.') > 0 and line.count(' dict') == 0:
             aux = self._parse_file(line, this)
         else:  # is dict
             aux = self._parse_dict(line, this)
@@ -287,7 +287,7 @@ class Parser(object):
             pos = line.find('@Index_on')
             line = line[pos:]
             return line.replace('*', ' ')
-        elif line.count('dict') > 0:
+        elif line.count('*dict') > 0:
             pos = re.search(r'\b(dict)\b', line)
             pos = pos.start()
         elif line.count('list') > 0:

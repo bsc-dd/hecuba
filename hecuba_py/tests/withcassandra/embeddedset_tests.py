@@ -549,6 +549,8 @@ class EmbeddedSetTest(unittest.TestCase):
 
         self.assertTrue(d._table is not None)
         self.assertEqual(self.current_ksp, d._ksp)
+        #this sleep is to guarantee that data is on disk before reading it again
+        time.sleep(10) #TODO: check the implementation of embedded sets to implement a sync interface
 
         res = config.session.execute(
             'SELECT storage_id, primary_keys, columns, class_name, name, tokens, istorage_props,indexed_on ' +
@@ -568,7 +570,9 @@ class EmbeddedSetTest(unittest.TestCase):
 
         for i in range(0, 10):
             # rebuild[str(i), i] does not return data, we must iterate over it
-            self.assertEqual({i for i in rebuild[str(i), i]}, {(0, 0), (1, 1), (2, 2)})
+            mys = {k for k in rebuild[str(i), i]}
+            for val in {(0,0), (1, 1), (2, 2)}:
+                self.assertTrue( val in mys )
 
 
 if __name__ == '__main__':

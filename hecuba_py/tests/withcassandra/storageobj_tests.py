@@ -764,6 +764,31 @@ class StorageObjTest(unittest.TestCase):
             entries += 1
         self.assertEquals(0, entries)
 
+    def test_delete_persistent_obj(self):
+        config.session.execute("DROP TABLE IF EXISTS " + config.execution_name + ".Test2StorageObj")
+        time.sleep(1)
+        sobj = Test2StorageObj()
+        sobj.name = "nom1"
+        sobj.age = 42
+        sobj.make_persistent("testpobj1")
+
+        sobj2 = Test2StorageObj()
+        sobj2.name = "nom2"
+        sobj2.age = 666
+        sobj2.make_persistent("testpobj2")
+
+        sobj2.delete_persistent()
+        del sobj2
+
+        del sobj
+
+        sobj3 = Test2StorageObj("testpobj1")
+        self.assertEquals(sobj3.name, "nom1")
+
+        sobj4 = Test2StorageObj("testpobj2")
+        with self.assertRaises(AttributeError): # The object should be EMPTY
+            name = sobj4.name
+
     def test_nestedso_dictofsos(self):
         config.session.execute("DROP TABLE IF EXISTS " + config.execution_name + ".Test5StorageObj")
         config.session.execute("DROP TABLE IF EXISTS " + config.execution_name + ".Test2StorageObj")
@@ -908,6 +933,7 @@ class StorageObjTest(unittest.TestCase):
         my_so.mynumpy += 1
         self.assertTrue(np.array_equal(base_numpy, my_so.mynumpy))
 
+        my_so.sync()
         reloaded_so = TestStorageObjNumpy(self.current_ksp+'.test_numpy_ops_persistent')
         self.assertTrue(np.allclose(reloaded_so.mynumpy, base_numpy))
         self.assertEqual(np.average(base_numpy), np.average(reloaded_so.mynumpy))

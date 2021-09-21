@@ -133,3 +133,9 @@ class IStorage(object):
             args_dict = new_args._asdict()
             args_dict["built_remotely"] = True
             yield build_remotely(args_dict)
+
+    def sync(self):
+        """
+        Stub class to be redefined by subclasses
+        """
+        pass
