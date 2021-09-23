@@ -81,7 +81,7 @@ def setup_packages():
 
     # compute which libraries were built
     metadata = dict(name="Hecuba",
-                    version="0.1.3.post1",
+                    version="1.0",
                     package_dir={'hecuba': 'hecuba_py/hecuba', 'storage': 'storageAPI/storage'},
                     packages=['hecuba', 'storage'],  # find_packages(),
                     install_requires=['cassandra-driver>=3.7.1', 'numpy>=1.16'],
@@ -92,8 +92,8 @@ def setup_packages():
                     license="Apache License Version 2.0",
                     keywords="key-value, scientific computing",
                     description='Hecuba',
-                    author='Guillem Alomar, Yolanda Becerra, Cesare Cugnasco, Adrián Espejo, Pol Santamaria',
-                    author_email='yolanda.becerra@bsc.es,cesare.cugnasco@bsc.es',
+                    author='Guillem Alomar, Yolanda Becerra, Juanjo Costa, Cesare Cugnasco, Adrián Espejo, Pol Santamaria',
+                    author_email='yolanda.becerra@bsc.es,jcosta@ac.upc.edu',
                     url='https://www.bsc.es',
                     long_description='''Hecuba.''',
                     #   test_suite='nose.collector',
