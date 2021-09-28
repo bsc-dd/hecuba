@@ -125,11 +125,12 @@ class Config:
             log.warn('Load data on demand is ENABLED [LOAD_ON_DEMAND=True]')
 
         if 'CREATE_SCHEMA' in os.environ:
-            singleton.id_create_schema = int(os.environ['CREATE_SCHEMA'])
+            env_var = os.environ['CREATE_SCHEMA'].lower()
+            singleton.id_create_schema = False if env_var == 'no' or env_var == 'false' else True
             log.info('CREATE_SCHEMA: %d', singleton.id_create_schema)
         else:
-            singleton.id_create_schema = -1
-            log.warn('Creating keyspaces and tables by default [CREATE_SCHEMA=-1]')
+            singleton.id_create_schema = False
+            log.warn('Creating keyspaces and tables by default [CREATE_SCHEMA=False]')
         try:
             singleton.nodePort = int(os.environ['NODE_PORT'])
             log.info('NODE_PORT: %d', singleton.nodePort)
@@ -297,7 +298,7 @@ class Config:
                     raise e
             singleton._query_to_lock=singleton.session.prepare("INSERT into hecuba_locks.table_lock (table_name) values (?) if not exists;")
 
-        if singleton.id_create_schema == -1:
+        if singleton.id_create_schema:
             queries = [
                 "CREATE KEYSPACE IF NOT EXISTS hecuba  WITH replication = %s" % singleton.replication,
                 """CREATE TYPE IF NOT EXISTS hecuba.q_meta(
@@ -336,7 +337,7 @@ class Config:
         # connecting c++ bindings
         connectCassandra(singleton.contact_names, singleton.nodePort)
 
-        if singleton.id_create_schema == -1:
+        if singleton.id_create_schema:
             time.sleep(10)
         singleton.cluster.register_user_type('hecuba', 'np_meta', HArrayMetadata)
         # Create a dummy arrayDataStore to generate the TokensToHost variable

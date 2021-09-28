@@ -15,6 +15,41 @@
 
 export C4S_HOME=$HOME/.c4s
 export CASS_IFACE="-ib0"
+MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
+CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
+HECUBA_ENV=$C4S_HOME/conf/hecuba_environment
+HECUBA_TEMPLATE_FILE=$MODULE_PATH/hecuba_environment.template
+
+UNIQ_ID="c4s"$(echo $RANDOM | cut -c -5)
+DEFAULT_NUM_NODES=4
+DEFAULT_MAX_TIME="04:00:00"
+DEFAULT_DATA_PATH=/scratch/tmp
+DEFAULT_CASSANDRA=$HECUBA_ROOT/cassandra-d8tree
+RETRY_MAX=30
+PYCOMPSS_SET=0
+EXEC_NAME=$(echo ${0} | sed "s+/+ +g" | awk '{ print $NF }')
+QUEUE=""
+
+function set_workspace () {
+    mkdir -p $C4S_HOME/logs
+    mkdir -p $C4S_HOME/conf
+    echo "#This is a Cassandra4Slurm configuration file. Every variable must be set and use an absolute path." > $CFG_FILE
+    echo "# LOG_PATH is the default log directory." >> $CFG_FILE
+    echo "LOG_PATH=\"$HOME/.c4s/logs\"" >> $CFG_FILE
+    echo "# DATA_PATH is a path to be used to store the data in every node. Using the SSD local storage of each node is recommended." >> $CFG_FILE
+    echo "DATA_PATH=\"$DEFAULT_DATA_PATH\"" >> $CFG_FILE
+    echo "CASS_HOME=\"$DEFAULT_CASSANDRA\"" >> $CFG_FILE
+    echo "# SNAP_PATH is the destination path for snapshots." >> $CFG_FILE
+    echo "SNAP_PATH=\"$DEFAULT_DATA_PATH/hecuba/snapshots\"" >> $CFG_FILE
+}
+
+if [ ! -f $CFG_FILE ]; then
+    set_workspace
+    echo "INFO: A default Cassandra4Slurm config has been generated. Adapt the following file if needed and try again:"
+    echo "$CFG_FILE"
+    return
+fi
+
 # Cleaning old executions (more than a month ago)
 `find $C4S_HOME -maxdepth 1 -mtime +30 -type f | grep -v ".cfg" | xargs rm -f`
 # Cleaning old jobs (not in the queuing system anymore)
@@ -38,19 +73,7 @@ else
     mv $C4S_HOME/newjoblist.txt $C4S_JOBLIST
 fi
 
-MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
-CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
-HECUBA_ENV=$C4S_HOME/conf/hecuba_environment
 
-UNIQ_ID="c4s"$(echo $RANDOM | cut -c -5)
-DEFAULT_NUM_NODES=4
-DEFAULT_MAX_TIME="04:00:00"
-DEFAULT_DATA_PATH=/scratch/tmp
-DEFAULT_CASSANDRA=$HECUBA_ROOT/cassandra-d8tree
-RETRY_MAX=30
-PYCOMPSS_SET=0
-EXEC_NAME=$(echo ${0} | sed "s+/+ +g" | awk '{ print $NF }')
-QUEUE=""
 
 function usage () {
     # Prints a help message
@@ -208,24 +231,12 @@ function set_snapshot_value () {
     fi
 }
 
-function set_workspace () {
-    mkdir -p $C4S_HOME/logs
-    mkdir -p $C4S_HOME/conf
-    echo "#This is a Cassandra4Slurm configuration file. Every variable must be set and use an absolute path." > $CFG_FILE
-    echo "# LOG_PATH is the default log directory." >> $CFG_FILE
-    echo "LOG_PATH=\"$HOME/.c4s/logs\"" >> $CFG_FILE
-    echo "# DATA_PATH is a path to be used to store the data in every node. Using the SSD local storage of each node is recommended." >> $CFG_FILE
-    echo "DATA_PATH=\"$DEFAULT_DATA_PATH\"" >> $CFG_FILE
-    echo "CASS_HOME=\"$DEFAULT_CASSANDRA\"" >> $CFG_FILE
-    echo "# SNAP_PATH is the destination path for snapshots." >> $CFG_FILE
-    echo "SNAP_PATH=\"/gpfs/projects/$(groups | awk '{ print $1 }')/$(whoami)/snapshots\"" >> $CFG_FILE
-}
 
 for i in "$@"; do
 case $i in
     -h|--help)
     usage
-    exit
+    return
     ;;
     run|RUN)
     ACTION="RUN"
@@ -356,11 +367,13 @@ if [ "0$UNK_FLAGS" != "0" ]; then
     exit
 fi
 
-if [ ! -f $CFG_FILE ]; then
-    set_workspace
-    echo "INFO: A default Cassandra4Slurm config has been generated. Edit the following file and try again:"
-    echo "$CFG_FILE"
-    exit
+
+if [ ! -f $HECUBA_ENV ]; then
+    echo "[INFO] Environment variables to load NOT found at $HECUBA_ENV"
+    echo "[INFO] Copying default values."
+    cp $HECUBA_TEMPLATE_FILE $HECUBA_ENV
+else
+    echo "[INFO] Environment variables to load found at $HECUBA_ENV"
 fi
 
 # Feel free to change this to a "source" if you want, but I don't recommend it.
