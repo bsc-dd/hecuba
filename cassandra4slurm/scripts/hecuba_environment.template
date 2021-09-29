@@ -1,0 +1,23 @@
+# Default values for Hecuba environment variables: uncomment and set to configure according to your requirements
+
+# * This file will be copied to .c4s/conf/hecuba_environment if this file does not exist
+# * Users that launch the applications using the c4s tool can edit this file to configure
+#   the execution of each application (this file is shared by all concurrent executions)
+# * Users the launch the applications as a simple python script need to source this file previously to the execution
+# * COMPSs users can decide to override this file or to set the variables into the storage_props file
+
+#export EXECUTION_NAME=my_app
+#export CONCURRENT_CREATION=False
+#export CREATE_SCHEMA=False
+#export DEBUG=False
+#export LOAD_ON_DEMAND=True
+#export REPLICATION_STRATEGY=""
+#export REPLICA_FACTOR=1
+
+#export SPLITS_PER_NODE=32
+#export MAX_CACHE_SIZE=1000
+#export HECUBA_PRINT_LIMIT=1000
+#export PREFETCH_SIZE=10000
+#export WRITE_BUFFER_SIZE=1000
+#export WRITE_CALLBACKS_NUMBER=16
+

@@ -52,19 +52,16 @@ COMM_HOME=$ROOT_PATH/cassandra-commitlog
 SAV_CACHE=$ROOT_PATH/saved_caches
 CLUSTER=$THETIME
 export ENVFILE=$C4S_HOME/environ-"$UNIQ_ID".txt
-if [ -f $HECUBA_ENVIRON ]; then
-    echo "[INFO] Environment variables to load found at $HECUBA_ENVIRON"
-    echo "[INFO] Generated FILE WITH HECUBA ENVIRON at  ${ENVFILE}"
 
-    source $HECUBA_ENVIRON
+source $HECUBA_ENVIRON
 
-    cat $HECUBA_ENVIRON > $ENVFILE
+echo "[INFO] Generated FILE WITH HECUBA ENVIRON at  ${ENVFILE}"
+cat $HECUBA_ENVIRON > $ENVFILE
 
-    if [ "X$HECUBA_ARROW" != "X" ]; then
-        #Set HECUBA_ARROW_PATH to the DATA_PATH/TIME
-        export HECUBA_ARROW_PATH=$ROOT_PATH/
-        echo "export HECUBA_ARROW_PATH=$ROOT_PATH/" >> $ENVFILE
-    fi
+if [ "X$HECUBA_ARROW" != "X" ]; then
+    #Set HECUBA_ARROW_PATH to the DATA_PATH/TIME
+    export HECUBA_ARROW_PATH=$ROOT_PATH/
+    echo "export HECUBA_ARROW_PATH=$ROOT_PATH/" >> $ENVFILE
 fi
 
 if [ "$DISJOINT" == "1" ]; then

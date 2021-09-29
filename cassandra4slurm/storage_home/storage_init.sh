@@ -55,38 +55,38 @@ source $STORAGE_PROPS
 
 export C4S_HOME=$HOME/.c4s
 export HECUBA_ENVIRON=$C4S_HOME/conf/hecuba_environment
-export C4S_CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
+export CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
 export MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
 
 SNAPSHOT_FILE=$C4S_HOME/cassandra-snapshot-file-"$UNIQ_ID".txt
 RECOVER_FILE=$C4S_HOME/cassandra-recover-file-"$UNIQ_ID".txt
+HECUBA_TEMPLATE_FILE=$MODULE_PATH/hecuba_environment.template
 
 export THETIME=$(date "+%Y%m%dD%H%Mh%Ss")"-$SLURM_JOB_ID"
-
-source $C4S_CFG_FILE
-export CASS_HOME
-export DATA_PATH
-export SNAP_PATH
-
-export ROOT_PATH=$DATA_PATH/$THETIME
-export DATA_HOME=$ROOT_PATH/cassandra-data
-
 export ENVFILE=$C4S_HOME/environ-"$UNIQ_ID".txt
-if [ -f $HECUBA_ENVIRON ]; then
+if [ ! -f $HECUBA_ENVIRON ]; then
+    echo "[INFO] Environment variables to load NOT found at $HECUBA_ENVIRON"
+    echo "[INFO] Generating file with DEFAULT values."
+    mkdir -p $C4S_HOME/conf
+    cp $HECUBA_TEMPLATE_FILE $HECUBA_ENVIRON
+else
     echo "[INFO] Environment variables to load found at $HECUBA_ENVIRON"
     echo "[INFO] Generated FILE WITH HECUBA ENVIRON at  ${ENVFILE}"
-
-    source $HECUBA_ENVIRON
-
-    cat $HECUBA_ENVIRON > $ENVFILE
-
-    if [ "X$HECUBA_ARROW" != "X" ]; then
-        #Set HECUBA_ARROW_PATH to the DATA_PATH/TIME
-        export HECUBA_ARROW_PATH=$ROOT_PATH/
-        echo "export HECUBA_ARROW_PATH=$ROOT_PATH/" >> $ENVFILE
-    fi
-    cat $ENVFILE > ${FILE_TO_SET_ENV_VARS}
 fi
+
+source $HECUBA_ENVIRON
+
+# Inherit ALL hecuba environment variables
+cat $HECUBA_ENVIRON > $ENVFILE
+
+if [ "X$HECUBA_ARROW" != "X" ]; then
+    #Set HECUBA_ARROW_PATH to the DATA_PATH/TIME
+    export HECUBA_ARROW_PATH=$ROOT_PATH/
+    echo "export HECUBA_ARROW_PATH=$ROOT_PATH/" >> $ENVFILE
+fi
+cat ${STORAGE_PROPS} >> $ENVFILE
+
+cat $ENVFILE > ${FILE_TO_SET_ENV_VARS}
 
 #check if cassandra is already running and then just configure hecuba environment
 # CONTACT_NAMES sould be set in STORAGE_PROPS file
@@ -94,13 +94,41 @@ grep -v ^# $STORAGE_PROPS | grep -q CONTACT_NAMES
 if [ $? -eq 0 ]; then
         firstnode=$(echo $CONTACT_NAMES | awk -F ',' '{ print $1 }')
         source $MODULE_PATH/initialize_hecuba.sh  $firstnode
-
-        echo "CONTACT_NAMES=$CONTACT_NAMES"
-        echo "export CONTACT_NAMES=$CONTACT_NAMES" >> ${FILE_TO_SET_ENV_VARS}
+        #echo "CONTACT_NAMES=$CONTACT_NAMES"
+        #echo "export CONTACT_NAMES=$CONTACT_NAMES" >> ${FILE_TO_SET_ENV_VARS}
         echo "FILE TO EXPORT VARS IS  ${FILE_TO_SET_ENV_VARS}"
         cat ${FILE_TO_SET_ENV_VARS}
         exit
 fi
+
+# Cassandra is not already running... starting it
+function set_workspace () {
+    mkdir -p $C4S_HOME/logs
+    mkdir -p $C4S_HOME/conf
+    echo "#This is a Cassandra4Slurm configuration file. Every variable must be set and use an absolute path." > $CFG_FILE
+    echo "# LOG_PATH is the default log directory." >> $CFG_FILE
+    echo "LOG_PATH=\"$HOME/.c4s/logs\"" >> $CFG_FILE
+    echo "# DATA_PATH is a path to be used to store the data in every node. Using the SSD local storage of each node is recommended." >> $CFG_FILE
+    echo "DATA_PATH=\"$DEFAULT_DATA_PATH\"" >> $CFG_FILE
+    echo "CASS_HOME=\"$DEFAULT_CASSANDRA\"" >> $CFG_FILE
+    echo "# SNAP_PATH is the destination path for snapshots." >> $CFG_FILE
+    #echo "SNAP_PATH=\"/gpfs/projects/$(groups | awk '{ print $1 }')/$(whoami)/snapshots\"" >> $CFG_FILE
+    echo "SNAP_PATH=\"$DEFAULT_DATA_PATH/hecuba/snapshots\"" >> $CFG_FILE
+}
+
+if [ ! -f $CFG_FILE ]; then
+    set_workspace
+    echo "INFO: A default Cassandra4Slurm config has been generated. Adapt the following file if needed and try again:"
+    echo "$CFG_FILE"
+    exit
+fi
+source $CFG_FILE
+export CASS_HOME
+export DATA_PATH
+export SNAP_PATH
+
+export ROOT_PATH=$DATA_PATH/$THETIME
+export DATA_HOME=$ROOT_PATH/cassandra-data
 
 mkdir -p $SNAP_PATH
 COMM_HOME=$ROOT_PATH/cassandra-commitlog

@@ -28,7 +28,7 @@ echo "  Table    istorage created"
 
 echo "Hecuba initialization completed"
 
-export CREATE_SCHEMA=1
+export CREATE_SCHEMA=False
 
 # Restore Python 3 version
 module load python/3.6.4_ML  
