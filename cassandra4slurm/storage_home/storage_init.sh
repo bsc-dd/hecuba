@@ -39,7 +39,8 @@ else
 fi
 
 if [ "x$HECUBA_ROOT" == "x" ]; then
-    HECUBA_ROOT=/apps/HECUBA/0.1.4_dev
+    echo "[ERROR] HECUBA_ROOT not defined. Is Hecuba module loaded?"
+    exit
 fi
 
 MAKE_SNAPSHOT=0
