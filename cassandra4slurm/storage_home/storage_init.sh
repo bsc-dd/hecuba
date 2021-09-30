@@ -63,6 +63,39 @@ RECOVER_FILE=$C4S_HOME/cassandra-recover-file-"$UNIQ_ID".txt
 HECUBA_TEMPLATE_FILE=$MODULE_PATH/hecuba_environment.template
 
 export THETIME=$(date "+%Y%m%dD%H%Mh%Ss")"-$SLURM_JOB_ID"
+
+
+function set_workspace () {
+    mkdir -p $C4S_HOME/logs
+    mkdir -p $C4S_HOME/conf
+    DEFAULT_DATA_PATH=/scratch/tmp
+    DEFAULT_CASSANDRA=$HECUBA_ROOT/cassandra-d8tree
+    echo "#This is a Cassandra4Slurm configuration file. Every variable must be set and use an absolute path." > $CFG_FILE
+    echo "# LOG_PATH is the default log directory." >> $CFG_FILE
+    echo "LOG_PATH=\"$HOME/.c4s/logs\"" >> $CFG_FILE
+    echo "# DATA_PATH is a path to be used to store the data in every node. Using the SSD local storage of each node is recommended." >> $CFG_FILE
+    echo "DATA_PATH=\"$DEFAULT_DATA_PATH\"" >> $CFG_FILE
+    echo "CASS_HOME=\"$DEFAULT_CASSANDRA\"" >> $CFG_FILE
+    echo "# SNAP_PATH is the destination path for snapshots." >> $CFG_FILE
+    #echo "SNAP_PATH=\"/gpfs/projects/$(groups | awk '{ print $1 }')/$(whoami)/snapshots\"" >> $CFG_FILE
+    echo "SNAP_PATH=\"$DEFAULT_DATA_PATH/hecuba/snapshots\"" >> $CFG_FILE
+}
+
+if [ ! -f $CFG_FILE ]; then
+    set_workspace
+    echo "INFO: A default Cassandra4Slurm config has been generated. Adapt the following file if needed and try again:"
+    echo "$CFG_FILE"
+    exit
+fi
+
+source $CFG_FILE
+export CASS_HOME
+export DATA_PATH
+export SNAP_PATH
+
+export ROOT_PATH=$DATA_PATH/$THETIME
+export DATA_HOME=$ROOT_PATH/cassandra-data
+
 export ENVFILE=$C4S_HOME/environ-"$UNIQ_ID".txt
 if [ ! -f $HECUBA_ENVIRON ]; then
     echo "[INFO] Environment variables to load NOT found at $HECUBA_ENVIRON"
@@ -102,34 +135,6 @@ if [ $? -eq 0 ]; then
 fi
 
 # Cassandra is not already running... starting it
-function set_workspace () {
-    mkdir -p $C4S_HOME/logs
-    mkdir -p $C4S_HOME/conf
-    echo "#This is a Cassandra4Slurm configuration file. Every variable must be set and use an absolute path." > $CFG_FILE
-    echo "# LOG_PATH is the default log directory." >> $CFG_FILE
-    echo "LOG_PATH=\"$HOME/.c4s/logs\"" >> $CFG_FILE
-    echo "# DATA_PATH is a path to be used to store the data in every node. Using the SSD local storage of each node is recommended." >> $CFG_FILE
-    echo "DATA_PATH=\"$DEFAULT_DATA_PATH\"" >> $CFG_FILE
-    echo "CASS_HOME=\"$DEFAULT_CASSANDRA\"" >> $CFG_FILE
-    echo "# SNAP_PATH is the destination path for snapshots." >> $CFG_FILE
-    #echo "SNAP_PATH=\"/gpfs/projects/$(groups | awk '{ print $1 }')/$(whoami)/snapshots\"" >> $CFG_FILE
-    echo "SNAP_PATH=\"$DEFAULT_DATA_PATH/hecuba/snapshots\"" >> $CFG_FILE
-}
-
-if [ ! -f $CFG_FILE ]; then
-    set_workspace
-    echo "INFO: A default Cassandra4Slurm config has been generated. Adapt the following file if needed and try again:"
-    echo "$CFG_FILE"
-    exit
-fi
-source $CFG_FILE
-export CASS_HOME
-export DATA_PATH
-export SNAP_PATH
-
-export ROOT_PATH=$DATA_PATH/$THETIME
-export DATA_HOME=$ROOT_PATH/cassandra-data
-
 mkdir -p $SNAP_PATH
 COMM_HOME=$ROOT_PATH/cassandra-commitlog
 SAV_CACHE=$ROOT_PATH/saved_caches

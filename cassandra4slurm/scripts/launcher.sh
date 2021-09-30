@@ -23,8 +23,6 @@ HECUBA_TEMPLATE_FILE=$MODULE_PATH/hecuba_environment.template
 UNIQ_ID="c4s"$(echo $RANDOM | cut -c -5)
 DEFAULT_NUM_NODES=4
 DEFAULT_MAX_TIME="04:00:00"
-DEFAULT_DATA_PATH=/scratch/tmp
-DEFAULT_CASSANDRA=$HECUBA_ROOT/cassandra-d8tree
 RETRY_MAX=30
 PYCOMPSS_SET=0
 EXEC_NAME=$(echo ${0} | sed "s+/+ +g" | awk '{ print $NF }')
@@ -33,6 +31,8 @@ QUEUE=""
 function set_workspace () {
     mkdir -p $C4S_HOME/logs
     mkdir -p $C4S_HOME/conf
+    DEFAULT_DATA_PATH=/scratch/tmp
+    DEFAULT_CASSANDRA=$HECUBA_ROOT/cassandra-d8tree
     echo "#This is a Cassandra4Slurm configuration file. Every variable must be set and use an absolute path." > $CFG_FILE
     echo "# LOG_PATH is the default log directory." >> $CFG_FILE
     echo "LOG_PATH=\"$HOME/.c4s/logs\"" >> $CFG_FILE
@@ -382,11 +382,6 @@ source $CFG_FILE
 #SNAP_PATH=$(cat $CFG_FILE | grep -v "#" | grep "SNAP_PATH=" | tail -n 1 | sed 's/SNAP_PATH=//g' | sed 's/"//g' | sed "s/'//g")
 # Feel free to change this to a "source" if you want, but I don't recommend it.
 source $HECUBA_ENV
-
-if [ "X$HECUBA_ARROW" != "X" ]; then
-    #Set HECUBA_ARROW_PATH to the DATA_PATH/TIME
-    export HECUBA_ARROW_PATH=$ROOT_PATH/
-fi
 
 if [ ! -f $CASS_HOME/bin/cassandra ]; then
     echo "ERROR: Cassandra binary is not where it was expected. ($CASS_HOME/bin/cassandra)"
