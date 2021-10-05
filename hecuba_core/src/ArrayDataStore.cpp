@@ -903,12 +903,26 @@ int ArrayDataStore::open_arrow_file(std::string arrow_file_name) {
     return fdIn;
 }
 
+#define PORT "3490" // the port client will be connecting to 
+
+//#define MAXDATASIZE 100 // max number of bytes we can get at once 
+#define MAXDATASIZE 4096 // max number of bytes we can get at once 
+
+// get sockaddr, IPv4 or IPv6:
+void *get_in_addr(struct sockaddr *sa)
+{
+    if (sa->sa_family == AF_INET) {
+        return &(((struct sockaddr_in*)sa)->sin_addr);
+    }
+
+    return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
 
 /* Copy file 'dst'@'host' to 'src'
  * Uses the 'scp' function and the logged user
  */
 int scp(const char *host, const char *src, const char *dst) {
-
+/*
     //fprintf(stdout, " Remote copy %s from host %s to path %s\n", src, host, dst);
     // Get USERNAME
     char *user;
@@ -946,7 +960,123 @@ int scp(const char *host, const char *src, const char *dst) {
             }
     }
     return 0;
+*/
+
+    //JJfprintf(stdout, " Remote copy %s from host %s to path %s\n", src, host, dst);
+    int sockfd, numbytes;  
+    char buf[MAXDATASIZE];
+    struct addrinfo hints, *servinfo, *p;
+    int rv;
+    char s[INET6_ADDRSTRLEN];
+
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+
+    if ((rv = getaddrinfo(host, PORT, &hints, &servinfo)) != 0) {
+        fprintf(stdout, "getaddrinfo: %s\n", gai_strerror(rv));
+        return -1;
+    }
+
+    // loop through all the results and connect to the first we can
+    for(p = servinfo; p != NULL; p = p->ai_next) {
+        if ((sockfd = socket(p->ai_family, p->ai_socktype,
+                p->ai_protocol)) == -1) {
+            perror("client: socket");
+            continue;
+        }
+
+        if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
+            close(sockfd);
+            perror("client: connect");
+            continue;
+        }
+
+        break;
+    }
+
+    if (p == NULL) {
+        fprintf(stdout, "client: failed to connect\n");
+        return -2;
+    }
+
+    inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr),
+        s, sizeof s);
+    //JJfprintf(stdout,"client: connecting to %s\n", s);
+
+    freeaddrinfo(servinfo); // all done with this structure
+
+    size_t filesize = 0;
+    //uint8_t* mmsrc;
+
+    int pathsize = strlen(src); //+4 -> int size (it will contain path's size)
+    //JJfprintf(stdout,"path    : %s\n", src);
+
+    if (send(sockfd, &pathsize, sizeof(pathsize), 0) == -1) { //TODO: htons --> ntoh
+        perror("send");
+        exit(-1);
+    }
+
+    if (send(sockfd, src, strlen(src), 0) == -1) {
+        perror("send");
+        exit(-1);
+    }
+
+    //JJfprintf(stdout,"before open\n");
+
+    const char* file = strrchr(src, '/');
+    char* dst_path = (char *) malloc(strlen(dst) + 1 + strlen(file));
+    //char* prova = strdup(dst);
+    //JJfprintf(stdout,"file: %s\n", file);
+    //fprintf(stdout,"dst_path: %s\n", dst_path);
+    //printf("strncat: %s\n", strncat(prova, file, strlen(file)));
+
+    //strncat(dst_path, file, strlen(file));
+    size_t i,j;
+    for (i=0; i< strlen(dst); i++)
+        dst_path[i] = dst[i];
+    for (j=0; j< strlen(file); j++,i++)
+        dst_path[i] = file[j];
+    dst_path[i]='\0';
+    //JJfprintf(stdout,"dst_path after strcat: %s\n", dst_path);
+
+    int newfile = open(dst_path, O_CREAT | O_RDWR, 0600);
+    if (newfile < 0) {
+        perror("client: unable to open destination file");
+        fprintf(stdout,"client: Creating file %s, error: %s\n", dst, strerror(errno));
+        return(-1);
+    }
+    //JJfprintf(stdout,"before reciving from server\n");
+
+    numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0);
+    filesize += numbytes;
+    while(numbytes > 0) {
+        buf[numbytes] = '\0';
+        //printf("client: received '%s' from server\n",buf);
+        write(newfile, buf, numbytes);
+        numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0);
+        filesize += numbytes;
+    }
+    if (numbytes<0) {
+        fprintf(stdout,"RECEIVE FAILED  Remote copy %s from host %s to path %s\n", src, host, dst);
+        return(-1);
+    }
+
+    //JJfprintf(stdout,"before mmap\n");
+    //JJfflush(stdout);
+    //mmsrc = (uint8_t*) mmap(NULL, filesize, PROT_READ, MAP_SHARED, newfile, 0);
+    //if (mmsrc == MAP_FAILED) {
+    //    perror("client: unable to mmap");
+    //    exit(1);
+    //}
+    close(newfile);
+    free(dst_path);
+
+
+   return 0; 
+
 }
+
 
 /* itsme: Check if 'target' hostname corresponds to this local node */
 bool itsme(const char *target) {

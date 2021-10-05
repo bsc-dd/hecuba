@@ -375,3 +375,7 @@ if (DEFINED ENV{GTEST_ROOT})
     endif (PT)
 endif (DEFINED ENV{GTEST_ROOT})
 
+# ARROW_HELPER
+add_executable(arrow_helper ${CORE_SRC_DIR}/arrow_helper/server.cpp)
+
+

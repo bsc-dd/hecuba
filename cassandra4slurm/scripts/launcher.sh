@@ -232,6 +232,30 @@ function set_snapshot_value () {
 }
 
 
+function launch_arrow_helpers () {
+    # Launch the 'arrow_helper' tool at each node in NODES, and leave their logs in LOGDIR
+    NODES=$1
+    LOGDIR=$2
+    if [ ! -d $LOGDIR ]; then
+        echo "INFO: Creating directory to store Arrow helper logs at [$LOGDIR]:"
+        mkdir -p $LOGDIR
+    fi
+    ARROW_HELPER=$HECUBA_ROOT/bin/arrow_helper
+    ARROW_HELPER=$HECUBA_ROOT/src/hecuba_repo/build/arrow_helper
+
+
+    for i in $(cat $NODES); do
+        echo "INFO: Launching Arrow helper at [$i] Log at [$LOGDIR/arrow_helper.$i.out]:"
+        ssh  $i $ARROW_HELPER >& $LOGDIR/arrow_helper.$i.out &
+        #ssh  $i $ARROW_HELPER $LOGDIR/arrow_helper.$i.out &
+    done
+    #echo "INFO: Launching Arrow helper at [$NODES]:"
+	#CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $NODES)
+	#CNAMES=$(echo $CNAMES | sed "s/,/$CASS_IFACE,/g")$CASS_IFACE
+    #echo "INFO: Launching Arrow helper at [$CNAMES]:"
+    #srun -s --nodelist $NODES --ntasks-per-node=1 --cpus-per-task=4 $ARROW_HELPER
+}
+
 for i in "$@"; do
 case $i in
     -h|--help)
@@ -606,6 +630,8 @@ if [ "$ACTION" == "RUN" ]; then
     else
         echo "ERROR: Cassandra Cluster RUN timeout. Check STATUS."
     fi 
+    launch_arrow_helpers $C4S_HOME/casslist-"$UNIQ_ID".txt $LOGS_DIR/$UNIQ_ID
+
 elif [ "$ACTION" == "STATUS" ] || [ "$ACTION" == "status" ]
 then
     # If there is a running Cassandra Cluster it prints the information of the nodes

@@ -198,6 +198,27 @@ function get_nodes_up () {
     NODE_COUNTER=$($CASS_HOME/bin/nodetool -h $NODETOOL_HOST status | sed 1,5d | sed '$ d' | awk '{ print $1 }' | grep "UN" | wc -l)
 }
 
+function launch_arrow_helpers () {
+    # Launch the 'arrow_helper' tool at each node in NODES, and leave their logs in LOGDIR
+    NODES=$1
+    LOGDIR=$2
+    if [ ! -d $LOGDIR ]; then
+        echo "INFO: Creating directory to store Arrow helper logs at [$LOGDIR]:"
+        mkdir -p $LOGDIR
+    fi
+    ARROW_HELPER=$HECUBA_ROOT/bin/arrow_helper
+    ARROW_HELPER=$HECUBA_ROOT/src/hecuba_repo/build/arrow_helper
+
+
+    for i in $(cat $NODES); do
+        echo "INFO: Launching Arrow helper at [$i] Log at [$LOGDIR/arrow_helper.$i.out]:"
+        ssh $i $ARROW_HELPER >& $LOGDIR/arrow_helper.$i.out &
+    done
+    # TODO Review this
+    #echo "INFO: Launching Arrow helper at [$NODES] Log at [$LOGDIR/arrow_helper.$i.out]:"
+    #srun --nodelist $NODES --ntasks-per-node=1 --cpus-per-task=4 $ARROW_HELPER
+}
+
 if [ ! -f $CASS_HOME/bin/cassandra ]; then
     echo "ERROR: Cassandra executable is not placed where it was expected. ($CASS_HOME/bin/cassandra)"
     echo "Exiting..."
@@ -339,3 +360,20 @@ cat ${FILE_TO_SET_ENV_VARS}
 #srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES "bash export CONTACT_NAMES=$CONTACT_NAMES" &
 PYCOMPSS_STORAGE=$C4S_HOME/pycompss_storage_"$UNIQ_ID".txt
 echo $CNAMES | tr , '\n' > $PYCOMPSS_STORAGE # Set list of nodes (with interface) in PyCOMPSs file
+
+if [ "0$LOGS_DIR" == "0" ]; then
+	#yolandab
+    DEFAULT_LOGS_DIR=$(cat $CFG_FILE | grep "LOG_PATH=")
+    if [ $? -eq 1 ]; then
+            DEFAULT_LOGS_DIR=$PWD
+    else
+            DEFAULT_LOGS_DIR=$(echo $DEFAULT_LOGS_DIR| sed 's/LOG_PATH=//g' | sed 's/"//g')
+    fi
+    echo "[INFO] This execution will use $DEFAULT_LOGS_DIR as logging dir"
+    #was:
+    #DEFAULT_LOGS_DIR=$(cat $CFG_FILE | grep "LOG_PATH=" | sed 's/LOG_PATH=//g' | sed 's/"//g')
+    LOGS_DIR=$DEFAULT_LOGS_DIR
+fi
+
+launch_arrow_helpers $CASSFILE  $LOGS_DIR/$UNIQ_ID
+
