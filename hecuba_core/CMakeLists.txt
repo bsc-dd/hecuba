@@ -377,5 +377,6 @@ endif (DEFINED ENV{GTEST_ROOT})
 
 # ARROW_HELPER
 add_executable(arrow_helper ${CORE_SRC_DIR}/arrow_helper/server.cpp)
+install(TARGETS arrow_helper DESTINATION ${C_BINDING_INSTALL_PREFIX}/bin)
 
 

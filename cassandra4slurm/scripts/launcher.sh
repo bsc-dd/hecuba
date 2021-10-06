@@ -240,14 +240,14 @@ function launch_arrow_helpers () {
         echo "INFO: Creating directory to store Arrow helper logs at [$LOGDIR]:"
         mkdir -p $LOGDIR
     fi
-    ARROW_HELPER=$HECUBA_ROOT/bin/arrow_helper
     ARROW_HELPER=$HECUBA_ROOT/src/hecuba_repo/build/arrow_helper
+    ARROW_HELPER=$HECUBA_ROOT/bin/arrow_helper
 
 
     for i in $(cat $NODES); do
         echo "INFO: Launching Arrow helper at [$i] Log at [$LOGDIR/arrow_helper.$i.out]:"
-        ssh  $i $ARROW_HELPER >& $LOGDIR/arrow_helper.$i.out &
-        #ssh  $i $ARROW_HELPER $LOGDIR/arrow_helper.$i.out &
+        #ssh  $i $ARROW_HELPER >& $LOGDIR/arrow_helper.$i.out &
+        ssh  $i $ARROW_HELPER $LOGDIR/arrow_helper.$i.out &
     done
     #echo "INFO: Launching Arrow helper at [$NODES]:"
 	#CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $NODES)
