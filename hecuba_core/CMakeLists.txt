@@ -34,6 +34,7 @@ message("Dependencies install path ${C_BINDING_INSTALL_PREFIX}")
 
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${C_BINDING_INSTALL_PREFIX}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${C_BINDING_INSTALL_PREFIX}/bin)
 
 
 #Add environment $CPLUS_INCLUDE_PATH include paths
@@ -377,6 +378,5 @@ endif (DEFINED ENV{GTEST_ROOT})
 
 # ARROW_HELPER
 add_executable(arrow_helper ${CORE_SRC_DIR}/arrow_helper/server.cpp)
-install(TARGETS arrow_helper DESTINATION ${C_BINDING_INSTALL_PREFIX}/bin)
 
 
