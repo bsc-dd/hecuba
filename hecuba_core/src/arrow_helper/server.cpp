@@ -69,11 +69,11 @@ int main(int argc, char *argv[])
     char path[MAXDATASIZE];
     int numbytes, bytesread, pathsize;
 
-/*JJ
     //stdout redirection; argv[1] -> output file
-    int stdout_fd = dup(STDOUT_FILENO);
+    int stdout_fd = STDOUT_FILENO;
     if (argc == 2) {
         fflush(stdout);
+        stdout_fd = dup(STDOUT_FILENO);
         int redir_fd = open(argv[1], O_CREAT | O_RDWR, 0660);
         dup2(redir_fd, STDOUT_FILENO);
         close(redir_fd);
@@ -81,9 +81,9 @@ int main(int argc, char *argv[])
     printf("RECEIVED ARGS ARE:\n");
     for (int i = 0; i < argc; ++i) {
         printf("%s ", argv[i]);
-    } printf("\n");
+    }
+    printf("\n");
     fflush(stdout);
-    */
 
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;
@@ -157,8 +157,8 @@ int main(int argc, char *argv[])
         inet_ntop(their_addr.ss_family,
             get_in_addr((struct sockaddr *)&their_addr),
             s, sizeof s);
-        //JJprintf("server: got connection from %s\n", s);
-        //JJfflush(stdout);
+        printf("server: got connection from %s\n", s);
+        fflush(stdout);
 
         if (!fork()) { // this is the child process
             close(sockfd); // child doesn't need the listener
@@ -170,7 +170,7 @@ int main(int argc, char *argv[])
             char* path = (char*)malloc(pathsize+1);
             numbytes = recv(new_fd, path, pathsize, 0);
             path[pathsize] = '\0';
-            //JJprintf("Path received: %s\n", path);
+            printf("Path received: %s\n", path);
 
             //useful
             int newfile = open(path, O_RDONLY);
@@ -180,7 +180,7 @@ int main(int argc, char *argv[])
                     perror("server: unable to lseek to end of file");
                     exit(1);
                 }
-                //JJprintf("Bytes to send: %i. Sending file now...\n", filesize); //TODO DEBUG only
+                printf("Bytes to send: %i. Sending file now...\n", filesize); //TODO DEBUG only
 
                 filesize = lseek(newfile, 0, SEEK_SET); //TODO DEBUG only
                 if (filesize < 0) {
@@ -198,8 +198,8 @@ int main(int argc, char *argv[])
                     bytesread = read(newfile, buf, MAXDATASIZE-1); 
                     total_bytes += bytesread; //TODO DEBUG only
                 }
-                //JJprintf("Sent File: %s\n", path);
-                //JJprintf("Total bytes sent to %s: %i. Total sends performed: %i\n\n", s, total_bytes, total_sends); //TODO DEBUG only
+                printf("Sent File: %s\n", path);
+                printf("Total bytes sent to %s: %i. Total sends performed: %i\n\n", s, total_bytes, total_sends); //TODO DEBUG only
             } else {
                 perror("Opening file");
                 printf("Unable to open %s\n",path);
@@ -207,16 +207,16 @@ int main(int argc, char *argv[])
             free(path);
                 
 
-            //JJprintf("\n");
+            printf("\n");
             close(new_fd);
             exit(0);
         }
         close(new_fd);  // parent doesn't need this
     }
 
-    //JJfflush(stdout);
-    //JJdup2(stdout_fd, STDOUT_FILENO);
-    //JJclose(stdout_fd);
+    fflush(stdout);
+    dup2(stdout_fd, STDOUT_FILENO);
+    close(stdout_fd);
 
     return 0;
 }
