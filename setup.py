@@ -32,6 +32,7 @@ def cmake_build():
         cmake_args=["cmake", "-H./hecuba_core", "-B./build"]
         if c_binding_path:
             cmake_args=cmake_args + [ "-DC_BINDING_INSTALL_PREFIX={}".format(c_binding_path)]
+            cmake_args=cmake_args + [ "-DPYTHON_VERSION=python{}.{}".format(sys.version_info.major, sys.version_info.minor)]
         if subprocess.call(cmake_args) != 0:
             raise EnvironmentError("error calling cmake")
     except OSError as e:

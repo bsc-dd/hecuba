@@ -194,6 +194,7 @@ if (NOT CASS)
             AFTER_INSTALL
             DEPENDEES install
             COMMAND mkdir -p ${C_BINDING_INSTALL_PREFIX}/include
+            COMMAND mkdir -p ${C_BINDING_INSTALL_PREFIX}/lib/${PYTHON_VERSION}/site-packages
             COMMAND cp -r ${CMAKE_CURRENT_BINARY_DIR}/CASS-prefix/src/CASS/src/macros.hpp ${C_BINDING_INSTALL_PREFIX}/include
             COMMAND cp -r ${CMAKE_CURRENT_BINARY_DIR}/CASS-prefix/src/CASS/src/murmur3.hpp ${C_BINDING_INSTALL_PREFIX}/include
     )
