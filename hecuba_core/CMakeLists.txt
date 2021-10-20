@@ -147,9 +147,13 @@ IF (NOT LIBUV)
     )
     set(LIBUV_EXTERNAL LIBUV)
     set(LIBUV_ROOT_DIR ${C_BINDING_INSTALL_PREFIX})
+    # Cassandra driver needs libuv but it does not set RPATH, therefore
+    # add a fake requirement in hfetch for libuv to ensure that it is found with hfetch's RPATH
+    # (which is the one that will be installed by python and will call the cassandra driver)
     add_dependencies(hfetch LIBUV)
     target_link_libraries(hfetch uv)
 else ()
+    message(STATUS "Using system's LIBUV : " ${LIBUV})
     set(LIBUV_EXTERNAL)
     set(LIBUV_ROOT_DIR ${LIBUV}/..)
     set(ALL_LIBS ${ALL_LIBS} ${LIBUV})
