@@ -42,10 +42,13 @@ def cmake_build():
             # Different error
             raise e
 
-    if subprocess.call(["make", "-j4", "-C", "./build"]) != 0:
+    jobs = get_var("CMAKE_BUILD_PARALLEL_LEVEL")
+    jobs = "-j{}".format(jobs[0] if jobs else 1)
+    print("JOBS={}".format(jobs), flush=True)
+    if subprocess.call(["make", jobs, "-C", "./build"]) != 0:
         raise EnvironmentError("error calling make build")
 
-    if c_binding_path and subprocess.call(["make", "-j4", "-C", "./build", "install"]) != 0:
+    if c_binding_path and subprocess.call(["make", jobs, "-C", "./build", "install"]) != 0:
         raise EnvironmentError("error calling make install")
 
 def get_var(var):

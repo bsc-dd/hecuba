@@ -5,7 +5,14 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake) #folder with Fi
 
 set(CORE_SRC_DIR "${CMAKE_SOURCE_DIR}/src")
 
-
+# CMAKE_BUILD_PARALLEL_LEVEL controls the level of parallelism, use it for Make also
+message(STATUS "===> CMAKE_BUILD_PARALLEL_LEVEL=$ENV{CMAKE_BUILD_PARALLEL_LEVEL}")
+if (NOT $ENV{CMAKE_BUILD_PARALLEL_LEVEL} STREQUAL "")
+    set(CMAKE_BUILD_PARALLEL_LEVEL $ENV{CMAKE_BUILD_PARALLEL_LEVEL})
+    set(JOBS ${CMAKE_BUILD_PARALLEL_LEVEL})
+else ()
+    set(JOBS 1)
+endif ()
 
 include(ExternalProject)
 
@@ -143,7 +150,7 @@ IF (NOT LIBUV)
             CMAKE_COMMAND echo
             BUILD_COMMAND sh autogen.sh COMMAND ./configure --prefix=${C_BINDING_INSTALL_PREFIX}
             BUILD_IN_SOURCE 1
-            INSTALL_COMMAND make COMMAND make install
+            INSTALL_COMMAND make -j ${JOBS} COMMAND make install
     )
     set(LIBUV_EXTERNAL LIBUV)
     set(LIBUV_ROOT_DIR ${C_BINDING_INSTALL_PREFIX})
@@ -210,7 +217,7 @@ if (NOT TBB_FOUND)
             URL "https://github.com/intel/tbb/archive/v2020.0.tar.gz"
             URL_HASH SHA1=fd97f9c60e289fb6a45d3238ae5ac9de63b06c50
             CMAKE_COMMAND echo
-            BUILD_COMMAND make tbb tbb_build_prefix=${build_prefix}
+            BUILD_COMMAND make -j ${JOBS} tbb tbb_build_prefix=${build_prefix}
             BUILD_IN_SOURCE 1
             INSTALL_COMMAND mkdir -p ${C_BINDING_INSTALL_PREFIX}/lib
             COMMAND mkdir -p ${C_BINDING_INSTALL_PREFIX}/include
@@ -247,7 +254,7 @@ if (NOT ARROW)
             COMMAND           ${CMAKE_COMMAND} -E echo "==== Starting Patch"
             COMMAND           sed -i s/_static//g src/arrow/CMakeFiles/arrow_shared.dir/link.txt
             COMMAND           ${CMAKE_COMMAND} -E echo "==== Finished Patch"
-            INSTALL_COMMAND   make
+            INSTALL_COMMAND   make -j ${JOBS}
             COMMAND           make install
             BUILD_IN_SOURCE 1
             INSTALL_DIR ${C_BINDING_INSTALL_PREFIX}
