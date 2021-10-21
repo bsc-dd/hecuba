@@ -6,6 +6,7 @@ import sys
 import glob
 import numpy
 
+c_binding_path=None
 
 def package_files(directory):
     paths = []
@@ -17,6 +18,7 @@ def package_files(directory):
 
 
 def cmake_build():
+    global c_binding_path
     import re
     c_bind_re = re.compile("--c_binding=*")
     try:
@@ -51,20 +53,6 @@ def get_var(var):
     return [p for p in value.split(':') if p != '']
 
 
-PATH_LIBS = get_var('LD_LIBRARY_PATH')
-PATH_INCLUDE = get_var('CPATH') + get_var('CPLUS_INCLUDE_PATH') + get_var('C_INCLUDE_PATH')
-
-extensions = [
-    Extension(
-        "hfetch",
-        sources=glob.glob("hecuba_core/src/py_interface/*.cpp"),
-        include_dirs=['hecuba_core/src/', 'build/include', numpy.get_include()] + PATH_INCLUDE,
-        libraries=['hfetch', 'cassandra'],
-        library_dirs=['build/lib', 'build/lib64'] + PATH_LIBS,
-        extra_compile_args=['-std=c++11'],
-        extra_link_args=['-Wl,-rpath=$ORIGIN']
-    ),
-]
 
 
 def setup_packages():
@@ -78,6 +66,24 @@ def setup_packages():
     if 'install' in sys.argv:
         cmake_build()
         extra_files = package_files('build/lib') + package_files('build/lib64')
+
+    PATH_LIBS = get_var('LD_LIBRARY_PATH')
+    PATH_INCLUDE = get_var('CPATH') + get_var('CPLUS_INCLUDE_PATH') + get_var('C_INCLUDE_PATH')
+    if c_binding_path:
+        PATH_INCLUDE += [c_binding_path + "/include"]
+        PATH_LIBS += [c_binding_path + "/lib"]
+
+    extensions = [
+        Extension(
+            "hfetch",
+            sources=glob.glob("hecuba_core/src/py_interface/*.cpp"),
+            include_dirs=['hecuba_core/src/', 'build/include', numpy.get_include()] + PATH_INCLUDE,
+            libraries=['hfetch', 'cassandra'],
+            library_dirs=['build/lib', 'build/lib64'] + PATH_LIBS,
+            extra_compile_args=['-std=c++11'],
+            extra_link_args=['-Wl,-rpath=$ORIGIN']
+        ),
+    ]
 
     # compute which libraries were built
     metadata = dict(name="Hecuba",
