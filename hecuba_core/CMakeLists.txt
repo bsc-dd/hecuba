@@ -155,7 +155,7 @@ IF (NOT LIBUV)
 else ()
     message(STATUS "Using system's LIBUV : " ${LIBUV})
     set(LIBUV_EXTERNAL)
-    set(LIBUV_ROOT_DIR ${LIBUV}/..)
+    get_filename_component(LIBUV_ROOT_DIR ${LIBUV} DIRECTORY)
     set(ALL_LIBS ${ALL_LIBS} ${LIBUV})
 endif ()
 
