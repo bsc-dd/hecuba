@@ -75,7 +75,6 @@ def setup_packages():
     if c_binding_path:
         PATH_INCLUDE += [c_binding_path + "/include"]
         PATH_LIBS += [c_binding_path + "/lib"]
-        extra_files = extra_files + package_files(c_binding_path + "/lib")
 
     extensions = [
         Extension(
