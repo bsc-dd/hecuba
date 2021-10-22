@@ -63,18 +63,18 @@ def setup_packages():
     if 'build' in sys.argv:
         cmake_build()
 
-    extra_files = package_files('build/lib') + package_files('build/lib64')
-
     # TODO use some flag to detect that build has already been done instead of this
     if 'install' in sys.argv:
         cmake_build()
-        extra_files = package_files('build/lib') + package_files('build/lib64')
+
+    extra_files = package_files('build/lib') + package_files('build/lib64')
 
     PATH_LIBS = get_var('LD_LIBRARY_PATH')
     PATH_INCLUDE = get_var('CPATH') + get_var('CPLUS_INCLUDE_PATH') + get_var('C_INCLUDE_PATH')
     if c_binding_path:
         PATH_INCLUDE += [c_binding_path + "/include"]
         PATH_LIBS += [c_binding_path + "/lib"]
+        extra_files = extra_files + package_files(c_binding_path + "/lib")
 
     extensions = [
         Extension(
