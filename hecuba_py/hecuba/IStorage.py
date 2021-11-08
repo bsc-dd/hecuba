@@ -58,8 +58,8 @@ class IStorage(object):
 
     def make_persistent(self, name):
         if getattr(self, '_is_persistent', False):
-            raise AlreadyPersistentError("This Object is already persistent [Before:{}.{}][After:{}]",
-                                         self._ksp, self._table, name)
+            raise AlreadyPersistentError("This Object is already persistent [Before:{}.{}][After:{}]".format(
+                                         self._ksp, self._table, name))
 
         self._ksp, self._table = extract_ks_tab(name)
         name = self._ksp + '.' + self._table
