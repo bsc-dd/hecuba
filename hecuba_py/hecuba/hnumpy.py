@@ -305,7 +305,10 @@ class StorageNumpy(IStorage, np.ndarray):
         obj._base_metas = metas_to_reserve #Cache value to avoid cassandra accesses
 
         # The data recovered from the istorage is a persistent view, therefore reconstruct the view
-        myview = pickle.loads(istorage_metas[0].view_serialization)
+        if getattr(istorage_metas[0], 'view_serialization', None):
+            myview = pickle.loads(istorage_metas[0].view_serialization)
+        else: # Accept the case where view_serialization is None, mainly due to C++ interface
+            myview = tuple([slice(None,None,None)]*obj.ndim)
         log.debug(" view of {}".format(myview))
         if isinstance(myview, tuple):
             obj = super(StorageNumpy, obj).__getitem__(myview)
@@ -966,7 +969,7 @@ class StorageNumpy(IStorage, np.ndarray):
         self._base_metas = hfetch_metas
         self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas, self._block_id,
                                      self.storage_id, # base_numpy is storage_id because until now we only reach this point if we are not inheriting from a StorageNumpy. We should update this if we allow StorageNumpy from volatile StorageNumpy
-                                     tuple([slice(None,None,None)]*self.ndim),  #We are a view of everything
+                                     tuple([slice(None,None,None)]*self.ndim),  #We are a view of everything (view_serialization)
                                      self._tokens)
         if len(self.shape) != 0:
             sid = self._build_args.base_numpy
