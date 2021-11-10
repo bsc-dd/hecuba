@@ -353,6 +353,9 @@ void ArrayDataStore::wait_stores(void) const {
     cache->wait_elements();
 }
 
+CacheTable* ArrayDataStore::getWriteCache(void) const {
+    return cache;
+}
 
 /* get_row_elements - Calculate #elements per dimension 
  * FIXME This code MUST BE equal to the one in NumpyStorage (No questions please, I cried also) and on SpaceFilling.cpp

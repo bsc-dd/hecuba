@@ -102,6 +102,9 @@ file(GLOB CORE_SRC_FILES ${CORE_SRC_DIR}/*.cpp)
 set(HEADER_FILES ${CORE_H_FILES})
 set(SOURCE_FILES ${CORE_SRC_FILES})
 
+file(GLOB API_H_FILES ${CORE_SRC_DIR}/api/*.h)
+file(GLOB API_SRC_FILES ${CORE_SRC_DIR}/api/*.cpp)
+
 #set(CMAKE_SKIP_RPATH 1)
 #set(MY_PATHS "${ORIGIN}")
 #CMake main target
@@ -118,7 +121,10 @@ SET(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
 
 
-add_library(hfetch SHARED ${SOURCE_FILES} ${HEADER_FILES})
+add_library(hfetch SHARED ${SOURCE_FILES} ${HEADER_FILES} ${API_SRC_FILES} ${API_H_FILES})
+include_directories(${CORE_SRC_DIR})
+include_directories(${CORE_SRC_DIR}/api)
+
 set_target_properties(hfetch
         PROPERTIES
         #	PREFIX ""

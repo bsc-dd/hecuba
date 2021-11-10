@@ -371,3 +371,27 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
     this->keys = std::make_shared<std::vector<ColumnMeta> >(keys_meta);
     this->items = std::make_shared<std::vector<ColumnMeta> >(items_meta);
 }
+
+/** Returns a pair with partition_keys size, clustering_keys size */
+std::pair<uint16_t, uint16_t> TableMetadata::get_keys_size(void) const {
+    ColumnMeta key;
+    int partKeySize = 0;
+    int clustKeySize = 0;
+
+    for (uint16_t i = 0; i < keys->size(); ++i) {
+        key = (*keys)[i];
+        for(auto k:key.info) {
+            std::cout<< "DEBUG: TableMetadata::get_keys_size "<< k.first << " " << k.second<<std::endl;
+        }
+        std::cout<< "DEBUG: TableMetadata::get_keys_size col_type "<< key.col_type <<std::endl;
+        std::cout<< "DEBUG: TableMetadata::get_keys_size position "<< key.position <<std::endl;
+        std::cout<< "DEBUG: TableMetadata::get_keys_size size "<< key.size <<std::endl;
+
+        if (key.col_type == CASS_COLUMN_TYPE_PARTITION_KEY) {
+            partKeySize += key.size;
+        } else if (key.col_type == CASS_COLUMN_TYPE_CLUSTERING_KEY) {
+            clustKeySize += key.size;
+        }
+    }
+    return std::pair<uint16_t, uint16_t>(partKeySize, clustKeySize);
+}

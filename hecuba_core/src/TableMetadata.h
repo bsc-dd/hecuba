@@ -104,6 +104,9 @@ public:
         return this->keyspace.c_str();
     }
 
+
+    std::pair<uint16_t, uint16_t> get_keys_size(void) const;
+
 private:
     uint16_t compute_size_of(const ColumnMeta &CM) const;
 
