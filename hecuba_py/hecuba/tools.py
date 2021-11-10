@@ -43,6 +43,7 @@ _max_token = int(((2 ** 63) - 1))  # type: int
 _min_token = int(-2 ** 63)  # type: int
 
 _select_istorage_meta = config.session.prepare("SELECT * FROM hecuba.istorage WHERE storage_id = ?")
+_select_istorage_meta_by_name = config.session.prepare("SELECT * FROM hecuba.istorage WHERE name = ? allow filtering")
 
 
 def extract_ks_tab(name):
@@ -166,6 +167,9 @@ def count_name_collision(ksp, table, attribute):
 
 def get_istorage_attrs(storage_id):
     return list(config.session.execute(_select_istorage_meta, [storage_id]))
+
+def get_istorage_attrs_by_name(name):
+    return list(config.session.execute(_select_istorage_meta_by_name, [name]))
 
 
 def build_remotely(args):

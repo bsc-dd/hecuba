@@ -1,6 +1,6 @@
 import uuid
 from . import log
-from .tools import extract_ks_tab, build_remotely, storage_id_from_name, get_istorage_attrs, generate_token_ring_ranges
+from .tools import extract_ks_tab, build_remotely, storage_id_from_name, get_istorage_attrs, get_istorage_attrs_by_name, generate_token_ring_ranges
 
 
 class AlreadyPersistentError(RuntimeError):
@@ -25,11 +25,25 @@ class IStorage(object):
             self.storage_id = kwargs.pop("storage_id", None)
         self._tokens = kwargs.pop("tokens", None)
         given_name = kwargs.pop("name", None)
-        if self.storage_id:
+        if given_name:
+            try:
+                self._ksp, self._table = extract_ks_tab(given_name)
+                given_name = self._ksp + '.' + self._table
+                metas = get_istorage_attrs_by_name(given_name)
+                given_name   = metas[0].name
+                self._tokens = metas[0].tokens
+                if not getattr(self, '_tokens', None):
+                    self._tokens = generate_token_ring_ranges()
+                self.storage_id = metas[0].storage_id # Name has priority
+            except IndexError:
+                pass
+        elif self.storage_id:
             try:
                 metas = get_istorage_attrs(self.storage_id)
                 given_name   = metas[0].name
                 self._tokens = metas[0].tokens
+                if not getattr(self, '_tokens', None):
+                    self._tokens = generate_token_ring_ranges()
             except IndexError:
                 pass
         if given_name :
