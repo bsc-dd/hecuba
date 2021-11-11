@@ -13,6 +13,19 @@ void DataModel::addObjSpec(enum valid_types objtype, std::string id, std::vector
 	this->addObjSpec(objtype, id, keystypes, empty, colstypes);
 }
 
+std::string DataModel::getCassandraType(std::string type) {
+    /** Transform a user 'type' into a Cassandra equivalent type. Basically to store uuids if not a basic type. For example: 'numpy.ndarray' --> 'uuid' */
+    std::string res;
+    if (basic_types_str.count(type)>0) { //if (basic_types_str.contains(type))
+        res = type;
+    } else if (valid_types_str.count(type)>0) { //if (valid_types_str.contains(type))
+        res = "uuid";
+    } else {
+        res = "NOT SUPPORTED TYPE [" + type + "]"; // TODO Will be 'uuid'
+    }
+    return res;
+}
+
 void DataModel::addObjSpec(enum valid_types objtype, std::string id, std::vector<std::pair<std::string,std::string>> partitionkeystypes, std::vector<std::pair<std::string,std::string>> clusteringkeystypes, std::vector<std::pair<std::string,std::string>> colstypes) {
 	obj_spec o;
 	o.objtype = objtype;
@@ -28,21 +41,25 @@ void DataModel::addObjSpec(enum valid_types objtype, std::string id, std::vector
 	std::string cols_str ="";
     std::vector<std::pair<std::string, std::string>>::iterator it;
 	for( it = o.partitionKeys.begin(); it != o.partitionKeys.end(); ) {
-		pkey_str += it->first + " " + it->second;
+		pkey_str += it->first + " " + getCassandraType(it->second);
         it ++;
         if (it != o.partitionKeys.end()) {
 		    pkey_str += ", ";
         }
 	}
+    if (o.clusteringKeys.size() > 0) pkey_str += ", ";
+
 	for( it = o.clusteringKeys.begin(); it != o.clusteringKeys.end(); ) {
-		ckey_str += it->first + " " + it->second;
+		ckey_str += it->first + " " + getCassandraType(it->second);
         it ++;
         if (it != o.clusteringKeys.end()) {
 		    ckey_str += ", ";
         }
 	}
+    if (o.cols.size() > 0) ckey_str += ", ";
+
 	for( it = o.cols.begin(); it != o.cols.end(); ) {
-		cols_str += it->first + " " + it->second;
+		cols_str += it->first + " " + getCassandraType(it->second);
         it ++;
         if (it != o.cols.end()) {
 		    cols_str += ", ";
@@ -50,7 +67,9 @@ void DataModel::addObjSpec(enum valid_types objtype, std::string id, std::vector
 	}
 	attributes = pkey_str + ckey_str + cols_str;
 
-	o.table_attr = " (" + attributes + ") PRIMARY KEY ( ";
+	o.table_attr = " (" + attributes + ", PRIMARY KEY ( ";
+
+    pkey_str = "";
 
 	if (o.partitionKeys.size() > 1) {
 		pkey_str = "(";
@@ -66,6 +85,7 @@ void DataModel::addObjSpec(enum valid_types objtype, std::string id, std::vector
 		pkey_str += ")";
 	}
 
+    if (o.clusteringKeys.size() >0) pkey_str += ", ";
 
 	for( it = o.clusteringKeys.begin(); it != o.clusteringKeys.end(); ) {
 		pkey_str += it->first;
@@ -74,7 +94,9 @@ void DataModel::addObjSpec(enum valid_types objtype, std::string id, std::vector
 		    pkey_str += ", ";
         }
 	}
-	pkey_str += ")";
+	pkey_str += ")"; // END PRIMARY KEY
+	pkey_str += ")"; // END KEYS
+
 
 	o.table_attr += pkey_str;
 

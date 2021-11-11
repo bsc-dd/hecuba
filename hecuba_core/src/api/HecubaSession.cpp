@@ -378,19 +378,19 @@ void HecubaSession::loadDataModel(const char * model_filename) {
 
     // class dataModel(StorageDict):
     //    '''
-    //         @TypeSpec dict <<dict_lat:int,dict_ts:int>,dict_metrics:numpy.ndarray>
+    //         @TypeSpec dict <<lat:int,ts:int>,metrics:numpy.ndarray>
     //    '''  
-    // NOTE: attribute's names MUST BE UNIQUE (this explains the 'dict_*' names)
 
 
     DataModel* d = new DataModel();
 
     std::string field_name ="dict";
-    std::vector<std::pair<std::string, std::string>> pkeystypes = { {field_name + "_lat", "int"} };
-    std::vector<std::pair<std::string, std::string>> ckeystypes = { {field_name + "_ts", "int"}};
-    std::vector<std::pair<std::string, std::string>> colstypes  = { {field_name + "_metrics", "hecuba.hnumpy.StorageNumpy"}};
+    std::vector<std::pair<std::string, std::string>> pkeystypes = { {"lat", "int"} };
+    std::vector<std::pair<std::string, std::string>> ckeystypes = { {"ts", "int"}};
+    // numpy.ndarray should be transformed to Python class name hecuba.hnumpy.StorageNumpy
+    std::vector<std::pair<std::string, std::string>> colstypes  = { {"metrics", "hecuba.hnumpy.StorageNumpy"}};
 
-    d->addObjSpec(DataModel::valid_types::STORAGEDICT, field_name, pkeystypes, ckeystypes, colstypes);
+    d->addObjSpec(DataModel::valid_types::STORAGEDICT_TYPE, "dataModel", pkeystypes, ckeystypes, colstypes);
 
     std::vector<std::pair<std::string, std::string>> pkeystypes_numpy = {
                                   {"storage_id", "uuid"}
@@ -403,7 +403,7 @@ void HecubaSession::loadDataModel(const char * model_filename) {
                                  ,{"name", "string"}
                                  ,{"numpy_meta", "string"}
                                 };
-    d->addObjSpec(DataModel::valid_types::STORAGENUMPY, field_name +"_metrics", pkeystypes_numpy, ckeystypes_numpy, colstypes_numpy);
+    d->addObjSpec(DataModel::valid_types::STORAGENUMPY_TYPE, colstypes[0].second, pkeystypes_numpy, ckeystypes_numpy, colstypes_numpy);
 
     currentDataModel = d;
 }
@@ -425,15 +425,14 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
     uint64_t *c_uuid = generateUUID(); // UUID for the new object
 
     switch(oType.objtype) {
-        case DataModel::valid_types::STORAGEDICT:
+        case DataModel::valid_types::STORAGEDICT_TYPE:
             {
                 // Dictionary case
                 //  Create table 'name' "CREATE TABLE ksp.name (nom typ, nom typ, ... PRIMARY KEY (nom, nom))"
                 bool new_element = true;
                 std::string query = "CREATE TABLE " +
                     config["EXECUTION_NAME"] + "." + id_object +
-                    " ("+ id_model+"_lat int, "+ id_model+"_ts int, " + id_model+"_metrics uuid, "
-                    "PRIMARY KEY ("+ id_model+"_lat, "+ id_model+"_ts))";
+                    oType.table_attr;
 
                 CassError rc = run_query(query);
                 if (rc != CASS_OK) {
@@ -484,7 +483,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
             }
             break;
 
-        case DataModel::valid_types::STORAGENUMPY:
+        case DataModel::valid_types::STORAGENUMPY_TYPE:
             {
                 // Create table
                 std::string query = "CREATE TABLE IF NOT EXISTS " + config["EXECUTION_NAME"] + "." + id_object +

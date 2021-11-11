@@ -4,6 +4,7 @@
 #include <vector>
 #include <map>
 #include <string>
+#include <unordered_set>
 
 #include "configmap.h"
 
@@ -31,9 +32,9 @@ class DataModel {
 
 public:
 	enum valid_types {
-		STORAGEOBJ,
-		STORAGEDICT,
-		STORAGENUMPY
+		STORAGEOBJ_TYPE,
+		STORAGEDICT_TYPE,
+		STORAGENUMPY_TYPE
 	};
 
     struct obj_spec{
@@ -110,13 +111,13 @@ public:
         std::string debug() {
             std::string res;
             switch(objtype) {
-                case STORAGEOBJ:
+                case STORAGEOBJ_TYPE:
                     res = "STORAGEOBJ";
                     break;
-                case STORAGEDICT:
+                case STORAGEDICT_TYPE:
                     res = "STORAGEDICT";
                     break;
-                case STORAGENUMPY:
+                case STORAGENUMPY_TYPE:
                     res = "STORAGENUMPY";
                     break;
                 default:
@@ -138,5 +139,31 @@ public:
 
 private:
     std::map <std::string, obj_spec> dataModel;
+
+
+    std::string getCassandraType(std::string);
+
+    std::unordered_set<std::string> basic_types_str = {
+                    "counter",
+                    "text",
+                    "boolean",
+                    "decimal",
+                    "double",
+                    "int",
+                    "bigint",
+                    "blob",
+                    "float",
+                    "timestamp",
+                    "time",
+                    "date",
+                    //TODO "list",
+                    //TODO "set",
+                    //TODO "map",
+                    //TODO "tuple"
+    };
+    std::unordered_set<std::string> valid_types_str = {
+                    //TODO "dict",
+                    "hecuba.hnumpy.StorageNumpy"     //numpy.ndarray
+    };
 };
 #endif /* DATAMODEL_H */

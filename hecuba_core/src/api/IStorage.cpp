@@ -31,7 +31,7 @@ std::string IStorage::generate_numpy_table_name(std::string attributename) {
 
     // attributename contains "name1.name2.....attributename" therefore keep the last attribute name TODO: Fix this 'name.name...' nightmare
     //name = ksp + ".D" + uuid + table_name + attributename.substr(attributename.find_last_of('_'), attributename.size());
-    name = "D" + uuid + table_name + attributename.substr(attributename.find_last_of('_'), attributename.size());
+    name = "D" + uuid + table_name + attributename;
 
     name = name.substr(0,48);
     std::cout << "DEBUG: IStorage::generate_numpy_table_name: END "<<name<<std::endl;
@@ -61,7 +61,7 @@ void IStorage::setItem(void* key, void* value, void *key_metadata, void *value_m
 	DataModel::obj_spec ospec = model->getObjSpec(this->id_model);
     std::cout << "DEBUG: IStorage::setItem: obtained model for "<<id_model<<std::endl;
 
-	if (ospec.objtype != DataModel::STORAGEDICT) {
+	if (ospec.objtype != DataModel::STORAGEDICT_TYPE) {
 		throw ModuleException("IStorage:: Only Dictionary are supported");
 	}
 
@@ -76,8 +76,8 @@ void IStorage::setItem(void* key, void* value, void *key_metadata, void *value_m
 
 	// Crear Numpy
 
-    id_model = ospec.cols[0].first; //'midict.metrics'
-	id_obj = generate_numpy_table_name(id_model); //genera a random name based on the table name of the dictionary  and the attribute name of the value, for now hardcoded to have single-attribute values
+    id_model = ospec.cols[0].second; //'hecuba.hnumpy.StorageNumpy'
+    id_obj = generate_numpy_table_name(ospec.cols[0].first); //genera a random name based on the table name of the dictionary  and the attribute name of the value, for now hardcoded to have single-attribute values
 
        //crear tabla numpy
     IStorage* n = this->currentSession->createObject(id_model.c_str(), id_obj.c_str(), valMD, value);
