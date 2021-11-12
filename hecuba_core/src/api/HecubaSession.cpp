@@ -351,7 +351,7 @@ std::vector<config_map> colstypes_n = {
 						{{"name", "numpy_meta"}},
 						//{{"name", "block_id"}}, //NOT USED
 						//{{"name", "view_serialization"}},  //Used by Python, uses pickle format. Let it be NULL and initialized at python code
-                        };
+};
 						// TODO: extend writer to support lists {{"name", "tokens"}} }; //list
 
 //std::string id_model = "istorage_obj"; // TODO
@@ -393,16 +393,13 @@ void HecubaSession::loadDataModel(const char * model_filename) {
     d->addObjSpec(DataModel::valid_types::STORAGEDICT_TYPE, "dataModel", pkeystypes, ckeystypes, colstypes);
 
     std::vector<std::pair<std::string, std::string>> pkeystypes_numpy = {
-                                  {"storage_id", "uuid"}
-                                  ,{"cluster_id", "int"}
-                                };
+                                  {"storage_id", "uuid"},
+                                  {"cluster_id", "int"}
+    };
     std::vector<std::pair<std::string, std::string>> ckeystypes_numpy = {{"block_id","int"}};
     std::vector<std::pair<std::string, std::string>> colstypes_numpy = {
-                                 {"cluster_id", "int"}
-                                 ,{"class_name", "string"}
-                                 ,{"name", "string"}
-                                 ,{"numpy_meta", "string"}
-                                };
+                                  {"payload", "blob"},
+    };
     d->addObjSpec(DataModel::valid_types::STORAGENUMPY_TYPE, colstypes[0].second, pkeystypes_numpy, ckeystypes_numpy, colstypes_numpy);
 
     currentDataModel = d;

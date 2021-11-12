@@ -13,21 +13,32 @@
 class DataModel {
     /* DataModel keeps track of a Data Model, and each data model is formed of
      * a type (Dict, object, numpy) that may contain other data models.
-     * For each Data Model we keep: the names of each field/attribute and its
-     * type. As we know that this data will be kept in a database we store this
-     * information separated in the key/columns format from cassandra.
+     * For each Data Model we keep: the type name of each field/attribute and its
+     * type description (objspec). As we know that this data will be kept in a
+     * database we store this information separated in the key/columns format
+     * from cassandra.
      * The format used is:
-     *      "name3","type"
-     * where 'nameX' represents a field/attribute name to access inner type.
+     *      "typename","objspec"
+     * where 'nameX' represents a field/attribute type to access inner type.
      * Example:
-     *      dict<lat:string, ts:int> dict<key0:int,key1:int> metrics:numpy
+     *      class dataModel:
+     *         '''
+     *           dict<lat:double, ts:int>, metrics:numpy.ndarray
+     *         '''
      *
-     *      keystypes:"lat","string"
-     *                "ts","int"
-     *                ".key0","int"    ## Internal use of 'empty string' to identify unnamed fields (dict only)
-     *                ".key1","int"
-     *      colstypes:"", "dict"
-     *                ".metrics", "numpy"
+     * DataModel:
+     *      dataModel objspec1
+     *      hecuba.hnumpy.StorageNumpy objspec2
+     * And:
+     *    objspec1 is:
+     *      partitionKeys:  "lat", "double"
+     *      clusteringKeys: "ts", "int"
+     *      cols:           "metrics", "hecuba.hnumpy.StorageNumpy"
+     *    objspec2 is:
+     *      partitionKeys:  "storage_id", "uuid",
+     *                      "cluster_id", "int"
+     *      clusteringKeys: "block_id", "int"
+     *      cols:           "payload", "blob"
      */
 
 public:
