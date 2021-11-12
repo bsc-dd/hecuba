@@ -385,7 +385,7 @@ void HecubaSession::loadDataModel(const char * model_filename) {
     DataModel* d = new DataModel();
 
     std::string field_name ="dict";
-    std::vector<std::pair<std::string, std::string>> pkeystypes = { {"lat", "int"} };
+    std::vector<std::pair<std::string, std::string>> pkeystypes = { {"lat", "double"} };
     std::vector<std::pair<std::string, std::string>> ckeystypes = { {"ts", "int"}};
     // numpy.ndarray should be transformed to Python class name hecuba.hnumpy.StorageNumpy
     std::vector<std::pair<std::string, std::string>> colstypes  = { {"metrics", "hecuba.hnumpy.StorageNumpy"}};
