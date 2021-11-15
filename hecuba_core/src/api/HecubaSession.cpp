@@ -114,7 +114,7 @@ void HecubaSession::parse_environment(config_map &config) {
 CassError HecubaSession::run_query(std::string query) const{
 	CassStatement *statement = cass_statement_new(query.c_str(), 0);
 
-    std::cout << "DEBUG: HecubaSession.run_query : "<<query<<std::endl;
+    //std::cout << "DEBUG: HecubaSession.run_query : "<<query<<std::endl;
     CassFuture *result_future = cass_session_execute(const_cast<CassSession *>(storageInterface->get_session()), statement);
     cass_statement_free(statement);
 
@@ -151,7 +151,7 @@ void HecubaSession::getMetaData(NumpyShape* s, ArrayMetadata &arr_metas) {
 
 void HecubaSession::registerNumpy(ArrayMetadata &numpy_meta, std::string name, uint64_t* uuid) {
 
-    std::cout<< "DEBUG: HecubaSession::registerNumpy BEGIN "<< name << UUID2str(uuid)<<std::endl;
+    //std::cout<< "DEBUG: HecubaSession::registerNumpy BEGIN "<< name << UUID2str(uuid)<<std::endl;
     void *keys = std::malloc(sizeof(uint64_t *));
     uint64_t *c_uuid = (uint64_t *) malloc(sizeof(uint64_t) * 2);//new uint64_t[2];
     c_uuid[0] = *uuid;
@@ -227,21 +227,21 @@ void HecubaSession::registerNumpy(ArrayMetadata &numpy_meta, std::string name, u
 
     uint64_t *base_numpy = (uint64_t *) malloc(sizeof(uint64_t) * 2);//new uint64_t[2];
     memcpy(base_numpy, c_uuid, sizeof(uint64_t)*2);
-    std::cout<< "DEBUG: HecubaSession::registerNumpy &base_numpy = "<<base_numpy<<std::endl;
+    //std::cout<< "DEBUG: HecubaSession::registerNumpy &base_numpy = "<<base_numpy<<std::endl;
     std::memcpy(values, &base_numpy, sizeof(uint64_t *));  // base_numpy
     offset_values += sizeof(unsigned char *);
 
     char *class_name=(char*)malloc(strlen("hecuba.hnumpy.StorageNumpy")+1);
     strcpy(class_name, "hecuba.hnumpy.StorageNumpy");
-    std::cout<< "DEBUG: HecubaSession::registerNumpy &class_name = "<<class_name<<std::endl;
+    //std::cout<< "DEBUG: HecubaSession::registerNumpy &class_name = "<<class_name<<std::endl;
     memcpy(values+offset_values, &class_name, sizeof(unsigned char *)); //class_name
     offset_values += sizeof(unsigned char *);
 
-    std::cout<< "DEBUG: HecubaSession::registerNumpy &name = "<<name_array<<std::endl;
+    //std::cout<< "DEBUG: HecubaSession::registerNumpy &name = "<<name_array<<std::endl;
     memcpy(values+offset_values, &name_array, sizeof(unsigned char *)); //name
     offset_values += sizeof(unsigned char *);
 
-    std::cout<< "DEBUG: HecubaSession::registerNumpy &np_meta = "<<byte_array<<std::endl;
+    //std::cout<< "DEBUG: HecubaSession::registerNumpy &np_meta = "<<byte_array<<std::endl;
     memcpy(values+offset_values, &byte_array,  sizeof(unsigned char *)); // numpy_meta
     offset_values += sizeof(unsigned char *);
 
@@ -417,7 +417,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
     IStorage * o;
 
     DataModel::obj_spec oType = model->getObjSpec(id_model);
-    std::cout << "DEBUG: HecubaSession::createObject '"<<id_model<< "' ==> " <<oType.debug()<<std::endl;
+    //std::cout << "DEBUG: HecubaSession::createObject '"<<id_model<< "' ==> " <<oType.debug()<<std::endl;
 
     uint64_t *c_uuid = generateUUID(); // UUID for the new object
 
@@ -493,18 +493,18 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 // StorageNumpy
                 ArrayDataStore *array_store = new ArrayDataStore(id_object, config["EXECUTION_NAME"].c_str(),
                         this->storageInterface->get_session(), config);
-                std::cout << "DEBUG: HecubaSession::createObject After ArrayDataStore creation " <<std::endl;
+                //std::cout << "DEBUG: HecubaSession::createObject After ArrayDataStore creation " <<std::endl;
 
                 // Create entry in hecuba.istorage for the new numpy
                 ArrayMetadata numpy_metas;
                 getMetaData(metadata, numpy_metas); // numpy_metas = getMetaData(metadata);
-                std::cout<< "DEBUG: HecubaSession::createObject After metadata creation " <<std::endl;
+                //std::cout<< "DEBUG: HecubaSession::createObject After metadata creation " <<std::endl;
                 registerNumpy(numpy_metas, id_object, c_uuid);
-                std::cout<< "DEBUG: HecubaSession::createObject After REGISTER numpy into ISTORAGE" <<std::endl;
+                //std::cout<< "DEBUG: HecubaSession::createObject After REGISTER numpy into ISTORAGE" <<std::endl;
 
                 //Create keys, values to store the numpy
-                double* tmp = (double*)value;
-                std::cout<< "DEBUG: HecubaSession::createObject BEFORE store FIRST element in NUMPY is "<< *tmp << " and second is "<<*(tmp+1)<< " 3rd " << *(tmp+2)<< std::endl;
+                //double* tmp = (double*)value;
+                //std::cout<< "DEBUG: HecubaSession::createObject BEFORE store FIRST element in NUMPY is "<< *tmp << " and second is "<<*(tmp+1)<< " 3rd " << *(tmp+2)<< std::endl;
                 array_store->store_numpy_into_cas(c_uuid, numpy_metas, value);
                 array_store->wait_stores();
 
@@ -517,7 +517,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
             throw ModuleException("HECUBA Session: createObject Unknown type ");// + std::string(oType.objtype));
             break;
 	}
-    std::cout << "DEBUG: HecubaSession::createObject DONE" << std::endl;
+    //std::cout << "DEBUG: HecubaSession::createObject DONE" << std::endl;
     return o;
 }
 
@@ -533,13 +533,13 @@ std::string HecubaSession::UUID2str(uint64_t* c_uuid) {
     /* We don't really care about the translation, we just want a unique ID */
     char str[37] = {};
     unsigned char* uuid = reinterpret_cast<unsigned char*>(c_uuid);
-    std::cout<< "HecubaSession: uuid2str: BEGIN "<<std::hex<<c_uuid[0]<<c_uuid[1]<<std::endl;
+    //std::cout<< "HecubaSession: uuid2str: BEGIN "<<std::hex<<c_uuid[0]<<c_uuid[1]<<std::endl;
     sprintf(str,
         "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
         uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5], uuid[6], uuid[7],
         uuid[8], uuid[9], uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]
         );
-    std::cout<< "HecubaSession: uuid2str: "<<str<<std::endl;
+    //std::cout<< "HecubaSession: uuid2str: "<<str<<std::endl;
     return std::string(str);
 }
 

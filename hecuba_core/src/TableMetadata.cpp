@@ -380,12 +380,12 @@ std::pair<uint16_t, uint16_t> TableMetadata::get_keys_size(void) const {
 
     for (uint16_t i = 0; i < keys->size(); ++i) {
         key = (*keys)[i];
-        for(auto k:key.info) {
-            std::cout<< "DEBUG: TableMetadata::get_keys_size "<< k.first << " " << k.second<<std::endl;
-        }
-        std::cout<< "DEBUG: TableMetadata::get_keys_size col_type "<< key.col_type <<std::endl;
-        std::cout<< "DEBUG: TableMetadata::get_keys_size position "<< key.position <<std::endl;
-        std::cout<< "DEBUG: TableMetadata::get_keys_size size "<< key.size <<std::endl;
+        //for(auto k:key.info) {
+        //    std::cout<< "DEBUG: TableMetadata::get_keys_size "<< k.first << " " << k.second<<std::endl;
+        //}
+        //std::cout<< "DEBUG: TableMetadata::get_keys_size col_type "<< key.col_type <<std::endl;
+        //std::cout<< "DEBUG: TableMetadata::get_keys_size position "<< key.position <<std::endl;
+        //std::cout<< "DEBUG: TableMetadata::get_keys_size size "<< key.size <<std::endl;
 
         if (key.col_type == CASS_COLUMN_TYPE_PARTITION_KEY) {
             partKeySize += key.size;

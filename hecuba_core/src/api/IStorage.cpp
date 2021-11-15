@@ -17,7 +17,7 @@ IStorage::~IStorage() {
 
 std::string IStorage::generate_numpy_table_name(std::string attributename) {
     /* ksp.DUUIDtableAttribute extracted from hdict::make_val_persistent */
-    std::cout << "DEBUG: IStorage::generate_numpy_table_name: BEGIN attribute:"<<attributename<<std::endl;
+    //std::cout << "DEBUG: IStorage::generate_numpy_table_name: BEGIN attribute:"<<attributename<<std::endl;
     std::regex what("-");
     std::string name;
     // Obtain keyspace and table_name from id_obj (keyspace.table_name)
@@ -34,7 +34,7 @@ std::string IStorage::generate_numpy_table_name(std::string attributename) {
     name = "D" + uuid + table_name + attributename;
 
     name = name.substr(0,48);
-    std::cout << "DEBUG: IStorage::generate_numpy_table_name: END "<<name<<std::endl;
+    //std::cout << "DEBUG: IStorage::generate_numpy_table_name: END "<<name<<std::endl;
     return name;
 }
 
@@ -55,11 +55,11 @@ uint64_t* IStorage::getStorageID() {
 
 void IStorage::setItem(void* key, void* value, void *key_metadata, void *value_metadata) {
     /* PRE: key arrives already coded as expected */
-    std::cout << "DEBUG: IStorage::setItem: "<<std::endl;
+    //std::cout << "DEBUG: IStorage::setItem: "<<std::endl;
 	DataModel* model = this->currentSession->getDataModel();
 
 	DataModel::obj_spec ospec = model->getObjSpec(this->id_model);
-    std::cout << "DEBUG: IStorage::setItem: obtained model for "<<id_model<<std::endl;
+    //std::cout << "DEBUG: IStorage::setItem: obtained model for "<<id_model<<std::endl;
 
 	if (ospec.objtype != DataModel::STORAGEDICT_TYPE) {
 		throw ModuleException("IStorage:: Only Dictionary are supported");
