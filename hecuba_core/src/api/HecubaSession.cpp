@@ -433,7 +433,32 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
 
                 CassError rc = run_query(query);
                 if (rc != CASS_OK) {
-                    new_element = false; //OOpps, creation failed. It is an already existent object.
+                    if (rc == CASS_ERROR_SERVER_ALREADY_EXISTS ) {
+                        new_element = false; //OOpps, creation failed. It is an already existent object.
+                    } else if (rc == CASS_ERROR_SERVER_INVALID_QUERY) {
+                        std::cout<< "HecubaSession Creating keyspace "<< config["EXECUTION_NAME"]<< std::endl;
+                        std::string create_keyspace = std::string(
+                                "CREATE KEYSPACE IF NOT EXISTS ") + config["EXECUTION_NAME"] +
+                            std::string(" WITH replication = ") +  config["REPLICATION"];
+                        rc = run_query(create_keyspace);
+                        if (rc != CASS_OK) {
+                            std::string msg = std::string("HecubaSession:: Error executing query ") + create_keyspace;
+                            throw ModuleException(msg);
+                        } else {
+                            rc = run_query(query);
+                            if (rc != CASS_OK) {
+                                if (rc == CASS_ERROR_SERVER_ALREADY_EXISTS) {
+                                    new_element = false; //OOpps, creation failed. It is an already existent object.
+                                }  else {
+                                    std::string msg = std::string("HecubaSession:: Error executing query ") + query;
+                                    throw ModuleException(msg);
+                                }
+                            }
+                        }
+                    } else {
+                        std::string msg = std::string("HecubaSession:: Error executing query ") + query;
+                        throw ModuleException(msg);
+                    }
                 }
 
                 if (new_element) {
