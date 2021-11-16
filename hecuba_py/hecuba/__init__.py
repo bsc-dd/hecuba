@@ -129,8 +129,8 @@ class Config:
             singleton.id_create_schema = False if env_var == 'no' or env_var == 'false' else True
             log.info('CREATE_SCHEMA: %d', singleton.id_create_schema)
         else:
-            singleton.id_create_schema = False
-            log.warn('Creating keyspaces and tables by default [CREATE_SCHEMA=False]')
+            singleton.id_create_schema = True
+            log.warn('Creating keyspaces and tables by default [CREATE_SCHEMA=True]')
         try:
             singleton.nodePort = int(os.environ['NODE_PORT'])
             log.info('NODE_PORT: %d', singleton.nodePort)
