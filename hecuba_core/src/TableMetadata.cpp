@@ -395,3 +395,16 @@ std::pair<uint16_t, uint16_t> TableMetadata::get_keys_size(void) const {
     }
     return std::pair<uint16_t, uint16_t>(partKeySize, clustKeySize);
 }
+
+/** Returns the values's size */
+uint32_t TableMetadata::get_values_size(void) const {
+    ColumnMeta value;
+    uint32_t size = 0;
+
+    for (uint16_t i = 0; i < cols->size(); ++i) {
+        value = (*cols)[i];
+
+        size += value.size;
+    }
+    return size;
+}

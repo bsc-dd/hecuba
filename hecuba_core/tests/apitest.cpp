@@ -2,13 +2,14 @@
 #include <hecuba/IStorage.h>
 #include <iostream>
 
-char * generateKey(double lat, int ts) {
+char * generateKey(float lat, int ts) {
 
-    char * key = (char*) malloc (sizeof(double) + sizeof(int));
-    double *lat_key = (double*) key;
+    char * key = (char*) malloc (sizeof(float) + sizeof(int));
+    float *lat_key = (float*) key;
     *lat_key = lat;
-    int *ts_key = (int*) (key + sizeof(double));
+    int *ts_key = (int*) (key + sizeof(float));
     *ts_key = ts;
+    std::cout << " generatekey sizeof(float) "<< sizeof(float) << " sizeof(int) " << sizeof(int)<< std::endl;
     return key;
 }
 
@@ -48,14 +49,16 @@ int main() {
     char * value;
     char * numpymeta;
 
-    s.loadDataModel("DUMMYMODELFILE.MDL");
+    s.loadDataModel("model_class.yaml","model_class.py");
     std::cout<< "+ Data Model loaded"<<std::endl;
 
-    IStorage* midict = s.createObject("dataModel", "yoli");
+    std::cout<< "DEBUG " << s.getDataModel()->debug() << std::endl;
+
+    IStorage* midict = s.createObject("midict", "yoli");
     std::cout<< "+ 'dict' object created"<<std::endl;
 
     key = generateKey(0.5, 0);
-    std::cout<< "+  key created"<<std::endl;
+    std::cout<< "+  key created"<< std::endl;
     numpymeta = generateMetas();
     std::cout<< "+ metadata created"<<std::endl;
     value = generateNumpyContent();

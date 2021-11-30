@@ -2,6 +2,9 @@
 #include "ArrayDataStore.h"
 #include "SpaceFillingCurve.h"
 #include "IStorage.h"
+#include "yaml-cpp/yaml.h"
+#include "ObjSpec.h"
+#include "DataModel.h"
 
 #include <cstdlib>
 #include <vector>
@@ -24,6 +27,98 @@
 #define NPY_ARRAY_WRITEABLE       0x0400
 #define NPY_ARRAY_UPDATEIFCOPY    0x1000
 
+// This code adds the decoding of YAML files to ObjSpec (NOT the other way around)
+namespace YAML {
+    template<>
+        struct convert<DataModel::datamodel_spec> {
+            static Node encode(const DataModel::datamodel_spec& obj) {
+                Node node;
+
+                return node;
+            }
+            static std::string mapUserType(std::string name) {
+                /* Translates 'user type' to 'data model type'. numpy.ndarray --> hecuba.hnumpy.StorageNumpy */
+                if ((name == "numpy.ndarray") || (name == "StorageNumpy")) {
+                    return "hecuba.hnumpy.StorageNumpy";
+                }
+                return name;
+            }
+            static bool decode(const Node& node, DataModel::datamodel_spec& dmodel) {
+                ObjSpec::valid_types obj_type;
+                std::vector<std::pair<std::string, std::string>> partitionKeys;
+                std::vector<std::pair<std::string, std::string>> clusteringKeys;
+                std::vector<std::pair<std::string, std::string>> cols;
+                std::string pythonString="";
+
+                std::string attrName, attrType;
+                if(!node.IsMap()) { return false; }
+
+                const Node typespec = node["TypeSpec"];
+                if (!typespec.IsSequence() || (typespec.size() != 2)) { return false; }
+                dmodel.id=typespec[0].as<std::string>();
+                pythonString="class " + dmodel.id;
+
+                if (typespec[1].as<std::string>() == "StorageDict") {
+                    pythonString="from hecuba import StorageDict\n\n" + pythonString;
+                    obj_type=ObjSpec::valid_types::STORAGEDICT_TYPE;
+                    const Node keyspec =  node["KeySpec"];
+                    if (!keyspec.IsSequence() || (keyspec.size() == 0)) { return false; }
+
+                    pythonString+=" (StorageDict):\n   '''\n   @TypeSpec dict <<";
+
+
+                    if (!keyspec[0].IsSequence() || (keyspec[0].size() != 2)) { return false; }
+
+                    attrName=keyspec[0][0].as<std::string>();
+                    attrType=keyspec[0][1].as<std::string>();
+                    partitionKeys.push_back(std::pair<std::string,std::string>(attrName,mapUserType(attrType)));
+                    pythonString+=attrName+":"+attrType;
+
+                    for (uint32_t i=1; i<keyspec.size();i++) {
+                        if (!keyspec[i].IsSequence() || (keyspec[i].size() != 2)) { return false; }
+
+                        attrName=keyspec[i][0].as<std::string>();
+                        attrType=keyspec[i][1].as<std::string>();
+                        clusteringKeys.push_back(std::pair<std::string,std::string>(attrName,mapUserType(attrType)));
+                        pythonString+=","+attrName+":"+attrType;
+                    }
+                    pythonString+=">";
+                    const Node valuespec =  node["ValueSpec"];
+                    if (!valuespec.IsSequence() || (valuespec.size() == 0)) { return false; }
+                    for (uint32_t i=0; i<valuespec.size();i++) {
+                        if (!valuespec[i].IsSequence() || (valuespec[i].size() != 2)) { return false; }
+                        attrName=valuespec[i][0].as<std::string>();
+                        attrType=valuespec[i][1].as<std::string>();
+                        cols.push_back(std::pair<std::string,std::string>(attrName,mapUserType(attrType)));
+                        pythonString+=","+attrName+":"+attrType;
+                    }
+                    pythonString+=">\n   '''";
+                } else if (typespec[1].as<std::string>() == "StorageObject") {
+                    pythonString="from hecuba import StorageObj\n\n" + pythonString;
+                    pythonString=pythonString+" (StorageObj):\n   '''\n";
+                    obj_type=ObjSpec::valid_types::STORAGEOBJ_TYPE;
+                    const Node classfields =  node["ClassFields"];
+                    if (!classfields.IsSequence() || (classfields.size() == 0)) { return false; }
+                    partitionKeys.push_back(std::pair<std::string,std::string>("storage_id","uuid"));
+
+                    for (uint32_t i=0; i<classfields.size();i++) {
+                        if (!classfields[i].IsSequence() || (classfields[i].size() != 2)) { return false; }
+                        attrName=classfields[i][0].as<std::string>();
+                        attrType=mapUserType(classfields[i][1].as<std::string>());
+                        cols.push_back(std::pair<std::string,std::string>(attrName,attrType));
+                        pythonString+="   @ClassField "+attrName+" "+attrType+"\n";
+                        std::cout<<"7-"<<i<<": "<<pythonString<<std::endl;
+                    }
+                    pythonString+="   '''\n";
+                    std::cout<<"8: "<<pythonString<<std::endl;
+
+                } else return false;
+
+                dmodel.o=ObjSpec(obj_type,partitionKeys,clusteringKeys,cols,pythonString);
+                return true;
+            }
+        };
+};
 
 void HecubaSession::parse_environment(config_map &config) {
     const char * nodePort = std::getenv("NODE_PORT");
@@ -354,7 +449,7 @@ std::vector<config_map> colstypes_n = {
 };
 						// TODO: extend writer to support lists {{"name", "tokens"}} }; //list
 
-//std::string id_model = "istorage_obj"; // TODO
+// The attributes stored in istorage for all numpys are the same, we use a single writer for the session
 numpyMetaWriter = storageInterface->make_writer("istorage", "hecuba",
 												pkeystypes_n, colstypes_n,
 												config);
@@ -367,7 +462,11 @@ HecubaSession::~HecubaSession() {
     delete(numpyMetaWriter);
 }
 
-void HecubaSession::loadDataModel(const char * model_filename) {
+/* loadDataModel: loads a DataModel from 'model_filename' path which should be
+ * a YAML file. It also generates its corresponding python generated class in
+ * the same directory where the model resides or in the 'pythonSpecPath'
+ * directory. */
+void HecubaSession::loadDataModel(const char * model_filename, const char * pythonSpecPath=NULL) {
 
     if (currentDataModel != NULL) {
         std::cerr << "WARNING: HecubaSession::loadDataModel: DataModel already defined. Discarded and load again"<<std::endl;
@@ -379,19 +478,37 @@ void HecubaSession::loadDataModel(const char * model_filename) {
     // class dataModel(StorageDict):
     //    '''
     //         @TypeSpec dict <<lat:int,ts:int>,metrics:numpy.ndarray>
-    //    '''  
+    //    '''
 
 
     DataModel* d = new DataModel();
 
-    std::string field_name ="dict";
-    std::vector<std::pair<std::string, std::string>> pkeystypes = { {"lat", "double"} };
-    std::vector<std::pair<std::string, std::string>> ckeystypes = { {"ts", "int"}};
-    // numpy.ndarray should be transformed to Python class name hecuba.hnumpy.StorageNumpy
-    std::vector<std::pair<std::string, std::string>> colstypes  = { {"metrics", "hecuba.hnumpy.StorageNumpy"}};
 
-    d->addObjSpec(DataModel::valid_types::STORAGEDICT_TYPE, "dataModel", pkeystypes, ckeystypes, colstypes);
+    std::string pythonFilename(model_filename);
+    std::string pythonPath;
+    if (pythonSpecPath == NULL) {
+        size_t pos = pythonFilename.find_last_of('.');
+        if (pos != std::string::npos) {
+            pythonFilename = pythonFilename.substr(0, pos);
+        }
+        pythonPath = pythonFilename + ".py";
+    }else{
+        pythonPath=pythonSpecPath;
+    }
+    std::ofstream fd(pythonPath);
 
+    YAML::Node node = YAML::LoadFile(model_filename);
+
+    assert(node.Type() == YAML::NodeType::Sequence);
+
+    for(std::size_t i=0;i<node.size();i++) {
+		DataModel::datamodel_spec x = node[i].as<DataModel::datamodel_spec>();
+		d->addObjSpec(x.id, x.o);
+        fd<<x.o.getPythonString();
+    }
+    fd.close();
+
+    // ALWAYS Add numpy (just in case) ##############################
     std::vector<std::pair<std::string, std::string>> pkeystypes_numpy = {
                                   {"storage_id", "uuid"},
                                   {"cluster_id", "int"}
@@ -400,7 +517,8 @@ void HecubaSession::loadDataModel(const char * model_filename) {
     std::vector<std::pair<std::string, std::string>> colstypes_numpy = {
                                   {"payload", "blob"},
     };
-    d->addObjSpec(DataModel::valid_types::STORAGENUMPY_TYPE, colstypes[0].second, pkeystypes_numpy, ckeystypes_numpy, colstypes_numpy);
+    d->addObjSpec(ObjSpec::valid_types::STORAGENUMPY_TYPE, "hecuba.hnumpy.StorageNumpy", pkeystypes_numpy, ckeystypes_numpy, colstypes_numpy);
+    // ##############################
 
     currentDataModel = d;
 }
@@ -416,13 +534,13 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
 
     IStorage * o;
 
-    DataModel::obj_spec oType = model->getObjSpec(id_model);
+    ObjSpec oType = model->getObjSpec(id_model);
     //std::cout << "DEBUG: HecubaSession::createObject '"<<id_model<< "' ==> " <<oType.debug()<<std::endl;
 
     uint64_t *c_uuid = generateUUID(); // UUID for the new object
 
-    switch(oType.objtype) {
-        case DataModel::valid_types::STORAGEDICT_TYPE:
+    switch(oType.getType()) {
+        case ObjSpec::valid_types::STORAGEDICT_TYPE:
             {
                 // Dictionary case
                 //  Create table 'name' "CREATE TABLE ksp.name (nom typ, nom typ, ... PRIMARY KEY (nom, nom))"
@@ -505,7 +623,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
             }
             break;
 
-        case DataModel::valid_types::STORAGENUMPY_TYPE:
+        case ObjSpec::valid_types::STORAGENUMPY_TYPE:
             {
                 // Create table
                 std::string query = "CREATE TABLE IF NOT EXISTS " + config["EXECUTION_NAME"] + "." + id_object +

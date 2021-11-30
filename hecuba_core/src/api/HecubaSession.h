@@ -2,11 +2,13 @@
 #define HECUBA_SESSION_H
 
 #include <random>
-
+#include <fstream>
+#include <iostream>
 #include "StorageInterface.h"
 //#include "MetaManager.h"
 #include "configmap.h"
 #include "DataModel.h"
+#include "ObjSpec.h"
 
 class IStorage;  //Forward Declaration
 
@@ -16,7 +18,7 @@ public:
     HecubaSession();
     ~HecubaSession();
 
-    void loadDataModel(const char * model_filename);
+    void loadDataModel(const char * model_filename, const char *python_spec_path);
     DataModel* getDataModel();
 
 	struct NumpyShape {
