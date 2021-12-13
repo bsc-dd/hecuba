@@ -407,7 +407,8 @@ class StorageDict(IStorage, dict):
     def _persist_data_from_memory(self):
         for k, v in super().items():
             self[k] = v
-        super().clear()
+        if config.max_cache_size != 0: #if C++ cache is enabled, clear Python memory, otherwise keep it
+            super().clear()
 
     def _flush_to_storage(self):
         super()._flush_to_storage()
@@ -588,6 +589,12 @@ class StorageDict(IStorage, dict):
             return self.__create_embeddedset(key=key)
         else:
             # Returns always a list with a single entry for the key
+            if config.max_cache_size == 0: # if C++ cache is disabled, use Python memory
+                try:
+                    result = dict.__getitem__(self, key)
+                    return result
+                except:
+                    pass
             persistent_result = self._hcache.get_row(self._make_key(key))
             log.debug("GET ITEM %s[%s]", persistent_result, persistent_result.__class__)
 
@@ -651,6 +658,8 @@ class StorageDict(IStorage, dict):
             # Not needed because it is made persistent and inserted to hcache when calling to self.__create_embeddedset
             val = self.__make_val_persistent(val)
             self._hcache.put_row(self._make_key(key), self._make_value(val))
+            if config.max_cache_size == 0: # If C++ cache is disabled, use python memory
+                dict.__setitem__(self,key,val)
 
     def __len__(self):
         if not self.storage_id:
