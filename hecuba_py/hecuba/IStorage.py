@@ -25,9 +25,23 @@ class IStorage(object):
             self.storage_id = kwargs.pop("storage_id", None)
         self._tokens = kwargs.pop("tokens", None)
         given_name = kwargs.pop("name", None)
-        if self.storage_id:
+        if given_name:
+            try:
+                self._ksp, self._table = extract_ks_tab(given_name)
+                given_name = self._ksp + '.' + self._table
+                metas = get_istorage_attrs_by_name(given_name)
+                self._istorage_metas = metas[0] # To pass information retrieved from istorage to subojects to avoid further Cassandra accesses
+                given_name   = metas[0].name
+                self._tokens = metas[0].tokens
+                if not getattr(self, '_tokens', None):
+                    self._tokens = generate_token_ring_ranges()
+                self.storage_id = metas[0].storage_id # Name has priority
+            except IndexError:
+                pass
+        elif self.storage_id:
             try:
                 metas = get_istorage_attrs(self.storage_id)
+                self._istorage_metas = metas[0] # To pass information retrieved from istorage to subojects to avoid further Cassandra accesses
                 given_name   = metas[0].name
                 self._tokens = metas[0].tokens
             except IndexError:

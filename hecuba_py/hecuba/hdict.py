@@ -247,51 +247,89 @@ class StorageDict(IStorage, dict):
         """
 
         super().__init__((), name=name, storage_id=storage_id, **kwargs)
+        log.debug("CREATE StorageDict(%s,%s)", primary_keys, columns)
 
-        log.debug("CREATED StorageDict(%s,%s)", primary_keys, columns)
+        '''
+        yolandab
+        kwargs of the init should contain metas: all the row in the istorage if exists
+        after super().__init__
+                    if kwargs is empty --> this is a new object
+                        generate build args parsing the _doc_ string or using the parameters
+                        we need to generate the column info of sets with the format to persist it (name--> _set_)
+                        if name or storage id --> call to store_metas
+                    else --> this is an already existing objects
+                        metas and tokens should form the attributes of self
+                        we need to convert the column info of sets to the format in memory ( _set_name --> name)
+            TODO: implement a cleaner version of embedded sets
+        '''
 
-        if self.__doc__ is not None:
-            self._persistent_props = self._parse_comments(self.__doc__)
-            self._primary_keys = self._persistent_props['primary_keys']
-            self._columns = self._persistent_props['columns']
-            self._indexed_on = self._persistent_props.get('indexed_on', indexed_on)
-        else:
+        initialized = (getattr(self, '_istorage_metas', None) is not None)
+        if initialized: #object already in istorage
+            #pick the values and fill the object attributes
+            primary_keys = self._istorage_metas.primary_keys
+            build_column = self._istorage_metas.columns
+            columns = build_column
+            indexed_on = self._istorage_metas.indexed_on
+
+            self._has_embedded_set = False
             self._primary_keys = primary_keys
             set_pks = []
             normal_columns = []
+            #we manipulate the info about sets retrieved from istorage
+# _set_s1_0, _set_s1_1 --> name: s1, type: set , column:((s1_0, int), (s1_1, int))
             for column_name, column_type in columns:
                 if column_name.find("_set_") != -1:
-                    set_pks.append((column_name.replace("_set_", ""), column_type))
+                    attr_name=column_name.replace("_set_", "")  # The attribute name also contains the "column_name" needed later...
+                    set_pks.append((attr_name, column_type))
+                    self._has_embedded_set = True
                 else:
                     normal_columns.append((column_name, column_type))
             if set_pks:
-                self._columns = [{"type": "set", "columns": set_pks}]
+                column_name = attr_name.split("_",1)[0] # Get the 1st name (attr_1, attr_2... -> attr or attr -> attr)
+                self._columns = [{"name": column_name, "type": "set", "columns": set_pks}]
             else:
-                self._columns = columns
+                self._columns = [{"type": col[1], "name": col[0]} for col in normal_columns]
             self._indexed_on = indexed_on
 
-        self._has_embedded_set = False
-        build_column = []
-        columns = []
-        for col in self._columns:
-            if isinstance(col, dict):
-                types = col["columns"]
-                if col["type"] == "set":
-                    self._has_embedded_set = True
-                    for t in types:
-                        build_column.append(("_set_" + t[0], t[1]))
-                else:
-                    build_column.append((col["name"], col["type"]))
-                columns.append(col)
+
+        else: # new object
+            if self.__doc__ is not None:
+                #parse the doc string
+                self._persistent_props = self._parse_comments(self.__doc__)
+                self._primary_keys = self._persistent_props['primary_keys']
+                self._columns = self._persistent_props['columns']
+                self._indexed_on = self._persistent_props.get('indexed_on', indexed_on)
             else:
-                columns.append({"type": col[1], "name": col[0]})
-                build_column.append(col)
+                #info is not in the doc string, should be passed in the parameters
+                if primary_keys == None or columns == None:
+                    raise RuntimeError ("StorageDict: missed specification. Type of Primary Key or Column undefined")
+                self._primary_keys = primary_keys
+                self._columns = columns
+                self._indexed_on = indexed_on
 
-        self._columns = columns[:]
+
+            #build_column will contain the column info stored in istorage. For the sets we manipulate the parsed data
+            build_column = []
+            columns = []
+            self._has_embedded_set = False
+            for col in self._columns:
+                if isinstance(col, dict):
+                    types = col["columns"]
+                    if col["type"] == "set":
+                        self._has_embedded_set = True
+                        for t in types:
+                            build_column.append(("_set_" + t[0], t[1]))
+                    else:
+                        build_column.append((col["name"], col["type"]))
+                    columns.append(col)
+                else:
+                    columns.append({"type": col[1], "name": col[0]})
+                    build_column.append(col)
+            self._columns = columns
+
         self._primary_keys = [{"type": key[1], "name": key[0]} if isinstance(key, tuple) else key
-                              for key in self._primary_keys]
-        build_keys = [(key["name"], key["type"]) for key in self._primary_keys]
-
+                                for key in self._primary_keys]
+        log.debug("CREATED StorageDict(%s,%s)", self._primary_keys, self._columns)
         key_names = [col["name"] for col in self._primary_keys]
         column_names = [col["name"] for col in self._columns]
 
