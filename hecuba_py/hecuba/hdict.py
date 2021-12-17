@@ -351,17 +351,16 @@ class StorageDict(IStorage, dict):
 
         class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
 
+        build_keys = [(key["name"], key["type"]) for key in self._primary_keys]
         if build_column is None:
             build_column = self._columns[:]
 
         self._build_args = self.args(self._get_name(), build_keys, build_column, self._tokens,
                                      self.storage_id, self._indexed_on, class_name, self._built_remotely)
-
-        if storage_id and not name:
-            name = get_istorage_attrs(storage_id)[0].name
-
-        if name or storage_id:
-            self._persist_data(name)
+        if initialized:
+            self._setup_hcache()
+        elif name or storage_id:
+            self._persist_metadata()
 
     @classmethod
     def _parse_comments(self, comments):
@@ -535,6 +534,17 @@ class StorageDict(IStorage, dict):
         """
         return self.keys()
 
+    def _persist_metadata(self):
+        """
+        Private Method to create tables, setup the cache and store the metadata
+        of a StorageDict.
+        Used for NEW storage dicts, that do no need to persist any data.
+        """
+        if not self._built_remotely:
+            self._create_tables()
+        self._setup_hcache()
+        StorageDict._store_meta(self._build_args)
+
     def _persist_data(self, name):
         """
         Private Method to store a StorageDict into cassandra
@@ -546,15 +556,8 @@ class StorageDict(IStorage, dict):
         # Update local StorageDict metadata
         self._build_args = self._build_args._replace(storage_id=self.storage_id, name=self._ksp + "." + self._table,
                                                      tokens=self._tokens)
-
-        if not self._built_remotely:
-            self._create_tables()
-
-        self._setup_hcache()
-
+        self._persist_metadata()
         self._persist_data_from_memory()
-
-        StorageDict._store_meta(self._build_args)
 
     def make_persistent(self, name):
         """
