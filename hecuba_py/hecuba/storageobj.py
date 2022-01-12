@@ -373,3 +373,7 @@ class StorageObj(IStorage):
             except AttributeError as ex:
                 # Not present in memory
                 pass
+
+    def split(self):
+        raise NotImplementedError("Split is not supported on StorageObjects");
+
