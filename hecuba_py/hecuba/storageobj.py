@@ -130,13 +130,13 @@ class StorageObj(IStorage):
             log.error("Unable to execute %s", query_simple)
             raise ir
 
-    def _flush_to_storage(self):
-        super()._flush_to_storage()
+    def sync(self):
+        super().sync()
 
         for attr_name in self._persistent_attrs:
             attr = getattr(super(), attr_name, None)
             if isinstance(attr, IStorage):
-                attr._flush_to_storage()
+                attr.sync()
 
     def _persist_data(self, name):
         self._table = self.__class__.__name__.lower()

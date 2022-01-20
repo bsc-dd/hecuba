@@ -115,7 +115,7 @@ class IStorage(object):
         except AttributeError:
             return None
 
-    def _flush_to_storage(self):
+    def sync(self):
         if not self._is_persistent:
             raise RuntimeError("Can't send the data to storage if the object is not persistent")
 
@@ -138,7 +138,7 @@ class IStorage(object):
         except AttributeError as ex:
             raise RuntimeError("Object {} does not have tokens".format(self._get_name()))
 
-        self._flush_to_storage()
+        self.sync()
 
         for token_split in tokens_partitions(self._ksp, self._table, tokens):
             storage_id = uuid.uuid4()
@@ -147,9 +147,3 @@ class IStorage(object):
             args_dict = new_args._asdict()
             args_dict["built_remotely"] = True
             yield build_remotely(args_dict)
-
-    def sync(self):
-        """
-        Stub class to be redefined by subclasses
-        """
-        pass

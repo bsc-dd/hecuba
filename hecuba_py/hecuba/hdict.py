@@ -447,8 +447,8 @@ class StorageDict(IStorage, dict):
         if config.max_cache_size != 0: #if C++ cache is enabled, clear Python memory, otherwise keep it
             super().clear()
 
-    def _flush_to_storage(self):
-        super()._flush_to_storage()
+    def sync(self):
+        super().sync()
         self._hcache.flush()
 
     def _setup_hcache(self):
@@ -583,7 +583,7 @@ class StorageDict(IStorage, dict):
         """
         Method to empty all data assigned to a StorageDict.
         """
-        self._flush_to_storage()
+        self.sync()
         super().delete_persistent()
         log.debug('DELETE PERSISTENT: %s', self._table)
         query = "DROP TABLE %s.%s;" % (self._ksp, self._table)
@@ -706,7 +706,7 @@ class StorageDict(IStorage, dict):
         if not self.storage_id:
             return super().__len__()
 
-        self._flush_to_storage()
+        self.sync()
         if self._tokens[0][0] == _min_token and self._tokens[-1][1] == _max_token:
             query = f"SELECT COUNT(*) FROM {self._ksp}.{self._table}"
             return self._count_elements(query)
@@ -771,7 +771,7 @@ class StorageDict(IStorage, dict):
                 dict.keys(self)
         """
         if self.storage_id:
-            self._flush_to_storage()
+            self.sync()
             ik = self._hcache.iterkeys(config.prefetch_size)
             iterator = NamedIterator(ik, self._key_builder, self)
             if self._has_embedded_set:
@@ -791,7 +791,7 @@ class StorageDict(IStorage, dict):
                 dict.items(self)
         """
         if self.storage_id:
-            self._flush_to_storage()
+            self.sync()
             ik = self._hcache.iteritems(config.prefetch_size)
             iterator = NamedItemsIterator(self._key_builder,
                                           self._column_builder,
@@ -824,7 +824,7 @@ class StorageDict(IStorage, dict):
                 dict.values(self)
         """
         if self.storage_id:
-            self._flush_to_storage()
+            self.sync()
             if self._has_embedded_set:
                 items = self.items()
                 return dict(items).values()
