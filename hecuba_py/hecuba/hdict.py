@@ -12,7 +12,7 @@ from .hnumpy import StorageNumpy
 from hfetch import Hcache
 
 from .IStorage import IStorage
-from .tools import get_istorage_attrs, build_remotely, basic_types, _min_token, _max_token
+from .tools import get_istorage_attrs, build_remotely, basic_types, _min_token, _max_token, storage_id_from_name
 
 
 class EmbeddedSet(set):
@@ -357,10 +357,14 @@ class StorageDict(IStorage, dict):
 
         self._build_args = self.args(self._get_name(), build_keys, build_column, self._tokens,
                                      self.storage_id, self._indexed_on, class_name, self._built_remotely)
-        if initialized:
-            self._setup_hcache()
-        elif name or storage_id:
+
+        if name and storage_id and (storage_id != storage_id_from_name(name)): # instantiating an splitted object
             self._persist_metadata()
+        elif name or storage_id: # instantiating a persistent object
+            if initialized: # already existint
+                self._setup_hcache()
+            else: # new object
+                self._persist_metadata()
 
     @classmethod
     def _parse_comments(self, comments):
