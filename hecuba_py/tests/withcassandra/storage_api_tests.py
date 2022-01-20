@@ -37,7 +37,8 @@ class StorageApi_Tests(unittest.TestCase):
         config.execution_name = self.current_ksp
 
     def tearDown(self):
-        config.session.execute("DROP KEYSPACE IF EXISTS {}".format(self.current_ksp))
+        #config.session.execute("DROP KEYSPACE IF EXISTS {}".format(self.current_ksp))
+        pass
 
     def class_type_test(self):
         base_dict = ApiTestSDict('api_sdict')

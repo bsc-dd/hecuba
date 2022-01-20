@@ -23,21 +23,19 @@ class StorageNumpyTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.old = config.execution_name
-        #config.NUM_TEST = 0 # HACK a new attribute to have a global counter
-        config.execution_name = "StorageobjNumpy".lower()
+        config.NUM_TEST = 0 # HACK a new attribute to have a global counter
+        #config.execution_name = "StorageobjNumpy".lower()
     @classmethod
     def tearDownClass(cls):
-        #config.execution_name = cls.old
-        #del config.NUM_TEST
-        config.session.execute("DROP KEYSPACE IF EXISTS {}".format(config.execution_name), timeout=60)
         config.execution_name = cls.old
+        del config.NUM_TEST
+        #config.session.execute("DROP KEYSPACE IF EXISTS {}".format(config.execution_name), timeout=60)
 
     # Create a new keyspace per test
     def setUp(self):
-        #config.NUM_TEST = config.NUM_TEST + 1
-        #self.ksp = "StorageNumpyTest{}".format(config.NUM_TEST).lower()
-        #config.execution_name = self.ksp
-        self.ksp = config.execution_name
+        config.NUM_TEST = config.NUM_TEST + 1
+        self.ksp = "StorageNumpyTest{}".format(config.NUM_TEST).lower()
+        config.execution_name = self.ksp
 
     def tearDown(self):
         #config.session.execute("DROP KEYSPACE IF EXISTS {}".format(self.ksp))

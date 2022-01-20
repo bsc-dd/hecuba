@@ -18,7 +18,7 @@ class StorageNumpyTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        config.session.execute("DROP KEYSPACE IF EXISTS {}".format(config.execution_name), timeout=60)
+        #config.session.execute("DROP KEYSPACE IF EXISTS {}".format(config.execution_name), timeout=60)
         config.execution_name = cls.old
 
     # Create a new keyspace per test

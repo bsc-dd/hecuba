@@ -44,15 +44,17 @@ class SObj_ComplexClassField(StorageObj):
 class StorageDictSplitTestbase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        config.session.execute("DROP KEYSPACE IF EXISTS my_app", timeout=60)
+        #config.session.execute("DROP KEYSPACE IF EXISTS my_app", timeout=60)
         config.session.execute(
             "CREATE KEYSPACE IF NOT EXISTS my_app WITH "
             "replication = {'class': 'SimpleStrategy', 'replication_factor': 1};",
             timeout=60)
+        pass
 
     @classmethod
     def tearDownClass(cls):
-        config.session.execute("DROP KEYSPACE IF EXISTS my_app", timeout=60)
+        #config.session.execute("DROP KEYSPACE IF EXISTS my_app", timeout=60)
+        pass
 
     def test_simple_iterkeys_split(self):
         config.session.execute(

@@ -38,7 +38,7 @@ class EmbeddedSetTest(unittest.TestCase):
         config.execution_name = "EmbeddedSetTest".lower()
     @classmethod
     def tearDownClass(cls):
-        config.session.execute("DROP KEYSPACE IF EXISTS {}".format(config.execution_name))
+        #config.session.execute("DROP KEYSPACE IF EXISTS {}".format(config.execution_name))
         config.execution_name = cls.old
 
     # Create a new keyspace per test
