@@ -35,9 +35,20 @@ class Dict4(StorageDict):
 # no <<key>, value> format
 class Dict5(StorageDict):
     '''
-    @TypeSpec <a:int, b:int>
+    @TypeSpec dict <a:int, b:int>
     '''
 
+# key without name
+class Dict6(StorageDict):
+    '''
+    @TypeSpec dict<<:int>, b:int>
+    '''
+
+# key without type
+class Dict7(StorageDict):
+    '''
+    @TypeSpec dict <<key:>, b:int>
+    '''
 
 # bad character :
 class Obj1(StorageObj):
@@ -78,7 +89,7 @@ class ParserHintsTest(unittest.TestCase):
         self.assertEqual(try_parser(Dict1), error)
 
     def test_missing_coma_dict(self):
-        error = "Error parsing the TypeSpec. Maybe you forgot a comma between the columns."
+        error = "Error parsing Type Specification. Trying to parse: 'b:intc:int'"
         self.assertEqual(try_parser(Dict2), error)
 
     def test_bad_characters_dict(self):
@@ -92,6 +103,14 @@ class ParserHintsTest(unittest.TestCase):
     def test_bad_format_dict(self):
         error = "The TypeSpec should have at least two '<' and two '>'. Format: @TypeSpec dict<<key:type>, value:type>."
         self.assertEqual(try_parser(Dict5), error)
+
+    def test_missing_name_attr(self):
+        error = "Error parsing Type Specification. Trying to parse: ':int'"
+        self.assertEqual(try_parser(Dict6), error)
+
+    def test_missing_type_attr(self):
+        error = "Error parsing Type Specification. Trying to parse: 'key:'"
+        self.assertEqual(try_parser(Dict7), error)
 
     def test_bad_colon_obj(self):
         error = "The ClassField @ClassField b:int should only have the character ':' if it is in a dict."
