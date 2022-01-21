@@ -110,6 +110,13 @@ class TestStorageObjNumpyDict(StorageObj):
     '''
     pass
 
+class TestStorageObjDict(StorageObj):
+    '''
+        @ClassField MyAttribute_1 int
+        @ClassField MyAttribute_2 dict <<int>, str>
+        @ClassField MyAttribute_3 dict <<int, str>, int>
+    '''
+
 
 class TestAttributes(StorageObj):
     '''
@@ -1397,6 +1404,14 @@ class StorageObjTest(unittest.TestCase):
         mynew_d = TestDateTime(self.current_ksp+".test_datetime")
         self.assertEqual(mynew_d.attr, dtime)
 
+    def test_storageobjdict_unnamed(self):
+        d = TestStorageObjDict("test_sobjdict_unnamed")
+        d.MyAttribute_2[1]="hola"
+        d.MyAttribute_3[[42,"hola"]]=666
+        d.sync()
+        d = TestStorageObjDict("test_sobjdict_unnamed")
+        self.assertEqual(d.MyAttribute_2[1], "hola")
+        self.assertEqual(d.MyAttribute_3[[42,"hola"]], 666)
 
 if __name__ == '__main__':
     unittest.main()
