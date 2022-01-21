@@ -789,6 +789,10 @@ class StorageNumpy(IStorage, np.ndarray):
             return False
         if self._persistent_columnar == True:
             return True
+        # if the number of rows is very low we do not use columnar access
+        if self.shape[0]<50:
+            #print("self.shape[0]<50", flush=True)
+            return False
 
         if isinstance(sliced_coord, slice) and (sliced_coord == slice(None, None, None) or sliced_coord == slice(0, self._get_base_array().shape[0],1)):
             return True
