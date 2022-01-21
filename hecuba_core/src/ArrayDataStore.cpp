@@ -974,9 +974,10 @@ int scp(const char *host, const char *src, const char *dst) {
     hints.ai_socktype = SOCK_STREAM;
 
     if ((rv = getaddrinfo(host, PORT, &hints, &servinfo)) != 0) {
-        fprintf(stdout, "getaddrinfo: %s\n", gai_strerror(rv));
+        std::cerr<< "getaddrinfo: " << gai_strerror(rv) << std::endl;
         return -1;
     }
+
 
     // loop through all the results and connect to the first we can
     for(p = servinfo; p != NULL; p = p->ai_next) {
@@ -996,7 +997,7 @@ int scp(const char *host, const char *src, const char *dst) {
     }
 
     if (p == NULL) {
-        fprintf(stdout, "client: failed to connect\n");
+        std::cerr<< "client: failed to connect" << std::endl;
         return -2;
     }
 
@@ -1043,7 +1044,7 @@ int scp(const char *host, const char *src, const char *dst) {
     int newfile = open(dst_path, O_CREAT | O_RDWR, 0600);
     if (newfile < 0) {
         perror("client: unable to open destination file");
-        fprintf(stdout,"client: Creating file %s, error: %s\n", dst, strerror(errno));
+        std::cerr << "client: Creating file " << dst << " error: "<< strerror(errno) << std::endl;
         return(-1);
     }
     //JJfprintf(stdout,"before reciving from server\n");
@@ -1058,7 +1059,7 @@ int scp(const char *host, const char *src, const char *dst) {
         filesize += numbytes;
     }
     if (numbytes<0) {
-        fprintf(stdout,"RECEIVE FAILED  Remote copy %s from host %s to path %s\n", src, host, dst);
+        std::cerr<< "RECEIVE FAILED  Remote copy " << src <<" from host " << host << " to path " << dst << std::endl;
         return(-1);
     }
 
@@ -1106,12 +1107,14 @@ bool itsme(const char *target) {
 int get_remote_file(const char *host, const std::string sourcepath, const std::string filename, const std::string destination_path)
 {
     int r = 0;
-    // Check that the file exists to avoid copy
+    //std::cerr << "destination_path: " << destination_path << std::endl;
+    //std::cerr << "filename: " << filename << std::endl;
+
     if (access((destination_path + filename).c_str(), R_OK) != 0) { //File DOES NOT exist
         r = mkdir((destination_path).c_str(), 0770);
         if (r<0) {
             if (errno != EEXIST) {
-                std::cerr<<" scp: mkdir "<< destination_path <<" failed  at "<< std::getenv("HOSTNAME") <<std::endl;
+                std::cerr<<" scp: mkdir "<< aux_path <<" failed  at "<< std::getenv("HOSTNAME") <<std::endl;
                 perror("scp: mkdir");
                 exit(1); //FIXME
             }
