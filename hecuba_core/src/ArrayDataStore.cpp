@@ -1279,6 +1279,36 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
             uint64_t *arrow_addr = (uint64_t *) row->get_element(0);
             uint32_t *arrow_size = (uint32_t *) row->get_element(1);
 
+            // CHECK len(fd_in) == arrow_size? otherwise... wait. In case a 'scp' is in flight but still not finished
+
+            //int filesize = lseek(fdIn, 0, SEEK_END); //TODO DEBUG only
+            //if (filesize < 0) {
+            //    perror("hecuba: unable to lseek to end of file");
+            //    exit(1);
+            //}
+            //std::cout << "File size from lseek: " << filesize << std::endl;
+
+            uint32_t filesize = 0;
+            int retries = 0;
+            do {
+                filesize = lseek(fdIn, 0, SEEK_END);
+                //std::cout << "File size from lseek: " << filesize << std::endl;
+                if (filesize < 0) {
+                    perror("unable to lseek to end of file");
+                    throw ModuleException("lseek error " + arrow_file_name);
+                } else if (filesize < *arrow_size) {
+                    ++retries;
+                    std::cout << "coherent arrow file size  retry " << retries << "/"<< MAX_RETRIES << std::endl;
+                    sleep(1);
+                }
+                //int start_file = lseek(fdIn, 0, SEEK_SET);
+                //if (start_file < 0) {
+                //    perror("unable to lseek to start of file");
+                //    throw ModuleException("lseek error " + arrow_file_name);
+                //}
+            } while (filesize < *arrow_size);
+
+
             //std::cout<< "read_numpy_from_cas_arrow addr="<<*arrow_addr<<" size="<<*arrow_size<<std::endl;
             off_t page_addr;
 
