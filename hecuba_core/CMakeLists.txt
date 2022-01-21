@@ -145,6 +145,7 @@ FIND_LIBRARY(CASS NAMES cassandra PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_L
 FIND_LIBRARY(LIBUV NAMES uv PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
 FIND_LIBRARY(TBB NAMES tbb PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
 FIND_LIBRARY(ARROW NAMES arrow PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
+FIND_LIBRARY(YAML NAMES yaml-cpp PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
 
 IF (NOT LIBUV)
     message("Downloading LIBUV (requisite for Cassandra C++ driver)")
@@ -272,6 +273,23 @@ if (NOT ARROW)
 else ()
     message(STATUS "Using system's ARROW " ${ARROW})
     set(ALL_LIBS ${ALL_LIBS} ${ARROW})
+endif ()
+
+if (NOT YAML)
+    message("Downloading YAML-CPP library")
+    unset(YAML) #to avoid name clash
+    ExternalProject_Add(
+        YAML    #YAML-prefix
+        DOWNLOAD_DIR ${CMAKE_CURRENT_LIST_DIR}/dependencies
+        GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+        INSTALL_DIR ${C_BINDING_INSTALL_PREFIX}
+        CMAKE_ARGS ${CMAKE_SUBPROJECT_FLAGS} -DCMAKE_INSTALL_PREFIX=${C_BINDING_INSTALL_PREFIX} -DYAML_BUILD_SHARED_LIBS=ON
+    )
+    add_dependencies(hfetch YAML)
+    set(ALL_LIBS ${ALL_LIBS} ${C_BINDING_INSTALL_PREFIX}/lib/libyaml-cpp.so)
+else ()
+    message(STATUS "Using system's YAML " ${YAML})
+    set(ALL_LIBS ${ALL_LIBS} ${YAML})
 endif ()
 
 target_link_libraries(hfetch ${ALL_LIBS})
