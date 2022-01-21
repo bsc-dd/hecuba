@@ -1111,22 +1111,36 @@ int get_remote_file(const char *host, const std::string sourcepath, const std::s
     //std::cerr << "filename: " << filename << std::endl;
 
     if (access((destination_path + filename).c_str(), R_OK) != 0) { //File DOES NOT exist
-        r = mkdir((destination_path).c_str(), 0770);
-        if (r<0) {
+        size_t path_size = strlen(destination_path.c_str());
+        char aux_path[path_size+1];
+        char *p;
+
+        strcpy(aux_path, destination_path.c_str());
+
+        // Check (and create) destination_path recursively...
+        for (p = aux_path+1; *p != NULL; ++p) {
+            if (*p =='/') {
+                *p = '\0';
+                if (mkdir(aux_path, 0770) < 0) {
+                    if (errno != EEXIST) {
+                        std::cerr<<" scp: mkdir initial path "<< aux_path <<" failed  at "<< std::getenv("HOSTNAME") <<std::endl;
+                        perror("scp: mkdir");
+                        exit(1); //FIXME
+                    }
+                }
+                *p = '/';
+            }
+        }
+        if (mkdir(aux_path, 0770) < 0) { //last directory in path may not end with '/', so it is treated separately
             if (errno != EEXIST) {
-                std::cerr<<" scp: mkdir "<< aux_path <<" failed  at "<< std::getenv("HOSTNAME") <<std::endl;
+                std::cerr<<" scp: mkdir final path "<< aux_path <<" failed  at "<< std::getenv("HOSTNAME") <<std::endl;
                 perror("scp: mkdir");
                 exit(1); //FIXME
             }
-            //} else {
-            //    std::cout<<" scp: created directory "<<(remote_path + ksp)<<std::endl;
         }
-
-        // Get a copy of arrow_file_name to REMOTES path
         r = scp(host, (sourcepath + filename).c_str(), (destination_path).c_str());
-    //} else {
-    //    std::cout<<" scp: Already existing file "<<(remote_path + arrow_file_name)<<std::endl;
     }
+
     return r;
 }
 
