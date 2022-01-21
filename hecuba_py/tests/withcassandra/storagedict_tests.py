@@ -147,6 +147,26 @@ class TestStorageDictRec2(StorageDict):
        @TypeSpec dict<<key:int>, mynumpy:numpy.ndarray,name:str,age:int,rec:tests.withcassandra.storagedict_tests.TestStorageObjNumpy>
     '''
 
+class TestStorageDictUnnamed(StorageDict):
+    '''
+       @TypeSpec dict<<int>, str>
+    '''
+
+class TestStorageDictUnnamed2(StorageDict):
+    '''
+       @TypeSpec dict<<key:int>, str>
+    '''
+
+class TestStorageDictUnnamed3(StorageDict):
+    '''
+       @TypeSpec dict<<int>, value:str>
+    '''
+
+class TestStorageDictUnnamed4(StorageDict):
+    '''
+       @TypeSpec dict<<int>, str,int>
+    '''
+
 class StorageDictTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -1373,6 +1393,34 @@ class StorageDictTest(unittest.TestCase):
         x = TestStorageDictRec1("test_sync")
         for i in range(0,3):
             self.assertTrue(myd[i].rec.mynumpy[0,0] == x[i].rec.mynumpy[0,0])
+
+    def test_unnamed(self):
+        myo = TestStorageDictUnnamed("test_unnamed")
+        myo[42] = "hola"
+        myo.sync()
+        myo = TestStorageDictUnnamed("test_unnamed")
+        self.assertTrue(myo[42] == "hola")
+
+    def test_unnamed2(self):
+        myo = TestStorageDictUnnamed2("test_unnamed2")
+        myo[42] = "hola"
+        myo.sync()
+        myo = TestStorageDictUnnamed2("test_unnamed2")
+        self.assertTrue(myo[42] == "hola")
+
+    def test_unnamed3(self):
+        myo = TestStorageDictUnnamed3("test_unnamed3")
+        myo[43] = "hola"
+        myo.sync()
+        myo = TestStorageDictUnnamed3("test_unnamed3")
+        self.assertTrue(myo[43] == "hola")
+
+    def test_unnamed4(self):
+        myo = TestStorageDictUnnamed4("test_unnamed4")
+        myo[42] = ["hola", 666]
+        myo.sync()
+        myo = TestStorageDictUnnamed4("test_unnamed4")
+        self.assertTrue(list(myo[42]), ["hola", 666])
 
 if __name__ == '__main__':
     unittest.main()

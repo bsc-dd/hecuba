@@ -51,7 +51,63 @@ class Parser(object):
                 finalvars.append(var)
         return typev, finalvars
 
+    def _get_elements(self, s):
+        """
+        Args:
+            s is a string with a type specification containing one or more types
+        Returns  a list of type_specifications
+        Example:
+            k1:tuple<int,int>,k2:tuple<int,str>,str
+            -->
+            'k1:tuple<int,int>' 'k2:tuple<int,str>' 'str'
+        """
+        elements=[]
+        n_brackets = 0
+        pos = 0
+        lastpos = 0
+        for pos, c in enumerate(s):
+            if c == '<':
+                n_brackets = n_brackets + 1
+            elif c == '>':
+                n_brackets = n_brackets - 1
+            elif c == ',':
+                if n_brackets == 0: # a new element found
+                    elements.append( s[lastpos:pos] )
+                    lastpos = pos + 1 # skip ','
+        if lastpos < pos: #add last element
+            elements.append( s[lastpos:] )
+        return elements
+
+    def _get_name_and_type(self, k):
+        """
+        Args:
+            k is a string with a single type specification "name:value"
+        Return:
+            name and type, or None and type if ":" is not present
+            Raises Syntax Error in cases: "n:", ":v" , ":"
+        """
+        s = k.split(":")
+        if len(s) == 2: # case "name:value"
+            if len(s[0]) > 0 and len(s[1]) > 0:
+                return s
+        elif len(s) == 1: # case "value" only
+            if len(s[0]) > 0: # case ":"
+                return None, s[0]
+        raise SyntaxError("Error parsing Type Specification. Trying to parse: '{}'".format(k))
+
     def _get_str_primary_keys_values(self, pk):
+        """
+        Args:
+            pk is a string with a dict specification "dict<<key_specification>, value_specification>"
+        Return:
+            Six lists:
+                - keys' names,
+                - values' names,
+                - keys' types (simple, tuple or set),
+                - values' types (simple, tuple or set),
+                - keys' types (int, float, ...),
+                - values' types (int, float, ...),
+        """
         pk = pk.replace("dict", "", 1).strip()
 
         # Find point to split keys from values
@@ -72,31 +128,39 @@ class Parser(object):
             raise SyntaxError("Can't detect the keys in the TypeSpec")
 
         # We get the variables
+        keyList = self._get_elements(keys)
+        valueList = self._get_elements(values)
+        # Parse Keys...
+        keyNamesList = []
+        keyTypesList = []
+        for i,k in enumerate(keyList):
+            myname,mytype = self._get_name_and_type(k)
+            if not myname: # Generate name "key_0","key_1",...,"key_N"
+                myname = "key_" + str(i)
+            keyNamesList.append(myname)
+            keyTypesList.append(mytype)
 
-        varsk = re.findall(r"\w+:", keys)  # var keys
-        varsv = re.findall(r"\w+:", values)  # var values
+        # Parse Values...
+        valueNamesList = []
+        valueTypesList = []
+        offset = len(keyNamesList)
+        for i,v in enumerate(valueList):
+            myname,mytype = self._get_name_and_type(v)
+            if not myname: # Generate name "val_N+1","valN+2",...
+                myname = "val_" + str(i + offset)
+            valueNamesList.append(myname)
+            valueTypesList.append(mytype)
 
-        # Now we clean the variables
 
-        varskc = [v.replace(':', '') for v in varsk]
-        varsvc = [v.replace(':', '') for v in varsv]
+        # for each type we store if its a 'simple' or a 'tuple/set' type
+        # (finalvarksk and finalvarsv)
+        # and for 'set' or 'tuple' types, the type specification is replaced by
+        # the type of its elements (typek and typev)
+        #TODO: review if this can be improved
+        typevk, finalvarsk = self._append_values_to_list_after_replace(keyTypesList)
+        typevv, finalvarsv = self._append_values_to_list_after_replace(valueTypesList)
 
-        # We get the valuesk
-
-        for var in varsk:
-            keys = keys.replace(var, ' ')
-
-        valsc = keys[1:].split(', ')  # all valuesk separated by comma
-
-        typevk, finalvarsk = self._append_values_to_list_after_replace(valsc)
-
-        for var in varsv:
-            values = values.replace(var, ' ', 1)
-
-        valsc1 = values[1:].split(', ')  # all valuesk separated by comma
-
-        typevv, finalvarsv = self._append_values_to_list_after_replace(valsc1)
-        return varskc, varsvc, finalvarsk, finalvarsv, typevk, typevv
+        return keyNamesList, valueNamesList, finalvarsk, finalvarsv, typevk, typevv
 
     def _set_or_tuple(self, type, pk_col, t, t1):
         string_str = ""
