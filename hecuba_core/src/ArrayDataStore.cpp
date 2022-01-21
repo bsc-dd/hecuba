@@ -890,7 +890,6 @@ int ArrayDataStore::open_arrow_file(std::string arrow_file_name) {
             if (err == ENOENT) { //File does not exist... retry
                 retries ++;
                 std::cout << "open_arrow_file  retry " << retries << "/"<< MAX_RETRIES << std::endl;
-                sleep(1);
             }
             if ((err != ENOENT) || (retries == MAX_RETRIES)) {
                 char buff[4096];
