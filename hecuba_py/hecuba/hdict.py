@@ -263,16 +263,28 @@ class StorageDict(IStorage, dict):
             TODO: implement a cleaner version of embedded sets
         '''
 
+        # Field '_istorage_metas' will be set if it exists in HECUBA.istorage
         initialized = (getattr(self, '_istorage_metas', None) is not None)
         if initialized: #object already in istorage
             #pick the values and fill the object attributes
-            primary_keys = self._istorage_metas.primary_keys
-            build_column = self._istorage_metas.columns
+            if primary_keys is not None or columns is not None:
+                raise RuntimeError("StorageDict: Trying to define a new schema, but it is already persistent")
+
+            if self.__doc__ is not None:
+                #parse the doc string to check that matches the stored metadata
+                self._persistent_props = self._parse_comments(self.__doc__)
+                self._primary_keys = self._persistent_props['primary_keys']
+                self._columns = self._persistent_props['columns']
+                self._indexed_on = self._persistent_props.get('indexed_on', indexed_on)
+                self._check_schema_and_raise("__init__");
+            else:
+                self._primary_keys = self._istorage_metas.primary_keys
+                self._columns = self._istorage_metas.columns
+                self._indexed_on = self._istorage_metas.indexed_on
+            build_column = self._columns
             columns = build_column
-            indexed_on = self._istorage_metas.indexed_on
 
             self._has_embedded_set = False
-            self._primary_keys = primary_keys
             set_pks = []
             normal_columns = []
             #we manipulate the info about sets retrieved from istorage
@@ -289,10 +301,10 @@ class StorageDict(IStorage, dict):
                 self._columns = [{"name": column_name, "type": "set", "columns": set_pks}]
             else:
                 self._columns = [{"type": col[1], "name": col[0]} for col in normal_columns]
-            self._indexed_on = indexed_on
 
 
         else: # new object
+
             if self.__doc__ is not None:
                 #parse the doc string
                 self._persistent_props = self._parse_comments(self.__doc__)
@@ -306,7 +318,6 @@ class StorageDict(IStorage, dict):
                 self._primary_keys = primary_keys
                 self._columns = columns
                 self._indexed_on = indexed_on
-
 
             #build_column will contain the column info stored in istorage. For the sets we manipulate the parsed data
             build_column = []
@@ -618,6 +629,22 @@ class StorageDict(IStorage, dict):
         else:
             return EmbeddedSet(self, list(key), val)
 
+    def _check_schema_and_raise(self, txt):
+        """
+        Raises an exception if the schema stored in the database does not match
+        with the description of the object in memory. This may happen if the
+        user specifies an already used name for its data.
+        """
+        # try to send a useful message if it is a problem with a mismatched schema
+        if getattr(self, "_istorage_metas", None) is None:
+            self._istorage_metas = get_istorage_attrs(self.storage_id)
+        for pos, key in enumerate(self._primary_keys):
+           if self._istorage_metas.primary_keys[pos][0] != key[0] or self._istorage_metas.primary_keys[pos][1] != key[1]:
+                raise RuntimeError("StorageDict: {}: Metadata does not match specification. Trying {} but stored specification {}".format(txt, self._primary_keys, self._istorage_metas.primary_keys))
+        for pos, val in enumerate(self._columns):
+           if (self._istorage_metas.columns[pos][0] != val[0]) or (self._istorage_metas.columns[pos][1] != val[1]):
+                raise RuntimeError("StorageDict: {}: Metadata does not match specification. Trying {} but stored specification {}".format(txt, self._columns, self._istorage_metas.columns))
+
     def __getitem__(self, key):
         """
         If the object is persistent, each request goes to the hfetch.
@@ -640,7 +667,9 @@ class StorageDict(IStorage, dict):
                     return result
                 except:
                     pass
+
             persistent_result = self._hcache.get_row(self._make_key(key))
+
             log.debug("GET ITEM %s[%s]", persistent_result, persistent_result.__class__)
 
             # we need to transform UUIDs belonging to IStorage objects and rebuild them
@@ -703,6 +732,7 @@ class StorageDict(IStorage, dict):
             # Not needed because it is made persistent and inserted to hcache when calling to self.__create_embeddedset
             val = self.__make_val_persistent(val)
             self._hcache.put_row(self._make_key(key), self._make_value(val))
+
             if config.max_cache_size == 0: # If C++ cache is disabled, use python memory
                 dict.__setitem__(self,key,val)
 
