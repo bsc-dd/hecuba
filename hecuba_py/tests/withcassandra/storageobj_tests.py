@@ -1413,5 +1413,58 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(d.MyAttribute_2[1], "hola")
         self.assertEqual(d.MyAttribute_3[[42,"hola"]], 666)
 
+    def test_so_schemas(self):
+        class tsoschemasModel(StorageObj):
+            '''
+            @ClassField uno str
+            @ClassField dos int
+            '''
+        m = tsoschemasModel()
+        m.uno="hola"
+        m.dos=42
+        m.make_persistent("test_so_schemas")
+
+        class tsoschemasModel2(StorageObj):
+            '''
+            @ClassField uno int
+            @ClassField dos str
+            '''
+        m = tsoschemasModel2()
+        m.uno=42
+        m.dos="hola"
+        with self.assertRaises(RuntimeError):
+            m.make_persistent("test_so_schemas") # Same name, but different schema. SHOULD FAIL
+
+        #class tsoschemasModel(StorageObj):
+        #    '''
+        #    @ClassField uno int
+        #    @ClassField dos str
+        #    '''
+        #m = tsoschemasModel()
+        #m.uno=42
+        #m.dos="hola"
+        #with self.assertRaises(RuntimeError):
+        #    m.make_persistent("test_so_schemas2") # Same classname, but different schema. SHOULD FAIL
+
+        class tsoschemasModel3(StorageObj):
+            '''
+            @ClassField uno int
+            @ClassField dos str
+            @ClassField tres dict<<int>, str>
+            '''
+        m = tsoschemasModel3()
+        m.uno=42
+        m.dos="hola"
+        m.tres[666]="adios"
+        m.make_persistent("test_so_schemas3")
+        m.sync()
+        m = tsoschemasModel3("test_so_schemas3")
+        self.assertEqual(m.uno, 42)
+        self.assertEqual(m.dos, "hola")
+        self.assertEqual(m.tres[666], "adios")
+
+        with self.assertRaises(RuntimeError):
+            m = tsoschemasModel("test_so_schemas3") # Same name, but different schema
+
 if __name__ == '__main__':
     unittest.main()

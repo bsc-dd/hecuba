@@ -51,6 +51,22 @@ class StorageObj(IStorage):
         return parser._parse_comments(comments)
 
 
+    def _check_schema_and_raise(self, txt):
+        """
+        Raises an exception if the schema stored in the database does not match
+        with the description of the object in memory. This may happen if the
+        user specifies an already used name for its data.
+        """
+        # try to send a useful message if it is a problem with a mismatched schema
+        if getattr(self, "_istorage_metas", None) is None:
+            self._istorage_metas = get_istorage_attrs(self.storage_id)
+
+        if len(self._columns) != len(self._istorage_metas.columns):
+            raise RuntimeError("StorageObj: {}: Metadata does not match specification. Trying {} but stored specification {}".format(txt, self._columns, self._istorage_metas.columns))
+        for pos, val in enumerate(self._columns):
+           if (self._istorage_metas.columns[pos][0] != val[0]) or (self._istorage_metas.columns[pos][1] != val[1]):
+                raise RuntimeError("StorageObj: {}: Metadata does not match specification. Trying {} but stored specification {}".format(txt, self._columns, self._istorage_metas.columns))
+
     def __init__(self, name=None, storage_id=None, *args, **kwargs):
         """
             Creates a new storageobj.
@@ -89,7 +105,7 @@ class StorageObj(IStorage):
             else: #Instantiation
                 if getattr(self, "__doc__", None) is not None:
                     # check that the class metadata stored in HECUBA matches the __doc__
-                    pass
+                    self._check_schema_and_raise("__init__")
                 else: # No documentation passed, used metadata from hecuba.istorage
                     self._columns = self._istorage_metas.columns
                     ksp, table = extract_ks_tab(self._istorage_metas.class_name)
@@ -194,7 +210,8 @@ class StorageObj(IStorage):
         """
         # Update name
         super().make_persistent(name)
-
+        if getattr(self, "_istorage_metas", None) is not None:
+            self._check_schema_and_raise("make_persistent")
         self._persist_data(name)
 
     def stop_persistent(self):
