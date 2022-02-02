@@ -909,6 +909,9 @@ class StorageDict(IStorage, dict):
         return value
 
     def _get_set_types(self):
+        """
+        Returns a list of tuples (name,type) for the types of the set
+        """
         if self._has_embedded_set:
             set_types = [col.get("columns", []) for col in self._columns if isinstance(col, dict)]
             return sum(set_types, [])
