@@ -698,9 +698,8 @@ class StorageDictTest(unittest.TestCase):
         gc.collect()
         count, = config.session.execute('SELECT count(*) FROM '+self.current_ksp+'.'+tablename)[0]
         self.assertEqual(count, 100)
-        pd = StorageDict(tablename,
-                         [('pid', 'int'), ('time', 'int')],
-                         [('value', 'text'), ('x', 'double'), ('y', 'double'), ('z', 'double')])
+        pd = StorageDict(tablename)
+
         count = 0
         res = {}
         for key, val in pd.items():
@@ -717,6 +716,7 @@ class StorageDictTest(unittest.TestCase):
             self.assertAlmostEquals(a[3], b.z, delta=delta)
         pd.delete_persistent()
 
+    @unittest.skip("DEPRECATED: Disable changing the schema")
     def test_composed_key_return_list_items_test(self):
         tablename = "test_comkey_ret_list"
         pd = StorageDict(tablename,
@@ -1453,6 +1453,27 @@ class StorageDictTest(unittest.TestCase):
         myo.sync()
         myo = TestStorageDictUnnamed4("test_unnamed4")
         self.assertTrue(list(myo[42]), ["hola", 666])
+
+    def test_make_persistent2(self):
+
+        class MyStorageDictA1(StorageDict):
+            '''
+            @TypeSpec dict<<a:str,a2:int>, b:int>
+            '''
+        d = MyStorageDictA1("test_make_persistent2")
+        d["hola",666] = 42
+
+        d.sync()
+
+        class MyStorageDictA2(StorageDict):
+            '''
+            @TypeSpec dict<<a:str>, b:int>
+            '''
+        d = MyStorageDictA2()  # VOLATILE
+        d['uy'] = 666
+        with self.assertRaises(RuntimeError) as context:
+            d.make_persistent("test_make_persistent2") # SHOULD FAIL!!! DIFFERENT SCHEMA!!
+
 
 if __name__ == '__main__':
     unittest.main()
