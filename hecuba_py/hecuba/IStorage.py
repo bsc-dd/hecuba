@@ -92,6 +92,7 @@ class IStorage(object):
             metas = get_istorage_attrs(self.storage_id)
             try:
                 self._tokens = metas[0].tokens
+                self._istorage_metas = metas[0] # To pass information retrieved from istorage to subojects to avoid further Cassandra accesses
             except IndexError:
                 self._tokens = generate_token_ring_ranges()
 
