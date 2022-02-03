@@ -132,13 +132,15 @@ class IStorage(object):
         """
         return str(self.storage_id)
 
-    def split(self):
+    def split(self, cols=None):
         """
         Method used to divide an object into sub-objects.
         Returns:
             a subobject everytime is called
         """
         from .tools import tokens_partitions
+        if cols is not None:
+            print("IStorage.split: Ignoring parameter 'cols'. Currently this is only supported for StorageNumpys", flush=True)
         try:
             tokens = self._build_args.tokens
         except AttributeError as ex:
