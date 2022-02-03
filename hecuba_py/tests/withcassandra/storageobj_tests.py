@@ -110,6 +110,13 @@ class TestStorageObjNumpyDict(StorageObj):
     '''
     pass
 
+class TestStorageObjDict(StorageObj):
+    '''
+        @ClassField MyAttribute_1 int
+        @ClassField MyAttribute_2 dict <<int>, str>
+        @ClassField MyAttribute_3 dict <<int, str>, int>
+    '''
+
 
 class TestAttributes(StorageObj):
     '''
@@ -168,7 +175,7 @@ class StorageObjTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        config.session.execute("DROP KEYSPACE IF EXISTS {}".format(config.execution_name), timeout=60)
+        #config.session.execute("DROP KEYSPACE IF EXISTS {}".format(config.execution_name), timeout=60)
         config.execution_name = cls.old
 
     def setUp(self):
@@ -1397,6 +1404,67 @@ class StorageObjTest(unittest.TestCase):
         mynew_d = TestDateTime(self.current_ksp+".test_datetime")
         self.assertEqual(mynew_d.attr, dtime)
 
+    def test_storageobjdict_unnamed(self):
+        d = TestStorageObjDict("test_sobjdict_unnamed")
+        d.MyAttribute_2[1]="hola"
+        d.MyAttribute_3[[42,"hola"]]=666
+        d.sync()
+        d = TestStorageObjDict("test_sobjdict_unnamed")
+        self.assertEqual(d.MyAttribute_2[1], "hola")
+        self.assertEqual(d.MyAttribute_3[[42,"hola"]], 666)
+
+    def test_so_schemas(self):
+        class tsoschemasModel(StorageObj):
+            '''
+            @ClassField uno str
+            @ClassField dos int
+            '''
+        m = tsoschemasModel()
+        m.uno="hola"
+        m.dos=42
+        m.make_persistent("test_so_schemas")
+
+        class tsoschemasModel2(StorageObj):
+            '''
+            @ClassField uno int
+            @ClassField dos str
+            '''
+        m = tsoschemasModel2()
+        m.uno=42
+        m.dos="hola"
+        with self.assertRaises(RuntimeError):
+            m.make_persistent("test_so_schemas") # Same name, but different schema. SHOULD FAIL
+
+        #class tsoschemasModel(StorageObj):
+        #    '''
+        #    @ClassField uno int
+        #    @ClassField dos str
+        #    '''
+        #m = tsoschemasModel()
+        #m.uno=42
+        #m.dos="hola"
+        #with self.assertRaises(RuntimeError):
+        #    m.make_persistent("test_so_schemas2") # Same classname, but different schema. SHOULD FAIL
+
+        class tsoschemasModel3(StorageObj):
+            '''
+            @ClassField uno int
+            @ClassField dos str
+            @ClassField tres dict<<int>, str>
+            '''
+        m = tsoschemasModel3()
+        m.uno=42
+        m.dos="hola"
+        m.tres[666]="adios"
+        m.make_persistent("test_so_schemas3")
+        m.sync()
+        m = tsoschemasModel3("test_so_schemas3")
+        self.assertEqual(m.uno, 42)
+        self.assertEqual(m.dos, "hola")
+        self.assertEqual(m.tres[666], "adios")
+
+        with self.assertRaises(RuntimeError):
+            m = tsoschemasModel("test_so_schemas3") # Same name, but different schema
 
 if __name__ == '__main__':
     unittest.main()

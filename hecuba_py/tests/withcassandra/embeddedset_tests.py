@@ -38,7 +38,7 @@ class EmbeddedSetTest(unittest.TestCase):
         config.execution_name = "EmbeddedSetTest".lower()
     @classmethod
     def tearDownClass(cls):
-        config.session.execute("DROP KEYSPACE IF EXISTS {}".format(config.execution_name))
+        #config.session.execute("DROP KEYSPACE IF EXISTS {}".format(config.execution_name))
         config.execution_name = cls.old
 
     # Create a new keyspace per test
@@ -549,8 +549,7 @@ class EmbeddedSetTest(unittest.TestCase):
 
         self.assertTrue(d._table is not None)
         self.assertEqual(self.current_ksp, d._ksp)
-        #this sleep is to guarantee that data is on disk before reading it again
-        time.sleep(10) #TODO: check the implementation of embedded sets to implement a sync interface
+        d.sync() #guarantee that data is on disk before reading it again
 
         res = config.session.execute(
             'SELECT storage_id, primary_keys, columns, class_name, name, tokens, istorage_props,indexed_on ' +

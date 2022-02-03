@@ -15,7 +15,7 @@ class BlockTest(unittest.TestCase):
         # TODO This test passes StorageDict arguments (results) to a StorageObj. Fix this test.
 
         results = {"built_remotely": False, "storage_id": uuid.uuid4(), "class_name": 'tests.app.words.Words',
-                   "name": 'ksp1.tab1',
+                   "name": 'BlockTest.test_astatic_creation',
                    "columns": [('val1', 'str')], "entry_point": 'localhost', "primary_keys": [('pk1', 'int')],
                    "istorage_props": {}, "tokens": [(1, 2), (2, 3), (3, 4), (3, 5)]}
 
@@ -33,7 +33,7 @@ class BlockTest(unittest.TestCase):
         self.assertIsInstance(b, Words)
         Words._create_tables.assert_called_once()
         Words._persist_attributes.assert_called_once()
-        assert (b._ksp == "ksp1")
+        assert (b._ksp == "BlockTest".lower())
         assert (b._table == b.__class__.__name__.lower())
 
         Words._create_tables, Words._persist_attributes, Words._store_meta = words_mock_methods

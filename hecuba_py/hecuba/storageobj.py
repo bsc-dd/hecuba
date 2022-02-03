@@ -8,15 +8,16 @@ from .hnumpy import StorageNumpy
 from .IStorage import IStorage
 
 from .tools import get_istorage_attrs, build_remotely, storage_id_from_name, basic_types, \
-    valid_types
+    valid_types, extract_ks_tab
 
 
 class StorageObj(IStorage):
-    args_names = ["name", "tokens", "storage_id", "class_name", "built_remotely"]
+    args_names = ["name", "columns", "tokens", "storage_id", "class_name", "built_remotely"]
     args = namedtuple('StorageObjArgs', args_names)
     _prepared_store_meta = config.session.prepare('INSERT INTO hecuba.istorage'
-                                                  '(storage_id, class_name, name, tokens) '
-                                                  ' VALUES (?,?,?,?)')
+                                                  '(storage_id, class_name, name, tokens, '
+                                                  'columns)'
+                                                  ' VALUES (?,?,?,?,?)')
 
     """
     This class is where information will be stored in Hecuba.
@@ -38,7 +39,8 @@ class StorageObj(IStorage):
                                    [storage_args.storage_id,
                                     storage_args.class_name,
                                     storage_args.name,
-                                    storage_args.tokens])
+                                    storage_args.tokens,
+                                    storage_args.columns])
         except Exception as ex:
             log.warn("Error creating the StorageDict metadata: %s, %s", str(storage_args), ex)
             raise ex
@@ -48,6 +50,22 @@ class StorageObj(IStorage):
         parser = Parser("ClassField")
         return parser._parse_comments(comments)
 
+
+    def _check_schema_and_raise(self, txt):
+        """
+        Raises an exception if the schema stored in the database does not match
+        with the description of the object in memory. This may happen if the
+        user specifies an already used name for its data.
+        """
+        # try to send a useful message if it is a problem with a mismatched schema
+        if getattr(self, "_istorage_metas", None) is None:
+            self._istorage_metas = get_istorage_attrs(self.storage_id)
+
+        if len(self._columns) != len(self._istorage_metas.columns):
+            raise RuntimeError("StorageObj: {}: Metadata does not match specification. Trying {} but stored specification {}".format(txt, self._columns, self._istorage_metas.columns))
+        for pos, val in enumerate(self._columns):
+           if (self._istorage_metas.columns[pos][0] != val[0]) or (self._istorage_metas.columns[pos][1] != val[1]):
+                raise RuntimeError("StorageObj: {}: Metadata does not match specification. Trying {} but stored specification {}".format(txt, self._columns, self._istorage_metas.columns))
 
     def __init__(self, name=None, storage_id=None, *args, **kwargs):
         """
@@ -59,24 +77,45 @@ class StorageObj(IStorage):
                 kwargs: more optional parameters
         """
 
-        # Assign private attributes
-        self._persistent_props = StorageObj._parse_comments(self.__doc__)
-        self._persistent_attrs = self._persistent_props.keys()
+        super().__init__(name=name, storage_id=storage_id, *args, **kwargs)
+
+        self._columns = [] # Empty object
+        if getattr(self, "__doc__", None) is not None:
+            # Assign private attributes
+            self._persistent_props = StorageObj._parse_comments(self.__doc__)
+            self._persistent_attrs = self._persistent_props.keys()
+            self._columns = [ (k,v['type']) for k,v in self._persistent_props.items()]
+        else:
+            if not (name or storage_id):
+                raise RuntimeError("Volatile StoragObj WITHOUT specification not allowed")
+
         self._class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
 
-        super().__init__(name=name, storage_id=storage_id, *args, **kwargs)
+
+
         self._table = self.__class__.__name__.lower()
-        args        = self.args(self._get_name(), self._tokens, self.storage_id, self._class_name, self._built_remotely)
+        args        = self.args(self._get_name(), self._columns, self._tokens, self.storage_id, self._class_name, self._built_remotely)
 
         self._build_args = args
 
         if name or storage_id:  # therefore... are we doing an Instantiation or a Creation? (built_remotely may be used to instantiate a mockup)
-            try:
-                data    = get_istorage_attrs(self.storage_id)[0]
-                # Instantiation
-            except Exception:
+            # Field '_istorage_metas' will be set if it exists in HECUBA.istorage
+            if getattr(self, "_istorage_metas", None) is None: #Creation
                 self._persist_data(name)
-                pass # Creation
+            else: #Instantiation
+                if getattr(self, "__doc__", None) is not None:
+                    # check that the class metadata stored in HECUBA matches the __doc__
+                    self._check_schema_and_raise("__init__")
+                else: # No documentation passed, used metadata from hecuba.istorage
+                    self._columns = self._istorage_metas.columns
+                    ksp, table = extract_ks_tab(self._istorage_metas.class_name)
+                    self._table = table  #Update table name to match the ClassName from metadata
+                    self._persistent_props = {i[0]:{"type":i[1]} for i in self._columns}
+                    self._persistent_attrs = self._persistent_props.keys()
+                    # Rebuild '_build_args' with modified args
+                    self._build_args = self._build_args._replace(columns=self._columns,
+                                                                class_name=self._class_name)
+
 
         log.debug("CREATED StorageObj(%s)", self._get_name())
 
@@ -130,19 +169,20 @@ class StorageObj(IStorage):
             log.error("Unable to execute %s", query_simple)
             raise ir
 
-    def _flush_to_storage(self):
-        super()._flush_to_storage()
+    def sync(self):
+        super().sync()
 
         for attr_name in self._persistent_attrs:
             attr = getattr(super(), attr_name, None)
             if isinstance(attr, IStorage):
-                attr._flush_to_storage()
+                attr.sync()
 
     def _persist_data(self, name):
         self._table = self.__class__.__name__.lower()
 
         # Arguments used to build objects remotely
         self._build_args = self.args(self._get_name(),
+                                     self._columns,
                                      self._tokens,
                                      self.storage_id,
                                      self._class_name,
@@ -170,7 +210,8 @@ class StorageObj(IStorage):
         """
         # Update name
         super().make_persistent(name)
-
+        if getattr(self, "_istorage_metas", None) is not None:
+            self._check_schema_and_raise("make_persistent")
         self._persist_data(name)
 
     def stop_persistent(self):
@@ -300,7 +341,7 @@ class StorageObj(IStorage):
                 attribute: name of the value that we want to set
                 value: value that we want to save
         """
-        if attribute[0] == '_' or attribute not in self._persistent_attrs:
+        if attribute[0] == '_' or attribute not in getattr(self, "_persistent_attrs", []):
             super().__setattr__(attribute, value)
             return
 
@@ -373,3 +414,7 @@ class StorageObj(IStorage):
             except AttributeError as ex:
                 # Not present in memory
                 pass
+
+    def split(self):
+        raise NotImplementedError("Split is not supported on StorageObjects");
+

@@ -34,7 +34,6 @@ RUN apt-get update \
 RUN apt-get install libuv1  # Required as UBUNTU 18.04 and libuv are not good friends, otherwise setting LD_LIBRARY_PATH is required
 
 # Define Hecuba Environment variables
-ENV CREATE_SCHEMA=True
 ENV CMAKE_BUILD_PARALLEL_LEVEL=4
 
 # Hecuba version

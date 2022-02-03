@@ -147,6 +147,26 @@ class TestStorageDictRec2(StorageDict):
        @TypeSpec dict<<key:int>, mynumpy:numpy.ndarray,name:str,age:int,rec:tests.withcassandra.storagedict_tests.TestStorageObjNumpy>
     '''
 
+class TestStorageDictUnnamed(StorageDict):
+    '''
+       @TypeSpec dict<<int>, str>
+    '''
+
+class TestStorageDictUnnamed2(StorageDict):
+    '''
+       @TypeSpec dict<<key:int>, str>
+    '''
+
+class TestStorageDictUnnamed3(StorageDict):
+    '''
+       @TypeSpec dict<<int>, value:str>
+    '''
+
+class TestStorageDictUnnamed4(StorageDict):
+    '''
+       @TypeSpec dict<<int>, str,int>
+    '''
+
 class StorageDictTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -154,7 +174,7 @@ class StorageDictTest(unittest.TestCase):
         config.execution_name = "StorageDictTest".lower()
     @classmethod
     def tearDownClass(cls):
-        config.session.execute("DROP KEYSPACE IF EXISTS {}".format(config.execution_name), timeout=60)
+        #config.session.execute("DROP KEYSPACE IF EXISTS {}".format(config.execution_name), timeout=60)
         config.execution_name = cls.old
 
     # Create a new keyspace per test
@@ -175,6 +195,8 @@ class StorageDictTest(unittest.TestCase):
                              tokens=tokens)
         self.assertEqual(table, nopars._table)
         self.assertEqual(self.current_ksp, nopars._ksp)
+
+        nopars.sync() # Wait until the data is persisted
 
         res = config.session.execute(
             'SELECT storage_id, primary_keys, columns, class_name, name, tokens, istorage_props,indexed_on ' +
@@ -202,6 +224,8 @@ class StorageDictTest(unittest.TestCase):
                              tokens=tokens)
         self.assertEqual(tablename, nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
+
+        nopars.sync() # Wait until the data is persisted
 
         res = config.session.execute(
             'SELECT storage_id, primary_keys, columns, class_name, name, tokens, istorage_props,indexed_on ' +
@@ -302,6 +326,8 @@ class StorageDictTest(unittest.TestCase):
 
         self.assertEqual(len(nopars.words), ninserts)
 
+        nopars.sync() # Wait until the data is persisted
+
         rebuild = Words(tablename)
         self.assertEqual(len(rebuild.words), ninserts)
         rebuild.delete_persistent()
@@ -394,6 +420,9 @@ class StorageDictTest(unittest.TestCase):
                          [('position', 'int')],
                          [('value', 'text')])
         pd[0] = 'bla'
+
+        pd.sync() # Wait until the data is persisted
+
         result = config.session.execute('SELECT value FROM '+self.current_ksp+'.'+tablename +' WHERE position = 0')
         for row in result:
             self.assertEquals(row.value, 'bla')
@@ -431,6 +460,8 @@ class StorageDictTest(unittest.TestCase):
                          [('position', 'int')],
                          [('value', 'double')])
         pd[0] = 2.0
+        pd.sync() # Wait until the data is persisted
+
         result = config.session.execute('SELECT value FROM '+self.current_ksp+'.'+tablename+' WHERE position = 0')
         for row in result:
             self.assertEquals(row.value, 2.0)
@@ -667,9 +698,8 @@ class StorageDictTest(unittest.TestCase):
         gc.collect()
         count, = config.session.execute('SELECT count(*) FROM '+self.current_ksp+'.'+tablename)[0]
         self.assertEqual(count, 100)
-        pd = StorageDict(tablename,
-                         [('pid', 'int'), ('time', 'int')],
-                         [('value', 'text'), ('x', 'double'), ('y', 'double'), ('z', 'double')])
+        pd = StorageDict(tablename)
+
         count = 0
         res = {}
         for key, val in pd.items():
@@ -686,6 +716,7 @@ class StorageDictTest(unittest.TestCase):
             self.assertAlmostEquals(a[3], b.z, delta=delta)
         pd.delete_persistent()
 
+    @unittest.skip("DEPRECATED: Disable changing the schema")
     def test_composed_key_return_list_items_test(self):
         tablename = "test_comkey_ret_list"
         pd = StorageDict(tablename,
@@ -740,6 +771,7 @@ class StorageDictTest(unittest.TestCase):
         tablename = "test_sd_iface_mem2pers"
         my_dict =MyStorageDict()
         my_dict[0] = 1
+
         error = False
         try:
             result = config.session.execute('SELECT * FROM '+self.current_ksp+'.'+tablename)[0]
@@ -767,12 +799,14 @@ class StorageDictTest(unittest.TestCase):
         my_dict = MyStorageDict()
         my_dict[0] = 1
         my_dict.make_persistent(tablename)
-        time.sleep(1)
+        my_dict.sync() # Wait until the data is persisted
+
         count, = config.session.execute('SELECT count(*) FROM '+self.current_ksp+'.'+tablename)[0]
         self.assertEquals(1, count)
 
         my_dict[1] = 2
-        time.sleep(1)
+        my_dict.sync() # Wait until the data is persisted
+
         count, = config.session.execute('SELECT count(*) FROM '+self.current_ksp+'.'+tablename)[0]
         self.assertEquals(2, count)
 
@@ -857,7 +891,8 @@ class StorageDictTest(unittest.TestCase):
                 text_id = 'someText' + str(id)
             my_dict[(id, text_id)] = id
 
-        del my_dict  # force sync
+        my_dict.sync() # Wait until the data is persisted
+
         my_dict = MyStorageDict2('test_keys')
         total_items = list(my_dict.items())
 
@@ -875,7 +910,8 @@ class StorageDictTest(unittest.TestCase):
             my_second_dict[(id, text_id)] = id
 
         my_second_dict.make_persistent('test_keys')
-        del my_second_dict  # force sync
+        my_second_dict.sync() # Wait until the data is persisted
+
         my_second_dict = MyStorageDict2()
         my_second_dict.make_persistent('test_keys')
 
@@ -903,7 +939,8 @@ class StorageDictTest(unittest.TestCase):
                 text_id = 'someText' + str(id)
             my_dict[(id, text_id)] = id
 
-        del my_dict  # force sync
+        my_dict.sync() # Wait until the data is persisted
+
         my_dict = MyStorageDict2('test_values')
         total_items = my_dict.items()
 
@@ -921,7 +958,8 @@ class StorageDictTest(unittest.TestCase):
             my_second_dict[(id, text_id)] = id
 
         my_second_dict.make_persistent('test_values')
-        del my_second_dict  # force sync
+        my_second_dict.sync() # Wait until the data is persisted
+
         my_second_dict = MyStorageDict2()
         my_second_dict.make_persistent('test_values')
 
@@ -949,7 +987,8 @@ class StorageDictTest(unittest.TestCase):
                 text_id = 'someText' + str(id)
             my_dict[(id, text_id)] = id
 
-        del my_dict  # force sync
+        my_dict.sync() # Wait until the data is persisted
+
         my_dict = MyStorageDict2('test_items')
         total_items = list(my_dict.items())
 
@@ -967,7 +1006,8 @@ class StorageDictTest(unittest.TestCase):
             my_second_dict[(id, text_id)] = id
 
         my_second_dict.make_persistent('test_items')
-        del my_second_dict  # force sync
+        my_second_dict.sync() # Wait until the data is persisted
+
         my_second_dict = MyStorageDict2()
         my_second_dict.make_persistent('test_items')
 
@@ -1171,6 +1211,8 @@ class StorageDictTest(unittest.TestCase):
             else:
                 d[i] = (i, i + 10)
 
+        d.sync() # Wait until the data is persisted
+
         d = DictWithTuples("test_int_tuples_null_values")
         for i in range(0, 10):
             if i % 2 == 0:
@@ -1208,6 +1250,8 @@ class StorageDictTest(unittest.TestCase):
             else:
                 what_should_be[i] = [i, (5500000000000000, None), "hola", (None, (i + 20.5))]
                 d[i] = [i, (5500000000000000, None), "hola", (None, (i + 20.5))]
+
+        d.sync() # Wait until the data is persisted
 
         d = DictWithTuples3("test_multiple_tuples_NULL")
         for i in range(0, 10):
@@ -1262,6 +1306,8 @@ class StorageDictTest(unittest.TestCase):
             what_should_be[keys] = [cols]
             d[keys] = [cols]
 
+        d.sync() # Wait until the data is persisted
+
         d = DictWithDates("test_multiple_dates")
 
         self.assertEqual(len(list(d.keys())), len(what_should_be.keys()))
@@ -1283,6 +1329,8 @@ class StorageDictTest(unittest.TestCase):
             what_should_be[keys] = [cols]
             d[keys] = [cols]
 
+        d.sync() # Wait until the data is persisted
+
         d = DictWithTimes("test_multiple_times")
 
         self.assertEqual(len(list(d.keys())), len(what_should_be.keys()))
@@ -1303,6 +1351,8 @@ class StorageDictTest(unittest.TestCase):
             cols = self.gen_random_datetime()
             what_should_be[keys] = [cols]
             d[keys] = [cols]
+
+        d.sync() # Wait until the data is persisted
 
         d = DictWithDateTimes("test_datetimes")
         self.assertEqual(len(list(d.keys())), len(what_should_be.keys()))
@@ -1334,6 +1384,8 @@ class StorageDictTest(unittest.TestCase):
 
         ##print("sids myo={} myd[0]={} ({} myo refs)".format(getattr(myo, 'storage_id',None), o[0].storage_id, sys.getrefcount(myo)), flush=True)
 
+        myd.sync() # Wait until the data is persisted
+
         del myo # Remove from memory
         del myd # Remove from memory
         myd = TestStorageDictRec1("test_sync")
@@ -1352,7 +1404,7 @@ class StorageDictTest(unittest.TestCase):
             ##print("myd[{}]: {}  x[{}]:{}".format(i,o[i].mynumpy[0,0], i, x[i].mynumpy[0,0]),flush=True)
             self.assertTrue(o[i].mynumpy[0,0] != x[i].mynumpy[0,0]) # Data should be still in dirty/flight WARNING! This makes the hypothesis that the time it takes for the writes is high enough to have time to instantiate with a previous value instead of the last one... depending on the environment this may NOT be true.
 
-        #myd.sync()
+        myd.sync()
         ##print("AFTER SYNC2", flush=True)
 
         x = TestStorageDictRec1("test_sync")
@@ -1368,11 +1420,60 @@ class StorageDictTest(unittest.TestCase):
             ##print("myd[{}]: {}  x[{}]:{}".format(i,myd[i].rec.mynumpy[0,0], i, x[i].rec.mynumpy[0,0]),flush=True)
             self.assertTrue(myd[i].rec.mynumpy[0,0] == x[i].rec.mynumpy[0,0]) # Data is still in dirty/flight
 
-        #myd.sync()
+        myd.sync()
 
         x = TestStorageDictRec1("test_sync")
         for i in range(0,3):
             self.assertTrue(myd[i].rec.mynumpy[0,0] == x[i].rec.mynumpy[0,0])
+
+    def test_unnamed(self):
+        myo = TestStorageDictUnnamed("test_unnamed")
+        myo[42] = "hola"
+        myo.sync()
+        myo = TestStorageDictUnnamed("test_unnamed")
+        self.assertTrue(myo[42] == "hola")
+
+    def test_unnamed2(self):
+        myo = TestStorageDictUnnamed2("test_unnamed2")
+        myo[42] = "hola"
+        myo.sync()
+        myo = TestStorageDictUnnamed2("test_unnamed2")
+        self.assertTrue(myo[42] == "hola")
+
+    def test_unnamed3(self):
+        myo = TestStorageDictUnnamed3("test_unnamed3")
+        myo[43] = "hola"
+        myo.sync()
+        myo = TestStorageDictUnnamed3("test_unnamed3")
+        self.assertTrue(myo[43] == "hola")
+
+    def test_unnamed4(self):
+        myo = TestStorageDictUnnamed4("test_unnamed4")
+        myo[42] = ["hola", 666]
+        myo.sync()
+        myo = TestStorageDictUnnamed4("test_unnamed4")
+        self.assertTrue(list(myo[42]), ["hola", 666])
+
+    def test_make_persistent2(self):
+
+        class MyStorageDictA1(StorageDict):
+            '''
+            @TypeSpec dict<<a:str,a2:int>, b:int>
+            '''
+        d = MyStorageDictA1("test_make_persistent2")
+        d["hola",666] = 42
+
+        d.sync()
+
+        class MyStorageDictA2(StorageDict):
+            '''
+            @TypeSpec dict<<a:str>, b:int>
+            '''
+        d = MyStorageDictA2()  # VOLATILE
+        d['uy'] = 666
+        with self.assertRaises(RuntimeError) as context:
+            d.make_persistent("test_make_persistent2") # SHOULD FAIL!!! DIFFERENT SCHEMA!!
+
 
 if __name__ == '__main__':
     unittest.main()

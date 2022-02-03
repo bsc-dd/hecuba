@@ -49,6 +49,8 @@ class Config:
     class __Config:
         def __init__(self):
             self.configured = False
+            ## intercepted : list of numpy intercepted calls
+            self.intercepted = {}
 
     instance = __Config()
 
@@ -93,8 +95,6 @@ class Config:
 
         singleton.configured = True
 
-        # intercepted : list of numpy intercepted calls
-        singleton.intercepted = {}
 
         if 'HECUBA_ARROW' in os.environ:
             env_var = os.environ['HECUBA_ARROW'].lower()
@@ -129,8 +129,8 @@ class Config:
             singleton.id_create_schema = False if env_var == 'no' or env_var == 'false' else True
             log.info('CREATE_SCHEMA: %d', singleton.id_create_schema)
         else:
-            singleton.id_create_schema = False
-            log.warn('Creating keyspaces and tables by default [CREATE_SCHEMA=False]')
+            singleton.id_create_schema = True
+            log.warn('Creating keyspaces and tables by default [CREATE_SCHEMA=True]')
         try:
             singleton.nodePort = int(os.environ['NODE_PORT'])
             log.info('NODE_PORT: %d', singleton.nodePort)
@@ -358,8 +358,6 @@ if not filter == hfilter:
     builtins.python_filter = filter
     builtins.filter = hfilter
 
-# INTERCEPT Numpy METHODS
-import numpy as np
 
 def _intercept_numpy_method(method_name):
     """
@@ -368,11 +366,22 @@ def _intercept_numpy_method(method_name):
     if not isinstance(method_name, str):
         raise TypeError("Intercepted method name MUST be an string")
 
-    if not method_name in config.intercepted:
-        config.intercepted[method_name] = np.__dict__[method_name]
+    # INTERCEPT Numpy METHODS
+    import numpy as np
+
+    if np.__dict__[method_name] != StorageNumpy.__dict__[method_name]:
+        config.instance.intercepted[method_name] = np.__dict__[method_name]
         np.__dict__[method_name] = StorageNumpy.__dict__[method_name]
-
-
+    else:
+        #print("WARNING: method {} already intercepted".format(method_name), flush=True)
+        if not method_name in config.instance.intercepted:
+            print("WARNING: method {} already intercepted but we have lost the original method!!!".format(method_name), flush=True)
+            # This only happens executing tests... we think that is due to the reload of hecuba, but not numpy (not 100% sure)
+            # therefore our solution is to reload numpy.
+            import importlib
+            importlib.reload(np)
+            config.instance.intercepted[method_name] = np.__dict__[method_name]
+            np.__dict__[method_name] = StorageNumpy.__dict__[method_name]
 
 _intercept_numpy_method('dot')
 _intercept_numpy_method('array_equal')

@@ -172,6 +172,11 @@ def get_istorage_attrs_by_name(name):
     return list(config.session.execute(_select_istorage_meta_by_name, [name]))
 
 
+#DEPRECATED method due to split! because it may provide more than one result!
+#def get_istorage_attrs_by_name(name):
+#    return list(config.session.execute(_select_istorage_meta_by_name, [name]))
+
+
 def build_remotely(args):
     """
     Takes the information which consists of at least the type,

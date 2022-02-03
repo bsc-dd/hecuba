@@ -23,23 +23,31 @@ class IStorage(object):
         super().__init__()
         if not getattr(self, "storage_id", None):
             self.storage_id = kwargs.pop("storage_id", None)
+        self._built_remotely = kwargs.pop("built_remotely", False)
         self._tokens = kwargs.pop("tokens", None)
         given_name = kwargs.pop("name", None)
         if given_name:
             try:
                 self._ksp, self._table = extract_ks_tab(given_name)
                 given_name = self._ksp + '.' + self._table
-                metas = get_istorage_attrs_by_name(given_name)
+                # Obtain metas for 'given_name'
+                #   metas are the same for all pieces of a splitted object but the storage_id and the tokens.
+                #   we get the metas from the entry of the object and for the build_remotely we keep
+                #   the storage_id and tokens that we receive in self
+                metas = get_istorage_attrs(storage_id_from_name(given_name)) # with split ALL splitted objects have the SAME name, but only 1 has the storage_id corresponding to its name!!
+                self._istorage_metas = metas[0] # To pass information retrieved from istorage to subojects to avoid further Cassandra accesses
                 given_name   = metas[0].name
-                self._tokens = metas[0].tokens
-                if not getattr(self, '_tokens', None):
+                if not self._built_remotely: # When build remotely due to a split, it uses the same table name but with a different storage_id! That is stored later in hecuba istorage.
+                    self.storage_id = metas[0].storage_id # Name has priority
+                    self._tokens = metas[0].tokens
+                if not getattr(self, '_tokens', None): #Tokens are received from kwargs or IStorage otherwise...
                     self._tokens = generate_token_ring_ranges()
-                self.storage_id = metas[0].storage_id # Name has priority
             except IndexError:
                 pass
         elif self.storage_id:
             try:
                 metas = get_istorage_attrs(self.storage_id)
+                self._istorage_metas = metas[0] # To pass information retrieved from istorage to subojects to avoid further Cassandra accesses
                 given_name   = metas[0].name
                 self._tokens = metas[0].tokens
                 if not getattr(self, '_tokens', None):
@@ -54,7 +62,6 @@ class IStorage(object):
             self._table = None
             self._is_persistent = False
 
-        self._built_remotely = kwargs.pop("built_remotely", False)
 
     @classmethod
     def get_by_alias(cls, alias=""):
@@ -72,8 +79,8 @@ class IStorage(object):
 
     def make_persistent(self, name):
         if getattr(self, '_is_persistent', False):
-            raise AlreadyPersistentError("This Object is already persistent [Before:{}.{}][After:{}]",
-                                         self._ksp, self._table, name)
+            raise AlreadyPersistentError("This Object is already persistent [Before:{}.{}][After:{}]".format(
+                                         self._ksp, self._table, name))
 
         self._ksp, self._table = extract_ks_tab(name)
         name = self._ksp + '.' + self._table
@@ -87,6 +94,7 @@ class IStorage(object):
             metas = get_istorage_attrs(self.storage_id)
             try:
                 self._tokens = metas[0].tokens
+                self._istorage_metas = metas[0] # To pass information retrieved from istorage to subojects to avoid further Cassandra accesses
             except IndexError:
                 self._tokens = generate_token_ring_ranges()
 
@@ -115,7 +123,7 @@ class IStorage(object):
         except AttributeError:
             return None
 
-    def _flush_to_storage(self):
+    def sync(self):
         if not self._is_persistent:
             raise RuntimeError("Can't send the data to storage if the object is not persistent")
 
@@ -126,19 +134,21 @@ class IStorage(object):
         """
         return str(self.storage_id)
 
-    def split(self):
+    def split(self, cols=None):
         """
         Method used to divide an object into sub-objects.
         Returns:
             a subobject everytime is called
         """
         from .tools import tokens_partitions
+        if cols is not None:
+            print("IStorage.split: Ignoring parameter 'cols'. Currently this is only supported for StorageNumpys", flush=True)
         try:
             tokens = self._build_args.tokens
         except AttributeError as ex:
             raise RuntimeError("Object {} does not have tokens".format(self._get_name()))
 
-        self._flush_to_storage()
+        self.sync()
 
         for token_split in tokens_partitions(self._ksp, self._table, tokens):
             storage_id = uuid.uuid4()
@@ -147,9 +157,3 @@ class IStorage(object):
             args_dict = new_args._asdict()
             args_dict["built_remotely"] = True
             yield build_remotely(args_dict)
-
-    def sync(self):
-        """
-        Stub class to be redefined by subclasses
-        """
-        pass
