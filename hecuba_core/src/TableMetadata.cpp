@@ -323,6 +323,8 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
     select_tokens_all = "SELECT " + keys_and_cols + " FROM " + this->keyspace + "." + this->table + " WHERE " +
                         select_tokens_where + ";";
 
+    partial_insert = "INSERT INTO " + this->keyspace + "." + this->table + "(" + keys;
+
     insert = "INSERT INTO " + this->keyspace + "." + this->table + "(" + keys_and_cols + ")" + "VALUES (?";
     for (uint16_t i = 1; i < n_keys + n_cols; ++i) {
         insert += ",?";
@@ -370,6 +372,33 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
     this->cols = std::make_shared<std::vector<ColumnMeta> >(cols_meta);
     this->keys = std::make_shared<std::vector<ColumnMeta> >(keys_meta);
     this->items = std::make_shared<std::vector<ColumnMeta> >(items_meta);
+}
+
+std::shared_ptr<const std::vector<ColumnMeta> > TableMetadata::get_single_value(const char *value_name) const {
+    // TODO : Add a hash map to cache 'value_name' ColumnMeta and avoid searching
+    std::string value(value_name);
+
+    std::vector<ColumnMeta> res(1);
+
+    for (ColumnMeta m: *cols) {
+        if (m.info["name"] == value)
+            res[0] = m;
+            return std::make_shared<std::vector<ColumnMeta>>(res);
+    }
+    throw ModuleException("get_single_value: Unknown column name [" + value + "]");
+}
+
+// completes the build of the insert query for just one attribute
+const char *TableMetadata::get_partial_insert_query(const std::string &attr_name) const {
+    uint32_t n_keys = (uint32_t) keys->size();
+    std::string insert = partial_insert;
+    insert = "," + attr_name + ")" + "VALUES (?";
+    for (uint16_t i = 1; i < n_keys + 1; ++i) {
+        insert += ",?";
+    }
+    insert += ");";
+
+    return insert.c_str();
 }
 
 /** Returns a pair with partition_keys size, clustering_keys size */

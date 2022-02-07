@@ -168,7 +168,24 @@ void Writer::callback(CassFuture *future, void *ptr) {
 
 void Writer::async_query_execute(const TupleRow *keys, const TupleRow *values) {
 
-    CassStatement *statement = cass_prepared_bind(prepared_query);
+    CassStatement *statement;
+    // Check if it is writing the whole set of values or just a single one
+    if (table_metadata->get_values()->size() < values->n_elem()) { // Single value written
+        if (values->n_elem() > 1)
+            throw ModuleException("async_query_execute: only supports 1 or all attributes write");
+
+        const CassPrepared *prepared_query;
+        ColumnMeta cm = values->get_metadata_element(0);
+        const char* insert_q = table_metadata->get_partial_insert_query(cm.info["name"] );
+        CassFuture *future = cass_session_prepare(session, insert_q);
+        CassError rc = cass_future_error_code(future);
+        CHECK_CASS("writer cannot prepare: ");
+        prepared_query = cass_future_get_prepared(future);
+        statement = cass_prepared_bind(prepared_query);
+
+    } else { // Whole row written
+        statement = cass_prepared_bind(prepared_query);
+    }
 
     this->k_factory->bind(statement, keys, 0); //error
     this->v_factory->bind(statement, values, this->k_factory->n_elements());
@@ -258,6 +275,21 @@ void Writer::write_to_cassandra(void *keys, void *values) {
     const TupleRow *k = k_factory->make_tuple(keys);
     const TupleRow *v = v_factory->make_tuple(values);
     this->write_to_cassandra(k, v);
+    delete (k);
+    delete (v);
+}
+
+void Writer::write_to_cassandra(void *keys, void *values , const char *value_name) {
+    // When trying to write a single attribute of the cassandra table we MUST
+    // DISABLE the dirty cache as the complexity to manage the merging phase
+    // hides the benefit of it
+    disable_lazy_write();
+
+    TupleRowFactory * v_single_factory = new TupleRowFactory(table_metadata->get_single_value(value_name));
+    const TupleRow *k = k_factory->make_tuple(keys);
+    const TupleRow *v = v_single_factory->make_tuple(values);
+    this->write_to_cassandra(k, v);
+    delete (v_single_factory);
     delete (k);
     delete (v);
 }

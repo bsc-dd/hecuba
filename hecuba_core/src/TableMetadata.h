@@ -68,6 +68,8 @@ public:
         return cols;
     }
 
+    std::shared_ptr<const std::vector<ColumnMeta> > get_single_value(const char *value_name) const;
+
     std::shared_ptr<const std::vector<ColumnMeta> > get_items() const {
         return items;
     }
@@ -87,6 +89,9 @@ public:
     const char *get_select_keys_tokens() const {
         return select_keys_tokens.c_str();
     };
+
+    // completes the build of the insert query for just one attribute
+    const char *get_partial_insert_query( const std::string &attr_name) const ;
 
     const char *get_insert_query() const {
         return insert.c_str();
@@ -119,6 +124,7 @@ private:
     std::shared_ptr<const std::vector<ColumnMeta> > items;
     std::string keyspace, table;
     std::string select, insert, select_tokens_all, select_tokens_values, select_keys_tokens, delete_row;
+    std::string partial_insert;
     //bool checkSchemaAgreement(const CassSession *session);
     const CassTableMeta *getCassTableMeta(const CassSession * session);
 
