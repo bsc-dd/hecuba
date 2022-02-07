@@ -213,6 +213,7 @@ void Writer::enable_lazy_write(void) {
 }
 
 void Writer::disable_lazy_write(void) {
+    flush_dirty_blocks();
     this->lazy_write_enabled = false;
 }
 
