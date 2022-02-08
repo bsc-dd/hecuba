@@ -299,11 +299,12 @@ bool Writer::call_async() {
 
     //current write data
     std::pair<const TupleRow *, const TupleRow *> item;
+    ncallbacks++; // Increase BEFORE try_pop to avoid race at 'wait_writes_completion'
     if (!data.try_pop(item)) {
+        ncallbacks--;
         return false;
     }
 
-    ncallbacks++;
     async_query_execute(item.first, item.second);
 
     return true;
