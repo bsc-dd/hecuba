@@ -230,8 +230,10 @@ void Writer::enable_lazy_write(void) {
 }
 
 void Writer::disable_lazy_write(void) {
-    flush_dirty_blocks();
-    this->lazy_write_enabled = false;
+    if (this->lazy_write_enabled) {
+        flush_dirty_blocks();
+        this->lazy_write_enabled = false;
+    }
 }
 
 void Writer::write_to_cassandra(const TupleRow *keys, const TupleRow *values) {
