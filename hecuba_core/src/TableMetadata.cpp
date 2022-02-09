@@ -380,10 +380,14 @@ std::shared_ptr<const std::vector<ColumnMeta> > TableMetadata::get_single_value(
 
     std::vector<ColumnMeta> res(1);
 
-    for (ColumnMeta m: *cols) {
-        if (m.info["name"] == value)
-            res[0] = m;
+    ColumnMeta m;
+    for (uint16_t i = 0; i < cols->size(); ++i) {
+        m = (*cols)[i];
+        if (m.info["name"] == value) {
+            res[0] =  m;
+            res[0].position = 0; // Ignore other elements in the row, now it will ALWAYS be at the first position
             return std::make_shared<std::vector<ColumnMeta>>(res);
+        }
     }
     throw ModuleException("get_single_value: Unknown column name [" + value + "]");
 }
@@ -391,14 +395,17 @@ std::shared_ptr<const std::vector<ColumnMeta> > TableMetadata::get_single_value(
 // completes the build of the insert query for just one attribute
 const char *TableMetadata::get_partial_insert_query(const std::string &attr_name) const {
     uint32_t n_keys = (uint32_t) keys->size();
-    std::string insert = partial_insert;
-    insert = "," + attr_name + ")" + "VALUES (?";
+    std::string insert = partial_insert
+                            + "," + attr_name + ")" + "VALUES (?";
     for (uint16_t i = 1; i < n_keys + 1; ++i) {
         insert += ",?";
     }
     insert += ");";
 
-    return insert.c_str();
+    char * mistring = (char*) malloc (insert.size()+1);
+    strncpy(mistring, insert.c_str(), insert.size()+1);
+    mistring[insert.size()] = '\0';
+    return mistring;
 }
 
 /** Returns a pair with partition_keys size, clustering_keys size */
