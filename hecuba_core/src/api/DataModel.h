@@ -60,8 +60,11 @@ public:
 
     ObjSpec& getObjSpec(std::string id);
     std::string debug() const;
+    const std::string& getModuleName() const;
+    void setModuleName(std::string& name);
 private:
     std::map <std::string, ObjSpec> dataModel;
+    std::string moduleName;
 
 
 };

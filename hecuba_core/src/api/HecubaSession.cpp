@@ -484,18 +484,42 @@ void HecubaSession::loadDataModel(const char * model_filename, const char * pyth
     DataModel* d = new DataModel();
 
 
-    std::string pythonFilename(model_filename);
-    std::string pythonPath;
-    if (pythonSpecPath == NULL) {
-        size_t pos = pythonFilename.find_last_of('.');
-        if (pos != std::string::npos) {
-            pythonFilename = pythonFilename.substr(0, pos);
-        }
-        pythonPath = pythonFilename + ".py";
-    }else{
-        pythonPath=pythonSpecPath;
+    if (model_filename == NULL) {
+		throw std::runtime_error("Trying to load a NULL model file name ");
     }
-    std::ofstream fd(pythonPath);
+
+    // Detect dirname and basename for 'model_filename'
+    std::string pythonPath("");
+    std::string baseName(model_filename);
+
+    size_t pos = baseName.find_last_of('/');
+    if (pos != std::string::npos) { // model_filename has a path
+        if (pythonSpecPath != NULL) {
+            pythonPath = pythonSpecPath;
+        } else {
+            pythonPath = baseName.substr(0,pos);
+        }
+        baseName = baseName.substr(pos+1, baseName.size());
+    }
+    // Remove .yaml extension
+    pos = baseName.find_last_of('.');
+    if (pos != std::string::npos) {
+        baseName = baseName.substr(0, pos);
+    }
+    // Create moduleName
+    std::string moduleName;
+    if (pythonPath == "") {
+        moduleName = baseName;
+    } else {
+        moduleName = pythonPath + "/" + baseName;
+    }
+
+    d->setModuleName(moduleName);
+
+    // Add .py extension to moduleName
+    moduleName =  moduleName + ".py";
+
+    std::ofstream fd(moduleName);
 
     YAML::Node node = YAML::LoadFile(model_filename);
 

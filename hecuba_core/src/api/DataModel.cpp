@@ -1,6 +1,7 @@
 #include "DataModel.h"
 
 #include <iostream>
+#include <algorithm>
 
 DataModel::DataModel() {
 }
@@ -41,4 +42,25 @@ std::string DataModel::debug() const {
     }
 
     return res;
+}
+
+const std::string& DataModel::getModuleName() const {
+    return moduleName;
+}
+
+void DataModel::setModuleName(std::string& path) {
+    /* path: Path to use.
+        Ex: "/home/jcosta/python/app" -> "home.jcosta.python.app"
+            "python/app" -> "python.app"
+            "./python/app" ->  NOT SUPPORTED '.'
+            "../python/app" -> NOT SUPPORTED '.'
+     */
+
+    size_t pos = path.find_last_of('.');
+    if (pos != std::string::npos) {
+		throw std::runtime_error("Tring to set a module name containing dots "+path);
+    }
+    moduleName = path;
+    std::replace( moduleName.begin(), moduleName.end(), '/', '.'); // replace all '/' to '.'
+    if (moduleName[0] == '.') { moduleName = moduleName.substr(1, moduleName.size()); }
 }
