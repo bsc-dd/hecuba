@@ -1,6 +1,6 @@
 import uuid
 from . import log
-from .tools import extract_ks_tab, build_remotely, storage_id_from_name, get_istorage_attrs, get_istorage_attrs_by_name, generate_token_ring_ranges
+from .tools import extract_ks_tab, build_remotely, storage_id_from_name, get_istorage_attrs, generate_token_ring_ranges
 
 
 class AlreadyPersistentError(RuntimeError):

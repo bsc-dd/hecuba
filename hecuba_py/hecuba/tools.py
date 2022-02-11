@@ -168,10 +168,6 @@ def count_name_collision(ksp, table, attribute):
 def get_istorage_attrs(storage_id):
     return list(config.session.execute(_select_istorage_meta, [storage_id]))
 
-def get_istorage_attrs_by_name(name):
-    return list(config.session.execute(_select_istorage_meta_by_name, [name]))
-
-
 #DEPRECATED method due to split! because it may provide more than one result!
 #def get_istorage_attrs_by_name(name):
 #    return list(config.session.execute(_select_istorage_meta_by_name, [name]))
