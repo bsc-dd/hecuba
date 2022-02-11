@@ -202,7 +202,7 @@ class StorageDictTest(unittest.TestCase):
             'SELECT storage_id, primary_keys, columns, class_name, name, tokens, istorage_props,indexed_on ' +
             'FROM hecuba.istorage WHERE storage_id = %s', [nopars.storage_id])[0]
 
-        self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, tablename), nopars.storage_id)
+        self.assertEqual(uuid.uuid5(uuid.NAMESPACE_DNS, tablename), nopars.storage_id)
         self.assertEqual(nopars.__class__.__module__, 'hecuba.hdict')
         self.assertEqual(nopars.__class__.__name__, 'StorageDict')
 
@@ -210,7 +210,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(rebuild._built_remotely, True)
         self.assertEqual(table, rebuild._table)
         self.assertEqual(self.current_ksp, rebuild._ksp)
-        self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, tablename), rebuild.storage_id)
+        self.assertEqual(uuid.uuid5(uuid.NAMESPACE_DNS, tablename), rebuild.storage_id)
 
         self.assertEqual(nopars.storage_id, rebuild.storage_id)
         rebuild.delete_persistent()
@@ -231,7 +231,7 @@ class StorageDictTest(unittest.TestCase):
             'SELECT storage_id, primary_keys, columns, class_name, name, tokens, istorage_props,indexed_on ' +
             'FROM hecuba.istorage WHERE storage_id = %s', [nopars.storage_id])[0]
 
-        self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename), nopars.storage_id)
+        self.assertEqual(uuid.uuid5(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename), nopars.storage_id)
         self.assertEqual(nopars.__class__.__module__, 'hecuba.hdict')
         self.assertEqual(nopars.__class__.__name__, 'StorageDict')
 
@@ -239,7 +239,7 @@ class StorageDictTest(unittest.TestCase):
         self.assertEqual(rebuild._built_remotely, True)
         self.assertEqual(tablename, rebuild._table)
         self.assertEqual(config.execution_name, rebuild._ksp)
-        self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename), rebuild.storage_id)
+        self.assertEqual(uuid.uuid5(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename), rebuild.storage_id)
 
         self.assertEqual(nopars.storage_id, rebuild.storage_id)
         rebuild.delete_persistent()

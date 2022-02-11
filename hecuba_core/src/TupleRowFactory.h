@@ -60,6 +60,8 @@ private:
     uint16_t total_bytes;
 
     int cass_to_c(const CassValue *lhs, void *data, int16_t col) const;
+    void uuid2cassuuid(const uint64_t** uuid, CassUuid& cass_uuid) const;
+    void cassuuid2uuid(const CassUuid& cass_uuid, char** uuid) const ;
 
 };
 

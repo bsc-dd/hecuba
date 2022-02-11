@@ -190,7 +190,7 @@ class StorageObjTest(unittest.TestCase):
         time.sleep(1)
         tablename="test_build_remotely"
         obj = TestStorageObj(config.execution_name + "." + tablename)
-        r = {"built_remotely": False, "storage_id": uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename),
+        r = {"built_remotely": False, "storage_id": uuid.uuid5(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename),
              "ksp": config.execution_name,
              "class_name": str(TestStorageObj.__module__) + "." + TestStorageObj.__name__, "name": tablename,
              "columns": [('val1', 'str')], "entry_point": 'localhost', "primary_keys": [('pk1', 'int')],
@@ -200,7 +200,7 @@ class StorageObjTest(unittest.TestCase):
         nopars = build_remotely(r)
         self.assertEqual('TestStorageObj'.lower(), nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
-        self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename), nopars.storage_id)
+        self.assertEqual(uuid.uuid5(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename), nopars.storage_id)
         name, tkns = \
             config.session.execute("SELECT name, tokens FROM hecuba.istorage WHERE storage_id = %s",
                                    [nopars.storage_id])[
@@ -216,7 +216,7 @@ class StorageObjTest(unittest.TestCase):
         time.sleep(1)
 
         tablename = 'test_init_create_pdict'
-        r = {"built_remotely": False, "storage_id": uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename),
+        r = {"built_remotely": False, "storage_id": uuid.uuid5(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename),
              "ksp": config.execution_name,
              "class_name": str(TestStorageObj.__module__) + "." + TestStorageObj.__name__, "name": tablename,
              "columns": [('val1', 'str')], "entry_point": 'localhost', "primary_keys": [('pk1', 'int')],
@@ -227,7 +227,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(nopars._built_remotely, False)
         self.assertEqual('TestStorageObj'.lower(), nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
-        self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename), nopars.storage_id)
+        self.assertEqual(uuid.uuid5(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename), nopars.storage_id)
         name, tkns = \
             config.session.execute("SELECT name,tokens FROM hecuba.istorage WHERE storage_id = %s",
                                    [nopars.storage_id])[0]
@@ -243,7 +243,7 @@ class StorageObjTest(unittest.TestCase):
                         tokens=tkns)
         self.assertEqual('Result'.lower(), nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
-        self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename2), nopars.storage_id)
+        self.assertEqual(uuid.uuid5(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename2), nopars.storage_id)
         self.assertEqual(True, nopars._is_persistent)
         self.assertTrue(hasattr(nopars, 'instances'))
         name, read_tkns = config.session.execute("SELECT name,tokens FROM hecuba.istorage WHERE storage_id = %s",

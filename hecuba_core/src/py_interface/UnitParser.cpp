@@ -399,33 +399,14 @@ int16_t UuidParser::py_to_c(PyObject *obj, void *payload) const {
         PyObject *bytes = PyObject_GetAttrString(obj, "time_low"); //32b
         if (!bytes)
             error_parsing("python UUID", obj);
-        uint64_t time_low = (uint32_t) PyLong_AsLongLong(bytes);
+        bytes = PyObject_GetAttrString(obj, "bytes"); //64b
+        if (!bytes)
+            error_parsing("python UUID bytes", obj);
+        char *uuid = PyBytes_AsString(bytes);
+        if (!uuid)
+            error_parsing("python UUID  2 bytes ", obj);
+        memcpy(permanent, uuid, 16); // Keep the UUID as is (RFC4122)
 
-        bytes = PyObject_GetAttrString(obj, "time_mid"); //16b
-        uint64_t time_mid = (uint16_t) PyLong_AsLongLong(bytes);
-
-        bytes = PyObject_GetAttrString(obj, "time_hi_version"); //16b
-        uint64_t time_hi_version = (uint16_t) PyLong_AsLongLong(bytes);
-
-
-        bytes = PyObject_GetAttrString(obj, "clock_seq_hi_variant"); //8b
-        uint64_t clock_seq_hi_variant = (uint64_t) PyLong_AsLongLong(bytes);
-        bytes = PyObject_GetAttrString(obj, "clock_seq_low"); //8b
-        uint64_t clock_seq_low = (uint64_t) PyLong_AsLongLong(bytes);
-
-
-        bytes = PyObject_GetAttrString(obj, "node"); //48b
-        uint64_t second = (uint64_t) PyLong_AsLongLong(bytes);
-
-        uint64_t first = (time_hi_version << 48) + (time_mid << 32) + (time_low);
-
-        memcpy(permanent, &first, sizeof(first));
-        permanent += sizeof(first);
-
-        second += clock_seq_hi_variant << 56;
-        second += clock_seq_low << 48;
-
-        memcpy(permanent, &second, sizeof(second));
         return 0;
     } else throw ModuleException("Parsing UUID from ByteArray not supported");
 }
@@ -437,10 +418,45 @@ PyObject *UuidParser::c_to_py(const void *payload) const {
     if (it == nullptr) throw ModuleException("Error parsing from C to Py, expected ptr to UUID bits, found NULL");
     char final[CASS_UUID_STRING_LENGTH];
 
+#if 1
     //trick to transform the data back, since it was parsed using the cassandra generator
     CassUuid uuid = {*((uint64_t *) it), *((uint64_t *) it + 1)};
-    cass_uuid_string(uuid, final);
+
+    // CassUuid has a different format than UUID RFC4122
+    // 'data' has been saved in RFC4122, and here we read that value, transform
+    // it to CassUUID, generate the "standard string" from it, and call
+    // uuid.UUID(string) to reconstruct the python uuid object... it should be
+    // easier just to call uuid.UUID(bytes=it) if we know how to do it.
+
+    CassUuid tmp_uuid;
+    char *p = (char*)&(tmp_uuid.time_and_version);
+    char *psrc = (char*)&uuid.time_and_version;
+    // Recode time_low
+    p[0] = psrc[3];
+    p[1] = psrc[2];
+    p[2] = psrc[1];
+    p[3] = psrc[0];
+
+    // Recode time_mid
+    p[4] = psrc[5];
+    p[5] = psrc[4];
+
+    // Recode time_hi_&_version
+    p[6] = psrc[7];
+    p[7] = psrc[6];
+
+    // Recode clock_seq_and_node
+    p= (char*)&(tmp_uuid.clock_seq_and_node);
+    psrc = (char*)&uuid.clock_seq_and_node;
+
+    for (uint32_t ix=0; ix<8;ix++)
+        p[ix] = psrc[7-ix];
+
+    cass_uuid_string(tmp_uuid, final);
     PyObject *uuidpy = PyObject_CallMethod(this->uuid_module, "UUID", "s", final);
+#else
+    PyObject *uuidpy = PyObject_CallMethod(this->uuid_module, "UUID", "sss(s)L", NULL, NULL, NULL, NULL, it);
+#endif
     if (!uuidpy) throw ModuleException("Error parsing UUID from C to Py, expected a non-NULL result");
     return uuidpy;
 }

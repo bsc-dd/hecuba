@@ -1,7 +1,6 @@
 #ifndef HECUBA_SESSION_H
 #define HECUBA_SESSION_H
 
-#include <random>
 #include <fstream>
 #include <iostream>
 #include "StorageInterface.h"
@@ -42,7 +41,8 @@ public:
 
     //config_map getConfig();
 
-    uint64_t* generateUUID(void);
+    uint64_t* generateUUID(void) const;
+    uint64_t* generateUUID5(const char* name) const;
     std::string UUID2str(uint64_t* c_uuid);
 private:
 
@@ -55,9 +55,6 @@ private:
 
     //MetaManager mm; //* To be deleted? */
     config_map config;
-
-    std::mt19937_64 gen;
-    std::uniform_int_distribution <uint64_t> dis;
 
     void parse_environment(config_map &config);
 	CassError run_query(std::string) const;

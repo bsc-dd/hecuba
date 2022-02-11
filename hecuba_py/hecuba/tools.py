@@ -8,7 +8,7 @@ basic_types = valid_types[:-1]
 
 
 def storage_id_from_name(name):
-    return uuid.uuid3(uuid.NAMESPACE_DNS, name)
+    return uuid.uuid5(uuid.NAMESPACE_DNS, name)
 
 
 def process_path(module_path):
