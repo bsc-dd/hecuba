@@ -66,6 +66,26 @@ int main() {
 
     // midict[key] = value;
     midict->setItem((void*)key, (void*) value, NULL, (void*) numpymeta);
+    std::cout<< "+ value created at "<<std::hex<<(void*)value<<std::endl;
+    midict->sync();
+
+    std::cout<< "+ AFTER sync "<<std::endl;
+    Writer *w = midict->getDataWriter();
+    std::cout<< "+ AFTER getDataWriter "<<std::endl;
+
+    uint32_t value_size = 2*sizeof(uint64_t);
+    uint64_t* c_value_copy = (uint64_t*)malloc(value_size);
+    std::memcpy(c_value_copy, midict->getStorageID(), value_size);
+
+    void * cc_val = malloc(sizeof(uint64_t*)); //uuid(numpy)
+    std::memcpy((char *)cc_val, &c_value_copy, sizeof(uint64_t*));
+
+
+    w->write_to_cassandra((void*)key, (void*) cc_val, "metrics");
+    std::cout<< "+ AFTER write_to_cassandra "<<std::endl;
+    midict->sync();
+
+    std::cout<< "+ AFTER sync "<<std::endl;
 
     free(key);
     free(numpymeta);

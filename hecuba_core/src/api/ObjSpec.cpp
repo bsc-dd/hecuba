@@ -120,6 +120,14 @@ std::string ObjSpec::getIDModelFromCol(int i) {
     return cols[i].second;
 }
 
+const std::string& ObjSpec::getIDModelFromColName(const std::string & name) {
+    for(uint16_t i=0; i<cols.size(); i++) {
+        if (cols[i].first == name) {
+            return cols[i].second;
+        }
+    }
+}
+
 std::string ObjSpec::getIDObjFromCol(int i) {
     return cols[i].first;
 }

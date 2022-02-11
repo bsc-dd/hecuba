@@ -18,8 +18,13 @@ public:
     //void setItem(void* keys, void* values); // If all type information is known from the Model
     void setItem(void* keys, void* values, void* keyMetadata=NULL, void* valueMetadata=NULL);
 
+    void setAttr(const std::string& attr_name, void* value);
+
 	uint64_t* getStorageID();
 
+    Writer * getDataWriter();
+
+    void sync(void);
 
 private:
 	void decodeNumpyMetadata(HecubaSession::NumpyShape* s, void* metadata);
@@ -33,7 +38,7 @@ private:
     uint64_t* storageid;
 
 	std::string id_obj; // Name to identify this 'object' [keyspace.name]
-	std::string id_model; // Type name to be found in model
+	std::string id_model; // Type name to be found in model "class_name"
 
 	HecubaSession* currentSession; //Access to cassandra and model
 

@@ -32,6 +32,7 @@ public:
     enum valid_types getType();
 
     std::string getIDModelFromCol(int pos);
+    const std::string& getIDModelFromColName(const std::string & name);
     std::string getIDObjFromCol(int pos);
     std::string getPythonString();
     static bool isBasicType(std::string attr_type);

@@ -100,7 +100,7 @@ namespace YAML {
                     pythonString="from hecuba import StorageObj\n\n" + pythonString;
                     pythonString=pythonString+" (StorageObj):\n   '''\n";
                     obj_type=ObjSpec::valid_types::STORAGEOBJ_TYPE;
-                    const Node classfields =  node["ClassFields"];
+                    const Node classfields =  node["ClassField"];
                     if (!classfields.IsSequence() || (classfields.size() == 0)) { return false; }
                     partitionKeys.push_back(std::pair<std::string,std::string>("storage_id","uuid"));
 
@@ -561,9 +561,69 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
     ObjSpec oType = model->getObjSpec(id_model);
     //std::cout << "DEBUG: HecubaSession::createObject '"<<id_model<< "' ==> " <<oType.debug()<<std::endl;
 
-    uint64_t *c_uuid = generateUUID(); // UUID for the new object
+    std::string object_name(config["EXECUTION_NAME"] + "." + id_object);
+    uint64_t *c_uuid = generateUUID5(object_name.c_str()); // UUID for the new object
 
     switch(oType.getType()) {
+        case ObjSpec::valid_types::STORAGEOBJ_TYPE:
+            {
+                // StorageObj case
+                //  Create table 'class_name' "CREATE TABLE ksp.class_name (storage_id UUID, nom typ, ... PRIMARY KEY (storage_id))"
+                std::string query = "CREATE TABLE IF NOT EXISTS " +
+                    config["EXECUTION_NAME"] + "." + id_model +
+                    oType.table_attr;
+
+                CassError rc = run_query(query);
+                if (rc != CASS_OK) {
+                    if (rc == CASS_ERROR_SERVER_INVALID_QUERY) { // keyspace does not exist
+                        std::cout<< "HecubaSession Creating keyspace "<< config["EXECUTION_NAME"]<< std::endl;
+                        std::string create_keyspace = std::string(
+                                "CREATE KEYSPACE IF NOT EXISTS ") + config["EXECUTION_NAME"] +
+                            std::string(" WITH replication = ") +  config["REPLICATION"];
+                        rc = run_query(create_keyspace);
+                        if (rc != CASS_OK) {
+                            std::string msg = std::string("HecubaSession:: Error executing query ") + create_keyspace;
+                            throw ModuleException(msg);
+                        } else {
+                            rc = run_query(query); // Repeat table creation after creating keyspace
+                            if (rc != CASS_OK) {
+                                std::string msg = std::string("HecubaSession:: Error executing query ") + query;
+                                throw ModuleException(msg);
+                            }
+                        }
+                    } else {
+                        std::string msg = std::string("HecubaSession:: Error executing query ") + query;
+                        throw ModuleException(msg);
+                    }
+                }
+                // Table for storageobj class created
+                // Add entry to ISTORAGE: TODO add the tokens attribute
+                std::string name = config["EXECUTION_NAME"] + "." + id_object;
+                std::string insquery = std::string("INSERT INTO ") +
+                    std::string("hecuba.istorage") +
+                    std::string("(storage_id, name, class_name, columns)") +
+                    std::string("VALUES ") +
+                    std::string("(") +
+                    UUID2str(c_uuid) + std::string(", ") +
+                    "'" + name + "'" + std::string(", ") +
+                    "'" + model->getModuleName() + "." + id_model + "'" + std::string(", ") +
+                    oType.getColsStr() +
+                    std::string(")");
+                run_query(insquery);
+
+                //  Create Writer for storageobj
+                std::vector<config_map>* keyNamesDict = oType.getKeysNamesDict();
+                std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
+
+                Writer *writer = storageInterface->make_writer(id_model, config["EXECUTION_NAME"].c_str(),
+                          *keyNamesDict, *colNamesDict,
+                          config);
+                delete keyNamesDict;
+                delete colNamesDict;
+                o = new IStorage(this, id_model, config["EXECUTION_NAME"] + "." + id_object, c_uuid, writer);
+
+            }
+            break;
         case ObjSpec::valid_types::STORAGEDICT_TYPE:
             {
                 // Dictionary case
@@ -604,11 +664,11 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 }
 
                 if (new_element) {
-                    //  Add entry to hecuba.istorage
+                    //  Add entry to hecuba.istorage: TODO add the tokens attribute
                     std::string name = config["EXECUTION_NAME"] + "." + id_object;
                     // TODO EXPECTED:vvv NOW HARDCODED
                     //classname = id_model
-                    // keys = {c_uuid}, values={name, class_name, primary_keys, columns }
+                    // keys = {c_uuid}, values={name, class_name, primary_keys, columns } # no tokens, no numpy_meta, ...
                     //try {
                     //	dictMetaWriter->write_to_cassandra(keys, values);
                     //}
@@ -632,12 +692,16 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                         std::string(")");
                     run_query(insquery);
                 } else {
-                    std::cerr << "WARNING: Object "<<id_object<<" already exists. Overwritting it"<<std::endl;
+                    std::cerr << "WARNING: Object "<<id_object<<" already exists. Trying to overwrite it. It may fail if the schema does not match."<<std::endl;
+                    // TODO: THIS IS NOT WORKING. We need to get the storage_id (c_uuid) from istorage DISABLE
+                    // TODO: Check the schema in Cassandra matches the model
                 }
 
                 //  Create Writer for dictionary
                 std::vector<config_map>* keyNamesDict = oType.getKeysNamesDict();
                 std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
+
+
                 Writer *writer = storageInterface->make_writer(id_object, config["EXECUTION_NAME"].c_str(),
                           *keyNamesDict, *colNamesDict,
                           config);
@@ -683,7 +747,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
         default:
             throw ModuleException("HECUBA Session: createObject Unknown type ");// + std::string(oType.objtype));
             break;
-	}
+    }
     //std::cout << "DEBUG: HecubaSession::createObject DONE" << std::endl;
     return o;
 }
