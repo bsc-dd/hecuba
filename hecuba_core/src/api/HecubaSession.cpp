@@ -224,9 +224,23 @@ CassError HecubaSession::run_query(std::string query) const{
     return rc;
 }
 
-void HecubaSession::getMetaData(NumpyShape* s, ArrayMetadata &arr_metas) {
+void HecubaSession::decodeNumpyMetadata(HecubaSession::NumpyShape *s, void* metadata) {
+    // Numpy Metadata(all unsigned): Ndims + Dim1 + Dim2 + ... + DimN  (Layout in C by default)
+    unsigned* value = (unsigned*)metadata;
+    s->ndims = *(value);
+    value ++;
+    s->dim = (unsigned *)malloc(s->ndims);
+    for (unsigned i = 0; i < s->ndims; i++) {
+        s->dim[i] = *(value + i);
+    }
+}
+void HecubaSession::getMetaData(void * raw_numpy_meta, ArrayMetadata &arr_metas) {
     std::vector <uint32_t> dims;
     std::vector <uint32_t> strides;
+
+    // decode void *metadatas
+    HecubaSession:: NumpyShape * s = new HecubaSession::NumpyShape();
+    decodeNumpyMetadata(s, raw_numpy_meta);
     uint32_t acum=1;
     for (uint32_t i=0; i < s->ndims; i++) {
         dims.push_back( s->dim[i]);
@@ -458,7 +472,6 @@ numpyMetaWriter = storageInterface->make_writer("istorage", "hecuba",
 
 HecubaSession::~HecubaSession() {
     delete(currentDataModel);
-    delete(dictMetaWriter);
     delete(numpyMetaWriter);
 }
 
@@ -547,7 +560,7 @@ void HecubaSession::loadDataModel(const char * model_filename, const char * pyth
     currentDataModel = d;
 }
 
-IStorage* HecubaSession::createObject(const char * id_model, const char * id_object, NumpyShape* metadata, void* value) {
+IStorage* HecubaSession::createObject(const char * id_model, const char * id_object, void * metadata, void* value) {
     // Create Cassandra tables 'ksp.id_object' for object 'id_object' according to its type 'id_model' in 'model'
     // TODO: create type depending on 'model', now its only dictionary
 

@@ -38,17 +38,6 @@ std::string IStorage::generate_numpy_table_name(std::string attributename) {
     return name;
 }
 
-void IStorage::decodeNumpyMetadata(HecubaSession::NumpyShape *s, void* metadata) {
-	// Numpy Metadata(all unsigned): Ndims + Dim1 + Dim2 + ... + DimN  (Layout in C by default)
-	unsigned* value = (unsigned*)metadata;
-	s->ndims = *(value);
-	value ++;
-	s->dim = (unsigned *)malloc(s->ndims);
-    for (unsigned i = 0; i < s->ndims; i++) {
-		s->dim[i] = *(value + i);
-	}
-}
-
 uint64_t* IStorage::getStorageID() {
     return storageid;
 }
@@ -67,7 +56,7 @@ void IStorage::setItem(void* key, void* value, void *key_metadata, void *value_m
 	//std::cout << "DEBUG: IStorage::setItem: obtained model for "<<id_model<<std::endl;
 
 	if (ospec.getType() != ObjSpec::valid_types::STORAGEDICT_TYPE) {
-		throw ModuleException("IStorage:: Only Dictionary are supported");
+		throw ModuleException("IStorage:: set_item: Only Dictionary are supported");
 	}
 
     //TODO: At this moment only 1 column is supported
@@ -77,28 +66,41 @@ void IStorage::setItem(void* key, void* value, void *key_metadata, void *value_m
 		IStorage* n;
 		if (value_type=="hecuba.hnumpy.StorageNumpy") {
 			HecubaSession::NumpyShape* valMD = NULL;;
-			if (value_metadata == NULL) {
-				throw ModuleException("IStorage:: setItem with a Numpy, but Metadata is missing.");
-			}
-			valMD = new HecubaSession::NumpyShape();
-			decodeNumpyMetadata(valMD, value_metadata);
-			//std::cout << "DEBUG: IStorage::setItem: MetaData for numpy value decoded with "<<valMD->ndims<< " dims:" <<valMD->debug()<<std::endl;
-			id_obj = generate_numpy_table_name(ospec.getIDObjFromCol(0)); //genera a random name based on the table name of the dictionary  and the attribute name of the value, for now hardcoded to have single-attribute values
+			//if there are metadata, we assume that the value is the value to initialize a new numpy,
+			//otherwise the value is the storage_id of an already existing object
+			if (value_metadata != NULL) {
+			    //std::cout << "DEBUG: IStorage::setItem: MetaData for numpy value decoded with "<<valMD->ndims<< " dims:" <<valMD->debug()<<std::endl;
+			    id_obj = generate_numpy_table_name(ospec.getIDObjFromCol(0)); //generate a random name based on the table name of the dictionary  and the attribute name of the value, for now hardcoded to have single-attribute values
 
-			// Create the numpy table:
-			// 	if the value is a StorageNumpy or a StorageObj, only the uuid is stored in the dictionary entry.
-			//	The value of the numpy/storage_obj is stored in a separated table
-			n = this->currentSession->createObject(value_type.c_str(), id_obj.c_str(), valMD, value);
+			    // Create the numpy table:
+			    // 	if the value is a StorageNumpy or a StorageObj, only the uuid is stored in the dictionary entry.
+			    //	The value of the numpy/storage_obj is stored in a separated table
+			    n = this->currentSession->createObject(value_type.c_str(), id_obj.c_str(), value_metadata, value);
+		        value = n->getStorageID();
+            }
+            else {
+                try {
+                    value=((IStorage *)value)->getStorageID();
+                } catch e {
+		            throw ModuleException("IStorage::set_item:  expected a wellformed StorageNumpy");
+                }
+            }
 
 		} else {
-			throw ModuleException("IStorage:: setItem with StorageObj NOT SUPPORTED YET");
-			// Si es un storage object crear el objeto igual pero sin metadatos.
-			// Hay que anyadir el case al create object, pero sera como el del diccionario. Pero en el caso del
-			// storageobj comparten tabla todos los storage obj... asi que la query de create table tiene que ser
-			// create if not exists
+            try {
+                value=((IStorage *)value)->getStorageID();
+            } catch e {
+	            ObjSpec ospec_value = model->getObjSpec(value_type);
+
+	            if ((ospec_value.getType() != ObjSpec::valid_types::STORAGEDICT_TYPE)
+                    && ((ospec_value.getType() != ObjSpec::valid_types::STORAGOBJ_TYPE)) {
+		            throw ModuleException("IStorage:: set_item: unknow value type");
+                }
+                throw ModuleException("IStorage:: set_item: Expected a wellformed StorageDict or StorageObj");
+            }
+
 
 		}
-		value = n->getStorageID();
 		value_size = 2*sizeof(uint64_t);
 
 	} else{ // it is a basic type, just copy the value

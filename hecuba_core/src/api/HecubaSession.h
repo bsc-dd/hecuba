@@ -34,7 +34,7 @@ public:
         }
 	};
 
-    IStorage* createObject(const char * id_model, const char * id_object, NumpyShape* metadata=NULL, void* value=NULL); //Special case to set a Numpy
+    IStorage* createObject(const char * id_model, const char * id_object, void* metadata=NULL, void* value=NULL); //Special case to set a Numpy
 
     //Writer* getDictMetaWriter();
     //Writer* getNumpyMetaWriter();
@@ -45,6 +45,8 @@ public:
     uint64_t* generateUUID5(const char* name) const;
     std::string UUID2str(uint64_t* c_uuid);
 private:
+
+    void decodeNumpyMetadata(HecubaSession::NumpyShape *s, void* metadata);
 
     std::shared_ptr<StorageInterface> storageInterface; //StorageInterface* storageInterface; /* Connection to Cassandra */
 
@@ -58,7 +60,7 @@ private:
 
     void parse_environment(config_map &config);
 	CassError run_query(std::string) const;
-    void getMetaData(NumpyShape* s, ArrayMetadata &arr_metas);
+    void getMetaData(void* raw_numpy_meta, ArrayMetadata &arr_metas);
     void registerNumpy(ArrayMetadata &numpy_meta, std::string name, uint64_t* uuid);
 
     void createSchema(void);

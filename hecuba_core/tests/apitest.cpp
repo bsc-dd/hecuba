@@ -49,43 +49,53 @@ int main() {
     char * value;
     char * numpymeta;
 
+    //model_class: defines a StorageDict indexed by a float and an integer, with values of type numpy.ndarray
     s.loadDataModel("model_class.yaml","model_class.py");
+
     std::cout<< "+ Data Model loaded"<<std::endl;
 
-    std::cout<< "DEBUG " << s.getDataModel()->debug() << std::endl;
+    // create the dictionary:
+    //      "midict" is the class name defined in model_class.yaml
+    //      "outputDict" is the name of the persistent dictionary (the table in cassandra)
 
-    IStorage* midict = s.createObject("midict", "yoli");
+    IStorage* midict = s.createObject("midict", "outputDict");
     std::cout<< "+ 'dict' object created"<<std::endl;
 
+    //generate the data to insert in the dictionary:
+    //      key is a buffer that contains the two values of the key consecutive
+    //      numpymeta is a buffer that contains: number of dimensions followed
+    //                                           by the size of each dimension
+    //      value is a buffer containing the numpy: just the float consecutive in C-order
+
     key = generateKey(0.5, 0);
-    std::cout<< "+  key created"<< std::endl;
     numpymeta = generateMetas();
-    std::cout<< "+ metadata created"<<std::endl;
     value = generateNumpyContent();
-    std::cout<< "+ value created at "<<std::hex<<(void*)value<<std::endl;
 
-    // midict[key] = value;
+    // Add the numpy to the dictionary: midict[key] = value;
+    //      In this case we pass the content of the numpy in the value and its metas
+    //      This will create internally a new StorageNumpy
+
     midict->setItem((void*)key, (void*) value, NULL, (void*) numpymeta);
-    std::cout<< "+ value created at "<<std::hex<<(void*)value<<std::endl;
+    std::cout<< "First setItem completed"<<std::hex<<(void*)value<<std::endl;
+
+    // Add a new item...
+    key = generateKey(2.5, 1);
+    midict->setItem((void*)key, (void*) value, NULL, (void*) numpymeta);
+    std::cout<< "Second setItem completed"<<std::hex<<(void*)value<<std::endl;
+
+    // Create a new StorageNumpy initializing the value and the metas
+    IStorage *mi_sn=s.createObject("hecuba.hnumpy.StorageNumpy","minp",numpymeta,value);
+
+    key = generateKey(1.5, 0);
+
+    // Add the numpy to the dictionary: midict[key] = mi_sn
+    //      In this case the value is a StorageNumpy: no parameter with the metadata should be passed
+
+    midict->setItem((void*)key, (void*) mi_sn);
+    std::cout<< "Third setItem completed"<<std::endl;
+
     midict->sync();
 
-    std::cout<< "+ AFTER sync "<<std::endl;
-    Writer *w = midict->getDataWriter();
-    std::cout<< "+ AFTER getDataWriter "<<std::endl;
-
-    uint32_t value_size = 2*sizeof(uint64_t);
-    uint64_t* c_value_copy = (uint64_t*)malloc(value_size);
-    std::memcpy(c_value_copy, midict->getStorageID(), value_size);
-
-    void * cc_val = malloc(sizeof(uint64_t*)); //uuid(numpy)
-    std::memcpy((char *)cc_val, &c_value_copy, sizeof(uint64_t*));
-
-
-    w->write_to_cassandra((void*)key, (void*) cc_val, "metrics");
-    std::cout<< "+ AFTER write_to_cassandra "<<std::endl;
-    midict->sync();
-
-    std::cout<< "+ AFTER sync "<<std::endl;
 
     free(key);
     free(numpymeta);

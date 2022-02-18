@@ -27,7 +27,6 @@ public:
     void sync(void);
 
 private:
-	void decodeNumpyMetadata(HecubaSession::NumpyShape* s, void* metadata);
     std::string generate_numpy_table_name(std::string attributename);
 
     config_map keysnames;
