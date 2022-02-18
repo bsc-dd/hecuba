@@ -850,6 +850,8 @@ class StorageObjTest(unittest.TestCase):
         my_nested_so.test2[0].age = 10
         self.assertEquals(10, my_nested_so.test2[0].age)
 
+        my_nested_so.sync()
+
         del my_nested_so
 
         my_nested_so2 = Test5StorageObj('tnr')
