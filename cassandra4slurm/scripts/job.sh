@@ -27,14 +27,20 @@ HECUBA_ENVIRON=$C4S_HOME/conf/hecuba_environment
 MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
 CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
 NODEFILE=$C4S_HOME/hostlist-"$UNIQ_ID".txt
+
+# CASSFILETOSYNC is a special file that is consulted by other scripts,
+# to ensure the cluster is UP.
+# CASSFILE is used while Cassandra is starting up.
 export CASSFILE=$C4S_HOME/casslist-"$UNIQ_ID".txt
+export CASSFILETOSYNC=$C4S_HOME/casslistDONE-"$UNIQ_ID".txt
+
 export APPFILE=$C4S_HOME/applist-"$UNIQ_ID".txt
 APPPATHFILE=$C4S_HOME/app-"$UNIQ_ID".txt
 PYCOMPSS_FLAGS_FILE=$C4S_HOME/pycompss-flags-"$UNIQ_ID".txt
 PYCOMPSS_FILE=$C4S_HOME/pycompss-"$UNIQ_ID".sh
 SNAPSHOT_FILE=$C4S_HOME/cassandra-snapshot-file-"$UNIQ_ID".txt
 RECOVER_FILE=$C4S_HOME/cassandra-recover-file-"$UNIQ_ID".txt
-rm -f $NODEFILE $CASSFILE $APPFILE
+rm -f $NODEFILE $CASSFILE $CASSFILETOSYNC $APPFILE
 scontrol show hostnames $SLURM_NODELIST > $NODEFILE
 
 source $CFG_FILE
@@ -231,6 +237,7 @@ else
     exit_bad_node_status
 fi
 
+
 # THIS IS THE APPLICATION CODE EXECUTING SOME TASKS USING CASSANDRA DATA, ETC
 echo "CHECKING CASSANDRA STATUS: "
 first_node=`head -n1 $CASSFILE`"$CASS_IFACE"
@@ -257,6 +264,9 @@ if [ "0$SCHEMA" != "0" ]; then
   $CASS_HOME/bin/cqlsh $firstnode -f $SCHEMA
   sleep 10
 fi
+
+# CASSANDRA UP AND RUNNING... SYNC WITH OTHER SCRIPTS...
+cp $CASSFILE $CASSFILETOSYNC
 
 # Application launcher
 if [ "$APP_NODES" != "0" ]; then

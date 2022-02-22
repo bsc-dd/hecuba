@@ -186,32 +186,6 @@ function test_if_cluster_up () {
     fi
 }
 
-function get_nodes_up () {
-    get_job_info
-    if [ "$JOB_ID" != "" ]
-    then
-        if [ "$JOB_STATUS" == "R" ]
-        then    
-            get_cluster_node 
-            #NODE_STATE_LIST=`ssh -q $NODE_ID "$CASS_HOME/bin/nodetool status" | sed 1,5d | sed '$ d' | awk '{ print $1 }'`
-            NODE_STATE_LIST=`$CASS_HOME/bin/nodetool -h $NODE_ID$CASS_IFACE status 2> /dev/null | sed 1,5d | sed '$ d' | awk '{ print $1 }'`
-            if [ "$NODE_STATE_LIST" != "" ]
-            then
-                NODE_COUNTER=0
-                for state in $NODE_STATE_LIST
-                do  
-                    if [ $state != "UN" ]
-                    then
-                        RETRY_COUNTER=$(($RETRY_COUNTER+1))
-                        break
-                    else
-                        NODE_COUNTER=$(($NODE_COUNTER+1))
-                    fi
-                done
-            fi
-        fi
-    fi
-}
 
 function get_max_of_two () {
     if [ $1 -gt $2 ]; then
@@ -608,28 +582,17 @@ if [ "$ACTION" == "RUN" ]; then
     JOB_NUMBER=$(echo $SUBMIT_MSG | awk '{ print $NF }')
     echo $JOB_NUMBER $UNIQ_ID" " >> $C4S_JOBLIST
     echo "Please, be patient. It may take a while until it shows a correct status (and it may show some harmless errors during this process)."
-    RETRY_COUNTER=0
-    sleep 15
 
-    while [ "$NODE_COUNTER" != "$CASSANDRA_NODES" ] && [ $RETRY_COUNTER -lt $RETRY_MAX ]; do
-        echo "Checking..."
-        sleep 10
-	get_nodes_up
-    done
-    if [ "$NODE_COUNTER" == "$CASSANDRA_NODES" ]
-    then
-	while [ ! -f "$C4S_HOME/casslist-"$UNIQ_ID".txt" ]; do
-            sleep 3
+	while [ ! -f "$C4S_HOME/casslistDONE-"$UNIQ_ID".txt" ]; do
+        echo "Checking for Cassandra cluster up... "
+        get_job_info
+        sleep 5
 	done
-	sleep 3
-        echo "Cassandra Cluster with "$CASSANDRA_NODES" node(s) started successfully."
+    echo "Cassandra Cluster with "$CASSANDRA_NODES" node(s) started successfully."
 	CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $C4S_HOME/casslist-"$UNIQ_ID".txt)$CASS_IFACE
 	CNAMES=$(echo $CNAMES | sed "s/,/$CASS_IFACE,/g")
 	export CONTACT_NAMES=$CNAMES
 	echo "Contact names environment variable (CONTACT_NAMES) should be set to: $CNAMES"
-    else
-        echo "ERROR: Cassandra Cluster RUN timeout. Check STATUS."
-    fi 
     launch_arrow_helpers $C4S_HOME/casslist-"$UNIQ_ID".txt $LOGS_DIR/$UNIQ_ID
 
 elif [ "$ACTION" == "STATUS" ] || [ "$ACTION" == "status" ]
