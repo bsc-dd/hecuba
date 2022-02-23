@@ -574,7 +574,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
     ObjSpec oType = model->getObjSpec(id_model);
     //std::cout << "DEBUG: HecubaSession::createObject '"<<id_model<< "' ==> " <<oType.debug()<<std::endl;
 
-    std::string object_name(config["EXECUTION_NAME"] + "." + id_object);
+    std::string object_name(config["EXECUTION_NAME"] + "." + std::string(id_object));
     uint64_t *c_uuid = generateUUID5(object_name.c_str()); // UUID for the new object
 
     switch(oType.getType()) {

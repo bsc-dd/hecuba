@@ -91,7 +91,7 @@ int main() {
     // Add the numpy to the dictionary: midict[key] = mi_sn
     //      In this case the value is a StorageNumpy: no parameter with the metadata should be passed
 
-    midict->setItem((void*)key, (void*) mi_sn);
+    midict->setItem((void*)key, mi_sn);
     std::cout<< "Third setItem completed"<<std::endl;
 
     midict->sync();

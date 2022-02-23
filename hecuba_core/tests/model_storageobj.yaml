@@ -1,0 +1,22 @@
+- "TypeSpec": [ "miclass", "StorageObject" ]
+  "ClassField":
+            - [ "lat", "float"]
+            - [ "ts", "int" ]
+            - [ "minp", "numpy.ndarray" ]
+            - [ "miso", "model_storageobj.miclass" ]
+
+- "TypeSpec": [ "midict", "StorageDict" ]
+  "KeySpec":
+            - [ "key", "int" ]
+  "ValueSpec":
+            - [ "val", "numpy.ndarray"]
+#
+# This model will generate the following Python file:
+#    from hecuba import StorageObj
+#    
+#    class miclass (StorageObj):
+#       '''
+#       @ClassField lat float
+#       @ClassField ts int
+#       @ClassField minp numpy.ndarray
+#       '''

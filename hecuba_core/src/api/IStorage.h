@@ -15,10 +15,11 @@ public:
     IStorage(HecubaSession* session, std::string id_model, std::string id_object, uint64_t* storage_id, Writer* writer);
     ~IStorage();
 
-    //void setItem(void* keys, void* values); // If all type information is known from the Model
+    void setItem(void* key, IStorage * value);
     void setItem(void* keys, void* values, void* keyMetadata=NULL, void* valueMetadata=NULL);
 
-    void setAttr(const std::string& attr_name, void* value);
+    void setAttr(const char* attr_name, IStorage* value);
+    void setAttr(const char* attr_name, void* value);
 
 	uint64_t* getStorageID();
 
@@ -27,6 +28,11 @@ public:
     void sync(void);
 
 private:
+    enum valid_writes {
+        SETATTR_TYPE,
+        SETITEM_TYPE,
+    };
+    void writeTable(const void* key, void* value, const enum valid_writes mytype, const void*key_metadata=nullptr, void* value_metadata=nullptr);
     std::string generate_numpy_table_name(std::string attributename);
 
     config_map keysnames;
