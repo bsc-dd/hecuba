@@ -746,7 +746,7 @@ class StorageDict(IStorage, dict):
         if isinstance(val, list):
             vals_istorage = []
             for element in val:
-                if isinstance(element, np.ndarray):
+                if isinstance(element, np.ndarray) and not isinstance(element, StorageNumpy):
                     val_istorage = StorageNumpy(element)
                 else:
                     val_istorage = element

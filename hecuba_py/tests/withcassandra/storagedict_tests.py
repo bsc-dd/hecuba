@@ -1474,6 +1474,18 @@ class StorageDictTest(unittest.TestCase):
         with self.assertRaises(RuntimeError) as context:
             d.make_persistent("test_make_persistent2") # SHOULD FAIL!!! DIFFERENT SCHEMA!!
 
+    def test_store_persistent_numpy(self):
+        from hecuba import StorageNumpy
+        class MyStorageDictNumpy(StorageDict):
+            '''
+            @TypeSpec dict<<a:int>, b:numpy.ndarray, c: int>
+            '''
+        d = MyStorageDictNumpy("test_store_persistent_numpy")
+        n = np.arange(3*4).reshape(3,4)
+        s = StorageNumpy(n, "test_store_persistent_numpyELNUMPY")
+        d[42] = [s, 666]
+        self.assertEqual(d[42].b.storage_id,  s.storage_id)
+
 
 if __name__ == '__main__':
     unittest.main()
