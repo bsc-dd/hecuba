@@ -78,7 +78,7 @@ int main() {
     std::cout<< "Numpy creation completed"<<std::endl;
 
     // Add the numpy to the dictionary: midict[key] = mi_sn
-    midict->setItem((void*)key, &mi_sn);
+    midict->setItem((void*)key, mi_sn);
     std::cout<< "Third setItem completed"<<std::endl;
 
     midict->sync();

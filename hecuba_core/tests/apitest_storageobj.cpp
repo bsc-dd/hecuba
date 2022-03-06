@@ -57,19 +57,19 @@ int main() {
     char *valueNP = generateNumpyContent();
 
     IStorage *mi_sn=s.createObject("hecuba.hnumpy.StorageNumpy","minp",numpymeta,valueNP);
-    miobj->setAttr("minp",&mi_sn);
+    miobj->setAttr("minp",mi_sn);
     ///////////////////////////////////////////// 
     IStorage* miobj2 = s.createObject("miclass", "miobj2");
     miobj2->setAttr("lat", &value);
     miobj2->setAttr("ts", &value2);
-    miobj2->setAttr("minp",&mi_sn);
+    miobj2->setAttr("minp",mi_sn);
 
-    miobj->setAttr("miso", &miobj2);
+    miobj->setAttr("miso", miobj2);
     ///////////////////////////////////////////// 
     IStorage* midict = s.createObject("midict", "outputDict");
     int key = 42;
     mi_sn=s.createObject("hecuba.hnumpy.StorageNumpy","otronp",numpymeta,valueNP);
-    midict->setItem(&key, &mi_sn);
+    midict->setItem(&key, mi_sn);
     midict->sync();
 
     miobj->sync();

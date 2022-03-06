@@ -15,10 +15,10 @@ public:
     IStorage(HecubaSession* session, std::string id_model, std::string id_object, uint64_t* storage_id, Writer* writer);
     ~IStorage();
 
-    void setItem(void* key, IStorage** value);
+    void setItem(void* key, IStorage* value);
     void setItem(void* keys, void* values);
 
-    void setAttr(const char* attr_name, IStorage** value);
+    void setAttr(const char* attr_name, IStorage* value);
     void setAttr(const char* attr_name, void* value);
 
 	uint64_t* getStorageID();

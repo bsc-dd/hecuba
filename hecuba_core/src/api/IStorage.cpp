@@ -1,5 +1,6 @@
 #include "IStorage.h"
 #include <regex>
+#include <boost/uuid/uuid.hpp>
 
 IStorage::IStorage(HecubaSession* session, std::string id_model, std::string id_object, uint64_t* storage_id, Writer* writer) {
 	this->currentSession = session;
@@ -62,43 +63,40 @@ IStorage::sync(void) {
         src_size: size of src
 
     value is a pointer to a block of memory with a value (if basic types) or pointer to the IStorage:
-      values --+
-               |
-               V
-               +---------+
-               |     *---+------------------->+----------+
-               +---------+                    | IStorage-+-------->+-----------+
-               | 42      |                    +----------+         | StorageID |
-               +---------+                                         +-----------+
-               | 0.66    |
      src ----> +---------+
                |     *---+------------------->+----------+
                +---------+                    | IStorage-+-------->+-----------+
                                               +----------+         | StorageID |
     Generates:                                                     +-----------+
-                sid
+
      dst ----> +---------+
                |     *---+------------------->+-----------+
                +---------+                    | StorageID |
                                               +-----------+
+    But:
+     src ----> +---------+
+               | 42      |
+               +---------+
+    Generates:
+
+     dst ----> +---------+
+               | 42      |
+               +---------+
 
 */
 void IStorage::convert_IStorage_to_UUID(char * dst, const std::string& value_type, void* src, int64_t src_size) const {
     void * result;
-    DataModel* model = this->currentSession->getDataModel();
     if (!ObjSpec::isBasicType(value_type)) {
-        try {
-            result = (*(IStorage **)src)->getStorageID();
-        } catch (std::exception &e) {
-            ObjSpec ospec_value = model->getObjSpec(value_type);
-
-            if ((ospec_value.getType() != ObjSpec::valid_types::STORAGEDICT_TYPE)
-                    && (ospec_value.getType() != ObjSpec::valid_types::STORAGEOBJ_TYPE)
-                    && (ospec_value.getType() != ObjSpec::valid_types::STORAGENUMPY_TYPE)) {
-                throw ModuleException("IStorage:: set_item: unknow value type");
-            }
-            throw ModuleException("IStorage:: set_item: Expected a wellformed StorageDict, StorageObj or StorageNumpy");
+        result = (*(IStorage **)src)->getStorageID(); // 'src' MUST be a valid pointer or it will segfault here...
+        // Minimal Check for UUID
+        boost::uuids::uuid u;
+        memcpy(&u, result, 16);
+        boost::uuids::uuid::variant_type variant = u.variant();
+        boost::uuids::uuid::version_type version = u.version();
+        if ( ! ((variant == boost::uuids::uuid::variant_rfc_4122) && (version == boost::uuids::uuid::version_name_based_sha1))) {
+            throw ModuleException("IStorage:: Set Item. Wrong UUID format for object... is it a pointer to an IStorage?");
         }
+        // It seems like a valid UUID
         void * sid = malloc(sizeof(uint64_t)*2);
         memcpy(sid, result, sizeof(uint64_t)*2);
         memcpy(dst, &sid, src_size) ;
@@ -114,14 +112,15 @@ void IStorage::convert_IStorage_to_UUID(char * dst, const std::string& value_typ
                V
                +---------+
                |     *---+------------------->+----------+
-               +---------+                    | IStorage |
-               | 42      |                    +----------+
-               +---------+
+               +---------+                    | IStorage |-------->+-----------+
+               | 42      |                    +----------+         | StorageID |
+               +---------+                                         +-----------+
                | 0.66    |
                +---------+
                |     *---+------------------->+----------+
-               +---------+                    | IStorage |
-                                              +----------+
+               +---------+                    | IStorage |-------->+-----------+
+                                              +----------+         | StorageID |
+                                                                   +-----------+
     Create a copy of it, normalizing the pointer to other structs keeping just the storageID:
     cc_key/cc_val
                |
@@ -139,7 +138,7 @@ void IStorage::convert_IStorage_to_UUID(char * dst, const std::string& value_typ
 */
 void
 IStorage::writeTable(const void* key, void* value, const enum IStorage::valid_writes mytype) {
-	/* PRE: key arrives already coded as expected */
+	/* PRE: key and value arrives already coded as expected */
 
     void * cc_val;
 
@@ -218,22 +217,22 @@ IStorage::writeTable(const void* key, void* value, const enum IStorage::valid_wr
 }
 
 void IStorage::setAttr(const char *attr_name, void* value) {
-    /* PRE: value arrives already coded as expected */
+    /* PRE: value arrives already coded as expected: block of memory with pointers to IStorages or basic values*/
     //std::cout << "DEBUG: IStorage::setAttr: "<<std::endl;
     writeTable(attr_name, value, SETATTR_TYPE);
 }
 
-void IStorage::setAttr(const char *attr_name, IStorage** value) {
-    /* PRE: key arrives already coded as expected */
-    writeTable(attr_name, (void *) value, SETATTR_TYPE);
+void IStorage::setAttr(const char *attr_name, IStorage* value) {
+    /* 'writetable' expects a block of memory with pointers to IStorages, therefore add an indirection */
+    writeTable(attr_name, (void *) &value, SETATTR_TYPE);
 }
 
 void IStorage::setItem(void* key, void* value) {
+    /* PRE: value arrives already coded as expected: block of memory with pointers to IStorages or basic values*/
     writeTable(key, value, SETITEM_TYPE);
 }
 
-void IStorage::setItem(void* key, IStorage ** value){
-    /* PRE: key arrives already coded as expected */
-    //std::cout << "DEBUG: IStorage::setItem: "<<std::endl;
-    writeTable(key, (void *) value, SETITEM_TYPE);
+void IStorage::setItem(void* key, IStorage * value){
+    /* 'writetable' expects a block of memory with pointers to IStorages, therefore add an indirection */
+    writeTable(key, (void *) &value, SETITEM_TYPE);
 }
