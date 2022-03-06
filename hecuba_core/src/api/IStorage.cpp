@@ -53,81 +53,142 @@ IStorage::sync(void) {
 }
 
 
+/* Transform IStorage pointers to StorageIDs pointers
+    Args:
+        dst: block of memory to update
+        value_type: string from ObjSpec specifying the type to transform,
+            anything different from a basic type will be transformed
+        src: block of memory to transform
+        src_size: size of src
+
+    value is a pointer to a block of memory with a value (if basic types) or pointer to the IStorage:
+      values --+
+               |
+               V
+               +---------+
+               |     *---+------------------->+----------+
+               +---------+                    | IStorage-+-------->+-----------+
+               | 42      |                    +----------+         | StorageID |
+               +---------+                                         +-----------+
+               | 0.66    |
+     src ----> +---------+
+               |     *---+------------------->+----------+
+               +---------+                    | IStorage-+-------->+-----------+
+                                              +----------+         | StorageID |
+    Generates:                                                     +-----------+
+                sid
+     dst ----> +---------+
+               |     *---+------------------->+-----------+
+               +---------+                    | StorageID |
+                                              +-----------+
+
+*/
+void IStorage::convert_IStorage_to_UUID(char * dst, const std::string& value_type, void* src, int64_t src_size) const {
+    void * result;
+    DataModel* model = this->currentSession->getDataModel();
+    if (!ObjSpec::isBasicType(value_type)) {
+        try {
+            result = (*(IStorage **)src)->getStorageID();
+        } catch (std::exception &e) {
+            ObjSpec ospec_value = model->getObjSpec(value_type);
+
+            if ((ospec_value.getType() != ObjSpec::valid_types::STORAGEDICT_TYPE)
+                    && (ospec_value.getType() != ObjSpec::valid_types::STORAGEOBJ_TYPE)
+                    && (ospec_value.getType() != ObjSpec::valid_types::STORAGENUMPY_TYPE)) {
+                throw ModuleException("IStorage:: set_item: unknow value type");
+            }
+            throw ModuleException("IStorage:: set_item: Expected a wellformed StorageDict, StorageObj or StorageNumpy");
+        }
+        void * sid = malloc(sizeof(uint64_t)*2);
+        memcpy(sid, result, sizeof(uint64_t)*2);
+        memcpy(dst, &sid, src_size) ;
+    } else{ // it is a basic type, just copy the value
+        memcpy(dst, src, src_size) ;
+    }
+}
+
+/* Args:
+    key and value are pointers to a block of memory with the values (if basic types) or pointer to the IStorage:
+    key/value -+
+               |
+               V
+               +---------+
+               |     *---+------------------->+----------+
+               +---------+                    | IStorage |
+               | 42      |                    +----------+
+               +---------+
+               | 0.66    |
+               +---------+
+               |     *---+------------------->+----------+
+               +---------+                    | IStorage |
+                                              +----------+
+    Create a copy of it, normalizing the pointer to other structs keeping just the storageID:
+    cc_key/cc_val
+               |
+               V
+               +---------+
+               |     *---+------------------->+-----------+
+               +---------+                    | StorageID |
+               | 42      |                    +-----------+
+               +---------+
+               | 0.66    |
+               +---------+
+               |     *---+------------------->+-----------+
+               +---------+                    | StorageID |
+                                              +-----------+
+*/
 void
-IStorage::writeTable(const void* key, void* value, const enum IStorage::valid_writes mytype, const void*key_metadata, void* value_metadata) {
+IStorage::writeTable(const void* key, void* value, const enum IStorage::valid_writes mytype) {
 	/* PRE: key arrives already coded as expected */
 
-    uint32_t value_size;
+    void * cc_val;
 
     const TableMetadata* writerMD = dataWriter->get_metadata();
 
     DataModel* model = this->currentSession->getDataModel();
 
-
     ObjSpec ospec = model->getObjSpec(this->id_model);
     //std::cout << "DEBUG: IStorage::setItem: obtained model for "<<id_model<<std::endl;
 
     std::string value_type;
-    //TODO: At this moment only 1 column is supported
     if (ospec.getType() == ObjSpec::valid_types::STORAGEDICT_TYPE) {
         if (mytype != SETITEM_TYPE) {
             throw ModuleException("IStorage:: Set Item on a non Dictionary is not supported");
         }
-        value_type = ospec.getIDModelFromCol(0);
+        // Dictionary values may have N  columns, create a new structure with all of them normalized.
+        std::cout<< "WriteTable malloc("<<writerMD->get_values_size()<<")"<<std::endl;
+        cc_val = malloc(writerMD->get_values_size()); // This memory will be freed after the execution of the query (at callback)
+
+        uint64_t offset=0;
+        uint32_t numcolumns = writerMD->get_values()->size();
+        std::cout<< "WriteTable numcols="<<numcolumns<<std::endl;
+        int64_t value_size;
+
+        for (uint32_t i=0; i < numcolumns; i++) {
+
+            std::cout<< "WriteTable offset ="<<offset<<std::endl;
+            value_size = writerMD->get_values_size(i);
+            std::string value_type = ospec.getIDModelFromCol(i);
+
+            convert_IStorage_to_UUID(((char *)cc_val)+offset, value_type, ((char*)value) + offset, value_size);
+
+            offset += value_size;
+        }
+
     } else if (ospec.getType() == ObjSpec::valid_types::STORAGEOBJ_TYPE) {
         if (mytype != SETATTR_TYPE) {
             throw ModuleException("IStorage:: Set Attr on a non Object is not supported");
         }
-        value_type = ospec.getIDModelFromColName(std::string((char*)key));
+        int64_t value_size = (*writerMD->get_single_value((char*)key))[0].size;
+        cc_val = malloc(value_size); // This memory will be freed after the execution of the query (at callback)
+
+        std::string value_type = ospec.getIDModelFromColName(std::string((char*)key));
+        convert_IStorage_to_UUID((char *)cc_val, value_type, value, value_size);
     }
 
-    if (!ObjSpec::isBasicType(value_type)) {
-        IStorage* n;
-        if (value_type=="hecuba.hnumpy.StorageNumpy") {
-			//if there are metadata, we assume that the value is the value to initialize a new numpy,
-			//otherwise the value is the storage_id of an already existing object
-			if (value_metadata != NULL) {
-			    id_obj = generate_numpy_table_name(ospec.getIDObjFromCol(0)); //generate a random name based on the table name of the dictionary  and the attribute name of the value, for now hardcoded to have single-attribute values
-
-			    // Create the numpy table:
-			    // 	if the value is a StorageNumpy or a StorageObj, only the uuid is stored in the dictionary entry.
-			    //	The value of the numpy/storage_obj is stored in a separated table
-			    n = this->currentSession->createObject(value_type.c_str(), id_obj.c_str(), value_metadata, value);
-		        value = n->getStorageID();
-            }
-            else {
-                try {
-                    value=((IStorage *)value)->getStorageID();
-                } catch (std::exception &e) {
-		            throw ModuleException("IStorage::set_item:  expected a wellformed StorageNumpy");
-                }
-            }
-
-		} else { // An StorageObj/StorageDict...
-            try {
-                value=((IStorage *)value)->getStorageID();
-            } catch (std::exception &e) {
-	            ObjSpec ospec_value = model->getObjSpec(value_type);
-
-	            if ((ospec_value.getType() != ObjSpec::valid_types::STORAGEDICT_TYPE)
-                    && (ospec_value.getType() != ObjSpec::valid_types::STORAGEOBJ_TYPE)) {
-		            throw ModuleException("IStorage:: set_item: unknow value type");
-                }
-                throw ModuleException("IStorage:: set_item: Expected a wellformed StorageDict or StorageObj");
-            }
-
-
-		}
-		value_size = 2*sizeof(uint64_t);
-
-
-    } else{ // it is a basic type, just copy the value
-        value_size = writerMD->get_values_size();
-    }
     //std::cout << "DEBUG: IStorage::setItem: After creating value object "<<std::endl;
 
     // STORE THE ENTRY IN TABLE (Ex: keys + value ==> storage_id del numpy)
-
 
     std::pair<uint16_t, uint16_t> keySize = writerMD->get_keys_size();
     uint64_t partKeySize = keySize.first;
@@ -135,30 +196,17 @@ IStorage::writeTable(const void* key, void* value, const enum IStorage::valid_wr
     std::cout<< "DEBUG: Istorage::setItem --> partKeySize = "<<partKeySize<<" clustKeySize = "<< clustKeySize << std::endl;
 
     void *cc_key= NULL;
-    cc_key = malloc(partKeySize+clustKeySize); //lat + ts
     if (mytype == SETITEM_TYPE) {
+        cc_key = malloc(partKeySize+clustKeySize); // This memory will be freed after the execution of the query (at callback)
         std::memcpy(cc_key, key, partKeySize+clustKeySize);
     } else {
         uint64_t* sid = this->getStorageID();
         void* c_key = malloc(2*sizeof(uint64_t)); //uuid
         std::memcpy(c_key, sid, 2*sizeof(uint64_t));
-        std::memcpy(cc_key, &c_key, partKeySize+clustKeySize);
+
+        cc_key = malloc(sizeof(uint64_t *)); // This memory will be freed after the execution of the query (at callback)
+        std::memcpy(cc_key, &c_key, sizeof(uint64_t *));
     }
-
-
-    //std::cout<< "DEBUG: Istorage::setItem --> value" << value << std::endl;
-
-    void * cc_val;
-    if (!ObjSpec::isBasicType(value_type)) {
-        uint64_t* c_value_copy = (uint64_t*)malloc(value_size);
-        std::memcpy(c_value_copy, value, value_size);
-        cc_val = malloc(sizeof(uint64_t*)); //uuid(numpy)
-        std::memcpy((char *)cc_val, &c_value_copy, sizeof(uint64_t*));
-    }else {
-        cc_val = (uint64_t*)malloc(value_size);
-        std::memcpy(cc_val, value, value_size);
-    }
-
 
     if (mytype == SETITEM_TYPE) {
         // key arrives codified and contains latitude(double) + timestep(int)
@@ -167,7 +215,6 @@ IStorage::writeTable(const void* key, void* value, const enum IStorage::valid_wr
         char* attr_name = (char*) key;
         this->dataWriter->write_to_cassandra(cc_key, cc_val, attr_name);
     }
-
 }
 
 void IStorage::setAttr(const char *attr_name, void* value) {
@@ -176,18 +223,16 @@ void IStorage::setAttr(const char *attr_name, void* value) {
     writeTable(attr_name, value, SETATTR_TYPE);
 }
 
-void IStorage::setAttr(const char *attr_name, IStorage* value) {
+void IStorage::setAttr(const char *attr_name, IStorage** value) {
     /* PRE: key arrives already coded as expected */
     writeTable(attr_name, (void *) value, SETATTR_TYPE);
 }
 
-void IStorage::setItem(void* key, void* value, void *key_metadata, void *value_metadata) {
-    /* PRE: key arrives already coded as expected */
-    //std::cout << "DEBUG: IStorage::setItem: "<<std::endl;
-    writeTable(key, value, SETITEM_TYPE, key_metadata, value_metadata);
+void IStorage::setItem(void* key, void* value) {
+    writeTable(key, value, SETITEM_TYPE);
 }
 
-void IStorage::setItem(void* key, IStorage * value){
+void IStorage::setItem(void* key, IStorage ** value){
     /* PRE: key arrives already coded as expected */
     //std::cout << "DEBUG: IStorage::setItem: "<<std::endl;
     writeTable(key, (void *) value, SETITEM_TYPE);

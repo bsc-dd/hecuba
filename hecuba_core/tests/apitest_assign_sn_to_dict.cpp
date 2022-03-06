@@ -71,7 +71,7 @@ int main() {
 
     // midict[key] = value;
 
-    midict->setItem((void*)key, (void*) mi_sn);
+    midict->setItem((void*)key, (void*) &mi_sn);
     std::cout<< "+ value created at "<<std::hex<<(void*)mi_sn->getStorageID()<<std::endl;
     midict->sync();
 
@@ -99,7 +99,7 @@ int main() {
 
     // Add a new item we create a new StorageNumpy in the setitem method
     key = generateKey(2.5, 1);
-    midict->setItem((void*)key, (void*) value, NULL, (void*) numpymeta);
+    midict->setItem((void*)key, &mi_sn);
     std::cout<< "+ AFTER setitem "<<std::endl;
     midict->sync();
     std::cout<< "+ AFTER sync "<<std::endl;

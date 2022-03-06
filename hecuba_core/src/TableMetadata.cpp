@@ -444,3 +444,8 @@ uint32_t TableMetadata::get_values_size(void) const {
     }
     return size;
 }
+
+/** Return the size of column 'pos' element */
+uint32_t TableMetadata::get_values_size(int pos) const {
+    return (*cols)[pos].size;
+}

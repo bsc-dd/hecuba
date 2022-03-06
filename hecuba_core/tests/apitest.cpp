@@ -71,27 +71,14 @@ int main() {
     numpymeta = generateMetas();
     value = generateNumpyContent();
 
-    // Add the numpy to the dictionary: midict[key] = value;
-    //      In this case we pass the content of the numpy in the value and its metas
-    //      This will create internally a new StorageNumpy
-
-    midict->setItem((void*)key, (void*) value, NULL, (void*) numpymeta);
-    std::cout<< "First setItem completed"<<std::hex<<(void*)value<<std::endl;
-
-    // Add a new item...
-    key = generateKey(2.5, 1);
-    midict->setItem((void*)key, (void*) value, NULL, (void*) numpymeta);
-    std::cout<< "Second setItem completed"<<std::hex<<(void*)value<<std::endl;
-
     // Create a new StorageNumpy initializing the value and the metas
     IStorage *mi_sn=s.createObject("hecuba.hnumpy.StorageNumpy","minp",numpymeta,value);
 
-    key = generateKey(1.5, 0);
+    mi_sn->sync();
+    std::cout<< "Numpy creation completed"<<std::endl;
 
     // Add the numpy to the dictionary: midict[key] = mi_sn
-    //      In this case the value is a StorageNumpy: no parameter with the metadata should be passed
-
-    midict->setItem((void*)key, mi_sn);
+    midict->setItem((void*)key, &mi_sn);
     std::cout<< "Third setItem completed"<<std::endl;
 
     midict->sync();

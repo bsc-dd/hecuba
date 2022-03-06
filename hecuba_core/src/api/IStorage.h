@@ -15,10 +15,10 @@ public:
     IStorage(HecubaSession* session, std::string id_model, std::string id_object, uint64_t* storage_id, Writer* writer);
     ~IStorage();
 
-    void setItem(void* key, IStorage * value);
-    void setItem(void* keys, void* values, void* keyMetadata=NULL, void* valueMetadata=NULL);
+    void setItem(void* key, IStorage** value);
+    void setItem(void* keys, void* values);
 
-    void setAttr(const char* attr_name, IStorage* value);
+    void setAttr(const char* attr_name, IStorage** value);
     void setAttr(const char* attr_name, void* value);
 
 	uint64_t* getStorageID();
@@ -32,8 +32,11 @@ private:
         SETATTR_TYPE,
         SETITEM_TYPE,
     };
-    void writeTable(const void* key, void* value, const enum valid_writes mytype, const void*key_metadata=nullptr, void* value_metadata=nullptr);
+    void writeTable(const void* key, void* value, const enum valid_writes mytype);
     std::string generate_numpy_table_name(std::string attributename);
+
+    /* convert_IStorage_to_UUID: Given a value (basic or persistent) convert it to the same value or its *storage_id* if it is a persistent one */
+    void convert_IStorage_to_UUID(char * dst, const std::string& value_type, void* src, int64_t src_size) const ;
 
     config_map keysnames;
     config_map keystypes;
