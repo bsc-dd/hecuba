@@ -47,18 +47,27 @@ int main() {
     ///////////////////////////////////////////// 
 
     // set values to each attribute: name of the attribute (as specified in model_storageobj.yaml) followed by a pointer to the value
+
+    // Attribute "lat" of type float
     float value = 0.666;
     miobj->setAttr("lat", &value);
+    /////////////////////////////////////////////
+    // Attribute "ts" of type int
     int value2 = 42;
     miobj->setAttr("ts", &value2);
     ///////////////////////////////////////////// 
+    // Attribute "minp" of type numpy: we first create the StorageNumpy passing
+    // the values and the numpy metas and then set the attribute in the
+    // StorageObj
     char * numpymeta;
     numpymeta = generateMetas();
     char *valueNP = generateNumpyContent();
-
     IStorage *mi_sn=s.createObject("hecuba.hnumpy.StorageNumpy","minp",numpymeta,valueNP);
     miobj->setAttr("minp",mi_sn);
     ///////////////////////////////////////////// 
+    // Attribute miso of type miclass: we first create the StorageObject miobj2
+    // and then we can set the attribute of miobj, initialize all the
+    // attributes and then set the attribute in the StorageObj
     IStorage* miobj2 = s.createObject("miclass", "miobj2");
     miobj2->setAttr("lat", &value);
     miobj2->setAttr("ts", &value2);
