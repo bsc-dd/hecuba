@@ -427,7 +427,7 @@ class StorageNumpy(IStorage, np.ndarray):
             else: # It's a slice
                 n = StorageNumpy.removenones(i, shape[idx])
                 #print(" {}:    n ={} ".format(idx, n))
-                self._check_value_in_shape(n.start, shape[idx], idx)
+                #self._check_value_in_shape(n.start, shape[idx], idx) Don't fail here, allow the numpy error...
                 self._check_value_in_shape(n.stop-1, shape[idx], idx)
                 first.append(n.start//SIZE)
                 last.append((n.stop-1)//SIZE)
@@ -762,7 +762,7 @@ class StorageNumpy(IStorage, np.ndarray):
                 new_coords: The coordinates to load (using ZOrder identification)
         """
         load = True # By default, load everything
-        if not new_coords: # Special case: Load everything
+        if new_coords is None: # Special case: Load everything
             log.debug("LOADING ALL BLOCKS OF NUMPY")
             self._numpy_full_loaded = True
             new_coords = None
