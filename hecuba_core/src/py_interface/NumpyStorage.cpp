@@ -27,8 +27,9 @@ NumpyStorage::~NumpyStorage() {
 std::list<std::vector<uint32_t> > NumpyStorage::generate_coords(PyObject *coord) const {
     std::vector<uint32_t> crd_inner = {};
     std::list<std::vector<uint32_t> > crd = {};
-    crd_inner.resize((PyTuple_Size(PyList_GetItem(coord, 0))));
     if (PyList_Check(coord)) {
+        if (PyList_Size(coord) == 0) return crd; //No elements in list...
+        crd_inner.resize((PyTuple_Size(PyList_GetItem(coord, 0))));
         PyObject *value = nullptr;
         for (Py_ssize_t i = 0; i < PyList_Size(coord); i++) {
             value = PyList_GetItem(coord, i);
