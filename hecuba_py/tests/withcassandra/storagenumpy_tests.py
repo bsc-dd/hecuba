@@ -364,6 +364,7 @@ class StorageNumpyTest(unittest.TestCase):
 
         self.assertEqual(i + 1, len(blocks))
 
+    @unittest.skip("np_split is not maintained...")
     def test_split_already_persistent(self):
 
         bn, bm = (2, 1)
