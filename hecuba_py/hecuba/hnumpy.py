@@ -1092,8 +1092,9 @@ class StorageNumpy(IStorage, np.ndarray):
         if self._is_persistent and len(self.shape):
             readonly_methods = ['mean', 'sum', 'reduce'] #methods that DO NOT modify the original memory, and there is NO NEED to store it
             if method not in readonly_methods:
-                block_coord = self._select_blocks(self._build_args.view_serialization)
-                self._hcache.store_numpy_slices([self._build_args.base_numpy], self._base_metas, [base_numpy],
+                if self in outputs: # Self must store the value
+                    block_coord = self._select_blocks(self._build_args.view_serialization)
+                    self._hcache.store_numpy_slices([self._build_args.base_numpy], self._base_metas, [base_numpy],
                                                 block_coord,
                                                 StorageNumpy.BLOCK_MODE)
 

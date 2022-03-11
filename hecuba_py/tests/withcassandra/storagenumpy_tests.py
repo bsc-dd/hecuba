@@ -1232,6 +1232,16 @@ class StorageNumpyTest(unittest.TestCase):
         ss = s[2::2]
         self.assertTrue(ss[-1] == n[2::2][-1])
 
+    # This code tries to access an out of bounds array
+    def test_out_of_bounds(self):
+        n = np.arange(1000).reshape(10,10,10)
+        coordinates = (slice(50, 150, None), slice(50, 150, None), slice(5, 150, None))
+        s = StorageNumpy(n, "KK")
+        t  = s[coordinates]
+        t - 1   # Should not fail
+        t-= 1   # Should not fail
+
+
 
 if __name__ == '__main__':
     unittest.main()
