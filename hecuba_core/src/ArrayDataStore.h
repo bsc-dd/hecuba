@@ -48,6 +48,7 @@ public:
     std::list<std::tuple<uint64_t, uint32_t, uint32_t, std::vector<uint32_t>>> get_block_ids(ArrayMetadata &metadata) const;
     void wait_stores(void) const;
 
+    CacheTable* getWriteCache(void) const ;
 protected:
 
     void store_numpy_partition_into_cas(const uint64_t *storage_id , Partition part) const;

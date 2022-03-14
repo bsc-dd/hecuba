@@ -152,14 +152,11 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
         case CASS_VALUE_TYPE_UUID: {
             CassUuid uuid;
             CassError rc = cass_value_get_uuid(lhs, &uuid);
-            uint64_t time_and_version = uuid.time_and_version;
-            uint64_t clock_seq_and_node = uuid.clock_seq_and_node;
 
             CHECK_CASS("TupleRowFactory: Cassandra to C parse UUID unsuccessful, column:" + std::to_string(col));
             if (rc == CASS_ERROR_LIB_NULL_VALUE) return -1;
             char *permanent = (char *) malloc(sizeof(uint64_t) * 2);
-            memcpy(permanent, &time_and_version, sizeof(uint64_t));
-            memcpy(permanent + sizeof(uint64_t), &clock_seq_and_node, sizeof(uint64_t));
+            cassuuid2uuid(uuid, &permanent);
             memcpy(data, &permanent, sizeof(char *));
             return 0;
         }
@@ -314,10 +311,9 @@ TupleRowFactory::bind(CassTuple *tuple, const TupleRow *row) const {
                 case CASS_VALUE_TYPE_UUID: {
                     const uint64_t **uuid = (const uint64_t **) element_i;
 
-                    const uint64_t *time_and_version = *uuid;
-                    const uint64_t *clock_seq_and_node = *uuid + 1;
+                    CassUuid cass_uuid;
+                    uuid2cassuuid(uuid, cass_uuid);
 
-                    CassUuid cass_uuid = {*time_and_version, *clock_seq_and_node};
                     CassError rc = cass_tuple_set_uuid(tuple, (size_t) bind_pos, cass_uuid);
                     CHECK_CASS("TupleRowFactory: Cassandra unsuccessful binding Uuid to the tuple");
                     break;
@@ -386,6 +382,67 @@ TupleRowFactory::bind(CassTuple *tuple, const TupleRow *row) const {
     }
 }
 
+
+/*
+    Encode a RFC4122 UUID format into a CassUUID(which uses Little endian)
+    Args:
+       uuid: RFC4122 UUID format BIGENDIAN
+*/
+void
+TupleRowFactory::uuid2cassuuid(const uint64_t** uuid, CassUuid& cass_uuid) const {
+    const uint64_t *time_and_version = *uuid;
+    const uint64_t *clock_seq_and_node = *uuid + 1;
+
+    char *p = (char*)&cass_uuid.time_and_version;
+    char *psrc = (char*)time_and_version;
+    // Recode time_low
+    p[0] = psrc[3];
+    p[1] = psrc[2];
+    p[2] = psrc[1];
+    p[3] = psrc[0];
+
+    // Recode time_mid
+    p[4] = psrc[5];
+    p[5] = psrc[4];
+
+    // Recode time_hi_&_version
+    p[6] = psrc[7];
+    p[7] = psrc[6];
+
+    // Recode clock_seq_and_node
+    p = (char*)&cass_uuid.clock_seq_and_node;
+    psrc = (char*)clock_seq_and_node;
+
+    for (uint32_t ix=0; ix<8;ix++)
+        p[ix] = psrc[7-ix];
+}
+
+void
+TupleRowFactory::cassuuid2uuid(const CassUuid& cass_uuid, char** uuid) const {
+    char *p = (*uuid);
+    char *psrc = (char*)&cass_uuid.time_and_version;
+    // Recode time_low
+    p[0] = psrc[3];
+    p[1] = psrc[2];
+    p[2] = psrc[1];
+    p[3] = psrc[0];
+
+    // Recode time_mid
+    p[4] = psrc[5];
+    p[5] = psrc[4];
+
+    // Recode time_hi_&_version
+    p[6] = psrc[7];
+    p[7] = psrc[6];
+
+    // Recode clock_seq_and_node
+    p= (*uuid + 8);
+    psrc = (char*)&cass_uuid.clock_seq_and_node;
+
+    for (uint32_t ix=0; ix<8;ix++)
+        p[ix] = psrc[7-ix];
+
+}
 
 void
 TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t offset) const {
@@ -479,10 +536,11 @@ TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t o
                 case CASS_VALUE_TYPE_UUID: {
                     const uint64_t **uuid = (const uint64_t **) element_i;
 
-                    const uint64_t *time_and_version = *uuid;
-                    const uint64_t *clock_seq_and_node = *uuid + 1;
+                    CassUuid cass_uuid;
+                    uuid2cassuuid(uuid, cass_uuid);
 
-                    CassUuid cass_uuid = {*time_and_version, *clock_seq_and_node};
+                    char myfinal[CASS_UUID_STRING_LENGTH];
+                    cass_uuid_string(cass_uuid, myfinal);
 
                     CassError rc = cass_statement_bind_uuid(statement, bind_pos, cass_uuid);
                     CHECK_CASS("TupleRowFactory: Cassandra binding query unsuccessful [UUID], column:" +

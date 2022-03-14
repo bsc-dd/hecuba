@@ -323,6 +323,8 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
     select_tokens_all = "SELECT " + keys_and_cols + " FROM " + this->keyspace + "." + this->table + " WHERE " +
                         select_tokens_where + ";";
 
+    partial_insert = "INSERT INTO " + this->keyspace + "." + this->table + "(" + keys;
+
     insert = "INSERT INTO " + this->keyspace + "." + this->table + "(" + keys_and_cols + ")" + "VALUES (?";
     for (uint16_t i = 1; i < n_keys + n_cols; ++i) {
         insert += ",?";
@@ -370,4 +372,80 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
     this->cols = std::make_shared<std::vector<ColumnMeta> >(cols_meta);
     this->keys = std::make_shared<std::vector<ColumnMeta> >(keys_meta);
     this->items = std::make_shared<std::vector<ColumnMeta> >(items_meta);
+}
+
+std::shared_ptr<const std::vector<ColumnMeta> > TableMetadata::get_single_value(const char *value_name) const {
+    // TODO : Add a hash map to cache 'value_name' ColumnMeta and avoid searching
+    std::string value(value_name);
+
+    std::vector<ColumnMeta> res(1);
+
+    ColumnMeta m;
+    for (uint16_t i = 0; i < cols->size(); ++i) {
+        m = (*cols)[i];
+        if (m.info["name"] == value) {
+            res[0] =  m;
+            res[0].position = 0; // Ignore other elements in the row, now it will ALWAYS be at the first position
+            return std::make_shared<std::vector<ColumnMeta>>(res);
+        }
+    }
+    throw ModuleException("get_single_value: Unknown column name [" + value + "]");
+}
+
+// completes the build of the insert query for just one attribute
+const char *TableMetadata::get_partial_insert_query(const std::string &attr_name) const {
+    uint32_t n_keys = (uint32_t) keys->size();
+    std::string insert = partial_insert
+                            + "," + attr_name + ")" + "VALUES (?";
+    for (uint16_t i = 1; i < n_keys + 1; ++i) {
+        insert += ",?";
+    }
+    insert += ");";
+
+    char * mistring = (char*) malloc (insert.size()+1);
+    strncpy(mistring, insert.c_str(), insert.size()+1);
+    mistring[insert.size()] = '\0';
+    return mistring;
+}
+
+/** Returns a pair with partition_keys size, clustering_keys size */
+std::pair<uint16_t, uint16_t> TableMetadata::get_keys_size(void) const {
+    ColumnMeta key;
+    int partKeySize = 0;
+    int clustKeySize = 0;
+
+    for (uint16_t i = 0; i < keys->size(); ++i) {
+        key = (*keys)[i];
+        //for(auto k:key.info) {
+        //    std::cout<< "DEBUG: TableMetadata::get_keys_size "<< k.first << " " << k.second<<std::endl;
+        //}
+        //std::cout<< "DEBUG: TableMetadata::get_keys_size col_type "<< key.col_type <<std::endl;
+        //std::cout<< "DEBUG: TableMetadata::get_keys_size position "<< key.position <<std::endl;
+        //std::cout<< "DEBUG: TableMetadata::get_keys_size size "<< key.size <<std::endl;
+
+        if (key.col_type == CASS_COLUMN_TYPE_PARTITION_KEY) {
+            partKeySize += key.size;
+        } else if (key.col_type == CASS_COLUMN_TYPE_CLUSTERING_KEY) {
+            clustKeySize += key.size;
+        }
+    }
+    return std::pair<uint16_t, uint16_t>(partKeySize, clustKeySize);
+}
+
+/** Returns the values's size */
+uint32_t TableMetadata::get_values_size(void) const {
+    ColumnMeta value;
+    uint32_t size = 0;
+
+    for (uint16_t i = 0; i < cols->size(); ++i) {
+        value = (*cols)[i];
+
+        size += value.size;
+    }
+    return size;
+}
+
+/** Return the size of column 'pos' element */
+uint32_t TableMetadata::get_values_size(int pos) const {
+    return (*cols)[pos].size;
 }

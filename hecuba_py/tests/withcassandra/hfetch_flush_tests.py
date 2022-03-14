@@ -12,8 +12,8 @@ class StorageDictTest(unittest.TestCase):
 
     @staticmethod
     def tearDownClass():
-        config.session.execute(
-                "DROP KEYSPACE ksp;")
+        #config.session.execute( "DROP KEYSPACE ksp;")
+        pass
 
     def tearDown(self):
         config.session.execute("DROP TABLE IF EXISTS ksp.tb1")

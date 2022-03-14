@@ -305,7 +305,10 @@ class StorageNumpy(IStorage, np.ndarray):
         obj._base_metas = metas_to_reserve #Cache value to avoid cassandra accesses
 
         # The data recovered from the istorage is a persistent view, therefore reconstruct the view
-        myview = pickle.loads(istorage_metas[0].view_serialization)
+        if getattr(istorage_metas[0], 'view_serialization', None):
+            myview = pickle.loads(istorage_metas[0].view_serialization)
+        else: # Accept the case where view_serialization is None, mainly due to C++ interface
+            myview = tuple([slice(None,None,None)]*obj.ndim)
         log.debug(" view of {}".format(myview))
         if isinstance(myview, tuple):
             obj = super(StorageNumpy, obj).__getitem__(myview)
@@ -424,7 +427,7 @@ class StorageNumpy(IStorage, np.ndarray):
             else: # It's a slice
                 n = StorageNumpy.removenones(i, shape[idx])
                 #print(" {}:    n ={} ".format(idx, n))
-                self._check_value_in_shape(n.start, shape[idx], idx)
+                #self._check_value_in_shape(n.start, shape[idx], idx) Don't fail here, allow the numpy error...
                 self._check_value_in_shape(n.stop-1, shape[idx], idx)
                 first.append(n.start//SIZE)
                 last.append((n.stop-1)//SIZE)
@@ -759,7 +762,7 @@ class StorageNumpy(IStorage, np.ndarray):
                 new_coords: The coordinates to load (using ZOrder identification)
         """
         load = True # By default, load everything
-        if not new_coords: # Special case: Load everything
+        if new_coords is None: # Special case: Load everything
             log.debug("LOADING ALL BLOCKS OF NUMPY")
             self._numpy_full_loaded = True
             new_coords = None
@@ -970,7 +973,7 @@ class StorageNumpy(IStorage, np.ndarray):
         self._base_metas = hfetch_metas
         self._build_args = self.args(self.storage_id, self._class_name, self._get_name(), hfetch_metas, self._block_id,
                                      self.storage_id, # base_numpy is storage_id because until now we only reach this point if we are not inheriting from a StorageNumpy. We should update this if we allow StorageNumpy from volatile StorageNumpy
-                                     tuple([slice(None,None,None)]*self.ndim),  #We are a view of everything
+                                     tuple([slice(None,None,None)]*self.ndim),  #We are a view of everything (view_serialization)
                                      self._tokens)
         if len(self.shape) != 0:
             sid = self._build_args.base_numpy
@@ -1089,8 +1092,9 @@ class StorageNumpy(IStorage, np.ndarray):
         if self._is_persistent and len(self.shape):
             readonly_methods = ['mean', 'sum', 'reduce'] #methods that DO NOT modify the original memory, and there is NO NEED to store it
             if method not in readonly_methods:
-                block_coord = self._select_blocks(self._build_args.view_serialization)
-                self._hcache.store_numpy_slices([self._build_args.base_numpy], self._base_metas, [base_numpy],
+                if self in outputs: # Self must store the value
+                    block_coord = self._select_blocks(self._build_args.view_serialization)
+                    self._hcache.store_numpy_slices([self._build_args.base_numpy], self._base_metas, [base_numpy],
                                                 block_coord,
                                                 StorageNumpy.BLOCK_MODE)
 

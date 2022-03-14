@@ -36,7 +36,6 @@ message("Dependencies install path ${C_BINDING_INSTALL_PREFIX}")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${C_BINDING_INSTALL_PREFIX}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${C_BINDING_INSTALL_PREFIX}/bin)
 
-
 #Add environment $CPLUS_INCLUDE_PATH include paths
 if (NOT $ENV{CPLUS_INCLUDE_PATH} STREQUAL "")
     string(REPLACE ":" " " INCLUDES $ENV{CPLUS_INCLUDE_PATH})
@@ -100,8 +99,12 @@ LINK_DIRECTORIES(${C_BINDING_INSTALL_PREFIX}/lib64 ${C_BINDING_INSTALL_PREFIX}/l
 
 file(GLOB CORE_H_FILES ${CORE_SRC_DIR}/*.h)
 file(GLOB CORE_SRC_FILES ${CORE_SRC_DIR}/*.cpp)
-set(HEADER_FILES ${CORE_H_FILES})
-set(SOURCE_FILES ${CORE_SRC_FILES})
+
+file(GLOB API_H_FILES ${CORE_SRC_DIR}/api/*.h)
+file(GLOB API_SRC_FILES ${CORE_SRC_DIR}/api/*.cpp)
+
+set(HEADER_FILES ${CORE_H_FILES} ${API_H_FILES})
+set(SOURCE_FILES ${CORE_SRC_FILES} ${API_SRC_FILES})
 
 #set(CMAKE_SKIP_RPATH 1)
 #set(MY_PATHS "${ORIGIN}")
@@ -120,6 +123,10 @@ SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
 
 
 add_library(hfetch SHARED ${SOURCE_FILES} ${HEADER_FILES})
+include_directories(${CORE_SRC_DIR} ${CORE_SRC_DIR}/api)
+
+target_link_libraries(hfetch yaml-cpp)
+
 set_target_properties(hfetch
         PROPERTIES
         #	PREFIX ""
@@ -139,6 +146,7 @@ FIND_LIBRARY(CASS NAMES cassandra PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_L
 FIND_LIBRARY(LIBUV NAMES uv PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
 FIND_LIBRARY(TBB NAMES tbb PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
 FIND_LIBRARY(ARROW NAMES arrow PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
+FIND_LIBRARY(YAML NAMES yaml-cpp PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
 
 IF (NOT LIBUV)
     message("Downloading LIBUV (requisite for Cassandra C++ driver)")
@@ -266,6 +274,23 @@ if (NOT ARROW)
 else ()
     message(STATUS "Using system's ARROW " ${ARROW})
     set(ALL_LIBS ${ALL_LIBS} ${ARROW})
+endif ()
+
+if (NOT YAML)
+    message("Downloading YAML-CPP library")
+    unset(YAML) #to avoid name clash
+    ExternalProject_Add(
+        YAML    #YAML-prefix
+        DOWNLOAD_DIR ${CMAKE_CURRENT_LIST_DIR}/dependencies
+        GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+        INSTALL_DIR ${C_BINDING_INSTALL_PREFIX}
+        CMAKE_ARGS ${CMAKE_SUBPROJECT_FLAGS} -DCMAKE_INSTALL_PREFIX=${C_BINDING_INSTALL_PREFIX} -DYAML_BUILD_SHARED_LIBS=ON
+    )
+    add_dependencies(hfetch YAML)
+    set(ALL_LIBS ${ALL_LIBS} ${C_BINDING_INSTALL_PREFIX}/lib/libyaml-cpp.so)
+else ()
+    message(STATUS "Using system's YAML " ${YAML})
+    set(ALL_LIBS ${ALL_LIBS} ${YAML})
 endif ()
 
 target_link_libraries(hfetch ${ALL_LIBS})

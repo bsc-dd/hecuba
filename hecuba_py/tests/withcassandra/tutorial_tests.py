@@ -103,8 +103,8 @@ class TutorialTest(unittest.TestCase):
         config.execution_name = self.current_ksp
 
     def tearDown(self):
-        config.session.execute("DROP KEYSPACE IF EXISTS {}".format(self.current_ksp))
-
+        #config.session.execute("DROP KEYSPACE IF EXISTS {}".format(self.current_ksp))
+        pass
 
     def test_init_storagedict_test(self):
         tablename = 'examplestoragedictclass1'

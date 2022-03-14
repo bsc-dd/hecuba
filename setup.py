@@ -49,7 +49,7 @@ def cmake_build():
     if subprocess.call(["make", jobs, "-C", "./build"]) != 0:
         raise EnvironmentError("error calling make build")
 
-    if c_binding_path and subprocess.call(["make", jobs, "-C", "./build", "install"]) != 0:
+    if subprocess.call(["make", jobs, "-C", "./build", "install"]) != 0:
         raise EnvironmentError("error calling make install")
 
 def get_var(var):

@@ -69,6 +69,10 @@ public:
         return (uint16_t) metadatas->size();
     }
 
+    inline const ColumnMeta &get_metadata_element(uint32_t position) const {
+        return metadatas->at(position);
+    }
+
     inline const void *get_element(uint32_t position) const {
         if (!isNull(position))
             return (char *) payload->data + metadatas->at(position).position;

@@ -1,0 +1,18 @@
+- "TypeSpec": [ "midict", "StorageDict" ]
+  "KeySpec":
+            - [ "lat", "float"]     #1st is partiion key
+            - [ "ts", "int" ]       #Remaining are the clustering
+  "ValueSpec":
+            - [ "metrics", "numpy.ndarray" ]
+
+- "TypeSpec": [ "miobj","StorageObject" ]
+  "ClassFields":
+            - [ "attr1", "float" ]
+            - [ "attr2", "int" ]
+
+- "TypeSpec": [ "uyuy", "StorageDict" ]
+  "KeySpec":
+            - [ "pos", "int" ]       #Remaining are the clustering
+  "ValueSpec":
+            - [ "obj", "miobj" ]
+

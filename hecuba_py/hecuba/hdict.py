@@ -12,7 +12,7 @@ from .hnumpy import StorageNumpy
 from hfetch import Hcache
 
 from .IStorage import IStorage
-from .tools import get_istorage_attrs, build_remotely, basic_types, _min_token, _max_token
+from .tools import get_istorage_attrs, build_remotely, basic_types, _min_token, _max_token, storage_id_from_name
 
 
 class EmbeddedSet(set):
@@ -247,60 +247,98 @@ class StorageDict(IStorage, dict):
         """
 
         super().__init__((), name=name, storage_id=storage_id, **kwargs)
+        log.debug("CREATE StorageDict(%s,%s)", primary_keys, columns)
 
-        log.debug("CREATED StorageDict(%s,%s)", primary_keys, columns)
-
+        '''
+        yolandab
+        kwargs of the init should contain metas: all the row in the istorage if exists
+        after super().__init__
+                    if kwargs is empty --> this is a new object
+                        generate build args parsing the _doc_ string or using the parameters
+                        we need to generate the column info of sets with the format to persist it (name--> _set_)
+                        if name or storage id --> call to store_metas
+                    else --> this is an already existing objects
+                        metas and tokens should form the attributes of self
+                        we need to convert the column info of sets to the format in memory ( _set_name --> name)
+            TODO: implement a cleaner version of embedded sets
+        '''
+        build_column = None
+        build_keys = None
         if self.__doc__ is not None:
             self._persistent_props = self._parse_comments(self.__doc__)
             self._primary_keys = self._persistent_props['primary_keys']
             self._columns = self._persistent_props['columns']
             self._indexed_on = self._persistent_props.get('indexed_on', indexed_on)
-        else:
+
+        # Field '_istorage_metas' will be set if it exists in HECUBA.istorage
+        initialized = (getattr(self, '_istorage_metas', None) is not None)
+        if not initialized and self.__doc__ is None:
+            #info is not in the doc string, should be passed in the parameters
+            if primary_keys == None or columns == None:
+                raise RuntimeError ("StorageDict: missed specification. Type of Primary Key or Column undefined")
             self._primary_keys = primary_keys
-            set_pks = []
-            normal_columns = []
-            for column_name, column_type in columns:
-                if column_name.find("_set_") != -1:
-                    set_pks.append((column_name.replace("_set_", ""), column_type))
-                else:
-                    normal_columns.append((column_name, column_type))
-            if set_pks:
-                self._columns = [{"type": "set", "columns": set_pks}]
-            else:
-                self._columns = columns
+            self._columns = columns
             self._indexed_on = indexed_on
 
-        self._has_embedded_set = False
-        build_column = []
-        columns = []
-        for col in self._columns:
-            if isinstance(col, dict):
-                types = col["columns"]
-                if col["type"] == "set":
-                    self._has_embedded_set = True
-                    for t in types:
-                        build_column.append(("_set_" + t[0], t[1]))
+        if initialized: #object already in istorage
+
+            # if (primary_keys is not None or columns is not None):
+            #    raise RuntimeError("StorageDict: Trying to define a new schema, but it is already persistent")
+            #    --> this check would be necessary if passing columns/key spec
+            #    as parameter was part of the user interface. As it is intended
+            #    just for internal use we skip this check. If the spec does not
+            #    match the actual schema access to the object will fail.
+
+            if getattr(self, "_persistent_props", None) is not None: # __doc__ and disk: do they match?
+                self._check_schema_and_raise("__init__")
+
+            else: # _persistent_props == None (only in disk)
+                # Parse _istorage_metas to fulfill the _primary_keys, _columns
+                self._primary_keys = self._istorage_metas.primary_keys
+                self._columns = self._istorage_metas.columns
+                build_column = self._columns # Keep a copy from the disk to avoid recalculate it later
+                build_keys = self._primary_keys # Keep a copy from the disk to avoid recalculate it later
+                self._indexed_on = self._istorage_metas.indexed_on
+                #we manipulate the info about sets retrieved from istorage
+                # (_set_s1_0,int), (_set_s1_1,int) --> {name: s1, type: set , column:((s1_0, int), (s1_1, int))}
+                has_embedded_set = False
+                set_pks = []
+                normal_columns = []
+                for column_name, column_type in self._columns:
+                    if column_name.find("_set_") == 0:
+                        attr_name=column_name[5:] # Remove '_set_' The attribute name also contains the "column_name" needed later...
+                        set_pks.append((attr_name, column_type))
+                        has_embedded_set = True
+                    else:
+                        normal_columns.append((column_name, column_type))
+                if has_embedded_set: # Embedded set has a different layout {name,type:set, columns:[(name,type),(name,type)]}
+                    column_name = attr_name.split("_",1)[0] # Get the 1st name (attr_1, attr_2... -> attr or attr -> attr)
+                    self._columns = [{"name": column_name, "type": "set", "columns": set_pks}]
                 else:
-                    build_column.append((col["name"], col["type"]))
-                columns.append(col)
-            else:
-                columns.append({"type": col[1], "name": col[0]})
-                build_column.append(col)
+                    self._columns = [{"type": col[1], "name": col[0]} for col in normal_columns]
 
-        self._columns = columns[:]
+
+        # COMMON CODE: new and instantiation
+        # Special case:Do we have an embedded set?
+        self._has_embedded_set = False
+        if isinstance(self._columns[0], dict):
+            if self._columns[0]['type'] == 'set':
+                self._has_embedded_set = True
+
         self._primary_keys = [{"type": key[1], "name": key[0]} if isinstance(key, tuple) else key
-                              for key in self._primary_keys]
-        build_keys = [(key["name"], key["type"]) for key in self._primary_keys]
-
-        key_names = [col["name"] for col in self._primary_keys]
+                                for key in self._primary_keys]
+        self._columns = [{"type": col[1], "name": col[0]} if isinstance(col, tuple) else col
+                                for col in self._columns]
+        # POST: _primary_keys and _columns are list of DICTS> [ {name:..., type:...}, {name:..., type:set, columns:[(name,type),...]},...]
+        log.debug("CREATED StorageDict(%s,%s)", self._primary_keys, self._columns)
+        key_names = [key["name"] for key in self._primary_keys]
         column_names = [col["name"] for col in self._columns]
-
-        self._item_builder = namedtuple('row', key_names + column_names)
 
         if len(key_names) > 1:
             self._key_builder = namedtuple('row', key_names)
-        else:
+        else: # 1
             self._key_builder = None
+
         if self._has_embedded_set:
             set_names = [colname for (colname, dt) in self._get_set_types()]
             self._column_builder = namedtuple('row', set_names)
@@ -313,17 +351,31 @@ class StorageDict(IStorage, dict):
 
         class_name = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
 
-        if build_column is None:
-            build_column = self._columns[:]
+        if build_keys == None:
+            build_keys = [(key["name"], key["type"]) for key in self._primary_keys]
+
+        # Define 'build_column': it will contain the column info stored in istorage. For the sets we manipulate the parsed data
+        if build_column == None:
+            build_column = []
+            for col in self._columns:
+                if col["type"] == "set":
+                    types = col["columns"]
+                    for t in types:
+                        build_column.append(("_set_" + t[0], t[1]))
+                else:
+                    build_column.append((col["name"], col["type"]))
+
 
         self._build_args = self.args(self._get_name(), build_keys, build_column, self._tokens,
                                      self.storage_id, self._indexed_on, class_name, self._built_remotely)
 
-        if storage_id and not name:
-            name = get_istorage_attrs(storage_id)[0].name
-
-        if name or storage_id:
-            self._persist_data(name)
+        if name and storage_id and (storage_id != storage_id_from_name(name)): # instantiating an splitted object
+            self._persist_metadata()
+        elif name or storage_id: # instantiating a persistent object
+            if initialized: # already existint
+                self._setup_hcache()
+            else: # new object
+                self._persist_metadata()
 
     @classmethod
     def _parse_comments(self, comments):
@@ -407,10 +459,11 @@ class StorageDict(IStorage, dict):
     def _persist_data_from_memory(self):
         for k, v in super().items():
             self[k] = v
-        super().clear()
+        if config.max_cache_size != 0: #if C++ cache is enabled, clear Python memory, otherwise keep it
+            super().clear()
 
-    def _flush_to_storage(self):
-        super()._flush_to_storage()
+    def sync(self):
+        super().sync()
         self._hcache.flush()
 
     def _setup_hcache(self):
@@ -496,6 +549,17 @@ class StorageDict(IStorage, dict):
         """
         return self.keys()
 
+    def _persist_metadata(self):
+        """
+        Private Method to create tables, setup the cache and store the metadata
+        of a StorageDict.
+        Used for NEW storage dicts, that do no need to persist any data.
+        """
+        if not self._built_remotely:
+            self._create_tables()
+        self._setup_hcache()
+        StorageDict._store_meta(self._build_args)
+
     def _persist_data(self, name):
         """
         Private Method to store a StorageDict into cassandra
@@ -507,15 +571,8 @@ class StorageDict(IStorage, dict):
         # Update local StorageDict metadata
         self._build_args = self._build_args._replace(storage_id=self.storage_id, name=self._ksp + "." + self._table,
                                                      tokens=self._tokens)
-
-        if not self._built_remotely:
-            self._create_tables()
-
-        self._setup_hcache()
-
+        self._persist_metadata()
         self._persist_data_from_memory()
-
-        StorageDict._store_meta(self._build_args)
 
     def make_persistent(self, name):
         """
@@ -526,6 +583,8 @@ class StorageDict(IStorage, dict):
             name:
         """
         super().make_persistent(name)
+        if getattr(self, "_istorage_metas", None) is not None:
+            self._check_schema_and_raise("make_persistent")
         self._persist_data(name)
 
     def stop_persistent(self):
@@ -541,7 +600,7 @@ class StorageDict(IStorage, dict):
         """
         Method to empty all data assigned to a StorageDict.
         """
-        self._flush_to_storage()
+        self.sync()
         super().delete_persistent()
         log.debug('DELETE PERSISTENT: %s', self._table)
         query = "DROP TABLE %s.%s;" % (self._ksp, self._table)
@@ -572,6 +631,53 @@ class StorageDict(IStorage, dict):
         else:
             return EmbeddedSet(self, list(key), val)
 
+    def _check_schema_and_raise(self, txt):
+        """
+        Raises an exception if the schema stored in the database does not match
+        with the description of the object in memory. This may happen if the
+        user specifies an already used name for its data.
+        PRE:
+            self._istorage_metas contains a list of tuples (name, type)
+            self._primary_keys contains a list of tuples (name, type) or list of dicts {'name':value, 'type':value}
+            self._columns may contain:
+                        a list of tuples (name, type) or
+                        a list of dicts {'name':value, 'type':value}  or
+                        a list of dicts with a set {'name':value, 'type':'set','columns':[(name1,type1),....]}
+        """
+        # TODO: Change parser to have a consistent behaviour
+        # try to send a useful message if it is a problem with a mismatched schema
+        if getattr(self, "_istorage_metas", None) is None:
+            self._istorage_metas = get_istorage_attrs(self.storage_id)
+
+        if len(self._primary_keys) != len(self._istorage_metas.primary_keys):
+            raise RuntimeError("StorageDict: {}: key Metadata does not match specification. Trying {} but stored specification {}".format(txt, self._primary_keys, self._istorage_metas.primary_keys))
+        pk = [{"type": key[1], "name": key[0]} if isinstance(key, tuple) else key
+                                for key in self._primary_keys]
+
+        for pos, key in enumerate(pk):
+            if self._istorage_metas.primary_keys[pos][0] != key['name'] or self._istorage_metas.primary_keys[pos][1] != key['type']:
+                raise RuntimeError("StorageDict: {}: key Metadata does not match specification. Trying {} but stored specification {}".format(txt, self._primary_keys, self._istorage_metas.primary_keys))
+
+
+        columns = self._columns
+        # Treat the embedded set case...
+        if type(self._columns[0]) == dict:
+            if self._columns[0]['type'] == 'set':
+                columns = self._columns[0]['columns']
+        if len(columns) != len(self._istorage_metas.columns):
+            raise RuntimeError("StorageDict: {}: column Metadata does not match specification. Trying {} but stored specification {}".format(txt, self._columns, self._istorage_metas.columns))
+        columns = [{"type": col[1], "name": col[0]} if isinstance(col, tuple) else col
+                                for col in columns]
+        for pos, val in enumerate(columns):
+            #istorage_metas.columns[pos] -->[(_set_s1_0,int),(_set_s1_1,int)]
+            mykey = self._istorage_metas.columns[pos][0]
+            mytype= self._istorage_metas.columns[pos][1]
+
+            if mykey.find("_set_") == 0:
+                mykey = mykey[5:] # Skip the '_set_' '_set_s1_0' ==> 's1_0' TODO Change the set identification method
+            if (mykey != val['name']) or (mytype != val['type']):
+                raise RuntimeError("StorageDict: {}: column Metadata does not match specification. Trying {} but stored specification {}".format(txt, self._columns, self._istorage_metas.columns))
+
     def __getitem__(self, key):
         """
         If the object is persistent, each request goes to the hfetch.
@@ -588,7 +694,15 @@ class StorageDict(IStorage, dict):
             return self.__create_embeddedset(key=key)
         else:
             # Returns always a list with a single entry for the key
+            if config.max_cache_size == 0: # if C++ cache is disabled, use Python memory
+                try:
+                    result = dict.__getitem__(self, key)
+                    return result
+                except:
+                    pass
+
             persistent_result = self._hcache.get_row(self._make_key(key))
+
             log.debug("GET ITEM %s[%s]", persistent_result, persistent_result.__class__)
 
             # we need to transform UUIDs belonging to IStorage objects and rebuild them
@@ -632,7 +746,7 @@ class StorageDict(IStorage, dict):
         if isinstance(val, list):
             vals_istorage = []
             for element in val:
-                if isinstance(element, np.ndarray):
+                if isinstance(element, np.ndarray) and not isinstance(element, StorageNumpy):
                     val_istorage = StorageNumpy(element)
                 else:
                     val_istorage = element
@@ -652,11 +766,14 @@ class StorageDict(IStorage, dict):
             val = self.__make_val_persistent(val)
             self._hcache.put_row(self._make_key(key), self._make_value(val))
 
+            if config.max_cache_size == 0: # If C++ cache is disabled, use python memory
+                dict.__setitem__(self,key,val)
+
     def __len__(self):
         if not self.storage_id:
             return super().__len__()
 
-        self._flush_to_storage()
+        self.sync()
         if self._tokens[0][0] == _min_token and self._tokens[-1][1] == _max_token:
             query = f"SELECT COUNT(*) FROM {self._ksp}.{self._table}"
             return self._count_elements(query)
@@ -721,7 +838,7 @@ class StorageDict(IStorage, dict):
                 dict.keys(self)
         """
         if self.storage_id:
-            self._flush_to_storage()
+            self.sync()
             ik = self._hcache.iterkeys(config.prefetch_size)
             iterator = NamedIterator(ik, self._key_builder, self)
             if self._has_embedded_set:
@@ -741,7 +858,7 @@ class StorageDict(IStorage, dict):
                 dict.items(self)
         """
         if self.storage_id:
-            self._flush_to_storage()
+            self.sync()
             ik = self._hcache.iteritems(config.prefetch_size)
             iterator = NamedItemsIterator(self._key_builder,
                                           self._column_builder,
@@ -774,7 +891,7 @@ class StorageDict(IStorage, dict):
                 dict.values(self)
         """
         if self.storage_id:
-            self._flush_to_storage()
+            self.sync()
             if self._has_embedded_set:
                 items = self.items()
                 return dict(items).values()
@@ -792,6 +909,9 @@ class StorageDict(IStorage, dict):
         return value
 
     def _get_set_types(self):
+        """
+        Returns a list of tuples (name,type) for the types of the set
+        """
         if self._has_embedded_set:
             set_types = [col.get("columns", []) for col in self._columns if isinstance(col, dict)]
             return sum(set_types, [])

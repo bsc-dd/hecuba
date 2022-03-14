@@ -33,6 +33,9 @@ public:
 
     void write_to_cassandra(void *keys, void *values);
 
+    // Overload 'write_to_casandra' to write a single column (instead of all the columns)
+    void write_to_cassandra(void *keys, void *values , const char *value_name);
+
     void wait_writes_completion(void);
 
     void set_error_occurred(std::string error, const void *keys, const void *values);

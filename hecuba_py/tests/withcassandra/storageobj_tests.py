@@ -175,7 +175,7 @@ class StorageObjTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        config.session.execute("DROP KEYSPACE IF EXISTS {}".format(config.execution_name), timeout=60)
+        #config.session.execute("DROP KEYSPACE IF EXISTS {}".format(config.execution_name), timeout=60)
         config.execution_name = cls.old
 
     def setUp(self):
@@ -190,7 +190,7 @@ class StorageObjTest(unittest.TestCase):
         time.sleep(1)
         tablename="test_build_remotely"
         obj = TestStorageObj(config.execution_name + "." + tablename)
-        r = {"built_remotely": False, "storage_id": uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename),
+        r = {"built_remotely": False, "storage_id": uuid.uuid5(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename),
              "ksp": config.execution_name,
              "class_name": str(TestStorageObj.__module__) + "." + TestStorageObj.__name__, "name": tablename,
              "columns": [('val1', 'str')], "entry_point": 'localhost', "primary_keys": [('pk1', 'int')],
@@ -200,7 +200,7 @@ class StorageObjTest(unittest.TestCase):
         nopars = build_remotely(r)
         self.assertEqual('TestStorageObj'.lower(), nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
-        self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename), nopars.storage_id)
+        self.assertEqual(uuid.uuid5(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename), nopars.storage_id)
         name, tkns = \
             config.session.execute("SELECT name, tokens FROM hecuba.istorage WHERE storage_id = %s",
                                    [nopars.storage_id])[
@@ -216,7 +216,7 @@ class StorageObjTest(unittest.TestCase):
         time.sleep(1)
 
         tablename = 'test_init_create_pdict'
-        r = {"built_remotely": False, "storage_id": uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename),
+        r = {"built_remotely": False, "storage_id": uuid.uuid5(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename),
              "ksp": config.execution_name,
              "class_name": str(TestStorageObj.__module__) + "." + TestStorageObj.__name__, "name": tablename,
              "columns": [('val1', 'str')], "entry_point": 'localhost', "primary_keys": [('pk1', 'int')],
@@ -227,7 +227,7 @@ class StorageObjTest(unittest.TestCase):
         self.assertEqual(nopars._built_remotely, False)
         self.assertEqual('TestStorageObj'.lower(), nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
-        self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename), nopars.storage_id)
+        self.assertEqual(uuid.uuid5(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename), nopars.storage_id)
         name, tkns = \
             config.session.execute("SELECT name,tokens FROM hecuba.istorage WHERE storage_id = %s",
                                    [nopars.storage_id])[0]
@@ -243,7 +243,7 @@ class StorageObjTest(unittest.TestCase):
                         tokens=tkns)
         self.assertEqual('Result'.lower(), nopars._table)
         self.assertEqual(config.execution_name, nopars._ksp)
-        self.assertEqual(uuid.uuid3(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename2), nopars.storage_id)
+        self.assertEqual(uuid.uuid5(uuid.NAMESPACE_DNS, config.execution_name + '.' + tablename2), nopars.storage_id)
         self.assertEqual(True, nopars._is_persistent)
         self.assertTrue(hasattr(nopars, 'instances'))
         name, read_tkns = config.session.execute("SELECT name,tokens FROM hecuba.istorage WHERE storage_id = %s",
@@ -850,6 +850,8 @@ class StorageObjTest(unittest.TestCase):
         my_nested_so.test2[0].age = 10
         self.assertEquals(10, my_nested_so.test2[0].age)
 
+        my_nested_so.sync()
+
         del my_nested_so
 
         my_nested_so2 = Test5StorageObj('tnr')
@@ -1412,6 +1414,59 @@ class StorageObjTest(unittest.TestCase):
         d = TestStorageObjDict("test_sobjdict_unnamed")
         self.assertEqual(d.MyAttribute_2[1], "hola")
         self.assertEqual(d.MyAttribute_3[[42,"hola"]], 666)
+
+    def test_so_schemas(self):
+        class tsoschemasModel(StorageObj):
+            '''
+            @ClassField uno str
+            @ClassField dos int
+            '''
+        m = tsoschemasModel()
+        m.uno="hola"
+        m.dos=42
+        m.make_persistent("test_so_schemas")
+
+        class tsoschemasModel2(StorageObj):
+            '''
+            @ClassField uno int
+            @ClassField dos str
+            '''
+        m = tsoschemasModel2()
+        m.uno=42
+        m.dos="hola"
+        with self.assertRaises(RuntimeError):
+            m.make_persistent("test_so_schemas") # Same name, but different schema. SHOULD FAIL
+
+        #class tsoschemasModel(StorageObj):
+        #    '''
+        #    @ClassField uno int
+        #    @ClassField dos str
+        #    '''
+        #m = tsoschemasModel()
+        #m.uno=42
+        #m.dos="hola"
+        #with self.assertRaises(RuntimeError):
+        #    m.make_persistent("test_so_schemas2") # Same classname, but different schema. SHOULD FAIL
+
+        class tsoschemasModel3(StorageObj):
+            '''
+            @ClassField uno int
+            @ClassField dos str
+            @ClassField tres dict<<int>, str>
+            '''
+        m = tsoschemasModel3()
+        m.uno=42
+        m.dos="hola"
+        m.tres[666]="adios"
+        m.make_persistent("test_so_schemas3")
+        m.sync()
+        m = tsoschemasModel3("test_so_schemas3")
+        self.assertEqual(m.uno, 42)
+        self.assertEqual(m.dos, "hola")
+        self.assertEqual(m.tres[666], "adios")
+
+        with self.assertRaises(RuntimeError):
+            m = tsoschemasModel("test_so_schemas3") # Same name, but different schema
 
 if __name__ == '__main__':
     unittest.main()

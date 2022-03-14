@@ -402,26 +402,13 @@ static uint64_t *parse_uuid(PyObject *py_storage_id) {
         PyObject *bytes = PyObject_GetAttrString(py_storage_id, "time_low"); //32b
         if (!bytes) throw TypeErrorException("Error parsing python UUID");
 
-        uint64_t time_low = (uint32_t) PyLong_AsLongLong(bytes);
-
-        bytes = PyObject_GetAttrString(py_storage_id, "time_mid"); //16b
-        uint64_t time_mid = (uint16_t) PyLong_AsLongLong(bytes);
-
-        bytes = PyObject_GetAttrString(py_storage_id, "time_hi_version"); //16b
-        uint64_t time_hi_version = (uint16_t) PyLong_AsLongLong(bytes);
-
-        *uuid = (time_hi_version << 48) + (time_mid << 32) + (time_low);
-
-        bytes = PyObject_GetAttrString(py_storage_id, "clock_seq_hi_variant"); //8b
-        uint64_t clock_seq_hi_variant = (uint64_t) PyLong_AsLongLong(bytes);
-        bytes = PyObject_GetAttrString(py_storage_id, "clock_seq_low"); //8b
-        uint64_t clock_seq_low = (uint64_t) PyLong_AsLongLong(bytes);
-        bytes = PyObject_GetAttrString(py_storage_id, "node"); //48b
-
-
-        *(uuid + 1) = (uint64_t) PyLong_AsLongLong(bytes);
-        *(uuid + 1) += clock_seq_hi_variant << 56;
-        *(uuid + 1) += clock_seq_low << 48;
+        bytes = PyObject_GetAttrString(py_storage_id, "bytes"); //64b
+        if (!bytes)
+            throw TypeErrorException("python UUID bytes not found");
+        char *uuidnum = PyBytes_AsString(bytes);
+        if (!uuidnum)
+            throw TypeErrorException("unable to get python UUID bytes");
+        memcpy(uuid, uuidnum, 16); // Keep the UUID as is (RFC4122)
 
     } else {
         uint32_t len = sizeof(uint64_t) * 2;

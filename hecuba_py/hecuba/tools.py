@@ -8,7 +8,7 @@ basic_types = valid_types[:-1]
 
 
 def storage_id_from_name(name):
-    return uuid.uuid3(uuid.NAMESPACE_DNS, name)
+    return uuid.uuid5(uuid.NAMESPACE_DNS, name)
 
 
 def process_path(module_path):
@@ -43,6 +43,7 @@ _max_token = int(((2 ** 63) - 1))  # type: int
 _min_token = int(-2 ** 63)  # type: int
 
 _select_istorage_meta = config.session.prepare("SELECT * FROM hecuba.istorage WHERE storage_id = ?")
+_select_istorage_meta_by_name = config.session.prepare("SELECT * FROM hecuba.istorage WHERE name = ? allow filtering")
 
 
 def extract_ks_tab(name):
@@ -166,6 +167,10 @@ def count_name_collision(ksp, table, attribute):
 
 def get_istorage_attrs(storage_id):
     return list(config.session.execute(_select_istorage_meta, [storage_id]))
+
+#DEPRECATED method due to split! because it may provide more than one result!
+#def get_istorage_attrs_by_name(name):
+#    return list(config.session.execute(_select_istorage_meta_by_name, [name]))
 
 
 def build_remotely(args):
