@@ -15,6 +15,7 @@ from .tools import extract_ks_tab, get_istorage_attrs, storage_id_from_name, bui
 
 
 class StorageNumpy(IStorage, np.ndarray):
+    USE_FORTRAN_ACCESS=True
     BLOCK_MODE = 1
     COLUMN_MODE = 2
     _build_args = None
@@ -363,7 +364,10 @@ class StorageNumpy(IStorage, np.ndarray):
             else:
                 # StorageNumpy(numpy, None, None)
                 if not StorageNumpy._arrow_enabled(input_array):
-                    obj = np.asarray(input_array).copy().view(cls)
+                    if StorageNumpy.USE_FORTRAN_ACCESS:
+                        obj = np.asfortranarray(input_array.copy()).view(cls) #to set the fortran contiguous flag it is necessary to do the copy before
+                    else:
+                        obj = np.asarray(input_array).copy().view(cls)
                 else:
                     obj = np.asfortranarray(input_array.copy()).view(cls) #to set the fortran contiguous flag it is necessary to do the copy before
                     log.debug("Created ARROW")
@@ -958,6 +962,8 @@ class StorageNumpy(IStorage, np.ndarray):
                 if formato == 0: # If arrow & ZORDER -> FortranOrder
                     formato = 3
                 self._create_tables_arrow(StorageNumpy.get_arrow_name(name))
+            if StorageNumpy.USE_FORTRAN_ACCESS:
+                formato = 3
             self._create_tables(name)
 
         if not getattr(self, '_hcache', None):
