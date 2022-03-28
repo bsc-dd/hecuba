@@ -106,12 +106,7 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
         this->cache = new CacheTable(table_meta, session, config);
         this->cache->get_writer()->enable_lazy_write();
 
-        std::vector<std::map<std::string, std::string>> read_keys_names(keys_names.begin(), (keys_names.end() - 1));
-        std::vector<std::map<std::string, std::string>> read_columns_names = columns_names;
-        read_columns_names.insert(read_columns_names.begin(), keys_names.back());
-
-        table_meta = new TableMetadata(table, keyspace, read_keys_names, read_columns_names, session);
-        this->read_cache = new CacheTable(table_meta, session, config);
+        this->read_cache = this->cache; // TODO Remove 'read_cache' references
 
     } else { // COLUMNAR access...
         if (!arrow_enabled){
@@ -184,7 +179,6 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, std::sha
 
 ArrayDataStore::~ArrayDataStore() {
     delete (this->cache);
-    delete (this->read_cache);
     delete (this->metadata_cache);
     delete (this->metadata_read_cache);
 };
@@ -827,20 +821,12 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
 
 	SpaceFillingCurve::PartitionGenerator *
 	partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, coord);
-	std::set<int32_t> clusters = {};
-
+	std::set<Partition> clusters = {};
 	while (!partitions_it->isDone()) {
-		clusters.insert(partitions_it->computeNextClusterId());
+		clusters.insert(partitions_it->getNextPartition());
 	}
-
-    bool cached = false; // Is there any cluster loaded? Needed to distinguish the case where there is no data at all
-	std::set<int32_t>::iterator it = clusters.begin();
+	std::set<Partition>::iterator it = clusters.begin();
 	for (; it != clusters.end(); ++it) {
-        auto ret = loaded_cluster_ids.insert((uint32_t)*it);
-        if (ret.first == loaded_cluster_ids.end()) {
-            throw ModuleException("ERROR IN SET");
-        }
-        if (ret.second) { // New insert
             buffer = (char *) malloc(keys_size);
             //UUID
             c_uuid = new uint64_t[2]{*storage_id, *(storage_id + 1)};
@@ -849,25 +835,26 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
             memcpy(buffer, &c_uuid, sizeof(uint64_t *));
             offset = sizeof(uint64_t *);
             //Cluster id
-            memcpy(buffer + offset, &(*it), sizeof(*it));
+            memcpy(buffer + offset, &(*it).cluster_id, sizeof((*it).cluster_id));
+            //JJblock_id
+            offset += sizeof((*it).cluster_id);
+            memcpy(buffer + offset, &(*it).block_id, sizeof((*it).block_id));
+
             //We fetch the data
             TupleRow *block_key = new TupleRow(keys_metas, keys_size, buffer);
             result = read_cache->get_crow(block_key);
             delete (block_key);
             //build cluster
             all_results.insert(all_results.end(), result.begin(), result.end());
-            for (const TupleRow *row:result) {
-                block = (int32_t *) row->get_element(0);
-                char **chunk = (char **) row->get_element(1);
+            for (const TupleRow *row:result) { // A single row should be returned
+                //block = (int32_t *) row->get_element(0);
+                char **chunk = (char **) row->get_element(0);
                 all_partitions.emplace_back(
-                        Partition((uint32_t) *it + half_int, (uint32_t) *block + half_int, *chunk));
+                        Partition((uint32_t) (*it).cluster_id + half_int, (uint32_t) (*it).block_id + half_int, *chunk));
             }
-        } else {
-            cached = true;
-        }
 	}
 
-	if (all_partitions.empty() && !cached) {
+	if (all_partitions.empty()) {
 		throw ModuleException("no npy found on sys");
 	}
 	partitions_it->merge_partitions(metadata, all_partitions, save);
