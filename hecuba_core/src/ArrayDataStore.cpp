@@ -821,11 +821,11 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
 
 	SpaceFillingCurve::PartitionGenerator *
 	partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, coord);
-	std::set<Partition> clusters = {};
+	std::list<Partition> clusters = {};
 	while (!partitions_it->isDone()) {
-		clusters.insert(partitions_it->getNextPartition());
+		clusters.push_back(partitions_it->getNextPartition());
 	}
-	std::set<Partition>::iterator it = clusters.begin();
+	std::list<Partition>::iterator it = clusters.begin();
 	for (; it != clusters.end(); ++it) {
             buffer = (char *) malloc(keys_size);
             //UUID
