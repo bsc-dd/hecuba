@@ -127,13 +127,13 @@ void HecubaSession::parse_environment(config_map &config) {
     if (nodePort == nullptr) {
         nodePort = "9042";
     }
-    config["NODE_PORT"] = std::string(nodePort);
+    config["node_port"] = std::string(nodePort);
 
     const char * contactNames = std::getenv("CONTACT_NAMES");
     if (contactNames == nullptr) {
         contactNames = "127.0.0.1";
     }
-    config["CONTACT_NAMES"] = std::string(contactNames);
+    config["contact_names"] = std::string(contactNames);
 
     const char * createSchema = std::getenv("CREATE_SCHEMA");
     std::string createSchema2 ;
@@ -144,13 +144,13 @@ void HecubaSession::parse_environment(config_map &config) {
         std::transform(createSchema2.begin(), createSchema2.end(), createSchema2.begin(),
                 [](unsigned char c){ return std::tolower(c); });
     }
-    config["CREATE_SCHEMA"] = createSchema2;
+    config["create_schema"] = createSchema2;
 
     const char * executionName = std::getenv("EXECUTION_NAME");
     if (executionName == nullptr) {
         executionName = "my_app";
     }
-    config["EXECUTION_NAME"] = std::string(executionName);
+    config["execution_name"] = std::string(executionName);
 
     const char * timestampedWrites = std::getenv("TIMESTAMPED_WRITES");
     std::string timestampedWrites2;
@@ -161,50 +161,50 @@ void HecubaSession::parse_environment(config_map &config) {
         std::transform(timestampedWrites2.begin(), timestampedWrites2.end(), timestampedWrites2.begin(),
                 [](unsigned char c){ return std::tolower(c); });
     }
-    config["TIMESTAMPED_WRITES"] = timestampedWrites2;
+    config["timestamped_writes"] = timestampedWrites2;
 
         //{"writer_buffer",      std::to_string(writer_queue)},??? == WRITE_BUFFER_SIZE?
     const char * writeBufferSize = std::getenv("WRITE_BUFFER_SIZE");
     if (writeBufferSize == nullptr) {
         writeBufferSize = "1000";
     }
-    config["WRITE_BUFFER_SIZE"] = std::string(writeBufferSize);
+    config["write_buffer_size"] = std::string(writeBufferSize);
 
         ///writer_par ==> 'WRITE_CALLBACKS_NUMBER'
     const char *writeCallbacksNum = std::getenv("WRITE_CALLBACKS_NUMBER");
     if (writeCallbacksNum == nullptr) {
         writeCallbacksNum = "16";
     }
-    config["WRITE_CALLBACKS_NUMBER"] = std::string(writeCallbacksNum);
+    config["write_callbacks_number"] = std::string(writeCallbacksNum);
 
     const char * cacheSize = std::getenv("MAX_CACHE_SIZE");
     if (cacheSize == nullptr) {
         cacheSize = "1000";
     }
-    config["MAX_CACHE_SIZE"] = std::string(cacheSize);
+    config["max_cache_size"] = std::string(cacheSize);
 
     const char *replicationFactor = std::getenv("REPLICA_FACTOR");
     if (replicationFactor == nullptr) {
         replicationFactor = "1";
     }
-    config["REPLICA_FACTOR"] = std::string(replicationFactor);
+    config["replica_factor"] = std::string(replicationFactor);
 
     const char *replicationStrategy = std::getenv("REPLICATION_STRATEGY");
     if (replicationStrategy == nullptr) {
         replicationStrategy = "SimpleStrategy";
     }
-    config["REPLICATION_STRATEGY"] = std::string(replicationStrategy);
+    config["replication_strategy"] = std::string(replicationStrategy);
 
     const char *replicationStrategyOptions = std::getenv("REPLICATION_STRATEGY_OPTIONS");
     if (replicationStrategyOptions == nullptr) {
         replicationStrategyOptions = "";
     }
-    config["REPLICATION_STRATEGY_OPTIONS"] = replicationStrategyOptions;
+    config["replication_strategy_options"] = replicationStrategyOptions;
 
-    if (config["REPLICATION_STRATEGY"] == "SimpleStrategy") {
-        config["REPLICATION"] = std::string("{'class' : 'SimpleStrategy', 'replication_factor': ") + config["REPLICA_FACTOR"] + "}";
+    if (config["replication_strategy"] == "SimpleStrategy") {
+        config["replication"] = std::string("{'class' : 'SimpleStrategy', 'replication_factor': ") + config["replica_factor"] + "}";
     } else {
-        config["REPLICATION"] = std::string("{'class' : '") + config["REPLICATION_STRATEGY"] + "', " + config["REPLICATION_STRATEGY_OPTIONS"] + "}";
+        config["replication"] = std::string("{'class' : '") + config["replication_strategy"] + "', " + config["replication_strategy_options"] + "}";
     }
 }
 
@@ -371,7 +371,7 @@ void HecubaSession::createSchema(void) {
     // Create hecuba
     std::vector<std::string> queries;
     std::string create_hecuba_keyspace = std::string(
-            "CREATE KEYSPACE IF NOT EXISTS hecuba  WITH replication = ") +  config["REPLICATION"];
+            "CREATE KEYSPACE IF NOT EXISTS hecuba  WITH replication = ") +  config["replication"];
     queries.push_back(create_hecuba_keyspace);
     std::string create_hecuba_qmeta = std::string(
             "CREATE TYPE IF NOT EXISTS hecuba.q_meta("
@@ -404,8 +404,8 @@ void HecubaSession::createSchema(void) {
     queries.push_back(create_hecuba_istorage);
     // Create keyspace EXECUTION_NAME
     std::string create_keyspace = std::string(
-            "CREATE KEYSPACE IF NOT EXISTS ") + config["EXECUTION_NAME"] +
-        std::string(" WITH replication = ") +  config["REPLICATION"];
+            "CREATE KEYSPACE IF NOT EXISTS ") + config["execution_name"] +
+        std::string(" WITH replication = ") +  config["replication"];
     queries.push_back(create_keyspace);
 
     for(auto q: queries) {
@@ -429,10 +429,10 @@ HecubaSession::HecubaSession() : currentDataModel(NULL) {
 
 
     /* Establish connection */
-    this->storageInterface = std::make_shared<StorageInterface>(stoi(config["NODE_PORT"]), config["CONTACT_NAMES"]);
-    //this->storageInterface = new StorageInterface(stoi(config["NODE_PORT"]), config["CONTACT_NAMES"]);
+    this->storageInterface = std::make_shared<StorageInterface>(stoi(config["node_port"]), config["contact_names"]);
+    //this->storageInterface = new StorageInterface(stoi(config["node_port"]), config["contact_names"]);
 
-    if (this->config["CREATE_SCHEMA"] == "true") {
+    if (this->config["create_schema"] == "true") {
         createSchema();
     }
 
@@ -582,16 +582,16 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 // StorageObj case
                 //  Create table 'class_name' "CREATE TABLE ksp.class_name (storage_id UUID, nom typ, ... PRIMARY KEY (storage_id))"
                 std::string query = "CREATE TABLE IF NOT EXISTS " +
-                    config["EXECUTION_NAME"] + "." + id_model +
+                    config["execution_name"] + "." + id_model +
                     oType.table_attr;
 
                 CassError rc = run_query(query);
                 if (rc != CASS_OK) {
                     if (rc == CASS_ERROR_SERVER_INVALID_QUERY) { // keyspace does not exist
-                        std::cout<< "HecubaSession Creating keyspace "<< config["EXECUTION_NAME"]<< std::endl;
+                        std::cout<< "HecubaSession Creating keyspace "<< config["execution_name"]<< std::endl;
                         std::string create_keyspace = std::string(
-                                "CREATE KEYSPACE IF NOT EXISTS ") + config["EXECUTION_NAME"] +
-                            std::string(" WITH replication = ") +  config["REPLICATION"];
+                                "CREATE KEYSPACE IF NOT EXISTS ") + config["execution_name"] +
+                            std::string(" WITH replication = ") +  config["replication"];
                         rc = run_query(create_keyspace);
                         if (rc != CASS_OK) {
                             std::string msg = std::string("HecubaSession:: Error executing query ") + create_keyspace;
@@ -610,7 +610,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 }
                 // Table for storageobj class created
                 // Add entry to ISTORAGE: TODO add the tokens attribute
-                std::string name = config["EXECUTION_NAME"] + "." + id_object;
+                std::string name = config["execution_name"] + "." + id_object;
                 std::string insquery = std::string("INSERT INTO ") +
                     std::string("hecuba.istorage") +
                     std::string("(storage_id, name, class_name, columns)") +
@@ -627,12 +627,12 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 std::vector<config_map>* keyNamesDict = oType.getKeysNamesDict();
                 std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
 
-                Writer *writer = storageInterface->make_writer(id_model, config["EXECUTION_NAME"].c_str(),
+                Writer *writer = storageInterface->make_writer(id_model, config["execution_name"].c_str(),
                           *keyNamesDict, *colNamesDict,
                           config);
                 delete keyNamesDict;
                 delete colNamesDict;
-                o = new IStorage(this, id_model, config["EXECUTION_NAME"] + "." + id_object, c_uuid, writer);
+                o = new IStorage(this, id_model, config["execution_name"] + "." + id_object, c_uuid, writer);
 
             }
             break;
@@ -642,7 +642,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 //  Create table 'name' "CREATE TABLE ksp.name (nom typ, nom typ, ... PRIMARY KEY (nom, nom))"
                 bool new_element = true;
                 std::string query = "CREATE TABLE " +
-                    config["EXECUTION_NAME"] + "." + id_object +
+                    config["execution_name"] + "." + id_object +
                     oType.table_attr;
 
                 CassError rc = run_query(query);
@@ -650,10 +650,10 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                     if (rc == CASS_ERROR_SERVER_ALREADY_EXISTS ) {
                         new_element = false; //OOpps, creation failed. It is an already existent object.
                     } else if (rc == CASS_ERROR_SERVER_INVALID_QUERY) {
-                        std::cout<< "HecubaSession Creating keyspace "<< config["EXECUTION_NAME"]<< std::endl;
+                        std::cout<< "HecubaSession Creating keyspace "<< config["execution_name"]<< std::endl;
                         std::string create_keyspace = std::string(
-                                "CREATE KEYSPACE IF NOT EXISTS ") + config["EXECUTION_NAME"] +
-                            std::string(" WITH replication = ") +  config["REPLICATION"];
+                                "CREATE KEYSPACE IF NOT EXISTS ") + config["execution_name"] +
+                            std::string(" WITH replication = ") +  config["replication"];
                         rc = run_query(create_keyspace);
                         if (rc != CASS_OK) {
                             std::string msg = std::string("HecubaSession:: Error executing query ") + create_keyspace;
@@ -677,7 +677,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
 
                 if (new_element) {
                     //  Add entry to hecuba.istorage: TODO add the tokens attribute
-                    std::string name = config["EXECUTION_NAME"] + "." + id_object;
+                    std::string name = config["execution_name"] + "." + id_object;
                     // TODO EXPECTED:vvv NOW HARDCODED
                     //classname = id_model
                     // keys = {c_uuid}, values={name, class_name, primary_keys, columns } # no tokens, no numpy_meta, ...
@@ -714,19 +714,19 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
 
 
-                Writer *writer = storageInterface->make_writer(id_object, config["EXECUTION_NAME"].c_str(),
+                Writer *writer = storageInterface->make_writer(id_object, config["execution_name"].c_str(),
                           *keyNamesDict, *colNamesDict,
                           config);
                 delete keyNamesDict;
                 delete colNamesDict;
-                o = new IStorage(this, id_model, config["EXECUTION_NAME"] + "." + id_object, c_uuid, writer);
+                o = new IStorage(this, id_model, config["execution_name"] + "." + id_object, c_uuid, writer);
             }
             break;
 
         case ObjSpec::valid_types::STORAGENUMPY_TYPE:
             {
                 // Create table
-                std::string query = "CREATE TABLE IF NOT EXISTS " + config["EXECUTION_NAME"] + "." + id_object +
+                std::string query = "CREATE TABLE IF NOT EXISTS " + config["execution_name"] + "." + id_object +
                     " (storage_id uuid, cluster_id int, block_id int, payload blob, "
                     "PRIMARY KEY((storage_id,cluster_id),block_id)) "
                     "WITH compaction = {'class': 'SizeTieredCompactionStrategy', 'enabled': false};";
@@ -734,7 +734,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 this->run_query(query);
 
                 // StorageNumpy
-                ArrayDataStore *array_store = new ArrayDataStore(id_object, config["EXECUTION_NAME"].c_str(),
+                ArrayDataStore *array_store = new ArrayDataStore(id_object, config["execution_name"].c_str(),
                         this->storageInterface->get_session(), config);
                 //std::cout << "DEBUG: HecubaSession::createObject After ArrayDataStore creation " <<std::endl;
 
@@ -752,7 +752,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 array_store->wait_stores();
 
                 // TODO: el writer para pasarselo al istorage esta en la cache table del array datastor: anaydir getCache al arraydatastore
-                o = new IStorage(this, id_model, config["EXECUTION_NAME"] + "." + id_object, c_uuid, array_store->getWriteCache()->get_writer());
+                o = new IStorage(this, id_model, config["execution_name"] + "." + id_object, c_uuid, array_store->getWriteCache()->get_writer());
 
             }
             break;
