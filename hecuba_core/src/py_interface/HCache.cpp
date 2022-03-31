@@ -222,6 +222,11 @@ static PyObject *flush(HCache *self, PyObject *args) {
     Py_RETURN_NONE;
 }
 
+static PyObject * enable_stream(HCache *self, PyObject *args);
+static PyObject * enable_stream_producer(HCache *self);
+static PyObject * enable_stream_consumer(HCache *self);
+static PyObject * poll(HCache *self);
+
 static void hcache_dealloc(HCache *self) {
     delete (self->keysParser);
     delete (self->valuesParser);
@@ -334,14 +339,18 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
 
 
 static PyMethodDef hcache_type_methods[] = {
-        {"get_row",    (PyCFunction) get_row,            METH_VARARGS, NULL},
-        {"put_row",    (PyCFunction) put_row,            METH_VARARGS, NULL},
-        {"delete_row", (PyCFunction) delete_row,         METH_VARARGS, NULL},
-        {"flush",      (PyCFunction) flush,              METH_VARARGS, NULL},
-        {"iterkeys",   (PyCFunction) create_iter_keys,   METH_VARARGS, NULL},
-        {"itervalues", (PyCFunction) create_iter_values, METH_VARARGS, NULL},
-        {"iteritems",  (PyCFunction) create_iter_items,  METH_VARARGS, NULL},
-        {NULL,         NULL,                             0,            NULL}
+        {"get_row",                 (PyCFunction) get_row,              METH_VARARGS, NULL},
+        {"put_row",                 (PyCFunction) put_row,              METH_VARARGS, NULL},
+        {"delete_row",              (PyCFunction) delete_row,           METH_VARARGS, NULL},
+        {"flush",                   (PyCFunction) flush,                METH_VARARGS, NULL},
+        {"iterkeys",                (PyCFunction) create_iter_keys,     METH_VARARGS, NULL},
+        {"itervalues",              (PyCFunction) create_iter_values,   METH_VARARGS, NULL},
+        {"iteritems",               (PyCFunction) create_iter_items,    METH_VARARGS, NULL},
+        {"enable_stream",           (PyCFunction) enable_stream,        METH_VARARGS, NULL},
+        {"enable_stream_producer",  (PyCFunction) enable_stream_producer, METH_NOARGS, NULL},
+        {"enable_stream_consumer",  (PyCFunction) enable_stream_consumer, METH_NOARGS, NULL},
+        {"poll",                    (PyCFunction) poll,                 METH_NOARGS, NULL},
+        {NULL,                      NULL,                               0,            NULL}
 };
 
 
@@ -1539,6 +1548,97 @@ static PyObject *create_iter_items(HCache *self, PyObject *args) {
     return (PyObject *) iter;
 }
 
+static PyObject* enable_stream_producer(HCache *self){
+    self->T->enable_stream_producer();
+    Py_RETURN_NONE;
+}
+
+static PyObject* enable_stream_consumer(HCache *self){
+    self->T->enable_stream_consumer();
+    Py_RETURN_NONE;
+}
+
+static PyObject* enable_stream(HCache *self, PyObject *args) {
+    const char *topic_name;
+    std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: "<< std::endl;
+    PyObject *py_config;
+    if (!PyArg_ParseTuple(args, "sO", &topic_name, &py_config)) {
+        PyErr_SetString(PyExc_RuntimeError, "Unable to parse tuple...");
+        return NULL;
+    }
+    std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: step 1"<< std::endl;
+
+    std::map<std::string, std::string> config;
+    int type_check = PyDict_Check(py_config);
+
+    if (type_check) {
+        PyObject *dict;
+        if (!PyArg_Parse(py_config, "O", &dict)) {
+            return NULL;
+        };
+
+        std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: dict"<< std::endl;
+        PyObject *key, *value;
+        Py_ssize_t pos = 0;
+        while (PyDict_Next(dict, &pos, &key, &value)) {
+            std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: values"<< std::endl;
+            std::string conf_key(PyUnicode_AsUTF8(key));
+            if (PyUnicode_Check(value)) {
+                std::string conf_val(PyUnicode_AsUTF8(value));
+                config[conf_key] = conf_val;
+                std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: key="<< conf_key<< " value="<<conf_val<<std::endl;
+            } else {
+                std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: ERROR value key="<< conf_key<<std::endl;
+            }
+        }
+    } else {
+        PyErr_SetString(PyExc_RuntimeError, "Tried to enable stream dictionary, but unknown Config parameters passed");
+        return NULL;
+    }
+
+    // Enable Stream into writable cache
+    //self->T->get_writer()->enable_stream(topic_name, config);
+    self->T->enable_stream(topic_name, config);
+    Py_RETURN_NONE;
+}
+
+static PyObject* poll(HCache *self) {
+
+    PyObject *py_row;
+    std::vector<const TupleRow *> v;
+    try {
+        v = self->T->poll();
+    }
+    catch (std::exception &e) {
+        std::string error_msg = "Poll error: " + std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+
+    try {
+        if (v.empty()) {
+            PyErr_SetString(PyExc_KeyError, "Poll returns without values");
+            return NULL;
+        }
+        if (self->T->get_metadata()->get_keys()->empty()) {
+            std::vector<const TupleRow *> empty_result(0);
+        }
+        py_row = self->keysParser->make_pylist(v);
+        for (uint32_t i = 0; i < v.size(); ++i) {
+            delete (v[i]);
+        }
+    }
+    catch (TypeErrorException &e) {
+        PyErr_SetString(PyExc_TypeError, e.what());
+        return NULL;
+    }
+    catch (std::exception &e) {
+        std::string error_msg = "Get row, values error: " + std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    return py_row;
+}
 
 static PyObject *create_iter_keys(HCache *self, PyObject *args) {
     PyObject *py_config;

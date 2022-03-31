@@ -152,7 +152,8 @@ IStorage::writeTable(const void* key, void* value, const enum IStorage::valid_wr
     //std::cout << "DEBUG: IStorage::setItem: obtained model for "<<id_model<<std::endl;
 
     std::string value_type;
-    if (ospec.getType() == ObjSpec::valid_types::STORAGEDICT_TYPE) {
+    if ((ospec.getType() == ObjSpec::valid_types::STORAGEDICT_TYPE)
+        || (ospec.getType() == ObjSpec::valid_types::STORAGESTREAM_TYPE)) {
         if (mytype != SETITEM_TYPE) {
             throw ModuleException("IStorage:: Set Item on a non Dictionary is not supported");
         }
@@ -237,4 +238,12 @@ void IStorage::setItem(void* key, void* value) {
 void IStorage::setItem(void* key, IStorage * value){
     /* 'writetable' expects a block of memory with pointers to IStorages, therefore add an indirection */
     writeTable(key, (void *) &value, SETITEM_TYPE);
+}
+
+void IStorage::send(void* key, void* value) {
+    setItem(key, value);
+}
+
+void IStorage::send(void* key, IStorage* value) {
+    setItem(key, value);
 }

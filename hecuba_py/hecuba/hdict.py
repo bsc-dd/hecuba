@@ -503,7 +503,7 @@ class StorageDict(IStorage, dict):
                 len(self._primary_keys) + len(self._get_set_types())):
             return list(key)
         else:
-            raise Exception('wrong primary key')
+            raise Exception('wrong primary key {}'.format(type(key)))
 
     @staticmethod
     def _make_value(value):

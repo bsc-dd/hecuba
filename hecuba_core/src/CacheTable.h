@@ -12,6 +12,7 @@
 #include "TupleRowFactory.h"
 #include "KVCache.h"
 #include "Writer.h"
+#include <librdkafka/rdkafka.h>
 
 
 class CacheTable {
@@ -48,6 +49,13 @@ public:
 
     /*** Get access to the writer ***/
     Writer * get_writer();
+
+    /*** Stream operations ***/
+    void  enable_stream(const char * topic_name, std::map<std::string, std::string> &config);
+    void  enable_stream_producer(void);
+    void  enable_stream_consumer(void);
+    std::vector<const TupleRow *>  poll(void);
+
 private:
 
     std::vector<const TupleRow *> retrieve_from_cassandra(const TupleRow *keys);
@@ -68,7 +76,11 @@ private:
     const TableMetadata *table_metadata;
 
     Writer *writer;
-
+    /*** Stream information ***/
+    char * topic_name;
+    std::map<std::string, std::string> stream_config;
+    rd_kafka_conf_t *kafka_conf;
+    rd_kafka_t *consumer;
 };
 
 #endif //PREFETCHER_CACHE_TABLE_H
