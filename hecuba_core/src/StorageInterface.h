@@ -48,6 +48,11 @@ public:
                         std::vector<config_map> &columns_names,
                         config_map &config);
 
+    Writer *make_writer_stream(const char *table, const char *keyspace,
+                                      std::vector<config_map> &keys_names,
+                                      std::vector<config_map> &columns_names,
+                                      const char* topic,
+                                      config_map &config) ;
 
     Writer *make_writer(const TableMetadata *table_meta,
                         config_map &config);
@@ -81,6 +86,7 @@ public:
 
     char * get_host_per_token(int64_t token);
 
+    rd_kafka_conf_t * create_stream_conf(config_map &config);
 private:
 
     std::vector< struct tokenHost > tokensInCluster;

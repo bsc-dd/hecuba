@@ -16,7 +16,8 @@ public:
 	enum valid_types {
 		STORAGEOBJ_TYPE,
 		STORAGEDICT_TYPE,
-		STORAGENUMPY_TYPE
+		STORAGENUMPY_TYPE,
+        STORAGESTREAM_TYPE
 	};
 
 	std::string table_attr; // String to use in table creation with the attributes (keys+cols)
