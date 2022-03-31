@@ -75,6 +75,9 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
     this->dirty_blocks = new tbb::concurrent_hash_map <const TupleRow *, const TupleRow *, Writer::HashCompare >();
     this->finish_async_query_thread = false;
     this->async_query_thread_created = false;
+    this->topic_name = nullptr;
+    this->topic = nullptr;
+    this->producer = nullptr;
 }
 
 
@@ -91,12 +94,86 @@ Writer::~Writer() {
         cass_prepared_free(this->prepared_query);
         prepared_query = NULL;
     }
+    if (this->topic_name) {
+        free(this->topic_name);
+        this->topic_name = NULL;
+        rd_kafka_topic_destroy(this->topic);
+        this->topic = NULL;
+        rd_kafka_destroy(this->producer);
+        this->producer = NULL;
+    }
     delete (this->k_factory);
     delete (this->v_factory);
     delete (this->timestamp_gen);
     delete (this->dirty_blocks);
 }
 
+
+void Writer::enable_stream(rd_kafka_conf_t* conf, const char* topic_name, std::map<std::string, std::string> &config) {
+    if (this->topic_name != nullptr) {
+        throw ModuleException(" Ooops. Stream already initialized");
+    }
+
+    this->topic_name = (char *) malloc(strlen(topic_name) + 1);
+    strcpy(this->topic_name, topic_name);
+
+    char errstr[512];
+
+    /* Create Kafka producer handle */
+    rd_kafka_t *rk;
+    if (!(rk = rd_kafka_new(RD_KAFKA_PRODUCER, conf, errstr, sizeof(errstr)))) {
+          fprintf(stderr, "%% Failed to create new producer: %s\n", errstr);
+            exit(1);
+    }
+
+    // Create topic
+    rd_kafka_topic_t *rkt = rd_kafka_topic_new(rk, topic_name, NULL);
+
+    this->producer = rk;
+    this->topic = rkt;
+}
+
+void Writer::send_event(const TupleRow* key) {
+    if (this->topic_name == NULL) return;
+
+    // We are an stream
+    /* yolandab
+    if (this->producer->produce(this->topic,
+                                RD_KAFKA_PARTITION_UA,
+                                RD_KAFKA_MSG_F_COPY,
+                                key->get_payload(), key->length(),
+                                NULL, 0,
+                                NULL) == -1) {
+        fprintf(stderr, "%% Failed to produce to topic %s: %s\n",
+                this->topic_name, rd_kafka_err2str(rd_kafka_errno2err(errno)));
+    }
+    */
+	rd_kafka_resp_err_t err;
+    size_t keylength=key->length();
+    char * keypayload = (char *) malloc (keylength);
+    memcpy (keypayload, key->get_payload(), keylength);
+	err = rd_kafka_producev(
+                    /* Producer handle */
+                    this->producer,
+                    /* Topic name */
+                    RD_KAFKA_V_TOPIC(this->topic_name),
+                    /* Make a copy of the payload. */
+                    RD_KAFKA_V_MSGFLAGS(RD_KAFKA_MSG_F_COPY),
+                    /* Message value and length */
+                    RD_KAFKA_V_VALUE(keypayload, keylength),
+                    /* Per-Message opaque, provided in
+                     * delivery report callback as
+                     * msg_opaque. */
+                    RD_KAFKA_V_OPAQUE(NULL),
+                    /* End sentinel */
+                    RD_KAFKA_V_END);
+	if (err) {
+        fprintf(stderr, "%% Failed to produce to topic %s: %s\n",
+                this->topic_name, rd_kafka_err2str(rd_kafka_errno2err(errno)));
+	}
+    //fprintf(stderr, "Send event to topic %s\n", this->topic_name);
+
+}
 
 void Writer::set_timestamp_gen(TimestampGenerator *time_gen) {
     delete(this->timestamp_gen);
@@ -143,6 +220,7 @@ void Writer::wait_writes_completion(void) {
     //std::cout<< "Writer::wait_writes_completion2* Waiting for "<< data.size() << " Pending "<<ncallbacks<<" callbacks" <<" inflight"<<std::endl;
 }
 
+
 void Writer::callback(CassFuture *future, void *ptr) {
     void **data = reinterpret_cast<void **>(ptr);
     assert(data != NULL && data[0] != NULL);
@@ -158,6 +236,7 @@ void Writer::callback(CassFuture *future, void *ptr) {
         std::string msg2(dmsg, l);
         W->set_error_occurred("Writer callback: " + message + "  " + msg2, data[1], data[2]);
     } else {
+        W->send_event((TupleRow*) data[1]);
         delete ((TupleRow *) data[1]);
         delete ((TupleRow *) data[2]);
         W->ncallbacks--;

@@ -62,29 +62,37 @@ namespace YAML {
                 dmodel.id=typespec[0].as<std::string>();
                 pythonString="class " + dmodel.id;
 
-                if (typespec[1].as<std::string>() == "StorageDict") {
-                    pythonString="from hecuba import StorageDict\n\n" + pythonString;
-                    obj_type=ObjSpec::valid_types::STORAGEDICT_TYPE;
+                if ((typespec[1].as<std::string>() == "StorageDict") || (typespec[1].as<std::string>() == "StorageStream")){
+                    if (typespec[1].as<std::string>() == "StorageDict") {
+                        pythonString="from hecuba import StorageDict\n\n" + pythonString;
+                        pythonString += " (StorageDict):\n";
+                        obj_type=ObjSpec::valid_types::STORAGEDICT_TYPE;
+                    } else {
+                        pythonString="from hecuba import StorageStream\n\n" + pythonString;
+                        pythonString += " (StorageStream):\n";
+                        obj_type=ObjSpec::valid_types::STORAGESTREAM_TYPE;
+
+                    }
                     const Node keyspec =  node["KeySpec"];
                     if (!keyspec.IsSequence() || (keyspec.size() == 0)) { return false; }
 
-                    pythonString+=" (StorageDict):\n   '''\n   @TypeSpec dict <<";
+                    pythonString+="   '''\n   @TypeSpec dict <<";
 
 
                     if (!keyspec[0].IsSequence() || (keyspec[0].size() != 2)) { return false; }
 
                     attrName=keyspec[0][0].as<std::string>();
                     attrType=keyspec[0][1].as<std::string>();
-                    partitionKeys.push_back(std::pair<std::string,std::string>(attrName,mapUserType(attrType)));
                     pythonString+=attrName+":"+attrType;
+                    partitionKeys.push_back(std::pair<std::string,std::string>(attrName,mapUserType(attrType)));
 
                     for (uint32_t i=1; i<keyspec.size();i++) {
                         if (!keyspec[i].IsSequence() || (keyspec[i].size() != 2)) { return false; }
 
                         attrName=keyspec[i][0].as<std::string>();
                         attrType=keyspec[i][1].as<std::string>();
-                        clusteringKeys.push_back(std::pair<std::string,std::string>(attrName,mapUserType(attrType)));
                         pythonString+=","+attrName+":"+attrType;
+                        clusteringKeys.push_back(std::pair<std::string,std::string>(attrName,mapUserType(attrType)));
                     }
                     pythonString+=">";
                     const Node valuespec =  node["ValueSpec"];
@@ -93,10 +101,11 @@ namespace YAML {
                         if (!valuespec[i].IsSequence() || (valuespec[i].size() != 2)) { return false; }
                         attrName=valuespec[i][0].as<std::string>();
                         attrType=valuespec[i][1].as<std::string>();
-                        cols.push_back(std::pair<std::string,std::string>(attrName,mapUserType(attrType)));
                         pythonString+=","+attrName+":"+attrType;
+                        cols.push_back(std::pair<std::string,std::string>(attrName,mapUserType(attrType)));
                     }
                     pythonString+=">\n   '''";
+
                 } else if (typespec[1].as<std::string>() == "StorageObject") {
                     pythonString="from hecuba import StorageObj\n\n" + pythonString;
                     pythonString=pythonString+" (StorageObj):\n   '''\n";
@@ -108,9 +117,9 @@ namespace YAML {
                     for (uint32_t i=0; i<classfields.size();i++) {
                         if (!classfields[i].IsSequence() || (classfields[i].size() != 2)) { return false; }
                         attrName=classfields[i][0].as<std::string>();
-                        attrType=mapUserType(classfields[i][1].as<std::string>());
-                        cols.push_back(std::pair<std::string,std::string>(attrName,attrType));
+                        attrType=classfields[i][1].as<std::string>();
                         pythonString+="   @ClassField "+attrName+" "+attrType+"\n";
+                        cols.push_back(std::pair<std::string,std::string>(attrName,mapUserType(attrType)));
                         std::cout<<"7-"<<i<<": "<<pythonString<<std::endl;
                     }
                     pythonString+="   '''\n";
@@ -136,6 +145,12 @@ void HecubaSession::parse_environment(config_map &config) {
         contactNames = "127.0.0.1";
     }
     config["contact_names"] = std::string(contactNames);
+
+    const char * kafkaNames = std::getenv("KAFKA_NAMES");
+    if (kafkaNames == nullptr) {
+        kafkaNames = contactNames;
+    }
+    config["kafka_names"] = std::string(kafkaNames);
 
     const char * createSchema = std::getenv("CREATE_SCHEMA");
     std::string createSchema2 ;
@@ -638,6 +653,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
 
             }
             break;
+        case ObjSpec::valid_types::STORAGESTREAM_TYPE:
         case ObjSpec::valid_types::STORAGEDICT_TYPE:
             {
                 // Dictionary case
@@ -716,9 +732,18 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
 
 
-                Writer *writer = storageInterface->make_writer(id_object, config["execution_name"].c_str(),
-                          *keyNamesDict, *colNamesDict,
-                          config);
+                Writer *writer = NULL;
+                std::string topic = std::string(UUID2str(c_uuid));
+
+                if (oType.getType() == ObjSpec::valid_types::STORAGESTREAM_TYPE) {
+                    writer = storageInterface->make_writer_stream(id_object, config["execution_name"].c_str(),
+                            *keyNamesDict, *colNamesDict, topic.c_str(),
+                            config);
+                } else {
+                    writer = storageInterface->make_writer(id_object, config["execution_name"].c_str(),
+                            *keyNamesDict, *colNamesDict,
+                            config);
+                }
                 delete keyNamesDict;
                 delete colNamesDict;
                 o = new IStorage(this, id_model, config["execution_name"] + "." + id_object, c_uuid, writer);

@@ -61,6 +61,9 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
     this->values_factory = new TupleRowFactory(table_meta->get_values());
     this->timestamp_gen = new TimestampGenerator();
     this->writer->set_timestamp_gen(this->timestamp_gen);
+    this->topic_name = nullptr;
+    this->consumer = nullptr;
+    this->kafka_conf = nullptr;
 
     if (cache_size) this->myCache = new KVCache<TupleRow, TupleRow>(cache_size);
 };
@@ -80,6 +83,15 @@ CacheTable::~CacheTable() {
     if (delete_query != NULL) cass_prepared_free(delete_query);
     delete_query = NULL;
     delete (table_metadata);
+    if (topic_name) {
+        free(topic_name);
+        topic_name = nullptr;
+    }
+    if (consumer) {
+        rd_kafka_resp_err_t err;
+        rd_kafka_destroy(consumer);
+        consumer = nullptr;
+    }
 }
 
 
@@ -123,6 +135,129 @@ void CacheTable::add_to_cache(void *keys, void *values) {
 
 Writer * CacheTable::get_writer() {
     return this->writer;
+}
+void  CacheTable::enable_stream(const char * topic_name, std::map<std::string, std::string> &config) {
+    int size = strlen(topic_name)+1;
+    this->topic_name = (char*) malloc(size);
+    memcpy(this->topic_name, topic_name, size);
+    this->stream_config = config; //Copy values
+
+    /* Kafka conf... */
+    char errstr[512];
+    char hostname[128];
+    rd_kafka_conf_t *conf = rd_kafka_conf_new();
+
+    if (gethostname(hostname, sizeof(hostname))) {
+        fprintf(stderr, "%% Failed to lookup hostname\n");
+        exit(1);
+    }
+
+    // PRODUCER: Why do we need to set client.id????
+    if (rd_kafka_conf_set(conf, "client.id", hostname,
+                              errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+        fprintf(stderr, "%% %s\n", errstr);
+        exit(1);
+    }
+
+    // CONSUMER: Why do we need to set group.id????
+    if (rd_kafka_conf_set(conf, "group.id", "hecuba",
+                errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+        fprintf(stderr, "%% %s\n", errstr);
+        exit(1);
+    }
+
+	//yolandab:from the beginning: only for consumers
+	if (rd_kafka_conf_set(conf, "auto.offset.reset", "beginning",
+                errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+        fprintf(stderr, "%% %s\n", errstr);
+        exit(1);
+    }
+
+    // Setting bootstrap.servers...
+    if (config.find("kafka_names") == config.end()) {
+        throw ModuleException("KAFKA_NAMES are not set. Use: 'host1:9092,host2:9092'");
+    }
+    std::string kafka_names = config["kafka_names"];
+
+    if (rd_kafka_conf_set(conf, "bootstrap.servers", kafka_names.c_str(),
+                              errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+        fprintf(stderr, "%% %s\n", errstr);
+        exit(1);
+    }
+    this->kafka_conf = conf;
+}
+
+void  CacheTable::enable_stream_producer(void) {
+    this->get_writer()->enable_stream(this->kafka_conf, this->topic_name, this->stream_config);
+}
+
+void  CacheTable::enable_stream_consumer(void) {
+    char hostname[128];
+    char errstr[512];
+
+    /* Create Kafka consumer handle */
+    rd_kafka_t *rk;
+    if (!(rk = rd_kafka_new(RD_KAFKA_CONSUMER, this->kafka_conf,
+                    errstr, sizeof(errstr)))) {
+        fprintf(stderr, "%% Failed to create new consumer: %s\n", errstr);
+        exit(1);
+    }
+
+    rd_kafka_resp_err_t err;
+    rd_kafka_topic_partition_list_t* topics = rd_kafka_topic_partition_list_new(1);
+    rd_kafka_topic_partition_list_add(topics, this->topic_name, RD_KAFKA_PARTITION_UA);
+
+    if ((err = rd_kafka_subscribe(rk, topics))) {
+        fprintf(stderr, "%% Failed to start consuming topics: %s\n", rd_kafka_err2str(err));
+        exit(1);
+    }
+
+    rd_kafka_topic_partition_list_t* current_topics;
+    bool finish = false;
+    while(!finish) {
+        err = rd_kafka_subscription(rk, &current_topics);
+        if (err) {
+            fprintf(stderr, "%% Failed to get topics: %s\n", rd_kafka_err2str(err));
+            exit(1);
+        }
+        if (current_topics->cnt == 0) {
+            fprintf(stderr, "%% Failed to get topics: NO ELEMENTS\n");
+        } else{
+            //fprintf(stderr, "%% I got you \n");
+            //fprintf(stderr, "%% I got you %s\n", current_topics->elems[0].topic);
+            finish = true;
+        }
+
+        rd_kafka_topic_partition_list_destroy(current_topics);
+    }
+    this->consumer = rk;
+
+}
+
+
+std::vector<const TupleRow *>  CacheTable::poll(void) {
+    std::vector<const TupleRow *> result(1);
+    bool finish = false;
+
+
+    while(! finish) {
+        rd_kafka_message_t *rkmessage = rd_kafka_consumer_poll(this->consumer, 500);
+        if (rkmessage) {
+            if (rkmessage->err) {
+                    fprintf(stderr, "poll: error %s\n", rd_kafka_err2str(rkmessage->err));
+            }else {
+                char *key_buffer=(char *) malloc(rkmessage->len);
+                memcpy(key_buffer,rkmessage->payload,rkmessage->len);
+                TupleRow *k = keys_factory->make_tuple(key_buffer);
+                result[0]= k; // Transform rkmessage to vector<tuplerow>
+                rd_kafka_message_destroy(rkmessage);
+                finish = true;
+            }
+        } else {
+            fprintf(stderr, "poll: timeout\n");
+        }
+    }
+    return result;
 }
 
 /*
@@ -169,6 +304,7 @@ std::vector<const TupleRow *> CacheTable::retrieve_from_cassandra(const TupleRow
 
 
 std::vector<const TupleRow *> CacheTable::get_crow(const TupleRow *keys) {
+
     if (myCache) {
         TupleRow *value;
         try {

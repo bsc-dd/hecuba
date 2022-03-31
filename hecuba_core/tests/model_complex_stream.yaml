@@ -1,15 +1,15 @@
 - "TypeSpec": [ "myclass", "StorageObject" ]
   "ClassField":
             - [ "sim_id", "str"]
-            - [ "sim_info", "model_complex.info" ]
-            - [ "submetrics","model_complex.metrics" ]
+            - [ "sim_info", "model_complex_stream.info" ]
+            - [ "submetrics","model_complex_stream.metrics" ]
 
 - "TypeSpec": [ "info", "StorageObject" ]
   "ClassField":
             - [ "total_ts", "int" ]
             - [ "output_freq", "int" ]
 
-- "TypeSpec": [ "metrics", "StorageDict" ]
+- "TypeSpec": [ "metrics", "StorageStream" ]
   "KeySpec":
             - [ "lat", "float" ]
             - [ "ts", "int" ]
