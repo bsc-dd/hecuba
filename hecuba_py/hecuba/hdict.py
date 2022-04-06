@@ -736,13 +736,13 @@ class StorageDict(IStorage, dict):
             val.make_persistent(name)
         return val
 
-    def __setitem__(self, key, val):
+    def __convert_types_to_istorage(self, val):
+        """ Convert values types to IStorage: 
+                np.ndarray --> StorageNumpy,
+                set        --> EmbeddedSet 
+            TODO: Integrate into make_val_persistent
         """
-           Method to insert values in the StorageDict
-           Args:
-               key: the position of the value that we want to save
-               val: the value that we want to save in that position
-        """
+
         if isinstance(val, list):
             vals_istorage = []
             for element in val:
@@ -757,6 +757,17 @@ class StorageDict(IStorage, dict):
             val = StorageNumpy(val)
         elif isinstance(val, set):
             val = self.__create_embeddedset(key=key, val=val)
+        return val
+
+    def __setitem__(self, key, val):
+        """
+           Method to insert values in the StorageDict
+           Args:
+               key: the position of the value that we want to save
+               val: the value that we want to save in that position
+        """
+        oldval = val # DEBUG purposes
+        val = self.__convert_types_to_istorage(oldval)
 
         log.debug('SET ITEM %s->%s', key, val)
         if self.storage_id is None:
