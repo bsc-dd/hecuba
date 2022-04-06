@@ -38,6 +38,7 @@ public:
     std::vector<const TupleRow *> get_crow(void *keys);
 
     void put_crow(const TupleRow *keys, const TupleRow *values);
+    void send_event(const TupleRow *keys, const TupleRow *values);
 
     void delete_crow(const TupleRow *keys);
 
@@ -72,6 +73,7 @@ private:
 
     TupleRowFactory *keys_factory;
     TupleRowFactory *values_factory;
+    TupleRowFactory *row_factory;
 
     const TableMetadata *table_metadata;
 

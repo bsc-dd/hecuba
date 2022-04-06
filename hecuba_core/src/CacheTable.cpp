@@ -59,6 +59,7 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
     this->writer = new Writer(table_meta, session, config);
     this->keys_factory = new TupleRowFactory(table_meta->get_keys());
     this->values_factory = new TupleRowFactory(table_meta->get_values());
+    this->row_factory = new TupleRowFactory(table_meta->get_items());
     this->timestamp_gen = new TimestampGenerator();
     this->writer->set_timestamp_gen(this->timestamp_gen);
     this->topic_name = nullptr;
@@ -101,6 +102,10 @@ const void CacheTable::flush_elements() const {
 
 const void CacheTable::wait_elements() const {
     this->writer->wait_writes_completion();
+}
+
+void CacheTable::send_event(const TupleRow *keys, const TupleRow *values) {
+    this->writer->send_event(keys, values);
 }
 
 void CacheTable::put_crow(const TupleRow *keys, const TupleRow *values) {
@@ -246,10 +251,10 @@ std::vector<const TupleRow *>  CacheTable::poll(void) {
             if (rkmessage->err) {
                     fprintf(stderr, "poll: error %s\n", rd_kafka_err2str(rkmessage->err));
             }else {
-                char *key_buffer=(char *) malloc(rkmessage->len);
-                memcpy(key_buffer,rkmessage->payload,rkmessage->len);
-                TupleRow *k = keys_factory->make_tuple(key_buffer);
-                result[0]= k; // Transform rkmessage to vector<tuplerow>
+                char *row_buffer=(char *) malloc(rkmessage->len);
+                memcpy(row_buffer,rkmessage->payload,rkmessage->len);
+                TupleRow *r = row_factory->make_tuple(row_buffer);
+                result[0]= r; // Transform rkmessage to vector<tuplerow>
                 rd_kafka_message_destroy(rkmessage);
                 finish = true;
             }

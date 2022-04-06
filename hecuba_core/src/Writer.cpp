@@ -175,6 +175,50 @@ void Writer::send_event(const TupleRow* key) {
 
 }
 
+void Writer::send_event(const TupleRow* key, const TupleRow *value) {
+    if (this->topic_name == NULL) return;
+
+    // We are an stream
+    /* yolandab
+    if (this->producer->produce(this->topic,
+                                RD_KAFKA_PARTITION_UA,
+                                RD_KAFKA_MSG_F_COPY,
+                                key->get_payload(), key->length(),
+                                NULL, 0,
+                                NULL) == -1) {
+        fprintf(stderr, "%% Failed to produce to topic %s: %s\n",
+                this->topic_name, rd_kafka_err2str(rd_kafka_errno2err(errno)));
+    }
+    */
+	rd_kafka_resp_err_t err;
+    size_t keylength=key->length();
+    size_t valuelength=value->length();
+    char * rowpayload = (char *) malloc (keylength+valuelength);
+    memcpy (rowpayload, key->get_payload(), keylength);
+    memcpy (rowpayload+keylength, value->get_payload(), valuelength);
+	err = rd_kafka_producev(
+                    /* Producer handle */
+                    this->producer,
+                    /* Topic name */
+                    RD_KAFKA_V_TOPIC(this->topic_name),
+                    /* Make a copy of the payload. */
+                    RD_KAFKA_V_MSGFLAGS(RD_KAFKA_MSG_F_COPY),
+                    /* Message value and length */
+                    RD_KAFKA_V_VALUE(rowpayload, keylength+valuelength),
+                    /* Per-Message opaque, provided in
+                     * delivery report callback as
+                     * msg_opaque. */
+                    RD_KAFKA_V_OPAQUE(NULL),
+                    /* End sentinel */
+                    RD_KAFKA_V_END);
+	if (err) {
+        fprintf(stderr, "%% Failed to produce to topic %s: %s\n",
+                this->topic_name, rd_kafka_err2str(rd_kafka_errno2err(errno)));
+	}
+    //fprintf(stderr, "Send event to topic %s\n", this->topic_name);
+
+}
+
 void Writer::set_timestamp_gen(TimestampGenerator *time_gen) {
     delete(this->timestamp_gen);
     this->timestamp_gen = time_gen;
@@ -236,7 +280,8 @@ void Writer::callback(CassFuture *future, void *ptr) {
         std::string msg2(dmsg, l);
         W->set_error_occurred("Writer callback: " + message + "  " + msg2, data[1], data[2]);
     } else {
-        W->send_event((TupleRow*) data[1]);
+        //W->send_event((TupleRow*) data[1]);
+        //W->send_event((TupleRow*) data[1],(TupleRow*)data[2]);
         delete ((TupleRow *) data[1]);
         delete ((TupleRow *) data[2]);
         W->ncallbacks--;
@@ -327,6 +372,7 @@ void Writer::disable_lazy_write(void) {
 
 void Writer::write_to_cassandra(const TupleRow *keys, const TupleRow *values) {
 
+    //this->send_event(keys,values); // Send to Kafka
 
     this->async_query_thread_lock.lock();
     //std::cout<< " WRITER: write_to_cassandra" << std::endl;

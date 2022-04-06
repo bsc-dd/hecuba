@@ -44,9 +44,16 @@ class StorageStream(StorageDict):
             self._hcache.enable_stream_consumer()
             self._stream_consumer_enabled=True
         start = time.time()
-        key = self._hcache.poll()
+        row = self._hcache.poll()
         stop = time.time()
-        v = super().__getitem__(key)
+
+        print("poll row type {} got row: {}".format(type(row),row),flush=True)
+        v=row[-(len(row)-self._k_size)]
+        k=row[0:self._k_size]
+        print("poll row type {} got row: {}".format(type(row),row),flush=True)
+        print("poll k {} v {}".format(k,v),flush=True)
+        #v = super().__getitem__(key)
+        self._hcache.add_to_cache(self._make_key(k),self._make_value(v)) #this line only works for StorageDicts
         stop2 = time.time()
         print("TIME POLL {} TIME GETITEM {}".format(stop-start, stop2-stop), flush=True)
         return v
