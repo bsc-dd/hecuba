@@ -51,6 +51,48 @@ static PyObject *disconnectCassandra(PyObject *self) {
 
 /*** HCACHE DATA TYPE METHODS AND SETUP ***/
 
+static PyObject *add_to_cache(HCache *self, PyObject *args) {
+    PyObject *py_keys, *py_values;
+    if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_values)) {
+        return NULL;
+    }
+    for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
+        if (PyList_GetItem(py_keys, key_i) == Py_None) {
+            std::string error_msg = "Keys can't be None, key_position: " + std::to_string(key_i);
+            PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+            return NULL;
+        }
+    }
+    TupleRow *k;
+    try {
+        k = self->keysParser->make_tuple(py_keys);
+    }
+    catch (TypeErrorException &e) {
+        PyErr_SetString(PyExc_TypeError, e.what());
+        return NULL;
+    }
+    catch (std::exception &e) {
+        std::string error_msg = "Put_row, keys error: " + std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    }
+    try {
+        TupleRow *v = self->valuesParser->make_tuple(py_values);
+        self->T->add_to_cache(k, v);
+        delete (k);
+        delete (v);
+    }
+    catch (TypeErrorException &e) {
+        PyErr_SetString(PyExc_TypeError, e.what());
+        return NULL;
+    }
+    catch (std::exception &e) {
+        std::string err_msg = "Put row " + std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
+        return NULL;
+    }
+    Py_RETURN_NONE;
+}
 static PyObject *put_row(HCache *self, PyObject *args) {
     PyObject *py_keys, *py_values;
     if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_values)) {
@@ -330,6 +372,7 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
         self->T = storage->make_cache(table, keyspace, keys_names, columns_names, config);
         self->keysParser = new PythonParser(storage, self->T->get_metadata()->get_keys());
         self->valuesParser = new PythonParser(storage, self->T->get_metadata()->get_values());
+        self->rowParser = new PythonParser(storage, self->T->get_metadata()->get_items());
     } catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return -1;
@@ -341,6 +384,7 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
 static PyMethodDef hcache_type_methods[] = {
         {"get_row",                 (PyCFunction) get_row,              METH_VARARGS, NULL},
         {"put_row",                 (PyCFunction) put_row,              METH_VARARGS, NULL},
+        {"add_to_cache",            (PyCFunction) add_to_cache,         METH_VARARGS, NULL},
         {"delete_row",              (PyCFunction) delete_row,           METH_VARARGS, NULL},
         {"flush",                   (PyCFunction) flush,                METH_VARARGS, NULL},
         {"iterkeys",                (PyCFunction) create_iter_keys,     METH_VARARGS, NULL},
@@ -350,6 +394,7 @@ static PyMethodDef hcache_type_methods[] = {
         {"enable_stream_producer",  (PyCFunction) enable_stream_producer, METH_NOARGS, NULL},
         {"enable_stream_consumer",  (PyCFunction) enable_stream_consumer, METH_NOARGS, NULL},
         {"poll",                    (PyCFunction) poll,                 METH_NOARGS, NULL},
+        {"send_event",              (PyCFunction) send_event,           METH_NOARGS, NULL},
         {NULL,                      NULL,                               0,            NULL}
 };
 
@@ -1620,10 +1665,10 @@ static PyObject* poll(HCache *self) {
             PyErr_SetString(PyExc_KeyError, "Poll returns without values");
             return NULL;
         }
-        if (self->T->get_metadata()->get_keys()->empty()) {
+        if (self->T->get_metadata()->get_items()->empty()) {
             std::vector<const TupleRow *> empty_result(0);
         }
-        py_row = self->keysParser->make_pylist(v);
+        py_row = self->rowParser->make_pylist(v);
         for (uint32_t i = 0; i < v.size(); ++i) {
             delete (v[i]);
         }
@@ -1638,6 +1683,49 @@ static PyObject* poll(HCache *self) {
         return NULL;
     }
     return py_row;
+}
+
+static PyObject *send_event(HCache *self, PyObject *args) {
+    PyObject *py_keys, *py_values;
+    if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_values)) {
+        return NULL;
+    }
+    for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
+        if (PyList_GetItem(py_keys, key_i) == Py_None) {
+            std::string error_msg = "Keys can't be None, key_position: " + std::to_string(key_i);
+            PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+            return NULL;
+        }
+    }
+    TupleRow *k;
+    try {
+        k = self->keysParser->make_tuple(py_keys);
+    }
+    catch (TypeErrorException &e) {
+        PyErr_SetString(PyExc_TypeError, e.what());
+        return NULL;
+    }
+    catch (std::exception &e) {
+        std::string error_msg = "send_event, keys error: " + std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    }
+    try {
+        TupleRow *v = self->valuesParser->make_tuple(py_values);
+        self->T->send_event(k, v);
+        delete (k);
+        delete (v);
+    }
+    catch (TypeErrorException &e) {
+        PyErr_SetString(PyExc_TypeError, e.what());
+        return NULL;
+    }
+    catch (std::exception &e) {
+        std::string err_msg = "send event " + std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
+        return NULL;
+    }
+    Py_RETURN_NONE;
 }
 
 static PyObject *create_iter_keys(HCache *self, PyObject *args) {

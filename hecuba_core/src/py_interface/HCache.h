@@ -45,7 +45,7 @@ typedef struct {
     PyObject_HEAD
     CacheTable *T;
     std::vector<std::pair<int64_t, int64_t>> token_ranges;
-    PythonParser *keysParser, *valuesParser;
+    PythonParser *keysParser, *valuesParser, *rowParser;
 } HCache;
 
 
