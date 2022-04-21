@@ -1241,6 +1241,18 @@ class StorageNumpyTest(unittest.TestCase):
         t - 1   # Should not fail
         t-= 1   # Should not fail
 
+    def test_arrow_access(self):
+        n = np.arange(50*50).reshape(50,50)
+        s = StorageNumpy(n, "test_arrow_access")
+        s.sync()
+        del s
+        s = StorageNumpy(None, "test_arrow_access")
+        x = s[:, 20]
+        self.assertTrue(np.array_equal(x, n[:,20]))
+        y = s[:, 30]
+        self.assertTrue(np.array_equal(y, n[:,30]))
+        z = s[:, 49]
+        self.assertTrue(np.array_equal(z, n[:,49]))
 
 
 if __name__ == '__main__':

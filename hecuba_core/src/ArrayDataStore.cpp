@@ -252,7 +252,7 @@ void ArrayDataStore::update_metadata(const uint64_t *storage_id, ArrayMetadata *
 
 /* Generate a token for composite key (storage_id, cluster_id)
  * Args:
- *      storage_id: Points to a CassUuid
+ *      storage_id: Points to a UUID
  *      cluster_id: Contains a cluster_id
  * Returns an int64_t with the token that Cassandra assigns to the composite key
  */
@@ -268,22 +268,15 @@ int64_t murmur(const uint64_t *storage_id, const uint32_t cluster_id) {
             sidBE_low  = *(storage_id+1);
             cidBE =  cluster_id;
         } else {  // LittleEndian // --> Transform to BigEndian needed.
-            //Transform the fields from the cassandra 'CassUuid' type. Check also parse_uuid from HCache.cpp
-            uint32_t time_low = htobe32((*storage_id) & 0xFFFFFFFF);
-            uint16_t time_mid = htobe16(((*storage_id)>>32) & 0xFFFF);
-            uint16_t time_hi  = htobe16(((*storage_id)>>48));
-            sidBE_high        = (time_low | ((uint64_t) time_mid)<<32 | ((uint64_t)time_hi)<<48 );
-
-            uint64_t node     = htobe64((*(storage_id+1)) & 0xFFFFFFFFFFFF);
-            uint16_t clock    = htobe16((*(storage_id+1))>>48);
-            sidBE_low         = node | clock; //This works because 'node' has been translated to BigEndian
+            sidBE_high = *storage_id;
+            sidBE_low  = *(storage_id+1);
 
             cidBE = htobe32(cluster_id);
             sidlenBE = htobe16(sidlenBE);
             cidlenBE = htobe16(cidlenBE);
         }
         char* p = mykey;
-        memcpy(p, &sidlenBE, sizeof(sidlenBE)); // The 'CassUuid' type
+        memcpy(p, &sidlenBE, sizeof(sidlenBE));
         p+= sizeof(sidlenBE);
         memcpy(p, &sidBE_high, sizeof(sidBE_high));
         p+= sizeof(sidBE_high);
