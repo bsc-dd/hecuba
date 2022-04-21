@@ -971,7 +971,9 @@ int scp(const char *host, const char *src, const char *dst) {
 
         if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
             close(sockfd);
-            perror("client: connect");
+            char b[256];
+            sprintf(b, "client: connect to %s:", host);
+            perror(b);
             continue;
         }
 
@@ -979,7 +981,7 @@ int scp(const char *host, const char *src, const char *dst) {
     }
 
     if (p == NULL) {
-        std::cerr<< "client: failed to connect" << std::endl;
+        std::cerr<< "client: failed to connect to "<< host << std::endl;
         return -2;
     }
 
@@ -1280,6 +1282,8 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
                     throw ModuleException("lseek error " + arrow_file_name);
                 } else if (filesize < *arrow_size) {
                     ++retries;
+                    std::cout << "File size from lseek: " << filesize << std::endl;
+                    std::cout << "File size from Cassandra: " << *arrow_size << std::endl;
                     std::cout << "coherent arrow file size  retry " << retries << "/"<< MAX_RETRIES << std::endl;
                     sleep(1);
                 }
