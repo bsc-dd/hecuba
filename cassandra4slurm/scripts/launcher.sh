@@ -727,9 +727,18 @@ then
     echo $JOB_NUMBER $UNIQ_ID" " >> $C4S_JOBLIST
 
     echo "Launching $TOTAL_NODES nodes to recover snapshot $input_snap"
-    sleep 5
-    echo "Launch still in progress. You can check it later with:"
-    echo "    $EXEC_NAME STATUS"
+    while [ ! -f "$C4S_HOME/casslistDONE-"$UNIQ_ID".txt" ]; do
+        echo "Checking for Cassandra cluster up... "
+        get_job_info
+        sleep 5
+    done
+    echo "Cassandra Cluster with "$CASSANDRA_NODES" node(s) started successfully."
+    CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $C4S_HOME/casslist-"$UNIQ_ID".txt)$CASS_IFACE
+    CNAMES=$(echo $CNAMES | sed "s/,/$CASS_IFACE,/g")
+    export CONTACT_NAMES=$CNAMES
+    echo "Contact names environment variable (CONTACT_NAMES) should be set to: $CNAMES"
+    launch_arrow_helpers $C4S_HOME/casslist-"$UNIQ_ID".txt $LOGS_DIR/$UNIQ_ID
+
 elif [ "$ACTION" == "STOP" ] || [ "$ACTION" == "stop" ]
 then
     # If there is a running Cassandra Cluster it stops it
