@@ -1292,7 +1292,11 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
                 //    perror("unable to lseek to start of file");
                 //    throw ModuleException("lseek error " + arrow_file_name);
                 //}
-            } while (filesize < *arrow_size);
+
+            } while (filesize < *arrow_size and retries < MAX_RETRIES);
+            if (retries == MAX_RETRIES) {
+                throw ModuleException("incomplete arrow file error");
+            }
 
 
             //std::cout<< "read_numpy_from_cas_arrow addr="<<*arrow_addr<<" size="<<*arrow_size<<std::endl;
