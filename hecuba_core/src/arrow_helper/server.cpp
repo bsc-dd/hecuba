@@ -201,8 +201,9 @@ int main(int argc, char *argv[])
                 printf("Sent File: %s\n", path);
                 printf("Total bytes sent to %s: %i. Total sends performed: %i\n\n", s, total_bytes, total_sends); //TODO DEBUG only
             } else {
-                perror("Opening file");
-                printf("Unable to open %s\n",path);
+                char s[1000];
+                sprintf(s, "Opening file [%s] at host %s:",path, hostname);
+                perror(s);
             }
             free(path);
                 
