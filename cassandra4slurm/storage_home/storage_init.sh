@@ -263,12 +263,14 @@ echo "Launching Cassandra in the following hosts: $CASSANDRA_NODELIST"
 # If a snapshot is needed
 
 if [ "$MAKE_SNAPSHOT" == "1" ]; then
-    echo "CASSANDRA_NODELIST=$CASSANDRA_NODELIST" > $SNAPSHOT_FILE
-    echo "N_NODES=$N_NODES" >> $SNAPSHOT_FILE
-    echo "THETIME=$THETIME" >> $SNAPSHOT_FILE
-    echo "ROOT_PATH=$ROOT_PATH" >> $SNAPSHOT_FILE
-    echo "CLUSTER=$CLUSTER" >> $SNAPSHOT_FILE
-    echo "MODULE_PATH=$MODULE_PATH" >> $SNAPSHOT_FILE
+    cat $HECUBA_ENVIRONMENT > $SNAPSHOT_FILE
+    echo "export CASSANDRA_NODELIST=$CASSANDRA_NODELIST" >> $SNAPSHOT_FILE
+    echo "export C4S_CASSANDRA_CORES=$C4S_CASSANDRA_CORES" >> $SNAPSHOT_FILE
+    echo "export N_NODES=$N_NODES" >> $SNAPSHOT_FILE
+    echo "export THETIME=$THETIME" >> $SNAPSHOT_FILE
+    echo "export ROOT_PATH=$ROOT_PATH" >> $SNAPSHOT_FILE
+    echo "export CLUSTER=$CLUSTER" >> $SNAPSHOT_FILE
+    echo "export MODULE_PATH=$MODULE_PATH" >> $SNAPSHOT_FILE
 fi
 
 # Clearing data from previous executions and checking symlink coherence
