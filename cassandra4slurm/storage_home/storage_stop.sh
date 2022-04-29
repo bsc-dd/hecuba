@@ -19,6 +19,7 @@ UNIQ_ID=${1}          # Unique ID to identify related files
 C4S_HOME=$HOME/.c4s
 MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
 
+
 #CASSANDRA_NODES=${2}  # Number of Cassandra nodes to spawn
 # I guess we dont need any of these.
 SNAPSHOT_FILE=$C4S_HOME/cassandra-snapshot-file-"$UNIQ_ID".txt # EXPORTS IN STORAGE_INIT ARE NOT AVAILABLE HERE? LOL
@@ -30,16 +31,27 @@ then
     source $SNAPSHOT_FILE 
     TIME1=`date +"%T.%3N"`
     SNAP_NAME="$THETIME"
-    # Looping over the assigned hosts until the snapshots are confirmed
-    srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES bash $MODULE_PATH/snapshot.sh $SNAP_NAME $ROOT_PATH $CLUSTER $UNIQ_ID
 
-    while [ "$(ls 2> /dev/null ~/.c4s/snap-status-$SNAP_NAME-*-file.txt | wc -l)" != "$N_NODES" ]; do
-        sleep 0.2
+    source $MODULE_PATH/snapshot.sh $SNAP_NAME $ROOT_PATH $CLUSTER $UNIQ_ID
+
+    SNAP_CONT=0
+    while [ "$SNAP_CONT" != "$N_NODES" ]
+    do
+        SNAP_CONT=0
+        for u_host in $casslist
+        do
+            if [ -f $C4S_HOME/snap-status-$SNAP_NAME-$u_host-file.txt ]
+            then
+                SNAP_CONT=$(($SNAP_CONT+1))
+            fi
+        done
     done
-    
+
     TIME2=`date +"%T.%3N"`
+
     echo "[STATS] Snapshot initial datetime: $TIME1"
-    echo "[STATS] Snapshot final datetime: $TIME2" 
+    echo "[STATS] Snapshot final datetime: $TIME2"
+
     MILL1=$(echo $TIME1 | cut -c 10-12)
     MILL2=$(echo $TIME2 | cut -c 10-12)
     TIMESEC1=$(date -d "$TIME1" +%s)
@@ -56,9 +68,8 @@ then
 
     echo "[STATS] Snapshot process took: "$TIMESEC"s. "$MILL"ms."
 
-    # Cleaning temporal files
+    # Cleaning status files
     rm -f $C4S_HOME/snap-status-$SNAP_NAME-*-file.txt
-    rm -f $SNAPSHOT_FILE
 fi
 FINISHED=$C4S_HOME/stop."$UNIQ_ID".txt
 if [[ -f $FINISHED && "$(cat $FINISHED)" == "1" ]]; then
