@@ -5,6 +5,8 @@ ROOT_PATH=${2}
 CLUSTER=${3}
 UNIQ_ID=${4}
 
+C4S_HOME=$HOME/.c4s
+
 DATA_HOME=$ROOT_PATH/cassandra-data
 CASSFILE=$C4S_HOME/casslist-"$UNIQ_ID".txt
 RINGFILE=$C4S_HOME/ringfile-"$UNIQ_ID".txt
@@ -12,12 +14,14 @@ RINGDONE=$C4S_HOME/ringdone-"$UNIQ_ID".txt
 HST_IFACE="-ib0" #interface configured in the cassandra.yaml file
 
 
+echo " [INFO] Current SNAP_PATH [$SNAP_PATH]"
 SNAP_DEST=$SNAP_PATH/$SNAP_NAME/$(hostname)
 SNAP_STATUS_FILE=$C4S_HOME/snap-status-$SNAP_NAME-$(hostname)-file.txt
 
     # Creates the destination directory for this snapshot
 mkdir -p $SNAP_DEST
 while [ ! -s $RINGDONE ]; do
+    echo " [INFO] Current RINGDONE [$RINGDONE] non existent"
     sleep 1
 done
 echo " [INFO] Current RINGFILE $RINGFILE -> $(hostname) $SNAP_DEST/$SNAP_NAME-ring.txt"
