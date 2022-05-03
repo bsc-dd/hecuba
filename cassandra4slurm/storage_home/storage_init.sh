@@ -263,7 +263,7 @@ echo "Launching Cassandra in the following hosts: $CASSANDRA_NODELIST"
 # If a snapshot is needed
 
 if [ "$MAKE_SNAPSHOT" == "1" ]; then
-    cat $HECUBA_ENVIRONMENT > $SNAPSHOT_FILE
+    cat $HECUBA_ENVIRON > $SNAPSHOT_FILE
     echo "export CASSANDRA_NODELIST=$CASSANDRA_NODELIST" >> $SNAPSHOT_FILE
     echo "export C4S_CASSANDRA_CORES=$C4S_CASSANDRA_CORES" >> $SNAPSHOT_FILE
     echo "export N_NODES=$N_NODES" >> $SNAPSHOT_FILE
