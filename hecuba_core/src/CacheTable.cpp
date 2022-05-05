@@ -1,4 +1,5 @@
 #include "CacheTable.h"
+#include "debug.h"
 
 #define default_cache_size 0
 
@@ -89,7 +90,6 @@ CacheTable::~CacheTable() {
         topic_name = nullptr;
     }
     if (consumer) {
-        rd_kafka_resp_err_t err;
         rd_kafka_destroy(consumer);
         consumer = nullptr;
     }
@@ -136,7 +136,9 @@ void CacheTable::add_to_cache(void *keys, void *values) {
     delete (k);
     delete (v);
 }
-
+void CacheTable::add_to_cache(const TupleRow  *keys, const TupleRow *values) {
+    if (myCache) this->myCache->add(*keys, values);
+}
 
 Writer * CacheTable::get_writer() {
     return this->writer;
@@ -197,7 +199,6 @@ void  CacheTable::enable_stream_producer(void) {
 }
 
 void  CacheTable::enable_stream_consumer(void) {
-    char hostname[128];
     char errstr[512];
 
     /* Create Kafka consumer handle */
@@ -239,29 +240,70 @@ void  CacheTable::enable_stream_consumer(void) {
 
 }
 
-
-std::vector<const TupleRow *>  CacheTable::poll(void) {
-    std::vector<const TupleRow *> result(1);
+rd_kafka_message_t * CacheTable::kafka_poll(void) {
     bool finish = false;
-
-
+    rd_kafka_message_t *rkmessage = NULL;
     while(! finish) {
-        rd_kafka_message_t *rkmessage = rd_kafka_consumer_poll(this->consumer, 500);
+        rkmessage = rd_kafka_consumer_poll(this->consumer, 500);
         if (rkmessage) {
             if (rkmessage->err) {
                     fprintf(stderr, "poll: error %s\n", rd_kafka_err2str(rkmessage->err));
             }else {
-                char *row_buffer=(char *) malloc(rkmessage->len);
-                memcpy(row_buffer,rkmessage->payload,rkmessage->len);
-                TupleRow *r = row_factory->make_tuple(row_buffer);
-                result[0]= r; // Transform rkmessage to vector<tuplerow>
-                rd_kafka_message_destroy(rkmessage);
-                finish = true;
+                finish=true;
             }
         } else {
             fprintf(stderr, "poll: timeout\n");
         }
     }
+    return rkmessage;
+}
+
+// If we are receiving a numpy, we already have the memory allocated. We just need to copy on that memory the message received
+void CacheTable::poll(char *data, const uint64_t size) {
+    rd_kafka_message_t *rkmessage = this->kafka_poll();
+    if (size != rkmessage->len) {
+        char b[256];
+        sprintf(b, "Expected numpy of size %ld, received a buffer of size %ld",size,rkmessage->len);
+        throw ModuleException(b);
+    }
+
+    memcpy(data, rkmessage->payload, rkmessage->len);
+    rd_kafka_message_destroy(rkmessage);
+}
+
+// If we are receiving a dictionary, we need to build the data structure to return and we need to add the key and the value to the cache
+std::vector<const TupleRow *>  CacheTable::poll(void) {
+    std::vector<const TupleRow *> result(1);
+
+    rd_kafka_message_t *rkmessage = this->kafka_poll();
+
+    char *keys = (char *) keys_factory->decode((void*)rkmessage->payload, rkmessage->len);
+    TupleRow *k = keys_factory->make_tuple(keys); // Needed to calculate 'keyslength'
+    uint64_t keyslength = keys_factory->get_content_size(k);
+
+    char *keystoreturn = (char *) keys_factory->decode((void*)rkmessage->payload, rkmessage->len);
+
+    uint64_t valueslength = rkmessage->len - keyslength;
+    char *values = (char *) values_factory->decode((void*)((char*)rkmessage->payload+keyslength), valueslength);
+
+    char *valuestoreturn = (char *)values_factory->decode((void*)((char*)rkmessage->payload+keyslength), valueslength);
+
+            char myfinal[CASS_UUID_STRING_LENGTH];
+            cass_uuid_string((**(CassUuid**)values), myfinal);
+            DBG( "CacheTable::poll BEFORE" + std::string(myfinal));
+    TupleRow *v = values_factory->make_tuple((void*)values);
+            cass_uuid_string((**(CassUuid**)v->get_payload()), myfinal);
+            DBG( "CacheTable::poll AFTER" + std::string(myfinal));
+
+    add_to_cache(k, v); // Add key,value to cache
+
+    char *row_buffer = (char*) malloc(k->length() + v->length());
+    memcpy(row_buffer, keystoreturn, k->length());
+    memcpy(row_buffer + k->length(), valuestoreturn, v->length());
+
+    TupleRow *r = row_factory->make_tuple(row_buffer);
+    result[0] = r; // Transform rkmessage to vector<tuplerow>
+    rd_kafka_message_destroy(rkmessage);
     return result;
 }
 

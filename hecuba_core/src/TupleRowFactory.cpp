@@ -1,4 +1,5 @@
 #include "TupleRowFactory.h"
+#include "debug.h"
 
 /***
  * Builds a tuple factory to retrieve tuples based on rows and keys
@@ -711,3 +712,305 @@ TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t o
         }
     }
 }
+
+//const uint64_t get_content_size(const TupleRow* row) const {
+std::vector <uint32_t> TupleRowFactory::get_content_sizes(const TupleRow* row) const {
+    std::vector <uint32_t> elements_size(row->n_elem());
+    if (!row)
+        throw ModuleException(" get_content_size: Null tuple row received");
+
+    if (metadata->size() != row->n_elem())
+        throw ModuleException(" get_content_size: Found " + std::to_string(row->n_elem()) + ", expected " +
+                              std::to_string(metadata->size()));
+
+    for (uint16_t i = 0; i < row->n_elem(); ++i) {
+        const void *element_i = row->get_element(i);
+        if (element_i != nullptr && !row->isNull(i)) {
+            switch (metadata->at(i).type) {
+                case CASS_VALUE_TYPE_VARCHAR:
+                case CASS_VALUE_TYPE_TEXT:
+                case CASS_VALUE_TYPE_ASCII: {
+                    int64_t *addr = (int64_t *) element_i;
+                    const char *d = reinterpret_cast<char *>(*addr);
+                    elements_size[i]=strlen(d)+1;
+                    break;
+                }
+                case CASS_VALUE_TYPE_VARINT:
+                case CASS_VALUE_TYPE_BIGINT: {
+                    const int64_t *data = static_cast<const int64_t *>(element_i);
+                    elements_size[i]=sizeof(*data);
+                    break;
+                }
+                case CASS_VALUE_TYPE_BLOB: {
+                    unsigned char *byte_array;
+                    byte_array = *(unsigned char **) element_i;
+                    uint64_t *num_bytes = (uint64_t *) byte_array;
+                    elements_size[i]=*num_bytes+sizeof(uint64_t);
+                    break;
+                }
+                case CASS_VALUE_TYPE_BOOLEAN: {
+                    const bool *bindbool = static_cast<const bool *>(element_i);
+                    elements_size[i]=sizeof(*bindbool);
+                    break;
+                }
+                    //TODO parsed as uint32 or uint64 on different methods
+                case CASS_VALUE_TYPE_COUNTER: {
+                    const uint64_t *data = static_cast<const uint64_t *>(element_i);
+                    elements_size[i]=sizeof(*data);
+                    break;
+                }
+                case CASS_VALUE_TYPE_DOUBLE: {
+                    const double *data = static_cast<const double *>(element_i);
+                    elements_size[i]=sizeof(*data);
+                    break;
+                }
+                case CASS_VALUE_TYPE_FLOAT: {
+                    const float *data = static_cast<const float *>(element_i);
+                    elements_size[i]=sizeof(*data);
+                    break;
+                }
+                case CASS_VALUE_TYPE_INT: {
+                    const int32_t *data = static_cast<const int32_t *>(element_i);
+                    elements_size[i]=sizeof(*data);
+                    break;
+                }
+                case CASS_VALUE_TYPE_UUID: {
+                    //const uint64_t **uuid = (const uint64_t **) element_i;
+                    elements_size[i]=sizeof(uint64_t)*2;
+                    break;
+                }
+                case CASS_VALUE_TYPE_SMALL_INT: {
+                    const int16_t *data = static_cast<const int16_t *>(element_i);
+                    elements_size[i]=sizeof(*data);
+                    break;
+                }
+                case CASS_VALUE_TYPE_TINY_INT: {
+                    const int8_t *data = static_cast<const int8_t *>(element_i);
+                    elements_size[i]=sizeof(*data);
+                    break;
+                }
+                case CASS_VALUE_TYPE_TUPLE: {
+                    TupleRow **ptr = (TupleRow **) element_i;
+                    const TupleRow *inner_data = *ptr;
+                    TupleRowFactory TFACT = TupleRowFactory(metadata->at(i).pointer);
+                    uint64_t inner_size = TFACT.get_content_size(inner_data);
+                    elements_size[i]=inner_size;
+                    break;
+                }
+                case CASS_VALUE_TYPE_DATE: {
+                    const time_t time = *((time_t *) element_i);
+                    elements_size[i]=sizeof(time);
+                    break;
+                }
+                case CASS_VALUE_TYPE_TIME: {
+                    int64_t time = *((int64_t *) element_i);
+                    elements_size[i]=sizeof(time);
+                    break;
+                }
+                case CASS_VALUE_TYPE_TIMESTAMP: {
+                    cass_int64_t time = *((int64_t *) element_i);
+                    elements_size[i]=sizeof(time);
+                    break;
+                }
+                case CASS_VALUE_TYPE_UDT: {
+                    int64_t *addr = *((int64_t **) element_i);
+                    int64_t size = *addr;
+                    elements_size[i]=size+sizeof(int64_t);
+                    break;
+
+                }
+                case CASS_VALUE_TYPE_DECIMAL:
+                case CASS_VALUE_TYPE_TIMEUUID:
+                case CASS_VALUE_TYPE_INET:
+                case CASS_VALUE_TYPE_LIST:
+                case CASS_VALUE_TYPE_MAP:
+                case CASS_VALUE_TYPE_SET:
+                case CASS_VALUE_TYPE_CUSTOM:
+                case CASS_VALUE_TYPE_UNKNOWN:
+                default:
+                    throw ModuleException("Default behaviour not supported");
+            }
+        }
+    }
+    return elements_size;
+}
+
+const uint64_t TupleRowFactory::get_content_size(const TupleRow* row) const {
+    std::vector<uint32_t> s = get_content_sizes(row);
+    uint64_t res = 0;
+    for (uint32_t i: s) {
+        res += i;
+    }
+    return res;
+}
+
+void * TupleRowFactory::get_element_addr(const void *element_i, const uint16_t pos) const {
+        void *result;
+        if (element_i != nullptr ){
+            switch (metadata->at(pos).type) {
+                case CASS_VALUE_TYPE_VARCHAR:
+                case CASS_VALUE_TYPE_TEXT:
+                case CASS_VALUE_TYPE_ASCII:
+                case CASS_VALUE_TYPE_DATE:
+                case CASS_VALUE_TYPE_TIME:
+                case CASS_VALUE_TYPE_TIMESTAMP:
+                case CASS_VALUE_TYPE_UDT:
+                case CASS_VALUE_TYPE_UUID:
+                case CASS_VALUE_TYPE_TUPLE:
+                case CASS_VALUE_TYPE_BLOB: {
+                    result =  *(void **) element_i;
+                    break;
+                }
+                case CASS_VALUE_TYPE_VARINT:
+                case CASS_VALUE_TYPE_BIGINT:
+                case CASS_VALUE_TYPE_BOOLEAN:
+                case CASS_VALUE_TYPE_COUNTER:
+                case CASS_VALUE_TYPE_DOUBLE:
+                case CASS_VALUE_TYPE_FLOAT:
+                case CASS_VALUE_TYPE_INT:
+                case CASS_VALUE_TYPE_SMALL_INT:
+                case CASS_VALUE_TYPE_TINY_INT: {
+                    result = (void *)element_i;
+                    break;
+                }
+                case CASS_VALUE_TYPE_DECIMAL:
+                case CASS_VALUE_TYPE_TIMEUUID:
+                case CASS_VALUE_TYPE_INET:
+                case CASS_VALUE_TYPE_LIST:
+                case CASS_VALUE_TYPE_MAP:
+                case CASS_VALUE_TYPE_SET:
+                case CASS_VALUE_TYPE_CUSTOM:
+                case CASS_VALUE_TYPE_UNKNOWN:
+                default:
+                    throw ModuleException("Default behaviour not supported");
+            }
+        }
+    return result;
+}
+
+void TupleRowFactory::encode(const TupleRow *row, void *dest) const {
+    // get_content_size should return a vector with the size of each element
+    // we need to add r_factory to the writer 
+    std::vector<uint32_t> element_sizes = this->get_content_sizes(row);
+    uint64_t total_size;
+    for (auto& n : element_sizes)
+         total_size += n;
+
+    CassUuid uuidtmp;
+    uint64_t offset = 0;
+    void *src;
+    for (uint16_t i = 0; i < row->n_elem(); ++i) {
+        // if the element is a tuple we call rescursively to copy_tuple_content
+        const void *element_i = row->get_element(i);
+        if (metadata->at(i).type == CASS_VALUE_TYPE_TUPLE) {
+            TupleRow **ptr = (TupleRow **) element_i;
+            const TupleRow *inner_data = *ptr;
+            TupleRowFactory TFACT = TupleRowFactory(metadata->at(i).pointer);
+            src = malloc(TFACT.get_content_size(inner_data));
+            TFACT.encode(inner_data, src);
+        //} else if (metadata->at(i).type == CASS_VALUE_TYPE_UUID) {
+        //    // We need to encode UUID as CassUUIDs... to "emulate" receiving data from Cassandra
+        //    const uint64_t * orig_uuid = (const uint64_t*)get_element_addr(element_i, i);
+        //    uuid2cassuuid(&orig_uuid, uuidtmp);
+        //    char myfinal[CASS_UUID_STRING_LENGTH];
+        //    cass_uuid_string(uuidtmp, myfinal);
+        //    DBG("encode UUID " + std::string(myfinal));
+        //    src = &uuidtmp;
+        } else {
+            src = get_element_addr(element_i, i);
+        }
+        memcpy(dest+offset, src, element_sizes[i]);
+        offset += element_sizes[i];
+    }
+}
+
+void* TupleRowFactory::decode(const void *encoded_buff, const uint64_t encoded_buff_len) const {
+
+    char *row_buffer=(char *) malloc(this->get_nbytes());
+    char *p_row_buffer = row_buffer;
+
+    uint64_t size=0;
+    bool alloc = false;
+    char * addr = (char *)encoded_buff;
+    void *src;
+
+    for (uint16_t i = 0; i < n_elements(); ++i) {
+        switch (metadata->at(i).type) {
+            case CASS_VALUE_TYPE_VARCHAR:
+            case CASS_VALUE_TYPE_TEXT:
+            case CASS_VALUE_TYPE_ASCII:{
+               size = strlen(addr) + 1;
+               alloc = true;
+               break;
+            }
+            case CASS_VALUE_TYPE_DATE:
+            case CASS_VALUE_TYPE_TIME:
+            case CASS_VALUE_TYPE_TIMESTAMP: {
+                alloc = true;
+                size = sizeof(time_t);
+                break;
+            }
+            case CASS_VALUE_TYPE_UUID:{
+                alloc = true;
+                size = sizeof(uint64_t) * 2;
+                break;
+            }
+            case CASS_VALUE_TYPE_TUPLE:{
+                /* we will allocate the size of the inner tupple */
+                alloc = true;
+                break;
+            }
+            case CASS_VALUE_TYPE_UDT:
+            case CASS_VALUE_TYPE_BLOB: {
+                 // first the size and then the content of the blob or the numpy
+                 size = sizeof(uint64_t) + **((uint64_t **)addr);
+                 alloc = true;
+                 break;
+            }
+            case CASS_VALUE_TYPE_VARINT:
+            case CASS_VALUE_TYPE_BIGINT:
+            case CASS_VALUE_TYPE_BOOLEAN:
+            case CASS_VALUE_TYPE_COUNTER:
+            case CASS_VALUE_TYPE_DOUBLE:
+            case CASS_VALUE_TYPE_FLOAT:
+            case CASS_VALUE_TYPE_INT:
+            case CASS_VALUE_TYPE_SMALL_INT:
+            case CASS_VALUE_TYPE_TINY_INT: {
+                 size=metadata->at(i).size;
+                 alloc = false;
+                 break;
+            }
+            case CASS_VALUE_TYPE_DECIMAL:
+            case CASS_VALUE_TYPE_TIMEUUID:
+            case CASS_VALUE_TYPE_INET:
+            case CASS_VALUE_TYPE_LIST:
+            case CASS_VALUE_TYPE_MAP:
+            case CASS_VALUE_TYPE_SET:
+            case CASS_VALUE_TYPE_CUSTOM:
+            case CASS_VALUE_TYPE_UNKNOWN:
+            default:
+                    throw ModuleException("Default behaviour not supported");
+        }
+        if (alloc) {
+            if (metadata->at(i).type == CASS_VALUE_TYPE_TUPLE) {
+                TupleRowFactory TFACT = TupleRowFactory(metadata->at(i).pointer);
+                TupleRow *innerdata = TFACT.make_tuple(addr);
+                size=TFACT.get_content_size(innerdata);
+                src = TFACT.decode(addr, size);
+            } else {
+                src = malloc(size);
+                memcpy(src, addr, size);
+            }
+            memcpy(p_row_buffer,&src,sizeof(src));
+            p_row_buffer += sizeof(src);
+            addr += size;
+        } else {
+            memcpy(p_row_buffer, addr, size);
+            p_row_buffer += size;
+            addr += size;
+        }
+
+    }
+    return row_buffer;
+}
+

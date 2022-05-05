@@ -54,6 +54,13 @@ public:
         return total_bytes;
     }
 
+    //get_content_size: Return the number of bytes to contain a 'serialized' TupleRow content
+    const uint64_t get_content_size(const TupleRow *row) const;
+    std::vector<uint32_t> get_content_sizes(const TupleRow* row) const;
+    void encode(const TupleRow *row, void *dest) const;
+    void * decode(const void *encoded_buff, const uint64_t encoded_buff_len) const;
+    void * get_element_addr(const void *element_i, const uint16_t pos) const;
+
 private:
     std::shared_ptr<const std::vector<ColumnMeta> > metadata;
 

@@ -49,6 +49,7 @@ public:
     void wait_stores(void) const;
 
     CacheTable* getWriteCache(void) const ;
+    CacheTable* getReadCache(void) const ;
 protected:
 
     void store_numpy_partition_into_cas(const uint64_t *storage_id , Partition part) const;
