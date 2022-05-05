@@ -1,5 +1,7 @@
 #include "UnitParser.h"
 #include <datetime.h>
+#include "debug.h"
+
 
 int16_t UnitParser::py_to_c(PyObject *element, void *payload) const {
     throw ModuleException("Not implemented");
@@ -416,9 +418,8 @@ PyObject *UuidParser::c_to_py(const void *payload) const {
     char *it = *data;
 
     if (it == nullptr) throw ModuleException("Error parsing from C to Py, expected ptr to UUID bits, found NULL");
-    char final[CASS_UUID_STRING_LENGTH];
 
-#if 1
+#if 0
     //trick to transform the data back, since it was parsed using the cassandra generator
     CassUuid uuid = {*((uint64_t *) it), *((uint64_t *) it + 1)};
 
@@ -452,10 +453,18 @@ PyObject *UuidParser::c_to_py(const void *payload) const {
     for (uint32_t ix=0; ix<8;ix++)
         p[ix] = psrc[7-ix];
 
+    char final[CASS_UUID_STRING_LENGTH];
     cass_uuid_string(tmp_uuid, final);
+    DBG("c_to_py: UUID "<<final);
     PyObject *uuidpy = PyObject_CallMethod(this->uuid_module, "UUID", "s", final);
 #else
-    PyObject *uuidpy = PyObject_CallMethod(this->uuid_module, "UUID", "sss(s)L", NULL, NULL, NULL, NULL, it);
+    //PyObject *uuidpy = PyObject_CallMethod(this->uuid_module, "UUID", "sss(s)L", NULL, NULL, NULL, NULL, it);
+
+    PyObject *args = PyTuple_New(0); // No fixed arguments ==> Empty tuple
+    PyObject *uuid_buffer = Py_BuildValue("y#", it, sizeof(uint64_t)*2);
+    PyObject *keywords = PyDict_New();
+    PyDict_SetItemString(keywords, "bytes", uuid_buffer);
+    PyObject *uuidpy = PyObject_Call(PyObject_GetAttrString(this->uuid_module, "UUID"), args, keywords); // uuid.UUID(bytes=it)
 #endif
     if (!uuidpy) throw ModuleException("Error parsing UUID from C to Py, expected a non-NULL result");
     return uuidpy;

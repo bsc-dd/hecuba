@@ -21,6 +21,7 @@ class IStorage(object):
 
     def __init__(self, *args, **kwargs):
         super().__init__()
+        log.debug('ISTORAGE Init.')
         if not getattr(self, "storage_id", None):
             self.storage_id = kwargs.pop("storage_id", None)
         self._built_remotely = kwargs.pop("built_remotely", False)
@@ -157,3 +158,6 @@ class IStorage(object):
             args_dict = new_args._asdict()
             args_dict["built_remotely"] = True
             yield build_remotely(args_dict)
+
+    def send(self, key=None, value=None):
+        raise NotImplementedError("SEND not supported")
