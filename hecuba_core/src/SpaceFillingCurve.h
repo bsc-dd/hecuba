@@ -63,6 +63,14 @@ struct ArrayMetadata {
     std::vector<uint32_t> dims;
     std::vector<uint32_t> strides;
     //int32_t inner_type = 0;
+    uint64_t get_array_size() {
+        uint64_t size = 1;
+        for (auto i: dims) {
+            size *= i;
+        }
+        size *= elem_size;
+        return size;
+    }
 };
 
 

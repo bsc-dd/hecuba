@@ -47,6 +47,7 @@ public:
     void put_crow(void *keys, void *values);
 
     void add_to_cache(void *keys, void *values);
+    void add_to_cache(const TupleRow *keys, const TupleRow *values);
 
     /*** Get access to the writer ***/
     Writer * get_writer();
@@ -55,9 +56,11 @@ public:
     void  enable_stream(const char * topic_name, std::map<std::string, std::string> &config);
     void  enable_stream_producer(void);
     void  enable_stream_consumer(void);
+    void poll(char *data, const uint64_t size);
     std::vector<const TupleRow *>  poll(void);
 
 private:
+    rd_kafka_message_t * kafka_poll(void) ;
 
     std::vector<const TupleRow *> retrieve_from_cassandra(const TupleRow *keys);
 

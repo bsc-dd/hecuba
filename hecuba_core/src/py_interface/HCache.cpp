@@ -1,4 +1,5 @@
 #include "HCache.h"
+#include "debug.h"
 
 
 /** MODULE METHODS **/
@@ -266,6 +267,7 @@ static PyObject * enable_stream(HCache *self, PyObject *args);
 static PyObject * enable_stream_producer(HCache *self);
 static PyObject * enable_stream_consumer(HCache *self);
 static PyObject * poll(HCache *self);
+static PyObject *send_event(HCache *self, PyObject *args);
 
 static void hcache_dealloc(HCache *self) {
     delete (self->keysParser);
@@ -392,7 +394,7 @@ static PyMethodDef hcache_type_methods[] = {
         {"enable_stream_producer",  (PyCFunction) enable_stream_producer, METH_NOARGS, NULL},
         {"enable_stream_consumer",  (PyCFunction) enable_stream_consumer, METH_NOARGS, NULL},
         {"poll",                    (PyCFunction) poll,                 METH_NOARGS, NULL},
-        {"send_event",              (PyCFunction) send_event,           METH_NOARGS, NULL},
+        {"send_event",              (PyCFunction) send_event,           METH_VARARGS, NULL},
         {NULL,                      NULL,                               0,            NULL}
 };
 
@@ -582,6 +584,102 @@ static PyObject *get_block_ids(HNumpyStore *self, PyObject *args) {
     return result;
 }
 
+static PyObject* getConfig(PyObject* args, char **topic_name, std::map<std::string, std::string> &config) {
+    PyObject *py_config;
+    if (!PyArg_ParseTuple(args, "sO", topic_name, &py_config)) {
+        PyErr_SetString(PyExc_RuntimeError, "Unable to parse tuple...");
+        return NULL;
+    }
+    std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: step 1"<< std::endl;
+
+    int type_check = PyDict_Check(py_config);
+
+    if (type_check) {
+        PyObject *dict;
+        if (!PyArg_Parse(py_config, "O", &dict)) {
+            return NULL;
+        };
+
+        std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: dict"<< std::endl;
+        PyObject *key, *value;
+        Py_ssize_t pos = 0;
+        while (PyDict_Next(dict, &pos, &key, &value)) {
+            std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: values"<< std::endl;
+            std::string conf_key(PyUnicode_AsUTF8(key));
+            if (PyUnicode_Check(value)) {
+                std::string conf_val(PyUnicode_AsUTF8(value));
+                config[conf_key] = conf_val;
+                std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: key="<< conf_key<< " value="<<conf_val<<std::endl;
+            } else {
+                std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: ERROR value key="<< conf_key<<std::endl;
+            }
+        }
+    } else {
+        PyErr_SetString(PyExc_RuntimeError, "Tried to enable stream dictionary, but unknown Config parameters passed");
+        return NULL;
+    }
+    Py_RETURN_NONE;
+}
+
+static PyObject* enable_stream_numpy(HNumpyStore *self, PyObject *args) {
+    char *topic_name = NULL;
+    std::map<std::string, std::string> config;
+
+    std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: "<< std::endl;
+
+    if (getConfig(args, &topic_name, config) == NULL)
+        return NULL;
+
+    // Enable Stream into writable cache
+    self->NumpyDataStore->getWriteCache()->enable_stream(topic_name, config);
+    self->NumpyDataStore->getReadCache()->enable_stream(topic_name, config);
+    Py_RETURN_NONE;
+}
+
+static PyObject* enable_stream_producer_numpy(HNumpyStore *self){
+    self->NumpyDataStore->getWriteCache()->enable_stream_producer();
+    Py_RETURN_NONE;
+}
+
+static PyObject* enable_stream_consumer_numpy(HNumpyStore *self){
+    self->NumpyDataStore->getReadCache()->enable_stream_consumer();
+    Py_RETURN_NONE;
+}
+
+static PyObject* poll_numpy(HNumpyStore *self, PyObject* args) {
+    PyObject *py_numpy, *py_np_metas;
+    if (!PyArg_ParseTuple(args, "OO", &py_np_metas, &py_numpy)) {
+        return NULL;
+    }
+    if (py_np_metas == Py_None) {
+        std::string error_msg = "The numpy metadatas can't be None";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+    HArrayMetadata *np_metas = reinterpret_cast<HArrayMetadata *>(py_np_metas);
+
+    // Transform the object to the numpy ndarray
+    PyArrayObject *numpy_arr;
+    if (!PyArray_OutputConverter(PyList_GetItem(py_numpy, 0), &numpy_arr)) {
+        std::string error_msg = "Can't convert the given numpy to a numpy ndarray";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    try {
+        DBG(" PYINTERFACE: BEFORE POLLNUMPY");
+        self->NumpyDataStore->poll(np_metas->np_metas, numpy_arr);
+        DBG(" PYINTERFACE: AFTER POLLNUMPY");
+    }
+    catch (std::exception &e) {
+        std::string error_msg = "Poll error: " + std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
 static PyObject *allocate_numpy(HNumpyStore *self, PyObject *args) {
     PyObject *py_keys, *py_np_metas;
     if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_np_metas)) {
@@ -764,6 +862,43 @@ static PyObject *load_numpy_slices(HNumpyStore *self, PyObject *args) {
     Py_RETURN_NONE;
 }
 
+static PyObject *send_event_numpy(HNumpyStore *self, PyObject *args) {
+    PyObject *py_numpy, *py_np_metas, *py_coord;
+    if (!PyArg_ParseTuple(args, "OOO", &py_np_metas, &py_numpy, &py_coord)) {
+        return NULL;
+    }
+
+    if (PyList_Size(py_numpy) != 1) {
+        std::string error_msg = "Only one numpy can be saved at once";
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    };
+
+    if (py_np_metas == Py_None) {
+        std::string error_msg = "The numpy metadatas can't be None";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    HArrayMetadata *np_metas = reinterpret_cast<HArrayMetadata *>(py_np_metas);
+
+    // Transform the object to the numpy ndarray
+    PyArrayObject *numpy_arr;
+    if (!PyArray_OutputConverter(PyList_GetItem(py_numpy, 0), &numpy_arr)) {
+        std::string error_msg = "Can't convert the given numpy to a numpy ndarray";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    try {
+        self->NumpyDataStore->send_event(np_metas->np_metas, numpy_arr, py_coord );
+    }
+    catch (std::exception &e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    Py_RETURN_NONE;
+}
 
 static void hnumpy_store_dealloc(HNumpyStore *self) {
     delete (self->NumpyDataStore);
@@ -835,6 +970,11 @@ static PyMethodDef hnumpy_store_type_methods[] = {
         {"get_elements_per_row", (PyCFunction) get_elements_per_row, METH_VARARGS, NULL},
         {"get_cluster_ids",      (PyCFunction) get_cluster_ids,      METH_VARARGS, NULL},
         {"get_block_ids",        (PyCFunction) get_block_ids,        METH_VARARGS, NULL},
+        {"enable_stream",           (PyCFunction) enable_stream_numpy,          METH_VARARGS, NULL},
+        {"enable_stream_producer",  (PyCFunction) enable_stream_producer_numpy, METH_NOARGS, NULL},
+        {"enable_stream_consumer",  (PyCFunction) enable_stream_consumer_numpy, METH_NOARGS, NULL},
+        {"poll",                 (PyCFunction) poll_numpy,           METH_VARARGS, NULL},
+        {"send_event",           (PyCFunction) send_event_numpy,     METH_VARARGS, NULL},
         {NULL, NULL, 0,                                                            NULL}
 };
 
@@ -1591,6 +1731,7 @@ static PyObject *create_iter_items(HCache *self, PyObject *args) {
     return (PyObject *) iter;
 }
 
+
 static PyObject* enable_stream_producer(HCache *self){
     self->T->enable_stream_producer();
     Py_RETURN_NONE;
@@ -1601,46 +1742,17 @@ static PyObject* enable_stream_consumer(HCache *self){
     Py_RETURN_NONE;
 }
 
+
 static PyObject* enable_stream(HCache *self, PyObject *args) {
-    const char *topic_name;
-    std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: "<< std::endl;
-    PyObject *py_config;
-    if (!PyArg_ParseTuple(args, "sO", &topic_name, &py_config)) {
-        PyErr_SetString(PyExc_RuntimeError, "Unable to parse tuple...");
-        return NULL;
-    }
-    std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: step 1"<< std::endl;
-
+    char *topic_name = NULL;
     std::map<std::string, std::string> config;
-    int type_check = PyDict_Check(py_config);
 
-    if (type_check) {
-        PyObject *dict;
-        if (!PyArg_Parse(py_config, "O", &dict)) {
-            return NULL;
-        };
+    std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: "<< std::endl;
 
-        std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: dict"<< std::endl;
-        PyObject *key, *value;
-        Py_ssize_t pos = 0;
-        while (PyDict_Next(dict, &pos, &key, &value)) {
-            std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: values"<< std::endl;
-            std::string conf_key(PyUnicode_AsUTF8(key));
-            if (PyUnicode_Check(value)) {
-                std::string conf_val(PyUnicode_AsUTF8(value));
-                config[conf_key] = conf_val;
-                std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: key="<< conf_key<< " value="<<conf_val<<std::endl;
-            } else {
-                std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: ERROR value key="<< conf_key<<std::endl;
-            }
-        }
-    } else {
-        PyErr_SetString(PyExc_RuntimeError, "Tried to enable stream dictionary, but unknown Config parameters passed");
+    if (getConfig(args, &topic_name, config) == NULL)
         return NULL;
-    }
 
     // Enable Stream into writable cache
-    //self->T->get_writer()->enable_stream(topic_name, config);
     self->T->enable_stream(topic_name, config);
     Py_RETURN_NONE;
 }

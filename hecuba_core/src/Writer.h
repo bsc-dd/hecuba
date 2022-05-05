@@ -36,7 +36,7 @@ public:
 
     void enable_stream(rd_kafka_conf_t* conf, const char* topic_name, std::map<std::string, std::string> &config);
 
-    void send_event(const TupleRow* key);
+    void send_event(char* event, const uint64_t size);
     void send_event(const TupleRow* key,const TupleRow *value);
 
     // Overload 'write_to_casandra' to write a single column (instead of all the columns)

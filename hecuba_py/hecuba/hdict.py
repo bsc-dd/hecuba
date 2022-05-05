@@ -9,6 +9,7 @@ import numpy as np
 from . import config, log, Parser
 from .storageiter import NamedItemsIterator, NamedIterator
 from .hnumpy import StorageNumpy
+from .storagestream import  StorageStream
 from hfetch import Hcache
 
 from .IStorage import IStorage
@@ -232,6 +233,9 @@ class StorageDict(IStorage, dict):
             log.error("Error creating the StorageDict metadata: %s %s", storage_args, ex)
             raise ex
 
+    def _is_stream(self):
+        return getattr(self, 'stream_enabled', False)
+
     def __init__(self, name=None, primary_keys=None, columns=None, indexed_on=None, storage_id=None, **kwargs):
         """
         Creates a new StorageDict.
@@ -333,6 +337,7 @@ class StorageDict(IStorage, dict):
         log.debug("CREATED StorageDict(%s,%s)", self._primary_keys, self._columns)
         key_names = [key["name"] for key in self._primary_keys]
         column_names = [col["name"] for col in self._columns]
+        self._key_column_builder = namedtuple('row', key_names + column_names)
 
         if len(key_names) > 1:
             self._key_builder = namedtuple('row', key_names)
@@ -376,6 +381,16 @@ class StorageDict(IStorage, dict):
                 self._setup_hcache()
             else: # new object
                 self._persist_metadata()
+        if self.storage_id is not None:
+            topic_name=str(self.storage_id)
+        else:
+            topic_name=None
+
+        # if the object has streaming capabilities and StorageStream was not already constructed
+        # case: myclass(StorageDict, StorageStream)
+        if isinstance(self, StorageStream):
+            log.debug("StorageDict with streaming capability")
+            StorageStream._propagate_stream_capability(self, topic_name)
 
     @classmethod
     def _parse_comments(self, comments):
@@ -759,6 +774,41 @@ class StorageDict(IStorage, dict):
             val = self.__create_embeddedset(key=key, val=val)
         return val
 
+    def send(self, key=None, val=None):
+        if key is None and val is None:
+            raise NotImplementedError("Send a whole DICTIONARY {}".format(self._name))
+        else:
+            self.__send_values_kafka(key, val)
+
+    def __send_values_kafka(self, key, val):
+        log.debug("__send_values_kafka: key={} value={}".format(key,val))
+        if not self._is_persistent:
+            raise RuntimeError("'send' operation is only valid on persistent objects")
+        if not self._is_stream() :
+            raise RuntimeError("current dictionary {} is not a stream".format(self._name))
+
+        if getattr(self,"_topic_name",None) is None:
+            StorageStream.enable_stream(self, str(self.storage_id))
+
+        if not self._stream_producer_enabled:
+            self._hcache.enable_stream_producer()
+            self._stream_producer_enabled=True
+
+        tosend=[]
+        if not isinstance(val,list):
+            val = [val]
+
+        for element in val:
+            if isinstance(element, IStorage):
+                tosend.append(element.storage_id)
+                # Enable stream capability and send it (depends on the object)
+                StorageStream._propagate_stream_capability(element, element.storage_id) # FIXME improve code
+                element.send()
+            else:
+                tosend.append(element)
+
+        self._hcache.send_event(key, tosend) # Send currrent object list with storageids and basic_types
+
     def __setitem__(self, key, val):
         """
            Method to insert values in the StorageDict
@@ -775,10 +825,55 @@ class StorageDict(IStorage, dict):
         elif not isinstance(val, EmbeddedSet):
             # Not needed because it is made persistent and inserted to hcache when calling to self.__create_embeddedset
             val = self.__make_val_persistent(val)
-            self._hcache.put_row(self._make_key(key), self._make_value(val))
+            k = self._make_key(key)
+            v = self._make_value(val)
+            self._hcache.put_row(k,v)
 
             if config.max_cache_size == 0: # If C++ cache is disabled, use python memory
                 dict.__setitem__(self,key,val)
+
+            if self._is_stream() :
+                self.__send_values_kafka(k,val)
+
+    def poll(self):
+        log.debug("StorageDict: POLL ")
+
+        if not self._is_stream():
+            raise RuntimeError("Poll on a not streaming object")
+
+        if getattr(self,"_topic_name",None) is None:
+            StorageStream.enable_stream(self, str(self.storage_id))
+        if not self._stream_consumer_enabled:
+            self._hcache.enable_stream_consumer()
+            self._stream_consumer_enabled=True
+
+        row = self._hcache.poll()
+
+        print("poll row type {} ".format(type(row)),flush=True)
+        v=row[-(len(row)-self._k_size):]
+        k=row[0:self._k_size]
+        print("poll row type {} got row: {}".format(type(row),row),flush=True)
+        print("poll k {} v {}".format(k,v),flush=True)
+
+        if config.max_cache_size == 0: # If C++ cache is disabled, use python memory
+            dict.__setitem__(self, k, v)
+        #self._hcache.add_to_cache(self._make_key(k),self._make_value(v))
+
+        # FIXME : Return  {key, value} instead of {value}
+        final_results = []
+        for index, col in enumerate(self._columns):
+            col_type = col["type"]
+            print(" col_type = {}".format(col_type), flush=True)
+            element = v[index]
+            if col_type not in basic_types:
+                # element is not a built-in type
+                info = {"storage_id": element, "tokens": self._build_args.tokens, "class_name": col_type}
+                element = build_remotely(info)
+                StorageStream._propagate_stream_capability(element, element.storage_id)
+                element.poll()
+
+            final_results.append(element)
+        return self._key_column_builder(*k,*final_results) # Return Key, Value
 
     def __len__(self):
         if not self.storage_id:

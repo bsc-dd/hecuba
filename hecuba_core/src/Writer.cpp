@@ -1,4 +1,5 @@
 #include "Writer.h"
+#include "debug.h"
 
 #define default_writer_buff 1000
 #define default_writer_callbacks 16
@@ -99,6 +100,10 @@ Writer::~Writer() {
         this->topic_name = NULL;
         rd_kafka_topic_destroy(this->topic);
         this->topic = NULL;
+        rd_kafka_resp_err_t err;
+        do {
+            err = rd_kafka_flush(this->producer, 500);
+        } while(err == RD_KAFKA_RESP_ERR__TIMED_OUT);
         rd_kafka_destroy(this->producer);
         this->producer = NULL;
     }
@@ -133,25 +138,11 @@ void Writer::enable_stream(rd_kafka_conf_t* conf, const char* topic_name, std::m
     this->topic = rkt;
 }
 
-void Writer::send_event(const TupleRow* key) {
-    if (this->topic_name == NULL) return;
-
-    // We are an stream
-    /* yolandab
-    if (this->producer->produce(this->topic,
-                                RD_KAFKA_PARTITION_UA,
-                                RD_KAFKA_MSG_F_COPY,
-                                key->get_payload(), key->length(),
-                                NULL, 0,
-                                NULL) == -1) {
-        fprintf(stderr, "%% Failed to produce to topic %s: %s\n",
-                this->topic_name, rd_kafka_err2str(rd_kafka_errno2err(errno)));
+void Writer::send_event(char* event, const uint64_t size) {
+    if (this->topic_name == nullptr) {
+        throw ModuleException(" Ooops. Stream is not initialized");
     }
-    */
 	rd_kafka_resp_err_t err;
-    size_t keylength=key->length();
-    char * keypayload = (char *) malloc (keylength);
-    memcpy (keypayload, key->get_payload(), keylength);
 	err = rd_kafka_producev(
                     /* Producer handle */
                     this->producer,
@@ -160,7 +151,7 @@ void Writer::send_event(const TupleRow* key) {
                     /* Make a copy of the payload. */
                     RD_KAFKA_V_MSGFLAGS(RD_KAFKA_MSG_F_COPY),
                     /* Message value and length */
-                    RD_KAFKA_V_VALUE(keypayload, keylength),
+                    RD_KAFKA_V_VALUE(event, size),
                     /* Per-Message opaque, provided in
                      * delivery report callback as
                      * msg_opaque. */
@@ -168,53 +159,32 @@ void Writer::send_event(const TupleRow* key) {
                     /* End sentinel */
                     RD_KAFKA_V_END);
 	if (err) {
-        fprintf(stderr, "%% Failed to produce to topic %s: %s\n",
+        char b[256];
+        sprintf(b, "%% Failed to produce to topic %s: %s\n",
                 this->topic_name, rd_kafka_err2str(rd_kafka_errno2err(errno)));
+        throw ModuleException(b);
 	}
-    //fprintf(stderr, "Send event to topic %s\n", this->topic_name);
 
 }
 
 void Writer::send_event(const TupleRow* key, const TupleRow *value) {
-    if (this->topic_name == NULL) return;
+    std::vector <uint32_t> key_sizes = this->k_factory->get_content_sizes(key);
+    std::vector <uint32_t> value_sizes = this->v_factory->get_content_sizes(value);
 
-    // We are an stream
-    /* yolandab
-    if (this->producer->produce(this->topic,
-                                RD_KAFKA_PARTITION_UA,
-                                RD_KAFKA_MSG_F_COPY,
-                                key->get_payload(), key->length(),
-                                NULL, 0,
-                                NULL) == -1) {
-        fprintf(stderr, "%% Failed to produce to topic %s: %s\n",
-                this->topic_name, rd_kafka_err2str(rd_kafka_errno2err(errno)));
+    size_t row_size=0;
+    size_t key_size=0;
+    for (auto&elt: key_sizes) {
+        key_size += elt;
     }
-    */
-	rd_kafka_resp_err_t err;
-    size_t keylength=key->length();
-    size_t valuelength=value->length();
-    char * rowpayload = (char *) malloc (keylength+valuelength);
-    memcpy (rowpayload, key->get_payload(), keylength);
-    memcpy (rowpayload+keylength, value->get_payload(), valuelength);
-	err = rd_kafka_producev(
-                    /* Producer handle */
-                    this->producer,
-                    /* Topic name */
-                    RD_KAFKA_V_TOPIC(this->topic_name),
-                    /* Make a copy of the payload. */
-                    RD_KAFKA_V_MSGFLAGS(RD_KAFKA_MSG_F_COPY),
-                    /* Message value and length */
-                    RD_KAFKA_V_VALUE(rowpayload, keylength+valuelength),
-                    /* Per-Message opaque, provided in
-                     * delivery report callback as
-                     * msg_opaque. */
-                    RD_KAFKA_V_OPAQUE(NULL),
-                    /* End sentinel */
-                    RD_KAFKA_V_END);
-	if (err) {
-        fprintf(stderr, "%% Failed to produce to topic %s: %s\n",
-                this->topic_name, rd_kafka_err2str(rd_kafka_errno2err(errno)));
-	}
+    row_size=key_size;
+    for (auto&elt: value_sizes) {
+        row_size += elt;
+    }
+    char *rowpayload = (char *) malloc(row_size);
+    this->k_factory->encode(key, rowpayload);
+    this->v_factory->encode(value, rowpayload+key_size);
+
+    this->send_event(rowpayload, row_size);
     //fprintf(stderr, "Send event to topic %s\n", this->topic_name);
 
 }
