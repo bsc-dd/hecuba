@@ -233,8 +233,12 @@ class StorageDict(IStorage, dict):
             log.error("Error creating the StorageDict metadata: %s %s", storage_args, ex)
             raise ex
 
-    def _is_stream(self):
-        return getattr(self, 'stream_enabled', False)
+
+
+    def _initialize_stream_capability(self, topic_name=None):
+        super()._initialize_stream_capability(topic_name)
+        if topic_name is not None:
+            self._hcache.enable_stream(self._topic_name, {'kafka_names': str.join(",",config.kafka_names)})
 
     def __init__(self, name=None, primary_keys=None, columns=None, indexed_on=None, storage_id=None, **kwargs):
         """
@@ -273,6 +277,7 @@ class StorageDict(IStorage, dict):
             self._primary_keys = self._persistent_props['primary_keys']
             self._columns = self._persistent_props['columns']
             self._indexed_on = self._persistent_props.get('indexed_on', indexed_on)
+            self._stream_enabled = self._persistent_props.get('stream', False)
 
         # Field '_istorage_metas' will be set if it exists in HECUBA.istorage
         initialized = (getattr(self, '_istorage_metas', None) is not None)
@@ -381,16 +386,14 @@ class StorageDict(IStorage, dict):
                 self._setup_hcache()
             else: # new object
                 self._persist_metadata()
-        if self.storage_id is not None:
-            topic_name=str(self.storage_id)
-        else:
-            topic_name=None
 
-        # if the object has streaming capabilities and StorageStream was not already constructed
-        # case: myclass(StorageDict, StorageStream)
-        if isinstance(self, StorageStream):
+        if self._is_stream():
             log.debug("StorageDict with streaming capability")
-            StorageStream._propagate_stream_capability(self, topic_name)
+            if self.storage_id is not None:
+                topic_name=str(self.storage_id)
+            else:
+                topic_name=None
+            self._initialize_stream_capability(topic_name)
 
     @classmethod
     def _parse_comments(self, comments):
@@ -788,7 +791,7 @@ class StorageDict(IStorage, dict):
             raise RuntimeError("current dictionary {} is not a stream".format(self._name))
 
         if getattr(self,"_topic_name",None) is None:
-            StorageStream.enable_stream(self, str(self.storage_id))
+            self._initialize_stream_capability(self.storage_id)
 
         if not self._stream_producer_enabled:
             self._hcache.enable_stream_producer()
@@ -802,7 +805,7 @@ class StorageDict(IStorage, dict):
             if isinstance(element, IStorage):
                 tosend.append(element.storage_id)
                 # Enable stream capability and send it (depends on the object)
-                StorageStream._propagate_stream_capability(element, element.storage_id) # FIXME improve code
+                element._initialize_stream_capability(element.storage_id)
                 element.send()
             else:
                 tosend.append(element)
@@ -842,7 +845,7 @@ class StorageDict(IStorage, dict):
             raise RuntimeError("Poll on a not streaming object")
 
         if getattr(self,"_topic_name",None) is None:
-            StorageStream.enable_stream(self, str(self.storage_id))
+            self._initialize_stream_capability(self.storage_id)
         if not self._stream_consumer_enabled:
             self._hcache.enable_stream_consumer()
             self._stream_consumer_enabled=True
@@ -869,7 +872,7 @@ class StorageDict(IStorage, dict):
                 # element is not a built-in type
                 info = {"storage_id": element, "tokens": self._build_args.tokens, "class_name": col_type}
                 element = build_remotely(info)
-                StorageStream._propagate_stream_capability(element, element.storage_id)
+                element._initialize_stream_capability(element.storage_id)
                 element.poll()
 
             final_results.append(element)
