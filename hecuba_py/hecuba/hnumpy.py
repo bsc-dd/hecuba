@@ -944,8 +944,10 @@ class StorageNumpy(IStorage, np.ndarray):
         super(StorageNumpy, self).__setitem__(sliced_coord, values)
         return
 
-    def _is_stream(self):
-        return getattr(self, 'stream_enabled', False)
+    def _initialize_stream_capability(self, topic_name=None):
+        super()._initialize_stream_capability(topic_name)
+        if topic_name is not None:
+            self._hcache.enable_stream(self._topic_name, {'kafka_names': str.join(",",config.kafka_names)})
 
     def send(self, key=None, val=None):
         """
@@ -957,7 +959,7 @@ class StorageNumpy(IStorage, np.ndarray):
             raise RuntimeError("current NUMPY {} is not a stream".format(self._name))
 
         if getattr(self,"_topic_name",None) is None:
-            StorageStream.enable_stream(self, str(self.storage_id))
+            self._initialize_stream_capability(self.storage_id)
 
         if not self._stream_producer_enabled:
             self._hcache.enable_stream_producer()
@@ -977,7 +979,8 @@ class StorageNumpy(IStorage, np.ndarray):
             raise RuntimeError("Poll on a not streaming object")
 
         if getattr(self,"_topic_name",None) is None:
-            StorageStream.enable_stream(self, str(self.storage_id))
+            self._initialize_stream_capability(self.storage_id)
+
         if not self._stream_consumer_enabled:
             self._hcache.enable_stream_consumer()
             self._stream_consumer_enabled=True

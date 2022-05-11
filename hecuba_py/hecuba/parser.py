@@ -323,13 +323,16 @@ class Parser(object):
     def _input_type(self, line, this):
         if line.count('<') == 1:  # is tuple, set, list
             aux = self._parse_set_tuple_list(line, this)
-        elif line.count('<') == 0 and line.count('Index_on') == 0 and line.count('.') == 0 or (
+        elif line.count('<') == 0 and line.count('Index_on') == 0 and line.count('@stream')==0 and line.count('.') == 0 or (
                 line.count('numpy.ndarray') and line.count(' dict') == 0):  # is simple type
             aux = self._parse_simple(line, this)
         elif line.count('Index_on') == 1:
             aux = self._parse_index(line, this)
         elif line.count('.') > 0 and line.count(' dict') == 0:
             aux = self._parse_file(line, this)
+        elif line.count('@stream') == 1: #Enable stream
+            this['stream']='on'
+            aux = this
         else:  # is dict
             aux = self._parse_dict(line, this)
         return aux
@@ -338,7 +341,7 @@ class Parser(object):
         '''Def: Remove all the spaces of the line splitted from comments
                 Returns: same line with no spaces.'''
         line = re.sub(' +', '*', line)
-        if line.find('@Index_on') == -1:
+        if line.find('@Index_on') == -1 and line.find('@stream') == -1:
             line = line[line.find(self.type_parser):]
 
         if line.count('tuple') == 1 and line.count('dict') == 0:
@@ -347,6 +350,10 @@ class Parser(object):
         elif line.count('set') == 1 and line.count('dict') == 0:
             pos = re.search(r'\b(set)\b', line)
             pos = pos.start()
+        elif line.count('@stream') == 1:
+            pos = line.find('@stream')
+            line = line[pos:]
+            return line.replace('*', ' ')
         elif line.count('@Index_on') == 1:
             pos = line.find('@Index_on')
             line = line[pos:]
@@ -392,8 +399,9 @@ class Parser(object):
             raise Exception(f"One or more bad character detected: [{', '.join(bad_found)}].")
 
         if type_parser == "TypeSpec":
-            if len(lines.split("\n")) != 1:
-                raise Exception("StorageDicts should only have one TypeSpec line.")
+            #if len(lines.split("\n")) != 1:
+            if len(lines.split("\n")) > 2:
+                raise Exception("StorageDicts should only have one TypeSpec line and (optionaly) the Index_on or the stream properties.")
             if lines.count("<") < 2 or lines.count(">") < 2:
                 raise Exception("The TypeSpec should have at least two '<' and two '>'. Format: "
                                 "@TypeSpec dict<<key:type>, value:type>.")
