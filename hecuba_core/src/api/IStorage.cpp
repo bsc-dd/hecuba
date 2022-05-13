@@ -11,6 +11,16 @@ IStorage::IStorage(HecubaSession* session, std::string id_model, std::string id_
 	this->dataWriter = writer;
 }
 
+IStorage::IStorage(HecubaSession* session, std::string id_model, std::string id_object, uint64_t* storage_id, Writer* writer, CacheTable *reader) {
+	this->currentSession = session;
+	this->id_model = id_model;
+	this->id_obj = id_object;
+
+	this->storageid = storage_id;
+	this->dataWriter = writer;
+	this->dataAccess = reader;
+}
+
 IStorage::~IStorage() {
 	delete(dataWriter);
 }
@@ -46,6 +56,11 @@ uint64_t* IStorage::getStorageID() {
 Writer *
 IStorage::getDataWriter(void) {
     return dataWriter;
+}
+
+CacheTable *
+IStorage::getDataAccess(void) {
+    return dataAccess;
 }
 
 void
@@ -209,7 +224,8 @@ IStorage::writeTable(const void* key, void* value, const enum IStorage::valid_wr
 
     if (mytype == SETITEM_TYPE) {
         // key arrives codified and contains latitude(double) + timestep(int)
-        this->dataWriter->write_to_cassandra(cc_key, cc_val);
+        //this->dataWriter->write_to_cassandra(cc_key, cc_val);
+        this->dataAccess->put_crow(cc_key, cc_val);
     } else {
         char* attr_name = (char*) key;
         this->dataWriter->write_to_cassandra(cc_key, cc_val, attr_name);
@@ -235,4 +251,23 @@ void IStorage::setItem(void* key, void* value) {
 void IStorage::setItem(void* key, IStorage * value){
     /* 'writetable' expects a block of memory with pointers to IStorages, therefore add an indirection */
     writeTable(key, (void *) &value, SETITEM_TYPE);
+}
+
+void * IStorage::getItem(void* key) {
+    /* PRE: value arrives already coded as expected: block of memory with pointers to IStorages or basic values*/
+    std::pair<uint16_t, uint16_t> keySize = dataAccess->get_metadata()->get_keys_size();
+    int key_size = keySize.first + keySize.second;
+    int value_size = dataAccess->get_metadata()->get_values_size();
+
+    void * keytosend = malloc(key_size);
+    void *valuetoreturn = malloc(value_size);
+
+    memcpy(keytosend, key, key_size);
+
+    memcpy(valuetoreturn, dataAccess->get_crow(keytosend)[0]->get_payload(), value_size);
+
+
+    // TODO this works only for dictionaries of one element. We should traverse the whole vector of values
+    // TODO delete the vector of tuple rows and the tuple rows
+    return (valuetoreturn);
 }

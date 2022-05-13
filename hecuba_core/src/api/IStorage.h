@@ -4,6 +4,7 @@
 
 #include "configmap.h"
 #include "HecubaSession.h"
+#include "CacheTable.h"
 
 //class HecubaSession; //Forward declaration
 
@@ -13,10 +14,12 @@ class IStorage {
 
 public:
     IStorage(HecubaSession* session, std::string id_model, std::string id_object, uint64_t* storage_id, Writer* writer);
+    IStorage(HecubaSession* session, std::string id_model, std::string id_object, uint64_t* storage_id, Writer *writer, CacheTable* reader);
     ~IStorage();
 
     void setItem(void* key, IStorage* value);
     void setItem(void* keys, void* values);
+    void *getItem(void* keys);
 
     void setAttr(const char* attr_name, IStorage* value);
     void setAttr(const char* attr_name, void* value);
@@ -24,6 +27,7 @@ public:
 	uint64_t* getStorageID();
 
     Writer * getDataWriter();
+    CacheTable * getDataAccess();
 
     void sync(void);
 
@@ -51,5 +55,6 @@ private:
 	HecubaSession* currentSession; //Access to cassandra and model
 
 	Writer* dataWriter; /* Writer for entries in the object */
+	CacheTable * dataAccess; /* Writer for entries in the object */
 };
 #endif /* ISTORAGE_H */

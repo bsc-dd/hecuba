@@ -715,12 +715,14 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
 
 
-                Writer *writer = storageInterface->make_writer(id_object, config["EXECUTION_NAME"].c_str(),
+                //Writer *writer = storageInterface->make_writer(id_object, config["EXECUTION_NAME"].c_str(),
+                CacheTable *reader = storageInterface->make_cache(id_object, config["EXECUTION_NAME"].c_str(),
                           *keyNamesDict, *colNamesDict,
                           config);
+                Writer *writer = reader->get_writer();
                 delete keyNamesDict;
                 delete colNamesDict;
-                o = new IStorage(this, id_model, config["EXECUTION_NAME"] + "." + id_object, c_uuid, writer);
+                o = new IStorage(this, id_model, config["EXECUTION_NAME"] + "." + id_object, c_uuid, writer, reader);
             }
             break;
 

@@ -1,5 +1,5 @@
 CFLAGS=-g -std=c++11   -I ${HECUBA_ROOT}/include   -L${HECUBA_ROOT}/lib   -lhfetch   -Wl,-rpath,${HECUBA_ROOT}/lib
-OBJS= apitest_complex
+OBJS= apitest_complex apitest_complex2
 
 all: ${HECUBA_ROOT}/lib/libhfetch.so ${OBJS}
 
@@ -9,6 +9,9 @@ ${HECUBA_ROOT}/lib/libhfetch.so:
 
 apitest_complex: apitest_complex.cpp
 	g++ -o apitest_complex   apitest_complex.cpp    ${CFLAGS} 
+
+apitest_complex2: apitest_complex2.cpp
+	g++ -g -o apitest_complex2   apitest_complex2.cpp    ${CFLAGS} 
 
 clean:
 	rm ${OBJS}
