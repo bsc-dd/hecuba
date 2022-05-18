@@ -26,6 +26,25 @@ std::unordered_set<std::string> ObjSpec::valid_types_str = {
                     "hecuba.hnumpy.StorageNumpy"     //numpy.ndarray
 };
 
+std::map<std::string, std::string> ObjSpec::yaml_to_cass_conversion {
+                    //{ "counter",  "counter"},
+                    { "str",      "text"},
+                    { "bool",     "boolean"},
+                    //{ "???",      "decimal"},
+                    { "double",   "double"},
+                    { "int",      "int"},
+                    { "long",     "bigint"},
+                    { "blob",     "blob"},
+                    { "float",    "float"},
+                    //{ "timestamp","???"},
+                    //{ "time",     "time"},
+                    //{ "date",     "date"},
+                    //{ //TODO "list",
+                    //{ //TODO "set",
+                    //{ //TODO "map",
+                    //{ //TODO "tuple"
+};
+
 ObjSpec::ObjSpec() {}
 
 ObjSpec::ObjSpec(enum valid_types type, std::vector<std::pair<std::string, std::string>>partK, std::vector<std::pair<std::string, std::string>> clustK, std::vector<std::pair<std::string, std::string>> c, std::string pythonString){
@@ -45,6 +64,18 @@ bool ObjSpec::isBasicType(std::string attr_type) {
 
     return (basic_types_str.count(attr_type)>0);  //if (basic_types_str.contains(type))
 }
+
+std::string ObjSpec::yaml_to_cass(const std::string attr_type) {
+
+    std::string res;
+    try{
+        res = ObjSpec::yaml_to_cass_conversion.at(attr_type);
+    } catch( std::out_of_range &e) {
+        res = attr_type;
+    }
+    return res;
+}
+
 std::string ObjSpec::getKeysStr(void) {
     // Returns a string with a list of tuples name+type. Example: [('lat','int'), ('ts','int')]
     std::vector<std::pair<std::string,std::string>>::iterator it;
