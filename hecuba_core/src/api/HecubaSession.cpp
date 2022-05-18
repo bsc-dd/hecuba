@@ -44,6 +44,7 @@ namespace YAML {
                 if ((name == "numpy.ndarray") || (name == "StorageNumpy")) {
                     return "hecuba.hnumpy.StorageNumpy";
                 }
+                name = ObjSpec::yaml_to_cass(name);
                 return name;
             }
             static bool decode(const Node& node, DataModel::datamodel_spec& dmodel) {
