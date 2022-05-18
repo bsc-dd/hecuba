@@ -36,6 +36,7 @@ public:
     std::string getIDObjFromCol(int pos);
     std::string getPythonString();
     static bool isBasicType(std::string attr_type);
+    static std::string yaml_to_cass(const std::string attr_type);
 private:
     enum valid_types objtype;
     std::vector<std::pair<std::string, std::string>> partitionKeys;
@@ -45,6 +46,7 @@ private:
 
     static std::unordered_set<std::string> basic_types_str;
     static std::unordered_set<std::string> valid_types_str;
+    static std::map<std::string, std::string> yaml_to_cass_conversion;
     //static std::unordered_set<std::string> basic_types_str = {
     //                "counter",
     //                "text",
