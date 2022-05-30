@@ -59,52 +59,64 @@ namespace YAML {
 
                 const Node typespec = node["TypeSpec"];
                 if (!typespec.IsSequence() || (typespec.size() != 2)) { return false; }
+                bool streamEnabled = false;
                 dmodel.id=typespec[0].as<std::string>();
                 pythonString="class " + dmodel.id;
 
-                if ((typespec[1].as<std::string>() == "StorageDict") || (typespec[1].as<std::string>() == "StorageStream")){
-                    if (typespec[1].as<std::string>() == "StorageDict") {
-                        pythonString="from hecuba import StorageDict\n\n" + pythonString;
-                        pythonString += " (StorageDict):\n";
-                        obj_type=ObjSpec::valid_types::STORAGEDICT_TYPE;
+                if ((typespec[1].as<std::string>() == "StorageDict")){
+                    pythonString="from hecuba import StorageDict\n\n" + pythonString;
+                    pythonString += " (StorageDict):\n";
+                    obj_type=ObjSpec::valid_types::STORAGEDICT_TYPE;
+
+                    if (node["KeySpec"]) {
+                        const Node keyspec =  node["KeySpec"];
+                        // TODO: Check that keyspec is not null
+                        if (!keyspec.IsSequence() || (keyspec.size() == 0)) { return false; }
+
+                        pythonString+="   '''\n   @TypeSpec dict <<";
+
+
+                        if (!keyspec[0].IsSequence() || (keyspec[0].size() != 2)) { return false; }
+
+                        attrName=keyspec[0][0].as<std::string>();
+                        attrType=keyspec[0][1].as<std::string>();
+                        pythonString+=attrName+":"+attrType;
+                        partitionKeys.push_back(std::pair<std::string,std::string>(attrName,mapUserType(attrType)));
+
+                        for (uint32_t i=1; i<keyspec.size();i++) {
+                            if (!keyspec[i].IsSequence() || (keyspec[i].size() != 2)) { return false; }
+
+                            attrName=keyspec[i][0].as<std::string>();
+                            attrType=keyspec[i][1].as<std::string>();
+                            pythonString+=","+attrName+":"+attrType;
+                            clusteringKeys.push_back(std::pair<std::string,std::string>(attrName,mapUserType(attrType)));
+                        }
+                        pythonString+=">";
                     } else {
-                        pythonString="from hecuba import StorageStream\n\n" + pythonString;
-                        pythonString += " (StorageStream):\n";
-                        obj_type=ObjSpec::valid_types::STORAGESTREAM_TYPE;
-
+                        throw ModuleException("Missing 'KeySpec' in specification");
                     }
-                    const Node keyspec =  node["KeySpec"];
-                    if (!keyspec.IsSequence() || (keyspec.size() == 0)) { return false; }
 
-                    pythonString+="   '''\n   @TypeSpec dict <<";
-
-
-                    if (!keyspec[0].IsSequence() || (keyspec[0].size() != 2)) { return false; }
-
-                    attrName=keyspec[0][0].as<std::string>();
-                    attrType=keyspec[0][1].as<std::string>();
-                    pythonString+=attrName+":"+attrType;
-                    partitionKeys.push_back(std::pair<std::string,std::string>(attrName,mapUserType(attrType)));
-
-                    for (uint32_t i=1; i<keyspec.size();i++) {
-                        if (!keyspec[i].IsSequence() || (keyspec[i].size() != 2)) { return false; }
-
-                        attrName=keyspec[i][0].as<std::string>();
-                        attrType=keyspec[i][1].as<std::string>();
-                        pythonString+=","+attrName+":"+attrType;
-                        clusteringKeys.push_back(std::pair<std::string,std::string>(attrName,mapUserType(attrType)));
+                    if (node["ValueSpec"]) {
+                        const Node valuespec =  node["ValueSpec"];
+                        if (!valuespec.IsSequence() || (valuespec.size() == 0)) { return false; }
+                        for (uint32_t i=0; i<valuespec.size();i++) {
+                            if (!valuespec[i].IsSequence() || (valuespec[i].size() != 2)) { return false; }
+                            attrName=valuespec[i][0].as<std::string>();
+                            attrType=valuespec[i][1].as<std::string>();
+                            pythonString+=","+attrName+":"+attrType;
+                            cols.push_back(std::pair<std::string,std::string>(attrName,mapUserType(attrType)));
+                        }
+                        pythonString+=">\n";
+                    } else {
+                        throw ModuleException("Missing 'ValueSpec' in specification");
                     }
-                    pythonString+=">";
-                    const Node valuespec =  node["ValueSpec"];
-                    if (!valuespec.IsSequence() || (valuespec.size() == 0)) { return false; }
-                    for (uint32_t i=0; i<valuespec.size();i++) {
-                        if (!valuespec[i].IsSequence() || (valuespec[i].size() != 2)) { return false; }
-                        attrName=valuespec[i][0].as<std::string>();
-                        attrType=valuespec[i][1].as<std::string>();
-                        pythonString+=","+attrName+":"+attrType;
-                        cols.push_back(std::pair<std::string,std::string>(attrName,mapUserType(attrType)));
+
+                    if (node["stream"]) {
+                        const Node stream =  node["stream"];
+                        pythonString+="   @stream\n";
+                        streamEnabled = true;
                     }
-                    pythonString+=">\n   '''";
+                    pythonString+="   '''\n";
 
                 } else if (typespec[1].as<std::string>() == "StorageObject") {
                     pythonString="from hecuba import StorageObj\n\n" + pythonString;
@@ -128,6 +140,9 @@ namespace YAML {
                 } else return false;
 
                 dmodel.o=ObjSpec(obj_type,partitionKeys,clusteringKeys,cols,pythonString);
+                if (streamEnabled) {
+                    dmodel.o.enableStream();
+                }
                 return true;
             }
         };
@@ -653,7 +668,6 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
 
             }
             break;
-        case ObjSpec::valid_types::STORAGESTREAM_TYPE:
         case ObjSpec::valid_types::STORAGEDICT_TYPE:
             {
                 // Dictionary case
@@ -735,18 +749,17 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 Writer *writer = NULL;
                 std::string topic = std::string(UUID2str(c_uuid));
 
-                if (oType.getType() == ObjSpec::valid_types::STORAGESTREAM_TYPE) {
-                    writer = storageInterface->make_writer_stream(id_object, config["execution_name"].c_str(),
-                            *keyNamesDict, *colNamesDict, topic.c_str(),
-                            config);
-                } else {
-                    writer = storageInterface->make_writer(id_object, config["execution_name"].c_str(),
-                            *keyNamesDict, *colNamesDict,
-                            config);
-                }
+                writer = storageInterface->make_writer(id_object, config["execution_name"].c_str(),
+                        *keyNamesDict, *colNamesDict,
+                        config);
                 delete keyNamesDict;
                 delete colNamesDict;
                 o = new IStorage(this, id_model, config["execution_name"] + "." + id_object, c_uuid, writer);
+                    std::cout<< " CREATED NEW STORAGEDICT with uuid "<< topic<<std::endl;
+                if (oType.isStream()) {
+                    std::cout<< "     AND IT IS AN STREAM!"<<std::endl;
+                    o->enableStream(topic);
+                }
             }
             break;
 
@@ -780,6 +793,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
 
                 // TODO: el writer para pasarselo al istorage esta en la cache table del array datastor: anaydir getCache al arraydatastore
                 o = new IStorage(this, id_model, config["execution_name"] + "." + id_object, c_uuid, array_store->getWriteCache()->get_writer());
+                o->setNumpyAttributes(numpy_metas,value);
 
             }
             break;
