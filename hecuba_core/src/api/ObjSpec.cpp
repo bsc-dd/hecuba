@@ -193,6 +193,16 @@ std::string ObjSpec::getCassandraType(std::string type) {
     return res;
 }
 
+bool ObjSpec::isStream(void) const {
+    return stream_enabled;
+}
+void ObjSpec::enableStream(void) {
+    stream_enabled = true;
+}
+void ObjSpec::disableStream(void) {
+    stream_enabled = false;
+}
+
 
 void ObjSpec::generateTableAttr() {
     // Generate attributes string for cassandra table creation

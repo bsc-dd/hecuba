@@ -106,6 +106,7 @@ const void CacheTable::wait_elements() const {
 
 void CacheTable::send_event(const TupleRow *keys, const TupleRow *values) {
     this->writer->send_event(keys, values);
+    if (myCache) this->myCache->add(*keys, values); //Inserts if not present, otherwise replaces
 }
 
 void CacheTable::put_crow(const TupleRow *keys, const TupleRow *values) {
@@ -195,7 +196,7 @@ void  CacheTable::enable_stream(const char * topic_name, std::map<std::string, s
 }
 
 void  CacheTable::enable_stream_producer(void) {
-    this->get_writer()->enable_stream(this->kafka_conf, this->topic_name, this->stream_config);
+    this->get_writer()->enable_stream(this->topic_name, this->stream_config);
 }
 
 void  CacheTable::enable_stream_consumer(void) {
