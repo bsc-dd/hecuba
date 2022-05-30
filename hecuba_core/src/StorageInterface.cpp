@@ -119,53 +119,18 @@ Writer *StorageInterface::make_writer(const char *table, const char *keyspace,
     return new Writer(table_meta, session, config);
 
 }
-/* Kafka conf... */
-rd_kafka_conf_t * StorageInterface::create_stream_conf(config_map &config){
-    char errstr[512];
-    char hostname[128];
-    rd_kafka_conf_t *conf = rd_kafka_conf_new();
 
-    if (gethostname(hostname, sizeof(hostname))) {
-        fprintf(stderr, "%% Failed to lookup hostname\n");
-        exit(1);
-    }
-
-    // PRODUCER: Why do we need to set client.id????
-    if (rd_kafka_conf_set(conf, "client.id", hostname,
-                              errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
-        fprintf(stderr, "%% %s\n", errstr);
-        exit(1);
-    }
-
-    // CONSUMER: Why do we need to set group.id????
-    if (rd_kafka_conf_set(conf, "group.id", "hecuba",
-                errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
-        fprintf(stderr, "%% %s\n", errstr);
-        exit(1);
-    }
-
-    // Setting bootstrap.servers...
-    if (config.find("kafka_names") == config.end()) {
-        throw ModuleException("KAFKA_NAMES are not set. Use: 'host1:9092,host2:9092'");
-    }
-    std::string kafka_names = config["kafka_names"];
-
-    if (rd_kafka_conf_set(conf, "bootstrap.servers", kafka_names.c_str(),
-                              errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
-        fprintf(stderr, "%% %s\n", errstr);
-        exit(1);
-    }
-	return conf;
-}
 Writer *StorageInterface::make_writer_stream(const char *table, const char *keyspace,
                                       std::vector<config_map> &keys_names,
                                       std::vector<config_map> &columns_names,
                                       const char* topic,
                                       config_map &config) {
     Writer* myWriter = make_writer(table, keyspace, keys_names, columns_names, config);
-	rd_kafka_conf_t * kafka_conf = create_stream_conf(config);
-    myWriter->enable_stream(kafka_conf, topic, config);
+    myWriter->enable_stream(topic, (std::map<std::string,std::string>&) config);
     return myWriter;
+}
+void StorageInterface::enable_writer_stream(Writer *target, const char *topic, config_map &config) {
+    target->enable_stream(topic, (std::map<std::string,std::string>&)config);
 }
 
 Writer *StorageInterface::make_writer(const TableMetadata *table_meta,

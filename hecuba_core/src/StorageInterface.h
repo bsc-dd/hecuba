@@ -18,7 +18,8 @@
 //#include "ArrayDataStore.h"
 #include "MetaManager.h"
 
-typedef std::map<std::string, std::string> config_map;
+#include "configmap.h"
+
 
 struct tokenHost {
     int64_t token;
@@ -54,6 +55,8 @@ public:
                                       const char* topic,
                                       config_map &config) ;
 
+    void enable_writer_stream(Writer *target, const char *topic, config_map &config);
+
     Writer *make_writer(const TableMetadata *table_meta,
                         config_map &config);
 
@@ -86,7 +89,6 @@ public:
 
     char * get_host_per_token(int64_t token);
 
-    rd_kafka_conf_t * create_stream_conf(config_map &config);
 private:
 
     std::vector< struct tokenHost > tokensInCluster;

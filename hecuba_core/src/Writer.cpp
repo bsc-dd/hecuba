@@ -114,10 +114,52 @@ Writer::~Writer() {
 }
 
 
-void Writer::enable_stream(rd_kafka_conf_t* conf, const char* topic_name, std::map<std::string, std::string> &config) {
+rd_kafka_conf_t * Writer::create_stream_conf(std::map<std::string,std::string> &config){
+    char errstr[512];
+    char hostname[128];
+    rd_kafka_conf_t *conf = rd_kafka_conf_new();
+
+    if (gethostname(hostname, sizeof(hostname))) {
+        fprintf(stderr, "%% Failed to lookup hostname\n");
+        exit(1);
+    }
+
+    // PRODUCER: Why do we need to set client.id????
+    if (rd_kafka_conf_set(conf, "client.id", hostname,
+                              errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+        fprintf(stderr, "%% %s\n", errstr);
+        exit(1);
+    }
+
+    // CONSUMER: Why do we need to set group.id????
+    if (rd_kafka_conf_set(conf, "group.id", "hecuba",
+                errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+        fprintf(stderr, "%% %s\n", errstr);
+        exit(1);
+    }
+
+    // Setting bootstrap.servers...
+    if (config.find("kafka_names") == config.end()) {
+        throw ModuleException("KAFKA_NAMES are not set. Use: 'host1:9092,host2:9092'");
+    }
+    std::string kafka_names = config["kafka_names"];
+
+    if (rd_kafka_conf_set(conf, "bootstrap.servers", kafka_names.c_str(),
+                              errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+        fprintf(stderr, "%% %s\n", errstr);
+        exit(1);
+    }
+    return conf;
+}
+
+
+
+void Writer::enable_stream(const char* topic_name, std::map<std::string, std::string> &config) {
     if (this->topic_name != nullptr) {
         throw ModuleException(" Ooops. Stream already initialized");
     }
+    rd_kafka_conf_t * conf = create_stream_conf(config);
+
 
     this->topic_name = (char *) malloc(strlen(topic_name) + 1);
     strcpy(this->topic_name, topic_name);
@@ -187,6 +229,14 @@ void Writer::send_event(const TupleRow* key, const TupleRow *value) {
     this->send_event(rowpayload, row_size);
     //fprintf(stderr, "Send event to topic %s\n", this->topic_name);
 
+}
+void Writer::send_event(void* key, void* value) {
+    const TupleRow *k = k_factory->make_tuple(key);
+    const TupleRow *v = v_factory->make_tuple(value);
+    this->send_event(k, v);
+    this->write_to_cassandra(k, v);
+    delete(k);
+    delete(v);
 }
 
 void Writer::set_timestamp_gen(TimestampGenerator *time_gen) {

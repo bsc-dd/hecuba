@@ -20,6 +20,7 @@ public:
 
     void send(void* key, IStorage* value);
     void send(void* key, void* value);
+    void send(void);
 
     void setAttr(const char* attr_name, IStorage* value);
     void setAttr(const char* attr_name, void* value);
@@ -30,6 +31,11 @@ public:
 
     void sync(void);
 
+    void setNumpyAttributes(ArrayMetadata &metas, void* value);
+
+    void enableStream(std::string topic);
+    bool isStream();
+
 private:
     enum valid_writes {
         SETATTR_TYPE,
@@ -38,8 +44,8 @@ private:
     void writeTable(const void* key, void* value, const enum valid_writes mytype);
     std::string generate_numpy_table_name(std::string attributename);
 
-    /* convert_IStorage_to_UUID: Given a value (basic or persistent) convert it to the same value or its *storage_id* if it is a persistent one */
-    void convert_IStorage_to_UUID(char * dst, const std::string& value_type, void* src, int64_t src_size) const ;
+    /* convert_IStorage_to_UUID: Given a value (basic or persistent) convert it to the same value or its *storage_id* if it is a persistent one. Returns True if type is converted (aka was an IStorage). */
+    bool convert_IStorage_to_UUID(char * dst, const std::string& value_type, void* src, int64_t src_size) const ;
 
     config_map keysnames;
     config_map keystypes;
@@ -53,6 +59,11 @@ private:
 
 	HecubaSession* currentSession; //Access to cassandra and model
 
+    bool streamEnabled=false;
+
 	Writer* dataWriter; /* Writer for entries in the object */
+
+    void *data;   /* Pointer to memory containing the object. READ ONLY. DO NOT FREE. This object does NOT own the memory! */
+    ArrayMetadata numpy_metas; /* Pointer to memory containing the metadata. READ ONLY. DO NOT FREE. This object does NOT own the memory! */
 };
 #endif /* ISTORAGE_H */

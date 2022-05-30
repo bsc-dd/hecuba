@@ -357,7 +357,6 @@ from .parser import Parser
 from .storageobj import StorageObj
 from .hdict import StorageDict
 from .hnumpy import StorageNumpy
-from .storagestream import StorageStream
 from .hfilter import hfilter
 
 if not filter == hfilter:
@@ -395,4 +394,4 @@ _intercept_numpy_method('dot')
 _intercept_numpy_method('array_equal')
 _intercept_numpy_method('concatenate')
 
-__all__ = ['StorageObj', 'StorageDict', 'StorageNumpy', 'Parser', 'StorageStream']
+__all__ = ['StorageObj', 'StorageDict', 'StorageNumpy', 'Parser']

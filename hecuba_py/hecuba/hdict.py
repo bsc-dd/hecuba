@@ -9,7 +9,6 @@ import numpy as np
 from . import config, log, Parser
 from .storageiter import NamedItemsIterator, NamedIterator
 from .hnumpy import StorageNumpy
-from .storagestream import  StorageStream
 from hfetch import Hcache
 
 from .IStorage import IStorage
@@ -830,13 +829,14 @@ class StorageDict(IStorage, dict):
             val = self.__make_val_persistent(val)
             k = self._make_key(key)
             v = self._make_value(val)
-            self._hcache.put_row(k,v)
 
             if config.max_cache_size == 0: # If C++ cache is disabled, use python memory
                 dict.__setitem__(self,key,val)
 
             if self._is_stream() :
-                self.__send_values_kafka(k,val)
+                self.__send_values_kafka(k,val) # stream AND store values in Cassandra
+            else:
+                self._hcache.put_row(k,v) # ONLY store values in Cassandra
 
     def poll(self):
         log.debug("StorageDict: POLL ")

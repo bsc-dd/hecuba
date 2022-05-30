@@ -34,10 +34,14 @@ public:
 
     void write_to_cassandra(void *keys, void *values);
 
-    void enable_stream(rd_kafka_conf_t* conf, const char* topic_name, std::map<std::string, std::string> &config);
+    void enable_stream(const char* topic_name, std::map<std::string,std::string>  &config);
+
+    rd_kafka_conf_t *create_stream_conf(std::map<std::string,std::string>  &config);
+
 
     void send_event(char* event, const uint64_t size);
     void send_event(const TupleRow* key,const TupleRow *value);
+    void send_event(void* key, void* value);
 
     // Overload 'write_to_casandra' to write a single column (instead of all the columns)
     void write_to_cassandra(void *keys, void *values , const char *value_name);

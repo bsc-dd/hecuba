@@ -34,12 +34,16 @@ public:
         }
 	};
 
+    /* createObject : Creates a new object of type 'id_object' from model 'id_model'.
+     * Returns: A new IStorage reference. User MUST delete this reference after use */
     IStorage* createObject(const char * id_model, const char * id_object, void* metadata=NULL, void* value=NULL); //Special case to set a Numpy
 
     //Writer* getDictMetaWriter();
     //Writer* getNumpyMetaWriter();
 
     //config_map getConfig();
+
+    config_map config;
 
 private:
 
@@ -53,7 +57,6 @@ private:
 	Writer* numpyMetaWriter; /* Writer for numpy metadata entries in hecuba.istorage */
 
     //MetaManager mm; //* To be deleted? */
-    config_map config;
 
     void parse_environment(config_map &config);
 	CassError run_query(std::string) const;
