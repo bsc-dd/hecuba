@@ -12,7 +12,7 @@ class IStorage {
      * used as a gateway to modify the associated table. */
 
 public:
-    IStorage(HecubaSession* session, std::string id_model, std::string id_object, uint64_t* storage_id, Writer* writer);
+    IStorage(HecubaSession* session, std::string id_model, std::string id_object, uint64_t* storage_id, CacheTable* reader);
     ~IStorage();
 
     void setItem(void* key, IStorage* value);
@@ -25,9 +25,11 @@ public:
     void setAttr(const char* attr_name, IStorage* value);
     void setAttr(const char* attr_name, void* value);
 
+    void * getAttr(const char* attr_name) const;
+
 	uint64_t* getStorageID();
 
-    Writer * getDataWriter();
+    //Writer * getDataWriter();
 
     void sync(void);
 
@@ -61,7 +63,8 @@ private:
 
     bool streamEnabled=false;
 
-	Writer* dataWriter; /* Writer for entries in the object */
+	Writer* dataWriter; /* Writer for entries in the object. EXTRACTED from 'dataAccess' */
+	CacheTable* dataAccess; /* Cache of written/read elements */
 
     void *data;   /* Pointer to memory containing the object. READ ONLY. DO NOT FREE. This object does NOT own the memory! */
     ArrayMetadata numpy_metas; /* Pointer to memory containing the metadata. READ ONLY. DO NOT FREE. This object does NOT own the memory! */

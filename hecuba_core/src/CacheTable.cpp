@@ -309,9 +309,10 @@ std::vector<const TupleRow *>  CacheTable::poll(void) {
 }
 
 /*
- * POST: never returns NULL
+ * attr_name: Retrieve ONLY the column 'attr_name' from the row
+ * POST: never returns NUL
  */
-std::vector<const TupleRow *> CacheTable::retrieve_from_cassandra(const TupleRow *keys) {
+std::vector<const TupleRow *> CacheTable::retrieve_from_cassandra(const TupleRow *keys, const char* attr_name) {
 
     // To avoid consistency problems we flush the elements pending to be written
     this->writer->flush_elements();
@@ -342,12 +343,30 @@ std::vector<const TupleRow *> CacheTable::retrieve_from_cassandra(const TupleRow
     CassIterator *it = cass_iterator_from_result(result);
     while (cass_iterator_next(it)) {
         row = cass_iterator_get_row(it);
-        values[counter] = values_factory->make_tuple(row);
+        if (attr_name) {
+            const CassValue *val = cass_row_get_column_by_name(row, attr_name);
+            TupleRowFactory * v_single_factory = new TupleRowFactory(table_metadata->get_single_value(attr_name));
+            values[counter] = v_single_factory->make_tuple(val);
+            delete (v_single_factory);
+        } else {
+            values[counter] = values_factory->make_tuple(row);
+        }
         ++counter;
     }
     cass_iterator_free(it);
     cass_result_free(result);
     return values;
+}
+
+/*
+ * attr_name: Retrieve ONLY the column 'attr_name' from the row
+ * POST: never returns NUL
+ */
+std::vector<const TupleRow *> CacheTable::retrieve_from_cassandra(void *keys, const char* attr_name) {
+    const TupleRow *tuple_key = keys_factory->make_tuple(keys);
+    std::vector<const TupleRow *> result = retrieve_from_cassandra(tuple_key, attr_name);
+    delete (tuple_key);
+    return result;
 }
 
 

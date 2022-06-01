@@ -33,6 +33,7 @@ public:
     ~TupleRowFactory() {}
 
     TupleRow *make_tuple(const CassRow *row);
+    TupleRow *make_tuple(const CassValue *value);
 
     TupleRow *make_tuple(void *data);
 
