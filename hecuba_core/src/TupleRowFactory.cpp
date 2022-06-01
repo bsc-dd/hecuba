@@ -53,6 +53,21 @@ TupleRow *TupleRowFactory::make_tuple(const CassRow *row) {
     return new_tuple;
 }
 
+//build a tuple row for just one value of a cassandra row
+//we need this to return just one column
+TupleRow *TupleRowFactory::make_tuple(const CassValue *value) {
+    char *buffer = nullptr;
+    if (total_bytes > 0) buffer = (char *) malloc(total_bytes);
+
+    TupleRow *new_tuple = new TupleRow(metadata, total_bytes, buffer);
+
+    if (cass_to_c(value, buffer, 0) == -1) {
+        new_tuple->setNull(0);
+    }
+
+    return new_tuple;
+}
+
 
 /***
  * @pre: -

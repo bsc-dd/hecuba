@@ -657,12 +657,12 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 std::vector<config_map>* keyNamesDict = oType.getKeysNamesDict();
                 std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
 
-                Writer *writer = storageInterface->make_writer(id_model, config["execution_name"].c_str(),
+                CacheTable *dataAccess = storageInterface->make_cache(id_model, config["execution_name"].c_str(),
                           *keyNamesDict, *colNamesDict,
                           config);
                 delete keyNamesDict;
                 delete colNamesDict;
-                o = new IStorage(this, id_model, config["execution_name"] + "." + id_object, c_uuid, writer);
+                o = new IStorage(this, id_model, config["execution_name"] + "." + id_object, c_uuid, dataAccess);
 
             }
             break;
@@ -744,15 +744,15 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
 
 
-                Writer *writer = NULL;
                 std::string topic = std::string(UUID2str(c_uuid));
 
-                writer = storageInterface->make_writer(id_object, config["execution_name"].c_str(),
+                CacheTable *reader = storageInterface->make_cache(id_object, config["execution_name"].c_str(),
                         *keyNamesDict, *colNamesDict,
                         config);
+
                 delete keyNamesDict;
                 delete colNamesDict;
-                o = new IStorage(this, id_model, config["execution_name"] + "." + id_object, c_uuid, writer);
+                o = new IStorage(this, id_model, config["execution_name"] + "." + id_object, c_uuid, reader);
                     std::cout<< " CREATED NEW STORAGEDICT with uuid "<< topic<<std::endl;
                 if (oType.isStream()) {
                     std::cout<< "     AND IT IS AN STREAM!"<<std::endl;
@@ -789,8 +789,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 array_store->store_numpy_into_cas(c_uuid, numpy_metas, value);
                 array_store->wait_stores();
 
-                // TODO: el writer para pasarselo al istorage esta en la cache table del array datastor: anaydir getCache al arraydatastore
-                o = new IStorage(this, id_model, config["execution_name"] + "." + id_object, c_uuid, array_store->getWriteCache()->get_writer());
+                o = new IStorage(this, id_model, config["execution_name"] + "." + id_object, c_uuid, array_store->getWriteCache());
                 o->setNumpyAttributes(numpy_metas,value);
 
             }

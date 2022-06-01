@@ -3,20 +3,23 @@
 
 #include <regex>
 #include <boost/uuid/uuid.hpp>
+#include "debug.h"
 
-IStorage::IStorage(HecubaSession* session, std::string id_model, std::string id_object, uint64_t* storage_id, Writer* writer) {
+
+IStorage::IStorage(HecubaSession* session, std::string id_model, std::string id_object, uint64_t* storage_id, CacheTable* dataAccess) {
 	this->currentSession = session;
 	this->id_model = id_model;
 	this->id_obj = id_object;
 
 	this->storageid = storage_id;
-	this->dataWriter = writer;
+	this->dataAccess = dataAccess;
+	this->dataWriter = dataAccess->get_writer();
 
     this->data = NULL;
 }
 
 IStorage::~IStorage() {
-	delete(dataWriter);
+	delete(dataAccess);
 }
 
 
@@ -45,11 +48,6 @@ std::string IStorage::generate_numpy_table_name(std::string attributename) {
 
 uint64_t* IStorage::getStorageID() {
     return storageid;
-}
-
-Writer *
-IStorage::getDataWriter(void) {
-    return dataWriter;
 }
 
 void
@@ -331,6 +329,44 @@ void IStorage::send(void* key, IStorage* value) {
     setItem(key, value);
 }
 #endif
+
+/* Return:
+ *  memory reference to datatype (must be freed by user) */
+void * IStorage::getAttr(const char* attr_name) const{
+
+    char *keytosend = (char*) malloc(sizeof(char*));
+    char *uuidmem = (char*) malloc(sizeof(uint64_t)*2);
+    int value_size = dataAccess->get_metadata()->get_values_size(dataAccess->get_metadata()->get_columnname_position(attr_name));
+
+    char *valuetoreturn;
+    char *query_result;
+
+    memcpy(keytosend, &uuidmem, sizeof(char*));
+    memcpy(uuidmem, storageid, sizeof(uint64_t)*2);
+
+    query_result= (char*)dataAccess->retrieve_from_cassandra(keytosend, attr_name)[0]->get_payload();
+
+    DataModel* model = this->currentSession->getDataModel();
+    ObjSpec ospec = model->getObjSpec(this->id_model);
+    std::string value_type = ospec.getIDModelFromColName(attr_name);
+    if (!ObjSpec::isBasicType(value_type)) {
+        //TODO: if the value is a IStorage we need to instantiate it
+    } else {
+        if (value_type == "text") {
+            char *str = *(char**)query_result;
+            value_size = strlen(str) + 1;
+            valuetoreturn = (char *) malloc(value_size);
+            memcpy(valuetoreturn, str, value_size);
+        }
+        else {
+            valuetoreturn = (char*) malloc(value_size);
+            memcpy(valuetoreturn, query_result, value_size);
+        }
+    }
+
+
+    return valuetoreturn;
+}
 
 void IStorage::setNumpyAttributes(ArrayMetadata &metas, void* value) {
     this->numpy_metas = metas;
