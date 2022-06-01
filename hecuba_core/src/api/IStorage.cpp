@@ -332,13 +332,12 @@ void IStorage::send(void* key, IStorage* value) {
 
 /* Return:
  *  memory reference to datatype (must be freed by user) */
-void * IStorage::getAttr(const char* attr_name) const{
+void IStorage::getAttr(const char* attr_name, void* valuetoreturn) const{
 
     char *keytosend = (char*) malloc(sizeof(char*));
     char *uuidmem = (char*) malloc(sizeof(uint64_t)*2);
     int value_size = dataAccess->get_metadata()->get_values_size(dataAccess->get_metadata()->get_columnname_position(attr_name));
 
-    char *valuetoreturn;
     char *query_result;
 
     memcpy(keytosend, &uuidmem, sizeof(char*));
@@ -355,17 +354,16 @@ void * IStorage::getAttr(const char* attr_name) const{
         if (value_type == "text") {
             char *str = *(char**)query_result;
             value_size = strlen(str) + 1;
-            valuetoreturn = (char *) malloc(value_size);
-            memcpy(valuetoreturn, str, value_size);
-        }
-        else {
-            valuetoreturn = (char*) malloc(value_size);
+            char *tmp = (char *) malloc(value_size);
+            memcpy(tmp, str, value_size);
+            memcpy(valuetoreturn, &tmp, sizeof(char*));
+        } else {
             memcpy(valuetoreturn, query_result, value_size);
         }
     }
 
 
-    return valuetoreturn;
+    return;
 }
 
 void IStorage::setNumpyAttributes(ArrayMetadata &metas, void* value) {

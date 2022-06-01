@@ -25,7 +25,7 @@ public:
     void setAttr(const char* attr_name, IStorage* value);
     void setAttr(const char* attr_name, void* value);
 
-    void * getAttr(const char* attr_name) const;
+    void getAttr(const char* attr_name, void * valuetoreturn) const;
 
 	uint64_t* getStorageID();
 
