@@ -34,8 +34,7 @@ public:
     /*** TupleRow ops ***/
 
     std::vector<const TupleRow *> get_crow(const TupleRow *py_keys);
-
-    std::vector<const TupleRow *> get_crow(void *keys);
+    std::vector<const TupleRow *> retrieve_from_cassandra(const TupleRow *keys, const char* attr_name=NULL );
 
     void put_crow(const TupleRow *keys, const TupleRow *values);
     void send_event(const TupleRow *keys, const TupleRow *values);
@@ -45,6 +44,9 @@ public:
     /*** Raw pointers ops ***/
 
     void put_crow(void *keys, void *values);
+
+    std::vector<const TupleRow *> get_crow(void *keys);
+    std::vector<const TupleRow *> retrieve_from_cassandra(void *keys, const char* attr_name=NULL );
 
     void add_to_cache(void *keys, void *values);
     void add_to_cache(const TupleRow *keys, const TupleRow *values);
@@ -62,7 +64,6 @@ public:
 private:
     rd_kafka_message_t * kafka_poll(void) ;
 
-    std::vector<const TupleRow *> retrieve_from_cassandra(const TupleRow *keys);
 
     /* CASSANDRA INFORMATION FOR RETRIEVING DATA */
     CassSession *session;
