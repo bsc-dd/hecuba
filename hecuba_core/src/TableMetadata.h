@@ -113,6 +113,7 @@ public:
     std::pair<uint16_t, uint16_t> get_keys_size(void) const;
     uint32_t get_values_size(void) const;
     uint32_t get_values_size(int pos) const;
+    int get_columnname_position(const std::string &columnname) const;
 
 private:
     uint16_t compute_size_of(const ColumnMeta &CM) const;
