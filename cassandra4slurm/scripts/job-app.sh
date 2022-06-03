@@ -39,14 +39,15 @@ CASSANDRA_NODES=$(cat $CASSFILE | wc -l)
 APP_NODES=$(cat $APPFILE | wc -l)
 
 THETIME=$(date "+%Y%m%dD%H%Mh%Ss")
-echo "[DEBUG] APP_NODES="$APP_NODES
-echo "[DEBUG] CASSANDRA_NODES="$CASSANDRA_NODES
-echo "[DEBUG] CLUSTER_ID="$CLUSTER_ID
+source $MODULE_PATH/hecuba_debug.sh
+DBG "  APP_NODES="$APP_NODES
+DBG "  CASSANDRA_NODES="$CASSANDRA_NODES
+DBG "  CLUSTER_ID="$CLUSTER_ID
 
 CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $CASSFILE)$CASS_IFACE
 CNAMES=$(echo $CNAMES | sed "s/,/$CASS_IFACE,/g")
 export CONTACT_NAMES=$CNAMES
-echo "[DEBUG] CONTACT_NAMES=$CONTACT_NAMES"
+DBG "  CONTACT_NAMES=$CONTACT_NAMES"
 #echo $CNAMES | tr , '\n' > $HOME/bla.txt # Set list of nodes (with interface) in PyCOMPSs file
 echo $CNAMES | tr , '\n' > $PYCOMPSS_STORAGE # Set list of nodes (with interface) in PyCOMPSs file
 
