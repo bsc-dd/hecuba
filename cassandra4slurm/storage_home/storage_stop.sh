@@ -23,8 +23,10 @@ MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
 #CASSANDRA_NODES=${2}  # Number of Cassandra nodes to spawn
 # I guess we dont need any of these.
 SNAPSHOT_FILE=$C4S_HOME/cassandra-snapshot-file-"$UNIQ_ID".txt # EXPORTS IN STORAGE_INIT ARE NOT AVAILABLE HERE? LOL
-echo "[INFO] Checking if taking a snapshot is necessary..."
-echo "[DEBUG] SNAPSHOT_FILE=$SNAPSHOT_FILE"
+source $MODULE_PATH/hecuba_debug.sh
+DBG "  Checking if taking a snapshot is necessary..."
+DBG "  SNAPSHOT_FILE=$SNAPSHOT_FILE"
+
 # If an snapshot was ordered, it is done
 if [[ -f $SNAPSHOT_FILE   &&  "$(cat $SNAPSHOT_FILE)" != "" ]]
 then
@@ -49,8 +51,8 @@ then
 
     TIME2=`date +"%T.%3N"`
 
-    echo "[STATS] Snapshot initial datetime: $TIME1"
-    echo "[STATS] Snapshot final datetime: $TIME2"
+    DBG "[STATS] Snapshot initial datetime: $TIME1"
+    DBG "[STATS] Snapshot final datetime: $TIME2"
 
     MILL1=$(echo $TIME1 | cut -c 10-12)
     MILL2=$(echo $TIME2 | cut -c 10-12)
@@ -73,8 +75,8 @@ then
 fi
 FINISHED=$C4S_HOME/stop."$UNIQ_ID".txt
 if [[ -f $FINISHED && "$(cat $FINISHED)" == "1" ]]; then
-    echo "[DEBUG] CASSANDRA_NODELIST=$CASSANDRA_NODELIST"
-    echo "[DEBUG] N_NODES           =$N_NODES"
+    DBG " CASSANDRA_NODELIST=$CASSANDRA_NODELIST"
+    DBG " N_NODES           =$N_NODES"
     #if cassandra was launched with the application then it exists a file stop with a 1 inside to kill it
     srun  --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 bash $MODULE_PATH/killer.sh
 fi
