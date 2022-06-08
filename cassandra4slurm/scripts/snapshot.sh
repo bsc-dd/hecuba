@@ -26,6 +26,8 @@ RINGFILE=$C4S_HOME/ringfile-"$UNIQ_ID".txt
 RINGDONE=$C4S_HOME/ringdone-"$UNIQ_ID".txt
 HST_IFACE="-ib0" #interface configured in the cassandra.yaml file
 
+NODETOOLFILE=$C4S_HOME/nodetool-"$UNIQ_ID".txt
+
 source $HECUBA_ROOT/bin/cassandra4slurm/hecuba_debug.sh
 
 casslist=`cat $CASSFILE`
@@ -36,7 +38,7 @@ mkdir -p $SNAP_PATH
 DBG "  Repairing cassandra"
 for u_host in $casslist
 do
-    $CASS_HOME/bin/nodetool -h ${u_host} repair
+    $CASS_HOME/bin/nodetool -h ${u_host} repair >> $NODETOOLFILE
 done
 
 first_node=`head -n1 $CASSFILE`
@@ -50,8 +52,8 @@ echo "[INFO] Generating Snapshot $SNAP_NAME"
 
 for u_host in $casslist
 do
-    $CASS_HOME/bin/nodetool -h ${u_host} snapshot -t $SNAP_NAME
-    $CASS_HOME/bin/nodetool -h ${u_host} drain
+    $CASS_HOME/bin/nodetool -h ${u_host} snapshot -t $SNAP_NAME >> $NODETOOLFILE
+    $CASS_HOME/bin/nodetool -h ${u_host} drain >> $NODETOOLFILE
 done
 DBG "  Snapshot Done. Copying to GPFS"
 
