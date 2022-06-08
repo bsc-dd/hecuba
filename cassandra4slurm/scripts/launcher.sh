@@ -34,13 +34,12 @@ function set_workspace () {
     mkdir -p $C4S_HOME/logs
     mkdir -p $C4S_HOME/conf
     DEFAULT_DATA_PATH=/scratch/tmp
-    DEFAULT_CASSANDRA=$HECUBA_ROOT/cassandra-d8tree
     echo "#This is a Cassandra4Slurm configuration file. Every variable must be set and use an absolute path." > $CFG_FILE
     echo "# LOG_PATH is the default log directory." >> $CFG_FILE
     echo "LOG_PATH=\"$HOME/.c4s/logs\"" >> $CFG_FILE
     echo "# DATA_PATH is a path to be used to store the data in every node. Using the SSD local storage of each node is recommended." >> $CFG_FILE
     echo "DATA_PATH=\"$DEFAULT_DATA_PATH\"" >> $CFG_FILE
-    echo "CASS_HOME=\"$DEFAULT_CASSANDRA\"" >> $CFG_FILE
+    echo "CASS_HOME=\"\$HECUBA_ROOT/cassandra-d8tree\"" >> $CFG_FILE
     echo "# SNAP_PATH is the destination path for snapshots." >> $CFG_FILE
     echo "SNAP_PATH=\"$DEFAULT_DATA_PATH/hecuba/snapshots\"" >> $CFG_FILE
 }
