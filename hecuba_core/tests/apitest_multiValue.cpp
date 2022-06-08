@@ -95,4 +95,65 @@ int main() {
     free(numpymeta);
     free(value);
 
+    //* Simple Dictionary *//
+    // create the dictionary:
+    //      "simpledict" is the class name defined in model_class.yaml
+    //      "myname" is the name of the persistent dictionary (the table in cassandra)
+
+    IStorage* tudict = s.createObject("simpledict", "myname");
+    std::cout<< "+ 'myname' object created"<<std::endl;
+
+    float k;
+    char *v;
+    k = 42.0;
+    v = (char*)malloc(strlen("hola que tal")+1);
+    memcpy(v, "hola que tal", strlen("hola que tal") + 1);
+    tudict->setItem(&k, &v); // 'v' will be freed automatically
+
+    tudict->sync();
+
+    k = 42.0;
+    v = 0;
+    tudict->getItem(&k, &v);
+    std::cout<< "+ RECEIVED key   = "<< k <<std::endl;
+    std::cout<< "+ RECEIVED value = "<< v <<std::endl;
+
+    free(v);
+    delete(tudict);
+
+    //* Not So simple Dictionary *//
+    std::string name("mynewdict");
+    IStorage* yodict = s.createObject("notsosimpledict", name.c_str());
+    std::cout<< "+ "+name+" object created"<<std::endl;
+
+    int mykey=666;
+    //char* myotro = "uyyuyuy the end is near";
+    char* mystr = "uyyuyuy the end is near";
+    char* myotro = (char*)malloc(strlen(mystr)+1);
+    memcpy(myotro, mystr, strlen(mystr)+1);
+    float mylat=42.0;
+    int myint = 42;
+
+    char *mybuff = (char*)malloc(sizeof(char*) + sizeof(float)+sizeof(int));
+    memcpy(mybuff, &myotro, sizeof(char*));
+    memcpy(mybuff+sizeof(char*), &mylat, sizeof(float));
+    memcpy(mybuff+sizeof(char*)+sizeof(float), &myint, sizeof(int));
+
+    std::cout<< "+ Store key "<< mykey << " with values ["<<myotro<<", "<<mylat<<", "<<myint<<"]"<<std::endl;
+    yodict->setItem((void*)&mykey, (void*)mybuff);
+    yodict->sync();
+
+
+    char* p;
+    yodict->getItem((void*)&mykey, &p);
+    char* retrievedStr;
+    float retrievedLat;
+    int retrievedInt;
+    memcpy(&retrievedStr, p, sizeof(char*));
+    memcpy((void *)&retrievedLat, p+sizeof(char*), sizeof(float));
+    memcpy((void *)&retrievedInt, p+sizeof(char*)+sizeof(float), sizeof(int));
+    std::cout<< "+ Retrieved key "<< mykey << " with values ["<<retrievedStr<<", "<<retrievedLat<<", "<<retrievedInt<<"]"<<std::endl;
+    free(p);
+    free(retrievedStr);
+    delete(yodict);
 }
