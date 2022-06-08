@@ -20,6 +20,8 @@ CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
 HECUBA_ENV=$C4S_HOME/conf/hecuba_environment
 HECUBA_TEMPLATE_FILE=$MODULE_PATH/hecuba_environment.template
 
+source $MODULE_PATH/hecuba_debug.sh
+
 UNIQ_ID="c4s"$(echo $RANDOM | cut -c -5)
 DEFAULT_NUM_NODES=4
 DEFAULT_MAX_TIME="04:00:00"
@@ -211,7 +213,7 @@ function launch_arrow_helpers () {
     NODES=$1
     LOGDIR=$2
     if [ ! -d $LOGDIR ]; then
-        echo "INFO: Creating directory to store Arrow helper logs at [$LOGDIR]:"
+        DBG " Creating directory to store Arrow helper logs at [$LOGDIR]:"
         mkdir -p $LOGDIR
     fi
     ARROW_HELPER=$HECUBA_ROOT/src/hecuba_repo/build/arrow_helper
@@ -219,7 +221,7 @@ function launch_arrow_helpers () {
 
 
     for i in $(cat $NODES); do
-        echo "INFO: Launching Arrow helper at [$i] Log at [$LOGDIR/arrow_helper.$i.out]:"
+        DBG " Launching Arrow helper at [$i] Log at [$LOGDIR/arrow_helper.$i.out]:"
         #ssh  $i $ARROW_HELPER >& $LOGDIR/arrow_helper.$i.out &
         ssh  $i $ARROW_HELPER $LOGDIR/arrow_helper.$i.out &
     done

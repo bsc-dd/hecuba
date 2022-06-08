@@ -23,12 +23,15 @@ DATA_HOME=$ROOT_PATH/cassandra-data
 CASSFILE=$C4S_HOME/casslist-"$UNIQ_ID".txt
 RECOVER_FILE=$C4S_HOME/cassandra-recover-file-"$UNIQ_ID".txt
 
+source $HECUBA_ROOT/bin/cassandra4slurm/hecuba_debug.sh
+
 # Get & set the token list (safely)
 RECOVERY=$(cat $RECOVER_FILE)
 if [ "$RECOVERY" != "" ]
 then
     TKNFILE_LIST=$(find $SNAP_ORIG/$RECOVERY -type f -name $RECOVERY-ring.txt)
-    echo "TKNFILE_LIST: "$TKNFILE_LIST
+    DBG "TKNFILE_LIST: "$TKNFILE_LIST
+
     OLD_NODES=$(echo $TKNFILE_LIST | sed 's+/+ +g' | sed "s+$RECOVERY-ring.txt++g" | awk '{ print $NF }')
     filecounter=0
     oldcounter=0
@@ -54,7 +57,7 @@ then
             if [ "$(cat $CASSFILE | grep $old_node)" != "" ] && [ "$old_node" != "$(hostname)" ]; then
                 ((oldcounter++))
             else
-                echo "Restoring snapshot in node #"$filecounter": "$(hostname)
+                DBG "Restoring snapshot in node #"$filecounter": "$(hostname)
                 ORIGINAL_CLUSTER_NAME=$(cat $SNAP_ORIG/$RECOVERY/$old_node/$RECOVERY-cluster.txt)
                 sed -i "s/.*cluster_name:.*/cluster_name: \'$ORIGINAL_CLUSTER_NAME\'/g" $C4S_HOME/conf/cassandra-$(hostname).yaml
                 sed -i "s/.*initial_token:.*/initial_token: $(cat $tokens)/" $C4S_HOME/conf/cassandra-$(hostname).yaml
@@ -62,13 +65,13 @@ then
                 for folder in $(find $SNAP_ORIG/$RECOVERY/$old_node -maxdepth 1 -type d | sed -e "1d")
                 do
                     clean_folder=$(echo $folder | sed 's+/+ +g' | awk '{ print $NF }') 
-		    echo "CLEAN_FOLDER: "$clean_folder
+                    DBG "CLEAN_FOLDER: "$clean_folder
                     mkdir $DATA_HOME/$clean_folder
                     for subfolder in $(find $SNAP_ORIG/$RECOVERY/$old_node/$clean_folder -maxdepth 1 -type d | sed -e "1d")
                     do
                         clean_subfolder=$(echo $subfolder | sed 's+/+ +g' | awk '{ print $NF }')
                         mkdir $DATA_HOME/$clean_folder/$clean_subfolder
-                        echo "COPY TO: cp $SNAP_ORIG/$RECOVERY/$old_node/$clean_folder/$clean_subfolder/snapshots/$RECOVERY/* $DATA_HOME/$clean_folder/$clean_subfolder/"
+                        DBG "COPY TO: cp $SNAP_ORIG/$RECOVERY/$old_node/$clean_folder/$clean_subfolder/snapshots/$RECOVERY/* $DATA_HOME/$clean_folder/$clean_subfolder/"
                         cp $SNAP_ORIG/$RECOVERY/$old_node/$clean_folder/$clean_subfolder/snapshots/$RECOVERY/* $DATA_HOME/$clean_folder/$clean_subfolder/
                     done
                 done
