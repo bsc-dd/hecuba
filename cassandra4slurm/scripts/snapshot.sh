@@ -28,12 +28,14 @@ HST_IFACE="-ib0" #interface configured in the cassandra.yaml file
 
 NODETOOLFILE=$C4S_HOME/nodetool-"$UNIQ_ID".txt
 
+source $HECUBA_ROOT/bin/cassandra4slurm/hecuba_debug.sh
+
 casslist=`cat $CASSFILE`
 
-echo " [I] Creating Snapshot directory $SNAP_PATH"
+DBG " Creating Snapshot directory $SNAP_PATH"
 mkdir -p $SNAP_PATH
 
-echo " [I] Repairing cassandra"
+DBG "  Repairing cassandra"
 for u_host in $casslist
 do
     $CASS_HOME/bin/nodetool -h ${u_host} repair >> $NODETOOLFILE
@@ -41,19 +43,19 @@ done
 
 first_node=`head -n1 $CASSFILE`
 
-echo " [I] Generating RingFile $RINGFILE"
+DBG "  Generating RingFile $RINGFILE"
 rm -f $RINGFILE $RINGDONE
 $CASS_HOME/bin/nodetool -h ${first_node} ring > $RINGFILE
 echo "1" > $RINGDONE
 
+echo "[INFO] Generating Snapshot $SNAP_NAME"
 
-echo " [I] Generating Snapshot $SNAP_NAME"
 for u_host in $casslist
 do
     $CASS_HOME/bin/nodetool -h ${u_host} snapshot -t $SNAP_NAME >> $NODETOOLFILE
     $CASS_HOME/bin/nodetool -h ${u_host} drain >> $NODETOOLFILE
 done
-echo " [I] Snapshot Done. Copying to GPFS"
+DBG "  Snapshot Done. Copying to GPFS"
 
 sacct --delimiter="," -pj ${SLURM_JOB_ID} | grep cass_node | awk -F ',' '{print $1}' | xargs scancel
 

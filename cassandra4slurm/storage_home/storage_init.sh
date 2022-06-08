@@ -12,15 +12,19 @@
 #                                                    `·`··                                                    #
 #                                                                                                             #
 ###############################################################################################################
-echo "RECEIVED ARGS ARE:"
-echo $@
 # Parameters
 export UNIQ_ID=${1}          # Unique ID to identify related files (in this case the JOBID)
-echo "[DEBUG] UNIQ_ID IS: "$UNIQ_ID
+
+
+source $HECUBA_ROOT/bin/cassandra4slurm/hecuba_debug.sh
+
+DBG " RECEIVED ARGS ARE:"
+DBG " $@"
+DBG " UNIQ_ID IS: "$UNIQ_ID
 MASTER_NODE=${2}      # Master node name (same as 3rd parameter)
-echo "[DEBUG] MASTER NODE IS: "$MASTER_NODE
+DBG " MASTER NODE IS: "$MASTER_NODE
 WORKER_NODES=${4}     # Worker nodes list
-echo "[DEBUG] WORKER NODES ARE: "$WORKER_NODES
+DBG " WORKER NODES ARE: "$WORKER_NODES
 
 
 if [ "x$WORKER_NODES" == "x" ]; then
@@ -29,7 +33,7 @@ if [ "x$WORKER_NODES" == "x" ]; then
 fi
 
 CASSANDRA_NODES=$(echo $WORKER_NODES | wc -w)  # Number of Cassandra nodes to spawn (in this case in every node)
-echo "[DEBUG] CASSANDRA NODE NUMBER IS: "$CASSANDRA_NODES
+DBG " CASSANDRA NODE NUMBER IS: "$CASSANDRA_NODES
 DISJOINT=0            # Guarantee disjoint allocation. 1: Yes, 0 or empty otherwise
 
 if [ "$(echo "${5}" | sed 's/-//g')" == "infiniband" ]; then
@@ -48,10 +52,10 @@ STORAGE_PROPS=${6}
 
 FILE_TO_SET_ENV_VARS=${7}
 
-echo "FILE TO SET VARS IS ${FILE_TO_SET_ENV_VARS}"
-echo "[DEBUG] STORAGE PROPS FILE: "$STORAGE_PROPS
-echo "[DEBUG] STORAGE PROPS CONTENT:"
-cat $STORAGE_PROPS
+DBG " FILE TO SET VARS IS ${FILE_TO_SET_ENV_VARS}"
+DBG " STORAGE PROPS FILE: "$STORAGE_PROPS
+DBG " STORAGE PROPS CONTENT:"
+DBG $(cat $STORAGE_PROPS)
 source $STORAGE_PROPS
 
 export C4S_HOME=$HOME/.c4s
@@ -105,7 +109,7 @@ if [ ! -f $HECUBA_ENVIRON ]; then
     cp $HECUBA_TEMPLATE_FILE $HECUBA_ENVIRON
 else
     echo "[INFO] Environment variables to load found at $HECUBA_ENVIRON"
-    echo "[INFO] Generated FILE WITH HECUBA ENVIRON at  ${ENVFILE}"
+    DBG " Generated FILE WITH HECUBA ENVIRON at  ${ENVFILE}"
 fi
 
 source $HECUBA_ENVIRON
@@ -133,8 +137,8 @@ if [ $? -eq 0 ]; then
         source $MODULE_PATH/initialize_hecuba.sh  $firstnode
         #echo "CONTACT_NAMES=$CONTACT_NAMES"
         #echo "export CONTACT_NAMES=$CONTACT_NAMES" >> ${FILE_TO_SET_ENV_VARS}
-        echo "FILE TO EXPORT VARS IS  ${FILE_TO_SET_ENV_VARS}"
-        cat ${FILE_TO_SET_ENV_VARS}
+        DBG " FILE TO EXPORT VARS IS  ${FILE_TO_SET_ENV_VARS}"
+        DBG $(cat ${FILE_TO_SET_ENV_VARS})
         exit
 fi
 
@@ -177,11 +181,11 @@ CASSANDRA_NODELIST=$(echo $WORKER_NODES |sed s/\ /,/g)
 echo $CASSANDRA_NODELIST |tr "," "\n" > $CASSFILE
 NODETOOL_HOST=$(echo $CASSANDRA_NODELIST |cut -d"," -f1)-$iface
 
-echo "[DEBUG] iter="$iter
-echo "[DEBUG] app_count="$app_count
-echo "[DEBUG] APP_NODES="$APP_NODES
-echo "[DEBUG] CASSANDRA_NODES="$CASSANDRA_NODES
-echo "[DEBUG] DISJOINT="$DISJOINT
+DBG " iter="$iter
+DBG " app_count="$app_count
+DBG " APP_NODES="$APP_NODES
+DBG " CASSANDRA_NODES="$CASSANDRA_NODES
+DBG " DISJOINT="$DISJOINT
 
 export N_NODES=$CASSANDRA_NODES
 
@@ -203,7 +207,7 @@ function launch_arrow_helpers () {
     NODES=$1
     LOGDIR=$2
     if [ ! -d $LOGDIR ]; then
-        echo "INFO: Creating directory to store Arrow helper logs at [$LOGDIR]:"
+        DBG " Creating directory to store Arrow helper logs at [$LOGDIR]:"
         mkdir -p $LOGDIR
     fi
     ARROW_HELPER=$HECUBA_ROOT/src/hecuba_repo/build/arrow_helper
@@ -211,7 +215,7 @@ function launch_arrow_helpers () {
 
 
     for i in $(cat $NODES); do
-        echo "INFO: Launching Arrow helper at [$i] Log at [$LOGDIR/arrow_helper.$i.out]:"
+        DBG " Launching Arrow helper at [$i] Log at [$LOGDIR/arrow_helper.$i.out]:"
         #ssh $i $ARROW_HELPER >& $LOGDIR/arrow_helper.$i.out &
         ssh $i $ARROW_HELPER  $LOGDIR/arrow_helper.$i.out &
     done
@@ -233,7 +237,7 @@ if [ ! -f $C4S_HOME/stop."$UNIQ_ID".txt ]; then
 fi
 
 echo "STARTING UP CASSANDRA..."
-echo "I am $(hostname)."
+DBG " I am $(hostname)."
 if [ $N_NODES -gt 1 ]; then
 	export REPLICA_FACTOR=2
 else
@@ -255,7 +259,10 @@ seedlist=`head -n 2 $CASSFILE`
 seeds=`echo $seedlist | sed "s/ /-$iface,/g"`
 seeds=$seeds-$iface #using only infiniband atm, will change later
 sed "s/.*seeds:.*/          - seeds: \"$seeds\"/" $C4S_HOME/conf/template.yaml | sed "s/.*rpc_interface:.*/rpc_interface: $iface/" | sed "s/.*listen_interface:.*/listen_interface: $iface/" | sed "s/.*listen_address:.*/#listen_address: localhost/" | sed "s/.*rpc_address:.*/#rpc_address: localhost/" | sed "s/.*initial_token:.*/#initial_token:/" > $C4S_HOME/conf/template-aux-"$SLURM_JOB_ID".yaml
-ls -la $C4S_HOME/conf/template-aux-"$SLURM_JOB_ID".yaml
+
+
+DBG $(ls -la $C4S_HOME/conf/template-aux-"$SLURM_JOB_ID".yaml)
+
 
 TIME_START=`date +"%T.%3N"`
 echo "Launching Cassandra in the following hosts: $CASSANDRA_NODELIST"
@@ -274,19 +281,19 @@ if [ "$MAKE_SNAPSHOT" == "1" ]; then
 fi
 
 # Clearing data from previous executions and checking symlink coherence
-echo "srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES $MODULE_PATH/tmp-set.sh $CASS_HOME $DATA_HOME $COMM_HOME $SAV_CACHE $ROOT_PATH $CLUSTER $UNIQ_ID"
+DBG " srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES $MODULE_PATH/tmp-set.sh $CASS_HOME $DATA_HOME $COMM_HOME $SAV_CACHE $ROOT_PATH $CLUSTER $UNIQ_ID"
 srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES $MODULE_PATH/tmp-set.sh $CASS_HOME $DATA_HOME $COMM_HOME $SAV_CACHE $ROOT_PATH $CLUSTER $UNIQ_ID
 sleep 5
 
 # Recover snapshot if any
 
 if [ "X$RECOVERING" != "X" ]; then
-    echo "srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 --nodes=$N_NODES $MODULE_PATH/recover.sh $ROOT_PATH $UNIQ_ID"
+    DBG " srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 --nodes=$N_NODES $MODULE_PATH/recover.sh $ROOT_PATH $UNIQ_ID"
     srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 --nodes=$N_NODES $MODULE_PATH/recover.sh $ROOT_PATH $UNIQ_ID
 fi
 
 # Launching Cassandra in every node
-echo "RUNNING srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES $MODULE_PATH/enqueue_cass_node.sh $UNIQ_ID"
+DBG " RUNNING srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES $MODULE_PATH/enqueue_cass_node.sh $UNIQ_ID"
 srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES $MODULE_PATH/enqueue_cass_node.sh $UNIQ_ID &
 sleep 5
 
@@ -358,8 +365,10 @@ done
 export CONTACT_NAMES=$CONTACT_NAMES
 echo "CONTACT_NAMES=$CONTACT_NAMES"
 echo "export CONTACT_NAMES=$CONTACT_NAMES" >> ${FILE_TO_SET_ENV_VARS}
-echo "FILE TO EXPORT VARS IS  ${FILE_TO_SET_ENV_VARS}"
-cat ${FILE_TO_SET_ENV_VARS}
+
+DBG " FILE TO EXPORT VARS IS  ${FILE_TO_SET_ENV_VARS}"
+DBG $(cat ${FILE_TO_SET_ENV_VARS})
+
 #srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES "bash export CONTACT_NAMES=$CONTACT_NAMES" &
 PYCOMPSS_STORAGE=$C4S_HOME/pycompss_storage_"$UNIQ_ID".txt
 echo $CNAMES | tr , '\n' > $PYCOMPSS_STORAGE # Set list of nodes (with interface) in PyCOMPSs file
