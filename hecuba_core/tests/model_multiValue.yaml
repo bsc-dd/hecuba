@@ -6,6 +6,21 @@
             - [ "metrics", "numpy.ndarray" ]
             - [ "uno", "float" ]
             - [ "otro", "int" ]
+
+- "TypeSpec": [ "simpledict", "StorageDict" ]
+  "KeySpec" :
+            - [ "lat", "float"]
+  "ValueSpec" :
+            - [ "otro", "str" ]
+
+
+- "TypeSpec": [ "notsosimpledict", "StorageDict" ]
+  "KeySpec" :
+            - [ "k", "int"]
+  "ValueSpec" :
+            - [ "otro", "str" ]
+            - [ "lat", "float"]
+            - [ "myint", "int" ]
 #
 # This model will generate the following Python file:
 #    from hecuba import StorageDict
