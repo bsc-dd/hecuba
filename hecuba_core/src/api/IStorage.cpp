@@ -338,18 +338,20 @@ void IStorage::getAttr(const char* attr_name, void* valuetoreturn) const{
     char *uuidmem = (char*) malloc(sizeof(uint64_t)*2);
     int value_size = dataAccess->get_metadata()->get_values_size(dataAccess->get_metadata()->get_columnname_position(attr_name));
 
-    char *query_result;
 
     memcpy(keytosend, &uuidmem, sizeof(char*));
     memcpy(uuidmem, storageid, sizeof(uint64_t)*2);
 
-    query_result= (char*)dataAccess->retrieve_from_cassandra(keytosend, attr_name)[0]->get_payload();
+    std::vector<const TupleRow *> result = dataAccess->retrieve_from_cassandra(keytosend, attr_name);
+    if (result.empty()) throw ModuleException("IStorage::getAttr: attribute " + std::string(attr_name) + " not found in object " + id_obj );
+    char *query_result= (char*)result[0]->get_payload();
 
     DataModel* model = this->currentSession->getDataModel();
     ObjSpec ospec = model->getObjSpec(this->id_model);
     std::string value_type = ospec.getIDModelFromColName(attr_name);
     if (!ObjSpec::isBasicType(value_type)) {
         //TODO: if the value is a IStorage we need to instantiate it
+        throw ModuleException("IStorage:: getATTR of a non basic type is NOT supported yet.");
     } else {
         if (value_type == "text") {
             char *str = *(char**)query_result;
@@ -361,10 +363,75 @@ void IStorage::getAttr(const char* attr_name, void* valuetoreturn) const{
             memcpy(valuetoreturn, query_result, value_size);
         }
     }
+    // Free the TupleRows...
+    for(auto i:result) {
+        delete(i);
+    }
 
 
     return;
 }
+
+void IStorage::getItem(const void* key, void *valuetoreturn) const{
+    /* PRE: value arrives already coded as expected: block of memory with pointers to IStorages or basic values*/
+    std::pair<uint16_t, uint16_t> keySize = dataAccess->get_metadata()->get_keys_size();
+    int key_size = keySize.first + keySize.second;
+    int value_size = dataAccess->get_metadata()->get_values_size();
+
+    void * keytosend = malloc(key_size);
+
+    char *valuetmp = (char*) malloc(value_size);
+    uint64_t offset = 0;
+
+    memcpy(keytosend, key, key_size);
+
+    std::vector<const TupleRow *> result = dataAccess->get_crow(keytosend);
+    if (result.empty()) throw ModuleException("HOLA");
+    if (result.empty()) throw ModuleException("IStorage::getItem: key not found in object "+ id_obj);
+    char *query_result= (char*)result[0]->get_payload();
+
+    DataModel* model = this->currentSession->getDataModel();
+    ObjSpec ospec = model->getObjSpec(this->id_model);
+
+    const TableMetadata* writerMD = dataWriter->get_metadata();
+    uint32_t numcolumns = writerMD->get_values()->size();
+
+    for (uint32_t i=0; i < numcolumns; i++) {
+
+        value_size = writerMD->get_values_size(i);
+        std::string value_type = ospec.getIDModelFromCol(i);
+        if (!ObjSpec::isBasicType(value_type)) {
+            //TODO: if the value is a IStorage we need to instantiate it
+            throw ModuleException("IStorage:: getITEM of a non basic type is NOT supported yet.");
+        } else {
+            if (value_type == "text") {
+                char *str = *(char**)query_result;
+                uint64_t len = strlen(str) + 1;
+                char *tmp = (char *) malloc(len);
+                memcpy(tmp, str, len);
+                memcpy(valuetmp+offset, &tmp, sizeof(char*));
+            }
+            else {
+                memcpy(valuetmp+offset, query_result+offset, value_size);
+            }
+            offset += value_size;
+        }
+    }
+    // Copy Result to user:
+    //   If a single basic type value is returned then the user passes address
+    //   to store the value, otherwise we allocate the memory to store all the
+    //   values.
+    if (numcolumns == 1) {
+        memcpy(valuetoreturn, valuetmp, value_size);
+    } else {
+        memcpy(valuetoreturn, &valuetmp, value_size);
+    }
+
+    // TODO this works only for dictionaries of one element. We should traverse the whole vector of values
+    // TODO delete the vector of tuple rows and the tuple rows
+    return;
+}
+
 
 void IStorage::setNumpyAttributes(ArrayMetadata &metas, void* value) {
     this->numpy_metas = metas;
