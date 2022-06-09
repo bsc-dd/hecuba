@@ -180,11 +180,13 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             CassError rc = cass_value_get_int16(lhs, reinterpret_cast<int16_t * >(data));
             CHECK_CASS("TupleRowFactory: Cassandra to C parse int16 unsuccessful, column:" + std::to_string(col));
             if (rc == CASS_ERROR_LIB_NULL_VALUE) return -1;
+            return 0;
         }
         case CASS_VALUE_TYPE_TINY_INT: {
             CassError rc = cass_value_get_int8(lhs, reinterpret_cast<int8_t * >(data));
             CHECK_CASS("TupleRowFactory: Cassandra to C parse int16 unsuccessful, column:" + std::to_string(col));
             if (rc == CASS_ERROR_LIB_NULL_VALUE) return -1;
+            return 0;
         }
         case CASS_VALUE_TYPE_TUPLE: {
             if (metadata->at(col).pointer->empty())
