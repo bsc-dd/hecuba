@@ -305,7 +305,7 @@ void IStorage::send(void* key, void* value) {
             offset += value_size;
         }
         // storageobj case: key is the attribute name TODO
-        
+
         this->dataWriter->send_event(key, cc_val); // stream AND store value in Cassandra
 
     } else {
@@ -337,7 +337,6 @@ void IStorage::getAttr(const char* attr_name, void* valuetoreturn) const{
     char *keytosend = (char*) malloc(sizeof(char*));
     char *uuidmem = (char*) malloc(sizeof(uint64_t)*2);
     int value_size = dataAccess->get_metadata()->get_values_size(dataAccess->get_metadata()->get_columnname_position(attr_name));
-
 
     memcpy(keytosend, &uuidmem, sizeof(char*));
     memcpy(uuidmem, storageid, sizeof(uint64_t)*2);
@@ -439,7 +438,9 @@ void IStorage::setNumpyAttributes(ArrayMetadata &metas, void* value) {
 
     //this->data = value;
     this->data = malloc(numpy_metas.get_array_size());
-    memcpy(this->data,value,numpy_metas.get_array_size());
+    if (value) {
+        memcpy(this->data,value,numpy_metas.get_array_size());
+    }
 }
 bool IStorage::isStream() {
     return streamEnabled;

@@ -34,7 +34,7 @@ public:
 
     void sync(void);
 
-    void setNumpyAttributes(ArrayMetadata &metas, void* value);
+    void setNumpyAttributes(ArrayMetadata &metas, void* value=NULL);
 
     void enableStream(std::string topic);
     bool isStream();

@@ -155,5 +155,25 @@ int main() {
     std::cout<< "+ Retrieved key "<< mykey << " with values ["<<retrievedStr<<", "<<retrievedLat<<", "<<retrievedInt<<"]"<<std::endl;
     free(p);
     free(retrievedStr);
+
+    // Get a copy of the StorageID to instantiate the object later...
+    uint64_t* yodict_uuid = (uint64_t*)malloc(2*sizeof(uint64_t));
+    memcpy(yodict_uuid, yodict->getStorageID(), 2*sizeof(uint64_t));
+
     delete(yodict);
+
+    // Instantiate an already created object
+    std::cout<< "+++ INSTANTIATE OBJECT "<<std::endl;
+    yodict = s.createObject("notsosimpledict", yodict_uuid);
+    std::cout<< "+++ Retrieving DATA "<<std::endl;
+    yodict->getItem((void*)&mykey, &p);
+    memcpy(&retrievedStr, p, sizeof(char*));
+    memcpy((void *)&retrievedLat, p+sizeof(char*), sizeof(float));
+    memcpy((void *)&retrievedInt, p+sizeof(char*)+sizeof(float), sizeof(int));
+    std::cout<< "+ Retrieved key "<< mykey << " with values ["<<retrievedStr<<", "<<retrievedLat<<", "<<retrievedInt<<"]"<<std::endl;
+
+    delete(yodict);
+
+
+
 }
