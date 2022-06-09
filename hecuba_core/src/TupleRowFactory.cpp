@@ -244,13 +244,20 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             memcpy(data, &time_of_day, sizeof(int64_t));
             return 0;
         }
+        case CASS_VALUE_TYPE_UDT: {
+            std::cout<< " WE ARE IN THE CASS_VALUE_TYPE_UDT "<< std::endl;
+            if (cass_value_is_null(lhs)) return -1;
+            // Iterate items inside UDT
+            // https://docs.datastax.com/en/developer/cpp-driver/2.16/topics/basics/user_defined_types/
+
+            return 0;
+        }
         case CASS_VALUE_TYPE_DECIMAL:
         case CASS_VALUE_TYPE_TIMEUUID:
         case CASS_VALUE_TYPE_INET:
         case CASS_VALUE_TYPE_LIST:
         case CASS_VALUE_TYPE_MAP:
         case CASS_VALUE_TYPE_SET:
-        case CASS_VALUE_TYPE_UDT:
         case CASS_VALUE_TYPE_CUSTOM:
         case CASS_VALUE_TYPE_UNKNOWN:
         default:

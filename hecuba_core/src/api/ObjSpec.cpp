@@ -1,4 +1,5 @@
 #include <ObjSpec.h>
+#include "ModuleException.h"
 
 
 //Initialize static attributes
@@ -157,6 +158,8 @@ const std::string& ObjSpec::getIDModelFromColName(const std::string & name) {
             return cols[i].second;
         }
     }
+    throw ModuleException("ObjSpec::getIDModelFromColName Column name "+name+" does not exist");
+    return std::string("OK, OK, I'M NOT RETURNING THIS");
 }
 
 std::string ObjSpec::getIDObjFromCol(int i) {
