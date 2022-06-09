@@ -495,15 +495,16 @@ std::vector<config_map> colstypes_n = {
 						// TODO: extend writer to support lists {{"name", "tokens"}} }; //list
 
 // The attributes stored in istorage for all numpys are the same, we use a single writer for the session
-numpyMetaWriter = storageInterface->make_writer("istorage", "hecuba",
+numpyMetaAccess = storageInterface->make_cache("istorage", "hecuba",
 												pkeystypes_n, colstypes_n,
 												config);
+numpyMetaWriter = numpyMetaAccess->get_writer();
 
 }
 
 HecubaSession::~HecubaSession() {
     delete(currentDataModel);
-    delete(numpyMetaWriter);
+    delete(numpyMetaAccess);
 }
 
 /* loadDataModel: loads a DataModel from 'model_filename' path which should be
@@ -591,9 +592,128 @@ void HecubaSession::loadDataModel(const char * model_filename, const char * pyth
     currentDataModel = d;
 }
 
+IStorage* HecubaSession::createObject(const char * id_model, uint64_t* uuid) {
+    // Instantitate an existing object
+
+    DataModel* model = currentDataModel;
+    if (model == NULL) {
+        throw ModuleException("HecubaSession::createObject No data model loaded");
+    }
+
+    IStorage * o;
+
+    ObjSpec oType = model->getObjSpec(id_model);
+    std::cout << " INSTANTIATING " << oType.debug() << std::endl;
+    switch(oType.getType()) {
+        case ObjSpec::valid_types::STORAGEOBJ_TYPE:
+        case ObjSpec::valid_types::STORAGEDICT_TYPE:
+            {
+                // read from istorage: uuid --> id_object (name)
+                // A new buffer for the uuid (key) is needed (Remember that
+                // retrieve_from_cassandra creates a TupleRow of the parameter
+                // and therefore the parameter can NOT be a stack pointer... as
+                // it will be freed on success)
+                void * localuuid = malloc(2*sizeof(uint64_t));
+                memcpy(localuuid, uuid, 2*sizeof(uint64_t));
+                void * key = malloc(sizeof(char*));
+                memcpy(key, &localuuid, sizeof(uint64_t*));
+
+                std::vector <const TupleRow*> result = numpyMetaAccess->retrieve_from_cassandra(key);
+
+                if (result.empty()) throw ModuleException("HecubaSession::createObject uuid "+UUID2str(uuid)+" not found. Unable to instantiate");
+
+                uint32_t pos = numpyMetaAccess->get_metadata()->get_columnname_position("name");
+                char *keytable = *(char**)result[0]->get_element(pos); //Value retrieved from cassandra has 'keyspace.tablename' format
+
+                std::string keyspace (keytable);
+                std::string tablename;
+                pos = keyspace.find_first_of('.');
+                tablename = keyspace.substr(pos+1);
+                keyspace = keyspace.substr(0,pos);
+
+                const char * id_object = tablename.c_str();
+
+                // Check that retrieved classname form hecuba coincides with 'id_model'
+                pos = numpyMetaAccess->get_metadata()->get_columnname_position("class_name");
+                char *classname = *(char**)result[0]->get_element(pos); //Value retrieved from cassandra has 'keyspace.tablename' format
+                std::string sobj_table_name (classname);
+                pos = sobj_table_name.find_last_of('.');
+                // The class_name retrieved in the case of the storageobj is
+                // the fully qualified name, but in cassandra the instances are
+                // stored in a table with the name of the last part(example:
+                // "model_complex.info" will have instances in "keyspace.info")
+                sobj_table_name = sobj_table_name.substr(pos+1);
+
+
+                if (sobj_table_name.compare(id_model) != 0) {
+                    throw ModuleException("HecubaSession::createObject uuid "+UUID2str(uuid)+" "+ keytable + " has unexpected class_name " + sobj_table_name + " instead of "+id_model);
+                }
+
+
+
+                //  Create Writer for storageobj
+                std::vector<config_map>* keyNamesDict = oType.getKeysNamesDict();
+                std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
+
+                CacheTable *dataAccess = NULL;
+                if (oType.getType() == ObjSpec::valid_types::STORAGEOBJ_TYPE) {
+                    dataAccess = storageInterface->make_cache(id_model, keyspace.c_str(),
+                            *keyNamesDict, *colNamesDict,
+                            config);
+                } else {
+                    dataAccess = storageInterface->make_cache(id_object, keyspace.c_str(),
+                            *keyNamesDict, *colNamesDict,
+                            config);
+                }
+                delete keyNamesDict;
+                delete colNamesDict;
+                o = new IStorage(this, id_model, keyspace + "." + id_object, uuid, dataAccess);
+
+                if (oType.isStream()) {
+                    std::string topic = std::string(UUID2str(uuid));
+                    std::cout<< "     AND IT IS AN STREAM!"<<std::endl;
+                    o->enableStream(topic);
+                }
+            }
+            break;
+        case ObjSpec::valid_types::STORAGENUMPY_TYPE:
+            {
+                // read from istorage: uuid --> metadata and id_object
+                void * key = malloc(2*sizeof(uint64_t));
+                memcpy(key, uuid, 2*sizeof(uint64_t));
+                std::vector <const TupleRow*> result = numpyMetaAccess->retrieve_from_cassandra(key);
+                if (result.empty()) throw ModuleException("HecubaSession::createObject uuid "+UUID2str(uuid)+" not found. Unable to instantiate");
+                char *id_object= (char*)result[0]->get_element(numpyMetaAccess->get_metadata()->get_columnname_position("name"));
+                void *metadata = (void*)result[0]->get_element(numpyMetaAccess->get_metadata()->get_columnname_position("numpy_meta"));
+
+                // StorageNumpy
+                ArrayDataStore *array_store = new ArrayDataStore(id_object, config["execution_name"].c_str(),
+                        this->storageInterface->get_session(), config);
+                //std::cout << "DEBUG: HecubaSession::createObject After ArrayDataStore creation " <<std::endl;
+
+                // Create entry in hecuba.istorage for the new numpy
+                ArrayMetadata numpy_metas;
+                getMetaData(metadata, numpy_metas); // numpy_metas = getMetaData(metadata);
+                DBG("DEBUG: HecubaSession::createNumpy . Size "<< numpy_metas.get_array_size());
+
+                o = new IStorage(this, id_model, config["execution_name"] + "." + id_object, uuid, array_store->getWriteCache());
+                o->setNumpyAttributes(numpy_metas);
+                if (oType.isStream()) {
+                    std::string topic = std::string(UUID2str(uuid));
+                    std::cout<< "     AND IT IS AN STREAM!"<<std::endl;
+                    o->enableStream(topic);
+                }
+            }
+            break;
+        default:
+            throw ModuleException("HECUBA Session: createObject Unknown type ");// + std::string(oType.objtype));
+            break;
+    }
+    return o;
+}
+
 IStorage* HecubaSession::createObject(const char * id_model, const char * id_object, void * metadata, void* value) {
     // Create Cassandra tables 'ksp.id_object' for object 'id_object' according to its type 'id_model' in 'model'
-    // TODO: create type depending on 'model', now its only dictionary
 
     DataModel* model = currentDataModel;
     if (model == NULL) {
