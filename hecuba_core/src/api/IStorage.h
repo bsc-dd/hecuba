@@ -34,11 +34,10 @@ public:
 
     void sync(void);
 
-    void setNumpyAttributes(ArrayMetadata &metas, void* value=NULL);
-
     void enableStream(std::string topic);
     bool isStream();
 
+    void setNumpyAttributes(ArrayMetadata &metas, void* value=NULL);
 private:
     enum valid_writes {
         SETATTR_TYPE,

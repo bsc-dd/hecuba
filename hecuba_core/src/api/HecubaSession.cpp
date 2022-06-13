@@ -6,6 +6,8 @@
 #include "ObjSpec.h"
 #include "DataModel.h"
 
+#include "debug.h"
+
 #include <cstdlib>
 #include <vector>
 #include <string>
@@ -16,6 +18,8 @@
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
+
+
 
 //#include "numpy/arrayobject.h" // FIXME to use the numpy constants NPY_*
 #define NPY_ARRAY_C_CONTIGUOUS    0x0001
@@ -679,30 +683,46 @@ IStorage* HecubaSession::createObject(const char * id_model, uint64_t* uuid) {
         case ObjSpec::valid_types::STORAGENUMPY_TYPE:
             {
                 // read from istorage: uuid --> metadata and id_object
-                void * key = malloc(2*sizeof(uint64_t));
-                memcpy(key, uuid, 2*sizeof(uint64_t));
+                // A new buffer for the uuid (key) is needed (Remember that
+                // retrieve_from_cassandra creates a TupleRow of the parameter
+                // and therefore the parameter can NOT be a stack pointer... as
+                // it will be freed on success)
+                void * localuuid = malloc(2*sizeof(uint64_t));
+                memcpy(localuuid, uuid, 2*sizeof(uint64_t));
+                void * key = malloc(sizeof(char*));
+                memcpy(key, &localuuid, sizeof(uint64_t*));
+
                 std::vector <const TupleRow*> result = numpyMetaAccess->retrieve_from_cassandra(key);
+
                 if (result.empty()) throw ModuleException("HecubaSession::createObject uuid "+UUID2str(uuid)+" not found. Unable to instantiate");
-                char *id_object= (char*)result[0]->get_element(numpyMetaAccess->get_metadata()->get_columnname_position("name"));
-                void *metadata = (void*)result[0]->get_element(numpyMetaAccess->get_metadata()->get_columnname_position("numpy_meta"));
+
+                uint32_t pos = numpyMetaAccess->get_metadata()->get_columnname_position("name");
+                char *keytable = *(char**)result[0]->get_element(pos); //Value retrieved from cassandra has 'keyspace.tablename' format
+
+                std::string keyspace (keytable);
+                std::string tablename;
+                pos = keyspace.find_first_of('.');
+                tablename = keyspace.substr(pos+1);
+                keyspace = keyspace.substr(0,pos);
+
+                // Read the UDT case (numpy_meta)from the row retrieved from cassandra
+                pos = numpyMetaAccess->get_metadata()->get_columnname_position("numpy_meta");
+                ArrayMetadata *numpy_metas = *(ArrayMetadata**)result[0]->get_element(pos);
+                DBG("DEBUG: HecubaSession::createNumpy . Size "<< numpy_metas->get_array_size());
 
                 // StorageNumpy
-                ArrayDataStore *array_store = new ArrayDataStore(id_object, config["execution_name"].c_str(),
+                ArrayDataStore *array_store = new ArrayDataStore(tablename.c_str(), keyspace.c_str(),
                         this->storageInterface->get_session(), config);
                 //std::cout << "DEBUG: HecubaSession::createObject After ArrayDataStore creation " <<std::endl;
 
-                // Create entry in hecuba.istorage for the new numpy
-                ArrayMetadata numpy_metas;
-                getMetaData(metadata, numpy_metas); // numpy_metas = getMetaData(metadata);
-                DBG("DEBUG: HecubaSession::createNumpy . Size "<< numpy_metas.get_array_size());
-
-                o = new IStorage(this, id_model, config["execution_name"] + "." + id_object, uuid, array_store->getWriteCache());
-                o->setNumpyAttributes(numpy_metas);
+                o = new IStorage(this, id_model, keytable, uuid, array_store->getWriteCache());
+                o->setNumpyAttributes(*numpy_metas);
                 if (oType.isStream()) {
                     std::string topic = std::string(UUID2str(uuid));
                     std::cout<< "     AND IT IS AN STREAM!"<<std::endl;
                     o->enableStream(topic);
                 }
+                // TODO: read from cassandra all the values to this->data
             }
             break;
         default:
@@ -725,8 +745,8 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
     ObjSpec oType = model->getObjSpec(id_model);
     //std::cout << "DEBUG: HecubaSession::createObject '"<<id_model<< "' ==> " <<oType.debug()<<std::endl;
 
-    std::string object_name(config["execution_name"] + "." + std::string(id_object));
-    uint64_t *c_uuid = generateUUID5(object_name.c_str()); // UUID for the new object
+    std::string name(config["execution_name"] + "." + std::string(id_object));
+    uint64_t *c_uuid = generateUUID5(name.c_str()); // UUID for the new object
 
     switch(oType.getType()) {
         case ObjSpec::valid_types::STORAGEOBJ_TYPE:
@@ -762,7 +782,6 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 }
                 // Table for storageobj class created
                 // Add entry to ISTORAGE: TODO add the tokens attribute
-                std::string name = config["execution_name"] + "." + id_object;
                 std::string insquery = std::string("INSERT INTO ") +
                     std::string("hecuba.istorage") +
                     std::string("(storage_id, name, class_name, columns)") +
@@ -829,7 +848,6 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
 
                 if (new_element) {
                     //  Add entry to hecuba.istorage: TODO add the tokens attribute
-                    std::string name = config["execution_name"] + "." + id_object;
                     // TODO EXPECTED:vvv NOW HARDCODED
                     //classname = id_model
                     // keys = {c_uuid}, values={name, class_name, primary_keys, columns } # no tokens, no numpy_meta, ...
@@ -901,8 +919,11 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 // Create entry in hecuba.istorage for the new numpy
                 ArrayMetadata numpy_metas;
                 getMetaData(metadata, numpy_metas); // numpy_metas = getMetaData(metadata);
+                DBG("DEBUG: HecubaSession::createNumpy . Size "<< numpy_metas.get_array_size());
                 //std::cout<< "DEBUG: HecubaSession::createObject After metadata creation " <<std::endl;
-                registerNumpy(numpy_metas, id_object, c_uuid);
+
+                registerNumpy(numpy_metas, name, c_uuid);
+
                 //std::cout<< "DEBUG: HecubaSession::createObject After REGISTER numpy into ISTORAGE" <<std::endl;
 
                 //Create keys, values to store the numpy
