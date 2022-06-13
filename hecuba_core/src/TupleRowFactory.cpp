@@ -1,6 +1,31 @@
 #include "TupleRowFactory.h"
 #include "debug.h"
 
+// StringValue is used for easy comparing numpy metas
+enum StringValue {
+	evNotDefined,
+	evFlags,
+	evElemSize,
+	evPartitionType,
+	evTypeKind,
+	evByteOrder,
+	evDims,
+	evStrides
+};
+
+// Map to associate the strings with the enum values
+static std::map<std::string, StringValue> s_mapStringValues;
+
+static void initialize_mapStringValues()
+{
+  s_mapStringValues["flags"] = evFlags;
+  s_mapStringValues["elem_size"] = evElemSize;
+  s_mapStringValues["partition_type"] = evPartitionType;
+  s_mapStringValues["typekind"] = evTypeKind;
+  s_mapStringValues["byteorder"] = evByteOrder;
+  s_mapStringValues["dims"] = evDims;
+  s_mapStringValues["strides"] = evStrides;
+}
 /***
  * Builds a tuple factory to retrieve tuples based on rows and keys
  * extracting the information from Cassandra to decide the types to be used
@@ -13,6 +38,7 @@ TupleRowFactory::TupleRowFactory(std::shared_ptr<const std::vector<ColumnMeta> >
         std::vector<ColumnMeta>::const_iterator last_element = --row_info->end();
         total_bytes = last_element->position + last_element->size;
     }
+	initialize_mapStringValues();
 }
 
 
@@ -68,6 +94,87 @@ TupleRow *TupleRowFactory::make_tuple(const CassValue *value) {
     return new_tuple;
 }
 
+
+
+/* setArrayMetadataField - Initializes field from and ArrayMetaData using data
+ *     from a CassValue.
+ * Args:
+ * 'np_metas'	Destination ArrayMetaData to modify
+ * 'field'		Field name to modify
+ * 'field_name_length' 	Length of 'field'
+ * 'field_value'	Source CassValue to extract 'field' */
+void TupleRowFactory::setArrayMetadataField(ArrayMetadata &np_metas, const char *field, size_t field_name_length, const CassValue* field_value) const {
+    int32_t int_value;
+    int8_t short_value;
+
+    // Use a map and a switch to avoid a sequence of 'strcmp'
+    std::string field_name (field);
+    auto it = s_mapStringValues.find(field_name);
+    if (it == s_mapStringValues.end()) {
+        throw ModuleException("TupleRowFactory::setArrayMetadataField Found unknown field named "+field_name+". Exitting.");
+    }
+    switch (it->second) {
+        case evFlags: //field_name  = "flags";
+            cass_value_get_int32(field_value,&int_value);
+            np_metas.flags=int_value;
+            DBG("TupleRowFactory::setArrayMetadataField flags "<<int_value);
+            break;
+        case evElemSize: //field_name  = "elem_size";
+            cass_value_get_int32(field_value,&int_value);
+            np_metas.elem_size = int_value;
+            DBG("TupleRowFactory::setArrayMetadataField elem_size "<<int_value);
+            break;
+        case evPartitionType: // field_name  = "partition_type";
+            cass_value_get_int8(field_value,&short_value);
+            np_metas.partition_type = short_value;
+            DBG("TupleRowFactory::setArrayMetadataField partitiontype "<<short_value);
+            break;
+        case evTypeKind: { //field_name  = "typekind";
+                             const char * string_value;
+                             size_t int_value;
+                             cass_value_get_string(field_value,&string_value, &int_value);
+                             if (int_value>1) {
+                                 throw ModuleException("TupleRowFactory::cass_to_c Unexpected TypeKind. Length should be 1 but received "+int_value);
+                             }
+                             np_metas.typekind = string_value[0];
+                             DBG("TupleRowFactory::setArrayMetadataField typekind "<<string_value);
+                         }
+                         break;
+        case evByteOrder: { //field_name  = "byteorder";
+                              const char * string_value;
+                              size_t int_value;
+                              cass_value_get_string(field_value,&string_value, &int_value);
+                              if (int_value>1) {
+                                  throw ModuleException("TupleRowFactory::cass_to_c Unexpected ByteOrder. Length should be 1 but received "+int_value);
+                              }
+                              np_metas.byteorder = string_value[0];
+                             DBG("TupleRowFactory::setArrayMetadataField byteorder "<<string_value);
+                          }
+                          break;
+        case evDims: {//field_name="dims";
+                        CassIterator* it = cass_iterator_from_collection(field_value);
+                        while (cass_iterator_next(it)) {
+                            const CassValue* val = cass_iterator_get_value(it);
+                            cass_value_get_int32(val, &int_value);
+                            np_metas.dims.push_back(int_value);
+                            DBG("TupleRowFactory::setArrayMetadataField dims "<<int_value);
+                        }
+                     }
+                     break;
+        case evStrides: {//field_name="strides";
+                        CassIterator* it = cass_iterator_from_collection(field_value);
+                        while (cass_iterator_next(it)) {
+                            const CassValue* val = cass_iterator_get_value(it);
+                            cass_value_get_int32(val, &int_value);
+                            np_metas.strides.push_back(int_value);
+                            DBG("TupleRowFactory::setArrayMetadataField strides "<<int_value);
+                        }
+                     }
+                     break;
+        default:
+                     throw ModuleException("TupleRowFactory::cass_to_c Unexpected field value ["+field_name+"]");
+    }
+}
 
 /***
  * @pre: -
@@ -249,6 +356,33 @@ int TupleRowFactory::cass_to_c(const CassValue *lhs, void *data, int16_t col) co
             if (cass_value_is_null(lhs)) return -1;
             // Iterate items inside UDT
             // https://docs.datastax.com/en/developer/cpp-driver/2.16/topics/basics/user_defined_types/
+
+            ArrayMetadata *np_metas = new ArrayMetadata(); // Dummy ArrayMetadata to store temporal values
+
+            /* Create an iterator for the UDT value */
+            CassIterator* udt_iterator = cass_iterator_fields_from_user_type(lhs);
+
+            /* Iterate over the UDT fields */
+            while (cass_iterator_next(udt_iterator)) {
+                const char* field_name;
+                size_t field_name_length;
+                /* Get UDT field name */
+                cass_iterator_get_user_type_field_name(udt_iterator,
+                        &field_name, &field_name_length);
+
+                /* Get UDT field value */
+                const CassValue* field_value =
+                    cass_iterator_get_user_type_field_value(udt_iterator);
+
+                setArrayMetadataField(*np_metas, field_name, field_name_length, field_value);
+
+            }
+
+            /* The UDT iterator needs to be freed */
+            cass_iterator_free(udt_iterator);
+
+            memcpy(data, &np_metas, sizeof(char*));
+
 
             return 0;
         }
