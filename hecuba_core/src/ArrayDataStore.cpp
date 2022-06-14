@@ -816,8 +816,12 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
 	int32_t *block = nullptr;
 	int32_t half_int = 0;//-1 >> sizeof(int32_t)/2; //TODO be done properly
 
-	SpaceFillingCurve::PartitionGenerator *
-	partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, coord);
+	SpaceFillingCurve::PartitionGenerator *partitions_it;
+	if (coord.empty()) {
+		partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr);
+	} else {
+		partitions_it = SpaceFillingCurve::make_partitions_generator(metadata, nullptr, coord);
+	}
 	std::list<Partition> clusters = {};
 	while (!partitions_it->isDone()) {
 		clusters.push_back(partitions_it->getNextPartition());
