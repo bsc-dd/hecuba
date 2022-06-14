@@ -716,7 +716,7 @@ IStorage* HecubaSession::createObject(const char * id_model, uint64_t* uuid) {
                 //std::cout << "DEBUG: HecubaSession::createObject After ArrayDataStore creation " <<std::endl;
 
                 o = new IStorage(this, id_model, keytable, uuid, array_store->getWriteCache());
-                o->setNumpyAttributes(*numpy_metas);
+                o->setNumpyAttributes(array_store, *numpy_metas);
                 if (oType.isStream()) {
                     std::string topic = std::string(UUID2str(uuid));
                     std::cout<< "     AND IT IS AN STREAM!"<<std::endl;
@@ -933,7 +933,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 array_store->wait_stores();
 
                 o = new IStorage(this, id_model, config["execution_name"] + "." + id_object, c_uuid, array_store->getWriteCache());
-                o->setNumpyAttributes(numpy_metas,value);
+                o->setNumpyAttributes(array_store, numpy_metas,value);
 
             }
             break;

@@ -429,15 +429,23 @@ void IStorage::getItem(const void* key, void *valuetoreturn) const{
     return;
 }
 
+void * IStorage::getNumpyData() const {
+    return data;
+}
 
-void IStorage::setNumpyAttributes(ArrayMetadata &metas, void* value) {
+
+void IStorage::setNumpyAttributes(ArrayDataStore* array_store, ArrayMetadata &metas, void* value) {
+    this->arrayStore = array_store;
     this->numpy_metas = metas;
     DBG("DEBUG: IStorage::setNumpyAttributes: numpy Size "<< numpy_metas.get_array_size());
 
     //this->data = value;
     this->data = malloc(numpy_metas.get_array_size());
     if (value) {
-        memcpy(this->data,value,numpy_metas.get_array_size());
+        memcpy(data, value, numpy_metas.get_array_size());
+    } else {
+        std::list<std::vector<uint32_t>> coord = {};
+        arrayStore->read_numpy_from_cas_by_coords(getStorageID(), metas, coord, data);
     }
 }
 bool IStorage::isStream() {
