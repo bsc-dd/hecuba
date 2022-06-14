@@ -4,6 +4,7 @@
 
 #include "configmap.h"
 #include "HecubaSession.h"
+#include "ArrayDataStore.h"
 
 //class HecubaSession; //Forward declaration
 
@@ -37,7 +38,8 @@ public:
     void enableStream(std::string topic);
     bool isStream();
 
-    void setNumpyAttributes(ArrayMetadata &metas, void* value=NULL);
+    void setNumpyAttributes(ArrayDataStore * array_store, ArrayMetadata &metas, void* value=NULL);
+    void * getNumpyData() const;
 private:
     enum valid_writes {
         SETATTR_TYPE,
@@ -65,6 +67,7 @@ private:
 
 	Writer* dataWriter; /* Writer for entries in the object. EXTRACTED from 'dataAccess' */
 	CacheTable* dataAccess; /* Cache of written/read elements */
+	ArrayDataStore* arrayStore; /* Cache of written/read elements */
 
     void *data;   /* Pointer to memory containing the object. READ ONLY. DO NOT FREE. This object does NOT own the memory! */
     ArrayMetadata numpy_metas; /* Pointer to memory containing the metadata. READ ONLY. DO NOT FREE. This object does NOT own the memory! */
