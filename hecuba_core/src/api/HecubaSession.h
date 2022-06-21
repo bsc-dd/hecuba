@@ -53,6 +53,8 @@ public:
 private:
 
     void decodeNumpyMetadata(HecubaSession::NumpyShape *s, void* metadata);
+    std::string getFQname(const char* id_model) const ;
+    std::string getTableName(std::string FQname) const ;
 
     std::shared_ptr<StorageInterface> storageInterface; //StorageInterface* storageInterface; /* Connection to Cassandra */
 
