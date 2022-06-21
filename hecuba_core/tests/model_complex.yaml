@@ -27,7 +27,7 @@
   "ValueSpec":
             - [ "mystr", "str"]
             - [ "num", "int"]
-            - [ "obj", "model_complex.info"]     #StoragObj
+            - [ "obj", "model_complex.info"]     #StorageObj
             - [ "numpy", "numpy.ndarray"]        #StorageNumpy
             - [ "dict", "model_complex.metrics"] #StorageDict
 

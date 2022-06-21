@@ -63,8 +63,8 @@ public:
     const std::string& getModuleName() const;
     void setModuleName(std::string& name);
 private:
-    std::map <std::string, ObjSpec> dataModel;
-    std::string moduleName;
+    std::map <std::string, ObjSpec> dataModel; // Indexed by Fully Qualified name (python style) for the class_name
+    std::string moduleName; // FQ path to the file used to load this model
 
 
 };
