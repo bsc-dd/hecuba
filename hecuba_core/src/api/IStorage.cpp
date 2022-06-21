@@ -220,17 +220,11 @@ IStorage::writeTable(const void* key, void* value, const enum IStorage::valid_wr
     }
 
     if (mytype == SETITEM_TYPE) {
-        // key arrives codified and contains latitude(double) + timestep(int)
-        int64_t value_size;
-        uint32_t numcolumns = writerMD->get_values()->size();
-        for (uint32_t i=0; i < numcolumns; i++) {
-            value_size = writerMD->get_values_size(i);
-            std::string value_type = ospec.getIDModelFromCol(i);
-            //if (value_type == IStorage) {
-                //TODO finish recursive case
-            //}
-        }
-        this->dataWriter->write_to_cassandra(cc_key, cc_val);
+        //TODO currently our c++ API only supports instantiation of persistent objects. If we add support to volatile objects
+        // we should extend this funtion to persist a volatile object assigned to a persistent object
+
+        this->dataAccess->put_crow(cc_key, cc_val);
+
     } else { // SETATTR
         char* attr_name = (char*) key;
         this->dataWriter->write_to_cassandra(cc_key, cc_val, attr_name);
@@ -349,8 +343,8 @@ void IStorage::getAttr(const char* attr_name, void* valuetoreturn) const{
     ObjSpec ospec = model->getObjSpec(this->id_model);
     std::string value_type = ospec.getIDModelFromColName(attr_name);
     if (!ObjSpec::isBasicType(value_type)) {
-        //TODO: if the value is a IStorage we need to instantiate it
-        throw ModuleException("IStorage:: getATTR of a non basic type is NOT supported yet.");
+        IStorage *read_object = this->currentSession->createObject(value_type.c_str(), *(uint64_t **)query_result);
+        memcpy(valuetoreturn, &read_object, sizeof(IStorage *));
     } else {
         if (value_type == "text") {
             char *str = *(char**)query_result;
@@ -385,7 +379,7 @@ void IStorage::getItem(const void* key, void *valuetoreturn) const{
     memcpy(keytosend, key, key_size);
 
     std::vector<const TupleRow *> result = dataAccess->get_crow(keytosend);
-    if (result.empty()) throw ModuleException("HOLA");
+
     if (result.empty()) throw ModuleException("IStorage::getItem: key not found in object "+ id_obj);
     char *query_result= (char*)result[0]->get_payload();
 
@@ -400,8 +394,8 @@ void IStorage::getItem(const void* key, void *valuetoreturn) const{
         value_size = writerMD->get_values_size(i);
         std::string value_type = ospec.getIDModelFromCol(i);
         if (!ObjSpec::isBasicType(value_type)) {
-            //TODO: if the value is a IStorage we need to instantiate it
-            throw ModuleException("IStorage:: getITEM of a non basic type is NOT supported yet.");
+            IStorage *read_object = this->currentSession->createObject(value_type.c_str(), *(uint64_t **)query_result);
+            memcpy(valuetmp+offset, &read_object, sizeof(IStorage *));
         } else {
             if (value_type == "text") {
                 char *str = *(char**)query_result;
