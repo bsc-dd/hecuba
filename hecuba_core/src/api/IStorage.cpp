@@ -169,17 +169,20 @@ IStorage::writeTable(const void* key, void* value, const enum IStorage::valid_wr
         cc_val = malloc(writerMD->get_values_size()); // This memory will be freed after the execution of the query (at callback)
 
         uint64_t offset=0;
-        uint32_t numcolumns = writerMD->get_values()->size();
+        std::shared_ptr<const std::vector<ColumnMeta> > columns = writerMD->get_values();
+        uint32_t numcolumns = columns->size();
         std::cout<< "WriteTable numcols="<<numcolumns<<std::endl;
         int64_t value_size;
 
         for (uint32_t i=0; i < numcolumns; i++) {
 
             std::cout<< "WriteTable offset ="<<offset<<std::endl;
-            value_size = writerMD->get_values_size(i);
+            std::string column_name = ospec.getIDObjFromCol(i);
             std::string value_type = ospec.getIDModelFromCol(i);
+            const ColumnMeta *c = writerMD->get_single_column(column_name);
+            value_size = c->size;
 
-            convert_IStorage_to_UUID(((char *)cc_val)+offset, value_type, ((char*)value) + offset, value_size);
+            convert_IStorage_to_UUID(((char *)cc_val)+c->position, value_type, ((char*)value) + offset, value_size);
 
             offset += value_size;
         }
@@ -188,11 +191,13 @@ IStorage::writeTable(const void* key, void* value, const enum IStorage::valid_wr
         if (mytype != SETATTR_TYPE) {
             throw ModuleException("IStorage:: Set Attr on a non Object is not supported");
         }
-        int64_t value_size = (*writerMD->get_single_value((char*)key))[0].size;
+        int64_t value_size = writerMD->get_single_column((char*)key)->size;
         cc_val = malloc(value_size); // This memory will be freed after the execution of the query (at callback)
 
         std::string value_type = ospec.getIDModelFromColName(std::string((char*)key));
         convert_IStorage_to_UUID((char *)cc_val, value_type, value, value_size);
+    } else {
+        throw ModuleException("IStorage:: Set individual components of a StorageNumpy is not supported");
     }
 
     //std::cout << "DEBUG: IStorage::setItem: After creating value object "<<std::endl;
@@ -334,6 +339,7 @@ void IStorage::getAttr(const char* attr_name, void* valuetoreturn) const{
     memcpy(uuidmem, storageid, sizeof(uint64_t)*2);
 
     std::vector<const TupleRow *> result = dataAccess->retrieve_from_cassandra(keytosend, attr_name);
+
     if (result.empty()) throw ModuleException("IStorage::getAttr: attribute " + std::string(attr_name) + " not found in object " + id_obj );
     char *query_result= (char*)result[0]->get_payload();
 
@@ -372,7 +378,6 @@ void IStorage::getItem(const void* key, void *valuetoreturn) const{
     void * keytosend = malloc(key_size);
 
     char *valuetmp = (char*) malloc(value_size);
-    uint64_t offset = 0;
 
     memcpy(keytosend, key, key_size);
 
@@ -385,34 +390,41 @@ void IStorage::getItem(const void* key, void *valuetoreturn) const{
     ObjSpec ospec = model->getObjSpec(this->id_model);
 
     const TableMetadata* writerMD = dataWriter->get_metadata();
-    uint32_t numcolumns = writerMD->get_values()->size();
 
-    for (uint32_t i=0; i < numcolumns; i++) {
+    // WARNING: The order of fields in the TableMetadata and in the model may
+    // NOT be the same! Traverse the TableMetadata and construct the User
+    // buffer with the same order as the ospec. FIXME
 
-        value_size = writerMD->get_values_size(i);
-        std::string value_type = ospec.getIDModelFromCol(i);
+    uint64_t offset = 0; // offset in user buffer
+    std::shared_ptr<const std::vector<ColumnMeta> > columns = writerMD->get_values();
+    for (uint64_t pos = 0; pos<columns->size(); pos++) {
+        std::string column_name = ospec.getIDObjFromCol(pos);
+        std::string value_type = ospec.getIDModelFromCol(pos);
+        const ColumnMeta *c = writerMD->get_single_column(column_name);
+        value_size = c->size;
+        // c->position contains offset in query_result.
         if (!ObjSpec::isBasicType(value_type)) {
-            IStorage *read_object = this->currentSession->createObject(value_type.c_str(), *(uint64_t **)query_result);
+            IStorage *read_object = this->currentSession->createObject(value_type.c_str(), *(uint64_t **)(query_result + c->position));
             memcpy(valuetmp+offset, &read_object, sizeof(IStorage *));
         } else {
             if (value_type == "text") {
-                char *str = *(char**)query_result;
+                char *str = *(char**)(query_result+c->position);
                 uint64_t len = strlen(str) + 1;
                 char *tmp = (char *) malloc(len);
                 memcpy(tmp, str, len);
                 memcpy(valuetmp+offset, &tmp, sizeof(char*));
             }
             else {
-                memcpy(valuetmp+offset, query_result+offset, value_size);
+                memcpy(valuetmp+offset, query_result+c->position, value_size);
             }
-            offset += value_size;
         }
+        offset += value_size;
     }
     // Copy Result to user:
     //   If a single basic type value is returned then the user passes address
     //   to store the value, otherwise we allocate the memory to store all the
     //   values.
-    if (numcolumns == 1) {
+    if (columns->size() == 1) {
         memcpy(valuetoreturn, valuetmp, value_size);
     } else {
         memcpy(valuetoreturn, &valuetmp, value_size);
