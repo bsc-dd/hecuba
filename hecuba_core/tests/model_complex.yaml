@@ -15,6 +15,22 @@
             - [ "ts", "int" ]
   "ValueSpec":
             - [ "mvalues", "numpy.ndarray"]
+
+- "TypeSpec": [ "soNumpy", "StorageObject" ]
+  "ClassField":
+            - [ "num","numpy.ndarray"]
+
+- "TypeSpec": [ "dictMultiValue", "StorageDict" ]
+  "KeySpec":
+            - [ "key1", "str" ]
+            - [ "key2", "int" ]
+  "ValueSpec":
+            - [ "mystr", "str"]
+            - [ "num", "int"]
+            - [ "obj", "model_complex.info"]     #StoragObj
+            - [ "numpy", "numpy.ndarray"]        #StorageNumpy
+            - [ "dict", "model_complex.metrics"] #StorageDict
+
 #
 # This model will generate the following Python file:
 
