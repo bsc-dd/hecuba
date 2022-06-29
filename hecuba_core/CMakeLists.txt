@@ -147,6 +147,44 @@ FIND_LIBRARY(LIBUV NAMES uv PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY
 FIND_LIBRARY(TBB NAMES tbb PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
 FIND_LIBRARY(ARROW NAMES arrow PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
 FIND_LIBRARY(YAML NAMES yaml-cpp PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
+#yolandab
+FIND_LIBRARY(KAFKA NAMES rdkafka PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
+FIND_PROGRAM(KAFKATOOLS NAMES kafka-server-start.sh zookeeper-server-start.sh PATHS ${C_BINDING_INSTALL_PREFIX}/bin ENV PATH)
+
+#if (NOT KAFKATOOLS)
+#    message("Downloading Kafka TOOLS")
+#    unset(KAFKATOOLS) #to avoid name clash
+#    ExternalProject_Add(
+#        KAFKATOOLS    #KAFKA-prefix
+#        DOWNLOAD_DIR ${CMAKE_CURRENT_LIST_DIR}/dependencies
+#        URL "https://dlcdn.apache.org/kafka/3.2.0/kafka_2.13-3.2.0.tgz"
+#        URL_HASH SHA1=5021e19cab9f5e09d13875946e43605f99acec75
+#        INSTALL_DIR ${C_BINDING_INSTALL_PREFIX}
+#
+#    )
+#else ()
+#    message(STATUS "Using system's KAFKA TOOLS: " ${KAFKATOOLS})
+#endif ()
+
+if (NOT KAFKA)
+    message("Downloading Kafka library")
+    unset(KAFKA) #to avoid name clash
+    ExternalProject_Add(
+        KAFKA   #KAFKA-prefix
+        DOWNLOAD_DIR ${CMAKE_CURRENT_LIST_DIR}/dependencies
+        GIT_REPOSITORY "https://github.com/edenhill/librdkafka"
+        INSTALL_DIR ${C_BINDING_INSTALL_PREFIX}
+        CMAKE_COMMAND echo
+        BUILD_COMMAND ./configure --prefix=${C_BINDING_INSTALL_PREFIX}
+        BUILD_IN_SOURCE 1
+        INSTALL_COMMAND make -j ${JOBS} COMMAND make install
+    )
+    add_dependencies(hfetch KAFKA)
+    set(ALL_LIBS ${ALL_LIBS} ${C_BINDING_INSTALL_PREFIX}/lib/libyaml-cpp.so)
+else ()
+    message(STATUS "Using system's KAFKA Library: " ${KAFKA})
+    set(ALL_LIBS ${ALL_LIBS} ${KAFKA})
+endif ()
 
 IF (NOT LIBUV)
     message("Downloading LIBUV (requisite for Cassandra C++ driver)")
