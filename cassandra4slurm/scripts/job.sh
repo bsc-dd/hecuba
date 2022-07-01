@@ -117,6 +117,7 @@ function get_nodes_up () {
     NODE_COUNTER=$($CASS_HOME/bin/nodetool -h $first_node status | sed 1,5d | sed '$ d' | awk '{ print $1 }' | grep "UN" | wc -l)
 }
 
+
 if [ ! -f $CASS_HOME/bin/cassandra ]; then
     echo "ERROR: Cassandra executable is not placed where it was expected. ($CASS_HOME/bin/cassandra)"
     echo "Exiting..."
@@ -182,21 +183,7 @@ then
     DBG "[DEBUG] Recover process initial datetime: $RECOVERTIME1"
     DBG "[DEBUG] Recover process final datetime: $RECOVERTIME2"
 
-    MILL1=$(echo $RECOVERTIME1 | cut -c 10-12)
-    MILL2=$(echo $RECOVERTIME2 | cut -c 10-12)
-    TIMESEC1=$(date -d "$RECOVERTIME1" +%s)
-    TIMESEC2=$(date -d "$RECOVERTIME2" +%s)
-    TIMESEC=$(( TIMESEC2 - TIMESEC1 ))
-    MILL=$(( MILL2 - MILL1 ))
-
-    # Adjusting seconds if necessary
-    if [ $MILL -lt 0 ]
-    then
-        MILL=$(( 1000 + MILL ))
-        TIMESEC=$(( TIMESEC - 1 ))
-    fi
-
-    echo "[STATS] Cluster recover process (copy files and set tokens for all nodes) took: "$TIMESEC"s. "$MILL"ms."    
+    show_time "[STATS] Cluster recover process (copy files and set tokens for all nodes) took: " $RECOVERTIME1 $RECOVERTIME2
 fi       
 #exit # TODO QUITAR ESTO DE AQUÍ, SI NO NO FUNCIONA!!! TODO
 # Launching Cassandra in every node
@@ -222,21 +209,8 @@ if [ "$NODE_COUNTER" == "$N_NODES" ]
 then
     TIME_END=`date +"%T.%3N"`
     echo "Cassandra Cluster with "$N_NODES" nodes started successfully."
-    MILL1=$(echo $TIME_START | cut -c 10-12)
-    MILL2=$(echo $TIME_END | cut -c 10-12)
-    TIMESEC1=$(date -d "$TIME_START" +%s)
-    TIMESEC2=$(date -d "$TIME_END" +%s)
-    TIMESEC=$(( TIMESEC2 - TIMESEC1 ))
-    MILL=$(( MILL2 - MILL1 ))
 
-    # Adjusting seconds if necessary
-    if [ $MILL -lt 0 ]
-    then
-        MILL=$(( 1000 + MILL ))
-        TIMESEC=$(( TIMESEC - 1 ))
-    fi
-
-    echo "[STATS] Cluster launching process took: "$TIMESEC"s. "$MILL"ms."
+    show_time "[STATS] Cluster launching process took: " $TIME_START $TIME_END
 else
     echo "[STATS] ERROR: Cassandra Cluster RUN timeout. Check STATUS."
     exit_bad_node_status
@@ -338,22 +312,7 @@ then
     DBG " Snapshot initial datetime: $TIME1"
     DBG " Snapshot final datetime: $TIME2"
 
-    MILL1=$(echo $TIME1 | cut -c 10-12)
-    MILL2=$(echo $TIME2 | cut -c 10-12)
-    TIMESEC1=$(date -d "$TIME1" +%s)
-    TIMESEC2=$(date -d "$TIME2" +%s)
-    TIMESEC=$(( TIMESEC2 - TIMESEC1 ))
-    MILL=$(( MILL2 - MILL1 ))
-
-    # Adjusting seconds if necessary
-    if [ $MILL -lt 0 ]
-    then
-        MILL=$(( 1000 + MILL ))
-        TIMESEC=$(( TIMESEC - 1 ))
-    fi
-
-    echo "[STATS] Snapshot process took: "$TIMESEC"s. "$MILL"ms."
-    #echo "Snapshot process took: "$TIMESEC"s. "$MILL"ms." > stress/"$TEST_BASE_FILENAME"_0.log
+    show_time "[STATS] Snapshot process took: " $TIME1 $TIME2
 
     # Cleaning status files
     rm -f $C4S_HOME/snap-status-$SNAP_NAME-*-file.txt

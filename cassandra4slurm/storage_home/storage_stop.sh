@@ -54,21 +54,7 @@ then
     DBG "[STATS] Snapshot initial datetime: $TIME1"
     DBG "[STATS] Snapshot final datetime: $TIME2"
 
-    MILL1=$(echo $TIME1 | cut -c 10-12)
-    MILL2=$(echo $TIME2 | cut -c 10-12)
-    TIMESEC1=$(date -d "$TIME1" +%s)
-    TIMESEC2=$(date -d "$TIME2" +%s)
-    TIMESEC=$(( TIMESEC2 - TIMESEC1 ))
-    MILL=$(( MILL2 - MILL1 ))
-
-    # Adjusting seconds if necessary
-    if [ $MILL -lt 0 ]
-    then
-        MILL=$(( 1000 + MILL ))
-        TIMESEC=$(( TIMESEC - 1 ))
-    fi
-
-    echo "[STATS] Snapshot process took: "$TIMESEC"s. "$MILL"ms."
+    show_time "[STATS] Snapshot process took: " $TIME1 $TIME2
 
     # Cleaning status files
     rm -f $C4S_HOME/snap-status-$SNAP_NAME-*-file.txt

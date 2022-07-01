@@ -314,21 +314,8 @@ if [ "$NODE_COUNTER" == "$N_NODES" ]
 then
     TIME_END=`date +"%T.%3N"`
     echo "Cassandra Cluster with "$N_NODES" nodes started successfully."
-    MILL1=$(echo $TIME_START | cut -c 10-12)
-    MILL2=$(echo $TIME_END | cut -c 10-12)
-    TIMESEC1=$(date -d "$TIME_START" +%s)
-    TIMESEC2=$(date -d "$TIME_END" +%s)
-    TIMESEC=$(( TIMESEC2 - TIMESEC1 ))
-    MILL=$(( MILL2 - MILL1 ))
 
-    # Adjusting seconds if necessary
-    if [ $MILL -lt 0 ]
-    then
-        MILL=$(( 1000 + MILL ))
-        TIMESEC=$(( TIMESEC - 1 ))
-    fi
-
-    echo "[STATS] Cluster launching process took: "$TIMESEC"s. "$MILL"ms."
+    show_time "[STATS] Cluster launching process took: " $TIME_START $TIME_END
 else
     echo "[STATS] ERROR: Cassandra Cluster RUN timeout. Check STATUS."
     exit_bad_node_status
