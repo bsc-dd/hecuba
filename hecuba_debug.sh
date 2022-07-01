@@ -29,3 +29,14 @@ show_time () {
 
     echo "$MSG ${TIMESEC}s.  ${MILL}ms."
 }
+
+die() {
+    echo "$@"
+    exit
+}
+
+run() {
+    X="$@"
+    DBG "$X"
+    eval "$X"
+}
