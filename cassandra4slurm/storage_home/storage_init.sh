@@ -47,6 +47,9 @@ if [ "x$HECUBA_ROOT" == "x" ]; then
     exit
 fi
 
+KAFKA_PATH=${HECUBA_ROOT}/kafka
+[ -f "$KAFKA_PATH/bin/kafka-server-start.sh" ] || die "[ERROR] KAFKA_PATH [$KAFKA_PATH] does not contain Kafka binaries."
+
 MAKE_SNAPSHOT=0
 STORAGE_PROPS=${6}
 
@@ -74,6 +77,64 @@ export THETIME=$(date "+%Y%m%dD%H%Mh%Ss")"-$SLURM_JOB_ID"
 # get_first_node: Given a list of strings separated by comma (,) returns the first string
 get_first_node() {
     echo "$@" | cut -d, -f1
+}
+[ ! -d ${C4S_HOME}/${UNIQ_ID} ] && mkdir -p ${C4S_HOME}/${UNIQ_ID}
+
+# update_kafka_configuration
+#   Args:   zknode    FQN for the Zookeeper Node
+# Update the generic kafka configuration files to the current execution
+# environment, in particular, the zookeeper node to use and the directories to
+# use.
+update_kafka_configuration() {
+    local ZKNODE="$1"
+
+    DBG " Kafka configuration: Zookeeper node at [$ZKNODE]"
+    DBG " Kafka configuration: Zookeeper logs at [${C4S_HOME}/${UNIQ_ID}/zookeeper]"
+    DBG " Kafka configuration: Kafka Logs at [${C4S_HOME}/${UNIQ_ID}/kafka-logs]"
+
+    # copy configuration files to EXECUTION directory
+    cp ${KAFKA_PATH}/config/server.properties ${C4S_HOME}/${UNIQ_ID}/server.properties
+    sed -i "s/zookeeper.connect=localhost:/zookeeper.connect=${ZKNODE}:/" ${C4S_HOME}/${UNIQ_ID}/server.properties
+    sed -i 's/broker.id=.$/broker.id.generation.enable=true/' ${C4S_HOME}/${UNIQ_ID}/server.properties
+    sed -i "s#log.dirs=/tmp/kafka-logs#log.dirs=/tmp/${UNIQ_ID}/kafka-logs#" ${C4S_HOME}/${UNIQ_ID}/server.properties
+
+    cp ${KAFKA_PATH}/config/zookeeper.properties ${C4S_HOME}/${UNIQ_ID}/zookeeper.properties
+    sed -i "s#dataDir=/tmp/zookeeper#dataDir=/tmp/${UNIQ_ID}/zookeeper#" ${C4S_HOME}/${UNIQ_ID}/zookeeper.properties
+    DBG " Kafka configuration UPDATED"
+
+}
+
+launch_kafka () {
+    local CASSANDRA_NODELIST="$1"
+    local UNIQ_ID="$2"
+
+    local ZKNODE=$( get_first_node $CASSANDRA_NODELIST )
+
+    # Prepare configuration files
+    update_kafka_configuration "$ZKNODE-$iface"
+
+    # Start Zookeeper
+    #run srun --nodelist $ZKNODE --ntasks=1 --nodes=1 --ntasks-per-node=1 --cpus-per-task=1 \
+    #    --output ${C4S_HOME}/${UNIQ_ID}/zookeeper.output \
+    #    bash -c "CLASSPATH=\"\" ${HECUBA_ROOT}/kafka/bin/zookeeper-server-start.sh ${C4S_HOME}/${UNIQ_ID}/zookeeper.properties" &
+    run srun --nodelist $ZKNODE --ntasks=1 --nodes=1 --ntasks-per-node=1 --cpus-per-task=1 \
+        --output ${C4S_HOME}/${UNIQ_ID}/zookeeper.output \
+         ${HECUBA_ROOT}/kafka/bin/zookeeper-server-start.sh ${C4S_HOME}/${UNIQ_ID}/zookeeper.properties &
+
+    sleep 2
+
+    # Start Kakfa daemons
+    local KK="$CLASSPATH"
+    #run srun --nodelist $CASSANDRA_NODELIST --ntasks=$N_NODES --nodes=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 \
+    #    --output ${C4S_HOME}/${UNIQ_ID}/kafka.output \
+    #    bash -c "CLASSPATH=\"\" ${HECUBA_ROOT}/kafka/bin/kafka-server-start.sh ${C4S_HOME}/${UNIQ_ID}/server.properties" &
+    unset CLASSPATH
+    run srun --nodelist $CASSANDRA_NODELIST --ntasks=$N_NODES --nodes=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 \
+        --output ${C4S_HOME}/${UNIQ_ID}/kafka.output \
+        ${HECUBA_ROOT}/kafka/bin/kafka-server-start.sh ${C4S_HOME}/${UNIQ_ID}/server.properties &
+    CLASSPATH="$KK"
+
+    sleep 2
 }
 
 function set_workspace () {
@@ -379,5 +440,6 @@ if [ "0$LOGS_DIR" == "0" ]; then
     LOGS_DIR=$DEFAULT_LOGS_DIR
 fi
 
-launch_arrow_helpers $CASSFILE  $LOGS_DIR/$UNIQ_ID
+launch_kafka $CASSANDRA_NODELIST $UNIQ_ID
 
+launch_arrow_helpers $CASSFILE  $LOGS_DIR/$UNIQ_ID

@@ -31,4 +31,13 @@ else
     echo "Host $(hostname) can not find a running arrow_helper process to kill."
 fi
 
+# Kill Kafka
+PID=$(ps aux |grep java | awk '{print $2}')
+if [ "$PID" != "" ]; then
+    echo "Host $(hostname) is killing its kafka process with PID: "$PID
+    kill $PID
+else
+    echo "Host $(hostname) can not find a running kafka process to kill."
+fi
+
 exit
