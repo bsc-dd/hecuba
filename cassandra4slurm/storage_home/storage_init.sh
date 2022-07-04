@@ -441,6 +441,10 @@ if [ "0$LOGS_DIR" == "0" ]; then
     LOGS_DIR=$DEFAULT_LOGS_DIR
 fi
 
-launch_kafka $CASSANDRA_NODELIST $UNIQ_ID
+if [ "X$STREAMING" != "X" ]; then
+    if [ ${STREAMING,,} == "true" ]; then
+        launch_kafka $CASSANDRA_NODELIST $UNIQ_ID
+    fi
+fi
 
 launch_arrow_helpers $CASSFILE  $LOGS_DIR/$UNIQ_ID
