@@ -148,6 +148,85 @@ namespace YAML {
         };
 };
 
+std::vector<std::string> HecubaSession::split (std::string s, std::string delimiter) const{
+    size_t pos_start = 0, pos_end, delim_len = delimiter.length();
+    std::string token;
+    std::vector<std::string> res;
+
+    while ((pos_end = s.find (delimiter, pos_start)) != std::string::npos) {
+        token = s.substr (pos_start, pos_end - pos_start);
+        pos_start = pos_end + delim_len;
+        res.push_back (token);
+    }
+
+    res.push_back (s.substr (pos_start));
+    return res;
+}
+
+/** contact_names_2_IP_addr: Given a string with a list of comma separated of
+ * hostnames, returns a string with same hosts as IP address */
+std::string HecubaSession::contact_names_2_IP_addr(std::string &contact_names)
+const {
+    std::vector<std::string> contact;
+    std::vector<std::string> contact_ips;
+
+    struct addrinfo hints;
+    struct addrinfo *result;
+
+    // Split contact_names
+    contact = split(contact_names, ",");
+    if (contact.size()==0) {
+        fprintf(stderr, "Empty contact_names ");
+        return std::string("");
+    }
+
+
+    /* Obtain address(es) matching host/port */
+
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
+    hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
+    hints.ai_flags = 0;
+    hints.ai_protocol = 0;          /* Any protocol */
+
+
+    for (uint32_t i=0; i<contact.size(); i++) {
+        int s = getaddrinfo(contact[i].c_str(), NULL, &hints, &result);
+        if (s != 0) {
+            fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
+            return std::string("");
+        }
+        /* getaddrinfo() returns a list of address structures.
+           Try each address until we successfully connect(2).
+           If socket(2) (or connect(2)) fails, we (close the socket
+           and) try the next address. */
+
+        if (result == NULL) {               /* No address succeeded */
+            std::cerr<<"Address "<<contact[i]<<" is invalid\n"<<std::endl;
+            return std::string("");
+        }
+
+        char host[NI_MAXHOST];
+        if (getnameinfo(result->ai_addr, result->ai_addrlen
+                    , host, sizeof(host)
+                    , NULL, 0
+                    , NI_NUMERICHOST) != 0) {
+            std::cerr<<"Address "<<contact[i]<<" unable to get IP address: "<<strerror(errno)<<std::endl;
+            return std::string("");
+        }
+        std::cout << "Address "<<contact[i]<<" translated to " <<std::string(host)<<std::endl;
+        contact_ips.push_back(host);
+
+        freeaddrinfo(result);           /* No longer needed */
+
+    }
+    std::string contactips_str(contact_ips[0]);
+    for (uint32_t i=1; i<contact_ips.size(); i++) {
+        contactips_str+= "," + contact_ips[i];
+    }
+    return contactips_str;
+}
+
 void HecubaSession::parse_environment(config_map &config) {
     const char * nodePort = std::getenv("NODE_PORT");
     if (nodePort == nullptr) {
@@ -159,7 +238,11 @@ void HecubaSession::parse_environment(config_map &config) {
     if (contactNames == nullptr) {
         contactNames = "127.0.0.1";
     }
-    config["contact_names"] = std::string(contactNames);
+    // Transform Names to IP addresses (Cassandra's fault: cassandra_query_set_host needs an IP number)
+    std::string cnames = std::string(contactNames);
+    config["contact_names"] = contact_names_2_IP_addr(cnames);
+
+
 
     const char * kafkaNames = std::getenv("KAFKA_NAMES");
     if (kafkaNames == nullptr) {
