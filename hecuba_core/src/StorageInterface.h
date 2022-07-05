@@ -88,10 +88,12 @@ public:
     int disconnectCassandra();
 
     char * get_host_per_token(int64_t token);
+    std::vector<std::pair<int64_t,int64_t>> get_token_ranges() const;
 
 private:
 
     std::vector< struct tokenHost > tokensInCluster;
+    std::vector <std::pair<int64_t,int64_t>> token_ranges = {};
 
     CassSession *session;
 
@@ -100,6 +102,7 @@ private:
     void query_tokens( const char * peer, const char* tokens, const char* table, const char * node, int nodePort);
     void set_tokens_per_host( const char * node, int nodePort);
     void get_tokens_per_host(std::vector< struct tokenHost > &tokensInCluster);
+    void generate_token_ranges() ;
 
 };
 
