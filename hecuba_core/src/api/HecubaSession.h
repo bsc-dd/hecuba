@@ -70,6 +70,8 @@ private:
 	CassError run_query(std::string) const;
     void getMetaData(void* raw_numpy_meta, ArrayMetadata &arr_metas);
     void registerNumpy(ArrayMetadata &numpy_meta, std::string name, uint64_t* uuid);
+    std::vector<std::string> split (std::string s, std::string delimiter) const;
+    std::string contact_names_2_IP_addr(std::string &contact_names) const;
 
     void createSchema(void);
 };
