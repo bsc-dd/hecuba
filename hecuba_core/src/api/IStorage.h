@@ -71,5 +71,7 @@ private:
 
     void *data;   /* Pointer to memory containing the object. READ ONLY. DO NOT FREE. This object does NOT own the memory! */
     ArrayMetadata numpy_metas; /* Pointer to memory containing the metadata. READ ONLY. DO NOT FREE. This object does NOT own the memory! */
+    void extractFromQueryResult(std::string value_type, uint32_t value_size, void *query_result, void *valuetoreturn) const;
+    void extractMultiValuesFromQueryResult(void *query_result, void *valuetoreturn) const ;
 };
 #endif /* ISTORAGE_H */

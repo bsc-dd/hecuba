@@ -329,6 +329,57 @@ void IStorage::send(void* key, IStorage* value) {
 }
 #endif
 
+void IStorage::extractFromQueryResult(std::string value_type, uint32_t value_size, void *query_result, void *valuetoreturn) const{
+    if (!ObjSpec::isBasicType(value_type)) {
+        IStorage *read_object = this->currentSession->createObject(value_type.c_str(), *(uint64_t **)query_result);
+        memcpy(valuetoreturn, &read_object, sizeof(IStorage *));
+    } else {
+        if (value_type == "text") {
+            char *str = *(char**)query_result;
+            value_size = strlen(str) + 1;
+            char *tmp = (char *) malloc(value_size);
+            memcpy(tmp, str, value_size);
+            memcpy(valuetoreturn, &tmp, sizeof(char*));
+        } else {
+            memcpy(valuetoreturn, query_result, value_size);
+        }
+    }
+}
+
+/* Given a result from a cassandra query, extract all elements into valuetoreturn buffer*/
+void IStorage::extractMultiValuesFromQueryResult(void *query_result, void *valuetoreturn) const {
+    uint32_t value_size = dataAccess->get_metadata()->get_values_size();
+    DataModel* model = this->currentSession->getDataModel();
+    ObjSpec ospec = model->getObjSpec(this->id_model);
+
+    const TableMetadata* writerMD = dataWriter->get_metadata();
+
+    char *valuetmp = (char*) malloc(value_size);
+    uint64_t offset = 0; // offset in user buffer
+    std::shared_ptr<const std::vector<ColumnMeta> > columns = writerMD->get_values();
+    for (uint64_t pos = 0; pos<columns->size(); pos++) {
+        std::string column_name = ospec.getIDObjFromCol(pos);
+        std::string value_type = ospec.getIDModelFromCol(pos);
+        const ColumnMeta *c = writerMD->get_single_column(column_name);
+        value_size = c->size;
+
+        // c->position contains offset in query_result.
+        extractFromQueryResult(value_type, value_size, ((char*)query_result) + c->position, valuetmp+offset);
+
+        offset += value_size;
+    }
+
+    // Copy Result to user:
+    //   If a single basic type value is returned then the user passes address
+    //   to store the value, otherwise we allocate the memory to store all the
+    //   values.
+    if (columns->size() == 1) {
+        memcpy(valuetoreturn, valuetmp, value_size);
+    } else {
+        memcpy(valuetoreturn, &valuetmp, value_size);
+    }
+}
+
 /* Return:
  *  memory reference to datatype (must be freed by user) */
 void IStorage::getAttr(const char* attr_name, void* valuetoreturn) const{
@@ -348,20 +399,9 @@ void IStorage::getAttr(const char* attr_name, void* valuetoreturn) const{
     DataModel* model = this->currentSession->getDataModel();
     ObjSpec ospec = model->getObjSpec(this->id_model);
     std::string value_type = ospec.getIDModelFromColName(attr_name);
-    if (!ObjSpec::isBasicType(value_type)) {
-        IStorage *read_object = this->currentSession->createObject(value_type.c_str(), *(uint64_t **)query_result);
-        memcpy(valuetoreturn, &read_object, sizeof(IStorage *));
-    } else {
-        if (value_type == "text") {
-            char *str = *(char**)query_result;
-            value_size = strlen(str) + 1;
-            char *tmp = (char *) malloc(value_size);
-            memcpy(tmp, str, value_size);
-            memcpy(valuetoreturn, &tmp, sizeof(char*));
-        } else {
-            memcpy(valuetoreturn, query_result, value_size);
-        }
-    }
+
+    extractFromQueryResult(value_type, value_size, query_result, valuetoreturn);
+
     // Free the TupleRows...
     for(auto i:result) {
         delete(i);
@@ -375,62 +415,22 @@ void IStorage::getItem(const void* key, void *valuetoreturn) const{
     /* PRE: value arrives already coded as expected: block of memory with pointers to IStorages or basic values*/
     std::pair<uint16_t, uint16_t> keySize = dataAccess->get_metadata()->get_keys_size();
     int key_size = keySize.first + keySize.second;
-    int value_size = dataAccess->get_metadata()->get_values_size();
 
     void * keytosend = malloc(key_size);
-
-    char *valuetmp = (char*) malloc(value_size);
 
     memcpy(keytosend, key, key_size);
 
     std::vector<const TupleRow *> result = dataAccess->get_crow(keytosend);
 
     if (result.empty()) throw ModuleException("IStorage::getItem: key not found in object "+ id_obj);
+
     char *query_result= (char*)result[0]->get_payload();
-
-    DataModel* model = this->currentSession->getDataModel();
-    ObjSpec ospec = model->getObjSpec(this->id_model);
-
-    const TableMetadata* writerMD = dataWriter->get_metadata();
 
     // WARNING: The order of fields in the TableMetadata and in the model may
     // NOT be the same! Traverse the TableMetadata and construct the User
     // buffer with the same order as the ospec. FIXME
 
-    uint64_t offset = 0; // offset in user buffer
-    std::shared_ptr<const std::vector<ColumnMeta> > columns = writerMD->get_values();
-    for (uint64_t pos = 0; pos<columns->size(); pos++) {
-        std::string column_name = ospec.getIDObjFromCol(pos);
-        std::string value_type = ospec.getIDModelFromCol(pos);
-        const ColumnMeta *c = writerMD->get_single_column(column_name);
-        value_size = c->size;
-        // c->position contains offset in query_result.
-        if (!ObjSpec::isBasicType(value_type)) {
-            IStorage *read_object = this->currentSession->createObject(value_type.c_str(), *(uint64_t **)(query_result + c->position));
-            memcpy(valuetmp+offset, &read_object, sizeof(IStorage *));
-        } else {
-            if (value_type == "text") {
-                char *str = *(char**)(query_result+c->position);
-                uint64_t len = strlen(str) + 1;
-                char *tmp = (char *) malloc(len);
-                memcpy(tmp, str, len);
-                memcpy(valuetmp+offset, &tmp, sizeof(char*));
-            }
-            else {
-                memcpy(valuetmp+offset, query_result+c->position, value_size);
-            }
-        }
-        offset += value_size;
-    }
-    // Copy Result to user:
-    //   If a single basic type value is returned then the user passes address
-    //   to store the value, otherwise we allocate the memory to store all the
-    //   values.
-    if (columns->size() == 1) {
-        memcpy(valuetoreturn, valuetmp, value_size);
-    } else {
-        memcpy(valuetoreturn, &valuetmp, value_size);
-    }
+    extractMultiValuesFromQueryResult(query_result, valuetoreturn);
 
     // TODO this works only for dictionaries of one element. We should traverse the whole vector of values
     // TODO delete the vector of tuple rows and the tuple rows
