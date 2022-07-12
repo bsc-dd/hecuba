@@ -151,6 +151,17 @@ ObjSpec::valid_types ObjSpec::getType() {
 std::string ObjSpec::getIDModelFromCol(int i) {
     return cols[i].second;
 }
+std::string ObjSpec::getIDModelFromKey(int i) {
+    /* keys are splitted into partitionKeys and clusteringKeys */
+    int partKeySize=partitionKeys.size();
+
+    if (i < partKeySize) {
+        return partitionKeys[i].second;
+    }
+    else {
+        return clusteringKeys[i-partKeySize].second;
+    }
+}
 
 const std::string& ObjSpec::getIDModelFromColName(const std::string & name) {
     for(uint16_t i=0; i<cols.size(); i++) {
@@ -164,6 +175,18 @@ const std::string& ObjSpec::getIDModelFromColName(const std::string & name) {
 
 std::string ObjSpec::getIDObjFromCol(int i) {
     return cols[i].first;
+}
+
+std::string ObjSpec::getIDObjFromKey(int i) {
+    /* keys are splitted into partitionKeys and clusteringKeys */
+    int partKeySize=partitionKeys.size();
+
+    if (i < partKeySize) {
+        return partitionKeys[i].first;
+    }
+    else {
+        return clusteringKeys[i-partKeySize].first;
+    }
 }
 
 std::string ObjSpec::debug() {

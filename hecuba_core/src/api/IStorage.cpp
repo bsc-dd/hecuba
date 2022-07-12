@@ -5,6 +5,25 @@
 #include <boost/uuid/uuid.hpp>
 #include "debug.h"
 
+/***
+    d = //dictionary [int, float]:[values]
+    for (keysIterator s = d.begin(); s != d.end(); s ++) {
+        (*s)        <== buffer con int+float (*m_ptr)
+        (s)         <== Iterador
+        (s->xxx)    <== NOT SUPPORTED
+    }
+***/
+IStorage::keysIterator IStorage::begin() {
+        // Create thread and ask Casandra for data
+
+        config_map iterator_config = currentSession->config;
+        iterator_config["type"]="keys"; // Request a prefetcher for 'keys' only
+        return keysIterator(this, currentSession->getStorageInterface()->get_iterator(
+                    dataAccess->get_metadata()
+                    , iterator_config));
+}
+
+IStorage::keysIterator IStorage::end()   { return keysIterator(); } // NULL is the placeholder for last element
 
 IStorage::IStorage(HecubaSession* session, std::string id_model, std::string id_object, uint64_t* storage_id, CacheTable* dataAccess) {
 	this->currentSession = session;
@@ -347,36 +366,57 @@ void IStorage::extractFromQueryResult(std::string value_type, uint32_t value_siz
 }
 
 /* Given a result from a cassandra query, extract all elements into valuetoreturn buffer*/
-void IStorage::extractMultiValuesFromQueryResult(void *query_result, void *valuetoreturn) const {
-    uint32_t value_size = dataAccess->get_metadata()->get_values_size();
+/* type = KEYS/COLUMNS TODO: add ALL to support the iteration for both keys and values (pythom items method) */
+
+void IStorage::extractMultiValuesFromQueryResult(void *query_result, void *valuetoreturn, int type) const {
+    uint32_t attr_size;
     DataModel* model = this->currentSession->getDataModel();
     ObjSpec ospec = model->getObjSpec(this->id_model);
 
     const TableMetadata* writerMD = dataWriter->get_metadata();
 
-    char *valuetmp = (char*) malloc(value_size);
     uint64_t offset = 0; // offset in user buffer
-    std::shared_ptr<const std::vector<ColumnMeta> > columns = writerMD->get_values();
-    for (uint64_t pos = 0; pos<columns->size(); pos++) {
-        std::string column_name = ospec.getIDObjFromCol(pos);
-        std::string value_type = ospec.getIDModelFromCol(pos);
-        const ColumnMeta *c = writerMD->get_single_column(column_name);
-        value_size = c->size;
+    std::shared_ptr<const std::vector<ColumnMeta> > metas;
+    if (type == COLUMNS) {
+        metas = writerMD->get_values();
+        attr_size = writerMD->get_values_size();
+    } else {
+        metas = writerMD->get_keys();
+        std::pair<uint16_t,uint16_t> keys_size = writerMD->get_keys_size();
+        attr_size=keys_size.first + keys_size.second;
+    }
+
+    char *valuetmp = (char*) malloc(attr_size);
+
+    std::string attr_name;
+    std::string attr_type;
+    const ColumnMeta *c;
+    for (uint64_t pos = 0; pos<metas->size(); pos++) {
+        if (type == COLUMNS) {
+            attr_name = ospec.getIDObjFromCol(pos);
+            attr_type = ospec.getIDModelFromCol(pos);
+            c = writerMD->get_single_column(attr_name);
+        } else {
+            attr_name = ospec.getIDObjFromKey(pos);
+            attr_type = ospec.getIDModelFromKey(pos);
+            c = writerMD->get_single_key(attr_name);
+        }
+        attr_size = c->size;
 
         // c->position contains offset in query_result.
-        extractFromQueryResult(value_type, value_size, ((char*)query_result) + c->position, valuetmp+offset);
+        extractFromQueryResult(attr_type, attr_size, ((char*)query_result) + c->position, valuetmp+offset);
 
-        offset += value_size;
+        offset += attr_size;
     }
 
     // Copy Result to user:
     //   If a single basic type value is returned then the user passes address
     //   to store the value, otherwise we allocate the memory to store all the
     //   values.
-    if (columns->size() == 1) {
-        memcpy(valuetoreturn, valuetmp, value_size);
+    if (metas->size() == 1) {
+        memcpy(valuetoreturn, valuetmp, attr_size);
     } else {
-        memcpy(valuetoreturn, &valuetmp, value_size);
+        memcpy(valuetoreturn, &valuetmp, attr_size);
     }
 }
 
@@ -430,7 +470,7 @@ void IStorage::getItem(const void* key, void *valuetoreturn) const{
     // NOT be the same! Traverse the TableMetadata and construct the User
     // buffer with the same order as the ospec. FIXME
 
-    extractMultiValuesFromQueryResult(query_result, valuetoreturn);
+    extractMultiValuesFromQueryResult(query_result, valuetoreturn, COLUMNS);
 
     // TODO this works only for dictionaries of one element. We should traverse the whole vector of values
     // TODO delete the vector of tuple rows and the tuple rows
