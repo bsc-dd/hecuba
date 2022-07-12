@@ -116,6 +116,7 @@ public:
     uint32_t get_values_size(void) const;
     uint32_t get_values_size(int pos) const;
     uint32_t get_columnname_position(const std::string &columnname) const;
+    uint32_t get_keyname_position(const std::string &columnname) const;
 
 private:
     uint16_t compute_size_of(const ColumnMeta &CM) const;

@@ -385,6 +385,16 @@ uint32_t TableMetadata::get_columnname_position(const std::string &columnname) c
     }
     throw ModuleException("Unknown attribute name ["+columnname+"]");
 }
+uint32_t TableMetadata::get_keyname_position(const std::string &keyname) const {
+    ColumnMeta m;
+    for (uint32_t i = 0; i < keys->size(); ++i) {
+        m = (*keys)[i];
+        if (m.info["name"] == keyname) {
+            return i;
+        }
+    }
+    throw ModuleException("Unknown attribute name ["+keyname+"]");
+}
 
 std::shared_ptr<const std::vector<ColumnMeta> > TableMetadata::get_single_value(const char *value_name) const {
     // TODO : Add a hash map to cache 'value_name' ColumnMeta and avoid searching
