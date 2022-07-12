@@ -32,8 +32,10 @@ public:
     enum valid_types getType();
 
     std::string getIDModelFromCol(int pos);
+    std::string getIDModelFromKey(int pos);
     const std::string& getIDModelFromColName(const std::string & name);
     std::string getIDObjFromCol(int pos);
+    std::string getIDObjFromKey(int pos);
     std::string getPythonString();
     bool isStream(void) const;
     void enableStream(void) ;
