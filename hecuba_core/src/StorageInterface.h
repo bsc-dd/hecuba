@@ -73,6 +73,9 @@ public:
                            const std::vector<std::pair<int64_t, int64_t>> &tokens,
                            config_map &config);
 
+    Prefetch *get_iterator(const TableMetadata *table_meta,
+                           config_map &config);
+
 
     MetaManager *make_meta_manager(const char *table, const char *keyspace,
                                    std::vector<config_map> &keys_names,
