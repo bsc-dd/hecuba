@@ -49,6 +49,9 @@ public:
     //config_map getConfig();
 
     config_map config;
+    std::shared_ptr<StorageInterface> getStorageInterface() {
+        return storageInterface;
+    }; /* Connection to Cassandra */
 
 private:
 
