@@ -375,9 +375,9 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
 }
 
 /* Return the position in the metadata table for 'columnname' or -1 if not found */
-int TableMetadata::get_columnname_position(const std::string &columnname) const {
+uint32_t TableMetadata::get_columnname_position(const std::string &columnname) const {
     ColumnMeta m;
-    for (uint16_t i = 0; i < cols->size(); ++i) {
+    for (uint32_t i = 0; i < cols->size(); ++i) {
         m = (*cols)[i];
         if (m.info["name"] == columnname) {
             return i;
