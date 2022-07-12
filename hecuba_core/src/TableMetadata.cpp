@@ -422,6 +422,19 @@ const ColumnMeta *TableMetadata::get_single_column(const std::string &value) con
     throw ModuleException("get_single_value: Unknown column name [" + value + "]");
 }
 
+const ColumnMeta *TableMetadata::get_single_key(const std::string &key_name) const {
+    // TODO : Add a hash map to cache 'value_name' ColumnMeta and avoid searching
+
+    int pos = get_keyname_position(key_name);
+    if (pos>=0) {
+        const ColumnMeta *m = &(*keys)[pos];
+        return m;
+    }
+    throw ModuleException("get_single_key: Unknown key name [" + key_name + "]");
+}
+
+
+
 // completes the build of the insert query for just one attribute
 const char *TableMetadata::get_partial_insert_query(const std::string &attr_name) const {
     uint32_t n_keys = (uint32_t) keys->size();

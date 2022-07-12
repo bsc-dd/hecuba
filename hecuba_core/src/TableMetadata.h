@@ -71,6 +71,7 @@ public:
     std::shared_ptr<const std::vector<ColumnMeta> > get_single_value(const char *value_name) const;
 
     const ColumnMeta *get_single_column(const std::string &value_name) const;
+    const ColumnMeta *get_single_key(const std::string &key_name) const;
 
     std::shared_ptr<const std::vector<ColumnMeta> > get_items() const {
         return items;
