@@ -172,6 +172,12 @@ Prefetch *StorageInterface::get_iterator(const TableMetadata *table_meta,
     if (!session) throw ModuleException("StorageInterface not connected to any node");
     return new Prefetch(tokens, table_meta, session, config);
 }
+
+Prefetch *StorageInterface::get_iterator(const TableMetadata *table_meta,
+                                         config_map &config) {
+    if (!session) throw ModuleException("StorageInterface not connected to any node");
+    return new Prefetch(token_ranges, table_meta, session, config);
+}
 /* Query 'peer' and 'tokens' columns from 'table' at 'node:nodePort'
  * Results are stored in 'tokensInCluster' field */
 void StorageInterface::query_tokens( const char * peer, const char* tokens, const char* table, const char * node, int nodePort) {
