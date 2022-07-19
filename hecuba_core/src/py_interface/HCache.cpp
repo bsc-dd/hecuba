@@ -503,9 +503,9 @@ static PyObject *get_block_ids(HNumpyStore *self, PyObject *args) {
         std::list<std::tuple<uint64_t, uint32_t, uint32_t, std::vector<uint32_t>>> clusters;
         clusters = self->NumpyDataStore->get_block_ids(np_metas->np_metas);
 
-        uint16_t nclusters = clusters.size();
+        uint32_t nclusters = clusters.size();
         result = PyList_New(nclusters);
-        uint16_t key_i = 0;
+        uint32_t key_i = 0;
         for (auto x : clusters) {
             std::vector<uint32_t> ccs = std::get<3>(x);
             PyObject * pyccs = PyTuple_New( ccs.size() );
