@@ -376,20 +376,26 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
 
 /* Return the position in the metadata table for 'columnname' or -1 if not found */
 uint32_t TableMetadata::get_columnname_position(const std::string &columnname) const {
+    std::string lower_columnname = columnname;
+    std::transform(columnname.begin(), columnname.end(), lower_columnname.begin(),
+                       ::tolower);
     ColumnMeta m;
     for (uint32_t i = 0; i < cols->size(); ++i) {
         m = (*cols)[i];
-        if (m.info["name"] == columnname) {
+        if (m.info["name"] == lower_columnname) {
             return i;
         }
     }
     throw ModuleException("Unknown attribute name ["+columnname+"]");
 }
 uint32_t TableMetadata::get_keyname_position(const std::string &keyname) const {
+    std::string lower_keyname = keyname;
+    std::transform(keyname.begin(), keyname.end(), lower_keyname.begin(),
+                       ::tolower);
     ColumnMeta m;
     for (uint32_t i = 0; i < keys->size(); ++i) {
         m = (*keys)[i];
-        if (m.info["name"] == keyname) {
+        if (m.info["name"] == lower_keyname) {
             return i;
         }
     }
