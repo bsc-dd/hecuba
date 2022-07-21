@@ -41,9 +41,6 @@ public:
 
     //config_map getConfig();
 
-    uint64_t* generateUUID(void) const;
-    uint64_t* generateUUID5(const char* name) const;
-    std::string UUID2str(uint64_t* c_uuid);
 private:
 
     void decodeNumpyMetadata(HecubaSession::NumpyShape *s, void* metadata);
