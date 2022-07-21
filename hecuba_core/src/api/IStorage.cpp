@@ -1,4 +1,6 @@
 #include "IStorage.h"
+#include "UUID.h"
+
 #include <regex>
 #include <boost/uuid/uuid.hpp>
 
@@ -27,8 +29,8 @@ std::string IStorage::generate_numpy_table_name(std::string attributename) {
     std::string table_name = id_obj.substr(pos+1, id_obj.length()); //skip the '.'
 
     // Generate a new UUID for this attribute
-    uint64_t *c_uuid = currentSession->generateUUID(); // UUID for the new object
-    std::string uuid = std::regex_replace(currentSession->UUID2str(c_uuid), what, "_");
+    uint64_t *c_uuid = UUID::generateUUID(); // UUID for the new object
+    std::string uuid = std::regex_replace(UUID::UUID2str(c_uuid), what, "_");
 
     // attributename contains "name1.name2.....attributename" therefore keep the last attribute name TODO: Fix this 'name.name...' nightmare
     //name = ksp + ".D" + uuid + table_name + attributename.substr(attributename.find_last_of('_'), attributename.size());
