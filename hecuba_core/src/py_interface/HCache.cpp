@@ -125,7 +125,6 @@ static PyObject *get_row(HCache *self, PyObject *args) {
     std::vector<const TupleRow *> v;
     try {
         v = self->T->get_crow(k);
-        delete (k);
     }
     catch (std::exception &e) {
         std::string error_msg = "Get row error: " + std::string(e.what());
@@ -134,9 +133,12 @@ static PyObject *get_row(HCache *self, PyObject *args) {
     }
 
     if (v.empty()) {
-        PyErr_SetString(PyExc_KeyError, "No values found for this key");
+        std::string error_msg = "No values found for key: ";
+        error_msg += k->show_content() + " @ " + std::string(self->T->get_metadata()->get_keyspace()) + "." + std::string(self->T->get_metadata()->get_table_name());
+        PyErr_SetString(PyExc_KeyError, error_msg.c_str());
         return NULL;
     }
+    delete (k);
 
     try {
         if (self->T->get_metadata()->get_values()->empty()) {
