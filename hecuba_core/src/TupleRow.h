@@ -83,6 +83,8 @@ public:
         return this->payload.use_count();
     }
 
+    std::string show_content() const;
+
     /* Comparision operators */
     friend bool operator<(const TupleRow &lhs, const TupleRow &rhs);
 
