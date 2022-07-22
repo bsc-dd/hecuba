@@ -1777,9 +1777,6 @@ static PyObject* poll(HCache *self) {
             PyErr_SetString(PyExc_KeyError, "Poll returns without values");
             return NULL;
         }
-        if (self->T->get_metadata()->get_items()->empty()) {
-            std::vector<const TupleRow *> empty_result(0);
-        }
         py_row = self->rowParser->make_pylist(v);
         for (uint32_t i = 0; i < v.size(); ++i) {
             delete (v[i]);
