@@ -248,12 +248,12 @@ rd_kafka_message_t * CacheTable::kafka_poll(void) {
         rkmessage = rd_kafka_consumer_poll(this->consumer, 500);
         if (rkmessage) {
             if (rkmessage->err) {
-                    fprintf(stderr, "poll: error %s\n", rd_kafka_err2str(rkmessage->err));
+                    fprintf(stderr, "poll topic[%s]: error %s\n", topic_name, rd_kafka_err2str(rkmessage->err));
             }else {
                 finish=true;
             }
         } else {
-            fprintf(stderr, "poll: timeout\n");
+            fprintf(stderr, "poll topic[%s] : timeout\n", topic_name);
         }
     }
     return rkmessage;
