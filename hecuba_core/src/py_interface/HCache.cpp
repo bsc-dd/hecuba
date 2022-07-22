@@ -171,7 +171,7 @@ static PyObject *get_row(HCache *self, PyObject *args) {
     }
     catch (std::exception &e) {
         std::string error_msg = "Get row error: " + std::string(e.what());
-        PyErr_SetString(PyExc_RuntimeError, e.what());
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
         return NULL;
     }
 
@@ -197,8 +197,8 @@ static PyObject *get_row(HCache *self, PyObject *args) {
         return NULL;
     }
     catch (std::exception &e) {
-        std::string error_msg = "Get row, values error: " + std::string(e.what());
-        PyErr_SetString(PyExc_RuntimeError, e.what());
+        std::string error_msg = "Get row, error parsing values: " + std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
         return NULL;
     }
 
