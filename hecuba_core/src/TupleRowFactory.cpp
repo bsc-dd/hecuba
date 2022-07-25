@@ -51,7 +51,7 @@ TupleRowFactory::TupleRowFactory(std::shared_ptr<const std::vector<ColumnMeta> >
  * @return TupleRow with the buffer as its inner data
  * @post The TupleRow now owns the data and this cannot be freed
  */
-TupleRow *TupleRowFactory::make_tuple(void *data) {
+TupleRow *TupleRowFactory::make_tuple(void *data) const {
     return new TupleRow(metadata, total_bytes, data);
 }
 
@@ -1046,129 +1046,161 @@ void * TupleRowFactory::get_element_addr(const void *element_i, const uint16_t p
     return result;
 }
 
+/*
+ * Encode a TupleRow to be sent by network. This means to encode a vector of
+ * null values and the content of the TupleRow values.
+ * Args:
+ *  row     TupleRow to encode
+ *  dest    Pointer where to store the encoded buffer (must have enough space for data + null_values vector)
+ */
 void TupleRowFactory::encode(const TupleRow *row, void *dest) const {
+    if (row->n_elem() != n_elements()) {
+        throw ModuleException("ERROR: Using a TupleRow with " + std::to_string(row->n_elem()) +" but expecting "+std::to_string(n_elements()));
+    }
+
+    // Allocate the encoded buffer plus the vector of null values
+    uint32_t nullvalues_size = ceil(((double)row->n_elem())/32)*sizeof(uint32_t);
+
     // get_content_size should return a vector with the size of each element
     // we need to add r_factory to the writer 
     std::vector<uint32_t> element_sizes = this->get_content_sizes(row);
+
     uint64_t total_size;
     for (auto& n : element_sizes)
          total_size += n;
 
-    CassUuid uuidtmp;
-    uint64_t offset = 0;
+    // Copy the null values vector
+    std::copy(row->get_null_values().begin(), row->get_null_values().end(), (char*)dest);
+    DBG(" TupleRowFactory::encode "<<row->n_elem()<<"elements to buffer:"<<((void*)dest));
+
+    uint64_t offset = nullvalues_size; // Skip the null values.
+
     void *src;
     for (uint16_t i = 0; i < row->n_elem(); ++i) {
-        // if the element is a tuple we call rescursively to copy_tuple_content
-        const void *element_i = row->get_element(i);
-        if (metadata->at(i).type == CASS_VALUE_TYPE_TUPLE) {
-            TupleRow **ptr = (TupleRow **) element_i;
-            const TupleRow *inner_data = *ptr;
-            TupleRowFactory TFACT = TupleRowFactory(metadata->at(i).pointer);
-            src = malloc(TFACT.get_content_size(inner_data));
-            TFACT.encode(inner_data, src);
-        //} else if (metadata->at(i).type == CASS_VALUE_TYPE_UUID) {
-        //    // We need to encode UUID as CassUUIDs... to "emulate" receiving data from Cassandra
-        //    const uint64_t * orig_uuid = (const uint64_t*)get_element_addr(element_i, i);
-        //    uuid2cassuuid(&orig_uuid, uuidtmp);
-        //    char myfinal[CASS_UUID_STRING_LENGTH];
-        //    cass_uuid_string(uuidtmp, myfinal);
-        //    DBG("encode UUID " + std::string(myfinal));
-        //    src = &uuidtmp;
-        } else {
-            src = get_element_addr(element_i, i);
+        DBG(" TupleRowFactory::encode   pos:"<<std::to_string(i)<<" - null?"<<std::to_string(row->isNull(i))<<" offset:"<<offset);
+        if (!row->isNull(i)) {
+            // if the element is a tuple we call rescursively to copy_tuple_content
+            const void *element_i = row->get_element(i);
+            if (metadata->at(i).type == CASS_VALUE_TYPE_TUPLE) {
+                TupleRow **ptr = (TupleRow **) element_i;
+                const TupleRow *inner_data = *ptr;
+                TupleRowFactory TFACT = TupleRowFactory(metadata->at(i).pointer);
+                uint32_t inner_nullvalues_size = inner_data->get_null_values().size() * sizeof(uint32_t);
+                src = malloc(TFACT.get_content_size(inner_data)+inner_nullvalues_size);
+                TFACT.encode(inner_data, src);
+            } else {
+                src = get_element_addr(element_i, i);
+                DBG(" TupleRowFactory::encode    ALLOC NEEDED src="<< src<< " size="<<element_sizes[i]);
+            }
+            memcpy(((char*)dest)+offset, src, element_sizes[i]);
+            offset += element_sizes[i];
         }
-        memcpy(dest+offset, src, element_sizes[i]);
-        offset += element_sizes[i];
     }
 }
 
-void* TupleRowFactory::decode(const void *encoded_buff, const uint64_t encoded_buff_len) const {
+TupleRow * TupleRowFactory::decode(const void *encoded_buff) const {
 
-    char *row_buffer=(char *) malloc(this->get_nbytes());
-    char *p_row_buffer = row_buffer;
+    void *row_buffer = malloc(this->get_nbytes());
+    char *p_row_buffer = (char *) row_buffer;
 
     uint64_t size=0;
     bool alloc = false;
     char * addr = (char *)encoded_buff;
     void *src;
 
+    uint32_t nullvalues_size = ceil(((double)n_elements())/32)*sizeof(uint32_t);
+    std::vector<uint32_t>null_values((char*)encoded_buff, ((char*)encoded_buff)+nullvalues_size);
+
+    addr += nullvalues_size; // SKIP null values
+    DBG(" TupleRowFactory::decode "<<n_elements()<<"elements from buffer:"<<((void*)encoded_buff));
+
+
     for (uint16_t i = 0; i < n_elements(); ++i) {
-        switch (metadata->at(i).type) {
-            case CASS_VALUE_TYPE_VARCHAR:
-            case CASS_VALUE_TYPE_TEXT:
-            case CASS_VALUE_TYPE_ASCII:{
-               size = strlen(addr) + 1;
-               alloc = true;
-               break;
+        DBG(" TupleRowFactory::decode   pos:"<<std::to_string(i)<<" - null?"<<std::to_string((null_values[i>>5]&(1<<i%32)))<<" addr:"<<(void*)addr);
+        if ((null_values[i>>5] & (1 << i%32)) == 0) {
+            switch (metadata->at(i).type) {
+                case CASS_VALUE_TYPE_VARCHAR:
+                case CASS_VALUE_TYPE_TEXT:
+                case CASS_VALUE_TYPE_ASCII:{
+                   size = strlen(addr) + 1;
+                   alloc = true;
+                   break;
+                }
+                case CASS_VALUE_TYPE_DATE:
+                case CASS_VALUE_TYPE_TIME:
+                case CASS_VALUE_TYPE_TIMESTAMP: {
+                    alloc = true;
+                    size = sizeof(time_t);
+                    break;
+                }
+                case CASS_VALUE_TYPE_UUID:{
+                    alloc = true;
+                    size = sizeof(uint64_t) * 2;
+                    break;
+                }
+                case CASS_VALUE_TYPE_TUPLE:{
+                    /* we will allocate the size of the inner tupple */
+                    alloc = true;
+                    break;
+                }
+                case CASS_VALUE_TYPE_UDT:
+                case CASS_VALUE_TYPE_BLOB: {
+                     // first the size and then the content of the blob or the numpy
+                     size = sizeof(uint64_t) + **((uint64_t **)addr);
+                     alloc = true;
+                     break;
+                }
+                case CASS_VALUE_TYPE_VARINT:
+                case CASS_VALUE_TYPE_BIGINT:
+                case CASS_VALUE_TYPE_BOOLEAN:
+                case CASS_VALUE_TYPE_COUNTER:
+                case CASS_VALUE_TYPE_DOUBLE:
+                case CASS_VALUE_TYPE_FLOAT:
+                case CASS_VALUE_TYPE_INT:
+                case CASS_VALUE_TYPE_SMALL_INT:
+                case CASS_VALUE_TYPE_TINY_INT: {
+                     size=metadata->at(i).size;
+                     alloc = false;
+                     break;
+                }
+                case CASS_VALUE_TYPE_DECIMAL:
+                case CASS_VALUE_TYPE_TIMEUUID:
+                case CASS_VALUE_TYPE_INET:
+                case CASS_VALUE_TYPE_LIST:
+                case CASS_VALUE_TYPE_MAP:
+                case CASS_VALUE_TYPE_SET:
+                case CASS_VALUE_TYPE_CUSTOM:
+                case CASS_VALUE_TYPE_UNKNOWN:
+                default:
+                        throw ModuleException("Default behaviour not supported");
             }
-            case CASS_VALUE_TYPE_DATE:
-            case CASS_VALUE_TYPE_TIME:
-            case CASS_VALUE_TYPE_TIMESTAMP: {
-                alloc = true;
-                size = sizeof(time_t);
-                break;
-            }
-            case CASS_VALUE_TYPE_UUID:{
-                alloc = true;
-                size = sizeof(uint64_t) * 2;
-                break;
-            }
-            case CASS_VALUE_TYPE_TUPLE:{
-                /* we will allocate the size of the inner tupple */
-                alloc = true;
-                break;
-            }
-            case CASS_VALUE_TYPE_UDT:
-            case CASS_VALUE_TYPE_BLOB: {
-                 // first the size and then the content of the blob or the numpy
-                 size = sizeof(uint64_t) + **((uint64_t **)addr);
-                 alloc = true;
-                 break;
-            }
-            case CASS_VALUE_TYPE_VARINT:
-            case CASS_VALUE_TYPE_BIGINT:
-            case CASS_VALUE_TYPE_BOOLEAN:
-            case CASS_VALUE_TYPE_COUNTER:
-            case CASS_VALUE_TYPE_DOUBLE:
-            case CASS_VALUE_TYPE_FLOAT:
-            case CASS_VALUE_TYPE_INT:
-            case CASS_VALUE_TYPE_SMALL_INT:
-            case CASS_VALUE_TYPE_TINY_INT: {
-                 size=metadata->at(i).size;
-                 alloc = false;
-                 break;
-            }
-            case CASS_VALUE_TYPE_DECIMAL:
-            case CASS_VALUE_TYPE_TIMEUUID:
-            case CASS_VALUE_TYPE_INET:
-            case CASS_VALUE_TYPE_LIST:
-            case CASS_VALUE_TYPE_MAP:
-            case CASS_VALUE_TYPE_SET:
-            case CASS_VALUE_TYPE_CUSTOM:
-            case CASS_VALUE_TYPE_UNKNOWN:
-            default:
-                    throw ModuleException("Default behaviour not supported");
-        }
-        if (alloc) {
-            if (metadata->at(i).type == CASS_VALUE_TYPE_TUPLE) {
-                TupleRowFactory TFACT = TupleRowFactory(metadata->at(i).pointer);
-                TupleRow *innerdata = TFACT.make_tuple(addr);
-                size=TFACT.get_content_size(innerdata);
-                src = TFACT.decode(addr, size);
+            if (alloc) {
+                if (metadata->at(i).type == CASS_VALUE_TYPE_TUPLE) {
+                    TupleRowFactory TFACT = TupleRowFactory(metadata->at(i).pointer);
+                    TupleRow *innerdata = TFACT.make_tuple(addr);
+                    size=TFACT.get_content_size(innerdata);
+                    // a tuple cannot have nulls
+                    src = TFACT.decode(addr)->get_payload();
+                    if (src == NULL)
+                        throw ModuleException("Tuple without content received");
+                } else {
+                    src = malloc(size);
+                    memcpy(src, addr, size);
+                    DBG(" TupleRowFactory::decode    ALLOC src="<< src<< " size="<<size);
+                }
+                memcpy(p_row_buffer,&src,sizeof(src));
+                p_row_buffer += sizeof(src);
+                addr += size;
             } else {
-                src = malloc(size);
-                memcpy(src, addr, size);
+                memcpy(p_row_buffer, addr, size);
+                p_row_buffer += size;
+                addr += size;
             }
-            memcpy(p_row_buffer,&src,sizeof(src));
-            p_row_buffer += sizeof(src);
-            addr += size;
-        } else {
-            memcpy(p_row_buffer, addr, size);
-            p_row_buffer += size;
-            addr += size;
         }
 
     }
-    return row_buffer;
+    TupleRow* r = make_tuple(row_buffer);
+    r->set_null_values(null_values); // copy the received null vector into new tuple row
+    return r;
 }
 

@@ -156,8 +156,11 @@ rd_kafka_conf_t * Writer::create_stream_conf(std::map<std::string,std::string> &
 
 void Writer::enable_stream(const char* topic_name, std::map<std::string, std::string> &config) {
     if (this->topic_name != nullptr) {
-        throw ModuleException(" Ooops. Stream already initialized");
+        throw ModuleException(" Ooops. Stream already initialized.Trying to initialize "+std::string(this->topic_name)+" with "+std::string(topic_name));
     }
+
+    DBG("Writer::enable_stream with topic ["<<topic_name<<"]");
+
     rd_kafka_conf_t * conf = create_stream_conf(config);
 
 
@@ -222,22 +225,56 @@ void Writer::send_event(const TupleRow* key, const TupleRow *value) {
     for (auto&elt: value_sizes) {
         row_size += elt;
     }
+    uint32_t keynullvalues_size = std::ceil(((double)key->n_elem())/32)*sizeof(uint32_t);
+    uint32_t valuenullvalues_size = std::ceil(((double)value->n_elem())/32)*sizeof(uint32_t);
+
+    row_size += keynullvalues_size + valuenullvalues_size;
+
     char *rowpayload = (char *) malloc(row_size);
+
     this->k_factory->encode(key, rowpayload);
-    this->v_factory->encode(value, rowpayload+key_size);
+    this->v_factory->encode(value, rowpayload+key_size+keynullvalues_size);
 
     this->send_event(rowpayload, row_size);
+
     //fprintf(stderr, "Send event to topic %s\n", this->topic_name);
+    bool is_all_null=true;
+    for (uint32_t i=0; i< key->n_elem(); i++) {
+         if (!key->isNull(i)) {
+            is_all_null=false;
+         }
+    }
+    if (!is_all_null) {
+        this->write_to_cassandra(key, value); // Write key,value to cassandra only if the key is not null
+    }
 
 }
+/* send_event: Send and Store a WHOLE ROW in CASSANDRA */
 void Writer::send_event(void* key, void* value) {
     const TupleRow *k = k_factory->make_tuple(key);
     const TupleRow *v = v_factory->make_tuple(value);
     this->send_event(k, v);
-    this->write_to_cassandra(k, v);
     delete(k);
     delete(v);
 }
+
+#if 0
+/* TODO: complete this code for storageObj implementation */
+
+/* send_event: Send and Store a SINGLE COLUMN in CASSANDRA */
+void Writer::send_event(void* key, void* value, char* attr_name) {
+
+    TupleRowFactory * v_single_factory = new TupleRowFactory(table_metadata->get_single_value(attr_name));
+    const TupleRow *k = k_factory->make_tuple(key);
+    const TupleRow *v = v_single_factory->make_tuple(value);
+
+    this->send_event(k, v);
+    this->write_to_cassandra(k, v);
+    delete(v_single_factory);
+    delete(k);
+    delete(v);
+}
+#endif
 
 void Writer::set_timestamp_gen(TimestampGenerator *time_gen) {
     delete(this->timestamp_gen);

@@ -270,6 +270,7 @@ static PyObject * enable_stream_producer(HCache *self);
 static PyObject * enable_stream_consumer(HCache *self);
 static PyObject * poll(HCache *self);
 static PyObject *send_event(HCache *self, PyObject *args);
+static PyObject * close_stream(HCache *self);
 
 static void hcache_dealloc(HCache *self) {
     delete (self->keysParser);
@@ -397,6 +398,7 @@ static PyMethodDef hcache_type_methods[] = {
         {"enable_stream_consumer",  (PyCFunction) enable_stream_consumer, METH_NOARGS, NULL},
         {"poll",                    (PyCFunction) poll,                 METH_NOARGS, NULL},
         {"send_event",              (PyCFunction) send_event,           METH_VARARGS, NULL},
+        {"close_stream",            (PyCFunction) close_stream, METH_NOARGS, NULL},
         {NULL,                      NULL,                               0,            NULL}
 };
 
@@ -1834,6 +1836,11 @@ static PyObject *send_event(HCache *self, PyObject *args) {
         PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
         return NULL;
     }
+    Py_RETURN_NONE;
+}
+
+static PyObject *close_stream(HCache *self) {
+    self->T->close_stream();
     Py_RETURN_NONE;
 }
 

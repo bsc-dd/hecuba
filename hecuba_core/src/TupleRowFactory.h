@@ -35,7 +35,7 @@ public:
     TupleRow *make_tuple(const CassRow *row);
     TupleRow *make_tuple(const CassValue *value);
 
-    TupleRow *make_tuple(void *data);
+    TupleRow *make_tuple(void *data) const;
 
 
     void bind(CassStatement *statement, const TupleRow *row, u_int16_t offset) const;
@@ -59,7 +59,7 @@ public:
     const uint64_t get_content_size(const TupleRow *row) const;
     std::vector<uint32_t> get_content_sizes(const TupleRow* row) const;
     void encode(const TupleRow *row, void *dest) const;
-    void * decode(const void *encoded_buff, const uint64_t encoded_buff_len) const;
+    TupleRow * decode(const void *encoded_buff) const;
     void * get_element_addr(const void *element_i, const uint16_t pos) const;
 
 private:
