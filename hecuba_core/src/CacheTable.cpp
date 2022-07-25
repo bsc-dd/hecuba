@@ -138,7 +138,7 @@ void CacheTable::add_to_cache(void *keys, void *values) {
     delete (v);
 }
 void CacheTable::add_to_cache(const TupleRow  *keys, const TupleRow *values) {
-    if (myCache) this->myCache->add(*keys, values);
+    if (myCache) this->myCache->add(keys, values);
 }
 
 Writer * CacheTable::get_writer() {
