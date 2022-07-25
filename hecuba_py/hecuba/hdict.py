@@ -776,6 +776,18 @@ class StorageDict(IStorage, dict):
             val = self.__create_embeddedset(key=key, val=val)
         return val
 
+    def close_stream(self):
+        '''
+        This sends an EOD to the poll of the topic. Typically used after
+        sending ALL elements of the dictionary:
+            send(k1..)
+            send(k2..)
+            ...
+            send(kN..)
+            close_stream()
+        '''
+        self._hcache.close_stream()
+
     def send(self, key=None, val=None):
         if key is None and val is None:
             raise NotImplementedError("Send a whole DICTIONARY {}".format(self._name))
@@ -804,7 +816,7 @@ class StorageDict(IStorage, dict):
             if isinstance(element, IStorage):
                 tosend.append(element.storage_id)
                 # Enable stream capability and send it (depends on the object)
-                element._initialize_stream_capability(element.storage_id)
+                element._initialize_stream_capability(element.storage_id) # TODO this can be removed as it is already done in 'send'
                 element.send()
             else:
                 tosend.append(element)
@@ -857,6 +869,10 @@ class StorageDict(IStorage, dict):
         k=row[0:self._k_size]
         print("poll row type {} got row: {}".format(type(row),row),flush=True)
         print("poll k {} v {}".format(k,v),flush=True)
+        print("poll k type {} ".format(type(k)),flush=True)
+
+        if len(k)==1 and k[0] is None: # Last item in dictionary sent, exit TODO This only considers single key!
+            return self._key_column_builder(*k,*v) # Return None, None (for ALL columns)
 
         if config.max_cache_size == 0: # If C++ cache is disabled, use python memory
             dict.__setitem__(self, k, v)

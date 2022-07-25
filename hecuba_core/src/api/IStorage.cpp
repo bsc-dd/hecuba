@@ -247,11 +247,24 @@ IStorage::writeTable(const void* key, void* value, const enum IStorage::valid_wr
         //TODO currently our c++ API only supports instantiation of persistent objects. If we add support to volatile objects
         // we should extend this funtion to persist a volatile object assigned to a persistent object
 
-        this->dataAccess->put_crow(cc_key, cc_val);
+        if (this->isStream()) {
+            this->dataWriter->send_event(cc_key, cc_val); // stream AND store value in Cassandra
+        } else {
+            this->dataAccess->put_crow(cc_key, cc_val);
+        }
 
     } else { // SETATTR
         char* attr_name = (char*) key;
+        #if 0
+        /* TODO: Enable this code when implementing storageobj streaming */
+        if (this->isStream() {
+            this->dataWriter->send_event(cc_key, cc_val, attr_name); // stream AND store single attribute in Cassandra
+        }else {
+            this->dataWriter->write_to_cassandra(cc_key, cc_val, attr_name);
+        }
+        #else
         this->dataWriter->write_to_cassandra(cc_key, cc_val, attr_name);
+        #endif
         // TODO: add here a call to send for attribute (NOT SUPPORTED YET)
     }
 }
@@ -285,10 +298,21 @@ void IStorage::send(void) {
          DBG("DEBUG: IStorage::send: sending numpy. Size "<< numpy_metas.get_array_size());
          dataWriter->send_event((char *) data, numpy_metas.get_array_size());
     } else {
-        throw ModuleException("IStorage:: Send only whole StorageNumpy implemented.");
+            throw ModuleException("IStorage:: Send only whole StorageNumpy implemented.");
+#if 0
+        if (ospec.getType() == ObjSpec::valid_types::STORAGEOBJ_TYPE) {
+            // Traverse all attributes and send everything
+            for (auto i: colsnames) {
+                this->dataAccess->put_crow(cc_key, cc_val);
+            }
+        } else {
+            throw ModuleException("IStorage:: Send only whole StorageNumpy implemented.");
+        }
+#endif
     }
 }
 
+#if 0
 void IStorage::send(void* key, void* value) {
     DataModel* model = this->currentSession->getDataModel();
 
@@ -315,6 +339,7 @@ void IStorage::send(void* key, void* value) {
                 IStorage *myobj = *(IStorage **)((char *)value + offset);
                 if (!myobj->isStream()) {
                     std::string topic = std::string(currentSession->UUID2str(myobj->getStorageID()));
+                    DBG("  Object "<< topic <<" is not stream enabled. Enabling.");
                     myobj->enableStream(topic);
                 }
                 myobj->send();
@@ -331,20 +356,8 @@ void IStorage::send(void* key, void* value) {
     }
 }
 
-#if 0
 void IStorage::send(void* key, IStorage* value) {
-    DataModel* model = this->currentSession->getDataModel();
-
-    ObjSpec ospec = model->getObjSpec(this->id_model);
-    //std::cout << "DEBUG: IStorage::send: obtained model for "<<id_model<<std::endl;
-
-    if (ospec.isStream()) {
-        value->send(); // Send 'whole' value
-        void * cc_val = value->getStorageID();
-        void * sid = malloc(sizeof(uint64_t)*2);
-        this->dataWriter->send(key, cc_val);
-    }
-    setItem(key, value);
+    send(key, (void *) &value);
 }
 #endif
 

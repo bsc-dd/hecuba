@@ -38,6 +38,7 @@ public:
 
     void put_crow(const TupleRow *keys, const TupleRow *values);
     void send_event(const TupleRow *keys, const TupleRow *values);
+    void close_stream();
 
     void delete_crow(const TupleRow *keys);
 

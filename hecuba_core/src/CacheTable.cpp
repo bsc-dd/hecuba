@@ -277,36 +277,91 @@ std::vector<const TupleRow *>  CacheTable::poll(void) {
     std::vector<const TupleRow *> result(1);
 
     rd_kafka_message_t *rkmessage = this->kafka_poll();
+    DBG("CacheTable::poll: after kafka_poll" << topic_name);
 
-    char *keys = (char *) keys_factory->decode((void*)rkmessage->payload, rkmessage->len);
-    TupleRow *k = keys_factory->make_tuple(keys); // Needed to calculate 'keyslength'
+    // The received message contains a sequence containing:
+    //      key_nullvalues + key + value_nullvalues + value
+
+    TupleRow *k = keys_factory->decode((void*)rkmessage->payload);
+
     uint64_t keyslength = keys_factory->get_content_size(k);
-
-    char *keystoreturn = (char *) keys_factory->decode((void*)rkmessage->payload, rkmessage->len);
+    uint32_t keynullvalues_size = std::ceil(((double)k->n_elem())/32)*sizeof(uint32_t);
 
     uint64_t valueslength = rkmessage->len - keyslength;
-    char *values = (char *) values_factory->decode((void*)((char*)rkmessage->payload+keyslength), valueslength);
+    TupleRow *v = values_factory->decode((void*)((char*)rkmessage->payload + keyslength + keynullvalues_size));
 
-    char *valuestoreturn = (char *)values_factory->decode((void*)((char*)rkmessage->payload+keyslength), valueslength);
+    // Create a Null values vector for the whole row
+    std::vector<uint32_t> row_nullvalues(ceil((double)(k->n_elem()+v->n_elem())/32), 0);
 
-            char myfinal[CASS_UUID_STRING_LENGTH];
-            cass_uuid_string((**(CassUuid**)values), myfinal);
-            DBG( "CacheTable::poll BEFORE" + std::string(myfinal));
-    TupleRow *v = values_factory->make_tuple((void*)values);
-            cass_uuid_string((**(CassUuid**)v->get_payload()), myfinal);
-            DBG( "CacheTable::poll AFTER" + std::string(myfinal));
+    bool is_key_all_null=true;
 
-    add_to_cache(k, v); // Add key,value to cache
+    // Copy Null values for keys AND values to the row null-values vector
+    uint32_t i;
+    for (i = 0; i < k->n_elem(); i++){ // ... keys first
+        if (k->isNull(i)) {
+            row_nullvalues[i>>5] |= (1 << i%32);
+        } else {
+            is_key_all_null = false;
+        }
+    }
+    for (uint32_t j = i; j< v->n_elem() + i; j++){ // ... then values
+        if (v->isNull(j-i)) {
+            row_nullvalues[j>>5] |= (1 << j%32);
+        }
+    }
+    if (!is_key_all_null) {
+        add_to_cache(k, v); // Add key,value to cache only if the key is not null
+    } else {
+        DBG("CacheTable::poll: all values in key are null");
+    }
 
+    // Finally, create the TupleRow to be returned
     char *row_buffer = (char*) malloc(k->length() + v->length());
-    memcpy(row_buffer, keystoreturn, k->length());
-    memcpy(row_buffer + k->length(), valuestoreturn, v->length());
+    memcpy(row_buffer, (char*) k->get_payload(), k->length());
+    memcpy(row_buffer + k->length(), (char*) v->get_payload(), v->length());
 
     TupleRow *r = row_factory->make_tuple(row_buffer);
+
+    DBG("k nullvalues : "<< std::hex<< k->get_null_values()[0]);
+    DBG("v nullvalues : "<< std::hex<< v->get_null_values()[0]);
+    DBG("r nullvalues : "<< std::hex<< row_nullvalues[0]);
+    DBG("r nullvalues.size() : "<< row_nullvalues.size() << " to store "<< (k->n_elem()+v->n_elem())<<"elements");
+
+    //concatenate the null values info from the keys and the columns
+    DBG("CacheTable::poll: before inserting null_values from columns" << topic_name);
+
+    r->set_null_values(row_nullvalues);
+
     result[0] = r; // Transform rkmessage to vector<tuplerow>
     rd_kafka_message_destroy(rkmessage);
+    DBG("CacheTable::poll. Before returning");
     return result;
 }
+
+/*
+ * Sends an EOD to to the topic (basically a couple of TupleRows with all its
+ * elements to NULL)
+ */
+void  CacheTable::close_stream(void) {
+    // Create empty TupleRows for Keys and Values
+    uint64_t keyslength = keys_factory->get_nbytes();
+    char * keys_b = (char*)malloc(keyslength);
+    TupleRow *k = keys_factory->make_tuple(keys_b);
+    for (uint32_t i = 0; i < k->n_elem(); i++) {
+        k->setNull(i);
+    }
+
+    uint64_t valueslength = values_factory->get_nbytes();
+    char * values_b = (char*)malloc(valueslength);
+    TupleRow *v = values_factory->make_tuple(values_b);
+    for (uint32_t i = 0; i < v->n_elem(); i++) {
+        v->setNull(i);
+    }
+
+    // Send EOD
+    this->writer->send_event(k, v);
+}
+
 
 /*
  * attr_name: Retrieve ONLY the column 'attr_name' from the row
