@@ -15,8 +15,12 @@
 
 export C4S_HOME=$HOME/.c4s
 UNIQ_ID=${1}
+CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
 
 source $HECUBA_ROOT/bin/cassandra4slurm/hecuba_debug.sh
+source $CFG_FILE    # To get CASSANDRA_LOG_DIR
+# Aggregate all logs in a single UNIQ_ID directory
+export CASSANDRA_LOG_DIR="$CASSANDRA_LOG_DIR/$UNIQ_ID"
 
 if [ "$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt | grep $(hostname))" != "" ]; then
     INDEX=$(awk "/$(hostname)/{ print NR; exit }" $C4S_HOME/casslist-"$UNIQ_ID".txt)
