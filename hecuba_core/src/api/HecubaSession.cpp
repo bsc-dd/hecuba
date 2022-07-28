@@ -17,6 +17,10 @@
 
 #include <iostream>
 
+ #include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+
 //#include "numpy/arrayobject.h" // FIXME to use the numpy constants NPY_*
 #define NPY_ARRAY_C_CONTIGUOUS    0x0001
 #define NPY_ARRAY_F_CONTIGUOUS    0x0002
@@ -747,7 +751,7 @@ IStorage* HecubaSession::createObject(const char * id_model, uint64_t* uuid) {
 
                 std::vector <const TupleRow*> result = numpyMetaAccess->retrieve_from_cassandra(key);
 
-                if (result.empty()) throw ModuleException("HecubaSession::createObject uuid "+UUID2str(uuid)+" not found. Unable to instantiate");
+                if (result.empty()) throw ModuleException("HecubaSession::createObject uuid "+UUID::UUID2str(uuid)+" not found. Unable to instantiate");
 
                 uint32_t pos = numpyMetaAccess->get_metadata()->get_columnname_position("name");
                 char *keytable = *(char**)result[0]->get_element(pos); //Value retrieved from cassandra has 'keyspace.tablename' format
@@ -772,7 +776,7 @@ IStorage* HecubaSession::createObject(const char * id_model, uint64_t* uuid) {
                 // meaning that in a complex scenario with different models...
                 // we will loose information. FIXME
                 if (sobj_table_name.compare(FQid_model) != 0) {
-                    throw ModuleException("HecubaSession::createObject uuid "+UUID2str(uuid)+" "+ keytable + " has unexpected class_name " + sobj_table_name + " instead of "+FQid_model);
+                    throw ModuleException("HecubaSession::createObject uuid "+UUID::UUID2str(uuid)+" "+ keytable + " has unexpected class_name " + sobj_table_name + " instead of "+FQid_model);
                 }
 
 
@@ -802,7 +806,7 @@ IStorage* HecubaSession::createObject(const char * id_model, uint64_t* uuid) {
                 o = new IStorage(this, FQid_model, keyspace + "." + id_object, (uint64_t*)localuuid, dataAccess);
 
                 if (oType.isStream()) {
-                    std::string topic = std::string(UUID2str(uuid));
+                    std::string topic = std::string(UUID::UUID2str(uuid));
                     std::cout<< "     AND IT IS AN STREAM!"<<std::endl;
                     o->enableStream(topic);
                 }
@@ -822,7 +826,7 @@ IStorage* HecubaSession::createObject(const char * id_model, uint64_t* uuid) {
 
                 std::vector <const TupleRow*> result = numpyMetaAccess->retrieve_from_cassandra(key);
 
-                if (result.empty()) throw ModuleException("HecubaSession::createObject uuid "+UUID2str(uuid)+" not found. Unable to instantiate");
+                if (result.empty()) throw ModuleException("HecubaSession::createObject uuid "+UUID::UUID2str(uuid)+" not found. Unable to instantiate");
 
                 uint32_t pos = numpyMetaAccess->get_metadata()->get_columnname_position("name");
                 char *keytable = *(char**)result[0]->get_element(pos); //Value retrieved from cassandra has 'keyspace.tablename' format
@@ -851,7 +855,7 @@ IStorage* HecubaSession::createObject(const char * id_model, uint64_t* uuid) {
                 o = new IStorage(this, FQid_model, keytable, (uint64_t*)localuuid, array_store->getWriteCache());
                 o->setNumpyAttributes(array_store, *numpy_metas);
                 if (oType.isStream()) {
-                    std::string topic = std::string(UUID2str(uuid));
+                    std::string topic = std::string(UUID::UUID2str(uuid));
                     std::cout<< "     AND IT IS AN STREAM!"<<std::endl;
                     o->enableStream(topic);
                 }
@@ -879,8 +883,8 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
     ObjSpec oType = model->getObjSpec(FQid_model);
     //std::cout << "DEBUG: HecubaSession::createObject '"<<FQid_model<< "' ==> " <<oType.debug()<<std::endl;
 
-    std::string object_name(config["EXECUTION_NAME"] + "." + std::string(id_object));
-    uint64_t *c_uuid = UUID::generateUUID5(object_name.c_str()); // UUID for the new object
+    std::string name(config["execution_name"] + "." + std::string(id_object));
+    uint64_t *c_uuid = UUID::generateUUID5(name.c_str()); // UUID for the new object
 
     switch(oType.getType()) {
         case ObjSpec::valid_types::STORAGEOBJ_TYPE:
@@ -1018,7 +1022,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
 
 
-                std::string topic = std::string(UUID2str(c_uuid));
+                std::string topic = std::string(UUID::UUID2str(c_uuid));
 
                 CacheTable *reader = storageInterface->make_cache(id_object, config["execution_name"].c_str(),
                         *keyNamesDict, *colNamesDict,
