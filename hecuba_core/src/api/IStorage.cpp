@@ -80,10 +80,11 @@ IStorage::sync(void) {
         dst: block of memory to update
         value_type: string from ObjSpec specifying the type to transform,
             anything different from a basic type will be transformed
-        src: block of memory to transform
+        src: pointer to a block of memory with a value (if basic type), a
+            pointer to char (string) or a pointer to an IStorage object
         src_size: size of src
 
-    value is a pointer to a block of memory with a value (if basic types) or pointer to the IStorage:
+
      src ----> +---------+
                |     *---+------------------->+----------+
                +---------+                    | IStorage-+-------->+-----------+
@@ -91,8 +92,8 @@ IStorage::sync(void) {
     Generates:                                                     +-----------+
 
      dst ----> +---------+
-               |     *---+------------------->+-----------+
-               +---------+                    | StorageID |
+               |     *---+------------------->+-----------+ (This memory is allocated and contains a copy)
+               +---------+                    | StorageID'|
                                               +-----------+
     But:
      src ----> +---------+
@@ -105,7 +106,7 @@ IStorage::sync(void) {
                +---------+
 
 */
-bool IStorage::convert_IStorage_to_UUID(char * dst, const std::string& value_type, void* src, int64_t src_size) const {
+bool IStorage::convert_IStorage_to_UUID(char * dst, const std::string& value_type, const void* src, int64_t src_size) const {
     bool isIStorage = false;
     void * result;
     DBG( "convert_IStorage_to_UUID " + value_type );
@@ -128,14 +129,23 @@ bool IStorage::convert_IStorage_to_UUID(char * dst, const std::string& value_typ
         memcpy(dst, &sid, src_size) ;
         isIStorage = true;
     } else{ // it is a basic type, just copy the value
-        memcpy(dst, src, src_size) ;
+        //if value_type is a string, copy it to a new variable to be independent of potential memory free from the user code
+        DBG( "convert_IStorage_to_UUID BASIC is " + value_type );
+        if (!value_type.compare(std::string{"text"})) {
+            result = *(char**)src; // 'src' MUST be a valid pointer or it will segfault here...
+            char* tmp = (char*)malloc (strlen((char*)result)+1);
+            memcpy(tmp, (char*)result, strlen((char*)result)+1); // Copy the string content
+            memcpy(dst, &tmp, src_size); // Copy the address
+        } else {
+            memcpy(dst, src, src_size); // Copy the content
+        }
     }
     return isIStorage;
 }
 
 /* Args:
-    key and value are pointers to a block of memory with the values (if basic types) or pointer to the IStorage:
-    key/value -+
+    key and value are pointers to a block of memory with the values (if basic types) or pointers to IStorage or strings:
+    key/value -.
                |
                V
                +---------+
@@ -145,27 +155,29 @@ bool IStorage::convert_IStorage_to_UUID(char * dst, const std::string& value_typ
                +---------+                                         +-----------+
                | 0.66    |
                +---------+
-               |     *---+------------------->+----------+
-               +---------+                    | IStorage |-------->+-----------+
-                                              +----------+         | StorageID |
-                                                                   +-----------+
+               |     *---+------------------->+--------+
+               +---------+                    | hola\0 |
+                                              +--------+
+
     Create a copy of it, normalizing the pointer to other structs keeping just the storageID:
     cc_key/cc_val
                |
                V
                +---------+
-               |     *---+------------------->+-----------+
-               +---------+                    | StorageID |
+               |     *---+------------------->+-----------+ (newly allocated and copied)
+               +---------+                    | StorageID'|
                | 42      |                    +-----------+
                +---------+
                | 0.66    |
                +---------+
-               |     *---+------------------->+-----------+
-               +---------+                    | StorageID |
-                                              +-----------+
+               |     *---+------------------->+--------+ (newly allocated and copied)
+               +---------+                    | hola\0'|
+                                              +--------+
+
+    Therefore, 'key' and 'value' may be freed after this method.
 */
 void
-IStorage::writeTable(const void* key, void* value, const enum IStorage::valid_writes mytype) {
+IStorage::writeTable(const void* key, const void* value, const enum IStorage::valid_writes mytype) {
 	/* PRE: key and value arrives already coded as expected */
 
     void * cc_val;

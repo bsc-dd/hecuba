@@ -106,11 +106,11 @@ private:
         SETATTR_TYPE,
         SETITEM_TYPE,
     };
-    void writeTable(const void* key, void* value, const enum valid_writes mytype);
+    void writeTable(const void* key, const void* value, const enum valid_writes mytype);
     std::string generate_numpy_table_name(std::string attributename);
 
     /* convert_IStorage_to_UUID: Given a value (basic or persistent) convert it to the same value or its *storage_id* if it is a persistent one. Returns True if type is converted (aka was an IStorage). */
-    bool convert_IStorage_to_UUID(char * dst, const std::string& value_type, void* src, int64_t src_size) const ;
+    bool convert_IStorage_to_UUID(char * dst, const std::string& value_type, const void* src, int64_t src_size) const ;
 
     config_map keysnames;
     config_map keystypes;
