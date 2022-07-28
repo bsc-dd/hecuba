@@ -753,7 +753,7 @@ class StorageDict(IStorage, dict):
             val.make_persistent(name)
         return val
 
-    def __convert_types_to_istorage(self, val):
+    def __convert_types_to_istorage(self, key, val):
         """ Convert values types to IStorage: 
                 np.ndarray --> StorageNumpy,
                 set        --> EmbeddedSet 
@@ -831,7 +831,7 @@ class StorageDict(IStorage, dict):
                val: the value that we want to save in that position
         """
         oldval = val # DEBUG purposes
-        val = self.__convert_types_to_istorage(oldval)
+        val = self.__convert_types_to_istorage(key, oldval)
 
         log.debug('SET ITEM %s->%s', key, val)
         if self.storage_id is None:
