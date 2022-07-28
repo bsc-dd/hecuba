@@ -245,7 +245,24 @@ IStorage::writeTable(const void* key, const void* value, const enum IStorage::va
     void *cc_key= NULL;
     if (mytype == SETITEM_TYPE) {
         cc_key = malloc(partKeySize+clustKeySize); // This memory will be freed after the execution of the query (at callback)
-        std::memcpy(cc_key, key, partKeySize+clustKeySize);
+        // parse the keys with the convert_IStorage_to_UUID to generate memory
+        std::shared_ptr<const std::vector<ColumnMeta> > columns = writerMD->get_keys();
+        uint32_t numcolumns = columns->size();
+        std::cout<< "WriteTable keys numcols="<<numcolumns<<std::endl;
+        int64_t value_size;
+        uint64_t offset=0;
+        for (uint32_t i=0; i < numcolumns; i++) {
+
+            std::cout<< "WriteTable keys offset ="<<offset<<std::endl;
+            std::string column_name = ospec.getIDObjFromKey(i);
+            std::string value_type = ospec.getIDModelFromKey(i);
+            const ColumnMeta *c = writerMD->get_single_key(column_name);
+            value_size = c->size;
+
+            convert_IStorage_to_UUID(((char *)cc_key)+c->position, value_type, ((char*)key) + offset, value_size);
+
+            offset += value_size;
+        }
     } else {
         uint64_t* sid = this->getStorageID();
         void* c_key = malloc(2*sizeof(uint64_t)); //uuid
