@@ -158,6 +158,13 @@ class Config:
             log.warn('using default contact point localhost')
             singleton.contact_names = ['127.0.0.1']
 
+        try:
+            singleton.kafka_names = os.environ['KAFKA_NAMES'].split(",")
+            log.info('KAFKA_NAMES: %s', str.join(" ", singleton.kafka_names))
+        except KeyError:
+            log.warn('kakfa names defaults to %s', str.join(" ", singleton.contact_names))
+            singleton.kafka_names = singleton.contact_names
+
         if hasattr(singleton, 'session'):
             log.warn('Shutting down pre-existent sessions and cluster')
             try:

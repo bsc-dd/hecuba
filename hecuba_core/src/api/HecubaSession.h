@@ -34,31 +34,47 @@ public:
         }
 	};
 
+    /* createObject : Creates a new object of class 'id_model' with name 'id_object'
+     * Returns: A new IStorage reference. User MUST delete this reference after use */
     IStorage* createObject(const char * id_model, const char * id_object, void* metadata=NULL, void* value=NULL); //Special case to set a Numpy
+
+    /* createObject : Instantiate an existing object of class 'id_model' with id 'uuid'
+     * Returns: A new IStorage reference. User MUST delete this reference after use */
+    IStorage* createObject(const char * id_model, uint64_t* uuid);
+
 
     //Writer* getDictMetaWriter();
     //Writer* getNumpyMetaWriter();
 
     //config_map getConfig();
 
+    config_map config;
+    std::shared_ptr<StorageInterface> getStorageInterface() {
+        return storageInterface;
+    }; /* Connection to Cassandra */
+
 private:
 
     void decodeNumpyMetadata(HecubaSession::NumpyShape *s, void* metadata);
+    std::string getFQname(const char* id_model) const ;
+    std::string getTableName(std::string FQname) const ;
 
     std::shared_ptr<StorageInterface> storageInterface; //StorageInterface* storageInterface; /* Connection to Cassandra */
 
     DataModel* currentDataModel; /* loaded Data Model */
 
 	Writer* dictMetaWriter; /* Writer for dictionary metadata entries in hecuba.istorage */
-	Writer* numpyMetaWriter; /* Writer for numpy metadata entries in hecuba.istorage */
+	CacheTable* numpyMetaAccess; /* Access to hecuba.istorage */
+	Writer* numpyMetaWriter; /* CALCULATED: Writer for numpy metadata entries in hecuba.istorage */
 
     //MetaManager mm; //* To be deleted? */
-    config_map config;
 
     void parse_environment(config_map &config);
 	CassError run_query(std::string) const;
     void getMetaData(void* raw_numpy_meta, ArrayMetadata &arr_metas);
     void registerNumpy(ArrayMetadata &numpy_meta, std::string name, uint64_t* uuid);
+    std::vector<std::string> split (std::string s, std::string delimiter) const;
+    std::string contact_names_2_IP_addr(std::string &contact_names) const;
 
     void createSchema(void);
 };

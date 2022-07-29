@@ -12,6 +12,7 @@
 #include "TupleRowFactory.h"
 #include "KVCache.h"
 #include "Writer.h"
+#include <librdkafka/rdkafka.h>
 
 
 class CacheTable {
@@ -33,10 +34,11 @@ public:
     /*** TupleRow ops ***/
 
     std::vector<const TupleRow *> get_crow(const TupleRow *py_keys);
-
-    std::vector<const TupleRow *> get_crow(void *keys);
+    std::vector<const TupleRow *> retrieve_from_cassandra(const TupleRow *keys, const char* attr_name=NULL );
 
     void put_crow(const TupleRow *keys, const TupleRow *values);
+    void send_event(const TupleRow *keys, const TupleRow *values);
+    void close_stream();
 
     void delete_crow(const TupleRow *keys);
 
@@ -44,13 +46,25 @@ public:
 
     void put_crow(void *keys, void *values);
 
+    std::vector<const TupleRow *> get_crow(void *keys);
+    std::vector<const TupleRow *> retrieve_from_cassandra(void *keys, const char* attr_name=NULL );
+
     void add_to_cache(void *keys, void *values);
+    void add_to_cache(const TupleRow *keys, const TupleRow *values);
 
     /*** Get access to the writer ***/
     Writer * get_writer();
-private:
 
-    std::vector<const TupleRow *> retrieve_from_cassandra(const TupleRow *keys);
+    /*** Stream operations ***/
+    void  enable_stream(const char * topic_name, std::map<std::string, std::string> &config);
+    void  enable_stream_producer(void);
+    void  enable_stream_consumer(void);
+    void poll(char *data, const uint64_t size);
+    std::vector<const TupleRow *>  poll(void);
+
+private:
+    rd_kafka_message_t * kafka_poll(void) ;
+
 
     /* CASSANDRA INFORMATION FOR RETRIEVING DATA */
     CassSession *session;
@@ -64,11 +78,16 @@ private:
 
     TupleRowFactory *keys_factory;
     TupleRowFactory *values_factory;
+    TupleRowFactory *row_factory;
 
     const TableMetadata *table_metadata;
 
     Writer *writer;
-
+    /*** Stream information ***/
+    char * topic_name;
+    std::map<std::string, std::string> stream_config;
+    rd_kafka_conf_t *kafka_conf;
+    rd_kafka_t *consumer;
 };
 
 #endif //PREFETCHER_CACHE_TABLE_H

@@ -33,8 +33,9 @@ public:
     ~TupleRowFactory() {}
 
     TupleRow *make_tuple(const CassRow *row);
+    TupleRow *make_tuple(const CassValue *value);
 
-    TupleRow *make_tuple(void *data);
+    TupleRow *make_tuple(void *data) const;
 
 
     void bind(CassStatement *statement, const TupleRow *row, u_int16_t offset) const;
@@ -54,10 +55,19 @@ public:
         return total_bytes;
     }
 
+    //get_content_size: Return the number of bytes to contain a 'serialized' TupleRow content
+    const uint64_t get_content_size(const TupleRow *row) const;
+    std::vector<uint32_t> get_content_sizes(const TupleRow* row) const;
+    void encode(const TupleRow *row, void *dest) const;
+    TupleRow * decode(const void *encoded_buff) const;
+    void * get_element_addr(const void *element_i, const uint16_t pos) const;
+
 private:
     std::shared_ptr<const std::vector<ColumnMeta> > metadata;
 
     uint16_t total_bytes;
+
+	void setArrayMetadataField(ArrayMetadata &np_metas, const char *field, size_t field_name_length, const CassValue* field_value) const;
 
     int cass_to_c(const CassValue *lhs, void *data, int16_t col) const;
     void uuid2cassuuid(const uint64_t** uuid, CassUuid& cass_uuid) const;

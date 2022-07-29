@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <vector>
 #include <cassandra.h>
+#include <cmath>
 
 
 #include "TableMetadata.h"
@@ -42,6 +43,9 @@ public:
     inline void unsetNull(uint32_t position) {
         this->payload->unsetNull(position);
     }
+    inline void set_null_values(std::vector<uint32_t> v) {
+        this->payload->null_values=v;
+    }
 
     inline void set_timestamp(int64_t timestamp) {
         this->payload->setTimestamp(timestamp);
@@ -59,6 +63,9 @@ public:
 
     inline void *get_payload() const {
         return this->payload->data;
+    }
+    inline std::vector<uint32_t>const& get_null_values() const {
+        return this->payload->null_values;
     }
 
     inline size_t length() const {
@@ -111,7 +118,7 @@ private:
         /* Constructors */
         TupleRowData(void *data_ptr, size_t length, uint32_t nelem) {
             this->data = data_ptr;
-            this->null_values = std::vector<uint32_t>(nelem, 0);
+            this->null_values = std::vector<uint32_t>(ceil((double) nelem/32), 0);
             this->ptr_length = length;
             this->timestamp = 0;
         }

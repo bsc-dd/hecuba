@@ -374,23 +374,72 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
     this->items = std::make_shared<std::vector<ColumnMeta> >(items_meta);
 }
 
+/* Return the position in the metadata table for 'columnname' or -1 if not found */
+uint32_t TableMetadata::get_columnname_position(const std::string &columnname) const {
+    std::string lower_columnname = columnname;
+    std::transform(columnname.begin(), columnname.end(), lower_columnname.begin(),
+                       ::tolower);
+    ColumnMeta m;
+    for (uint32_t i = 0; i < cols->size(); ++i) {
+        m = (*cols)[i];
+        if (m.info["name"] == lower_columnname) {
+            return i;
+        }
+    }
+    throw ModuleException("Unknown attribute name ["+columnname+"]");
+}
+uint32_t TableMetadata::get_keyname_position(const std::string &keyname) const {
+    std::string lower_keyname = keyname;
+    std::transform(keyname.begin(), keyname.end(), lower_keyname.begin(),
+                       ::tolower);
+    ColumnMeta m;
+    for (uint32_t i = 0; i < keys->size(); ++i) {
+        m = (*keys)[i];
+        if (m.info["name"] == lower_keyname) {
+            return i;
+        }
+    }
+    throw ModuleException("Unknown attribute name ["+keyname+"]");
+}
+
 std::shared_ptr<const std::vector<ColumnMeta> > TableMetadata::get_single_value(const char *value_name) const {
     // TODO : Add a hash map to cache 'value_name' ColumnMeta and avoid searching
     std::string value(value_name);
 
     std::vector<ColumnMeta> res(1);
 
-    ColumnMeta m;
-    for (uint16_t i = 0; i < cols->size(); ++i) {
-        m = (*cols)[i];
-        if (m.info["name"] == value) {
-            res[0] =  m;
-            res[0].position = 0; // Ignore other elements in the row, now it will ALWAYS be at the first position
-            return std::make_shared<std::vector<ColumnMeta>>(res);
-        }
+    int pos = get_columnname_position(value);
+    if (pos>=0) {
+        ColumnMeta m = (*cols)[pos];
+        res[0] = m;
+        res[0].position = 0; // Ignore other elements in the row, now it will ALWAYS be at the first position
+        return std::make_shared<std::vector<ColumnMeta>>(res);
     }
     throw ModuleException("get_single_value: Unknown column name [" + value + "]");
 }
+
+const ColumnMeta *TableMetadata::get_single_column(const std::string &value) const {
+    // TODO : Add a hash map to cache 'value_name' ColumnMeta and avoid searching
+    int pos = get_columnname_position(value);
+    if (pos>=0) {
+        const ColumnMeta *m = &(*cols)[pos];
+        return m;
+    }
+    throw ModuleException("get_single_value: Unknown column name [" + value + "]");
+}
+
+const ColumnMeta *TableMetadata::get_single_key(const std::string &key_name) const {
+    // TODO : Add a hash map to cache 'value_name' ColumnMeta and avoid searching
+
+    int pos = get_keyname_position(key_name);
+    if (pos>=0) {
+        const ColumnMeta *m = &(*keys)[pos];
+        return m;
+    }
+    throw ModuleException("get_single_key: Unknown key name [" + key_name + "]");
+}
+
+
 
 // completes the build of the insert query for just one attribute
 const char *TableMetadata::get_partial_insert_query(const std::string &attr_name) const {

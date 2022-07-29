@@ -13,6 +13,7 @@
 #export LOAD_ON_DEMAND=True
 #export REPLICATION_STRATEGY=""
 #export REPLICA_FACTOR=1
+#export STREAMING=False
 
 #export SPLITS_PER_NODE=32
 #export MAX_CACHE_SIZE=1000

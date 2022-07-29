@@ -1,6 +1,7 @@
 #include "NumpyStorage.h"
 #include "NumpyStorage.h"
 #include <iostream>
+#include "debug.h"
 
 
 #define BLOCK_MODE 1
@@ -136,6 +137,25 @@ PyObject *NumpyStorage::get_row_elements(const uint64_t *storage_id, ArrayMetada
     uint64_t block_size = BLOCK_SIZE - (BLOCK_SIZE % np_metas.elem_size);
     uint32_t row_elements = (uint32_t) std::floor(pow(block_size / np_metas.elem_size, (1.0 / ndims)));
     return Py_BuildValue("i", row_elements);
+}
+
+void NumpyStorage::send_event(ArrayMetadata &np_metas, PyArrayObject *numpy, PyObject* coord) {
+    void *data = PyArray_DATA(numpy);
+	if (coord != Py_None) {
+        throw ModuleException("Sending specific numpy blocks is NOT IMPLEMENTED");
+    }
+    CacheTable *myCache = this->getWriteCache();
+    DBG("SEND_EVENT "<<np_metas.elem_size<<" bytes per element");
+    for (auto i : np_metas.dims){
+    DBG("SEND_EVENT "<<i<<" elements");
+    }
+    DBG("SEND_EVENT "<<np_metas.get_array_size()<<"bytes");
+    myCache->get_writer()->send_event((char *) data, np_metas.get_array_size());
+}
+
+void NumpyStorage::poll(ArrayMetadata &np_metas, PyArrayObject *numpy ) {
+    void *data = PyArray_DATA(numpy);
+    this->getReadCache()->poll((char*)data, np_metas.get_array_size());
 }
 
 /***

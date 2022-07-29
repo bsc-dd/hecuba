@@ -1,4 +1,5 @@
 #include "HCache.h"
+#include "debug.h"
 
 
 /** MODULE METHODS **/
@@ -51,6 +52,48 @@ static PyObject *disconnectCassandra(PyObject *self) {
 
 /*** HCACHE DATA TYPE METHODS AND SETUP ***/
 
+static PyObject *add_to_cache(HCache *self, PyObject *args) {
+    PyObject *py_keys, *py_values;
+    if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_values)) {
+        return NULL;
+    }
+    for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
+        if (PyList_GetItem(py_keys, key_i) == Py_None) {
+            std::string error_msg = "Keys can't be None, key_position: " + std::to_string(key_i);
+            PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+            return NULL;
+        }
+    }
+    TupleRow *k;
+    try {
+        k = self->keysParser->make_tuple(py_keys);
+    }
+    catch (TypeErrorException &e) {
+        PyErr_SetString(PyExc_TypeError, e.what());
+        return NULL;
+    }
+    catch (std::exception &e) {
+        std::string error_msg = "Put_row, keys error: " + std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    }
+    try {
+        TupleRow *v = self->valuesParser->make_tuple(py_values);
+        self->T->add_to_cache(k, v);
+        delete (k);
+        delete (v);
+    }
+    catch (TypeErrorException &e) {
+        PyErr_SetString(PyExc_TypeError, e.what());
+        return NULL;
+    }
+    catch (std::exception &e) {
+        std::string err_msg = "Put row " + std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
+        return NULL;
+    }
+    Py_RETURN_NONE;
+}
 static PyObject *put_row(HCache *self, PyObject *args) {
     PyObject *py_keys, *py_values;
     if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_values)) {
@@ -128,7 +171,7 @@ static PyObject *get_row(HCache *self, PyObject *args) {
     }
     catch (std::exception &e) {
         std::string error_msg = "Get row error: " + std::string(e.what());
-        PyErr_SetString(PyExc_RuntimeError, e.what());
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
         return NULL;
     }
 
@@ -154,8 +197,8 @@ static PyObject *get_row(HCache *self, PyObject *args) {
         return NULL;
     }
     catch (std::exception &e) {
-        std::string error_msg = "Get row, values error: " + std::string(e.what());
-        PyErr_SetString(PyExc_RuntimeError, e.what());
+        std::string error_msg = "Get row, error parsing values: " + std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
         return NULL;
     }
 
@@ -221,6 +264,13 @@ static PyObject *flush(HCache *self, PyObject *args) {
 
     Py_RETURN_NONE;
 }
+
+static PyObject * enable_stream(HCache *self, PyObject *args);
+static PyObject * enable_stream_producer(HCache *self);
+static PyObject * enable_stream_consumer(HCache *self);
+static PyObject * poll(HCache *self);
+static PyObject *send_event(HCache *self, PyObject *args);
+static PyObject * close_stream(HCache *self);
 
 static void hcache_dealloc(HCache *self) {
     delete (self->keysParser);
@@ -325,6 +375,7 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
         self->T = storage->make_cache(table, keyspace, keys_names, columns_names, config);
         self->keysParser = new PythonParser(storage, self->T->get_metadata()->get_keys());
         self->valuesParser = new PythonParser(storage, self->T->get_metadata()->get_values());
+        self->rowParser = new PythonParser(storage, self->T->get_metadata()->get_items());
     } catch (std::exception &e) {
         PyErr_SetString(PyExc_RuntimeError, e.what());
         return -1;
@@ -334,14 +385,21 @@ static int hcache_init(HCache *self, PyObject *args, PyObject *kwds) {
 
 
 static PyMethodDef hcache_type_methods[] = {
-        {"get_row",    (PyCFunction) get_row,            METH_VARARGS, NULL},
-        {"put_row",    (PyCFunction) put_row,            METH_VARARGS, NULL},
-        {"delete_row", (PyCFunction) delete_row,         METH_VARARGS, NULL},
-        {"flush",      (PyCFunction) flush,              METH_VARARGS, NULL},
-        {"iterkeys",   (PyCFunction) create_iter_keys,   METH_VARARGS, NULL},
-        {"itervalues", (PyCFunction) create_iter_values, METH_VARARGS, NULL},
-        {"iteritems",  (PyCFunction) create_iter_items,  METH_VARARGS, NULL},
-        {NULL,         NULL,                             0,            NULL}
+        {"get_row",                 (PyCFunction) get_row,              METH_VARARGS, NULL},
+        {"put_row",                 (PyCFunction) put_row,              METH_VARARGS, NULL},
+        {"add_to_cache",            (PyCFunction) add_to_cache,         METH_VARARGS, NULL},
+        {"delete_row",              (PyCFunction) delete_row,           METH_VARARGS, NULL},
+        {"flush",                   (PyCFunction) flush,                METH_VARARGS, NULL},
+        {"iterkeys",                (PyCFunction) create_iter_keys,     METH_VARARGS, NULL},
+        {"itervalues",              (PyCFunction) create_iter_values,   METH_VARARGS, NULL},
+        {"iteritems",               (PyCFunction) create_iter_items,    METH_VARARGS, NULL},
+        {"enable_stream",           (PyCFunction) enable_stream,        METH_VARARGS, NULL},
+        {"enable_stream_producer",  (PyCFunction) enable_stream_producer, METH_NOARGS, NULL},
+        {"enable_stream_consumer",  (PyCFunction) enable_stream_consumer, METH_NOARGS, NULL},
+        {"poll",                    (PyCFunction) poll,                 METH_NOARGS, NULL},
+        {"send_event",              (PyCFunction) send_event,           METH_VARARGS, NULL},
+        {"close_stream",            (PyCFunction) close_stream, METH_NOARGS, NULL},
+        {NULL,                      NULL,                               0,            NULL}
 };
 
 
@@ -530,6 +588,102 @@ static PyObject *get_block_ids(HNumpyStore *self, PyObject *args) {
     return result;
 }
 
+static PyObject* getConfig(PyObject* args, char **topic_name, std::map<std::string, std::string> &config) {
+    PyObject *py_config;
+    if (!PyArg_ParseTuple(args, "sO", topic_name, &py_config)) {
+        PyErr_SetString(PyExc_RuntimeError, "Unable to parse tuple...");
+        return NULL;
+    }
+    std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: step 1"<< std::endl;
+
+    int type_check = PyDict_Check(py_config);
+
+    if (type_check) {
+        PyObject *dict;
+        if (!PyArg_Parse(py_config, "O", &dict)) {
+            return NULL;
+        };
+
+        std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: dict"<< std::endl;
+        PyObject *key, *value;
+        Py_ssize_t pos = 0;
+        while (PyDict_Next(dict, &pos, &key, &value)) {
+            std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: values"<< std::endl;
+            std::string conf_key(PyUnicode_AsUTF8(key));
+            if (PyUnicode_Check(value)) {
+                std::string conf_val(PyUnicode_AsUTF8(value));
+                config[conf_key] = conf_val;
+                std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: key="<< conf_key<< " value="<<conf_val<<std::endl;
+            } else {
+                std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: ERROR value key="<< conf_key<<std::endl;
+            }
+        }
+    } else {
+        PyErr_SetString(PyExc_RuntimeError, "Tried to enable stream dictionary, but unknown Config parameters passed");
+        return NULL;
+    }
+    Py_RETURN_NONE;
+}
+
+static PyObject* enable_stream_numpy(HNumpyStore *self, PyObject *args) {
+    char *topic_name = NULL;
+    std::map<std::string, std::string> config;
+
+    std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: "<< std::endl;
+
+    if (getConfig(args, &topic_name, config) == NULL)
+        return NULL;
+
+    // Enable Stream into writable cache
+    self->NumpyDataStore->getWriteCache()->enable_stream(topic_name, config);
+    self->NumpyDataStore->getReadCache()->enable_stream(topic_name, config);
+    Py_RETURN_NONE;
+}
+
+static PyObject* enable_stream_producer_numpy(HNumpyStore *self){
+    self->NumpyDataStore->getWriteCache()->enable_stream_producer();
+    Py_RETURN_NONE;
+}
+
+static PyObject* enable_stream_consumer_numpy(HNumpyStore *self){
+    self->NumpyDataStore->getReadCache()->enable_stream_consumer();
+    Py_RETURN_NONE;
+}
+
+static PyObject* poll_numpy(HNumpyStore *self, PyObject* args) {
+    PyObject *py_numpy, *py_np_metas;
+    if (!PyArg_ParseTuple(args, "OO", &py_np_metas, &py_numpy)) {
+        return NULL;
+    }
+    if (py_np_metas == Py_None) {
+        std::string error_msg = "The numpy metadatas can't be None";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+    HArrayMetadata *np_metas = reinterpret_cast<HArrayMetadata *>(py_np_metas);
+
+    // Transform the object to the numpy ndarray
+    PyArrayObject *numpy_arr;
+    if (!PyArray_OutputConverter(PyList_GetItem(py_numpy, 0), &numpy_arr)) {
+        std::string error_msg = "Can't convert the given numpy to a numpy ndarray";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    try {
+        DBG(" PYINTERFACE: BEFORE POLLNUMPY");
+        self->NumpyDataStore->poll(np_metas->np_metas, numpy_arr);
+        DBG(" PYINTERFACE: AFTER POLLNUMPY");
+    }
+    catch (std::exception &e) {
+        std::string error_msg = "Poll error: " + std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
 static PyObject *allocate_numpy(HNumpyStore *self, PyObject *args) {
     PyObject *py_keys, *py_np_metas;
     if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_np_metas)) {
@@ -712,6 +866,43 @@ static PyObject *load_numpy_slices(HNumpyStore *self, PyObject *args) {
     Py_RETURN_NONE;
 }
 
+static PyObject *send_event_numpy(HNumpyStore *self, PyObject *args) {
+    PyObject *py_numpy, *py_np_metas, *py_coord;
+    if (!PyArg_ParseTuple(args, "OOO", &py_np_metas, &py_numpy, &py_coord)) {
+        return NULL;
+    }
+
+    if (PyList_Size(py_numpy) != 1) {
+        std::string error_msg = "Only one numpy can be saved at once";
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    };
+
+    if (py_np_metas == Py_None) {
+        std::string error_msg = "The numpy metadatas can't be None";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    HArrayMetadata *np_metas = reinterpret_cast<HArrayMetadata *>(py_np_metas);
+
+    // Transform the object to the numpy ndarray
+    PyArrayObject *numpy_arr;
+    if (!PyArray_OutputConverter(PyList_GetItem(py_numpy, 0), &numpy_arr)) {
+        std::string error_msg = "Can't convert the given numpy to a numpy ndarray";
+        PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+        return NULL;
+    }
+
+    try {
+        self->NumpyDataStore->send_event(np_metas->np_metas, numpy_arr, py_coord );
+    }
+    catch (std::exception &e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    Py_RETURN_NONE;
+}
 
 static void hnumpy_store_dealloc(HNumpyStore *self) {
     delete (self->NumpyDataStore);
@@ -783,6 +974,11 @@ static PyMethodDef hnumpy_store_type_methods[] = {
         {"get_elements_per_row", (PyCFunction) get_elements_per_row, METH_VARARGS, NULL},
         {"get_cluster_ids",      (PyCFunction) get_cluster_ids,      METH_VARARGS, NULL},
         {"get_block_ids",        (PyCFunction) get_block_ids,        METH_VARARGS, NULL},
+        {"enable_stream",           (PyCFunction) enable_stream_numpy,          METH_VARARGS, NULL},
+        {"enable_stream_producer",  (PyCFunction) enable_stream_producer_numpy, METH_NOARGS, NULL},
+        {"enable_stream_consumer",  (PyCFunction) enable_stream_consumer_numpy, METH_NOARGS, NULL},
+        {"poll",                 (PyCFunction) poll_numpy,           METH_VARARGS, NULL},
+        {"send_event",           (PyCFunction) send_event_numpy,     METH_VARARGS, NULL},
         {NULL, NULL, 0,                                                            NULL}
 };
 
@@ -1539,6 +1735,114 @@ static PyObject *create_iter_items(HCache *self, PyObject *args) {
     return (PyObject *) iter;
 }
 
+
+static PyObject* enable_stream_producer(HCache *self){
+    self->T->enable_stream_producer();
+    Py_RETURN_NONE;
+}
+
+static PyObject* enable_stream_consumer(HCache *self){
+    self->T->enable_stream_consumer();
+    Py_RETURN_NONE;
+}
+
+
+static PyObject* enable_stream(HCache *self, PyObject *args) {
+    char *topic_name = NULL;
+    std::map<std::string, std::string> config;
+
+    std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: "<< std::endl;
+
+    if (getConfig(args, &topic_name, config) == NULL)
+        return NULL;
+
+    // Enable Stream into writable cache
+    self->T->enable_stream(topic_name, config);
+    Py_RETURN_NONE;
+}
+
+static PyObject* poll(HCache *self) {
+
+    PyObject *py_row;
+    std::vector<const TupleRow *> v;
+    try {
+        v = self->T->poll();
+    }
+    catch (std::exception &e) {
+        std::string error_msg = "Poll error: " + std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+
+    try {
+        if (v.empty()) {
+            PyErr_SetString(PyExc_KeyError, "Poll returns without values");
+            return NULL;
+        }
+        py_row = self->rowParser->make_pylist(v);
+        for (uint32_t i = 0; i < v.size(); ++i) {
+            delete (v[i]);
+        }
+    }
+    catch (TypeErrorException &e) {
+        PyErr_SetString(PyExc_TypeError, e.what());
+        return NULL;
+    }
+    catch (std::exception &e) {
+        std::string error_msg = "Get row, values error: " + std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return NULL;
+    }
+    return py_row;
+}
+
+static PyObject *send_event(HCache *self, PyObject *args) {
+    PyObject *py_keys, *py_values;
+    if (!PyArg_ParseTuple(args, "OO", &py_keys, &py_values)) {
+        return NULL;
+    }
+    for (uint16_t key_i = 0; key_i < PyList_Size(py_keys); ++key_i) {
+        if (PyList_GetItem(py_keys, key_i) == Py_None) {
+            std::string error_msg = "Keys can't be None, key_position: " + std::to_string(key_i);
+            PyErr_SetString(PyExc_TypeError, error_msg.c_str());
+            return NULL;
+        }
+    }
+    TupleRow *k;
+    try {
+        k = self->keysParser->make_tuple(py_keys);
+    }
+    catch (TypeErrorException &e) {
+        PyErr_SetString(PyExc_TypeError, e.what());
+        return NULL;
+    }
+    catch (std::exception &e) {
+        std::string error_msg = "send_event, keys error: " + std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, error_msg.c_str());
+        return NULL;
+    }
+    try {
+        TupleRow *v = self->valuesParser->make_tuple(py_values);
+        self->T->send_event(k, v);
+        delete (k);
+        delete (v);
+    }
+    catch (TypeErrorException &e) {
+        PyErr_SetString(PyExc_TypeError, e.what());
+        return NULL;
+    }
+    catch (std::exception &e) {
+        std::string err_msg = "send event " + std::string(e.what());
+        PyErr_SetString(PyExc_RuntimeError, err_msg.c_str());
+        return NULL;
+    }
+    Py_RETURN_NONE;
+}
+
+static PyObject *close_stream(HCache *self) {
+    self->T->close_stream();
+    Py_RETURN_NONE;
+}
 
 static PyObject *create_iter_keys(HCache *self, PyObject *args) {
     PyObject *py_config;

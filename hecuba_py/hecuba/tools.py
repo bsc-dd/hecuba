@@ -139,7 +139,7 @@ def discrete_token_ranges(tokens):
     """
     Makes proper tokens ranges ensuring that in a tuple (a,b) a <= b
     Args:
-        tokens:  a list of tokens [1, 0, 10]
+        tokens:  a list of tokens [-1, 0, 10]
     Returns:
          a rationalized list [(min, -1) (-1, 0),(0,10),(10, max)]
     """

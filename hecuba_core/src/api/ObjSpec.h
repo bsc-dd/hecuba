@@ -16,7 +16,7 @@ public:
 	enum valid_types {
 		STORAGEOBJ_TYPE,
 		STORAGEDICT_TYPE,
-		STORAGENUMPY_TYPE
+		STORAGENUMPY_TYPE,
 	};
 
 	std::string table_attr; // String to use in table creation with the attributes (keys+cols)
@@ -32,13 +32,19 @@ public:
     enum valid_types getType();
 
     std::string getIDModelFromCol(int pos);
+    std::string getIDModelFromKey(int pos);
     const std::string& getIDModelFromColName(const std::string & name);
     std::string getIDObjFromCol(int pos);
+    std::string getIDObjFromKey(int pos);
     std::string getPythonString();
+    bool isStream(void) const;
+    void enableStream(void) ;
+    void disableStream(void) ;
     static bool isBasicType(std::string attr_type);
     static std::string yaml_to_cass(const std::string attr_type);
 private:
     enum valid_types objtype;
+    bool stream_enabled = false;
     std::vector<std::pair<std::string, std::string>> partitionKeys;
     std::vector<std::pair<std::string, std::string>> clusteringKeys;
     std::vector<std::pair<std::string, std::string>> cols;

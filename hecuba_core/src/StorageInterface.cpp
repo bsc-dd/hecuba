@@ -1,4 +1,6 @@
 #include "StorageInterface.h"
+#include "debug.h"
+#include <climits>
 
 #define default_io_threads 2
 #define default_low_watermark 20000
@@ -53,26 +55,8 @@ StorageInterface::StorageInterface(int nodePort, std::string contact_points) {
     cass_future_free(connect_future);
 
     // Query tokens
-    char *hecuba_arrow = std::getenv("HECUBA_ARROW");
-    if (hecuba_arrow != nullptr) {
-        char t[5] = "true";
-        bool discard = false;
-        int i=0;
-        // Check that HECUBA_ARROW is enabled
-        while(i<5  && ! discard){
-            discard = (std::tolower(hecuba_arrow[i]) != t[i]);
-            i++;
-        }
-        if (! discard) {
-            std::string node = contact_points.substr(0, contact_points.find_first_of(","));
-            set_tokens_per_host(node.c_str(), nodePort);
-
-            //printf("-----------------\n");
-            //for (uint32_t i = 0; i < tokensInCluster.size(); i++) {
-            //            printf("token: %ld %s\n", tokensInCluster[i].token, tokensInCluster[i].host);
-            //}
-        }
-    }
+    std::string node = contact_points.substr(0, contact_points.find_first_of(","));
+    set_tokens_per_host(node.c_str(), nodePort);
 }
 
 
@@ -120,6 +104,18 @@ Writer *StorageInterface::make_writer(const char *table, const char *keyspace,
 
 }
 
+Writer *StorageInterface::make_writer_stream(const char *table, const char *keyspace,
+                                      std::vector<config_map> &keys_names,
+                                      std::vector<config_map> &columns_names,
+                                      const char* topic,
+                                      config_map &config) {
+    Writer* myWriter = make_writer(table, keyspace, keys_names, columns_names, config);
+    myWriter->enable_stream(topic, (std::map<std::string,std::string>&) config);
+    return myWriter;
+}
+void StorageInterface::enable_writer_stream(Writer *target, const char *topic, config_map &config) {
+    target->enable_stream(topic, (std::map<std::string,std::string>&)config);
+}
 
 Writer *StorageInterface::make_writer(const TableMetadata *table_meta,
                                       config_map &config) {
@@ -175,6 +171,12 @@ Prefetch *StorageInterface::get_iterator(const TableMetadata *table_meta,
                                          config_map &config) {
     if (!session) throw ModuleException("StorageInterface not connected to any node");
     return new Prefetch(tokens, table_meta, session, config);
+}
+
+Prefetch *StorageInterface::get_iterator(const TableMetadata *table_meta,
+                                         config_map &config) {
+    if (!session) throw ModuleException("StorageInterface not connected to any node");
+    return new Prefetch(token_ranges, table_meta, session, config);
 }
 /* Query 'peer' and 'tokens' columns from 'table' at 'node:nodePort'
  * Results are stored in 'tokensInCluster' field */
@@ -261,10 +263,37 @@ void StorageInterface::query_tokens( const char * peer, const char* tokens, cons
 void StorageInterface::set_tokens_per_host(const char * node, int nodePort) {
     query_tokens("listen_address", "tokens", "system.local", node, nodePort);
     query_tokens("peer"          , "tokens", "system.peers", node, nodePort);
+    generate_token_ranges();
 }
 
 void StorageInterface::get_tokens_per_host(std::vector< struct tokenHost > &tokensInCluster) {
     tokensInCluster = this->tokensInCluster;
+}
+
+/**
+    Makes proper tokens ranges ensuring that in a tuple (a,b) a <= b
+    Given a list of tokens [-1, 0, 10]
+    Returns a rationalized list [(min, -1) (-1, 0),(0,10),(10, max)] */
+void StorageInterface::generate_token_ranges() {
+    if (tokensInCluster.size() == 0) {
+        return;
+    }
+    int64_t token1 = tokensInCluster[0].token;
+    int64_t token2;
+    if (token1 > LONG_MIN) {
+        token_ranges.push_back(std::pair<int64_t, int64_t>(LONG_MIN, token1));
+    }
+    for (uint32_t i=1; (i < tokensInCluster.size() - 1) ; i++) {
+        token2 = tokensInCluster[i].token;
+        token_ranges.push_back(std::pair<int64_t, int64_t>(token1,token2));
+        token1 = token2;
+    }
+    if (token2 < LONG_MAX) {
+        token_ranges.push_back(std::pair<int64_t, int64_t>(token2,LONG_MAX));
+    }
+}
+std::vector<std::pair<int64_t,int64_t>> StorageInterface::get_token_ranges() const {
+    return token_ranges;
 }
 
 /* Returns the host associated to a 'token' */

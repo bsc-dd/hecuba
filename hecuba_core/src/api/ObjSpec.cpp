@@ -1,4 +1,5 @@
 #include <ObjSpec.h>
+#include "ModuleException.h"
 
 
 //Initialize static attributes
@@ -150,6 +151,17 @@ ObjSpec::valid_types ObjSpec::getType() {
 std::string ObjSpec::getIDModelFromCol(int i) {
     return cols[i].second;
 }
+std::string ObjSpec::getIDModelFromKey(int i) {
+    /* keys are splitted into partitionKeys and clusteringKeys */
+    int partKeySize=partitionKeys.size();
+
+    if (i < partKeySize) {
+        return partitionKeys[i].second;
+    }
+    else {
+        return clusteringKeys[i-partKeySize].second;
+    }
+}
 
 const std::string& ObjSpec::getIDModelFromColName(const std::string & name) {
     for(uint16_t i=0; i<cols.size(); i++) {
@@ -157,10 +169,24 @@ const std::string& ObjSpec::getIDModelFromColName(const std::string & name) {
             return cols[i].second;
         }
     }
+    throw ModuleException("ObjSpec::getIDModelFromColName Column name "+name+" does not exist");
+    return std::string("OK, OK, I'M NOT RETURNING THIS");
 }
 
 std::string ObjSpec::getIDObjFromCol(int i) {
     return cols[i].first;
+}
+
+std::string ObjSpec::getIDObjFromKey(int i) {
+    /* keys are splitted into partitionKeys and clusteringKeys */
+    int partKeySize=partitionKeys.size();
+
+    if (i < partKeySize) {
+        return partitionKeys[i].first;
+    }
+    else {
+        return clusteringKeys[i-partKeySize].first;
+    }
 }
 
 std::string ObjSpec::debug() {
@@ -191,6 +217,16 @@ std::string ObjSpec::getCassandraType(std::string type) {
         res = "uuid";
     }
     return res;
+}
+
+bool ObjSpec::isStream(void) const {
+    return stream_enabled;
+}
+void ObjSpec::enableStream(void) {
+    stream_enabled = true;
+}
+void ObjSpec::disableStream(void) {
+    stream_enabled = false;
 }
 
 

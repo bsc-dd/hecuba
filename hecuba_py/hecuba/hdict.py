@@ -232,6 +232,13 @@ class StorageDict(IStorage, dict):
             log.error("Error creating the StorageDict metadata: %s %s", storage_args, ex)
             raise ex
 
+
+
+    def _initialize_stream_capability(self, topic_name=None):
+        super()._initialize_stream_capability(topic_name)
+        if topic_name is not None:
+            self._hcache.enable_stream(self._topic_name, {'kafka_names': str.join(",",config.kafka_names)})
+
     def __init__(self, name=None, primary_keys=None, columns=None, indexed_on=None, storage_id=None, **kwargs):
         """
         Creates a new StorageDict.
@@ -269,6 +276,7 @@ class StorageDict(IStorage, dict):
             self._primary_keys = self._persistent_props['primary_keys']
             self._columns = self._persistent_props['columns']
             self._indexed_on = self._persistent_props.get('indexed_on', indexed_on)
+            self._stream_enabled = self._persistent_props.get('stream', False)
 
         # Field '_istorage_metas' will be set if it exists in HECUBA.istorage
         initialized = (getattr(self, '_istorage_metas', None) is not None)
@@ -333,6 +341,7 @@ class StorageDict(IStorage, dict):
         log.debug("CREATED StorageDict(%s,%s)", self._primary_keys, self._columns)
         key_names = [key["name"] for key in self._primary_keys]
         column_names = [col["name"] for col in self._columns]
+        self._key_column_builder = namedtuple('row', key_names + column_names)
 
         if len(key_names) > 1:
             self._key_builder = namedtuple('row', key_names)
@@ -376,6 +385,14 @@ class StorageDict(IStorage, dict):
                 self._setup_hcache()
             else: # new object
                 self._persist_metadata()
+
+        if self._is_stream():
+            log.debug("StorageDict with streaming capability")
+            if self.storage_id is not None:
+                topic_name=str(self.storage_id)
+            else:
+                topic_name=None
+            self._initialize_stream_capability(topic_name)
 
     @classmethod
     def _parse_comments(self, comments):
@@ -503,7 +520,7 @@ class StorageDict(IStorage, dict):
                 len(self._primary_keys) + len(self._get_set_types())):
             return list(key)
         else:
-            raise Exception('wrong primary key')
+            raise Exception('wrong primary key {}'.format(type(key)))
 
     @staticmethod
     def _make_value(value):
@@ -736,13 +753,13 @@ class StorageDict(IStorage, dict):
             val.make_persistent(name)
         return val
 
-    def __setitem__(self, key, val):
+    def __convert_types_to_istorage(self, key, val):
+        """ Convert values types to IStorage: 
+                np.ndarray --> StorageNumpy,
+                set        --> EmbeddedSet 
+            TODO: Integrate into make_val_persistent
         """
-           Method to insert values in the StorageDict
-           Args:
-               key: the position of the value that we want to save
-               val: the value that we want to save in that position
-        """
+
         if isinstance(val, list):
             vals_istorage = []
             for element in val:
@@ -757,6 +774,64 @@ class StorageDict(IStorage, dict):
             val = StorageNumpy(val)
         elif isinstance(val, set):
             val = self.__create_embeddedset(key=key, val=val)
+        return val
+
+    def close_stream(self):
+        '''
+        This sends an EOD to the poll of the topic. Typically used after
+        sending ALL elements of the dictionary:
+            send(k1..)
+            send(k2..)
+            ...
+            send(kN..)
+            close_stream()
+        '''
+        self._hcache.close_stream()
+
+    def send(self, key=None, val=None):
+        if key is None and val is None:
+            raise NotImplementedError("Send a whole DICTIONARY {}".format(self._name))
+        else:
+            self.__send_values_kafka(key, val)
+
+    def __send_values_kafka(self, key, val):
+        log.debug("__send_values_kafka: key={} value={}".format(key,val))
+        if not self._is_persistent:
+            raise RuntimeError("'send' operation is only valid on persistent objects")
+        if not self._is_stream() :
+            raise RuntimeError("current dictionary {} is not a stream".format(self._name))
+
+        if getattr(self,"_topic_name",None) is None:
+            self._initialize_stream_capability(self.storage_id)
+
+        if not self._stream_producer_enabled:
+            self._hcache.enable_stream_producer()
+            self._stream_producer_enabled=True
+
+        tosend=[]
+        if not isinstance(val,list):
+            val = [val]
+
+        for element in val:
+            if isinstance(element, IStorage):
+                tosend.append(element.storage_id)
+                # Enable stream capability and send it (depends on the object)
+                element._initialize_stream_capability(element.storage_id) # TODO this can be removed as it is already done in 'send'
+                element.send()
+            else:
+                tosend.append(element)
+
+        self._hcache.send_event(key, tosend) # Send currrent object list with storageids and basic_types
+
+    def __setitem__(self, key, val):
+        """
+           Method to insert values in the StorageDict
+           Args:
+               key: the position of the value that we want to save
+               val: the value that we want to save in that position
+        """
+        oldval = val # DEBUG purposes
+        val = self.__convert_types_to_istorage(key, oldval)
 
         log.debug('SET ITEM %s->%s', key, val)
         if self.storage_id is None:
@@ -764,10 +839,60 @@ class StorageDict(IStorage, dict):
         elif not isinstance(val, EmbeddedSet):
             # Not needed because it is made persistent and inserted to hcache when calling to self.__create_embeddedset
             val = self.__make_val_persistent(val)
-            self._hcache.put_row(self._make_key(key), self._make_value(val))
+            k = self._make_key(key)
+            v = self._make_value(val)
 
             if config.max_cache_size == 0: # If C++ cache is disabled, use python memory
                 dict.__setitem__(self,key,val)
+
+            if self._is_stream() :
+                self.__send_values_kafka(k,val) # stream AND store values in Cassandra
+            else:
+                self._hcache.put_row(k,v) # ONLY store values in Cassandra
+
+    def poll(self):
+        log.debug("StorageDict: POLL ")
+
+        if not self._is_stream():
+            raise RuntimeError("Poll on a not streaming object")
+
+        if getattr(self,"_topic_name",None) is None:
+            self._initialize_stream_capability(self.storage_id)
+        if not self._stream_consumer_enabled:
+            self._hcache.enable_stream_consumer()
+            self._stream_consumer_enabled=True
+
+        row = self._hcache.poll()
+
+        print("poll row type {} ".format(type(row)),flush=True)
+        v=row[-(len(row)-self._k_size):]
+        k=row[0:self._k_size]
+        print("poll row type {} got row: {}".format(type(row),row),flush=True)
+        print("poll k {} v {}".format(k,v),flush=True)
+        print("poll k type {} ".format(type(k)),flush=True)
+
+        if len(k)==1 and k[0] is None: # Last item in dictionary sent, exit TODO This only considers single key!
+            return self._key_column_builder(*k,*v) # Return None, None (for ALL columns)
+
+        if config.max_cache_size == 0: # If C++ cache is disabled, use python memory
+            dict.__setitem__(self, k, v)
+        #self._hcache.add_to_cache(self._make_key(k),self._make_value(v))
+
+        # FIXME : Return  {key, value} instead of {value}
+        final_results = []
+        for index, col in enumerate(self._columns):
+            col_type = col["type"]
+            print(" col_type = {}".format(col_type), flush=True)
+            element = v[index]
+            if col_type not in basic_types:
+                # element is not a built-in type
+                info = {"storage_id": element, "tokens": self._build_args.tokens, "class_name": col_type}
+                element = build_remotely(info)
+                # TODO: ENABLE THIS WHEN RECURSIVE SENDING ENABLED FROM C++: element._initialize_stream_capability(element.storage_id)
+                # TODO: ENABLE THIS WHEN RECURSIVE SENDING ENABLED FROM C++: element.poll()
+
+            final_results.append(element)
+        return self._key_column_builder(*k,*final_results) # Return Key, Value
 
     def __len__(self):
         if not self.storage_id:

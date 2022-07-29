@@ -1,5 +1,5 @@
 import uuid
-from . import log
+from . import config, log
 from .tools import extract_ks_tab, build_remotely, storage_id_from_name, get_istorage_attrs, generate_token_ring_ranges
 
 
@@ -21,6 +21,7 @@ class IStorage(object):
 
     def __init__(self, *args, **kwargs):
         super().__init__()
+        log.debug('ISTORAGE Init.')
         if not getattr(self, "storage_id", None):
             self.storage_id = kwargs.pop("storage_id", None)
         self._built_remotely = kwargs.pop("built_remotely", False)
@@ -157,3 +158,24 @@ class IStorage(object):
             args_dict = new_args._asdict()
             args_dict["built_remotely"] = True
             yield build_remotely(args_dict)
+
+    def _initialize_stream_capability(self, topic_name=None):
+        # Set the stream attributes into 'self' instance
+
+        # Producer and Consumer are lazily created only if 'setitem' or 'poll' are invoked.
+        self._stream_producer_enabled = False
+        self._stream_consumer_enabled = False
+
+        self._kafka_names = str.join(",", config.kafka_names)
+        self._stream_enabled=True
+        if topic_name is not None:
+            self._topic_name = str(topic_name)
+            log.debug("Enabling STREAM %s", self._topic_name)
+        else:
+            self._topic_name = None
+
+    def _is_stream(self):
+        return getattr(self, '_stream_enabled', False)
+
+    def send(self, key=None, value=None):
+        raise NotImplementedError("SEND not supported")
