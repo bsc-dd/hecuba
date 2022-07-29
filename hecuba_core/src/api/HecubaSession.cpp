@@ -853,13 +853,12 @@ IStorage* HecubaSession::createObject(const char * id_model, uint64_t* uuid) {
                 memcpy(localuuid, uuid, 2*sizeof(uint64_t));
 
                 o = new IStorage(this, FQid_model, keytable, (uint64_t*)localuuid, array_store->getWriteCache());
-                o->setNumpyAttributes(array_store, *numpy_metas);
+                o->setNumpyAttributes(array_store, *numpy_metas); // SET METAS and DATA!!
                 if (oType.isStream()) {
                     std::string topic = std::string(UUID::UUID2str(uuid));
-                    std::cout<< "     AND IT IS AN STREAM!"<<std::endl;
+                    DBG("     AND IT IS AN STREAM!");
                     o->enableStream(topic);
                 }
-                // TODO: read from cassandra all the values to this->data
             }
             break;
         default:
