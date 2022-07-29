@@ -888,8 +888,8 @@ class StorageDict(IStorage, dict):
                 # element is not a built-in type
                 info = {"storage_id": element, "tokens": self._build_args.tokens, "class_name": col_type}
                 element = build_remotely(info)
-                element._initialize_stream_capability(element.storage_id)
-                element.poll()
+                # TODO: ENABLE THIS WHEN RECURSIVE SENDING ENABLED FROM C++: element._initialize_stream_capability(element.storage_id)
+                # TODO: ENABLE THIS WHEN RECURSIVE SENDING ENABLED FROM C++: element.poll()
 
             final_results.append(element)
         return self._key_column_builder(*k,*final_results) # Return Key, Value
