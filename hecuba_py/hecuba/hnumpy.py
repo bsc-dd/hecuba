@@ -15,7 +15,7 @@ from .tools import extract_ks_tab, get_istorage_attrs, storage_id_from_name, bui
 
 
 class StorageNumpy(IStorage, np.ndarray):
-    USE_FORTRAN_ACCESS=True
+    USE_FORTRAN_ACCESS=False
     BLOCK_MODE = 1
     COLUMN_MODE = 2
     _build_args = None
