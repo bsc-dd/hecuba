@@ -3,11 +3,18 @@
             - [ "sim_id", "str"]
             - [ "sim_info", "model_complex.info" ]
             - [ "submetrics","model_complex.metrics" ]
+            - [ "simple","model_complex.simpledict" ]
 
 - "TypeSpec": [ "info", "StorageObject" ]
   "ClassField":
             - [ "total_ts", "int" ]
             - [ "output_freq", "int" ]
+
+- "TypeSpec": [ "simpledict", "StorageDict" ]
+  "KeySpec":
+            - [ "keyInt", "int" ]
+  "ValueSpec":
+            - [ "valueInt", "int"]
 
 - "TypeSpec": [ "metrics", "StorageDict" ]
   "KeySpec":
@@ -15,25 +22,55 @@
             - [ "ts", "int" ]
   "ValueSpec":
             - [ "mvalues", "numpy.ndarray"]
+
+- "TypeSpec": [ "sonumpy", "StorageObject" ]
+  "ClassField":
+            - [ "num","numpy.ndarray"]
+
+- "TypeSpec": [ "dictMultiValue", "StorageDict" ]
+  "KeySpec":
+            - [ "key1", "str" ]
+            - [ "key2", "int" ]
+  "ValueSpec":
+            - [ "mystr", "str"]
+            - [ "num", "int"]
+            - [ "obj", "model_complex.info"]     #StorageObj
+            - [ "numpy", "numpy.ndarray"]        #StorageNumpy
+            - [ "dict", "model_complex.metrics"] #StorageDict
+
 #
 # This model will generate the following Python file:
 
 #from hecuba import StorageObj
+#
 #class myclass (StorageObj):
 #   '''
-#   @ClassField sim_id text
+#   @ClassField sim_id str
 #   @ClassField sim_info model_complex.info
 #   @ClassField submetrics model_complex.metrics
 #   '''
+#from hecuba import StorageObj
 #
 #class info (StorageObj):
 #   '''
 #   @ClassField total_ts int
 #   @ClassField output_freq int
 #   '''
-#
 #from hecuba import StorageDict
+#
 #class metrics (StorageDict):
 #   '''
 #   @TypeSpec dict <<lat:float,ts:int>,mvalues:numpy.ndarray>
+#   '''
+#from hecuba import StorageObj
+#
+#class soNumpy (StorageObj):
+#   '''
+#   @ClassField num numpy.ndarray
+#   '''
+#from hecuba import StorageDict
+#
+#class dictMultiValue (StorageDict):
+#   '''
+#   @TypeSpec dict <<key1:str,key2:int>,mystr:str,num:int,obj:model_complex.info,numpy:numpy.ndarray,dict:model_complex.metrics>
 #   '''

@@ -1,0 +1,26 @@
+- "TypeSpec": [ "reallysimpledict", "StorageDict" ]
+  "KeySpec":
+            - [ "ts", "int" ]
+  "ValueSpec":
+            - [ "lat", "float"]
+
+- "TypeSpec": [ "dictStringKey", "StorageDict" ]
+  "KeySpec":
+            - [ "s", "str" ]
+  "ValueSpec":
+            - [ "lat", "float"]
+
+- "TypeSpec": [ "dictMultipleKey", "StorageDict" ]
+  "KeySpec":
+            - [ "s", "str" ]
+            - [ "ts", "int" ]
+  "ValueSpec":
+            - [ "lat", "float"]
+#
+# This model will generate the following Python file:
+#    from hecuba import StorageDict
+#    
+#    class reallysimpledict (StorageDict):
+#       '''
+#       @TypeSpec dict <ts:int>,lat:float>
+#       '''
