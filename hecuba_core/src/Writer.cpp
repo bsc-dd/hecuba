@@ -295,12 +295,12 @@ void Writer::queue_async_query( const TupleRow *keys, const TupleRow *values) {
 void Writer::flush_dirty_blocks() {
     //std::cout<< "Writer::flush_dirty_blocks "<<std::endl;
     int n = 0;
-    for (auto x : *dirty_blocks) {
+    for( auto x = dirty_blocks->begin(); x != dirty_blocks->end(); x++) {
         //std::cout<< "  Writer::flushing item "<<std::endl;
         n ++;
-        queue_async_query(x.first, x.second);
-        delete(x.first);
-        delete(x.second);
+        queue_async_query(x->first, x->second);
+        delete(x->first);
+        delete(x->second);
     }
     dirty_blocks->clear();
     //std::cout<< "Writer::flush_dirty_blocks "<< n << " blocks FLUSHED"<<std::endl;
