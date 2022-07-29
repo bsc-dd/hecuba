@@ -180,7 +180,7 @@ if (NOT KAFKA)
         INSTALL_COMMAND make -j ${JOBS} COMMAND make install
     )
     add_dependencies(hfetch KAFKA)
-    set(ALL_LIBS ${ALL_LIBS} ${C_BINDING_INSTALL_PREFIX}/lib/libyaml-cpp.so)
+    set(ALL_LIBS ${ALL_LIBS} ${C_BINDING_INSTALL_PREFIX}/lib/librdkafka.so)
 else ()
     message(STATUS "Using system's KAFKA Library: " ${KAFKA})
     set(ALL_LIBS ${ALL_LIBS} ${KAFKA})
