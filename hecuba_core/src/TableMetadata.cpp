@@ -439,8 +439,6 @@ const ColumnMeta *TableMetadata::get_single_key(const std::string &key_name) con
     throw ModuleException("get_single_key: Unknown key name [" + key_name + "]");
 }
 
-
-
 // completes the build of the insert query for just one attribute
 const char *TableMetadata::get_partial_insert_query(const std::string &attr_name) const {
     uint32_t n_keys = (uint32_t) keys->size();
