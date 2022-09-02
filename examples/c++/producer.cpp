@@ -91,8 +91,6 @@ int main() {
     s.loadDataModel("hecuba_stream.yaml","hecuba_stream.py");
     std::cout<< "+ Data Model loaded"<<std::endl;
 
-    std::cout<< "DEBUG " << s.getDataModel()->debug() << std::endl;
-
     dict_with_numpys(s);
     dict_with_string(s);
 }

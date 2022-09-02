@@ -594,7 +594,7 @@ static PyObject* getConfig(PyObject* args, char **topic_name, std::map<std::stri
         PyErr_SetString(PyExc_RuntimeError, "Unable to parse tuple...");
         return NULL;
     }
-    std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: step 1"<< std::endl;
+    DBG(" HCache::getConfig:+++++ PY_INTERFACE: ENABLE_STREAM: step 1");
 
     int type_check = PyDict_Check(py_config);
 
@@ -604,18 +604,18 @@ static PyObject* getConfig(PyObject* args, char **topic_name, std::map<std::stri
             return NULL;
         };
 
-        std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: dict"<< std::endl;
+        DBG( "HCache::getConfig:  +++++ PY_INTERFACE: ENABLE_STREAM: dict");
         PyObject *key, *value;
         Py_ssize_t pos = 0;
         while (PyDict_Next(dict, &pos, &key, &value)) {
-            std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: values"<< std::endl;
+            DBG( "HCache::getConfig: +++++ PY_INTERFACE: ENABLE_STREAM: values");
             std::string conf_key(PyUnicode_AsUTF8(key));
             if (PyUnicode_Check(value)) {
                 std::string conf_val(PyUnicode_AsUTF8(value));
                 config[conf_key] = conf_val;
-                std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: key="<< conf_key<< " value="<<conf_val<<std::endl;
+                DBG( "HCache::getConfig:   +++++ PY_INTERFACE: ENABLE_STREAM: key="<< conf_key<< " value="<<conf_val);
             } else {
-                std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: ERROR value key="<< conf_key<<std::endl;
+                DBG( "HCache::getConfig:  +++++ PY_INTERFACE: ENABLE_STREAM: ERROR value key="<< conf_key);
             }
         }
     } else {
@@ -629,7 +629,7 @@ static PyObject* enable_stream_numpy(HNumpyStore *self, PyObject *args) {
     char *topic_name = NULL;
     std::map<std::string, std::string> config;
 
-    std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: "<< std::endl;
+    DBG( "HCache::enable_stream_numpy: +++++ PY_INTERFACE: ENABLE_STREAM: ");
 
     if (getConfig(args, &topic_name, config) == NULL)
         return NULL;
@@ -1751,7 +1751,7 @@ static PyObject* enable_stream(HCache *self, PyObject *args) {
     char *topic_name = NULL;
     std::map<std::string, std::string> config;
 
-    std::cout<< " +++++ PY_INTERFACE: ENABLE_STREAM: "<< std::endl;
+    DBG( "HCache::enable_stream: +++++ PY_INTERFACE: ENABLE_STREAM: ");
 
     if (getConfig(args, &topic_name, config) == NULL)
         return NULL;

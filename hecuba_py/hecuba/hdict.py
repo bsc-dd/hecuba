@@ -864,12 +864,11 @@ class StorageDict(IStorage, dict):
 
         row = self._hcache.poll()
 
-        print("poll row type {} ".format(type(row)),flush=True)
         v=row[-(len(row)-self._k_size):]
         k=row[0:self._k_size]
-        print("poll row type {} got row: {}".format(type(row),row),flush=True)
-        print("poll k {} v {}".format(k,v),flush=True)
-        print("poll k type {} ".format(type(k)),flush=True)
+        log.debug("poll row type {} got row: {}".format(type(row),row))
+        log.debug("poll k {} v {}".format(k,v))
+        log.debug("poll k type {} ".format(type(k)))
 
         if len(k)==1 and k[0] is None: # Last item in dictionary sent, exit TODO This only considers single key!
             return self._key_column_builder(*k,*v) # Return None, None (for ALL columns)
@@ -882,7 +881,7 @@ class StorageDict(IStorage, dict):
         final_results = []
         for index, col in enumerate(self._columns):
             col_type = col["type"]
-            print(" col_type = {}".format(col_type), flush=True)
+            log.debug(" col_type = {}".format(col_type))
             element = v[index]
             if col_type not in basic_types:
                 # element is not a built-in type

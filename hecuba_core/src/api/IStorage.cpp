@@ -169,14 +169,14 @@ void * IStorage::deep_copy_attribute_buffer(bool isKey, const void* src, uint64_
 
     const TableMetadata* writerMD = dataWriter->get_metadata();
 
-    std::cout<< "deep_copy_attribute_buffer num attributes="<<num_attrs<<std::endl;
+    DBG( "deep_copy_attribute_buffer num attributes="<<num_attrs);
     int64_t value_size;
     uint64_t offset=0;
 
     // Traverse the buffer following the user order...
     for (uint32_t i=0; i < num_attrs; i++) {
 
-        std::cout<< "  deep_copy_attribute_buffer offset ="<<offset<<std::endl;
+        DBG("  deep_copy_attribute_buffer offset ="<<offset);
 
         std::string column_name;
         std::string value_type;
@@ -244,7 +244,7 @@ IStorage::writeTable(const void* key, const void* value, const enum IStorage::va
     const TableMetadata* writerMD = dataWriter->get_metadata();
 
 
-    DBG( "writeTable enter" );
+    DBG( "IStorage::writeTable enter" );
 
     DataModel* model = this->currentSession->getDataModel();
 
@@ -257,14 +257,14 @@ IStorage::writeTable(const void* key, const void* value, const enum IStorage::va
             throw ModuleException("IStorage:: Set Item on a non Dictionary is not supported");
         }
         // Dictionary values may have N  columns, create a new structure with all of them normalized.
-        std::cout<< "WriteTable malloc("<<writerMD->get_values_size()<<")"<<std::endl;
+        DBG( "IStorage::WriteTable malloc("<<writerMD->get_values_size()<<")");
         std::shared_ptr<const std::vector<ColumnMeta> > columns = writerMD->get_values();
         uint32_t numcolumns = columns->size();
         cc_val = deep_copy_attribute_buffer(!ISKEY, value, writerMD->get_values_size(), numcolumns);
 
     } else if (ospec.getType() == ObjSpec::valid_types::STORAGEOBJ_TYPE) {
         if (mytype != SETATTR_TYPE) {
-            throw ModuleException("IStorage:: Set Attr on a non Object is not supported");
+            throw ModuleException("IStorage::writeTable Set Attr on a non Object is not supported");
         }
         int64_t value_size = writerMD->get_single_column((char*)key)->size;
         cc_val = malloc(value_size); // This memory will be freed after the execution of the query (at callback)
@@ -272,7 +272,7 @@ IStorage::writeTable(const void* key, const void* value, const enum IStorage::va
         std::string value_type = ospec.getIDModelFromColName(std::string((char*)key));
         convert_IStorage_to_UUID((char *)cc_val, value_type, value, value_size);
     } else {
-        throw ModuleException("IStorage:: Set individual components of a StorageNumpy is not supported");
+        throw ModuleException("IStorage::writeTable Set individual components of a StorageNumpy is not supported");
     }
 
     //std::cout << "DEBUG: IStorage::setItem: After creating value object "<<std::endl;
@@ -282,7 +282,7 @@ IStorage::writeTable(const void* key, const void* value, const enum IStorage::va
     std::pair<uint16_t, uint16_t> keySize = writerMD->get_keys_size();
     uint64_t partKeySize = keySize.first;
     uint64_t clustKeySize = keySize.second;
-    std::cout<< "DEBUG: Istorage::setItem --> partKeySize = "<<partKeySize<<" clustKeySize = "<< clustKeySize << std::endl;
+    DBG("IStorage::writeTable --> partKeySize = "<<partKeySize<<" clustKeySize = "<< clustKeySize);
 
     void *cc_key= NULL;
     if (mytype == SETITEM_TYPE) {
