@@ -136,13 +136,12 @@ namespace YAML {
                         attrType=classfields[i][1].as<std::string>();
                         pythonString+="   @ClassField "+attrName+" "+attrType+"\n";
                         cols.push_back(std::pair<std::string,std::string>(attrName,mapUserType(attrType)));
-                        std::cout<<"7-"<<i<<": "<<pythonString<<std::endl;
                     }
                     pythonString+="   '''\n";
-                    std::cout<<"8: "<<pythonString<<std::endl;
 
                 } else return false;
 
+                DBG( " GENERATED: " << pythonString );
                 dmodel.o=ObjSpec(obj_type,partitionKeys,clusteringKeys,cols,pythonString);
                 if (streamEnabled) {
                     dmodel.o.enableStream();
@@ -218,7 +217,7 @@ const {
             std::cerr<<"Address "<<contact[i]<<" unable to get IP address: "<<strerror(errno)<<std::endl;
             return std::string("");
         }
-        std::cout << "Address "<<contact[i]<<" translated to " <<std::string(host)<<std::endl;
+        DBG("Address "<<contact[i]<<" translated to " <<std::string(host));
         contact_ips.push_back(host);
 
         freeaddrinfo(result);           /* No longer needed */
@@ -734,7 +733,7 @@ IStorage* HecubaSession::createObject(const char * id_model, uint64_t* uuid) {
 
     IStorage * o;
     ObjSpec oType = model->getObjSpec(FQid_model);
-    std::cout << " INSTANTIATING " << oType.debug() << std::endl;
+    DBG(" HecubaSession::createObject INSTANTIATING " << oType.debug());
     switch(oType.getType()) {
         case ObjSpec::valid_types::STORAGEOBJ_TYPE:
         case ObjSpec::valid_types::STORAGEDICT_TYPE:
@@ -807,7 +806,7 @@ IStorage* HecubaSession::createObject(const char * id_model, uint64_t* uuid) {
 
                 if (oType.isStream()) {
                     std::string topic = std::string(UUID::UUID2str(uuid));
-                    std::cout<< "     AND IT IS AN STREAM!"<<std::endl;
+                    DBG("     AND IT IS AN STREAM!");
                     o->enableStream(topic);
                 }
             }
@@ -897,7 +896,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 CassError rc = run_query(query);
                 if (rc != CASS_OK) {
                     if (rc == CASS_ERROR_SERVER_INVALID_QUERY) { // keyspace does not exist
-                        std::cout<< "HecubaSession Creating keyspace "<< config["execution_name"]<< std::endl;
+                        std::cout<< "HecubaSession::createObject: Keyspace "<< config["execution_name"]<< " not found. Creating keyspace." << std::endl;
                         std::string create_keyspace = std::string(
                                 "CREATE KEYSPACE IF NOT EXISTS ") + config["execution_name"] +
                             std::string(" WITH replication = ") +  config["replication"];
@@ -958,13 +957,13 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                     if (rc == CASS_ERROR_SERVER_ALREADY_EXISTS ) {
                         new_element = false; //OOpps, creation failed. It is an already existent object.
                     } else if (rc == CASS_ERROR_SERVER_INVALID_QUERY) {
-                        std::cout<< "HecubaSession Creating keyspace "<< config["execution_name"]<< std::endl;
+                        std::cout<< "HecubaSession::createObject: Keyspace "<< config["execution_name"]<< " not found. Creating keyspace." << std::endl;
                         std::string create_keyspace = std::string(
                                 "CREATE KEYSPACE IF NOT EXISTS ") + config["execution_name"] +
                             std::string(" WITH replication = ") +  config["replication"];
                         rc = run_query(create_keyspace);
                         if (rc != CASS_OK) {
-                            std::string msg = std::string("HecubaSession:: Error executing query ") + create_keyspace;
+                            std::string msg = std::string("HecubaSession::createObject: Error creating keyspace ") + create_keyspace;
                             throw ModuleException(msg);
                         } else {
                             rc = run_query(query);
@@ -972,13 +971,13 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                                 if (rc == CASS_ERROR_SERVER_ALREADY_EXISTS) {
                                     new_element = false; //OOpps, creation failed. It is an already existent object.
                                 }  else {
-                                    std::string msg = std::string("HecubaSession:: Error executing query ") + query;
+                                    std::string msg = std::string("HecubaSession::createObject: Error executing query ") + query;
                                     throw ModuleException(msg);
                                 }
                             }
                         }
                     } else {
-                        std::string msg = std::string("HecubaSession:: Error executing query ") + query;
+                        std::string msg = std::string("HecubaSession::createObject: Error executing query ") + query;
                         throw ModuleException(msg);
                     }
                 }
@@ -1030,9 +1029,9 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 delete keyNamesDict;
                 delete colNamesDict;
                 o = new IStorage(this, FQid_model, config["execution_name"] + "." + id_object, c_uuid, reader);
-                    std::cout<< " CREATED NEW STORAGEDICT with uuid "<< topic<<std::endl;
+                DBG("HecubaSession::createObject: CREATED NEW STORAGEDICT with uuid "<< topic);
                 if (oType.isStream()) {
-                    std::cout<< "     AND IT IS AN STREAM!"<<std::endl;
+                    DBG("     AND IT IS AN STREAM!");
                     o->enableStream(topic);
                 }
             }
