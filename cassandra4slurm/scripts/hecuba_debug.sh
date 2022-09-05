@@ -40,3 +40,8 @@ run() {
     DBG "$X"
     eval "$X"
 }
+
+# get_first_node: Given a list of strings separated by comma (,) returns the first string
+get_first_node() {
+    echo "$@" | cut -d, -f1
+}
