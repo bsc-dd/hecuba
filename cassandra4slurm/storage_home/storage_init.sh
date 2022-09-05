@@ -73,11 +73,6 @@ HECUBA_TEMPLATE_FILE=$MODULE_PATH/hecuba_environment.template
 export THETIME=$(date "+%Y%m%dD%H%Mh%Ss")"-$SLURM_JOB_ID"
 
 
-
-# get_first_node: Given a list of strings separated by comma (,) returns the first string
-get_first_node() {
-    echo "$@" | cut -d, -f1
-}
 [ ! -d ${C4S_HOME}/${UNIQ_ID} ] && mkdir -p ${C4S_HOME}/${UNIQ_ID}
 
 # update_kafka_configuration
