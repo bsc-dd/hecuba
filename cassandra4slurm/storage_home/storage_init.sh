@@ -125,6 +125,11 @@ if [ "X$HECUBA_ARROW" != "X" ]; then
 fi
 cat ${STORAGE_PROPS} >> $ENVFILE
 
+#FIX issue with COMPSS: create the directory that will hold the env file if it
+#   does not exist (this should be ALREADY done by COMPSs but in the
+#   meantime...)
+mkdir -p $(dirname "${FILE_TO_SET_ENV_VARS}")
+
 cat "$ENVFILE" > "${FILE_TO_SET_ENV_VARS}"
 
 # Disable keyspace and table creation in hecuba module initialization as will be done in 'initialize_hecuba.sh'
