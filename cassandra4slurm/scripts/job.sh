@@ -188,8 +188,15 @@ fi
 #exit # TODO QUITAR ESTO DE AQUÍ, SI NO NO FUNCIONA!!! TODO
 # Launching Cassandra in every node
 
-srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES $MODULE_PATH/cass_node.sh $UNIQ_ID &
+srun --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES $MODULE_PATH/cass_node.sh $UNIQ_ID &
 sleep 5
+
+if [ "X$STREAMING" != "X" ]; then
+    if [ ${STREAMING,,} == "true" ]; then
+        source $HECUBA_ROOT/bin/cassandra4slurm/launch_kafka.sh
+        launch_kafka $CASSANDRA_NODELIST $UNIQ_ID $N_NODES
+    fi
+fi
 
 # Cleaning config template
 rm -f $C4S_HOME/conf/template-aux-"$SLURM_JOB_ID".yaml

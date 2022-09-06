@@ -5,6 +5,9 @@
 #include <boost/uuid/uuid.hpp>
 #include "debug.h"
 
+
+#define ISKEY true
+
 /***
     d = //dictionary [int, float]:[values]
     for (keysIterator s = d.begin(); s != d.end(); s ++) {
@@ -143,6 +146,62 @@ bool IStorage::convert_IStorage_to_UUID(char * dst, const std::string& value_typ
     return isIStorage;
 }
 
+/* deep_copy_attribute_buffer: Creates a copy of a block of memory containing values to store in a table, complex types are also copied.
+ *  iskey   : The buffer corresponds to a key? or is it a column?
+ *  src     : pointer to source memory block
+ *  src_size: length of the source memory block
+ *  num_attrs: Number of attributes inside the 'src' memory block
+ * return a NEW block of memory with the same content as 'src' but creating NEW copies for internal complex data (currently STRINGS).
+ */
+void * IStorage::deep_copy_attribute_buffer(bool isKey, const void* src, uint64_t src_size, uint32_t num_attrs) const {
+
+    /** WARNING: The 'src' buffer comes from user, therefore the fields order is
+     * specified by the ObjSpec which may or may not (possibly the latter)
+     * coincide with the format needed to access the database.
+     * This method reorders the resulting buffer to be suitable for this
+     * access.*/
+
+    void * dst = malloc(src_size);
+
+    // Process src to generate memory to complex types: UUIDs, strings,...
+    DataModel* model = this->currentSession->getDataModel();
+    ObjSpec ospec = model->getObjSpec(this->id_model);
+
+    const TableMetadata* writerMD = dataWriter->get_metadata();
+
+    DBG( "deep_copy_attribute_buffer num attributes="<<num_attrs);
+    int64_t value_size;
+    uint64_t offset=0;
+
+    // Traverse the buffer following the user order...
+    for (uint32_t i=0; i < num_attrs; i++) {
+
+        DBG("  deep_copy_attribute_buffer offset ="<<offset);
+
+        std::string column_name;
+        std::string value_type;
+        const ColumnMeta *c;
+        // Only 2 cases supported: keys or values
+        if (isKey) {
+            column_name = ospec.getIDObjFromKey(i);
+            value_type = ospec.getIDModelFromKey(i);
+            c = writerMD->get_single_key(column_name);
+        } else {
+            column_name = ospec.getIDObjFromCol(i);
+            value_type = ospec.getIDModelFromCol(i);
+            c = writerMD->get_single_column(column_name);
+        }
+        value_size = c->size;
+
+        // Convert each attribute and reorder it to the right position...
+        convert_IStorage_to_UUID(((char *)dst)+c->position, value_type, ((char*)src) + offset, value_size);
+
+        offset += value_size;
+    }
+
+    return dst;
+}
+
 /* Args:
     key and value are pointers to a block of memory with the values (if basic types) or pointers to IStorage or strings:
     key/value -.
@@ -185,7 +244,7 @@ IStorage::writeTable(const void* key, const void* value, const enum IStorage::va
     const TableMetadata* writerMD = dataWriter->get_metadata();
 
 
-    DBG( "writeTable enter" );
+    DBG( "IStorage::writeTable enter" );
 
     DataModel* model = this->currentSession->getDataModel();
 
@@ -198,31 +257,14 @@ IStorage::writeTable(const void* key, const void* value, const enum IStorage::va
             throw ModuleException("IStorage:: Set Item on a non Dictionary is not supported");
         }
         // Dictionary values may have N  columns, create a new structure with all of them normalized.
-        std::cout<< "WriteTable malloc("<<writerMD->get_values_size()<<")"<<std::endl;
-        cc_val = malloc(writerMD->get_values_size()); // This memory will be freed after the execution of the query (at callback)
-
-        uint64_t offset=0;
+        DBG( "IStorage::WriteTable malloc("<<writerMD->get_values_size()<<")");
         std::shared_ptr<const std::vector<ColumnMeta> > columns = writerMD->get_values();
         uint32_t numcolumns = columns->size();
-        std::cout<< "WriteTable numcols="<<numcolumns<<std::endl;
-        int64_t value_size;
-
-        for (uint32_t i=0; i < numcolumns; i++) {
-
-            std::cout<< "WriteTable offset ="<<offset<<std::endl;
-            std::string column_name = ospec.getIDObjFromCol(i);
-            std::string value_type = ospec.getIDModelFromCol(i);
-            const ColumnMeta *c = writerMD->get_single_column(column_name);
-            value_size = c->size;
-
-            convert_IStorage_to_UUID(((char *)cc_val)+c->position, value_type, ((char*)value) + offset, value_size);
-
-            offset += value_size;
-        }
+        cc_val = deep_copy_attribute_buffer(!ISKEY, value, writerMD->get_values_size(), numcolumns);
 
     } else if (ospec.getType() == ObjSpec::valid_types::STORAGEOBJ_TYPE) {
         if (mytype != SETATTR_TYPE) {
-            throw ModuleException("IStorage:: Set Attr on a non Object is not supported");
+            throw ModuleException("IStorage::writeTable Set Attr on a non Object is not supported");
         }
         int64_t value_size = writerMD->get_single_column((char*)key)->size;
         cc_val = malloc(value_size); // This memory will be freed after the execution of the query (at callback)
@@ -230,7 +272,7 @@ IStorage::writeTable(const void* key, const void* value, const enum IStorage::va
         std::string value_type = ospec.getIDModelFromColName(std::string((char*)key));
         convert_IStorage_to_UUID((char *)cc_val, value_type, value, value_size);
     } else {
-        throw ModuleException("IStorage:: Set individual components of a StorageNumpy is not supported");
+        throw ModuleException("IStorage::writeTable Set individual components of a StorageNumpy is not supported");
     }
 
     //std::cout << "DEBUG: IStorage::setItem: After creating value object "<<std::endl;
@@ -240,29 +282,15 @@ IStorage::writeTable(const void* key, const void* value, const enum IStorage::va
     std::pair<uint16_t, uint16_t> keySize = writerMD->get_keys_size();
     uint64_t partKeySize = keySize.first;
     uint64_t clustKeySize = keySize.second;
-    std::cout<< "DEBUG: Istorage::setItem --> partKeySize = "<<partKeySize<<" clustKeySize = "<< clustKeySize << std::endl;
+    DBG("IStorage::writeTable --> partKeySize = "<<partKeySize<<" clustKeySize = "<< clustKeySize);
 
     void *cc_key= NULL;
     if (mytype == SETITEM_TYPE) {
-        cc_key = malloc(partKeySize+clustKeySize); // This memory will be freed after the execution of the query (at callback)
-        // parse the keys with the convert_IStorage_to_UUID to generate memory
+
         std::shared_ptr<const std::vector<ColumnMeta> > columns = writerMD->get_keys();
         uint32_t numcolumns = columns->size();
-        std::cout<< "WriteTable keys numcols="<<numcolumns<<std::endl;
-        int64_t value_size;
-        uint64_t offset=0;
-        for (uint32_t i=0; i < numcolumns; i++) {
+        cc_key = deep_copy_attribute_buffer(ISKEY, key, partKeySize+clustKeySize, numcolumns);
 
-            std::cout<< "WriteTable keys offset ="<<offset<<std::endl;
-            std::string column_name = ospec.getIDObjFromKey(i);
-            std::string value_type = ospec.getIDModelFromKey(i);
-            const ColumnMeta *c = writerMD->get_single_key(column_name);
-            value_size = c->size;
-
-            convert_IStorage_to_UUID(((char *)cc_key)+c->position, value_type, ((char*)key) + offset, value_size);
-
-            offset += value_size;
-        }
     } else {
         uint64_t* sid = this->getStorageID();
         void* c_key = malloc(2*sizeof(uint64_t)); //uuid
@@ -494,13 +522,14 @@ void IStorage::getAttr(const char* attr_name, void* valuetoreturn) const{
 }
 
 void IStorage::getItem(const void* key, void *valuetoreturn) const{
+    const TableMetadata* writerMD = dataAccess->get_metadata();
     /* PRE: value arrives already coded as expected: block of memory with pointers to IStorages or basic values*/
-    std::pair<uint16_t, uint16_t> keySize = dataAccess->get_metadata()->get_keys_size();
+    std::pair<uint16_t, uint16_t> keySize = writerMD->get_keys_size();
     int key_size = keySize.first + keySize.second;
 
-    void * keytosend = malloc(key_size);
+    std::shared_ptr<const std::vector<ColumnMeta> > columns = writerMD->get_keys();
 
-    memcpy(keytosend, key, key_size);
+    void *keytosend = deep_copy_attribute_buffer(ISKEY, key, key_size, columns->size());
 
     std::vector<const TupleRow *> result = dataAccess->get_crow(keytosend);
 

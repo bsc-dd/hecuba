@@ -253,7 +253,7 @@ rd_kafka_message_t * CacheTable::kafka_poll(void) {
                 finish=true;
             }
         } else {
-            fprintf(stderr, "poll topic[%s] : timeout\n", topic_name);
+            fprintf(stderr, "poll topic[%s] : Nothing available after 500ms. Retrying.\n", topic_name);
         }
     }
     return rkmessage;

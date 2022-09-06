@@ -37,7 +37,6 @@ std::string DataModel::debug() const {
     std::string res = "";
 
     for (auto it : dataModel) {
-        std::cout<<"it.first: " << it.first << std::endl;
         res += "name: " + it.first + " -> " + it.second.debug();
     }
 

@@ -1,7 +1,7 @@
 #ifndef __DEBUG_H__
 #define __DEBUG_H__
 
-#define ENABLE_DEBUG
+#undef ENABLE_DEBUG
 
 #ifdef ENABLE_DEBUG
 #include <sstream>
