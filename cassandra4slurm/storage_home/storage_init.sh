@@ -312,7 +312,7 @@ echo "Checking..."
 RETRY_COUNTER=0
 get_nodes_up
 while [ "$NODE_COUNTER" != "$N_NODES" ] && [ $RETRY_COUNTER -lt $RETRY_MAX ]; do
-    echo "Retry #$RETRY_COUNTER"
+    echo "$NODE_COUNTER/$N_NODES nodes UP. Retry #$RETRY_COUNTER"
     echo "Checking..."
     sleep 5
     get_nodes_up
