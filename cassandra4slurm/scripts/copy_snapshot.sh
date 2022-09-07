@@ -33,19 +33,12 @@ cat $RINGFILE | grep -F $NODE_IP | awk '{print $NF }' | tr "\n" "," > $SNAP_DEST
 
 # Saving cluster name (to restore it properly)
 echo "$CLUSTER" > $SNAP_DEST/$SNAP_NAME-cluster.txt
-# For each folder in the data home, it is checked if the links to GPFS are already created, otherwise, create it
-for folder in $(ls $DATA_HOME)
-do
-    for subfolder in $(ls $DATA_HOME/$folder)
-    do
-        mkdir -p $SNAP_DEST/$folder/$subfolder/snapshots
-        if [ -d $DATA_HOME/$folder/$subfolder/snapshots/$SNAP_NAME ]
-        then
-            mv $DATA_HOME/$folder/$subfolder/snapshots/$SNAP_NAME $SNAP_DEST/$folder/$subfolder/snapshots/
-            ln -s $SNAP_DEST/$folder/$subfolder/snapshots/$SNAP_NAME $DATA_HOME/$folder/$subfolder/snapshots/$SNAP_NAME
-        fi
-    done
- done
+
+# copy snapshot directory to Destination directory
+pushd $DATA_HOME
+cp -Rf --parents */*/snapshots/$SNAP_NAME $SNAP_DEST/
+popd
+
 
 # If HECUBA_ARROW is enabled, copy the ARROW directory
 if [ ! -z $HECUBA_ARROW ]; then
