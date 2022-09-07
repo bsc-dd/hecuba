@@ -72,6 +72,10 @@ uint64_t* IStorage::getStorageID() {
     return storageid;
 }
 
+const std::string& IStorage::getName() const {
+    return id_obj;
+}
+
 void
 IStorage::sync(void) {
     this->dataWriter->flush_elements();

@@ -85,6 +85,7 @@ int main() {
     numpymeta = generateMetas();
     char *valueNP = generateNumpyContent();
     IStorage *mi_sn=s.createObject("hecuba.hnumpy.StorageNumpy","minp",numpymeta,valueNP);
+    std::cout << " + Created StorageNumpy with name "<<mi_sn->getName() << std::endl;;
 
 
     mydict->setItem(key, mi_sn);
@@ -92,6 +93,9 @@ int main() {
     myobj->setAttr("submetrics",mydict);
 
     std::cout<< "+ completed: syncing"<<std::endl;
+
+    mi_sn=s.createObject("hecuba.hnumpy.StorageNumpy",nullptr,numpymeta,valueNP);
+    std::cout << " + Created StorageNumpy with name "<<mi_sn->getName() << std::endl;;
 
     // we sync every thing before ending the process
 #if 0
