@@ -881,7 +881,14 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
     ObjSpec oType = model->getObjSpec(FQid_model);
     //std::cout << "DEBUG: HecubaSession::createObject '"<<FQid_model<< "' ==> " <<oType.debug()<<std::endl;
 
-    std::string name(config["execution_name"] + "." + std::string(id_object));
+    std::string id_object_str;
+    if (id_object == nullptr) { //No name used, generate a new one
+        id_object_str = "X" + UUID::UUID2str(UUID::generateUUID()); //Cassandra does NOT like to have a number at the beginning of a table name
+        std::replace(id_object_str.begin(), id_object_str.end(), '-','_'); //Cassandra does NOT like character '-' in table names
+    } else {
+        id_object_str = std::string(id_object);
+    }
+    std::string name(config["execution_name"] + "." + id_object_str);
     uint64_t *c_uuid = UUID::generateUUID5(name.c_str()); // UUID for the new object
 
     switch(oType.getType()) {
@@ -939,7 +946,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                           config);
                 delete keyNamesDict;
                 delete colNamesDict;
-                o = new IStorage(this, FQid_model, config["execution_name"] + "." + id_object, c_uuid, dataAccess);
+                o = new IStorage(this, FQid_model, config["execution_name"] + "." + id_object_str, c_uuid, dataAccess);
 
             }
             break;
@@ -949,7 +956,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 //  Create table 'name' "CREATE TABLE ksp.name (nom typ, nom typ, ... PRIMARY KEY (nom, nom))"
                 bool new_element = true;
                 std::string query = "CREATE TABLE " +
-                    config["execution_name"] + "." + id_object +
+                    config["execution_name"] + "." + id_object_str +
                     oType.table_attr;
 
                 CassError rc = run_query(query);
@@ -1010,7 +1017,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                         std::string(")");
                     run_query(insquery);
                 } else {
-                    std::cerr << "WARNING: Object "<<id_object<<" already exists. Trying to overwrite it. It may fail if the schema does not match."<<std::endl;
+                    std::cerr << "WARNING: Object "<<id_object_str<<" already exists. Trying to overwrite it. It may fail if the schema does not match."<<std::endl;
                     // TODO: THIS IS NOT WORKING. We need to get the storage_id (c_uuid) from istorage DISABLE
                     // TODO: Check the schema in Cassandra matches the model
                 }
@@ -1022,13 +1029,13 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
 
                 std::string topic = std::string(UUID::UUID2str(c_uuid));
 
-                CacheTable *reader = storageInterface->make_cache(id_object, config["execution_name"].c_str(),
+                CacheTable *reader = storageInterface->make_cache(id_object_str.c_str(), config["execution_name"].c_str(),
                         *keyNamesDict, *colNamesDict,
                         config);
 
                 delete keyNamesDict;
                 delete colNamesDict;
-                o = new IStorage(this, FQid_model, config["execution_name"] + "." + id_object, c_uuid, reader);
+                o = new IStorage(this, FQid_model, config["execution_name"] + "." + id_object_str, c_uuid, reader);
                 DBG("HecubaSession::createObject: CREATED NEW STORAGEDICT with uuid "<< topic);
                 if (oType.isStream()) {
                     DBG("     AND IT IS AN STREAM!");
@@ -1040,7 +1047,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
         case ObjSpec::valid_types::STORAGENUMPY_TYPE:
             {
                 // Create table
-                std::string query = "CREATE TABLE IF NOT EXISTS " + config["execution_name"] + "." + id_object +
+                std::string query = "CREATE TABLE IF NOT EXISTS " + config["execution_name"] + "." + id_object_str +
                     " (storage_id uuid, cluster_id int, block_id int, payload blob, "
                     "PRIMARY KEY((storage_id,cluster_id),block_id)) "
                     "WITH compaction = {'class': 'SizeTieredCompactionStrategy', 'enabled': false};";
@@ -1048,7 +1055,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 this->run_query(query);
 
                 // StorageNumpy
-                ArrayDataStore *array_store = new ArrayDataStore(id_object, config["execution_name"].c_str(),
+                ArrayDataStore *array_store = new ArrayDataStore(id_object_str.c_str(), config["execution_name"].c_str(),
                         this->storageInterface->get_session(), config);
                 //std::cout << "DEBUG: HecubaSession::createObject After ArrayDataStore creation " <<std::endl;
 
@@ -1068,7 +1075,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 array_store->store_numpy_into_cas(c_uuid, numpy_metas, value);
                 array_store->wait_stores();
 
-                o = new IStorage(this, FQid_model, config["execution_name"] + "." + id_object, c_uuid, array_store->getWriteCache());
+                o = new IStorage(this, FQid_model, config["execution_name"] + "." + id_object_str, c_uuid, array_store->getWriteCache());
                 o->setNumpyAttributes(array_store, numpy_metas,value);
 
             }
