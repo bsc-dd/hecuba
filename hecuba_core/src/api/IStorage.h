@@ -34,6 +34,7 @@ public:
     void getItem(const void* key, void * valuetoreturn) const;
 
 	uint64_t* getStorageID();
+	const std::string& getName() const;
 
     //Writer * getDataWriter();
 
