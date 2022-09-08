@@ -4,6 +4,7 @@ function DBG() {
 
     if [ x"$lowercase_debug" == x"true" ]; then
         echo "[DEBUG] $X"
+        echo "[DEBUG] $X" 1>&2
     fi
 }
 
