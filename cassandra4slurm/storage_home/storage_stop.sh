@@ -64,6 +64,6 @@ if [[ -f $FINISHED && "$(cat $FINISHED)" == "1" ]]; then
     DBG " CASSANDRA_NODELIST=$CASSANDRA_NODELIST"
     DBG " N_NODES           =$N_NODES"
     #if cassandra was launched with the application then it exists a file stop with a 1 inside to kill it
-    srun  --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 bash $MODULE_PATH/killer.sh
+    run srun  --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --nodes=$N_NODES $MODULE_PATH/killer.sh
 fi
 echo "[INFO] Hecuba finished. Thanks for the 🐟"
