@@ -75,7 +75,7 @@ if [ "$APP_NODES" != "0" ]; then
         cat $MODULE_PATH/pycompss_template.sh | sed "s+PLACEHOLDER_CASSANDRA_NODES_FILE+$CASSFILE+g" | sed "s+PLACEHOLDER_PYCOMPSS_NODES_FILE+$APPFILE+g" | sed "s+PLACEHOLDER_APP_PATH_AND_PARAMETERS+$APP_AND_PARAMS+g" | sed "s+PLACEHOLDER_PYCOMPSS_FLAGS+$PYCOMPSS_FLAGS+g" | sed "s+PLACEHOLDER_PYCOMPSS_STORAGE+$PYCOMPSS_STORAGE+g" > $PYCOMPSS_FILE
         bash $PYCOMPSS_FILE "-$iface" "$DISJOINT"  # Params - 1st: interface, 2nd: 1 to indicate disjoint execution
     else
-        srun --ntasks-per-node=1 $MODULE_PATH/app_node.sh $UNIQ_ID
+        run srun --ntasks-per-node=1 $MODULE_PATH/app_node.sh $UNIQ_ID
     fi
 else
     # This will never be executed. Or something went really wrong.
