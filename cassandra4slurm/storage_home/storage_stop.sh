@@ -66,3 +66,4 @@ if [[ -f $FINISHED && "$(cat $FINISHED)" == "1" ]]; then
     #if cassandra was launched with the application then it exists a file stop with a 1 inside to kill it
     srun  --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 bash $MODULE_PATH/killer.sh
 fi
+echo "[INFO] Hecuba finished. Thanks for the 🐟"
