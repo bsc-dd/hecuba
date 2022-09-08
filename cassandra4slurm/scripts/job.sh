@@ -326,4 +326,5 @@ then
 fi
 sleep 10
 
-sacct --delimiter="," -pj ${SLURM_JOB_ID} | grep cass_node | awk -F ',' '{print $1}' | xargs scancel
+DBG " Stopping CASSANDRA JOB"
+run srun  --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --nodes=$N_NODES $MODULE_PATH/killer.sh
