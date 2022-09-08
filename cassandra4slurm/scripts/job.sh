@@ -170,14 +170,14 @@ export CASSANDRA_NODELIST=$(echo $casslist | sed -e 's+ +,+g')
 DBG " CASSANDRA_NODELIST var: "$CASSANDRA_NODELIST
 
 # Clearing data from previous executions and checking symlink coherence
-srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 --nodes=$N_NODES $MODULE_PATH/tmp-set.sh $CASS_HOME $DATA_HOME $COMM_HOME $SAV_CACHE $ROOT_PATH $CLUSTER $UNIQ_ID
+run srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 --nodes=$N_NODES $MODULE_PATH/tmp-set.sh $CASS_HOME $DATA_HOME $COMM_HOME $SAV_CACHE $ROOT_PATH $CLUSTER $UNIQ_ID
 sleep 5
 
 if [ "$(cat $RECOVER_FILE)" != "" ]
 then
     RECOVERTIME1=`date +"%T.%3N"`
     # Moving data to each datapath
-    srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 --nodes=$N_NODES $MODULE_PATH/recover.sh $ROOT_PATH $UNIQ_ID
+    run srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 --nodes=$N_NODES $MODULE_PATH/recover.sh $ROOT_PATH $UNIQ_ID
     RECOVERTIME2=`date +"%T.%3N"`
 
     DBG "[DEBUG] Recover process initial datetime: $RECOVERTIME1"
@@ -188,7 +188,7 @@ fi
 #exit # TODO QUITAR ESTO DE AQUÍ, SI NO NO FUNCIONA!!! TODO
 # Launching Cassandra in every node
 
-srun --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES $MODULE_PATH/cass_node.sh $UNIQ_ID &
+run srun --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES $MODULE_PATH/cass_node.sh $UNIQ_ID &
 sleep 5
 
 if [ "X$STREAMING" != "X" ]; then
