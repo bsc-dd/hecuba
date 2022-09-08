@@ -139,8 +139,21 @@ namespace YAML {
                     }
                     pythonString+="   '''\n";
 
-                } else return false;
-
+                } else if (typespec[1].as<std::string>() == "StorageNumpy") {
+                    pythonString="from hecuba import StorageNumpy\n\n" + pythonString;
+                    pythonString += " (StorageNumpy):\n";
+                    pythonString += "   '''\n";
+                    obj_type=ObjSpec::valid_types::STORAGENUMPY_TYPE;
+                    if (node["stream"]) {
+                        const Node stream =  node["stream"];
+                        pythonString += "   @stream\n";
+                        streamEnabled = true;
+                    }
+                    pythonString += "   '''\n";
+                } else {
+                    DBG("HecubaSession: decode: Parsed 0: " << typespec[0].as<std::string>() << " Parsed 1: "<< typespec[1].as<std::string>());
+                    return false;
+                }
                 DBG( " GENERATED: " << pythonString );
                 dmodel.o=ObjSpec(obj_type,partitionKeys,clusteringKeys,cols,pythonString);
                 if (streamEnabled) {
