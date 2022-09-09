@@ -8,14 +8,34 @@ def consumer_with_new_class():
     print("AFTER POLL", flush=True)
     print("key ", k, flush=True)
     print("value ", v, flush=True)
+    passed=True
+    if k != 666:
+        passed = False
+    if v != "Oh! Yeah! Holidays!":
+        passed = False
+    if not passed:
+        print("consumer_with_new_class NOT PASSED", flush=True)
+    else:
+        print("consumer_with_new_class PASSED", flush=True)
 
 def consumer_with_new_classandNumpy():
+    import numpy as np
+
     o = miclassNumpy("streaming_dict_with_numpy")
     k,v=o.poll()
     print("AFTER POLL", flush=True)
     print("key ", k, flush=True)
     print("value ", v, flush=True)
     print("o[key] ", o[k], flush=True)
+    passed=True
+    if k != 666:
+        passed = False
+    if not np.allclose(o[k], np.arange(12).reshape(3,4)):
+        passed = False
+    if not passed:
+        print("consumer_with_new_classandNumpy NOT PASSED", flush=True)
+    else:
+        print("consumer_with_new_classandNumpy PASSED", flush=True)
 
 
 def main():

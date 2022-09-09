@@ -3,7 +3,6 @@ OBJS= \
     apitest_complex \
     apitest_complex_rw \
     apitest_iterator \
-    producer \
 # DO NOT REMOVE THIS LINE (MARKS THE END OF THE 'OBJS' VARIABLE)
 
 all: ${HECUBA_ROOT}/lib/libhfetch.so ${OBJS}
@@ -20,13 +19,6 @@ apitest_complex_rw: apitest_complex_rw.cpp
 
 apitest_iterator: apitest_iterator.cpp
 	g++ -o apitest_iterator   apitest_iterator.cpp    ${CPPFLAGS}
-
-producer: producer.cpp
-	@echo ==========================================================================
-	@echo 'Producer' application expects 'consumer.py' to be run to receive the data
-	@echo ==========================================================================
-	g++ -o producer  producer.cpp    ${CPPFLAGS}
-
 
 clean:
 	rm ${OBJS}
