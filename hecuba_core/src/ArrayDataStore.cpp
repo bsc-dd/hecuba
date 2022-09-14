@@ -598,7 +598,7 @@ void ArrayDataStore::store_numpy_into_cas_by_cols_as_arrow(const uint64_t *stora
 }
 
 /***
- * Write a complete numpy ndarray by using the partitioning mechanism defined in the metadata
+ * Write ASYNCHRONOUSLY a complete numpy ndarray by using the partitioning mechanism defined in the metadata
  * @param storage_id identifying the numpy ndarray
  * @param np_metas ndarray characteristics
  * @param numpy to be saved into storage
