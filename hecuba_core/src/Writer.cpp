@@ -237,16 +237,16 @@ void Writer::send_event(const TupleRow* key, const TupleRow *value) {
 
     this->send_event(rowpayload, row_size);
 
-    //fprintf(stderr, "Send event to topic %s\n", this->topic_name);
-    bool is_all_null=true;
-    for (uint32_t i=0; i< key->n_elem(); i++) {
-         if (!key->isNull(i)) {
-            is_all_null=false;
-         }
-    }
-    if (!is_all_null) {
-        this->write_to_cassandra(key, value); // Write key,value to cassandra only if the key is not null
-    }
+    // REMOVE ME //fprintf(stderr, "Send event to topic %s\n", this->topic_name);
+    // REMOVE ME bool is_all_null=true;
+    // REMOVE ME for (uint32_t i=0; i< key->n_elem(); i++) {
+    // REMOVE ME      if (!key->isNull(i)) {
+    // REMOVE ME         is_all_null=false;
+    // REMOVE ME      }
+    // REMOVE ME }
+    // REMOVE ME if (!is_all_null) {
+    // REMOVE ME     this->write_to_cassandra(key, value); // Write key,value to cassandra only if the key is not null
+    // REMOVE ME }
 
 }
 /* send_event: Send and Store a WHOLE ROW in CASSANDRA */
@@ -269,7 +269,6 @@ void Writer::send_event(void* key, void* value, char* attr_name) {
     const TupleRow *v = v_single_factory->make_tuple(value);
 
     this->send_event(k, v);
-    this->write_to_cassandra(k, v);
     delete(v_single_factory);
     delete(k);
     delete(v);
@@ -337,8 +336,6 @@ void Writer::callback(CassFuture *future, void *ptr) {
         std::string msg2(dmsg, l);
         W->set_error_occurred("Writer callback: " + message + "  " + msg2, data[1], data[2]);
     } else {
-        //W->send_event((TupleRow*) data[1]);
-        //W->send_event((TupleRow*) data[1],(TupleRow*)data[2]);
         delete ((TupleRow *) data[1]);
         delete ((TupleRow *) data[2]);
         W->ncallbacks--;
@@ -428,8 +425,6 @@ void Writer::disable_lazy_write(void) {
 }
 
 void Writer::write_to_cassandra(const TupleRow *keys, const TupleRow *values) {
-
-    //this->send_event(keys,values); // Send to Kafka
 
     this->async_query_thread_lock.lock();
     //std::cout<< " WRITER: write_to_cassandra" << std::endl;
