@@ -391,6 +391,7 @@ void HecubaSession::getMetaData(void * raw_numpy_meta, ArrayMetadata &arr_metas)
     arr_metas.byteorder = '=';
 }
 
+/* ASYNCHRONOUS */
 void HecubaSession::registerNumpy(ArrayMetadata &numpy_meta, std::string name, uint64_t* uuid) {
 
     //std::cout<< "DEBUG: HecubaSession::registerNumpy BEGIN "<< name << UUID::UUID2str(uuid)<<std::endl;
@@ -489,6 +490,7 @@ void HecubaSession::registerNumpy(ArrayMetadata &numpy_meta, std::string name, u
 
     try {
         numpyMetaWriter->write_to_cassandra(keys, values);
+        numpyMetaWriter->wait_writes_completion(); // Ensure hecuba.istorage get all updates SYNCHRONOUSLY (to avoid race conditions with poll that may request a build_remotely on this new object)!
     }
     catch (std::exception &e) {
         std::cerr << "HecubaSession::registerNumpy: Error writing" <<std::endl;
@@ -1086,7 +1088,6 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 //double* tmp = (double*)value;
                 //std::cout<< "DEBUG: HecubaSession::createObject BEFORE store FIRST element in NUMPY is "<< *tmp << " and second is "<<*(tmp+1)<< " 3rd " << *(tmp+2)<< std::endl;
                 array_store->store_numpy_into_cas(c_uuid, numpy_metas, value);
-                array_store->wait_stores();
 
                 o = new IStorage(this, FQid_model, config["execution_name"] + "." + id_object_str, c_uuid, array_store->getWriteCache());
                 o->setNumpyAttributes(array_store, numpy_metas,value);
