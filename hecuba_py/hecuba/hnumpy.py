@@ -987,6 +987,7 @@ class StorageNumpy(IStorage, np.ndarray):
 
         self._hcache.poll(self._build_args.metas, [self._get_base_array()])
         self._numpy_full_loaded = True
+        return self
 
     def _persist_data(self, name, formato=0):
         """
