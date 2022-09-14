@@ -46,6 +46,8 @@
 #include <cctype>
 #include <string>
 
+#include "UUID.h"
+
 #define PMEM_OFFSET 8
 #define MAX_RETRIES 5
 
@@ -857,7 +859,7 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
 	}
 
 	if (all_partitions.empty()) {
-		throw ModuleException("no npy found on sys");
+		throw ModuleException("no npy found on sys for uuid " + UUID::UUID2str(storage_id));
 	}
 	partitions_it->merge_partitions(metadata, all_partitions, save);
 	for (const TupleRow *item:all_results) delete (item);
