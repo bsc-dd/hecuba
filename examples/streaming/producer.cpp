@@ -93,4 +93,5 @@ int main() {
 
     dict_with_numpys(s);
     dict_with_string(s);
+    std::cout<< "++++ REMEMBER TO LAUNCH: python3 ./consumer.py to test the streaming results"<<std::endl;
 }
