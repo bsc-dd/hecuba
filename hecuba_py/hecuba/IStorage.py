@@ -179,3 +179,7 @@ class IStorage(object):
 
     def send(self, key=None, value=None):
         raise NotImplementedError("SEND not supported")
+
+    def poll(self):
+        raise NotImplementedError("POLL not supported")
+

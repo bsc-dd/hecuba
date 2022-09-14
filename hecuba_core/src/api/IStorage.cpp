@@ -206,6 +206,41 @@ void * IStorage::deep_copy_attribute_buffer(bool isKey, const void* src, uint64_
     return dst;
 }
 
+void
+IStorage::send_values(const void* value) {
+    DBG("START");
+    const TableMetadata* writerMD = dataWriter->get_metadata();
+    DataModel* model = this->currentSession->getDataModel();
+
+    ObjSpec ospec = model->getObjSpec(this->id_model);
+
+    std::shared_ptr<const std::vector<ColumnMeta> > columns = writerMD->get_values();
+    uint32_t numcolumns = columns->size();
+
+    uint64_t offset = 0;
+    const char* src = (char*)value;
+    // Traverse the buffer following the user order...
+    for (uint32_t i=0; i < numcolumns; i++) {
+        std::string column_name = ospec.getIDObjFromCol(i);
+        std::string value_type = ospec.getIDModelFromCol(i);
+        const ColumnMeta *c = writerMD->get_single_column(column_name);
+        int64_t value_size= c->size;
+        DBG(" -->  traversing column '"<<column_name<< "' of type '" << value_type<<"'" );
+        if (!ObjSpec::isBasicType(value_type)) {
+            if (value_type.compare("hecuba.hnumpy.StorageNumpy") == 0) {
+                IStorage * result = *(IStorage **)(src+offset); // 'src' MUST be a valid pointer or it will segfault here...
+                if (!result->isStream()) { // If the object did not have Stream enabled, enable it now as we are going to stream it...
+                    result->enableStream(UUID::UUID2str(result->getStorageID()));
+                }
+                result->send();
+                DBG("   -->  sent "<< UUID::UUID2str(result->getStorageID()));
+            }
+        }
+        offset += value_size;
+    }
+    DBG("END");
+}
+
 /* Args:
     key and value are pointers to a block of memory with the values (if basic types) or pointers to IStorage or strings:
     key/value -.
@@ -307,25 +342,25 @@ IStorage::writeTable(const void* key, const void* value, const enum IStorage::va
     if (mytype == SETITEM_TYPE) {
         //TODO currently our c++ API only supports instantiation of persistent objects. If we add support to volatile objects
         // we should extend this funtion to persist a volatile object assigned to a persistent object
-
+        const TupleRow* trow_key = this->dataAccess->get_new_keys_tuplerow(cc_key);
+        const TupleRow* trow_values = this->dataAccess->get_new_values_tuplerow(cc_val);
         if (this->isStream()) {
-            this->dataWriter->send_event(cc_key, cc_val); // stream AND store value in Cassandra
-        } else {
-            this->dataAccess->put_crow(cc_key, cc_val);
+            this->dataWriter->send_event(trow_key, trow_values); // stream value (storage_id/value)
+            send_values(value); // If value is an IStorage type stream its contents also
         }
+        this->dataAccess->put_crow(trow_key, trow_values);
+        delete(trow_key);
+        delete(trow_values);
 
     } else { // SETATTR
         char* attr_name = (char*) key;
         #if 0
         /* TODO: Enable this code when implementing storageobj streaming */
         if (this->isStream() {
-            this->dataWriter->send_event(cc_key, cc_val, attr_name); // stream AND store single attribute in Cassandra
-        }else {
-            this->dataWriter->write_to_cassandra(cc_key, cc_val, attr_name);
+            this->dataWriter->send_event(cc_key, cc_val, attr_name); // stream a single attribute
         }
-        #else
-        this->dataWriter->write_to_cassandra(cc_key, cc_val, attr_name);
         #endif
+        this->dataWriter->write_to_cassandra(cc_key, cc_val, attr_name);
         // TODO: add here a call to send for attribute (NOT SUPPORTED YET)
     }
 }
