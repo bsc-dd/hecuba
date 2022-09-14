@@ -17,6 +17,7 @@ def consumer_with_new_class():
         print("consumer_with_new_class NOT PASSED", flush=True)
     else:
         print("consumer_with_new_class PASSED", flush=True)
+    print("=========================", flush=True)
 
 def consumer_with_new_classandNumpy():
     import numpy as np
@@ -26,16 +27,17 @@ def consumer_with_new_classandNumpy():
     print("AFTER POLL", flush=True)
     print("key ", k, flush=True)
     print("value ", v, flush=True)
-    print("o[key] ", o[k], flush=True)
+    print("o[key] ", o[k], flush=True) # it should be already in memory (without any Cassandra Access)
     passed=True
-    if k != 666:
+    if k != 42:
         passed = False
-    if not np.allclose(o[k], np.arange(12).reshape(3,4)):
+    if not np.array_equal(v, (np.arange(12,dtype=float).reshape(4,3)+1)):
         passed = False
     if not passed:
         print("consumer_with_new_classandNumpy NOT PASSED", flush=True)
     else:
         print("consumer_with_new_classandNumpy PASSED", flush=True)
+    print("=========================", flush=True)
 
 
 def main():
