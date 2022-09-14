@@ -123,6 +123,26 @@ void CacheTable::put_crow(void *keys, void *values) {
     delete (v);
 }
 
+/* Generate a new TupleRow for the 'keys' pointer.
+ * The resulting TupleRow must be deleted when not needed!
+ * This is needed when you want to reuse a TupleRow (or more apropiately, the
+ * memory pointed by 'keys' as the usual method creates a new TupleRow and
+ * DELETES the content after the use... which makes the pointer content
+ * useless)*/
+const TupleRow* CacheTable::get_new_keys_tuplerow(void* keys) const {
+    return keys_factory->make_tuple(keys);
+}
+
+/* Generate a new TupleRow for the 'values' pointer.
+ * The resulting TupleRow must be deleted when not needed!
+ * This is needed when you want to reuse a TupleRow (or more apropiately, the
+ * memory pointed by 'values' as the usual method creates a new TupleRow and
+ * DELETES the content after the use... which makes the pointer content
+ * useless)*/
+const TupleRow* CacheTable::get_new_values_tuplerow(void* values) const {
+    return values_factory->make_tuple(values);
+}
+
 
 /** this method only adds the data to the cache
  *  without making it persistent
