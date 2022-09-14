@@ -62,6 +62,10 @@ public:
     void poll(char *data, const uint64_t size);
     std::vector<const TupleRow *>  poll(void);
 
+    /*** Auxiliary methods ***/
+    const TupleRow* get_new_keys_tuplerow(void* keys) const;
+    const TupleRow* get_new_values_tuplerow(void* values) const;
+
 private:
     rd_kafka_message_t * kafka_poll(void) ;
 
