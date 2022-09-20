@@ -69,7 +69,7 @@ class StorageNumpy(IStorage, np.ndarray):
         bn, bm = block_size
         for block_id, i in enumerate(range(0, self.shape[0], bn)):
             block = [self[i: i + bn, j:j + bm] for j in range(0, self.shape[1], bm)]
-            obj = StorageNumpy(input_array=block, name=self._get_name(), storage_id=uuid.uuid4(), block_id=block_id)
+            obj = self.__class__(input_array=block, name=self._get_name(), storage_id=uuid.uuid4(), block_id=block_id)
             yield obj
 
     @staticmethod
@@ -338,6 +338,7 @@ class StorageNumpy(IStorage, np.ndarray):
 
     def __new__(cls, input_array=None, name=None, storage_id=None, block_id=None, **kwargs):
         log.debug("input_array=%s name=%s storage_id=%s ENTER ",input_array is not None, name, storage_id)
+
         if name is not None:
             # Construct full qualified name to deal with cases where the name does NOT contain keyspace
             (ksp, table) = extract_ks_tab(name)
@@ -581,7 +582,7 @@ class StorageNumpy(IStorage, np.ndarray):
     # used as copy constructor
     def __array_finalize__(self, obj):
         if obj is None:
-            log.debug("  __array_finalize__ NEW")
+            log.debug("  __array_finalize__ NEW self.class={}".format(self.__class__))
             return
         log.debug("__array_finalize__ self.base=None?%s obj.base=None?%s", getattr(self, 'base', None) is None, getattr(obj, 'base', None) is None)
         if self.base is not None: # It is a view, therefore, copy data from object
@@ -599,14 +600,14 @@ class StorageNumpy(IStorage, np.ndarray):
             self._loaded_columns = getattr(obj, '_loaded_columns', set())
             self._is_persistent = getattr(obj, '_is_persistent', False)
             self._block_id = getattr(obj, '_block_id', None)
-            self._class_name = getattr(obj,'_class_name', 'hecuba.hnumpy.StorageNumpy')
+            self._class_name = self.__class__.__module__ + '.' + self.__class__.__name__ # Put a name like 'hecuba.hnumpy.StorageNumpy'
             self._tokens = getattr(obj,'_tokens',None)
             self._build_args = getattr(obj, '_build_args', None)
             self._persistance_needed = getattr(obj, '_persistance_needed', False)
             self._persistent_columnar = getattr(obj, '_persistent_columnar', False)
             self._numpy_full_loaded = getattr(obj, '_numpy_full_loaded', False)
 
-            if type(obj) == StorageNumpy: # Instantiate or getitem
+            if isinstance(obj, StorageNumpy): # Instantiate or getitem
                 log.debug("  array_finalize obj == StorageNumpy")
 
                 if getattr(obj, '_last_sliced_coord', None):    #getitem or split
@@ -635,7 +636,7 @@ class StorageNumpy(IStorage, np.ndarray):
             self._name               = None
             self.storage_id          = None
             self._is_persistent      = False
-            self._class_name         = getattr(obj,'_class_name', 'hecuba.hnumpy.StorageNumpy')
+            self._class_name         = self.__class__.__module__ + '.' + self.__class__.__name__ #name as 'hecuba.hnumpy.StorageNumpy'
             self._block_id           = getattr(obj, '_block_id', None)
             self._persistance_needed = False
             self._persistent_columnar= False
@@ -904,7 +905,7 @@ class StorageNumpy(IStorage, np.ndarray):
                 #if the slice is a npndarray numpy creates a copy and we do the same
                 if isinstance(sliced_coord, np.ndarray): # is there any other slicing case that needs a copy of the array????
                     result = self.view(np.ndarray)[sliced_coord] # TODO: If self is NOT loaded LOAD IT ALL BEFORE
-                    return StorageNumpy(result) # Creates a copy (A StorageNumpy from a Numpy)
+                    return self.__class__(result) # Creates a copy (A StorageNumpy from a Numpy)
 
                 self._last_sliced_coord = sliced_coord  # Remember the last getitem parameter, because it may force a new entry in the istorage at array_finalize
 
