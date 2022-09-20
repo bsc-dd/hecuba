@@ -1090,7 +1090,13 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 array_store->store_numpy_into_cas(c_uuid, numpy_metas, value);
 
                 o = new IStorage(this, FQid_model, config["execution_name"] + "." + id_object_str, c_uuid, array_store->getWriteCache());
+                std::string topic = std::string(UUID::UUID2str(c_uuid));
+                DBG("HecubaSession::createObject: CREATED NEW STORAGENUMPY with uuid "<< topic);
                 o->setNumpyAttributes(array_store, numpy_metas,value);
+                if (oType.isStream()) {
+                    DBG("     AND IT IS AN STREAM!");
+                    o->enableStream(topic);
+                }
 
             }
             break;

@@ -5,7 +5,6 @@
 #include <boost/uuid/uuid.hpp>
 #include "debug.h"
 
-
 #define ISKEY true
 
 /***
