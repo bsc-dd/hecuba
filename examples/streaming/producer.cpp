@@ -64,7 +64,7 @@ void dict_with_numpys(HecubaSession &s) {
     free(key);
     free(numpymeta);
     free(value);
-    delete(midict); // this calls the destructor of the object that flushes any pending messages 
+    delete(midict); // this calls the destructor of the object that flushes any pending messages
     delete(mi_sn);
     std::cout<< "+ AFTER sync "<<std::endl;
 }
@@ -78,9 +78,26 @@ void dict_with_string(HecubaSession &s) {
     const char* value ="Oh! Yeah! Holidays!";
     midict->setItem((void*)&keyInt, &value);
 
-    delete(midict); // this calls the destructor of the object that flushes any pending messages 
+    delete(midict); // this calls the destructor of the object that flushes any pending messages
 
     std::cout<< "+ AFTER sync "<<std::endl;
+}
+
+void subclass_storageNumpy(HecubaSession &s) {
+    // create a StorageNumpy and then add it to the StorageDict
+    void *numpymeta = generateMetas();
+    std::cout<< "+ metadata created"<<std::endl;
+    void *value = generateNumpyContent();
+
+    std::cout<< "+ value created at "<<std::hex<<(void*)value<<std::endl;
+
+    IStorage* minumpy = s.createObject("myNumpy", "i_am_a_numpy", numpymeta, value);
+    std::cout<< "+ 'i_am_a_numpy' subclass of StorageNumpy object created" << std::endl;
+
+    minumpy->send();
+    delete(minumpy); // this calls the destructor of the object that flushes any pending messages
+    std::cout<< "+ AFTER sync "<<std::endl;
+
 }
 
 int main() {
@@ -88,10 +105,11 @@ int main() {
     HecubaSession s;
     std::cout<< "+ Session started"<<std::endl;
 
-    s.loadDataModel("hecuba_stream.yaml","hecuba_stream.py");
+    s.loadDataModel("hecuba_stream.yaml");
     std::cout<< "+ Data Model loaded"<<std::endl;
 
     dict_with_numpys(s);
     dict_with_string(s);
+    subclass_storageNumpy(s);
     std::cout<< "++++ REMEMBER TO LAUNCH: python3 ./consumer.py to test the streaming results"<<std::endl;
 }

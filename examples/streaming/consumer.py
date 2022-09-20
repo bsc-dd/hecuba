@@ -40,10 +40,38 @@ def consumer_with_new_classandNumpy():
     print("=========================", flush=True)
 
 
+def consumer_subclass_storageNumpy():
+    from hecuba_stream import myNumpy
+    import numpy as np
+
+    # The following code instantiates the 'myNumpy' class, but it may happen that the
+    # producer has not been executed yet, and therefore ... the object does not
+    # exist yet, ... so we keep retrying until it exists. The problem is that
+    # there is no difference between this case and the instantiation of an
+    # already created object.
+    exist = False
+    while not exist:
+        try:
+            x = myNumpy(None, "i_am_a_numpy")
+            exist = True
+        except ValueError:
+            pass
+
+    v = x.poll()
+
+    if not np.array_equal(v, (np.arange(12,dtype=float).reshape(4,3)+1)):
+        print("consumer_subclass_storageNumpy NOT PASSED", flush=True)
+    else:
+        print("consumer_subclass_storageNumpy PASSED", flush=True)
+    print("=========================", flush=True)
+
+
+
 def main():
     print("CONSUMER STARTING", flush=True)
     consumer_with_new_classandNumpy()
     consumer_with_new_class()
+    consumer_subclass_storageNumpy()
     print("CONSUMER DONE", flush=True)
 
 
