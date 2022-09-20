@@ -343,6 +343,9 @@ class StorageNumpy(IStorage, np.ndarray):
     def __new__(cls, input_array=None, name=None, storage_id=None, block_id=None, **kwargs):
         log.debug("input_array=%s name=%s storage_id=%s ENTER ",input_array is not None, name, storage_id)
 
+        if input_array is not None and not isinstance(input_array, np.ndarray):
+            raise AttributeError("The 'input_array' must be a numpy.ndarray instance.")
+
         if name is not None:
             # Construct full qualified name to deal with cases where the name does NOT contain keyspace
             (ksp, table) = extract_ks_tab(name)
