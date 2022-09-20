@@ -612,7 +612,7 @@ HecubaSession::~HecubaSession() {
  * a YAML file. It also generates its corresponding python generated class in
  * the same directory where the model resides or in the 'pythonSpecPath'
  * directory. */
-void HecubaSession::loadDataModel(const char * model_filename, const char * pythonSpecPath=NULL) {
+void HecubaSession::loadDataModel(const char * model_filename, const char * pythonSpecPath) {
 
     if (currentDataModel != NULL) {
         std::cerr << "WARNING: HecubaSession::loadDataModel: DataModel already defined. Discarded and load again"<<std::endl;
