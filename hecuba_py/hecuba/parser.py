@@ -386,6 +386,10 @@ class Parser(object):
         if self.type_parser == "ClassField":
             for line in lines.split('\n'):
                 this.update(self._input_type(self._remove_spaces_from_line(line), this))
+        if self.type_parser == "StreamOnly":
+            for line in lines.split('\n'):
+                this = self._input_type(self._remove_spaces_from_line(line), this)
+
         self.detect_errors_after(this, self.type_parser)
         return this
 
