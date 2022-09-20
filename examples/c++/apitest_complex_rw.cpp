@@ -123,6 +123,7 @@ void test_storageobjNumpy(HecubaSession& s, const char *name) {
     char *valueNP = (char*) my_sn->getNumpyData();
 
     sonumpy->setAttr("num", my_sn);
+    my_sn->sync(); // WARNING: We are about to read the data and we need to ensure the data is in Cassandra
 
     bool passed = true;
     IStorage* value_retrieved;
@@ -212,6 +213,7 @@ void test_dictmultikey_and_numpy(HecubaSession& s, const char *name) {
     char *valueNP = (char*) my_sn->getNumpyData();
 
     metrics->setItem(key, my_sn);
+    my_sn->sync(); // WARNING: We are about to read the data and we need to ensure the data is in Cassandra
 
     bool passed = true;
     IStorage* mvalues;
@@ -252,6 +254,7 @@ void test_dictMultiKeyMultiValue(HecubaSession&s, const char *name) {
 
     IStorage *metrics = s.createObject("metrics", (std::string(name) + "mymetrics").c_str());
     metrics->setItem(key, my_sn);
+    my_sn->sync(); // WARNING: We are about to read the data and we need to ensure the data is in Cassandra
 
     /// Prepare buffer for values
     void *buffer = malloc( sizeof(char*)   //mystr
@@ -285,12 +288,7 @@ void test_dictMultiKeyMultiValue(HecubaSession&s, const char *name) {
             +sizeof(int)    //key2
     );
     uint64_t offset = 0;
-#if 1
     const char * key1 = "hiworld";
-#else
-    char * key1 = (char*) malloc(strlen("hiworld")+1);
-    strcpy(key1, "hiworld");
-#endif
     memcpy(mykey+offset, &key1,sizeof(char*));
     offset+=sizeof(char*);
     int key2 = 66642;
@@ -299,25 +297,7 @@ void test_dictMultiKeyMultiValue(HecubaSession&s, const char *name) {
     mydictmulti->setItem(mykey, buffer);
 
     char *value_retrieved;
-#if 1
     mydictmulti->getItem(mykey, (void*)&value_retrieved);
-#else
-    {
-        char* mykey = (char*) malloc(
-                sizeof(char*)   //key1
-                +sizeof(int)    //key2
-                );
-        uint64_t offset = 0;
-        //const char * key1 = "hiworld";
-        char * key1 = (char*) malloc(strlen("hiworld")+1);
-        strcpy(key1, "hiworld");
-        memcpy(mykey+offset, &key1,sizeof(char*));
-        offset+=sizeof(char*);
-        int key2 = 66642;
-        memcpy(mykey+offset, &key2,sizeof(int));
-        mydictmulti->getItem(mykey, (void*)&value_retrieved);
-    }
-#endif
     offset = 0;
 
     // Decode multivalue...
@@ -363,8 +343,11 @@ void test_dictMultiKeyMultiValue(HecubaSession&s, const char *name) {
     } else {
         std::cout << " TEST: test_dictMultiKeyMultiValue FAILED"<< std::endl;
     }
-    mydictmulti->sync(); // We cannot end the execution before the inserts into cassandra ends
 
+    delete(my_sn);
+    delete(metrics);
+    delete(info);
+    delete(mydictmulti);// We cannot end the execution before the inserts into cassandra ends
 }
 
 int main() {

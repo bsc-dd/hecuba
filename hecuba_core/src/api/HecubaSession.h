@@ -17,7 +17,7 @@ public:
     HecubaSession();
     ~HecubaSession();
 
-    void loadDataModel(const char * model_filename, const char *python_spec_path);
+    void loadDataModel(const char * model_filename, const char *python_spec_path=nullptr);
     DataModel* getDataModel();
 
 	struct NumpyShape {

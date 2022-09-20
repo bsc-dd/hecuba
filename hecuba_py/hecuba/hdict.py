@@ -846,9 +846,8 @@ class StorageDict(IStorage, dict):
                 dict.__setitem__(self,key,val)
 
             if self._is_stream() :
-                self.__send_values_kafka(k,val) # stream AND store values in Cassandra
-            else:
-                self._hcache.put_row(k,v) # ONLY store values in Cassandra
+                self.__send_values_kafka(k,val) # stream values
+            self._hcache.put_row(k,v) # ONLY store values in Cassandra
 
     def poll(self):
         log.debug("StorageDict: POLL ")
@@ -862,7 +861,7 @@ class StorageDict(IStorage, dict):
             self._hcache.enable_stream_consumer()
             self._stream_consumer_enabled=True
 
-        row = self._hcache.poll()
+        row = self._hcache.poll() # polls any value and caches it
 
         v=row[-(len(row)-self._k_size):]
         k=row[0:self._k_size]
@@ -875,7 +874,6 @@ class StorageDict(IStorage, dict):
 
         if config.max_cache_size == 0: # If C++ cache is disabled, use python memory
             dict.__setitem__(self, k, v)
-        #self._hcache.add_to_cache(self._make_key(k),self._make_value(v))
 
         # FIXME : Return  {key, value} instead of {value}
         final_results = []
@@ -887,8 +885,10 @@ class StorageDict(IStorage, dict):
                 # element is not a built-in type
                 info = {"storage_id": element, "tokens": self._build_args.tokens, "class_name": col_type}
                 element = build_remotely(info)
-                # TODO: ENABLE THIS WHEN RECURSIVE SENDING ENABLED FROM C++: element._initialize_stream_capability(element.storage_id)
-                # TODO: ENABLE THIS WHEN RECURSIVE SENDING ENABLED FROM C++: element.poll()
+                if isinstance(element, StorageNumpy):
+                    element._initialize_stream_capability(element.storage_id)
+                    element.poll()
+                #TODO add code to support polling a StorageObject or a StorageDict
 
             final_results.append(element)
         return self._key_column_builder(*k,*final_results) # Return Key, Value

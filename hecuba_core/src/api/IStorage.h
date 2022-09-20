@@ -26,6 +26,7 @@ public:
     void send(void* key, IStorage* value);
     void send(void* key, void* value);
     void send(void);
+    void send_values(const void* value);
 
     void setAttr(const char* attr_name, IStorage* value);
     void setAttr(const char* attr_name, void* value);

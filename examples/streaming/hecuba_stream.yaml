@@ -36,5 +36,5 @@
 #            - [ "myStr", "str" ]
 #  "stream"
 #
-#- "TypeSpec": [ "myNumpy", "StorageNumpy" ]
-#  "stream"
+- "TypeSpec": [ "myNumpy", "StorageNumpy" ]
+  "stream":

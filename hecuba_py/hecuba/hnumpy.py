@@ -9,7 +9,7 @@ from math import ceil
 import numpy as np
 from hfetch import HNumpyStore, HArrayMetadata
 
-from . import config, log
+from . import config, log, Parser
 from .IStorage import IStorage
 from .tools import extract_ks_tab, get_istorage_attrs, storage_id_from_name, build_remotely
 
@@ -69,7 +69,7 @@ class StorageNumpy(IStorage, np.ndarray):
         bn, bm = block_size
         for block_id, i in enumerate(range(0, self.shape[0], bn)):
             block = [self[i: i + bn, j:j + bm] for j in range(0, self.shape[1], bm)]
-            obj = StorageNumpy(input_array=block, name=self._get_name(), storage_id=uuid.uuid4(), block_id=block_id)
+            obj = self.__class__(input_array=block, name=self._get_name(), storage_id=uuid.uuid4(), block_id=block_id)
             yield obj
 
     @staticmethod
@@ -331,6 +331,10 @@ class StorageNumpy(IStorage, np.ndarray):
         obj._calculate_nblocks(myview)
         return obj
 
+    @classmethod
+    def _parse_comments(cls, comments):
+        parser = Parser("StreamOnly")
+        return parser._parse_comments(comments)
 
     @staticmethod
     def _arrow_enabled(input_array):
@@ -338,6 +342,10 @@ class StorageNumpy(IStorage, np.ndarray):
 
     def __new__(cls, input_array=None, name=None, storage_id=None, block_id=None, **kwargs):
         log.debug("input_array=%s name=%s storage_id=%s ENTER ",input_array is not None, name, storage_id)
+
+        if input_array is not None and not isinstance(input_array, np.ndarray):
+            raise AttributeError("The 'input_array' must be a numpy.ndarray instance.")
+
         if name is not None:
             # Construct full qualified name to deal with cases where the name does NOT contain keyspace
             (ksp, table) = extract_ks_tab(name)
@@ -382,6 +390,9 @@ class StorageNumpy(IStorage, np.ndarray):
                 if load_data: #FIXME aixo hauria d'afectar a l'objecte existent (aqui ja existeix a memoria... o hauria)
                     obj[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
 
+        if getattr(obj, "__doc__", None) is not None:
+            obj._persistent_props = StorageNumpy._parse_comments(obj.__doc__)
+            obj._stream_enabled = obj._persistent_props.get('stream', False)
         #print("JJ name = ", name, flush=True)
         #print("JJ _name = ", obj._name, flush=True)
         log.debug("CREATED NEW StorageNumpy storage_id=%s with input_array=%s name=%s ", storage_id, input_array is not None, name)
@@ -581,7 +592,7 @@ class StorageNumpy(IStorage, np.ndarray):
     # used as copy constructor
     def __array_finalize__(self, obj):
         if obj is None:
-            log.debug("  __array_finalize__ NEW")
+            log.debug("  __array_finalize__ NEW self.class={}".format(self.__class__))
             return
         log.debug("__array_finalize__ self.base=None?%s obj.base=None?%s", getattr(self, 'base', None) is None, getattr(obj, 'base', None) is None)
         if self.base is not None: # It is a view, therefore, copy data from object
@@ -599,14 +610,14 @@ class StorageNumpy(IStorage, np.ndarray):
             self._loaded_columns = getattr(obj, '_loaded_columns', set())
             self._is_persistent = getattr(obj, '_is_persistent', False)
             self._block_id = getattr(obj, '_block_id', None)
-            self._class_name = getattr(obj,'_class_name', 'hecuba.hnumpy.StorageNumpy')
+            self._class_name = self.__class__.__module__ + '.' + self.__class__.__name__ # Put a name like 'hecuba.hnumpy.StorageNumpy'
             self._tokens = getattr(obj,'_tokens',None)
             self._build_args = getattr(obj, '_build_args', None)
             self._persistance_needed = getattr(obj, '_persistance_needed', False)
             self._persistent_columnar = getattr(obj, '_persistent_columnar', False)
             self._numpy_full_loaded = getattr(obj, '_numpy_full_loaded', False)
 
-            if type(obj) == StorageNumpy: # Instantiate or getitem
+            if isinstance(obj, StorageNumpy): # Instantiate or getitem
                 log.debug("  array_finalize obj == StorageNumpy")
 
                 if getattr(obj, '_last_sliced_coord', None):    #getitem or split
@@ -635,7 +646,7 @@ class StorageNumpy(IStorage, np.ndarray):
             self._name               = None
             self.storage_id          = None
             self._is_persistent      = False
-            self._class_name         = getattr(obj,'_class_name', 'hecuba.hnumpy.StorageNumpy')
+            self._class_name         = self.__class__.__module__ + '.' + self.__class__.__name__ #name as 'hecuba.hnumpy.StorageNumpy'
             self._block_id           = getattr(obj, '_block_id', None)
             self._persistance_needed = False
             self._persistent_columnar= False
@@ -904,7 +915,7 @@ class StorageNumpy(IStorage, np.ndarray):
                 #if the slice is a npndarray numpy creates a copy and we do the same
                 if isinstance(sliced_coord, np.ndarray): # is there any other slicing case that needs a copy of the array????
                     result = self.view(np.ndarray)[sliced_coord] # TODO: If self is NOT loaded LOAD IT ALL BEFORE
-                    return StorageNumpy(result) # Creates a copy (A StorageNumpy from a Numpy)
+                    return self.__class__(result) # Creates a copy (A StorageNumpy from a Numpy)
 
                 self._last_sliced_coord = sliced_coord  # Remember the last getitem parameter, because it may force a new entry in the istorage at array_finalize
 
@@ -987,6 +998,7 @@ class StorageNumpy(IStorage, np.ndarray):
 
         self._hcache.poll(self._build_args.metas, [self._get_base_array()])
         self._numpy_full_loaded = True
+        return self
 
     def _persist_data(self, name, formato=0):
         """

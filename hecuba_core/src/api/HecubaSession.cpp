@@ -139,8 +139,21 @@ namespace YAML {
                     }
                     pythonString+="   '''\n";
 
-                } else return false;
-
+                } else if (typespec[1].as<std::string>() == "StorageNumpy") {
+                    pythonString="from hecuba import StorageNumpy\n\n" + pythonString;
+                    pythonString += " (StorageNumpy):\n";
+                    pythonString += "   '''\n";
+                    obj_type=ObjSpec::valid_types::STORAGENUMPY_TYPE;
+                    if (node["stream"]) {
+                        const Node stream =  node["stream"];
+                        pythonString += "   @stream\n";
+                        streamEnabled = true;
+                    }
+                    pythonString += "   '''\n";
+                } else {
+                    DBG("HecubaSession: decode: Parsed 0: " << typespec[0].as<std::string>() << " Parsed 1: "<< typespec[1].as<std::string>());
+                    return false;
+                }
                 DBG( " GENERATED: " << pythonString );
                 dmodel.o=ObjSpec(obj_type,partitionKeys,clusteringKeys,cols,pythonString);
                 if (streamEnabled) {
@@ -378,6 +391,7 @@ void HecubaSession::getMetaData(void * raw_numpy_meta, ArrayMetadata &arr_metas)
     arr_metas.byteorder = '=';
 }
 
+/* ASYNCHRONOUS */
 void HecubaSession::registerNumpy(ArrayMetadata &numpy_meta, std::string name, uint64_t* uuid) {
 
     //std::cout<< "DEBUG: HecubaSession::registerNumpy BEGIN "<< name << UUID::UUID2str(uuid)<<std::endl;
@@ -476,6 +490,7 @@ void HecubaSession::registerNumpy(ArrayMetadata &numpy_meta, std::string name, u
 
     try {
         numpyMetaWriter->write_to_cassandra(keys, values);
+        numpyMetaWriter->wait_writes_completion(); // Ensure hecuba.istorage get all updates SYNCHRONOUSLY (to avoid race conditions with poll that may request a build_remotely on this new object)!
     }
     catch (std::exception &e) {
         std::cerr << "HecubaSession::registerNumpy: Error writing" <<std::endl;
@@ -597,7 +612,7 @@ HecubaSession::~HecubaSession() {
  * a YAML file. It also generates its corresponding python generated class in
  * the same directory where the model resides or in the 'pythonSpecPath'
  * directory. */
-void HecubaSession::loadDataModel(const char * model_filename, const char * pythonSpecPath=NULL) {
+void HecubaSession::loadDataModel(const char * model_filename, const char * pythonSpecPath) {
 
     if (currentDataModel != NULL) {
         std::cerr << "WARNING: HecubaSession::loadDataModel: DataModel already defined. Discarded and load again"<<std::endl;
@@ -1073,10 +1088,15 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 //double* tmp = (double*)value;
                 //std::cout<< "DEBUG: HecubaSession::createObject BEFORE store FIRST element in NUMPY is "<< *tmp << " and second is "<<*(tmp+1)<< " 3rd " << *(tmp+2)<< std::endl;
                 array_store->store_numpy_into_cas(c_uuid, numpy_metas, value);
-                array_store->wait_stores();
 
                 o = new IStorage(this, FQid_model, config["execution_name"] + "." + id_object_str, c_uuid, array_store->getWriteCache());
+                std::string topic = std::string(UUID::UUID2str(c_uuid));
+                DBG("HecubaSession::createObject: CREATED NEW STORAGENUMPY with uuid "<< topic);
                 o->setNumpyAttributes(array_store, numpy_metas,value);
+                if (oType.isStream()) {
+                    DBG("     AND IT IS AN STREAM!");
+                    o->enableStream(topic);
+                }
 
             }
             break;
