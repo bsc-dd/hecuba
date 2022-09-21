@@ -5,12 +5,12 @@ Non-relational databases are nowadays a common solution when dealing with a huge
 
 ### Software requisites:
 
-+ GCC >= 4.8 or Intel Compiler >= 17.0.4. 
-+ CMake >= 3.3
-+ Python > 3.4 development version installed.
++ GCC >= 5.4.0
++ CMake >= 3.14
++ Python >= 3.6 development version installed.
 
 
-### Quick install in OpenSuse 42.2
+<!--- ### Quick install in OpenSuse 42.2
 
 ```bash
 # Install dependencies
@@ -18,7 +18,7 @@ sudo zypper install cmake python-devel gcc-c++ python-numpy-devel python-pip
 
 pip install hecuba
 ```
-
+-->
 
 ## Instructions to execute with Hecuba:
 
