@@ -172,7 +172,8 @@ if (NOT KAFKA)
     ExternalProject_Add(
         KAFKA   #KAFKA-prefix
         DOWNLOAD_DIR ${CMAKE_CURRENT_LIST_DIR}/dependencies
-        GIT_REPOSITORY "https://github.com/edenhill/librdkafka"
+        URL "https://github.com/edenhill/librdkafka/archive/refs/tags/v1.9.2.zip"
+        URL_HASH SHA256=4ecb0a3103022a7cab308e9fecd88237150901fa29980c99344218a84f497b86
         INSTALL_DIR ${C_BINDING_INSTALL_PREFIX}
         CMAKE_COMMAND echo
         BUILD_COMMAND ./configure --prefix=${C_BINDING_INSTALL_PREFIX}
@@ -320,7 +321,8 @@ if (NOT YAML)
     ExternalProject_Add(
         YAML    #YAML-prefix
         DOWNLOAD_DIR ${CMAKE_CURRENT_LIST_DIR}/dependencies
-        GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+        URL "https://github.com/jbeder/yaml-cpp/archive/refs/tags/yaml-cpp-0.7.0.tar.gz"
+        URL_HASH SHA256=43e6a9fcb146ad871515f0d0873947e5d497a1c9c60c58cb102a97b47208b7c3
         INSTALL_DIR ${C_BINDING_INSTALL_PREFIX}
         CMAKE_ARGS ${CMAKE_SUBPROJECT_FLAGS} -DCMAKE_INSTALL_PREFIX=${C_BINDING_INSTALL_PREFIX} -DYAML_BUILD_SHARED_LIBS=ON
     )
