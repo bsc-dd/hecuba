@@ -10,8 +10,8 @@ Non-relational databases are nowadays a common solution when dealing with a huge
 + Python >= 3.6 development version installed.
 
 ### Dependencies:
-+ Cassandra >= 4.0 [Github](https://github.com/apache/cassandra)
-+ Kafka >= 2.13
++ [Apache Cassandra](https://github.com/apache/cassandra) >= 4.0
++ [Kafka](https://kafka.apache.org) >= 2.13
 
 ### Auto-downloaded dependencies (during the installation process):
 #### python dependencies
@@ -21,12 +21,12 @@ Non-relational databases are nowadays a common solution when dealing with a huge
 + ccm
 + mock
 #### c++ dependencies
-+ Cassandra driver for C++ >= 2.14.1 [Github](https://github.com/datastax/cpp-driver)
-+ libTBB >= 2020.0 (Intel Threading Building Blocks) [Github](https://github.com/01org/tbb)
-+ libuv >= 1.11.0 [Github](https://github.com/libuv/libuv)
-+ Apache Arrow >= 0.15.1 [Github](https://github.com/apache/arrow)
-+ yaml-cpp >= 0.7.0 [Github](https://github.com/jbeder/yaml-cpp)
-+ librdkafka >= 1.9.2 [Github](https://github.com/edenhill/librdkafka)
++ [Cassandra driver for C++](https://github.com/datastax/cpp-driver) >= 2.14.1
++ [Intel Threading Building Blocks (libTBB)](https://github.com/01org/tbb) >= 2020.0
++ [libuv](https://github.com/libuv/libuv) >= 1.11.0
++ [Apache Arrow](https://github.com/apache/arrow) >= 0.15.1
++ [yaml-cpp](https://github.com/jbeder/yaml-cpp) >= 0.7.0
++ [librdkafka](https://github.com/edenhill/librdkafka) >= 1.9.2
 
 <!--- ### Quick install in OpenSuse 42.2
 
