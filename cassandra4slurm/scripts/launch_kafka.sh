@@ -53,7 +53,7 @@ launch_kafka () {
     # Start Zookeeper
     run srun  --overlap --mem=0 --nodelist $ZKNODE --ntasks=1 --nodes=1 --ntasks-per-node=1 --cpus-per-task=1 \
         --output ${C4S_HOME}/${UNIQ_ID}/zookeeper.output \
-         ${HECUBA_ROOT}/kafka/bin/zookeeper-server-start.sh ${C4S_HOME}/${UNIQ_ID}/zookeeper.properties &
+         zookeeper-server-start.sh ${C4S_HOME}/${UNIQ_ID}/zookeeper.properties &
 
     sleep 2
 
@@ -63,7 +63,7 @@ launch_kafka () {
     unset CLASSPATH
     run srun --overlap --mem=0 --nodelist $CASSANDRA_NODELIST --ntasks=$N_NODES --nodes=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 \
         --output ${C4S_HOME}/${UNIQ_ID}/kafka.output \
-        ${HECUBA_ROOT}/kafka/bin/kafka-server-start.sh ${C4S_HOME}/${UNIQ_ID}/server.properties &
+        kafka-server-start.sh ${C4S_HOME}/${UNIQ_ID}/server.properties &
     CLASSPATH="$OLDCLASSPATH"
 
     sleep 2
