@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from setuptools import setup, find_packages, Extension
 import os
+import errno
 import subprocess
 import sys
 import glob
@@ -36,9 +37,9 @@ def cmake_build():
         if subprocess.call(cmake_args) != 0:
             raise EnvironmentError("error calling cmake")
     except OSError as e:
-        if e.errno == os.errno.ENOENT:
+        if e.errno == errno.ENOENT:
             # CMake not found error.
-            raise OSError(os.errno.ENOENT, os.strerror(os.errno.ENOENT), 'cmake')
+            raise OSError(errno.ENOENT, os.strerror(errno.ENOENT), 'cmake')
         else:
             # Different error
             raise e
