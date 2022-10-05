@@ -298,7 +298,7 @@ if (NOT ARROW)
             URL "https://archive.apache.org/dist/arrow/arrow-10.0.1/apache-arrow-10.0.1.tar.gz"
             URL_HASH SHA256=c814e0670112a22c1a6ec03ab420a52ae236a9a42e9e438c3cbd37f37e658fb3                                                                                                                       CONFIGURE_COMMAND ""
             BUILD_COMMAND     ${CMAKE_COMMAND} -E echo "==== Starting configure build"
-            COMMAND           ${CMAKE_COMMAND} cpp -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_INSTALL_PREFIX=${C_BINDING_INSTALL_PREFIX} -DARROW_BUILD_STATIC=false
+            COMMAND           ${CMAKE_COMMAND} -j ${JOBS} cpp -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_INSTALL_PREFIX=${C_BINDING_INSTALL_PREFIX} -DARROW_BUILD_STATIC=false
             COMMAND           ${CMAKE_COMMAND} -E echo "==== Starting Patch"
             COMMAND           sed -i s/_static//g src/arrow/CMakeFiles/arrow_shared.dir/link.txt
             COMMAND           ${CMAKE_COMMAND} -E echo "==== Finished Patch"
