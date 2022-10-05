@@ -7,7 +7,7 @@ from typing import Tuple
 from math import ceil
 
 import numpy as np
-from hfetch import HNumpyStore, HArrayMetadata
+from hecuba.hfetch import HNumpyStore, HArrayMetadata
 
 from . import config, log, Parser
 from .IStorage import IStorage

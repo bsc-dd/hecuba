@@ -112,7 +112,7 @@ class IStorageSplitLocalityTest(unittest.TestCase):
 class IStorageSplitLocalityTestVnodes(IStorageSplitLocalityTest):
     @classmethod
     def setUpClass(cls):
-        from hfetch import disconnectCassandra
+        from hecuba.hfetch import disconnectCassandra
         disconnectCassandra()
         from .. import set_ccm_cluster
         test_config.ccm_cluster.clear()
@@ -124,17 +124,17 @@ class IStorageSplitLocalityTestVnodes(IStorageSplitLocalityTest):
             if not TEST_DEBUG:
                 raise ex
 
-        import hfetch
+        import hecuba.hfetch
         import hecuba
         import importlib
-        importlib.reload(hfetch)
+        importlib.reload(hecuba.hfetch)
         import importlib
         importlib.reload(hecuba)
         super(IStorageSplitLocalityTest, cls).setUpClass()
 
     @classmethod
     def tearDownClass(cls):
-        from hfetch import disconnectCassandra
+        from hecuba.hfetch import disconnectCassandra
         disconnectCassandra()
 
         test_config.ccm_cluster.clear()
