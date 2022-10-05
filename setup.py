@@ -53,6 +53,26 @@ def cmake_build():
     if subprocess.call(["make", jobs, "-C", "./build", "install"]) != 0:
         raise EnvironmentError("error calling make install")
 
+
+def copy_files_to_dir(extra_files, destination_folder):
+    #copy list of 'extra_files' to 'destination_folder' (which is DELETED and RECREATED)
+
+    import os
+    import shutil
+
+    shutil.rmtree(destination_folder, ignore_errors=True)
+    os.makedirs(destination_folder, 0o755, exist_ok=True)
+
+    # fetch all files
+    for file_name in extra_files:
+        # construct full file path
+        destination = destination_folder + "/" + os.path.basename(file_name)
+        # copy only files
+        if os.path.isfile(file_name):
+           shutil.copy(file_name, destination)
+           print('copied {} to {}'.format(file_name, destination_folder))
+
+
 def get_var(var):
     value = os.environ.get(var,'')
     return [p for p in value.split(':') if p != '']
@@ -61,15 +81,21 @@ def get_var(var):
 
 
 def setup_packages():
-    # We first build C++ libraries
-    if 'build' in sys.argv:
+
+    if 'build' in sys.argv or 'egg_info' in sys.argv:
+        ## We first build C++ libraries
+        ## 'egg_info' is the parameter used for 'python -m build' the first time is invoked and we need the libraries created
+        ## TODO avoid the compilation again in the isolated virtual environment (as it is already compiled)
         cmake_build()
 
-    # TODO use some flag to detect that build has already been done instead of this
-    if 'install' in sys.argv:
-        cmake_build()
+        # Copy libraries and other to a directory INSIDE its own package to enable wheel creation
+        extra_files = package_files('build/lib') + package_files('build/lib64')
+        copy_files_to_dir(extra_files, "hecuba_py/hecuba/libs")
+        copy_files_to_dir(['storageAPI/storageItf/target/StorageItf-1.0-jar-with-dependencies.jar'], "storageAPI/storage/ITF")
+        copy_files_to_dir(glob.glob('build/bin/*'), "hecuba_py/hecuba/bin")
 
-    extra_files = package_files('build/lib') + package_files('build/lib64')
+
+    extra_files = package_files('hecuba_py/hecuba/libs')
 
     PATH_LIBS = get_var('LD_LIBRARY_PATH')
     PATH_INCLUDE = get_var('CPATH') + get_var('CPLUS_INCLUDE_PATH') + get_var('C_INCLUDE_PATH')
@@ -77,15 +103,16 @@ def setup_packages():
         PATH_INCLUDE += [c_binding_path + "/include"]
         PATH_LIBS += [c_binding_path + "/lib"]
 
+    print ("DEBUG: numpy.get_include=>{}<".format(numpy.get_include()),flush=True)
     extensions = [
         Extension(
             "hfetch",
             sources=glob.glob("hecuba_core/src/py_interface/*.cpp"),
             include_dirs=['hecuba_core/src/', 'build/include', numpy.get_include()] + PATH_INCLUDE,
-            libraries=['hfetch', 'cassandra'],
-            library_dirs=['build/lib', 'build/lib64'] + PATH_LIBS,
+            libraries=['hfetch'],
+            library_dirs=['build/lib'],
             extra_compile_args=['-std=c++11'],
-            extra_link_args=['-Wl,-rpath=$ORIGIN']
+            extra_link_args=['-Wl,-rpath=$ORIGIN/hecuba/libs']
         ),
     ]
 
@@ -96,7 +123,12 @@ def setup_packages():
                     packages=['hecuba', 'storage'],  # find_packages(),
                     install_requires=['cassandra-driver>=3.7.1', 'numpy>=1.16'],
                     zip_safe=False,
-                    data_files=[('', extra_files)],
+                    include_package_data=True, # REQUIRED
+                    package_data={ # REQUIRED
+                        "hecuba.libs" : extra_files,
+                        "storage.ITF" : glob.glob("storageAPI/storage/ITF/*.jar"),
+                        "hecuba.bin"  : glob.glob("hecuba_py/hecuba/bin/*"),
+                                  },
 
                     # metadata for upload to PyPI
                     license="Apache License Version 2.0",

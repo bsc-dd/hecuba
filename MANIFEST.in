@@ -1,0 +1,15 @@
+graft hecuba_core
+
+prune hecuba_core/tests
+
+# NOT WORKING
+#graft build/lib
+#graft build/bin
+#graft build/include
+
+graft hecuba_py/hecuba
+graft storageAPI/storage
+
+# Exclude generated files
+prune */__pycache__
+global-exclude *.pyc *.pyo *.pyd *.swp *.bak *~
