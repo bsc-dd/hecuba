@@ -55,7 +55,7 @@ def turning_down_cassandra():
         return
 
     print("Turning down Cassandra")
-    from hfetch import disconnectCassandra
+    from hecuba.hfetch import disconnectCassandra
     disconnectCassandra()
     test_config.ccm_cluster.stop()
     test_config.ccm_cluster.clear()

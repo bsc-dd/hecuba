@@ -106,13 +106,13 @@ def setup_packages():
     print ("DEBUG: numpy.get_include=>{}<".format(numpy.get_include()),flush=True)
     extensions = [
         Extension(
-            "hfetch",
+            "hecuba.hfetch",
             sources=glob.glob("hecuba_core/src/py_interface/*.cpp"),
             include_dirs=['hecuba_core/src/', 'build/include', numpy.get_include()] + PATH_INCLUDE,
             libraries=['hfetch'],
             library_dirs=['build/lib'],
             extra_compile_args=['-std=c++11'],
-            extra_link_args=['-Wl,-rpath=$ORIGIN/hecuba/libs']
+            extra_link_args=['-Wl,-rpath=$ORIGIN/libs']
         ),
     ]
 

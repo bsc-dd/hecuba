@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 
 from hecuba import config, StorageDict
-from hfetch import HArrayMetadata
+from hecuba.hfetch import HArrayMetadata
 
 
 class ConcurrentDict(StorageDict):
@@ -60,7 +60,7 @@ class HfetchTests(unittest.TestCase):
         self.assertEqual(sys.getrefcount(obj), 2)
 
     def test_register(self):
-        from hfetch import HArrayMetadata
+        from hecuba.hfetch import HArrayMetadata
         # connecting c++ bindings
         from hecuba import config
         config.session.execute("DROP KEYSPACE IF EXISTS test_np_meta;")
