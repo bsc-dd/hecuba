@@ -299,7 +299,7 @@ if (NOT ARROW)
             URL_HASH SHA256=9a2c58c72310eafebb4997244cbeeb8c26696320d0ae3eb3e8512f75ef856fc9
             CONFIGURE_COMMAND ""
             BUILD_COMMAND     ${CMAKE_COMMAND} -E echo "==== Starting configure build"
-            COMMAND           ${CMAKE_COMMAND} cpp -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_INSTALL_PREFIX=${C_BINDING_INSTALL_PREFIX} -DARROW_BUILD_STATIC=false
+            COMMAND           ${CMAKE_COMMAND} -j ${JOBS} cpp -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_INSTALL_PREFIX=${C_BINDING_INSTALL_PREFIX} -DARROW_BUILD_STATIC=false
             COMMAND           ${CMAKE_COMMAND} -E echo "==== Starting Patch"
             COMMAND           sed -i s/_static//g src/arrow/CMakeFiles/arrow_shared.dir/link.txt
             COMMAND           ${CMAKE_COMMAND} -E echo "==== Finished Patch"
