@@ -125,8 +125,6 @@ SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
 add_library(hfetch SHARED ${SOURCE_FILES} ${HEADER_FILES})
 include_directories(${CORE_SRC_DIR} ${CORE_SRC_DIR}/api)
 
-target_link_libraries(hfetch yaml-cpp)
-
 set_target_properties(hfetch
         PROPERTIES
         #	PREFIX ""
