@@ -17,9 +17,7 @@ def package_files(directory):
                 paths.append(os.path.join(path, filename))
     return paths
 
-
-def cmake_build():
-    global c_binding_path
+def get_c_binding():
     import re
     c_bind_re = re.compile("--c_binding=*")
     try:
@@ -28,6 +26,10 @@ def cmake_build():
         sys.argv.remove(c_binding_path_opt)
     except (IndexError, StopIteration):
         c_binding_path=None
+    return c_binding_path
+
+def cmake_build():
+    global c_binding_path
 
     try:
         cmake_args=["cmake", "-H./hecuba_core", "-B./build"]
@@ -81,6 +83,9 @@ def get_var(var):
 
 
 def setup_packages():
+    global c_binding_path
+
+    c_binding_path = get_c_binding()
 
     if 'build' in sys.argv or 'egg_info' in sys.argv:
         ## We first build C++ libraries
@@ -88,14 +93,10 @@ def setup_packages():
         ## TODO avoid the compilation again in the isolated virtual environment (as it is already compiled)
         cmake_build()
 
-        # Copy libraries and other to a directory INSIDE its own package to enable wheel creation
-        extra_files = package_files('build/lib') + package_files('build/lib64')
-        copy_files_to_dir(extra_files, "hecuba_py/hecuba/libs")
+        ## Copy 'jar' and 'arrow_helper' INSIDE package (hecuba and storage) so it gets included in the wheel
         copy_files_to_dir(['storageAPI/storageItf/target/StorageItf-1.0-jar-with-dependencies.jar'], "storageAPI/storage/ITF")
         copy_files_to_dir(glob.glob('build/bin/*'), "hecuba_py/hecuba/bin")
 
-
-    extra_files = package_files('hecuba_py/hecuba/libs')
 
     PATH_LIBS = get_var('LD_LIBRARY_PATH')
     PATH_INCLUDE = get_var('CPATH') + get_var('CPLUS_INCLUDE_PATH') + get_var('C_INCLUDE_PATH')
@@ -110,9 +111,8 @@ def setup_packages():
             sources=glob.glob("hecuba_core/src/py_interface/*.cpp"),
             include_dirs=['hecuba_core/src/', 'build/include', numpy.get_include()] + PATH_INCLUDE,
             libraries=['hfetch'],
-            library_dirs=['build/lib'],
+            library_dirs=['build/lib'] + PATH_LIBS,
             extra_compile_args=['-std=c++11'],
-            extra_link_args=['-Wl,-rpath=$ORIGIN/libs']
         ),
     ]
 
@@ -125,7 +125,6 @@ def setup_packages():
                     zip_safe=False,
                     include_package_data=True, # REQUIRED
                     package_data={ # REQUIRED
-                        "hecuba.libs" : extra_files,
                         "storage.ITF" : glob.glob("storageAPI/storage/ITF/*.jar"),
                         "hecuba.bin"  : glob.glob("hecuba_py/hecuba/bin/*"),
                                   },
