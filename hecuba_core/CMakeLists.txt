@@ -254,7 +254,7 @@ endif ()
 
 
 
-if (NOT TBB_FOUND)
+if (NOT TBB)
     message("Downloading Intel TBB")
     unset(TBB)
     set(build_prefix tbb_prefix)
