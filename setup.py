@@ -118,7 +118,7 @@ def setup_packages():
 
     # compute which libraries were built
     metadata = dict(name="Hecuba",
-                    version="1.2.2",
+                    version="1.2.3",
                     package_dir={'hecuba': 'hecuba_py/hecuba', 'storage': 'storageAPI/storage'},
                     packages=['hecuba', 'storage'],  # find_packages(),
                     install_requires=['cassandra-driver>=3.7.1', 'numpy>=1.16'],
