@@ -340,7 +340,7 @@ class Config:
                     log.error("Error executing query %s" % query)
                     raise e
 
-        from hfetch import connectCassandra, HArrayMetadata
+        from hecuba.hfetch import connectCassandra, HArrayMetadata
         # connecting c++ bindings
         connectCassandra(singleton.contact_names, singleton.nodePort)
 

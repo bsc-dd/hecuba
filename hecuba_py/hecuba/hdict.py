@@ -9,7 +9,7 @@ import numpy as np
 from . import config, log, Parser
 from .storageiter import NamedItemsIterator, NamedIterator
 from .hnumpy import StorageNumpy
-from hfetch import Hcache
+from hecuba.hfetch import Hcache
 
 from .IStorage import IStorage
 from .tools import get_istorage_attrs, build_remotely, basic_types, _min_token, _max_token, storage_id_from_name

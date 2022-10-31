@@ -3,7 +3,7 @@ import string
 import uuid
 from collections import namedtuple
 
-from hfetch import Hcache
+from hecuba.hfetch import Hcache
 
 from . import config, log
 from .IStorage import IStorage

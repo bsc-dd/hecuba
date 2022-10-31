@@ -330,7 +330,7 @@ class StorageDictSplitTestbase(unittest.TestCase):
 class StorageDictSlitTestVnodes(StorageDictSplitTestbase):
     @classmethod
     def setUpClass(cls):
-        from hfetch import disconnectCassandra
+        from hecuba.hfetch import disconnectCassandra
         disconnectCassandra()
         from .. import test_config, set_ccm_cluster
         test_config.ccm_cluster.clear()
@@ -342,10 +342,10 @@ class StorageDictSlitTestVnodes(StorageDictSplitTestbase):
             if not TEST_DEBUG:
                 raise ex
 
-        import hfetch
+        import hecuba.hfetch
         import hecuba
         import importlib
-        importlib.reload(hfetch)
+        importlib.reload(hecuba.hfetch)
         import importlib
         importlib.reload(hecuba)
         config.session.execute("DROP KEYSPACE IF EXISTS my_app")
@@ -357,7 +357,7 @@ class StorageDictSlitTestVnodes(StorageDictSplitTestbase):
     def tearDownClass(cls):
         config.session.execute("DROP KEYSPACE IF EXISTS my_app")
         from .. import test_config
-        from hfetch import disconnectCassandra
+        from hecuba.hfetch import disconnectCassandra
         disconnectCassandra()
 
         test_config.ccm_cluster.clear()
