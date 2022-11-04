@@ -39,7 +39,6 @@ This will install in the default installation directories, typically the system,
 
 ## Manual installation
 
-
 The first step is to download the code.
 
 ```bash
@@ -48,8 +47,27 @@ git clone https://github.com/bsc-dd/hecuba.git hecuba_repo
 cd hecuba_repo
 ```
 
-Then it is only necessary to run the `setup.py` Python script, which performs all the steps to compile and install Hecuba in the system. Notice that Hecuba is composed by Python code and C++ code. The `setup.py` script, on the one hand, compiles the C++ code and installs the C++ header files and libraries, and on the other hand, generates and installs a Python package.
-The parameters passed to the `setup.py` script indicate where to install Hecuba:
+Then it is only necessary to run the `setup.py` Python script, which performs all the steps to compile and install Hecuba in the system. Notice that Hecuba is composed by Python code and C++ code. The `setup.py` script takes care of both, on the one hand, compiles the C++ Hecuba code and its dependencies and installs their C++ header files and generated libraries; and on the other hand, installs the Python package.
+The parameters passed to the `setup.py` script indicates what to do (build or install) and  where to install Hecuba and its dependencies:
+
+### Compilation
+
+Use the following command to compile Hecuba C++ library, its dependencies and the Python wrapper:
+
+```bash
+python setup.py build
+
+```
+
+At first the dependencies are checked in the machine, looking at the directories stated in `LD_LIBRARY_PATH` and the hecuba's compilation directory (`build/lib` by default). Any unmet dependency will be downloaded, compiled and installed in the compilation directory (`build/lib`).
+
+You may use the `--c_binding` flag to set the directory where to search for libraries and store the new generated libraries.
+
+This procedure launches CMake to build the dependencies, which may take some time.
+
+
+### Installation
+Once compiled, you may install the Python package using one of the following commands:
 
 ```bash
 # (1) To install hecuba to the default system directory
@@ -58,17 +76,15 @@ python setup.py install
 python setup.py install --user
 # (3) Install to a user-defined path $CUSTOM_PATH
 python setup.py install --prefix=$CUSTOM_PATH
-# (4) Install to a user-defined path $CUSTOM_PATH and with a custom directory for the libraries
-python setup.py install --prefix=$CUSTOM_PATH --c_binding=$HECUBA_LIBS_PATH
 ```
 
-The option `--c_binding` indicates the target location for the C++ libraries (`$HECUBA_LIBS_PATH/lib`) and headers (`$HECUBA_LIBS_PATH/include`). If this option is not specified then the target directory will be the same than the target directory for the Python package.
+Where the `--user` and `--prefix` flags are used to define different directories for the Python package.
+The target directory for the Python package can be the default system directory (1), the user space (`$HOME/.local`) (2) or a custom path (3).
 
-The target directory for the Python package can be the default system directory (1), the user space (`$HOME/.local`) (2) or a custom path (3 and 4).
+Warning: Be sure that the `PYTHONPATH` variable contain the path to the Hecuba Python package in the case (3).
 
-Warning: Be sure that the `PYTHONPATH` and `LD_LIBRARY_PATH` variables contain the path to the Hecuba Python package and the path to the C++ Hecuba libraries respectively.
+Warning: The python wrapper stores an RPATH for the dependencies, therefore the used/generated libraries during compilation phase must always be accessible at the same path (they can not be moved or deleted).
 
-This procedure launches CMake to build the dependencies, which may take some time.
 
 #### Compilation problems resolution
 If CMake selects a non-compliant compiler, it can be explicitly selected by defining the environment variables `CC=/custom/path/gcc` and `CXX=/custom/path/g++`. Then remove the `hecuba_core/build` folder (where all the CMake cache files an generated object files reside) and restart the installation process.
