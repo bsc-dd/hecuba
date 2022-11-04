@@ -28,15 +28,14 @@ Non-relational databases are nowadays a common solution when dealing with a huge
 + [yaml-cpp](https://github.com/jbeder/yaml-cpp) >= 0.7.0
 + [librdkafka](https://github.com/edenhill/librdkafka) >= 1.9.2
 
-<!--- ### Quick install in OpenSuse 42.2
+### Automatic install
+
+To ease Hecuba installation we have prepared a wheel package with all the required dependencies, and installable through the 'pip' tool:
 
 ```bash
-# Install dependencies
-sudo zypper install cmake python-devel gcc-c++ python-numpy-devel python-pip
-
 pip install hecuba
 ```
--->
+This will install in the default installation directories, typically the system, but you can use the '--user' flag or use a virtual environment to change the target directory.
 
 ## Manual installation
 
