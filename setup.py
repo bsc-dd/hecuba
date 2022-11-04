@@ -98,11 +98,16 @@ def setup_packages():
         copy_files_to_dir(glob.glob('build/bin/*'), "hecuba_py/hecuba/bin")
 
 
+    extra_link_args=[]
     PATH_LIBS = get_var('LD_LIBRARY_PATH')
     PATH_INCLUDE = get_var('CPATH') + get_var('CPLUS_INCLUDE_PATH') + get_var('C_INCLUDE_PATH')
     if c_binding_path:
         PATH_INCLUDE += [c_binding_path + "/include"]
         PATH_LIBS += [c_binding_path + "/lib"]
+        # If --c_binding is used, hardcode the RPATH into the Extension so it
+        # will work in the installed machine no matter where libraries are
+        # located (and wheel generation will solve the dependencies anyway)
+        extra_link_args += [ '-Wl,-rpath='+c_binding_path+'/lib']
 
     print ("DEBUG: numpy.get_include=>{}<".format(numpy.get_include()),flush=True)
     extensions = [
@@ -113,6 +118,7 @@ def setup_packages():
             libraries=['hfetch'],
             library_dirs=['build/lib'] + PATH_LIBS,
             extra_compile_args=['-std=c++11'],
+            extra_link_args=['-Wl,-rpath='+os.getcwd()+'/build/lib'] + extra_link_args,
         ),
     ]
 
