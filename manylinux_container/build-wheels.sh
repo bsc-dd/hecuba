@@ -32,7 +32,7 @@ for PYBIN in /opt/python/cp3*; do
 
     "${PYBIN}/bin/pip" install -r /io/requirements.txt
     cd /io
-    rm -rf build dist
+    rm -rf build dist Hecuba.egg-info hecuba_py/hecuba/bin
     "${PYBIN}/bin/python" -m build
     mkdir -p wheelhouse/${VNAME}
     mv dist/* wheelhouse/${VNAME}
