@@ -35,7 +35,10 @@ To ease Hecuba installation we have prepared a wheel package with all the requir
 ```bash
 pip install hecuba
 ```
+
 This will install in the default installation directories, typically the system, but you can use the '--user' flag or use a virtual environment to change the target directory.
+
+This installation only supports X86_64 architectures and has used GCC to generate the libraries.
 
 ## Manual installation
 
