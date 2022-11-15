@@ -1202,6 +1202,8 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
         std::cerr<< "read_numpy_from_cas_arrow called, but HECUBA_ARROW is not enabled" << std::endl;
         return;
     }
+    std::cout << "read_numpy_from_cas_arrow called, HECUBA_ARROW is enabled" << std::endl;
+    std::cout << "this->arrow_optane: " << this->arrow_optane << std::endl;
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
     std::vector<const TupleRow *> result;
@@ -1219,7 +1221,10 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
     std::string base_arrow_file_name;
     if (this->arrow_optane) {
         //open devdax access
-        arrow_file_name = std::string(this->arrow_path + "/arrow_persistent_heap");
+        //arrow_file_name = std::string(this->arrow_path + "/arrow_persistent_heap");
+        arrow_file_name = std::string("/dev/dax0.0"); // /dev/daxX.X
+        //TODO get devdax from ¿arrow_path?
+        std::cout << "arrow_file_name (OPTANE): " << arrow_file_name << std::endl;
         fdIn = open_arrow_file(arrow_file_name.c_str()); // FIXME a distributed version is needed...
     } else {
         std::string name (this->TN);
@@ -1272,30 +1277,36 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
             //}
             //std::cout << "File size from lseek: " << filesize << std::endl;
 
-            uint32_t filesize = 0;
-            int retries = 0;
-            do {
-                filesize = lseek(fdIn, 0, SEEK_END);
-                //std::cout << "File size from lseek: " << filesize << std::endl;
-                if (filesize < 0) {
-                    perror("unable to lseek to end of file");
-                    throw ModuleException("lseek error " + arrow_file_name);
-                } else if (filesize < *arrow_size) {
-                    ++retries;
-                    std::cout << "File size from lseek: " << filesize << std::endl;
-                    std::cout << "File size from Cassandra: " << *arrow_size << std::endl;
-                    std::cout << "coherent arrow file size  retry " << retries << "/"<< MAX_RETRIES << std::endl;
-                    sleep(1);
-                }
-                //int start_file = lseek(fdIn, 0, SEEK_SET);
-                //if (start_file < 0) {
-                //    perror("unable to lseek to start of file");
-                //    throw ModuleException("lseek error " + arrow_file_name);
-                //}
+            if (!this->arrow_optane) {
+                uint32_t filesize = 0;
+                int retries = 0;
+                do {
+                    filesize = lseek(fdIn, 0, SEEK_END);
+                    //std::cout << "File size from lseek: " << filesize << std::endl;
+                    if (filesize < 0) {
+                        perror("unable to lseek to end of file");
+                        throw ModuleException("lseek error " + arrow_file_name);
+                    } else if (filesize < *arrow_size) {
+                        ++retries;
+                        std::cout << "File size from lseek: " << filesize << std::endl;
+                        std::cout << "File size from Cassandra: " << *arrow_size << std::endl;
+                        std::cout << "coherent arrow file size  retry " << retries << "/"<< MAX_RETRIES << std::endl;
+                        sleep(1);
+                    }
+                    //int start_file = lseek(fdIn, 0, SEEK_SET);
+                    //if (start_file < 0) {
+                    //    perror("unable to lseek to start of file");
+                    //    throw ModuleException("lseek error " + arrow_file_name);
+                    //}
 
-            } while (filesize < *arrow_size and retries < MAX_RETRIES);
-            if (retries == MAX_RETRIES) {
-                throw ModuleException("incomplete arrow file error");
+                } while (filesize < *arrow_size and retries < MAX_RETRIES);
+                if (retries == MAX_RETRIES) {
+                    throw ModuleException("incomplete arrow file error");
+                }
+            } else { //this->arrow_optane 
+            //TODO DISTRIBUTED
+            //arrow file is inside another one much bigger (the Optane: /dev/daxX.X), therefore an lseek to fdIn does not work since fdIn points towards devdax
+                
             }
 
 
@@ -1314,6 +1325,7 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
                 page_offset = dd_addr-page_addr;
                 //allocates in memory [...]
                 total_arrow_size = *arrow_size+page_offset;
+                std::cout << "arrow_size: " << *arrow_size << std::endl;
             } else { /* !OPTANE */
                 page_addr = 0;
                 total_arrow_size = *arrow_size;
