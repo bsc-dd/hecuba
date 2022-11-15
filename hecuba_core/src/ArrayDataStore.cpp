@@ -1297,7 +1297,6 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
         return;
     }
 #ifdef ARROW
->>>>>>> Fix python installation for ARROW
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
     std::vector<const TupleRow *> result;
