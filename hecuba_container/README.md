@@ -52,8 +52,11 @@ The *runhecubaapp-docker* script gets the cassandra node's IPs (asking the *cass
 or you can run your own python application using its absolute PATH (located in some path under your HOME directory):
 
 ~~~
-	runhecubaapp-docker python3 $PWD/your_own_app.py
+	runhecubaapp-docker python3 $PWD/your_own_app.py arg1 arg2 ...
 ~~~
 
 (Here you can see the trick of sharing the HOME directory inside the same path in the directory)
 
+Configuring environment
+-----------------------
+You may create a configuration file *hecuba_environment* in the *$HOME/.c4s/conf* path to export any environment variable you want to use inside the container and it will be sourced before your application.
