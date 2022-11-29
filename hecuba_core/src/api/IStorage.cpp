@@ -3,6 +3,7 @@
 
 #include <regex>
 #include <boost/uuid/uuid.hpp>
+#include <typeinfo>
 #include "debug.h"
 
 #define ISKEY true
@@ -26,6 +27,8 @@ IStorage::keysIterator IStorage::begin() {
 }
 
 IStorage::keysIterator IStorage::end()   { return keysIterator(); } // NULL is the placeholder for last element
+
+IStorage::IStorage() {}
 
 IStorage::IStorage(HecubaSession* session, std::string id_model, std::string id_object, uint64_t* storage_id, CacheTable* dataAccess) {
 	this->currentSession = session;
@@ -75,6 +78,9 @@ const std::string& IStorage::getName() const {
     return id_obj;
 }
 
+const std::string& IStorage::getTableName() const {
+    return tableName;
+}
 void
 IStorage::sync(void) {
     this->dataWriter->flush_elements();
@@ -612,4 +618,142 @@ bool IStorage::isStream() {
 void IStorage::enableStream(std::string topic) {
     streamEnabled=true;
     this->dataWriter->enable_stream(topic.c_str(),(std::map<std::string, std::string>&)this->currentSession->config);
+}
+
+void IStorage::setClassName(std::string name) {
+	this->class_name = name;
+}
+std::string IStorage::getClassName() {
+	return this->class_name;
+}
+
+void IStorage::setIdModel(std::string name) {
+	this->id_model=name;
+}
+
+void IStorage::setSession(HecubaSession *s) {
+	this->currentSession = s;
+}
+HecubaSession * IStorage::getCurrentSession() {
+	return(this->currentSession);
+}
+
+// file name: execution_name_class_name+.py
+// current directory
+// if the file already exists appends the new definition at the end
+
+void IStorage::writePythonSpec() {
+        std::string pythonFileName =  this->getClassName() + ".py";
+        std::ofstream fd(pythonFileName, std::ofstream::app);
+        fd << this->getPythonSpec();
+        fd.close();
+
+}
+void IStorage::setObjSpec(ObjSpec oSpec) {this->IStorageSpec=oSpec;}
+ObjSpec IStorage::getObjSpec() {return IStorageSpec;}
+void IStorage::setPythonSpec(std::string pSpec) {this->pythonSpec=pSpec;}
+std::string IStorage::getPythonSpec() {
+	if (this->pythonSpec.empty()) {
+		this->generatePythonSpec();
+	}
+	return this->pythonSpec;
+
+}
+void IStorage::setObjectName(std::string id_obj) {
+	this->id_obj = id_obj;
+}
+std::string IStorage::getTableName(){
+	return(this->tableName);
+}
+void IStorage::setTableName(std::string tableName) {
+	this->tableName = tableName;
+}
+
+bool IStorage::is_pending_to_persist() {
+	return this->pending_to_persist;
+}
+
+void IStorage::make_persistent(const std::string  id_obj) {
+	
+	std::string id_object_str;
+	//if the object is not registered, i.e. the class_name is empty, we return error
+
+	if (class_name.empty()) {
+		throw std::runtime_error("Trying to persist a non-registered object with name "+ id_obj);
+
+	}
+
+	if (id_obj.empty()) { //No name used
+		throw std::runtime_error("Trying to persist with an empty name ");
+	} else {
+		id_object_str = std::string(id_obj);
+	}
+	
+	this->setObjectName(id_object_str);
+	this->assignTableName(id_object_str, getClassName()); //depends on the type of persistent object
+
+	std::string name(currentSession->config["execution_name"] + "." + id_object_str);
+	uint64_t *c_uuid=UUID::generateUUID5(name.c_str()); // UUID for the new object
+
+	ObjSpec oType = getObjSpec();
+	bool new_element = true;
+	std::string query = "CREATE TABLE " +
+				currentSession->config["execution_name"] + "." + this->tableName +
+				oType.table_attr;	
+
+	CassError rc = currentSession->run_query(query);
+	if (rc != CASS_OK) {
+		if (rc == CASS_ERROR_SERVER_ALREADY_EXISTS ) {
+                        new_element = false; //OOpps, creation failed. It is an already existent object.
+                } else if (rc == CASS_ERROR_SERVER_INVALID_QUERY) {
+                        std::cout<< "IStorage::make_persistent: Keyspace "<< currentSession->config["execution_name"]<< " not found. Creating keyspace." << std::endl;
+                        std::string create_keyspace = std::string(
+                                "CREATE KEYSPACE IF NOT EXISTS ") + currentSession->config["execution_name"] +
+                            std::string(" WITH replication = ") +  currentSession->config["replication"];
+                        rc = currentSession->run_query(create_keyspace);
+                        if (rc != CASS_OK) {
+                            std::string msg = std::string("IStorage::make_persistent: Error creating keyspace ") + create_keyspace;
+                            throw ModuleException(msg);
+                        } else {
+                            rc = currentSession->run_query(query);
+                            if (rc != CASS_OK) {
+                                if (rc == CASS_ERROR_SERVER_ALREADY_EXISTS) {
+                                    new_element = false; //OOpps, creation failed. It is an already existent object.
+                                }  else {
+                                    std::string msg = std::string("IStorage::make_persistent: Error executing query ") + query;
+                                    throw ModuleException(msg);
+                                }
+                            }
+                        }
+                } else {
+                        std::string msg = std::string("IStorage::make_persistent: Error executing query ") + query;
+                        throw ModuleException(msg);
+                }
+        }
+	persist_metadata(c_uuid); //depends on the type of persistent object
+				  // TODO: deal with the case of already existing dictionaries: new_element == false
+
+        //  Create Writer
+	std::vector<config_map>* keyNamesDict = oType.getKeysNamesDict();
+	std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
+	
+	std::string topic = std::string(UUID::UUID2str(c_uuid));
+	
+	CacheTable *reader = currentSession->getStorageInterface()->make_cache(id_object_str.c_str(),
+				currentSession->config["execution_name"].c_str(), *keyNamesDict, *colNamesDict, currentSession->config);
+
+	delete keyNamesDict;
+	delete colNamesDict;
+
+        this->storageid = c_uuid;
+        this->dataAccess = reader;
+        this->dataWriter = reader->get_writer();
+	this->data = NULL;
+	this->pending_to_persist=false;
+	this->persistent=true;
+
+	if (oType.isStream()) {
+		enableStream(topic);
+	}	
+
 }

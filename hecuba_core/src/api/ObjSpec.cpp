@@ -46,6 +46,27 @@ std::map<std::string, std::string> ObjSpec::yaml_to_cass_conversion {
                     //{ //TODO "tuple"
 };
 
+std::map<std::string, std::string> ObjSpec::c_to_cass_conversion {
+                    //{ "counter",  "counter"},
+                    { "b",     "boolean"},
+                    //{ "???",      "decimal"},
+                    { "d",   "double"},
+                    { "i",      "int"},
+                    { "l",     "bigint"},
+                    //{ "blob",     "blob"},
+                    { "f",    "float"},
+		    {"basic_string", "text"}
+                    //{ "timestamp","???"},
+                    //{ "time",     "time"},
+                    //{ "date",     "date"},
+                    //{ //TODO "list",
+                    //{ //TODO "set",
+                    //{ //TODO "map",
+                    //{ //TODO "tuple"
+};
+
+
+
 ObjSpec::ObjSpec() {}
 
 ObjSpec::ObjSpec(enum valid_types type, std::vector<std::pair<std::string, std::string>>partK, std::vector<std::pair<std::string, std::string>> clustK, std::vector<std::pair<std::string, std::string>> c, std::string pythonString){
@@ -73,6 +94,21 @@ std::string ObjSpec::yaml_to_cass(const std::string attr_type) {
         res = ObjSpec::yaml_to_cass_conversion.at(attr_type);
     } catch( std::out_of_range &e) {
         res = attr_type;
+    }
+    return res;
+}
+
+std::string ObjSpec::c_to_cass(const std::string attr_type) {
+
+    std::string res,type;
+    try{
+        res = ObjSpec::c_to_cass_conversion.at(attr_type);
+    } catch( std::out_of_range &e) {
+	int32_t st;
+	type =abi::__cxa_demangle(attr_type.c_str(), NULL, NULL, &st);
+	if (type.find("basic_string") != std::string::npos)
+		res="text";
+        else res = attr_type;
     }
     return res;
 }

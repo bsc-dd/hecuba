@@ -31,6 +31,9 @@ def get_c_binding():
 def cmake_build():
     global c_binding_path
 
+    jobs = get_var("CMAKE_BUILD_PARALLEL_LEVEL")
+    jobs = "-j{}".format(jobs[0] if jobs else 1)
+    print("JOBS={}".format(jobs), flush=True)
     try:
         cmake_args=["cmake", "-H./hecuba_core", "-B./build"]
         if c_binding_path:
@@ -46,9 +49,6 @@ def cmake_build():
             # Different error
             raise e
 
-    jobs = get_var("CMAKE_BUILD_PARALLEL_LEVEL")
-    jobs = "-j{}".format(jobs[0] if jobs else 1)
-    print("JOBS={}".format(jobs), flush=True)
     if subprocess.call(["make", jobs, "-C", "./build"]) != 0:
         raise EnvironmentError("error calling make build")
 

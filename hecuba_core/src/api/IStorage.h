@@ -17,6 +17,7 @@ class IStorage {
      * used as a gateway to modify the associated table. */
 
 public:
+    IStorage();
     IStorage(HecubaSession* session, std::string id_model, std::string id_object, uint64_t* storage_id, CacheTable* reader);
     ~IStorage();
 
@@ -30,6 +31,16 @@ public:
 
     void setAttr(const char* attr_name, IStorage* value);
     void setAttr(const char* attr_name, void* value);
+
+    void setClassName(std::string name);
+    void setIdModel(std::string name);
+    std::string getClassName();
+    void setSession(HecubaSession *s);
+    HecubaSession * getCurrentSession();
+    const std::string& getTableName() const;
+    void setTableName(std::string tableName);
+    void make_persistent(const std::string id_obj);
+    bool is_pending_to_persist();
 
     void getAttr(const char* attr_name, void * valuetoreturn) const;
     void getItem(const void* key, void * valuetoreturn) const;
@@ -103,7 +114,27 @@ public:
 
     keysIterator begin();
     keysIterator end();
+    void writePythonSpec();
+    ObjSpec getObjSpec();
+    void setObjSpec(ObjSpec oSpec);
+    void setPythonSpec(std::string pSpec);
+    std::string getPythonSpec();
+    void setObjectName(std::string id_obj);
+    std::string getTableName();
+    // the definition of at least one virtual function is necessary to use rtti capabilities
+    // and be able to infer subclass name from a method in the base clase
+    virtual void generatePythonSpec() {};
+    virtual void assignTableName(std::string id_object, std::string id_model) {};
+    virtual void persist_metadata(uint64_t * c_uuid) {};
+
+
 private:
+    ObjSpec IStorageSpec;
+    std::string pythonSpec = "";
+    std::string tableName;
+    bool pending_to_persist = false;
+    bool persistent = false;
+
     enum valid_writes {
         SETATTR_TYPE,
         SETITEM_TYPE,
@@ -122,8 +153,9 @@ private:
 
     uint64_t* storageid;
 
-	std::string id_obj; // Name to identify this 'object' [keyspace.name]
-	std::string id_model; // Type name to be found in model "class_name"
+	std::string id_obj=""; // Name to identify this 'object' [keyspace.name]
+	std::string id_model=""; // Type name to be found in model "class_name" (FQName)
+	std::string class_name=""; // plain class name
 
 	HecubaSession* currentSession; //Access to cassandra and model
 

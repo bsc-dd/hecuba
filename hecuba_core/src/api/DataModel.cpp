@@ -9,18 +9,24 @@ DataModel::DataModel() {
 DataModel::~DataModel() {
 }
 
-void DataModel::addObjSpec(std::string id, const ObjSpec& o ) {
-	dataModel.insert({id, o});
+bool DataModel::addObjSpec(std::string id, const ObjSpec& o ) {
+std::pair<std::map<std::string,ObjSpec>::iterator,bool> ret;
+
+	ret = dataModel.insert({id, o});
+	return ret.second;
 }
 
-void DataModel::addObjSpec(ObjSpec::valid_types objtype, std::string id, std::vector<std::pair<std::string,std::string>> keystypes, std::vector<std::pair<std::string,std::string>> colstypes) {
+bool DataModel::addObjSpec(ObjSpec::valid_types objtype, std::string id, std::vector<std::pair<std::string,std::string>> keystypes, std::vector<std::pair<std::string,std::string>> colstypes) {
 	std::vector<std::pair<std::string,std::string>> empty;
-	this->addObjSpec(objtype, id, keystypes, empty, colstypes);
+	return this->addObjSpec(objtype, id, keystypes, empty, colstypes);
 }
 
-void DataModel::addObjSpec(ObjSpec::valid_types objtype, std::string id, std::vector<std::pair<std::string,std::string>> partitionkeystypes, std::vector<std::pair<std::string,std::string>> clusteringkeystypes, std::vector<std::pair<std::string,std::string>> colstypes) {
+bool DataModel::addObjSpec(ObjSpec::valid_types objtype, std::string id, std::vector<std::pair<std::string,std::string>> partitionkeystypes, std::vector<std::pair<std::string,std::string>> clusteringkeystypes, std::vector<std::pair<std::string,std::string>> colstypes) {
+
+std::pair<std::map<std::string,ObjSpec>::iterator,bool> ret;
 	ObjSpec o = ObjSpec(objtype,partitionkeystypes,clusteringkeystypes,colstypes,std::string());
-	dataModel.insert({id, o});
+	ret = dataModel.insert({id, o});
+	return ret.second;
 
 }
 

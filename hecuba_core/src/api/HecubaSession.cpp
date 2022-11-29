@@ -14,12 +14,15 @@
 #include <string>
 #include <sstream>
 #include <bits/stdc++.h>
+#include <cxxabi.h>
 
 #include <iostream>
 
  #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
+
+#include <typeinfo>
 
 //#include "numpy/arrayobject.h" // FIXME to use the numpy constants NPY_*
 #define NPY_ARRAY_C_CONTIGUOUS    0x0001
@@ -601,6 +604,9 @@ numpyMetaAccess = storageInterface->make_cache("istorage", "hecuba",
 												config);
 numpyMetaWriter = numpyMetaAccess->get_writer();
 
+
+currentDataModel = new DataModel();
+
 }
 
 HecubaSession::~HecubaSession() {
@@ -718,7 +724,7 @@ std::string HecubaSession::getFQname(const char* id_model) const {
 }
 
 /* Given a FQname return a name suitable to be stored as a tablename in Cassandra */
-std::string HecubaSession::getTableName(std::string FQname) const {
+std::string HecubaSession::generateTableName(std::string FQname) const {
     // FIXME: We currently only allow classes from a unique
     // model, because just the class name is stored in cassandra
     // without any reference to the modulename. An option could be
@@ -801,7 +807,7 @@ IStorage* HecubaSession::createObject(const char * id_model, uint64_t* uuid) {
 
                 CacheTable *dataAccess = NULL;
                 if (oType.getType() == ObjSpec::valid_types::STORAGEOBJ_TYPE) {
-                    dataAccess = storageInterface->make_cache(getTableName(FQid_model).c_str(), keyspace.c_str(),
+                    dataAccess = storageInterface->make_cache(generateTableName(FQid_model).c_str(), keyspace.c_str(),
                             *keyNamesDict, *colNamesDict,
                             config);
                 } else {
@@ -956,7 +962,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 std::vector<config_map>* keyNamesDict = oType.getKeysNamesDict();
                 std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
 
-                CacheTable *dataAccess = storageInterface->make_cache(getTableName(FQid_model).c_str(), config["execution_name"].c_str(),
+                CacheTable *dataAccess = storageInterface->make_cache(generateTableName(FQid_model).c_str(), config["execution_name"].c_str(),
                           *keyNamesDict, *colNamesDict,
                           config);
                 delete keyNamesDict;
@@ -1109,6 +1115,30 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
 }
 
 
+void HecubaSession::registerObject(IStorage *d) {
+	int32_t status;
+
+	const std::type_info& tp = typeid(*d);
+	std::string class_name = abi::__cxa_demangle(tp.name(),NULL,NULL,&status);
+	d->setClassName(class_name);
+	d->setSession(this);
+	// FQname in python style
+	std::string FQname = getFQname(class_name.c_str());
+	d->setIdModel(FQname);
+	bool new_element = currentDataModel->addObjSpec(FQname, d->getObjSpec()); //objspec is duplicated: id data model and in the object itself
+	if (new_element) {
+		// if this is the first instantiation of this class, we generate the equivalent python class definition
+		d->writePythonSpec();
+	}
+	if (d->is_pending_to_persist()){
+		d->make_persistent(d->getName());
+	}	
+}
+
 DataModel* HecubaSession::getDataModel() {
     return currentDataModel;
+}
+
+std::string HecubaSession::getExecutionName() {
+    return config["execution_name"];
 }
