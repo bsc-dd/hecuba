@@ -5,6 +5,7 @@
 #include <map>
 #include <string>
 #include <unordered_set>
+#include <cxxabi.h>
 
 #include "configmap.h"
 
@@ -42,6 +43,7 @@ public:
     void disableStream(void) ;
     static bool isBasicType(std::string attr_type);
     static std::string yaml_to_cass(const std::string attr_type);
+    static std::string c_to_cass(const std::string attr_type);
 private:
     enum valid_types objtype;
     bool stream_enabled = false;
@@ -53,6 +55,7 @@ private:
     static std::unordered_set<std::string> basic_types_str;
     static std::unordered_set<std::string> valid_types_str;
     static std::map<std::string, std::string> yaml_to_cass_conversion;
+    static std::map<std::string, std::string> c_to_cass_conversion;
     //static std::unordered_set<std::string> basic_types_str = {
     //                "counter",
     //                "text",

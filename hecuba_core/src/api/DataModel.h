@@ -53,10 +53,10 @@ public:
     DataModel();
     ~DataModel();
 
-    void addObjSpec(ObjSpec::valid_types objtype, std::string id, std::vector<std::pair<std::string,std::string>> keystypes, std::vector<std::pair<std::string,std::string>> colstypes);
-    void addObjSpec(ObjSpec::valid_types objtype, std::string id, std::vector<std::pair<std::string,std::string>> partitionkeystypes, std::vector<std::pair<std::string,std::string>> clusteringkeystypes, std::vector<std::pair<std::string,std::string>> colstypes);
+    bool addObjSpec(ObjSpec::valid_types objtype, std::string id, std::vector<std::pair<std::string,std::string>> keystypes, std::vector<std::pair<std::string,std::string>> colstypes);
+    bool addObjSpec(ObjSpec::valid_types objtype, std::string id, std::vector<std::pair<std::string,std::string>> partitionkeystypes, std::vector<std::pair<std::string,std::string>> clusteringkeystypes, std::vector<std::pair<std::string,std::string>> colstypes);
 
-    void addObjSpec(std::string id, const ObjSpec& o);
+    bool addObjSpec(std::string id, const ObjSpec& o);
 
     ObjSpec& getObjSpec(std::string id);
     std::string debug() const;

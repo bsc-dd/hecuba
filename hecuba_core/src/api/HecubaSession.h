@@ -17,6 +17,7 @@ public:
     HecubaSession();
     ~HecubaSession();
 
+    void registerObject(IStorage * d);
     void loadDataModel(const char * model_filename, const char *python_spec_path=nullptr);
     DataModel* getDataModel();
 
@@ -52,12 +53,13 @@ public:
     std::shared_ptr<StorageInterface> getStorageInterface() {
         return storageInterface;
     }; /* Connection to Cassandra */
-
+    std::string getExecutionName();
+    CassError run_query(std::string) const;
 private:
 
     void decodeNumpyMetadata(HecubaSession::NumpyShape *s, void* metadata);
     std::string getFQname(const char* id_model) const ;
-    std::string getTableName(std::string FQname) const ;
+    std::string generateTableName(std::string FQname) const ;
 
     std::shared_ptr<StorageInterface> storageInterface; //StorageInterface* storageInterface; /* Connection to Cassandra */
 
@@ -70,7 +72,6 @@ private:
     //MetaManager mm; //* To be deleted? */
 
     void parse_environment(config_map &config);
-	CassError run_query(std::string) const;
     void getMetaData(void* raw_numpy_meta, ArrayMetadata &arr_metas);
     void registerNumpy(ArrayMetadata &numpy_meta, std::string name, uint64_t* uuid);
     std::vector<std::string> split (std::string s, std::string delimiter) const;
