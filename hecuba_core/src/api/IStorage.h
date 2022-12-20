@@ -48,7 +48,7 @@ public:
 	uint64_t* getStorageID();
 	const std::string& getName() const;
 
-    //Writer * getDataWriter();
+    Writer * getDataWriter();
 
     void sync(void);
 
@@ -126,6 +126,7 @@ public:
     virtual void generatePythonSpec() {};
     virtual void assignTableName(std::string id_object, std::string id_model) {};
     virtual void persist_metadata(uint64_t * c_uuid) {};
+    virtual std::vector<std::pair<std::string, std::string>> getValuesDesc() {};
 
 
 private:

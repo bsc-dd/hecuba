@@ -167,6 +167,9 @@ public:
     char *getKeysBuffer() {
 	return keysBuffer;
     }
+    int getTotalSize() {
+	return total_size;
+    }
 
     K1 partitionKey; 
     std::vector<std::pair<std::string, std::string>> partitionKeys;
