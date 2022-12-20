@@ -22,15 +22,16 @@ public:
 	V v;
 	partitionKeys=key.getPartitionKeys();
 	clusteringKeys=key.getClusteringKeys();
-	values=v.getValues();
+	valuesDesc=v.getValuesDesc();
 	ObjSpec dictSpec;
-	dictSpec=ObjSpec(ObjSpec::valid_types::STORAGEDICT_TYPE, partitionKeys, clusteringKeys, values,"");
+	dictSpec=ObjSpec(ObjSpec::valid_types::STORAGEDICT_TYPE, partitionKeys, clusteringKeys, valuesDesc,"");
  	setObjSpec(dictSpec);
     }
 
     StorageDict() {
 	initObjSpec();
     }
+
     // c++ only calls implicitly the constructor without parameters. To invoke this constructor we need to add to the user class an explicit call to this
     StorageDict(const std::string name) {
 	initObjSpec();
@@ -40,9 +41,11 @@ public:
     
     ~StorageDict() {}
 
-    V &operator[](K &key) {
-	//V v(this, key.getKeysBuffer());
-	V *v = new V(this, key.getKeysBuffer());
+    // sd[k] = v or v = sd[k] 
+    // return a reference to allow sd[k]=v
+    // in the operator = for ValueClass we determine in which case we are
+    V& operator[](K &key) {
+	V *v = new V(this, key.getKeysBuffer(),key.getTotalSize());
         return *v;
     }
 
@@ -62,16 +65,18 @@ public:
 	pythonSpec += itemSpec.substr(0, itemSpec.size()-1) + ">,"; // replace the last , with a >
 
 	itemSpec = "";
-	for (std::vector<std::pair<std::string,std::string>>::iterator it=values.begin(); it!=values.end(); ++it)
+	for (std::vector<std::pair<std::string,std::string>>::iterator it=valuesDesc.begin(); it!=valuesDesc.end(); ++it)
 		itemSpec+=it->first + ":"+ it->second + ",";
 
 	pythonSpec += itemSpec.substr(0, itemSpec.size()-1) + ">\n   '''\n"; // replace the last , with a >
 
 	setPythonSpec(pythonSpec);
     }
+
     void assignTableName(std::string id_obj, std::string id_model) {
 	this->setTableName(id_obj); //in the case of StorageObject this will be the name of the class
     }
+
     void persist_metadata(uint64_t* c_uuid) {
 	ObjSpec oType = getObjSpec(); 
     	std::string insquery = 	std::string("INSERT INTO ") +
@@ -87,13 +92,16 @@ public:
                         	std::string(")");
         getCurrentSession()->run_query(insquery);
     }
+    std::vector<std::pair<std::string, std::string>> getValuesDesc () {
+	return valuesDesc;
+    }
 
 private:
     //Istorage * sd;
     std::map<K,V> sd;
     std::vector<std::pair<std::string, std::string>> partitionKeys;
     std::vector<std::pair<std::string, std::string>> clusteringKeys;
-    std::vector<std::pair<std::string, std::string>> values;
+    std::vector<std::pair<std::string, std::string>> valuesDesc;
     
 };
 

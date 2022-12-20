@@ -757,3 +757,8 @@ void IStorage::make_persistent(const std::string  id_obj) {
 	}	
 
 }
+
+Writer * IStorage::getDataWriter() {
+	return dataWriter;
+} 
+
