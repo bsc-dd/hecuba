@@ -22,7 +22,7 @@ public:
 	V v;
 	partitionKeys=key.getPartitionKeys();
 	clusteringKeys=key.getClusteringKeys();
-	valuesDesc=v.getValuesDesc();
+	valuesDesc=v.getValuesDesc("valuename");
 	ObjSpec dictSpec;
 	dictSpec=ObjSpec(ObjSpec::valid_types::STORAGEDICT_TYPE, partitionKeys, clusteringKeys, valuesDesc,"");
  	setObjSpec(dictSpec);
