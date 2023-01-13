@@ -31,7 +31,7 @@ public:
 
     template <class V> void manageAttr(std::string attrBaseName, V value) {
             //DEBUG("Key " << key << std::endl);
-	    std::string valuetype=ObjSpec::c_to_cass(typeid(decltype(valuetype)).name());
+	    std::string valuetype=ObjSpec::c_to_cass(typeid(decltype(value)).name());
 	    std::pair<std::string, std::string> valuedesc(attrBaseName+std::to_string(managedValues), valuetype);
 	    valuesDesc.push_back(valuedesc);
 	    createAttributeBuffer <V>(valuetype,value);
