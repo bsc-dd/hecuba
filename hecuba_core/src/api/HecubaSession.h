@@ -55,6 +55,8 @@ public:
     }; /* Connection to Cassandra */
     std::string getExecutionName();
     CassError run_query(std::string) const;
+
+    Writer * getNumpyMetaWriter() const;
 private:
 
     void decodeNumpyMetadata(HecubaSession::NumpyShape *s, void* metadata);

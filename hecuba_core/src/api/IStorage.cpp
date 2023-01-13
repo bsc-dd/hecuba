@@ -8,25 +8,6 @@
 
 #define ISKEY true
 
-/***
-    d = //dictionary [int, float]:[values]
-    for (keysIterator s = d.begin(); s != d.end(); s ++) {
-        (*s)        <== buffer con int+float (*m_ptr)
-        (s)         <== Iterador
-        (s->xxx)    <== NOT SUPPORTED
-    }
-***/
-IStorage::keysIterator IStorage::begin() {
-        // Create thread and ask Casandra for data
-
-        config_map iterator_config = currentSession->config;
-        iterator_config["type"]="keys"; // Request a prefetcher for 'keys' only
-        return keysIterator(this, currentSession->getStorageInterface()->get_iterator(
-                    dataAccess->get_metadata()
-                    , iterator_config));
-}
-
-IStorage::keysIterator IStorage::end()   { return keysIterator(); } // NULL is the placeholder for last element
 
 IStorage::IStorage() {}
 
@@ -39,13 +20,16 @@ IStorage::IStorage(HecubaSession* session, std::string id_model, std::string id_
 	this->dataAccess = dataAccess;
 	this->dataWriter = dataAccess->get_writer();
 
-    this->data = NULL;
 }
 
 IStorage::~IStorage() {
-	delete(dataAccess);
+	deleteCache();
 }
 
+void IStorage::deallocateDataAccess() {
+	if (dataAccess)
+		delete(dataAccess);
+}
 
 std::string IStorage::generate_numpy_table_name(std::string attributename) {
     /* ksp.DUUIDtableAttribute extracted from hdict::make_val_persistent */
@@ -211,39 +195,11 @@ void * IStorage::deep_copy_attribute_buffer(bool isKey, const void* src, uint64_
     return dst;
 }
 
+
+
 void
 IStorage::send_values(const void* value) {
-    DBG("START");
-    const TableMetadata* writerMD = dataWriter->get_metadata();
-    DataModel* model = this->currentSession->getDataModel();
-
-    ObjSpec ospec = model->getObjSpec(this->id_model);
-
-    std::shared_ptr<const std::vector<ColumnMeta> > columns = writerMD->get_values();
-    uint32_t numcolumns = columns->size();
-
-    uint64_t offset = 0;
-    const char* src = (char*)value;
-    // Traverse the buffer following the user order...
-    for (uint32_t i=0; i < numcolumns; i++) {
-        std::string column_name = ospec.getIDObjFromCol(i);
-        std::string value_type = ospec.getIDModelFromCol(i);
-        const ColumnMeta *c = writerMD->get_single_column(column_name);
-        int64_t value_size= c->size;
-        DBG(" -->  traversing column '"<<column_name<< "' of type '" << value_type<<"'" );
-        if (!ObjSpec::isBasicType(value_type)) {
-            if (value_type.compare("hecuba.hnumpy.StorageNumpy") == 0) {
-                IStorage * result = *(IStorage **)(src+offset); // 'src' MUST be a valid pointer or it will segfault here...
-                if (!result->isStream()) { // If the object did not have Stream enabled, enable it now as we are going to stream it...
-                    result->enableStream(UUID::UUID2str(result->getStorageID()));
-                }
-                result->send();
-                DBG("   -->  sent "<< UUID::UUID2str(result->getStorageID()));
-            }
-        }
-        offset += value_size;
-    }
-    DBG("END");
+	// This will be redefined by underlying subclasses
 }
 
 /* Args:
@@ -391,6 +347,8 @@ void IStorage::setItem(void* key, IStorage * value){
     writeTable(key, (void *) &value, SETITEM_TYPE);
 }
 
+//moved to StorageNumpy.h
+#if 0
 void IStorage::send(void) {
     DataModel* model = this->currentSession->getDataModel();
     ObjSpec ospec = model->getObjSpec(this->id_model);
@@ -412,6 +370,7 @@ void IStorage::send(void) {
 #endif
     }
 }
+#endif
 
 #if 0
 void IStorage::send(void* key, void* value) {
@@ -592,11 +551,9 @@ void IStorage::getItem(const void* key, void *valuetoreturn) const{
     return;
 }
 
-void * IStorage::getNumpyData() const {
-    return data;
-}
 
-
+#if 0
+// TODO delete me done in StorageNumpy.h but I keep it here until the replacement is completed
 void IStorage::setNumpyAttributes(ArrayDataStore* array_store, ArrayMetadata &metas, void* value) {
     this->arrayStore = array_store;
     this->numpy_metas = metas;
@@ -611,6 +568,7 @@ void IStorage::setNumpyAttributes(ArrayDataStore* array_store, ArrayMetadata &me
         arrayStore->read_numpy_from_cas_by_coords(getStorageID(), metas, coord, data);
     }
 }
+#endif
 bool IStorage::isStream() {
     return streamEnabled;
 }
@@ -649,7 +607,7 @@ void IStorage::writePythonSpec() {
         fd.close();
 
 }
-void IStorage::setObjSpec(ObjSpec oSpec) {this->IStorageSpec=oSpec;}
+void IStorage::setObjSpec(ObjSpec &oSpec) {this->IStorageSpec=oSpec;}
 ObjSpec IStorage::getObjSpec() {return IStorageSpec;}
 void IStorage::setPythonSpec(std::string pSpec) {this->pythonSpec=pSpec;}
 std::string IStorage::getPythonSpec() {
@@ -661,6 +619,10 @@ std::string IStorage::getPythonSpec() {
 }
 void IStorage::setObjectName(std::string id_obj) {
 	this->id_obj = id_obj;
+}
+
+std::string IStorage::getObjectName() {
+	return (this->id_obj);
 }
 std::string IStorage::getTableName(){
 	return(this->tableName);
@@ -695,7 +657,7 @@ void IStorage::make_persistent(const std::string  id_obj) {
 	std::string name(currentSession->config["execution_name"] + "." + id_object_str);
 	uint64_t *c_uuid=UUID::generateUUID5(name.c_str()); // UUID for the new object
 
-	ObjSpec oType = getObjSpec();
+	ObjSpec oType = this->getObjSpec();
 	bool new_element = true;
 	std::string query = "CREATE TABLE " +
 				currentSession->config["execution_name"] + "." + this->tableName +
@@ -733,24 +695,18 @@ void IStorage::make_persistent(const std::string  id_obj) {
 	persist_metadata(c_uuid); //depends on the type of persistent object
 				  // TODO: deal with the case of already existing dictionaries: new_element == false
 
-        //  Create Writer
-	std::vector<config_map>* keyNamesDict = oType.getKeysNamesDict();
-	std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
 	
 	std::string topic = std::string(UUID::UUID2str(c_uuid));
 	
-	CacheTable *reader = currentSession->getStorageInterface()->make_cache(id_object_str.c_str(),
-				currentSession->config["execution_name"].c_str(), *keyNamesDict, *colNamesDict, currentSession->config);
-
-	delete keyNamesDict;
-	delete colNamesDict;
+	// Create READ/WRITE cache accesses
+	initialize_dataAcces();
 
         this->storageid = c_uuid;
-        this->dataAccess = reader;
-        this->dataWriter = reader->get_writer();
-	this->data = NULL;
 	this->pending_to_persist=false;
 	this->persistent=true;
+
+	// Now that the writer is created, persist data
+	persist_data();
 
 	if (oType.isStream()) {
 		enableStream(topic);
@@ -758,7 +714,32 @@ void IStorage::make_persistent(const std::string  id_obj) {
 
 }
 
+// TODO: TO BE DELETED. MOVED TO STORAGEDICT AND STORAGENUMPY
+#if 0
+void IStorage::initialize_dataAcces() {
+        //  Create Writer
+	ObjSpec oType = this->getObjSpec();
+	std::vector<config_map>* keyNamesDict = oType.getKeysNamesDict();
+	std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
+	CacheTable *reader = this->currentSession->getStorageInterface()->make_cache(this->getTableName().c_str(),
+				this->currentSession->config["execution_name"].c_str(), *keyNamesDict, *colNamesDict, this->currentSession->config);
+        this->dataAccess = reader;
+        this->dataWriter = reader->get_writer();
+
+	delete keyNamesDict;
+	delete colNamesDict;
+}
+#endif
 Writer * IStorage::getDataWriter() {
 	return dataWriter;
-} 
+}
+
+CacheTable * IStorage::getDataAccess() {
+	return dataAccess;
+}
+
+void IStorage::setCache(CacheTable* cache) {
+	dataAccess = cache;
+	dataWriter = dataAccess->get_writer();
+}
 
