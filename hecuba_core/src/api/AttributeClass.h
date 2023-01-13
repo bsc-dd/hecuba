@@ -138,25 +138,30 @@ public:
     }
 
     bool operator==(const AttributeClass &v) const {
-        return true;
+        return values == v.values;
     }
+
+    bool operator!=(const AttributeClass &v) const {
+        return values != v.values;
+    }
+
     bool operator<(const AttributeClass &v) const {
-        return false;
+        return values < v.values;
     }
 
     // comparator
-    bool operator>(const AttributeClass &value) const {
-        return false;
+    bool operator>(const AttributeClass &v) const {
+        return values > v.values;
     }
 
     // comparator
-    bool operator<=(const AttributeClass &value) const {
-        return true;
+    bool operator<=(const AttributeClass &v) const {
+        return values <= v.values;
     }
 
     // comparator
-    bool operator>=(const AttributeClass &value) const {
-        return true;
+    bool operator>=(const AttributeClass &v) const {
+        return values >= v.values;
     }
 
 template <std::size_t ix, class ...Types> static typename std::tuple_element<ix, std::tuple<Types...>>::type& get(AttributeClass<Types...>&v) {

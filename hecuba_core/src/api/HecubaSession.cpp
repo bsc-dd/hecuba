@@ -357,6 +357,10 @@ CassError HecubaSession::run_query(std::string query) const{
     return rc;
 }
 
+Writer * HecubaSession::getNumpyMetaWriter() const {
+    return numpyMetaWriter;
+}
+
 void HecubaSession::decodeNumpyMetadata(HecubaSession::NumpyShape *s, void* metadata) {
     // Numpy Metadata(all unsigned): Ndims + Dim1 + Dim2 + ... + DimN  (Layout in C by default)
     unsigned* value = (unsigned*)metadata;
@@ -366,32 +370,6 @@ void HecubaSession::decodeNumpyMetadata(HecubaSession::NumpyShape *s, void* meta
     for (unsigned i = 0; i < s->ndims; i++) {
         s->dim[i] = *(value + i);
     }
-}
-void HecubaSession::getMetaData(void * raw_numpy_meta, ArrayMetadata &arr_metas) {
-    std::vector <uint32_t> dims;
-    std::vector <uint32_t> strides;
-
-    // decode void *metadatas
-    HecubaSession:: NumpyShape * s = new HecubaSession::NumpyShape();
-    decodeNumpyMetadata(s, raw_numpy_meta);
-    uint32_t acum=1;
-    for (uint32_t i=0; i < s->ndims; i++) {
-        dims.push_back( s->dim[i]);
-        acum *= s->dim[i];
-    }
-    for (uint32_t i=0; i < s->ndims; i++) {
-        strides.push_back(acum * sizeof(double));
-        acum /= s->dim[s->ndims-1-i];
-    }
-    uint32_t flags=NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE | NPY_ARRAY_ALIGNED;
-
-    arr_metas.dims = dims;
-    arr_metas.strides = strides;
-    arr_metas.elem_size = sizeof(double);
-    arr_metas.flags = flags;
-    arr_metas.partition_type = ZORDER_ALGORITHM;
-    arr_metas.typekind = 'f';
-    arr_metas.byteorder = '=';
 }
 
 /* ASYNCHRONOUS */
@@ -607,6 +585,16 @@ numpyMetaWriter = numpyMetaAccess->get_writer();
 
 currentDataModel = new DataModel();
 
+// yolandab: add to dataModel the object specification for StorageNumpys: was in loadDataModel
+// ALWAYS Add numpy (just in case) ##############################
+std::vector<std::pair<std::string, std::string>> pkeystypes_numpy = {
+									{"storage_id", "uuid"},
+									{"cluster_id", "int"}
+									};
+std::vector<std::pair<std::string, std::string>> ckeystypes_numpy = {{"block_id","int"}};
+std::vector<std::pair<std::string, std::string>> colstypes_numpy = { {"payload", "blob"}, };
+currentDataModel->addObjSpec(ObjSpec::valid_types::STORAGENUMPY_TYPE, "hecuba.hnumpy.StorageNumpy", pkeystypes_numpy, ckeystypes_numpy, colstypes_numpy);
+// ##############################
 }
 
 HecubaSession::~HecubaSession() {
@@ -839,6 +827,9 @@ IStorage* HecubaSession::createObject(const char * id_model, uint64_t* uuid) {
                 // retrieve_from_cassandra creates a TupleRow of the parameter
                 // and therefore the parameter can NOT be a stack pointer... as
                 // it will be freed on success)
+
+
+#if 0
                 void * localuuid = malloc(2*sizeof(uint64_t));
                 memcpy(localuuid, uuid, 2*sizeof(uint64_t));
                 void * key = malloc(sizeof(char*));
@@ -879,6 +870,9 @@ IStorage* HecubaSession::createObject(const char * id_model, uint64_t* uuid) {
                     DBG("     AND IT IS AN STREAM!");
                     o->enableStream(topic);
                 }
+#else
+		throw ModuleException("HECUBA Session: createObject for already created numpy NOT IMPLEMENTED");
+#endif
             }
             break;
         default:
@@ -1067,6 +1061,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
 
         case ObjSpec::valid_types::STORAGENUMPY_TYPE:
             {
+#if 0
                 // Create table
                 std::string query = "CREATE TABLE IF NOT EXISTS " + config["execution_name"] + "." + id_object_str +
                     " (storage_id uuid, cluster_id int, block_id int, payload blob, "
@@ -1104,6 +1099,9 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                     o->enableStream(topic);
                 }
 
+#else
+		throw ModuleException("HECUBA SESSION: create object storagenumpy (use new interface)");
+#endif
             }
             break;
         default:
@@ -1117,18 +1115,26 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
 
 void HecubaSession::registerObject(IStorage *d) {
 	int32_t status;
+	bool new_element=true;
 
 	const std::type_info& tp = typeid(*d);
 	std::string class_name = abi::__cxa_demangle(tp.name(),NULL,NULL,&status);
+	if (class_name == "StorageNumpy") {
+		class_name="hecuba.hnumpy.StorageNumpy";
+		new_element=false;
+	}
+
 	d->setClassName(class_name);
 	d->setSession(this);
 	// FQname in python style
 	std::string FQname = getFQname(class_name.c_str());
 	d->setIdModel(FQname);
-	bool new_element = currentDataModel->addObjSpec(FQname, d->getObjSpec()); //objspec is duplicated: id data model and in the object itself
-	if (new_element) {
+	if (new_element) { // spec for numpys is already inserted
+		new_element = currentDataModel->addObjSpec(FQname, d->getObjSpec()); //objspec is duplicated: id data model and in the object itself
+		if (new_element) {
 		// if this is the first instantiation of this class, we generate the equivalent python class definition
-		d->writePythonSpec();
+			d->writePythonSpec();
+		}
 	}
 	if (d->is_pending_to_persist()){
 		d->make_persistent(d->getName());

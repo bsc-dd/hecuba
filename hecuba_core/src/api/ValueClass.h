@@ -32,7 +32,6 @@ public:
 	
 	if (w.pendingKeysBuffer != nullptr) {
 		// case myvalueclass v =d[k]
-		std::cout << "GetItem: move assignemnt to reference to object" << std::endl;
 		//valuesBuffer= (char *)malloc(total_size);
 		this->total_size=this->sd->getDataWriter()->get_metadata()->get_values_size();
 		this->managedValues = w.managedValues;
@@ -46,7 +45,6 @@ public:
 		free(w.pendingKeysBuffer);
 		this->pendingKeysBuffer = nullptr;
 		this->pendingKeysBufferSize=0;
-		//this->setTupleValues<0,V1,rest...>(this->valuesBuffer);
 		this->template setTupleValues<0,V1,rest...>(this->valuesBuffer);
 	} else {
 		// case myvalueclass v = j copy constructor
@@ -75,7 +73,6 @@ public:
 	if (w.pendingKeysBuffer != nullptr) {
 		this->sd=w.sd;
 		this->total_size=w.total_size;
-		std::cout << "GetItem: move assignemnt to reference to object" << std::endl;
 		this->managedValues = w.managedValues;
 		if (this->managedValues == 1) {
 			this->valuesBuffer= (char *)malloc(this->total_size);
@@ -97,7 +94,6 @@ public:
 		w.total_size=0;
 	} else {
 		//  case sd[k]=v;
-		std::cout << "SetItem: copy assignemnt to reference to object" << std::endl;
 		if (this->pendingKeysBuffer != nullptr) {
 			this->sd->setItem(this->pendingKeysBuffer,w.valuesBuffer);
 			free(this->pendingKeysBuffer);
@@ -113,28 +109,6 @@ public:
 
 	return *this;
 
-    }
-
-    bool operator==(const ValueClass &v) const {
-        return true;
-    }
-    bool operator<(const ValueClass &v) const {
-        return false;
-    }
-
-    // comparator
-    bool operator>(const ValueClass &value) const {
-        return false;
-    }
-
-    // comparator
-    bool operator<=(const ValueClass &value) const {
-        return true;
-    }
-
-    // comparator
-    bool operator>=(const ValueClass &value) const {
-        return true;
     }
 
 };

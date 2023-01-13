@@ -10,12 +10,15 @@
 #include <hecuba/KeyClass.h>
 #include <hecuba/ValueClass.h>
 #include "UUID.h"
-
+#include <hecuba/StorageNumpy.h>
 
 
 template<class K, class V>
 
 class StorageDict:public IStorage {
+
+#define ISKEY true
+
 public:
     void initObjSpec() {
 	K key;
@@ -40,6 +43,10 @@ public:
     }
     
     ~StorageDict() {}
+
+    void deleteCache() {
+	deallocateDataAccess();
+    }
 
     // sd[k] = v or v = sd[k] 
     // return a reference to allow sd[k]=v
@@ -96,6 +103,178 @@ public:
 	return valuesDesc;
     }
 
+
+    void setItem( void *key, void *value) {
+
+	void * cc_val;
+        const TableMetadata* writerMD = dataWriter->get_metadata();
+	// prepare values
+	std::shared_ptr<const std::vector<ColumnMeta> > columns = writerMD->get_values();
+        uint32_t numcolumns = columns->size();
+        cc_val = deep_copy_attribute_buffer(!ISKEY, value, writerMD->get_values_size(), numcolumns);
+	// prepare keys
+	std::pair<uint16_t, uint16_t> keySize = writerMD->get_keys_size();
+	uint64_t partKeySize = keySize.first;
+	uint64_t clustKeySize = keySize.second;
+	DBG("IStorage::writeTable --> partKeySize = "<<partKeySize<<" clustKeySize = "<< clustKeySize);
+	void *cc_key= NULL;
+	columns = writerMD->get_keys();
+        numcolumns = columns->size();
+        cc_key = deep_copy_attribute_buffer(ISKEY, key, partKeySize+clustKeySize, numcolumns);
+
+        const TupleRow* trow_key = this->getDataAccess()->get_new_keys_tuplerow(cc_key);
+        const TupleRow* trow_values = this->getDataAccess()->get_new_values_tuplerow(cc_val);
+#if 0
+        if (this->isStream()) {
+            this->dataWriter->send_event(trow_key, trow_values); // stream value (storage_id/value)
+            send_values(value); // If value is an IStorage type stream its contents also
+        }
+#endif
+        this->getDataAccess()->put_crow(trow_key, trow_values);
+        delete(trow_key);
+        delete(trow_values);
+    }
+
+void send_values(const void *value) {
+    DBG("START");
+    const TableMetadata* writerMD = dataWriter->get_metadata();
+    ObjSpec ospec = this->getObjSpec();
+
+    std::shared_ptr<const std::vector<ColumnMeta> > columns = writerMD->get_values();
+    uint32_t numcolumns = columns->size();
+
+    uint64_t offset = 0;
+    const char* src = (char*)value;
+    // Traverse the buffer following the user order...
+    for (uint32_t i=0; i < numcolumns; i++) {
+        std::string column_name = ospec.getIDObjFromCol(i);
+        std::string value_type = ospec.getIDModelFromCol(i);
+        const ColumnMeta *c = writerMD->get_single_column(column_name);
+        int64_t value_size= c->size;
+        DBG(" -->  traversing column '"<<column_name<< "' of type '" << value_type<<"'" );
+        if (!ObjSpec::isBasicType(value_type)) {
+            if (value_type.compare("hecuba.hnumpy.StorageNumpy") == 0) {
+                StorageNumpy * result = *(IStorage **)(src+offset); // 'src' MUST be a valid pointer or it will segfault here...
+                if (!result->isStream()) { // If the object did not have Stream enabled, enable it now as we are going to stream it...
+                    result->enableStream(UUID::UUID2str(result->getStorageID()));
+                }
+                result->send();
+                DBG("   -->  sent "<< UUID::UUID2str(result->getStorageID()));
+            }
+        }
+        offset += value_size;
+    }
+    DBG("END");
+}
+
+void initialize_dataAcces() {
+        //  Create Writer
+        ObjSpec oType = this->getObjSpec();
+        std::vector<config_map>* keyNamesDict = oType.getKeysNamesDict();
+        std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
+        CacheTable *reader = getCurrentSession()->getStorageInterface()->make_cache(this->getTableName().c_str(),
+                                getCurrentSession()->config["execution_name"].c_str(), *keyNamesDict, *colNamesDict, getCurrentSession()->config);
+	this->setCache(reader);
+
+        delete keyNamesDict;
+        delete colNamesDict;
+}
+
+std::vector<std::pair<std::string, std::string>> getPartitionKeys(){
+	return partitionKeys;
+}
+std::vector<std::pair<std::string, std::string>> getClusteringKeys(){
+	return clusteringKeys;
+}
+
+
+    /* Iterators */
+struct keysIterator {
+        using iterator_category = std::input_iterator_tag;
+        using difference_type   = std::ptrdiff_t;   // Is it really needed?
+        //using value_type        = TupleRow;
+        using pointer           = TupleRow*;  // or also value_type*
+        //using reference         = K*;  // or also value_type&
+        //using reference         = std::unique_ptr<K>;  // or also value_type&
+        using reference         = K&;   // or also value_type&
+
+        // Constructor
+        keysIterator(void) : m_ptr(nullptr) {}
+        //keysIterator(void) : lastKeyClass(std::make_shared<K>()) {}
+        //keysIterator(pointer ptr) : m_ptr(ptr) {}
+        //keysIterator(IStorage *my_instance, Prefetch *my_P) : instance(my_instance), P(my_P) {m_ptr = P->get_cnext();}
+        keysIterator(StorageDict *my_instance, Prefetch *my_P) {
+		P = my_P;
+		instance = my_instance;
+		m_ptr = P->get_cnext();
+		DBG(" m_ptr == " << (uint64_t)m_ptr);
+		DBG( " PAYLOAD == "<<(int64_t)m_ptr->get_payload());
+		}
+
+        // Operators
+        reference operator*() const {
+            char *valueToReturn=nullptr;
+            DBG(" m_ptr == " << (uint64_t)m_ptr);
+            DBG(" BEFORE Get Payload...");
+            char *valueFromQuery = (char *)(m_ptr->get_payload());
+            DBG(" BEFORE Extracting values...");
+            instance->extractMultiValuesFromQueryResult(valueFromQuery, &valueToReturn, KEYS);
+	    // if the key only have one attribute, valueToReturn contains that attribute
+	    // if the key has several attributes, valueToReturn is a pointer to the memory containing the attributes
+	    char *keyBuffer;
+	    if ((instance->partitionKeys.size() + instance->clusteringKeys.size()) > 1) {
+		keyBuffer = valueToReturn;
+	    } else {
+		keyBuffer = (char *) &valueToReturn;
+	    }
+	    //K *k = new K(instance, keyBuffer); //instance a new KeyClass to be intitialize with the values in the buffer: case multiattribute
+	    K* lastKeyClass = new  K(instance, keyBuffer); //instance a new KeyClass to be intitialize with the values in the buffer: case multiattribute
+            return *lastKeyClass;
+        }
+        //pointer operator->() {
+        //    /* TODO: return the pointer to the processed payload from the current TupleRow */
+        //     return m_ptr;
+        //}
+
+        // Prefix increment
+        keysIterator& operator++() {
+            m_ptr = P->get_cnext();
+
+
+            return *this;
+        }
+        // Postfix increment
+	keysIterator operator++(int) { keysIterator tmp = *this; ++(*this); return tmp; }
+
+        friend bool operator== (const keysIterator& a, const keysIterator& b) { return a.m_ptr == b.m_ptr; };
+        friend bool operator!= (const keysIterator& a, const keysIterator& b) { return a.m_ptr != b.m_ptr; };
+
+    private:
+
+        pointer m_ptr;
+        Prefetch *P;
+        StorageDict *instance;
+    };
+
+/***
+    d = //dictionary [int, float]:[values]
+    for (keysIterator s = d.begin(); s != d.end(); s ++) {
+        (*s)        <== buffer con int+float (*m_ptr)
+        (s)         <== Iterador
+        (s->xxx)    <== NOT SUPPORTED
+    }
+***/
+keysIterator begin() {
+        // Create thread and ask Casandra for data
+
+        config_map iterator_config = getCurrentSession()->config;
+        iterator_config["type"]="keys"; // Request a prefetcher for 'keys' only
+        return keysIterator(this,
+		 getCurrentSession()->getStorageInterface()->get_iterator(getDataAccess()->get_metadata(), iterator_config));
+}
+
+keysIterator end()   { return keysIterator(); } // NULL is the placeholder for last element
+
 private:
     //Istorage * sd;
     std::map<K,V> sd;
@@ -104,5 +283,7 @@ private:
     std::vector<std::pair<std::string, std::string>> valuesDesc;
     
 };
+
+
 
 #endif

@@ -9,6 +9,7 @@
 #include <hecuba/ObjSpec.h>
 #include <hecuba/ObjSpec.h>
 #include "AttributeClass.h"
+#include "IStorage.h"
 
 
 template <class K1, class...rest>
@@ -27,18 +28,36 @@ public:
     KeyClass(const KeyClass &w):AttributeClass<K1,rest...>(){
 	this->partitionKeys=w.partitionKeys;
 	this->clusteringKeys=w.clusteringKeys;
+	this->managedValues=w.managedValues;
+	this->valuesDesc = w.valuesDesc;
 	this->total_size=w.total_size;
 	this->valuesBuffer = (char *) malloc (this->total_size);
 	memcpy(this->valuesBuffer, w.valuesBuffer,this->total_size);
+    }
+
+    // Constructor used by the key iterator in StorageDict: given the buffer with the content of the key we construct a keyclass
+    KeyClass(IStorage *sd, char *keysBuffer) {
+	std::pair<short unsigned int, short unsigned int> keys_size = sd->getDataWriter()->get_metadata()->get_keys_size();
+	this->total_size=keys_size.first + keys_size.second;
+	this->partitionKeys=sd->getPartitionKeys();
+	this->clusteringKeys=sd->getClusteringKeys();
+	this->managedValues = this->partitionKeys.size() + this->clusteringKeys.size();
+	this->valuesDesc=this->partitionKeys;
+	this->valuesDesc.insert(this->valuesDesc.end(), this->clusteringKeys.begin(), this->clusteringKeys.end());
+	this->valuesBuffer = keysBuffer;
+	this->template setTupleValues<0,K1,rest...>(this->valuesBuffer);
     }
 
     // copy assignment
     void operator=(const KeyClass &w) {
 	this->partitionKeys=w.partitionKeys;
 	this->clusteringKeys=w.clusteringKeys;
+	this->valuesDesc=w.valuesDesc;
 	this->total_size=w.total_size;
+	this->managedValues=w.managedValues;
 	this->valuesBuffer = (char *) malloc (this->total_size);
 	memcpy(this->valuesBuffer, w.valuesBuffer,this->total_size);
+	this->values = w.values;
     }
 
     K1 getPartitionKey() {
@@ -74,27 +93,6 @@ public:
          }
     }
 
-    bool operator==(const KeyClass &k) const {
-        return true;
-    }
-    bool operator<(const KeyClass &k) const {
-        return false;
-    }
-
-    // comparator
-    bool operator>(const KeyClass &value) const {
-        return false;
-    }
-
-    // comparator
-    bool operator<=(const KeyClass &value) const {
-        return true;
-    }
-
-    // comparator
-    bool operator>=(const KeyClass &value) const {
-        return true;
-    }
 
     char *getKeysBuffer() {
 	return this->getValuesBuffer();
@@ -105,7 +103,6 @@ public:
 
     std::vector<std::pair<std::string, std::string>> partitionKeys;
     std::vector<std::pair<std::string, std::string>> clusteringKeys;
-
 
 
 };

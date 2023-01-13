@@ -54,4 +54,31 @@ StringKeyClass mulk = StringKeyClass("stringk", 43, 44);
 
 mulD[mulk]=mulv;
 
+// check getItem
+
+MyValueClass new_v = d[k]; // dentro del StorageDict se hace el new pasando pending keys, y luego la instanciacion llama al constructor pasando otro  objeto como parametro
+
+MyValueClass otro; //llama al constructor sin parametros: default
+
+otro = d[k]; //dentro del StorageDict se hace el new como en el caso de antes pero llama al copy assignment, no al move. como pendingKeys del actual es null no hace nada
+
+int otro_v1 = MyValueClass::get<0>(otro);
+
+std::cout << "Value read: " << otro_v1<< std::endl;
+
+//StringMultipleValueClass otromulv = mulD[mulk];
+StringMultipleValueClass otromulv;
+
+otromulv = mulD[mulk];
+
+std::string v1 = StringMultipleValueClass::get<0>(otromulv);
+int v2 = StringMultipleValueClass::get<1>(otromulv);
+
+std::cout << "Values read: v1 " << v1<< " v2 "<< v2 << std::endl;
+
+
+std::cout << "Accessing multiple key k1 " << StringKeyClass::get<0>(strk) << " k2 " << StringKeyClass::get<1>(strk) << " k3 " << StringKeyClass::get<2>(strk) << std::endl;
+
+std::cout<<"END TEST" << std::endl;
+
 }
