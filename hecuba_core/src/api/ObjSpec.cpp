@@ -108,7 +108,7 @@ std::string ObjSpec::c_to_cass(const std::string attr_type) {
 	type =abi::__cxa_demangle(attr_type.c_str(), NULL, NULL, &st);
 	if (type.find("basic_string") != std::string::npos)
 		res="text";
-        else res = attr_type;
+        else res = type;
     }
     return res;
 }
