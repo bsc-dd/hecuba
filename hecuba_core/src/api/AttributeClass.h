@@ -18,6 +18,10 @@ class AttributeClass {
 public:
     AttributeClass() =default; 
 
+    ~AttributeClass() {
+	if (valuesBuffer != nullptr)
+		free(valuesBuffer);
+    };
     // Constructor called when instantiating a new value with parameters: MyValueClass v(value);
    AttributeClass(std::string attrBaseName, const V1& part, rest... vals) {
         //DEBUG("Number of clustering keys: "<<sizeof...(values)<<std::endl);
@@ -85,7 +89,7 @@ public:
                         //copy the string so we can pass the address of the copy
 			const std::string& valuestring = reinterpret_cast<const std::string&>(value);
                         const char *valuetmp=valuestring.c_str();
-                        char *copyValue=(char *)malloc(strlen(valuetmp) + 1);
+                        char *copyValue=(char *)malloc(strlen(valuetmp) + 1); // TODO: This is NEVER freed.
                         strcpy(copyValue, valuetmp);
 			size = sizeof(copyValue);
                         buf = (char *) malloc(size);
@@ -113,6 +117,8 @@ public:
         char *pBuffer = valuesBuffer;
         for (std::vector <std::pair<char *, int>>::iterator it=valuesTmpBuffer.begin(); it!=valuesTmpBuffer.end(); it++) {
                 memcpy(pBuffer, it->first, it->second);
+		// Free temporal buffers...
+		free(it->first);
                 pBuffer+=it->second;
         }
     } 
