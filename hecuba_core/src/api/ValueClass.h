@@ -22,7 +22,7 @@ public:
     ValueClass() =default; 
 
     // Constructor called when instantiating a new value with parameters: MyValueClass v(value);
-   ValueClass(V1 part, rest... vals):AttributeClass<V1,rest...>("valuename",part,vals...) {
+   ValueClass(const V1& part, rest... vals):AttributeClass<V1,rest...>("valuename",part,vals...) {
    }
 
     // Constructor called when assigning another value during the instatiation: MyValueClass v = otherValue or MyValueClass v = d[k]
