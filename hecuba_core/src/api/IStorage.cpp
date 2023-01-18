@@ -186,7 +186,7 @@ void * IStorage::deep_copy_attribute_buffer(bool isKey, const void* src, uint64_
         }
         value_size = c->size;
 
-        // Convert each attribute and reorder it to the right position...
+        // Convert each attribute and REORDER it to the right position in cassandra tables...
         convert_IStorage_to_UUID(((char *)dst)+c->position, value_type, ((char*)src) + offset, value_size);
 
         offset += value_size;
@@ -325,6 +325,7 @@ IStorage::writeTable(const void* key, const void* value, const enum IStorage::va
         // TODO: add here a call to send for attribute (NOT SUPPORTED YET)
     }
 }
+
 
 void IStorage::setAttr(const char *attr_name, void* value) {
     /* PRE: value arrives already coded as expected: block of memory with pointers to IStorages or basic values*/

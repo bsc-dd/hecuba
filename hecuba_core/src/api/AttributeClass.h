@@ -19,7 +19,7 @@ public:
     AttributeClass() =default; 
 
     // Constructor called when instantiating a new value with parameters: MyValueClass v(value);
-   AttributeClass(std::string attrBaseName, V1 part, rest... vals) {
+   AttributeClass(std::string attrBaseName, const V1& part, rest... vals) {
         //DEBUG("Number of clustering keys: "<<sizeof...(values)<<std::endl);
         // first element is the partition key, the rest of elements are clustering keys
         // only basic classes are suported
@@ -29,8 +29,8 @@ public:
 	values=std::make_tuple(part, vals...);
    }
 
-    template <class V> void manageAttr(std::string attrBaseName, V value) {
-            //DEBUG("Key " << key << std::endl);
+    template <class V> void manageAttr(std::string attrBaseName, const V& value) {
+            DBG("Clust Key " << value << " "<<std::string(typeid(decltype(value)).name())<<std::endl);
 	    std::string valuetype=ObjSpec::c_to_cass(typeid(decltype(value)).name());
 	    std::pair<std::string, std::string> valuedesc(attrBaseName+std::to_string(managedValues), valuetype);
 	    valuesDesc.push_back(valuedesc);
@@ -38,9 +38,9 @@ public:
     	    managedValues++;
     }
 
-    template <class V1alt, class...restalt> void manageRest(std::string attrBaseName, V1alt part, restalt... restValues){
+    template <class V1alt, class...restalt> void manageRest(std::string attrBaseName, const V1alt& part, restalt... restValues){
         /* deal with the first parameter */
-        //DEBUG("Clust Key " << part << " "<<std::string(typeid(decltype(part)).name())<<std::endl);
+        DBG("Clust Key " << part << " "<<std::string(typeid(decltype(part)).name())<<std::endl);
 	std::string valuetype=ObjSpec::c_to_cass(typeid(decltype(part)).name());
 	std::pair<std::string, std::string> valuedesc(attrBaseName+std::to_string(managedValues), valuetype);
 	valuesDesc.push_back(valuedesc);
@@ -76,14 +76,14 @@ public:
     }
 
 
-       template <class V> void createAttributeBuffer(std::string valuetype, V value) {
+       template <class V> void createAttributeBuffer(std::string valuetype, const V& value) {
             char * buf;
             int size=0;
             if (ObjSpec::isBasicType(valuetype)) {
 
 		if (typeid(value) == typeid(std::string)){
                         //copy the string so we can pass the address of the copy
-			std::string valuestring = reinterpret_cast<std::string&>(value);
+			const std::string& valuestring = reinterpret_cast<const std::string&>(value);
                         const char *valuetmp=valuestring.c_str();
                         char *copyValue=(char *)malloc(strlen(valuetmp) + 1);
                         strcpy(copyValue, valuetmp);
@@ -96,11 +96,12 @@ public:
                 	memcpy(buf, &value, size);
 		}
 
-            } else {
-                char * Vpointer = (char *) &value;
-                size=sizeof(Vpointer);
+            } else { // IStorage*
+                size = sizeof(V*);
                 buf = (char *) malloc(size);
-                memcpy(buf, &Vpointer, size);
+		// We need to copy the address of the reference (this make the trick)
+		const void *tmp = &value; 
+        	memcpy(buf, &tmp, size);
             }
             std::pair <char *, int> bufinfo(buf,size);
             valuesTmpBuffer.push_back(bufinfo);
