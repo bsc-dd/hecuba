@@ -33,6 +33,8 @@ public:
     void setClassName(std::string name);
     void setIdModel(std::string name);
     std::string getClassName();
+    std::string getIdModel(); // FQName of the class
+    std::pair<std::string, std::string> getKeyspaceAndTablename( const std::string& FQIDmodel ) const;
     void setSession(HecubaSession *s);
     HecubaSession * getCurrentSession();
     const std::string& getTableName() const;
@@ -68,15 +70,18 @@ public:
     // the definition of at least one virtual function is necessary to use rtti capabilities
     // and be able to infer subclass name from a method in the base clase
     virtual void generatePythonSpec() {};
-    virtual void assignTableName(std::string id_object, std::string id_model) {};
+    virtual void assignTableName(const std::string& id_object, const std::string& id_model) {};
     virtual void persist_metadata(uint64_t * c_uuid) {};
     virtual void persist_data() {};
-    virtual std::vector<std::pair<std::string, std::string>> getValuesDesc() {};
+    virtual void setPersistence (const std::string &id_model, uint64_t *uuid) {};
+    virtual std::vector<std::pair<std::string, std::string>> getValuesDesc() { };
     virtual std::vector<std::pair<std::string, std::string>> getPartitionKeys() {};
     virtual std::vector<std::pair<std::string, std::string>> getClusteringKeys() {};
     virtual void initialize_dataAcces() {};
     virtual void deleteCache() {};
 
+
+    void getByAlias(const std::string& name) ;
 
     void extractMultiValuesFromQueryResult(void *query_result, void *valuetoreturn, int type) const ;
 private:
@@ -117,5 +122,13 @@ private:
 
 
     void extractFromQueryResult(std::string value_type, uint32_t value_size, void *query_result, void *valuetoreturn) const;
+protected:
+struct metadata_info {
+	std::string name;
+	std::string class_name;
+	ArrayMetadata numpy_metas;
+};
+    const struct metadata_info  getMetaData(uint64_t* uuid) const;
+    void init_persistent_attributes(const std::string& id_object, uint64_t *uuid);
 };
 #endif /* ISTORAGE_H */

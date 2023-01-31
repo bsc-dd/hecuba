@@ -32,7 +32,7 @@ public:
     }
 
     StorageDict() {
-	initObjSpec();
+    	initObjSpec();
     }
 
     // c++ only calls implicitly the constructor without parameters. To invoke this constructor we need to add to the user class an explicit call to this
@@ -80,8 +80,10 @@ public:
 	setPythonSpec(pythonSpec);
     }
 
-    void assignTableName(std::string id_obj, std::string id_model) {
-	this->setTableName(id_obj); //in the case of StorageObject this will be the name of the class
+    void assignTableName(const std::string& id_obj, const std::string& id_model) {
+        size_t pos = id_obj.find_first_of(".");
+        std::string tablename =id_obj.substr(pos+1, id_obj.size());
+        this->setTableName( tablename ); //in the case of StorageObject this will be the name of the class
     }
 
     void persist_metadata(uint64_t* c_uuid) {
@@ -93,12 +95,46 @@ public:
                         	std::string("(") +
                         	UUID::UUID2str(c_uuid) + std::string(", ") +
                         	"'" + getCurrentSession()->config["execution_name"] + "." + getTableName() + "'" + std::string(", ") +
-                        	"'" + this->getClassName() + "'" + std::string(", ") +
+                        	"'" + this->getIdModel() + "'" + std::string(", ") +
                         	oType.getKeysStr() + std::string(", ") +
                         	oType.getColsStr() +
                         	std::string(")");
         getCurrentSession()->run_query(insquery);
     }
+
+	/* setPersistence - Inicializes current instance to conform to uuid object. To be used on an empty instance. */
+    void setPersistence (const std::string &id_model, uint64_t *uuid) {
+	    // FQid_model: Fully Qualified name for the id_model: module_name.id_model
+	    std::string FQid_model = this->getIdModel();
+
+	    struct metadata_info row = this->getMetaData(uuid);
+
+	    std::pair<std::string, std::string> idmodel = getKeyspaceAndTablename( row.name );
+	    std::string keyspace = idmodel.first;
+	    std::string tablename = idmodel.second;
+
+	    const char * id_object = tablename.c_str();
+	    // Check that retrieved classname form hecuba coincides with 'id_model'
+	    std::string sobj_table_name = row.class_name;
+
+	    // The class_name retrieved in the case of the storageobj is
+	    // the fully qualified name, but in cassandra the instances are
+	    // stored in a table with the name of the last part(example:
+	    // "model_complex.info" will have instances in "keyspace.info")
+	    // meaning that in a complex scenario with different models...
+	    // we will loose information. FIXME
+	    if (sobj_table_name.compare(FQid_model) != 0) {
+		    throw ModuleException("HecubaSession::createObject uuid "+UUID::UUID2str(uuid)+" "+ tablename + " has unexpected class_name " + sobj_table_name + " instead of "+FQid_model);
+	    }
+
+	    init_persistent_attributes(tablename, uuid);
+	    // Create READ/WRITE cache accesses
+	    initialize_dataAcces();
+
+
+    }
+
+
     std::vector<std::pair<std::string, std::string>> getValuesDesc () {
 	return valuesDesc;
     }

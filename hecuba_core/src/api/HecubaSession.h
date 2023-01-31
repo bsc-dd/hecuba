@@ -57,10 +57,11 @@ public:
     CassError run_query(std::string) const;
 
     Writer * getNumpyMetaWriter() const;
+    CacheTable * getHecubaIstorageAccess() const;
 private:
 
     void decodeNumpyMetadata(HecubaSession::NumpyShape *s, void* metadata);
-    std::string getFQname(const char* id_model) const ;
+    const std::string getFQname(const char* id_model) const ;
     std::string generateTableName(std::string FQname) const ;
 
     std::shared_ptr<StorageInterface> storageInterface; //StorageInterface* storageInterface; /* Connection to Cassandra */

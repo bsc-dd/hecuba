@@ -45,7 +45,7 @@ public:
 	this->valuesDesc=this->partitionKeys;
 	this->valuesDesc.insert(this->valuesDesc.end(), this->clusteringKeys.begin(), this->clusteringKeys.end());
 	this->valuesBuffer = keysBuffer;
-	this->template setTupleValues<0,K1,rest...>(this->valuesBuffer);
+	this->template setTupleValues<0,K1,rest...>(sd, this->valuesBuffer);
     }
 
     // copy assignment

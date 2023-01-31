@@ -361,6 +361,10 @@ Writer * HecubaSession::getNumpyMetaWriter() const {
     return numpyMetaWriter;
 }
 
+CacheTable * HecubaSession::getHecubaIstorageAccess() const {
+    return numpyMetaAccess;
+}
+
 void HecubaSession::decodeNumpyMetadata(HecubaSession::NumpyShape *s, void* metadata) {
     // Numpy Metadata(all unsigned): Ndims + Dim1 + Dim2 + ... + DimN  (Layout in C by default)
     unsigned* value = (unsigned*)metadata;
@@ -692,7 +696,7 @@ void HecubaSession::loadDataModel(const char * model_filename, const char * pyth
  *      hecuba.hnumpy.StorageNumpy --> hecuba.hnumpy.StorageNumpy
  *      path1.path2.classname -> NOT SUPPORTED YET (should be the same)
  */
-std::string HecubaSession::getFQname(const char* id_model) const {
+const std::string HecubaSession::getFQname(const char* id_model) const {
     std::string FQid_model (id_model);
     if (strcmp(id_model, "hecuba.hnumpy.StorageNumpy")==0) {
         // Special treatment for NUMPY
@@ -1119,16 +1123,18 @@ void HecubaSession::registerObject(IStorage *d) {
 
 	const std::type_info& tp = typeid(*d);
 	std::string class_name = abi::__cxa_demangle(tp.name(),NULL,NULL,&status);
+	std::string FQname;
 	if (class_name == "StorageNumpy") {
 		class_name="hecuba.hnumpy.StorageNumpy";
+		FQname=class_name;
 		new_element=false;
+	} else {
+		FQname = class_name + "." + class_name;
 	}
-
+	d->setIdModel(FQname);
 	d->setClassName(class_name);
 	d->setSession(this);
 	// FQname in python style
-	std::string FQname = getFQname(class_name.c_str());
-	d->setIdModel(FQname);
 	if (new_element) { // spec for numpys is already inserted
 		new_element = currentDataModel->addObjSpec(FQname, d->getObjSpec()); //objspec is duplicated: id data model and in the object itself
 		if (new_element) {

@@ -7,8 +7,6 @@
 #include <hecuba/ObjSpec.h>
 #include <hecuba/debug.h>
 #include <hecuba/IStorage.h>
-#include <hecuba/KeyClass.h>
-#include <hecuba/ValueClass.h>
 #include "UUID.h"
 #include "ArrayDataStore.h"
 
@@ -61,7 +59,7 @@ public:
     StorageNumpy(void *datasrc, const std::vector<uint32_t> &metas) {
 	// Transform user metas to ArrayMetadata
 	this->metas = metas; // make a copy of user 'metas'
-	uint32_t numpy_size = getMetaData(metas, this->numpy_metas);
+	uint32_t numpy_size = extractNumpyMetaData(metas, this->numpy_metas);
 
 	// Make a copy of 'datasrc'
 	this->data = malloc(numpy_size);
@@ -78,7 +76,7 @@ public:
     // StorageNumpy sn; sn = misn;
     StorageNumpy &operator = (const StorageNumpy & w) {
 	this->metas = w.metas;
-	uint32_t numpy_size = getMetaData(metas, this->numpy_metas);
+	uint32_t numpy_size = extractNumpyMetaData(metas, this->numpy_metas);
 	this->data = malloc(numpy_size);
 	memcpy(this->data, w.data, numpy_size);
     }
@@ -101,8 +99,9 @@ public:
 	}
     }
 
-    void assignTableName(std::string id_obj, std::string id_model) {
-	this->setTableName(id_obj); //in the case of StorageNumpy this will be the name of the class
+    void assignTableName(const std::string& id_obj, const std::string& id_model) {
+        size_t pos= id_obj.find_first_of(".");
+        this->setTableName(id_obj.substr(pos+1,id_obj.size())); //in the case of StorageObject this will be the name of the class
     }
 
     void initialize_dataAcces() {
@@ -125,6 +124,45 @@ public:
 
     }
 
+	/* setPersistence - Inicializes current instance to conform to uuid object. To be used on an empty instance. */
+    void setPersistence (const std::string &id_model, uint64_t *uuid) {
+	    // FQid_model: Fully Qualified name for the id_model: module_name.id_model
+	    std::string FQid_model = this->getIdModel();
+
+	    struct metadata_info row = this->getMetaData(uuid);
+
+
+	    std::pair<std::string, std::string> idmodel = getKeyspaceAndTablename( row.name );
+	    std::string keyspace = idmodel.first;
+	    std::string tablename = idmodel.second;
+
+	    const char * id_object = tablename.c_str();
+
+	    // Check that retrieved classname form hecuba coincides with 'id_model'
+	    std::string sobj_table_name = row.class_name;
+
+	    // The class_name retrieved in the case of the storageobj is
+	    // the fully qualified name, but in cassandra the instances are
+	    // stored in a table with the name of the last part(example:
+	    // "model_complex.info" will have instances in "keyspace.info")
+	    // meaning that in a complex scenario with different models...
+	    // we will loose information. FIXME
+	    if (sobj_table_name.compare(FQid_model) != 0) {
+		    throw ModuleException("HecubaSession::createObject uuid "+UUID::UUID2str(uuid)+" "+ tablename + " has unexpected class_name " + sobj_table_name + " instead of "+FQid_model);
+	    }
+
+	    numpy_metas = row.numpy_metas;
+		this->metas = numpy_metas.dims;
+
+	    init_persistent_attributes(tablename, uuid);
+	    // Create READ/WRITE cache accesses
+	    initialize_dataAcces();
+
+    	    this->data = malloc(numpy_metas.get_array_size());
+            std::list<std::vector<uint32_t>> coord = {};
+            arrayStore->read_numpy_from_cas_by_coords(uuid, numpy_metas, coord, data);
+    }
+
 void send(void) {
     DBG("DEBUG: IStorage::send: sending numpy. Size "<< numpy_metas.get_array_size());
     getDataWriter()->send_event((char *) data, numpy_metas.get_array_size());
@@ -136,7 +174,7 @@ private:
 
 	ArrayDataStore* arrayStore = nullptr; /* Cache of written/read elements */
 
-    uint32_t getMetaData(const std::vector<uint32_t> &raw_numpy_meta, ArrayMetadata &arr_metas) {
+    uint32_t extractNumpyMetaData(const std::vector<uint32_t> &raw_numpy_meta, ArrayMetadata &arr_metas) {
     	std::vector <uint32_t> dims;
     	std::vector <uint32_t> strides;
 
@@ -149,8 +187,8 @@ private:
     	}
 	numpy_size = acum;
     	for (uint32_t i=0; i < raw_numpy_meta.size(); i++) {
-        	strides.push_back(acum * sizeof(double));
-        	acum /= raw_numpy_meta[raw_numpy_meta.size()-1-i];
+            acum/=raw_numpy_meta[i];
+            strides.push_back(acum * sizeof(double));
     	}
     	uint32_t flags=NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE | NPY_ARRAY_ALIGNED;
 	
@@ -161,7 +199,7 @@ private:
     	arr_metas.partition_type = ZORDER_ALGORITHM;
     	arr_metas.typekind = 'f';
     	arr_metas.byteorder = '=';
-	return numpy_size;
+	return numpy_size*arr_metas.elem_size;
     }
 
     void registerNumpy(ArrayMetadata &numpy_meta, std::string name, uint64_t* uuid) {
