@@ -39,13 +39,13 @@ public:
 			this->valuesBuffer= (char *)malloc(this->total_size);
 			this->sd->getItem(w.pendingKeysBuffer,this->valuesBuffer);
 		} else {
-			// if multivalue, getitem allocates the space
+			//for more than one attribute getItem allocates the space
 			this->sd->getItem(w.pendingKeysBuffer,&this->valuesBuffer);
 		}
 		free(w.pendingKeysBuffer);
 		this->pendingKeysBuffer = nullptr;
 		this->pendingKeysBufferSize=0;
-		this->template setTupleValues<0,V1,rest...>(this->valuesBuffer);
+		this->template setTupleValues<0,V1,rest...>(this->sd, this->valuesBuffer);
 	} else {
 		// case myvalueclass v = j copy constructor
     		this->managedValues = w.managedValues;
@@ -87,7 +87,7 @@ public:
 		this->pendingKeysBufferSize=0;
 		w.pendingKeysBufferSize=0;
         	this->valuesDesc=w.valuesDesc;
-		this->template setTupleValues<0,V1,rest...>(this->valuesBuffer);
+		this->template setTupleValues<0,V1,rest...>(this->sd, this->valuesBuffer);
 		// TODO set values interpreting valuesBuffer
 		w.sd=nullptr;
 		w.managedValues=0;

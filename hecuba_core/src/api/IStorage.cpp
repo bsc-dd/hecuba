@@ -424,8 +424,7 @@ void IStorage::send(void* key, IStorage* value) {
 
 void IStorage::extractFromQueryResult(std::string value_type, uint32_t value_size, void *query_result, void *valuetoreturn) const{
     if (!ObjSpec::isBasicType(value_type)) {
-        IStorage *read_object = this->currentSession->createObject(value_type.c_str(), *(uint64_t **)query_result);
-        memcpy(valuetoreturn, &read_object, sizeof(IStorage *));
+        memcpy(valuetoreturn, query_result, sizeof(uint64_t)*2); // Copy the UUID directly
     } else {
         if (value_type == "text") {
             char *str = *(char**)query_result;
@@ -585,6 +584,20 @@ void IStorage::setClassName(std::string name) {
 std::string IStorage::getClassName() {
 	return this->class_name;
 }
+std::string IStorage::getIdModel() {
+	return this->id_model;
+}
+
+/* split FQIDmodel ("keyspace.tablename") into its 2 components: keyspace and tablename */
+std::pair<std::string, std::string> IStorage:: getKeyspaceAndTablename( const std::string& FQIDmodel ) const {
+	std::string keyspace = FQIDmodel;
+	std::string tablename;
+
+	uint32_t pos = keyspace.find_first_of('.');
+	tablename = keyspace.substr(pos+1);
+	keyspace = keyspace.substr(0,pos);
+	return std::make_pair(keyspace, tablename);
+}
 
 void IStorage::setIdModel(std::string name) {
 	this->id_model=name;
@@ -650,13 +663,20 @@ void IStorage::make_persistent(const std::string  id_obj) {
 		throw std::runtime_error("Trying to persist with an empty name ");
 	} else {
 		id_object_str = std::string(id_obj);
+        size_t pos= id_object_str.find_first_of(".");
+        if (pos == std::string::npos) {// Not found
+            id_object_str = currentSession->config["execution_name"] + "." + id_object_str;
+        } else {
+            pos = id_object_str.find_first_of(".", pos);
+            if (pos != std::string::npos) {// Found
+		        throw std::runtime_error("Trying to persist with a name with multiple 'dots' ["+ id_object_str +"]");
+            }
+        }
 	}
-	
-	this->setObjectName(id_object_str);
-	this->assignTableName(id_object_str, getClassName()); //depends on the type of persistent object
 
-	std::string name(currentSession->config["execution_name"] + "." + id_object_str);
-	uint64_t *c_uuid=UUID::generateUUID5(name.c_str()); // UUID for the new object
+	uint64_t *c_uuid=UUID::generateUUID5(id_object_str.c_str()); // UUID for the new object
+	
+	init_persistent_attributes(id_object_str, c_uuid) ;
 
 	ObjSpec oType = this->getObjSpec();
 	bool new_element = true;
@@ -693,27 +713,37 @@ void IStorage::make_persistent(const std::string  id_obj) {
                         throw ModuleException(msg);
                 }
         }
+
+	// Create READ/WRITE cache accesses
+	initialize_dataAcces();
+
 	persist_metadata(c_uuid); //depends on the type of persistent object
 				  // TODO: deal with the case of already existing dictionaries: new_element == false
 
 	
+	// Now that the writer is created, persist data
+	persist_data();
+
+}
+
+/* id_object_str: User name for the object passed to make_persistent (includes keyspace)
+   c_uuid       : UUID to use for this object */
+void IStorage::init_persistent_attributes(const std::string& id_object_str, uint64_t* c_uuid) {
+	this->setObjectName(id_object_str);
+	this->assignTableName(id_object_str, getClassName()); //depends on the type of persistent object
+
 	std::string topic = std::string(UUID::UUID2str(c_uuid));
 	
-	// Create READ/WRITE cache accesses
-	initialize_dataAcces();
 
         this->storageid = c_uuid;
 	this->pending_to_persist=false;
 	this->persistent=true;
-
-	// Now that the writer is created, persist data
-	persist_data();
-
+	ObjSpec oType = this->getObjSpec();
 	if (oType.isStream()) {
 		enableStream(topic);
 	}	
-
 }
+
 
 // TODO: TO BE DELETED. MOVED TO STORAGEDICT AND STORAGENUMPY
 #if 0
@@ -731,6 +761,41 @@ void IStorage::initialize_dataAcces() {
 	delete colNamesDict;
 }
 #endif
+/* Get name, classname and numpymetas from hecuba.istorage */
+const struct IStorage::metadata_info IStorage::getMetaData(uint64_t* uuid) const {
+
+	struct metadata_info res;
+
+	void * localuuid = malloc(2*sizeof(uint64_t));
+	memcpy(localuuid, uuid, 2*sizeof(uint64_t));
+	void * key = malloc(sizeof(char*));
+	memcpy(key, &localuuid, sizeof(uint64_t*));
+
+	std::vector <const TupleRow*> result = currentSession->getHecubaIstorageAccess()->retrieve_from_cassandra(key);
+
+	if (result.empty()) throw ModuleException("IStorage uuid "+UUID::UUID2str(uuid)+" not found. Unable to get its metadata.");
+
+	uint32_t pos = currentSession->getHecubaIstorageAccess()->get_metadata()->get_columnname_position("name");
+	char *keytable = *(char**)result[0]->get_element(pos); //Value retrieved from cassandra has 'keyspace.tablename' format
+
+
+	// Check that retrieved classname form hecuba coincides with 'id_model'
+	pos = currentSession->getHecubaIstorageAccess()->get_metadata()->get_columnname_position("class_name");
+	char *classname = *(char**)result[0]->get_element(pos); //Value retrieved from cassandra has 'keyspace.tablename' format
+
+	// Read the UDT case (numpy_meta)from the row retrieved from cassandra
+	pos = currentSession->getHecubaIstorageAccess()->get_metadata()->get_columnname_position("numpy_meta");
+	if (result[0]->get_element(pos) != 0) {
+		ArrayMetadata *numpy_metas = *(ArrayMetadata**)result[0]->get_element(pos);
+		res.numpy_metas = *numpy_metas;
+		DBG("DEBUG: HecubaSession::createNumpy . Size "<< numpy_metas->get_array_size());
+	}
+
+	res.name = std::string( keytable );
+	res.class_name = std::string( classname );
+	return  res;
+}
+
 Writer * IStorage::getDataWriter() {
 	return dataWriter;
 }
@@ -742,5 +807,12 @@ CacheTable * IStorage::getDataAccess() {
 void IStorage::setCache(CacheTable* cache) {
 	dataAccess = cache;
 	dataWriter = dataAccess->get_writer();
+}
+
+void IStorage::getByAlias(const std::string& name) {
+	std::string FQname (currentSession->config["execution_name"] + "." + name);
+	uint64_t *c_uuid=UUID::generateUUID5(FQname.c_str()); // UUID for the new object
+	
+	setPersistence(this->id_model, c_uuid);
 }
 

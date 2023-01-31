@@ -9,6 +9,7 @@
 
 #include <hecuba/debug.h>
 #include "IStorage.h"
+#include "StorageDict.h"
 
 
 
@@ -56,7 +57,8 @@ public:
     void manageRest(std::string attrBaseName) {
     }
 
-    template <std::size_t ix, class V1alt, class...restalt> void setTupleValues(void *buffer) {
+	// NOTE: we need the hecuba session, therefore pass through the IStorage containing it (sd)
+    template <std::size_t ix, class V1alt, class...restalt> void setTupleValues(IStorage* sd, void *buffer) {
 
 	size_t tam = 0;
 	if (ObjSpec::isBasicType(valuesDesc[ix].second) ) {
@@ -68,14 +70,23 @@ public:
 			tam = sizeof (V1alt);
 		}
 	} else {
-		std::get<ix>(values)=*(V1alt *)buffer;
+		uint64_t * uuid = *(uint64_t**) buffer;
+		// TRICK: this code is executed only when V1alt is an IStorage
+		// but this is not known at compile time. So compiler complains
+		// telling that 'newinstance' does not have the 'setPersistence'
+		// method. Thus we cast the newinstance to force to be considered as an IStorage.
+		V1alt newinstance;
+		sd->getCurrentSession()->registerObject((IStorage*)&newinstance);
+		((IStorage*)&newinstance)->setPersistence(valuesDesc[ix].second, uuid); // registerObject + get name from cassandra + create writer and cache
+		// END TRICK.^^^
+		std::get<ix>(values)=newinstance;
 		tam = sizeof(V1alt);
 	}
 	
-	setTupleValues<ix+1, restalt...>((void *)((char*)buffer+tam));
+	setTupleValues<ix+1, restalt...>(sd, (void *)((char*)buffer+tam));
     }
 
-    template <std::size_t ix> void setTupleValues(void *buffer) {
+    template <std::size_t ix> void setTupleValues(IStorage* sd, void *buffer) {
 
     }
 
