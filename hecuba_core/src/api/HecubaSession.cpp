@@ -692,7 +692,7 @@ void HecubaSession::loadDataModel(const char * model_filename, const char * pyth
 /* Given a class name 'id_model' returns its Fully Qualified Name with Python
  * Style using the current Data Model modulename.
  * Examples:
- *      classname --> modulename.classname
+ *      classname --> classname.classname
  *      hecuba.hnumpy.StorageNumpy --> hecuba.hnumpy.StorageNumpy
  *      path1.path2.classname -> NOT SUPPORTED YET (should be the same)
  */
@@ -709,7 +709,7 @@ const std::string HecubaSession::getFQname(const char* id_model) const {
         //             class info (StorageObj):
         //                  ...
         //      But we store the Fully Qualified name> "model_complex.info"
-        FQid_model.insert(0, currentDataModel->getModuleName() + ".");
+        FQid_model.insert(0, std::string(id_model) + ".");
 
     }
     return FQid_model;
