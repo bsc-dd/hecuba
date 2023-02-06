@@ -25,15 +25,11 @@ public:
 	setKeys(); // the first one of the attributes is the partition key, and the rest the clustering keys
     }
 
-    KeyClass(const KeyClass &w):AttributeClass<K1,rest...>(){
+    KeyClass(const KeyClass &w):AttributeClass<K1,rest...>(w){
 	this->partitionKeys=w.partitionKeys;
 	this->clusteringKeys=w.clusteringKeys;
-	this->managedValues=w.managedValues;
-	this->valuesDesc = w.valuesDesc;
-	this->total_size=w.total_size;
-	this->valuesBuffer = (char *) malloc (this->total_size);
-	memcpy(this->valuesBuffer, w.valuesBuffer,this->total_size);
     }
+
 
     // Constructor used by the key iterator in StorageDict: given the buffer with the content of the key we construct a keyclass
     KeyClass(IStorage *sd, char *keysBuffer) {

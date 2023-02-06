@@ -17,11 +17,22 @@ template <class V1, class...rest>
 class AttributeClass {
 
 public:
+
     AttributeClass() =default; 
 
+	AttributeClass(const AttributeClass& a) {
+		copy_attributes(a);
+	}
+
     ~AttributeClass() {
-	if (valuesBuffer != nullptr)
-		free(valuesBuffer);
+		if (valuesBuffer != nullptr) {
+			free(valuesBuffer);
+			valuesBuffer = nullptr;
+		}
+		if (pendingKeysBuffer != nullptr) {
+			free(pendingKeysBuffer);
+			pendingKeysBuffer = nullptr;
+		}
     };
     // Constructor called when instantiating a new value with parameters: MyValueClass v(value);
    AttributeClass(std::string attrBaseName, const V1& part, rest... vals) {
@@ -30,10 +41,27 @@ public:
         // only basic classes are suported
         manageAttr<V1>(attrBaseName,part);
         manageRest(attrBaseName,vals...);
-	createValuesBuffer();
-	values=std::make_tuple(part, vals...);
+        createValuesBuffer();
+        values=std::make_tuple(part, vals...);
    }
 
+	void copy_attributes(const AttributeClass &a) {
+		std::cout << "Copy constructor Attribute Class" << std::endl;
+		valuesDesc = a.valuesDesc;
+		managedValues = a.managedValues;
+		total_size = a.total_size;
+		sd = a.sd;
+		pendingKeysBuffer = a.pendingKeysBuffer;
+		pendingKeysBufferSize = a.pendingKeysBufferSize;
+		if (a.valuesBuffer != nullptr) {
+			valuesBuffer = (char *) malloc(a.total_size);
+			memcpy(valuesBuffer, a.valuesBuffer, a.total_size);
+		} else {
+			valuesBuffer = nullptr;
+		}	
+		values = a.values;
+
+	}
     template <class V> void manageAttr(std::string attrBaseName, const V& value) {
             DBG("Clust Key " << value << " "<<std::string(typeid(decltype(value)).name())<<std::endl);
 	    std::string valuetype=ObjSpec::c_to_cass(typeid(decltype(value)).name());
@@ -182,9 +210,10 @@ public:
         return values >= v.values;
     }
 
-template <std::size_t ix, class ...Types> static typename std::tuple_element<ix, std::tuple<Types...>>::type& get(AttributeClass<Types...>&v) {
+template <std::size_t ix, class ...Types> static typename std::tuple_element<ix, std::tuple<Types...>>::type& get(AttributeClass<Types...>& v){
 	return std::get<ix>(v.values);
 }
+
     char *getValuesBuffer() {
 	return valuesBuffer;
     }

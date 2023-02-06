@@ -26,46 +26,37 @@ public:
    }
 
     // Constructor called when assigning another value during the instatiation: MyValueClass v = otherValue or MyValueClass v = d[k]
-    ValueClass(const ValueClass &w): AttributeClass<V1,rest...>(){
-        this->valuesDesc=w.valuesDesc;
-	this->sd = w.sd;
-	
-	if (w.pendingKeysBuffer != nullptr) {
+    ValueClass(const ValueClass& w): AttributeClass<V1,rest...>(w){
+		if (w.pendingKeysBuffer != nullptr) {
 		// case myvalueclass v =d[k]
-		//valuesBuffer= (char *)malloc(total_size);
-		this->total_size=this->sd->getDataWriter()->get_metadata()->get_values_size();
-		this->managedValues = w.managedValues;
+			complete_reading();
+	
+		} 
+		// case else myvalueclass v = j copy constructor implemented in the AttributeClass copy constructor
+    }
+
+    void complete_reading() {
 		if (this->managedValues == 1) {
 			this->valuesBuffer= (char *)malloc(this->total_size);
-			this->sd->getItem(w.pendingKeysBuffer,this->valuesBuffer);
+			this->sd->getItem(this->pendingKeysBuffer,this->valuesBuffer);
 		} else {
 			//for more than one attribute getItem allocates the space
-			this->sd->getItem(w.pendingKeysBuffer,&this->valuesBuffer);
+			this->sd->getItem(this->pendingKeysBuffer,&this->valuesBuffer);
 		}
-		free(w.pendingKeysBuffer);
-		this->pendingKeysBuffer = nullptr;
-		this->pendingKeysBufferSize=0;
 		this->template setTupleValues<0,V1,rest...>(this->sd, this->valuesBuffer);
-	} else {
-		// case myvalueclass v = j copy constructor
-    		this->managedValues = w.managedValues;
-		this->total_size = w.total_size;
-		this->valuesBuffer = (char *) malloc(this->total_size);
-		memcpy(this->valuesBuffer, w.valuesBuffer, this->total_size);
-		this->values = w.values;
-	}
 
-    }
+	}
 
    //Constructor called by the operator [] of StorageDict
     ValueClass(IStorage *sd,char *keysBuffer, int bufferSize):AttributeClass<V1,rest...>() {
-	this->sd = sd;
-	this->pendingKeysBuffer = (char *) malloc(bufferSize);
-	this->pendingKeysBufferSize = bufferSize;
-	this->valuesDesc=this->sd->getValuesDesc();
-	this->total_size=sd->getDataWriter()->get_metadata()->get_values_size();
-	this->managedValues=this->valuesDesc.size();
-	memcpy(this->pendingKeysBuffer, keysBuffer, bufferSize);
+		this->sd = sd;
+		this->pendingKeysBuffer = (char *) malloc(bufferSize);
+		this->pendingKeysBufferSize = bufferSize;
+		this->valuesDesc=this->sd->getValuesDesc();
+		this->total_size=sd->getDataWriter()->get_metadata()->get_values_size();
+		this->managedValues=this->valuesDesc.size();
+	    this->valuesBuffer=nullptr;
+		memcpy(this->pendingKeysBuffer, keysBuffer, bufferSize);
     }
 
     ValueClass &operator = (ValueClass & w) {
@@ -74,24 +65,23 @@ public:
 		this->sd=w.sd;
 		this->total_size=w.total_size;
 		this->managedValues = w.managedValues;
-		if (this->managedValues == 1) {
-			this->valuesBuffer= (char *)malloc(this->total_size);
-			this->sd->getItem(w.pendingKeysBuffer,this->valuesBuffer);
-		} else {
-			// if multivalue, getitem allocates the space
-			this->sd->getItem(w.pendingKeysBuffer,&this->valuesBuffer);
-		}
+		this->valuesDesc=w.valuesDesc;
+		this->pendingKeysBuffer = w.pendingKeysBuffer;
+		this->pendingKeysBufferSize = w.pendingKeysBufferSize;
+
+		complete_reading();
+
 		free(w.pendingKeysBuffer);
 		this->pendingKeysBuffer = nullptr;
 		w.pendingKeysBuffer=nullptr;
 		this->pendingKeysBufferSize=0;
 		w.pendingKeysBufferSize=0;
-        	this->valuesDesc=w.valuesDesc;
-		this->template setTupleValues<0,V1,rest...>(this->sd, this->valuesBuffer);
 		// TODO set values interpreting valuesBuffer
 		w.sd=nullptr;
 		w.managedValues=0;
 		w.total_size=0;
+		w.valuesBuffer=nullptr;
+
 	} else {
 		//  case sd[k]=v;
 		if (this->pendingKeysBuffer != nullptr) {
@@ -99,10 +89,11 @@ public:
 			free(this->pendingKeysBuffer);
 			this->pendingKeysBuffer = nullptr;
 			this->pendingKeysBufferSize=0;
-        		this->valuesDesc=w.valuesDesc;
-    			this->managedValues = w.managedValues;
-			this->valuesBuffer = w.valuesBuffer;
+			this->valuesDesc=w.valuesDesc;
+			this->managedValues = w.managedValues;
 			this->total_size = w.total_size;
+			this->valuesBuffer = (char *) malloc(this->total_size);
+			memcpy(this->valuesBuffer, w.valuesBuffer, this->total_size);
 			this->values = w.values;
 		} 
 	}
@@ -110,6 +101,13 @@ public:
 	return *this;
 
     }
+template <std::size_t ix, class ...Types> static typename std::tuple_element<ix, std::tuple<Types...>>::type& get(ValueClass<Types...>&v){
+	//if we come from d[k], we have to complete the getitem started at the operator []
+	if (v.valuesBuffer == nullptr) {
+		v.complete_reading();
+	}
+	return std::get<ix>(v.values);
+}
 
 };
 
