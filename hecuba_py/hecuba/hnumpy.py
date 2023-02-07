@@ -317,7 +317,7 @@ class StorageNumpy(IStorage, np.ndarray):
             raise TypeError(" WARNING: recovered 'view_serialization' has unexpected type ", type(myview))
 
 
-        IStorage.__init__(obj, name=name, storage_id=storage_id, tokens=tokens)
+        super().__init__(obj, name=name, storage_id=storage_id, tokens=tokens)
 
         obj._numpy_full_loaded = False
         obj._hcache = result[1]
@@ -379,7 +379,7 @@ class StorageNumpy(IStorage, np.ndarray):
                 else:
                     obj = np.asfortranarray(input_array.copy()).view(cls) #to set the fortran contiguous flag it is necessary to do the copy before
                     log.debug("Created ARROW")
-            IStorage.__init__(obj, name=name, storage_id=storage_id, kwargs=kwargs)
+            super(StorageNumpy, obj).__init__(name=name, storage_id=storage_id, kwargs=kwargs)
 
             if name or storage_id: # The object needs to be persisted
                 load_data= (input_array is None) and (config.load_on_demand == False)
