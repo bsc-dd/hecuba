@@ -253,7 +253,7 @@ class StorageDict(IStorage, dict):
             kwargs: other parameters
         """
 
-        super().__init__((), name=name, storage_id=storage_id, **kwargs)
+        super(StorageDict, self).__init__(name=name, storage_id=storage_id, **kwargs)
         log.debug("CREATE StorageDict(%s,%s)", primary_keys, columns)
 
         '''
@@ -276,7 +276,6 @@ class StorageDict(IStorage, dict):
             self._primary_keys = self._persistent_props['primary_keys']
             self._columns = self._persistent_props['columns']
             self._indexed_on = self._persistent_props.get('indexed_on', indexed_on)
-            self._stream_enabled = self._persistent_props.get('stream', False)
 
         # Field '_istorage_metas' will be set if it exists in HECUBA.istorage
         initialized = (getattr(self, '_istorage_metas', None) is not None)
