@@ -1254,6 +1254,21 @@ class StorageNumpyTest(unittest.TestCase):
         z = s[:, 49]
         self.assertTrue(np.array_equal(z, n[:,49]))
 
+    def test_subclass(self):
+        from hecuba import StorageStream
+        n = np.arange(50*50).reshape(50,50)
+        class X(StorageNumpy, StorageStream):
+            pass
+
+        x = X(n, "test_subclass")
+        self.assertTrue(x._stream_enabled)
+
+        class X(StorageStream, StorageNumpy):
+            pass
+
+        x = X(n, "test_subclass2")
+        self.assertTrue(x._stream_enabled)
+
 
 if __name__ == '__main__':
     unittest.main()
