@@ -30,7 +30,11 @@ WORKER_NODES=${4}     # Worker nodes list (separated by spaces)
 NETWORK=${5}            # 'infiniband' or other(ethernet)
 STORAGE_PROPS=${6}
 FILE_TO_SET_ENV_VARS=${7}
-SINGULARITY=${8}        # XXX if it appears run using singularity
+SINGULARITY=${8}      # possible values:
+                      #   "false": regular execution
+                      #   "default": execution with the default singularity image
+                      #    a path to a singularity image
+CORES_MASK=${9}       # mask of cores to be used by cassandra: NOT YET IMPLEMENTED
 
 
 
@@ -40,6 +44,7 @@ DBG " WORKER NODES ARE  : $WORKER_NODES"
 DBG " STORAGE PROPS FILE: $STORAGE_PROPS"
 DBG " FILE TO SET VARS IS ${FILE_TO_SET_ENV_VARS}"
 DBG " SINGULARITY       : ${SINGULARITY}"
+DBG " CORES_MASK        : ${CORES_MASK}"
 
 
 if [ "x$WORKER_NODES" == "x" ]; then
@@ -62,7 +67,10 @@ if [ "$(echo "$NETWORK" | sed 's/-//g')" == "infiniband" ]; then
 else
     iface="eth0"
 fi
-if [ "${SINGULARITY}" == "singularity" ]; then 
+if [ "${SINGULARITY}" != "false" ]; then
+    if [ "${SINGULARITY}" != "default" ]; then
+        echo "Warning: SINGULARITY=[$SINGULARITY] is not supported. Only 'default'."
+    fi
     SINGULARITY="enabled"
 fi
 
