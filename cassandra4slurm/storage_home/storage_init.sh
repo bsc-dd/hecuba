@@ -267,7 +267,7 @@ else
 
     #check if cassandra is already running and then just configure hecuba environment
     # CONTACT_NAMES sould be set in STORAGE_PROPS file
-    if [ $( grep -v ^# $STORAGE_PROPS | grep -q CONTACT_NAMES ) -eq 0 ]; then
+    if [[ $( grep -v ^# $STORAGE_PROPS | grep -q CONTACT_NAMES ) -eq 1 ]]; then
             firstnode=$( get_first_node $CONTACT_NAMES )
             source $MODULE_PATH/initialize_hecuba.sh  $firstnode
             #echo "CONTACT_NAMES=$CONTACT_NAMES"
@@ -306,7 +306,6 @@ else
     APPPATHFILE=$C4S_HOME/app-"$UNIQ_ID".txt
     PYCOMPSS_FLAGS_FILE=$C4S_HOME/pycompss-flags-"$UNIQ_ID".txt
     PYCOMPSS_FILE=$C4S_HOME/pycompss-"$UNIQ_ID".sh
-    rm -f $NODEFILE_REMOVEME $CASSFILE #$APPFILE
     scontrol show hostnames $SLURM_NODELIST > $NODEFILE_REMOVEME
 
     # Generating nodefiles
