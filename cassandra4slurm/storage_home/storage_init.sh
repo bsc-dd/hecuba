@@ -259,6 +259,7 @@ function run_cass_singularity() {
     sleep 8 #Give time to cassandra to start up
 }
 
+TIME_START=`date +"%T.%3N"` # Time to start cassandra
 if [ "${SINGULARITY}" == "enabled" ]; then 
     # TODO: LOGS_DIR uses *current* directory by default. Meaning that all instances would map that directory (which means that the content of that directory will be bullshit as all the nodes will overwrite the same data)
     run run_cass_singularity ${CASSANDRA_NODELIST} ${iface} ${C4S_CASSANDRA_CORES} ${LOGS_DIR}/${UNIQ_ID} ${DATA_PATH} ${C4S_HOME}/conf/${UNIQ_ID}
@@ -364,7 +365,6 @@ else
     DBG $(ls -la $C4S_HOME/conf/template-aux-"$SLURM_JOB_ID".yaml)
 
 
-    TIME_START=`date +"%T.%3N"`
     echo "Launching Cassandra in the following hosts: $CASSANDRA_NODELIST"
 
     # If a snapshot is needed
