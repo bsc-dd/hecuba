@@ -20,12 +20,12 @@ public:
     IStorage(HecubaSession* session, std::string id_model, std::string id_object, uint64_t* storage_id, CacheTable* reader);
     ~IStorage();
 
-    void setItem(void* key, IStorage* value);
-    void setItem(void* keys, void* values);
+    virtual void setItem(void* key, IStorage* value) {};
+    virtual void setItem(void* keys, void* values) {};
 
     void send(void* key, IStorage* value);
     void send(void* key, void* value);
-    void send_values(const void* value);
+    virtual void send_values(const void* value);
 
     void setAttr(const char* attr_name, IStorage* value);
     void setAttr(const char* attr_name, void* value);

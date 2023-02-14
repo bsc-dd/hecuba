@@ -342,6 +342,9 @@ void IStorage::setAttr(const char *attr_name, IStorage* value) {
     writeTable(attr_name, (void *) &value, SETATTR_TYPE);
 }
 
+#if 0
+
+// we have moved this to StorageDict.h
 void IStorage::setItem(void* key, void* value) {
     /* PRE: value arrives already coded as expected: block of memory with pointers to IStorages or basic values*/
     writeTable(key, value, SETITEM_TYPE);
@@ -351,6 +354,7 @@ void IStorage::setItem(void* key, IStorage * value){
     /* 'writetable' expects a block of memory with pointers to IStorages, therefore add an indirection */
     writeTable(key, (void *) &value, SETITEM_TYPE);
 }
+#endif
 
 //moved to StorageNumpy.h
 #if 0
