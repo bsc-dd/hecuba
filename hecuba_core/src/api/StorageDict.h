@@ -15,7 +15,7 @@
 
 template<class K, class V>
 
-class StorageDict:public IStorage {
+class StorageDict:virtual public IStorage {
 
 #define ISKEY true
 
@@ -143,7 +143,7 @@ public:
     void setItem( void *key, void *value) {
 
 	void * cc_val;
-        const TableMetadata* writerMD = dataWriter->get_metadata();
+        const TableMetadata* writerMD = getDataWriter()->get_metadata();
 	// prepare values
 	std::shared_ptr<const std::vector<ColumnMeta> > columns = writerMD->get_values();
         uint32_t numcolumns = columns->size();
@@ -160,9 +160,9 @@ public:
 
         const TupleRow* trow_key = this->getDataAccess()->get_new_keys_tuplerow(cc_key);
         const TupleRow* trow_values = this->getDataAccess()->get_new_values_tuplerow(cc_val);
-#if 0
+#if 1
         if (this->isStream()) {
-            this->dataWriter->send_event(trow_key, trow_values); // stream value (storage_id/value)
+            this->getDataWriter()->send_event(trow_key, trow_values); // stream value (storage_id/value)
             send_values(value); // If value is an IStorage type stream its contents also
         }
 #endif
@@ -173,7 +173,7 @@ public:
 
 void send_values(const void *value) {
     DBG("START");
-    const TableMetadata* writerMD = dataWriter->get_metadata();
+    const TableMetadata* writerMD = getDataWriter()->get_metadata();
     ObjSpec ospec = this->getObjSpec();
 
     std::shared_ptr<const std::vector<ColumnMeta> > columns = writerMD->get_values();

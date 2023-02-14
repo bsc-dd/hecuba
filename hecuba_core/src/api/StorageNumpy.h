@@ -25,7 +25,7 @@
 #define NPY_ARRAY_WRITEABLE       0x0400
 #define NPY_ARRAY_UPDATEIFCOPY    0x1000
 
-class StorageNumpy:public IStorage {
+class StorageNumpy:virtual public IStorage {
 public:
 
     void *data = nullptr;   /* Pointer to memory containing the object. */
