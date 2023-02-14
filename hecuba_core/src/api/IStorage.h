@@ -55,7 +55,8 @@ public:
 
     void sync(void);
 
-    void enableStream(std::string topic);
+    void enableStream();
+    void configureStream(std::string topic);
     bool isStream();
 
 

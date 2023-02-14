@@ -401,7 +401,7 @@ void IStorage::send(void* key, void* value) {
                 if (!myobj->isStream()) {
                     std::string topic = std::string(currentSession->UUID2str(myobj->getStorageID()));
                     DBG("  Object "<< topic <<" is not stream enabled. Enabling.");
-                    myobj->enableStream(topic);
+                    myobj->configureStream(topic);
                 }
                 myobj->send();
             }
@@ -569,12 +569,17 @@ void IStorage::setNumpyAttributes(ArrayDataStore* array_store, ArrayMetadata &me
     }
 }
 #endif
+void IStorage::enableStream() {
+    streamEnabled=true;
+}
+
 bool IStorage::isStream() {
+	std::cout << "IStorage isStream" << std::endl;
     return streamEnabled;
 }
 
-void IStorage::enableStream(std::string topic) {
-    streamEnabled=true;
+void IStorage::configureStream(std::string topic) {
+	enableStream();
     this->dataWriter->enable_stream(topic.c_str(),(std::map<std::string, std::string>&)this->currentSession->config);
 }
 
@@ -717,12 +722,18 @@ void IStorage::make_persistent(const std::string  id_obj) {
 	// Create READ/WRITE cache accesses
 	initialize_dataAcces();
 
+    if (isStream()){
+		getObjSpec().enableStream();
+		configureStream(UUID::UUID2str(c_uuid));
+	}
+
 	persist_metadata(c_uuid); //depends on the type of persistent object
 				  // TODO: deal with the case of already existing dictionaries: new_element == false
 
-	
+
 	// Now that the writer is created, persist data
 	persist_data();
+
 
 }
 
@@ -732,16 +743,9 @@ void IStorage::init_persistent_attributes(const std::string& id_object_str, uint
 	this->setObjectName(id_object_str);
 	this->assignTableName(id_object_str, getClassName()); //depends on the type of persistent object
 
-	std::string topic = std::string(UUID::UUID2str(c_uuid));
-	
-
-        this->storageid = c_uuid;
+	this->storageid = c_uuid;
 	this->pending_to_persist=false;
 	this->persistent=true;
-	ObjSpec oType = this->getObjSpec();
-	if (oType.isStream()) {
-		enableStream(topic);
-	}	
 }
 
 
@@ -812,7 +816,11 @@ void IStorage::setCache(CacheTable* cache) {
 void IStorage::getByAlias(const std::string& name) {
 	std::string FQname (currentSession->config["execution_name"] + "." + name);
 	uint64_t *c_uuid=UUID::generateUUID5(FQname.c_str()); // UUID for the new object
-	
+
 	setPersistence(this->id_model, c_uuid);
+    if (isStream()) {
+		getObjSpec().enableStream();
+		configureStream(std::string(UUID::UUID2str(c_uuid)));
+	}
 }
 

@@ -190,9 +190,9 @@ void send_values(const void *value) {
         DBG(" -->  traversing column '"<<column_name<< "' of type '" << value_type<<"'" );
         if (!ObjSpec::isBasicType(value_type)) {
             if (value_type.compare("hecuba.hnumpy.StorageNumpy") == 0) {
-                StorageNumpy * result = *(IStorage **)(src+offset); // 'src' MUST be a valid pointer or it will segfault here...
+                StorageNumpy * result = *(StorageNumpy **)(src+offset); // 'src' MUST be a valid pointer or it will segfault here...
                 if (!result->isStream()) { // If the object did not have Stream enabled, enable it now as we are going to stream it...
-                    result->enableStream(UUID::UUID2str(result->getStorageID()));
+                    result->configureStream(UUID::UUID2str(result->getStorageID()));
                 }
                 result->send();
                 DBG("   -->  sent "<< UUID::UUID2str(result->getStorageID()));
