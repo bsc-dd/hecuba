@@ -50,16 +50,23 @@ void test_really_simple(HecubaSession &s,const char *name) {
     	IntKeyClass pk;
     // iterating on dict
     for(auto it = mydict.begin(); it != mydict.end(); it++) {
-	pk=*it;
-	ts = IntKeyClass::get<0>(pk);
+	    pk=*it;
+	    ts = IntKeyClass::get<0>(pk);
         if (i>=SIZE) {
             ok=false;
             break;
         } else {
             bool found = false;
             for (int j = 0; j< SIZE && !found; j++) {
+                FloatValueClass v_read;
                 if (tss[j] == ts){
                     found = true;
+                    // double check that the retrieved key is a working key
+                    v_read=mydict[pk];
+                    if (lats[j] != FloatValueClass::get<0>(v_read)) {
+                        ok =false;
+                        break;
+                    }
                 }
             }
             if (!found) {
