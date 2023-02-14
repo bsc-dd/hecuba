@@ -9,7 +9,7 @@ from math import ceil
 import numpy as np
 from hecuba.hfetch import HNumpyStore, HArrayMetadata
 
-from . import config, log, Parser
+from . import config, log
 from .IStorage import IStorage
 from .tools import extract_ks_tab, get_istorage_attrs, storage_id_from_name, build_remotely
 
@@ -331,11 +331,6 @@ class StorageNumpy(IStorage, np.ndarray):
         obj._calculate_nblocks(myview)
         return obj
 
-    @classmethod
-    def _parse_comments(cls, comments):
-        parser = Parser("StreamOnly")
-        return parser._parse_comments(comments)
-
     @staticmethod
     def _arrow_enabled(input_array):
         return (config.arrow_enabled and getattr(input_array, 'ndim', 0) == 2)
@@ -390,9 +385,6 @@ class StorageNumpy(IStorage, np.ndarray):
                 if load_data: #FIXME aixo hauria d'afectar a l'objecte existent (aqui ja existeix a memoria... o hauria)
                     obj[:]	# HACK! Load ALL elements in memory NOW (recursively calls getitem)
 
-        if getattr(obj, "__doc__", None) is not None:
-            obj._persistent_props = StorageNumpy._parse_comments(obj.__doc__)
-            obj._stream_enabled = obj._persistent_props.get('stream', False)
         #print("JJ name = ", name, flush=True)
         #print("JJ _name = ", obj._name, flush=True)
         log.debug("CREATED NEW StorageNumpy storage_id=%s with input_array=%s name=%s ", storage_id, input_array is not None, name)

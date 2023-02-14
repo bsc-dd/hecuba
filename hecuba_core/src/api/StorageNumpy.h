@@ -57,20 +57,32 @@ public:
     }
 
     StorageNumpy(void *datasrc, const std::vector<uint32_t> &metas) {
+		initializeNumpy(datasrc, metas);
+		initObjSpec();
+    }
+
+	void initializeNumpy(void *datasrc, const std::vector<uint32_t>&metas) {
+		// Transform user metas to ArrayMetadata
+		this->metas = metas; // make a copy of user 'metas'
+		uint32_t numpy_size = extractNumpyMetaData(metas, this->numpy_metas);
+
+		// Make a copy of 'datasrc'
+		this->data = malloc(numpy_size);
+		memcpy(this->data, datasrc, numpy_size);
+	}
+
+    // StorageNumpy sn = misn;
+    StorageNumpy(const StorageNumpy &src) {
+	//JJ StorageNumpy(src.data, src.metas);
 	// Transform user metas to ArrayMetadata
-	this->metas = metas; // make a copy of user 'metas'
-	uint32_t numpy_size = extractNumpyMetaData(metas, this->numpy_metas);
+	this->metas = src.metas; // make a copy of user 'metas'
+	uint32_t numpy_size = extractNumpyMetaData(src.metas, this->numpy_metas);
 
 	// Make a copy of 'datasrc'
 	this->data = malloc(numpy_size);
-	memcpy(this->data, datasrc, numpy_size);
+	memcpy(this->data, src.data, numpy_size);
 
 	initObjSpec();
-    }
- 
-    // StorageNumpy sn = misn;
-    StorageNumpy(StorageNumpy &src) {
-	StorageNumpy(src.data, src.metas);
     }
 
     // StorageNumpy sn; sn = misn;
