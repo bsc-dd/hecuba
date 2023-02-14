@@ -23,12 +23,16 @@ IStorage::IStorage(HecubaSession* session, std::string id_model, std::string id_
 }
 
 IStorage::~IStorage() {
+		std::cout << " ISTORAGE Compiler go to hell, please " << UUID::UUID2str(getStorageID())<<std::endl;
 	deleteCache();
 }
 
 void IStorage::deallocateDataAccess() {
-	if (dataAccess)
+	if (dataAccess!=nullptr) {
 		delete(dataAccess);
+		dataAccess = nullptr;
+	}
+
 }
 
 std::string IStorage::generate_numpy_table_name(std::string attributename) {
