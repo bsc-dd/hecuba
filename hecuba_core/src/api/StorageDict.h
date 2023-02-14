@@ -59,8 +59,16 @@ public:
 
     // It generates the python specification for the class during the registration of the object
     void generatePythonSpec() {
-	std::string pythonSpec = "from hecuba import StorageDict\n\nclass " 
-				  + getClassName() + "(StorageDict):\n"
+	std::string StreamPart="";
+	if (isStream() ){
+		StreamPart=std::string(", StorageStream");
+	}
+	std::string pythonSpec = "from hecuba import StorageDict"
+				  + StreamPart +
+				  + "\n\nclass "
+				  + getClassName() + "(StorageDict"
+				  + StreamPart
+				  + "):\n"
 				  + "   '''\n   @TypeSpec dict <<";
 
 	std::string itemSpec = "";
