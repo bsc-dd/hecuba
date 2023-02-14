@@ -4,7 +4,7 @@ Hecuba deployment
 Hecuba has a C++ core (libhfetch.so) and a Python wrapper to it.
 
 To create the required 'wheel' format compatible with Pypy we need to use one of the manylinux_* docker images from [Pypa](https://github.com/pypa/manylinux).
-Then the Python 'build' module is invoked:
+Then use the Python 'build' module:
 '''
     $ python -m build
 '''
@@ -14,7 +14,7 @@ Which will build the library and the wrapper.
 The problem
 -----------
 
-The library has dependences:
+The library has many dependences:
     - arrow
     - tbb
     - cassandra
@@ -31,6 +31,7 @@ those dependencies, and therefore it takes a loooong time to generate.
 
 Our solution
 ------------
+
 In order to reduce the time it takes to download and compile the dependencies,
 we opted to build a Docker image that starts from one of the recent 'manylinux'
 image and recompiles the dependencies inside. This way, it will take a long
@@ -55,6 +56,12 @@ directory named '/io' inside the container:
 
 This will generate the 'wheelhouse' directory containing all the required
 wheels and you can upload them to pypy.
+
+These steps has been condensed in a Makefile to create the wheels, and
+therefore you just need to:
+
+    $ make && make wheel
+
 
 Hecuba Distribution
 -------------------
