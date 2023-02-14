@@ -94,20 +94,20 @@ public:
     }
     
     ~StorageNumpy() {
-	if (this->data != nullptr) {
-		free (this->data);
-	}
-	#if 0
-	if (this->arrayStore != nullptr) {
-		delete (this->arrayStore); //this causes the deletion of the other two caches and when the destructor of the IStorage is called it fails
-	}
-	#endif
+
+        std::cout << " StorageNumpy Compiler go to hell, please" << UUID::UUID2str(getStorageID())<<std::endl;
+        if (this->data != nullptr) {
+            free (this->data);
+        }
+        deleteCache();
     }
 
     // this function is called in the destructor of IStorage;
     void deleteCache() {
-	if (this->arrayStore != nullptr) {
-		delete (this->arrayStore);
+        if (this->arrayStore != nullptr) {
+            delete (this->arrayStore);
+            this->arrayStore = nullptr;
+        }
     }
     void generatePythonSpec() {
 	std::string StreamPart="";
