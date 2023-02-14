@@ -100,17 +100,29 @@ std::string ObjSpec::yaml_to_cass(const std::string attr_type) {
 
 std::string ObjSpec::c_to_cass(const std::string attr_type) {
 
-    std::string res,type;
-    try{
-        res = ObjSpec::c_to_cass_conversion.at(attr_type);
-    } catch( std::out_of_range &e) {
-	int32_t st;
-	type =abi::__cxa_demangle(attr_type.c_str(), NULL, NULL, &st);
-	if (type.find("basic_string") != std::string::npos)
-		res="text";
-        else res = type;
-    }
-    return res;
+	std::string res,type;
+	try{
+		res = ObjSpec::c_to_cass_conversion.at(attr_type);
+	} catch( std::out_of_range &e) {
+		int32_t st;
+		type =abi::__cxa_demangle(attr_type.c_str(), NULL, NULL, &st);
+		if (type.find("basic_string") != std::string::npos)
+			res="text";
+		else {
+		// To keep compatibility with the python layer of hecuba we register StorageNumpys as hecuba.hnumpy.StorageNumpy and we store any other Hecuba object with the
+		// fully qualified name. At this moment each class definition is stored in a separate file with the same name as the class, so the FQname is class.class
+			if (type == "StorageNumpy") {
+				// If the attribute is a StorageNumpy we store in cassandra the fully qualified name used in the python side of Hecuba
+				type = std::string("hecuba.hnumpy.StorageNumpy");
+			} else {
+				if (type.find_first_of(".") == std::string::npos) {
+					type = type + "." + type;
+				}
+			}
+			res = type;
+		}
+	}
+	return res;
 }
 
 std::string ObjSpec::getKeysStr(void) {
