@@ -262,17 +262,21 @@ struct keysIterator {
             DBG(" BEFORE Get Payload...");
             char *valueFromQuery = (char *)(m_ptr->get_payload());
             DBG(" BEFORE Extracting values...");
-            instance->extractMultiValuesFromQueryResult(valueFromQuery, &valueToReturn, KEYS);
-	    // if the key only have one attribute, valueToReturn contains that attribute
-	    // if the key has several attributes, valueToReturn is a pointer to the memory containing the attributes
-	    char *keyBuffer;
-	    if ((instance->partitionKeys.size() + instance->clusteringKeys.size()) > 1) {
-		keyBuffer = valueToReturn;
-	    } else {
-		keyBuffer = (char *) &valueToReturn;
-	    }
-	    //K *k = new K(instance, keyBuffer); //instance a new KeyClass to be intitialize with the values in the buffer: case multiattribute
-	    K* lastKeyClass = new  K(instance, keyBuffer); //instance a new KeyClass to be intitialize with the values in the buffer: case multiattribute
+	        char *keyBuffer;
+	        // if the key only have one attribute, valueToReturn contains that attribute
+	        // if the key has several attributes, valueToReturn is a pointer to the memory containing the attributes
+	        if ((instance->partitionKeys.size() + instance->clusteringKeys.size()) == 1) {
+	            std::pair<uint16_t, uint16_t> keySize = instance->getDataWriter()->get_metadata()->get_keys_size();
+	            uint64_t partKeySize = keySize.first;
+	            uint64_t clustKeySize = keySize.second;
+                valueToReturn = (char *) malloc (partKeySize+clustKeySize);
+                instance->extractMultiValuesFromQueryResult(valueFromQuery, valueToReturn, KEYS);
+		        keyBuffer = valueToReturn;
+            } else { // more than one attribute
+                instance->extractMultiValuesFromQueryResult(valueFromQuery, &valueToReturn, KEYS);
+		        keyBuffer = (char *) &valueToReturn;
+            }
+	        K* lastKeyClass = new  K(instance, keyBuffer); //instance a new KeyClass to be intitialize with the values in the buffer: case multiattribute
             return *lastKeyClass;
         }
         //pointer operator->() {
