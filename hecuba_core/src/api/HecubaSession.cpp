@@ -820,7 +820,7 @@ IStorage* HecubaSession::createObject(const char * id_model, uint64_t* uuid) {
                 if (oType.isStream()) {
                     std::string topic = std::string(UUID::UUID2str(uuid));
                     DBG("     AND IT IS AN STREAM!");
-                    o->enableStream(topic);
+                    o->configureStream(topic);
                 }
             }
             break;
@@ -872,7 +872,7 @@ IStorage* HecubaSession::createObject(const char * id_model, uint64_t* uuid) {
                 if (oType.isStream()) {
                     std::string topic = std::string(UUID::UUID2str(uuid));
                     DBG("     AND IT IS AN STREAM!");
-                    o->enableStream(topic);
+                    o->configureStream(topic);
                 }
 #else
 		throw ModuleException("HECUBA Session: createObject for already created numpy NOT IMPLEMENTED");
@@ -1058,7 +1058,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 DBG("HecubaSession::createObject: CREATED NEW STORAGEDICT with uuid "<< topic);
                 if (oType.isStream()) {
                     DBG("     AND IT IS AN STREAM!");
-                    o->enableStream(topic);
+                    o->configureStream(topic);
                 }
             }
             break;
@@ -1100,7 +1100,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 o->setNumpyAttributes(array_store, numpy_metas,value);
                 if (oType.isStream()) {
                     DBG("     AND IT IS AN STREAM!");
-                    o->enableStream(topic);
+                    o->configureStream(topic);
                 }
 
 #else
