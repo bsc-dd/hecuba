@@ -108,7 +108,20 @@ public:
     void deleteCache() {
 	if (this->arrayStore != nullptr) {
 		delete (this->arrayStore);
+    }
+    void generatePythonSpec() {
+	std::string StreamPart="";
+	if (isStream() ){
+		StreamPart=std::string(", StorageStream");
 	}
+	std::string pythonSpec = "from hecuba import StorageNumpy"
+				  + StreamPart
+				  + "\n\nclass "
+				  + getClassName() + "(StorageNumpy"
+				  + StreamPart
+				  +"):\n"
+				  + "   '''\n   '''\n" ;
+	setPythonSpec(pythonSpec);
     }
 
     void assignTableName(const std::string& id_obj, const std::string& id_model) {
