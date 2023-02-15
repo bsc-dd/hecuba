@@ -107,7 +107,11 @@ public:
                         	oType.getKeysStr() + std::string(", ") +
                         	oType.getColsStr() +
                         	std::string(")");
-        getCurrentSession()->run_query(insquery);
+        CassError rc = getCurrentSession()->run_query(insquery);
+                if (rc != CASS_OK) {
+                    std::string msg = std::string("StorageDict::persist_metadata: Error executing query ") + query;
+                    throw ModuleException(msg);
+                }
     }
 
 	/* setPersistence - Inicializes current instance to conform to uuid object. To be used on an empty instance. */

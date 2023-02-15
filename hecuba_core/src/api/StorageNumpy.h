@@ -126,7 +126,12 @@ public:
 
     void assignTableName(const std::string& id_obj, const std::string& id_model) {
         size_t pos= id_obj.find_first_of(".");
-        this->setTableName(id_obj.substr(pos+1,id_obj.size())); //in the case of StorageObject this will be the name of the class
+        if (getCurrentSession()->config["hecuba_sn_single_table"] == "false") {
+            this->setTableName(id_obj.substr(pos+1,id_obj.size())); //in the case of StorageObject this will be the name of the class
+        } else {
+            this->setTableName("HECUBA_StorageNumpy");
+            // TODO: Add a check in StorageObj to avoid this name as the table name.
+        }
     }
 
     void initialize_dataAcces() {

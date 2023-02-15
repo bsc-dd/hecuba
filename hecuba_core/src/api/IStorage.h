@@ -88,7 +88,7 @@ public:
 private:
     ObjSpec IStorageSpec;
     std::string pythonSpec = "";
-    std::string tableName;
+    std::string tableName; // name of the table without keyspace
     bool pending_to_persist = false;
     bool persistent = false;
 
