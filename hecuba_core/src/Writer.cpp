@@ -310,6 +310,15 @@ void Writer::flush_elements() {
     wait_writes_completion();
 }
 
+/* NOTE: It may 'block' if more than 'default_writer_buff' messages pending to be sent to cassandra */
+bool Writer::is_write_completed() {
+    if (lazy_write_enabled) {
+        flush_dirty_blocks();
+    }
+
+    return (data.empty() &&  (ncallbacks == 0));
+}
+
 // wait for callbacks execution for all sent write requests
 void Writer::wait_writes_completion(void) {
     flush_dirty_blocks();
