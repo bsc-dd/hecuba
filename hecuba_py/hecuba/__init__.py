@@ -273,6 +273,14 @@ class Config:
             singleton.timestamped_writes = False
             log.warn('using default TIMESTAMPED_WRITES: %s', singleton.timestamped_writes)
 
+        if 'HECUBA_SN_SINGLE_TABLE' in os.environ:
+            env_var = os.environ['HECUBA_SN_SINGLE_TABLE'].lower()
+            singleton.hecuba_sn_single_table = False if env_var == 'no' or env_var == 'false' else True
+            log.info('HECUBA_SN_SINGLE_TABLE: %d', singleton.hecuba_sn_single_table)
+        else:
+            singleton.hecuba_sn_single_table = True
+            log.warn('Create storagenumpys in a single table by default [HECUBA_SN_SINGLE_TABLE=True]')
+
         if singleton.max_cache_size < singleton.write_buffer_size:
             import warnings
             message = "Defining a MAX_CACHE_SIZE smaller than WRITE_BUFFER_SIZE can result " \

@@ -340,6 +340,17 @@ void HecubaSession::parse_environment(config_map &config) {
     } else {
         config["replication"] = std::string("{'class' : '") + config["replication_strategy"] + "', " + config["replication_strategy_options"] + "}";
     }
+
+    const char *hecubaSNSingleTable = std::getenv("HECUBA_SN_SINGLE_TABLE");
+    std::string hecubaSNSingleTable2;
+    if (hecubaSNSingleTable == nullptr) { // Default
+        hecubaSNSingleTable2 = std::string("true");
+    } else {
+        hecubaSNSingleTable2 = std::string(hecubaSNSingleTable);
+        std::transform(hecubaSNSingleTable2.begin(), hecubaSNSingleTable2.end(), hecubaSNSingleTable2.begin(),
+                [](unsigned char c){ return std::tolower(c); });
+    }
+    config["hecuba_sn_single_table"] = hecubaSNSingleTable2;
 }
 
 CassError HecubaSession::run_query(std::string query) const{
@@ -351,7 +362,7 @@ CassError HecubaSession::run_query(std::string query) const{
 
     CassError rc = cass_future_error_code(result_future);
     if (rc != CASS_OK) {
-        printf("Query execution error: %s - %s\n", cass_error_desc(rc), query.c_str());
+        //printf("Query execution error: %s - %s\n", cass_error_desc(rc), query.c_str());
     }
     cass_future_free(result_future);
     return rc;

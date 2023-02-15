@@ -654,6 +654,8 @@ class StorageNumpy(IStorage, np.ndarray):
     @staticmethod
     def _create_tables(name):
         (ksp, table) = extract_ks_tab(name)
+        if config.hecuba_sn_single_table == True:
+            table = "HECUBA_StorageNumpy"
         log.debug("Create table %s %s", ksp, table)
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (ksp, config.replication)
         config.executelocked(query_keyspace)
@@ -701,6 +703,8 @@ class StorageNumpy(IStorage, np.ndarray):
     @staticmethod
     def _create_hcache(name):
         (ksp, table) = extract_ks_tab(name)
+        if config.hecuba_sn_single_table == True:
+            table = "HECUBA_StorageNumpy"
         log.debug("Create cache for %s %s", ksp, table)
         hcache_params = (ksp, table,
                          {'cache_size': config.max_cache_size,
