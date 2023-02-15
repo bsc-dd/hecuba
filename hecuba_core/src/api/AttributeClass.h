@@ -225,6 +225,7 @@ template <std::size_t ix, class ...Types> static typename std::tuple_element<ix,
     }
 
 protected:
+    //valuesDesc is used to generate the python definition of the class and to store the attributes description in Cassandra
     std::vector<std::pair<std::string, std::string>> valuesDesc;
     int32_t managedValues=0;
     std::vector <std::pair<char *, int>> valuesTmpBuffer;
