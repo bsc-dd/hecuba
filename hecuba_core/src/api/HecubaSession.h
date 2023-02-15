@@ -17,9 +17,12 @@ public:
     HecubaSession();
     ~HecubaSession();
 
+    void registerObject(const std::shared_ptr<IStorage> d);
     void registerObject(IStorage * d);
+    void deallocateObjects() ;
     void loadDataModel(const char * model_filename, const char *python_spec_path=nullptr);
     DataModel* getDataModel();
+
 
 	struct NumpyShape {
 		unsigned ndims; //Number of dimensions
@@ -59,6 +62,9 @@ public:
     Writer * getNumpyMetaWriter() const;
     CacheTable * getHecubaIstorageAccess() const;
 private:
+
+    void registerClassName(IStorage *d) ;
+    std::list<std::shared_ptr<IStorage>> alive_objects; //List of registered objects with pending writes
 
     void decodeNumpyMetadata(HecubaSession::NumpyShape *s, void* metadata);
     const std::string getFQname(const char* id_model) const ;

@@ -604,6 +604,11 @@ currentDataModel->addObjSpec(ObjSpec::valid_types::STORAGENUMPY_TYPE, "hecuba.hn
 HecubaSession::~HecubaSession() {
     delete(currentDataModel);
     delete(numpyMetaAccess);
+    for (std::list<std::shared_ptr<IStorage>>::iterator it = alive_objects.begin(); it != alive_objects.end();) {
+        std::shared_ptr<IStorage> t = *it;
+        std::cout << "LIST DEL: "<< UUID::UUID2str(t->getStorageID()) <<" ("<<t.use_count()<<")"<<std::endl;
+        it = alive_objects.erase(it); // this will block waiting for the 'sync'
+    }
 }
 
 /* loadDataModel: loads a DataModel from 'model_filename' path which should be
@@ -1116,8 +1121,35 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
     return o;
 }
 
+// use this function if you want to disable automatic deallocation (and sync) when the object reaches the end of its scope
+void HecubaSession::registerObject(const std::shared_ptr<IStorage> d) {
+    registerClassName(d.get());
+    alive_objects.push_back(d);
+}
 
-void HecubaSession::registerObject(IStorage *d) {
+// use this function if you want to enable automatic deallocation (and sync) when the object reaches the end of its scope
+void HecubaSession::registerObject(IStorage* d) {
+    registerClassName(d);
+}
+
+void HecubaSession::deallocateObjects() {
+    for (std::list<std::shared_ptr<IStorage>>::iterator it = alive_objects.begin(); it != alive_objects.end();) {
+        std::shared_ptr<IStorage> t = *it;
+        //std::cout << "LIST: "<< UUID::UUID2str(t->getStorageID()) <<" ("<<t.use_count()<<")"<<std::endl;
+        if (t.use_count() == 2) { // The object has been "destroyed" from its use: 2 references variable t and alive_objects
+            if (t->getDataWriter()->is_write_completed()) { // Have the pending writes completed?
+                //std::cout << "DELETE FROM LIST: "<< UUID::UUID2str(t->getStorageID()) <<" ("<<t.use_count()<<")"<<std::endl;
+                it = alive_objects.erase(it);
+            } else {
+                it++;
+            }
+        }else {
+            it ++;
+        }
+    }
+}
+
+void HecubaSession::registerClassName(IStorage *d) {
 	int32_t status;
 	bool new_element=true;
 
