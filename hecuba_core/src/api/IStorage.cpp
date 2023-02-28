@@ -24,6 +24,10 @@ IStorage::IStorage(HecubaSession* session, std::string id_model, std::string id_
 
 IStorage::~IStorage() {
 		std::cout << " ISTORAGE Compiler go to hell, please " << UUID::UUID2str(getStorageID())<<std::endl;
+    if (storageid != nullptr) {
+        free (storageid);
+        storageid = nullptr;
+    }
 	deleteCache();
 }
 
