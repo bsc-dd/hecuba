@@ -107,7 +107,7 @@ private:
     config_map colsnames;
     config_map colstypes;
 
-    uint64_t* storageid;
+    uint64_t* storageid=nullptr;
 
 	std::string id_obj=""; // Name to identify this 'object' [keyspace.name]
 	std::string id_model=""; // Type name to be found in model "class_name" (FQName)
