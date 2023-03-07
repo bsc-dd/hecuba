@@ -17,7 +17,7 @@ IStorage::IStorage(HecubaSession* session, std::string id_model, std::string id_
 	this->id_obj = id_object;
 
 	this->storageid = storage_id;
-	this->dataAccess = dataAccess;
+	this->dataAccess = std::make_shared<CacheTable>(*dataAccess);
 	this->dataWriter = dataAccess->get_writer();
 
 }
@@ -29,13 +29,6 @@ IStorage::~IStorage() {
         storageid = nullptr;
     }
 	deleteCache();
-}
-
-void IStorage::deallocateDataAccess() {
-	if (dataAccess!=nullptr) {
-		delete(dataAccess);
-		dataAccess = nullptr;
-	}
 }
 
 IStorage::IStorage(const IStorage& src) {
@@ -862,12 +855,12 @@ Writer * IStorage::getDataWriter() {
 	return dataWriter;
 }
 
-CacheTable * IStorage::getDataAccess() {
+std::shared_ptr<CacheTable> IStorage::getDataAccess() const {
 	return dataAccess;
 }
 
 void IStorage::setCache(CacheTable* cache) {
-	dataAccess = cache;
+	dataAccess = std::make_shared<CacheTable>(*cache);
 	dataWriter = dataAccess->get_writer();
 }
 
