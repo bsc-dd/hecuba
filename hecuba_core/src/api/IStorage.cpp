@@ -851,7 +851,7 @@ const struct IStorage::metadata_info IStorage::getMetaData(uint64_t* uuid) const
 	return  res;
 }
 
-Writer * IStorage::getDataWriter() {
+Writer * IStorage::getDataWriter() const {
 	return dataWriter;
 }
 
