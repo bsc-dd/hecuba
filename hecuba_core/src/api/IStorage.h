@@ -53,9 +53,8 @@ public:
 	const std::string& getName() const;
 
     Writer * getDataWriter();
-    CacheTable *getDataAccess();
+    std::shared_ptr<CacheTable>getDataAccess()const ;
     void setCache(CacheTable *cache);
-    void deallocateDataAccess();
 
     void sync(void);
 
@@ -122,7 +121,7 @@ private:
     bool streamEnabled=false;
 
 	Writer* dataWriter = nullptr; /* Writer for entries in the object. EXTRACTED from 'dataAccess' */
-	CacheTable* dataAccess = nullptr; /* Cache of written/read elements */
+    std::shared_ptr<CacheTable> dataAccess = nullptr; /* Cache of written/read elements */
 
 
     void extractFromQueryResult(std::string value_type, uint32_t value_size, void *query_result, void *valuetoreturn) const;
