@@ -52,7 +52,7 @@ public:
 	uint64_t* getStorageID();
 	const std::string& getName() const;
 
-    Writer * getDataWriter();
+    Writer * getDataWriter()const ;
     std::shared_ptr<CacheTable>getDataAccess()const ;
     void setCache(CacheTable *cache);
 
