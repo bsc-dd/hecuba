@@ -15,11 +15,14 @@
 #include "ModuleException.h"
 #include "SpaceFillingCurve.h"
 
-
 struct ColumnMeta {
     ColumnMeta() = default;
 
     ColumnMeta(const ColumnMeta &CM) {
+            *this = CM;
+    }
+
+    ColumnMeta& operator=(const ColumnMeta& CM) {
         this->info = CM.info;
         this->type = CM.type;
         this->dtype = CM.dtype;
