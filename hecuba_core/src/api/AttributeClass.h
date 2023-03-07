@@ -17,11 +17,10 @@ template <class V1, class...rest>
 class AttributeClass {
 
 public:
-
     AttributeClass() =default; 
 
 	AttributeClass(const AttributeClass& a) {
-		copy_attributes(a);
+		*this = a;
 	}
 
     ~AttributeClass() {
@@ -45,7 +44,7 @@ public:
         values=std::make_tuple(part, vals...);
    }
 
-	void copy_attributes(const AttributeClass &a) {
+   AttributeClass& operator = (const AttributeClass& a) {
 		std::cout << "Copy constructor Attribute Class" << std::endl;
 		valuesDesc = a.valuesDesc;
 		managedValues = a.managedValues;
@@ -61,7 +60,9 @@ public:
 		}	
 		values = a.values;
 
-	}
+        return *this;
+   }
+
     template <class V> void manageAttr(std::string attrBaseName, const V& value) {
             DBG("Clust Key " << value << " "<<std::string(typeid(decltype(value)).name())<<std::endl);
 	    std::string valuetype=ObjSpec::c_to_cass(typeid(decltype(value)).name());
