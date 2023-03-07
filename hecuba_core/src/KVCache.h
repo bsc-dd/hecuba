@@ -30,6 +30,9 @@ public:
     size_t size() const {
         return this->cache_items_map.size();
     }
+    size_t get_max_cache_size() const {
+        return this->max_cache_size;
+    }
 
     const TValue &get(const TKey &key) const {
         auto it = cache_items_map.find(key);
