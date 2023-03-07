@@ -22,6 +22,8 @@ public:
                CassSession *session,
                std::map<std::string, std::string> &config);
 
+    CacheTable(const CacheTable& src);
+    CacheTable& operator = (const CacheTable& src);
     ~CacheTable();
 
     const TableMetadata *get_metadata() {
@@ -71,27 +73,27 @@ private:
 
 
     /* CASSANDRA INFORMATION FOR RETRIEVING DATA */
-    CassSession *session;
-    const CassPrepared *prepared_query, *delete_query;
+    CassSession *session = nullptr;
+    const CassPrepared *prepared_query = nullptr, *delete_query = nullptr;
 
     bool disable_timestamps;
-    TimestampGenerator *timestamp_gen;
+    TimestampGenerator *timestamp_gen = nullptr;
 
     //Key and Value copy constructed
-    KVCache<TupleRow, TupleRow> *myCache;
+    KVCache<TupleRow, TupleRow> *myCache = nullptr;
 
-    TupleRowFactory *keys_factory;
-    TupleRowFactory *values_factory;
-    TupleRowFactory *row_factory;
+    TupleRowFactory *keys_factory = nullptr;
+    TupleRowFactory *values_factory = nullptr;
+    TupleRowFactory *row_factory = nullptr;
 
-    const TableMetadata *table_metadata;
+    const TableMetadata *table_metadata = nullptr;
 
-    Writer *writer;
+    Writer *writer = nullptr;
     /*** Stream information ***/
-    char * topic_name;
+    char * topic_name = nullptr;
     std::map<std::string, std::string> stream_config;
-    rd_kafka_conf_t *kafka_conf;
-    rd_kafka_t *consumer;
+    rd_kafka_conf_t *kafka_conf = nullptr;
+    rd_kafka_t *consumer = nullptr;
 };
 
 #endif //PREFETCHER_CACHE_TABLE_H
