@@ -36,7 +36,53 @@ void IStorage::deallocateDataAccess() {
 		delete(dataAccess);
 		dataAccess = nullptr;
 	}
+}
 
+IStorage::IStorage(const IStorage& src) {
+    std::cout << "IStorage: copy constructor this " << this << " src " << &src << std::endl;
+    *this = src;
+}
+
+IStorage& IStorage::operator = (const IStorage& src) {
+    std::cout << "IStorage: copy assignment operator this "<< this << " src "<<&src<<std::endl;
+    if (this != &src) {
+        IStorageSpec = src.IStorageSpec;
+        pythonSpec = src.pythonSpec;
+        tableName = src.tableName;
+        pending_to_persist = src.pending_to_persist;
+        persistent = src.persistent;
+        keysnames = src.keysnames;
+        keystypes = src.keystypes;
+        colsnames = src.colsnames;
+        colstypes = src.colstypes;
+
+        if (this->storageid != nullptr){
+            free(this->storageid);
+        }
+        if (src.storageid != nullptr) {
+            this->storageid = (uint64_t *)malloc(2*sizeof(uint64_t));
+            memcpy(this->storageid, src.storageid, 2* sizeof(uint64_t));
+        } else {
+            this->storageid = nullptr;
+        }
+
+        id_obj = src.id_obj;
+        id_model = src.id_model;
+        class_name = src.class_name;
+
+        currentSession = src.currentSession; // TODO is it necessary to implement copy assignment in HecubaSession.cpp? This is alive through all the program execution...
+
+        streamEnabled = src.streamEnabled;
+
+        dataWriter = src.dataWriter; // TODO copy assignment in writer.cpp is not dealing with kafka attributes (should be shared pointers) and it does not copy the buffers
+        dataAccess = src.dataAccess; // TODO copy assignment in writer.cpp is not dealing with kafka attributes (should be shared pointers) and it does not copy the buffers
+
+        //partitionKeys = src.partitionKeys;
+        //clusteringKeys = src.clusteringKeys;
+        //valuesDesc = src.valuesDesc;
+        delayedObjSpec = src.delayedObjSpec;
+    }
+    return *this;
 }
 
 std::string IStorage::generate_numpy_table_name(std::string attributename) {
