@@ -868,7 +868,7 @@ void IStorage::getByAlias(const std::string& name) {
 	std::string FQname (currentSession->config["execution_name"] + "." + name);
 	uint64_t *c_uuid=UUID::generateUUID5(FQname.c_str()); // UUID for the new object
 
-	setPersistence(this->id_model, c_uuid);
+	setPersistence(c_uuid);
     if (isStream()) {
 		getObjSpec().enableStream();
 		configureStream(std::string(UUID::UUID2str(c_uuid)));
