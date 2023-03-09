@@ -77,18 +77,18 @@ public:
     virtual void assignTableName(const std::string& id_object, const std::string& id_model) {};
     virtual void persist_metadata(uint64_t * c_uuid) {};
     virtual void persist_data() {};
-    virtual void setPersistence (const std::string &id_model, uint64_t *uuid) {};
+    virtual void setPersistence (uint64_t *uuid) {};
     virtual std::vector<std::pair<std::string, std::string>> getValuesDesc() { };
     virtual std::vector<std::pair<std::string, std::string>> getPartitionKeys() {};
     virtual std::vector<std::pair<std::string, std::string>> getClusteringKeys() {};
     virtual void initialize_dataAcces() {};
     virtual void deleteCache() {};
 
-
     void getByAlias(const std::string& name) ;
 
     void extractMultiValuesFromQueryResult(void *query_result, void *valuetoreturn, int type) const ;
 private:
+
     ObjSpec IStorageSpec;
     std::string pythonSpec = "";
     std::string tableName; // name of the table without keyspace

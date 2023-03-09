@@ -115,7 +115,7 @@ public:
     }
 
 	/* setPersistence - Inicializes current instance to conform to uuid object. To be used on an empty instance. */
-    void setPersistence (const std::string &id_model, uint64_t *uuid) {
+    void setPersistence (uint64_t *uuid) {
 	    // FQid_model: Fully Qualified name for the id_model: module_name.id_model
 	    std::string FQid_model = this->getIdModel();
 

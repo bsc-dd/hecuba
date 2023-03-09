@@ -6,6 +6,7 @@
 #include <cxxabi.h>
 #include <vector>
 #include <tuple>
+#include <type_traits>
 
 #include <hecuba/debug.h>
 #include "IStorage.h"
@@ -86,6 +87,19 @@ public:
     void manageRest(std::string attrBaseName) {
     }
 
+    template < class V1alt> V1alt& instantiateIStorage(IStorage* sd,  uint64_t* uuid,
+            typename std::enable_if<!std::is_base_of<IStorage, V1alt>::value>::type* =0 ) {
+        // DUMMY FUNCTION SFINAE enters into action
+    }
+
+    template < class V1alt> V1alt& instantiateIStorage(IStorage* sd,  uint64_t* uuid,
+            typename std::enable_if<std::is_base_of<IStorage, V1alt>::value>::type* =0 ) {
+        V1alt *v = new V1alt();
+        sd->getCurrentSession()->registerObject(v);
+        v->setPersistence(uuid);
+        return *v;
+    }
+
 	// NOTE: we need the hecuba session, therefore pass through the IStorage containing it (sd)
     template <std::size_t ix, class V1alt, class...restalt> void setTupleValues(IStorage* sd, void *buffer) {
 
@@ -103,12 +117,9 @@ public:
 		// TRICK: this code is executed only when V1alt is an IStorage
 		// but this is not known at compile time. So compiler complains
 		// telling that 'newinstance' does not have the 'setPersistence'
-		// method. Thus we cast the newinstance to force to be considered as an IStorage.
-		V1alt newinstance;
-		sd->getCurrentSession()->registerObject((IStorage*)&newinstance);
-		((IStorage*)&newinstance)->setPersistence(valuesDesc[ix].second, uuid); // registerObject + get name from cassandra + create writer and cache
+		// method. Thus we call a 'templatized function' to hide this.
+        std::get<ix>(values) = instantiateIStorage<V1alt>(sd, uuid);
 		// END TRICK.^^^
-		std::get<ix>(values)=newinstance;
 		tam = sizeof(V1alt);
 	}
 	
