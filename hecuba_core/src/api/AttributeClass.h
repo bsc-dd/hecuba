@@ -130,7 +130,18 @@ public:
 
     }
 
+        template <class V > char *cast2IStorageBuffer(const V& value,  typename std::enable_if<!std::is_base_of<IStorage, V>::value>::type* =0) {
+        }
+        template <class V > char *cast2IStorageBuffer(const V& value,  typename std::enable_if<std::is_base_of<IStorage, V>::value>::type* =0) {
+            char * buf;
+            int size=0;
+            size = sizeof(V*);
+            buf = (char *) malloc(size);
+            IStorage* tmp = static_cast<IStorage*>(const_cast<V*>(&value));// TRICK: We need to static_cast to IStorage to be able to find the base class due to the 'virtual'
+            memcpy(buf, &tmp, size);
+            return buf;
 
+        }
        template <class V> void createAttributeBuffer(std::string valuetype, const V& value) {
             char * buf;
             int size=0;
@@ -152,11 +163,15 @@ public:
 		}
 
             } else { // IStorage*
-                size = sizeof(V*);
-                buf = (char *) malloc(size);
-		// We need to copy the address of the reference (this make the trick)
-		const void *tmp = &value; 
-        	memcpy(buf, &tmp, size);
+                //WARNING: this else should compile for any possible class V !!
+                // We need to copy the address of the reference.
+                // TRICK: this code is executed only when V1alt is an IStorage
+                // but this is not known at compile time. So compiler complains
+                // about doing wrong castings (casting an IStorage* to an int*).
+                // Thus we call a 'templatized function' to hide this.
+                buf = cast2IStorageBuffer<V>(value);
+                // END TRICK ^^^
+                size= sizeof(V*);
             }
             std::pair <char *, int> bufinfo(buf,size);
             valuesTmpBuffer.push_back(bufinfo);
