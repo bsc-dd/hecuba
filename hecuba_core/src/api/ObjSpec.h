@@ -20,6 +20,19 @@ public:
 		STORAGENUMPY_TYPE,
 	};
 
+    // cassandra_types defines the cassandra types used (useful for using it in a switch)
+    enum cassandra_types {
+        ctNotDefined,
+        ctBoolean,
+        ctDouble,
+        ctInt,
+        ctBigint,
+        ctFloat,
+        ctText
+    };
+
+    static enum cassandra_types string2CassandraType(std::string& cass_type) ;
+
 	std::string table_attr; // String to use in table creation with the attributes (keys+cols)
 
     ObjSpec();
@@ -56,6 +69,8 @@ private:
     static std::unordered_set<std::string> valid_types_str;
     static std::map<std::string, std::string> yaml_to_cass_conversion;
     static std::map<std::string, std::string> c_to_cass_conversion;
+    // Map to associate the strings with the enum values
+    static std::map<std::string, ObjSpec::cassandra_types> mapString2CassandraType;
     //static std::unordered_set<std::string> basic_types_str = {
     //                "counter",
     //                "text",
