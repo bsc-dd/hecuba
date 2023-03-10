@@ -31,8 +31,9 @@ public:
     void send(void* key, void* value);
     virtual void send_values(const void* value);
 
-    void setAttr(const char* attr_name, IStorage* value);
-    void setAttr(const char* attr_name, void* value);
+    virtual void setAttr(const std::string attr_name, IStorage* value) {};
+    virtual void setAttr(const std::string attr_name, void* value) {};
+
 
     void setClassName(std::string name);
     void setIdModel(std::string name);
@@ -45,10 +46,10 @@ public:
     void setTableName(std::string tableName);
     void make_persistent(const std::string id_obj);
     bool is_pending_to_persist();
+    virtual void getAttr(const std::string attr_name, void * valuetoreturn) {};
     virtual ObjSpec generateObjSpec() {};
     virtual void getItem(const void* key, void * valuetoreturn) const {};
 
-    void getAttr(const char* attr_name, void * valuetoreturn) const;
     virtual Writer * getDataWriter()const { return dataWriter;}
 
 	uint64_t* getStorageID();

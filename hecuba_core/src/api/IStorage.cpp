@@ -373,16 +373,6 @@ IStorage::writeTable(const void* key, const void* value, const enum IStorage::va
 }
 
 
-void IStorage::setAttr(const char *attr_name, void* value) {
-    /* PRE: value arrives already coded as expected: block of memory with pointers to IStorages or basic values*/
-    //std::cout << "DEBUG: IStorage::setAttr: "<<std::endl;
-    writeTable(attr_name, value, SETATTR_TYPE);
-}
-
-void IStorage::setAttr(const char *attr_name, IStorage* value) {
-    /* 'writetable' expects a block of memory with pointers to IStorages, therefore add an indirection */
-    writeTable(attr_name, (void *) &value, SETATTR_TYPE);
-}
 
 #if 0
 
@@ -542,38 +532,6 @@ void IStorage::extractMultiValuesFromQueryResult(void *query_result, void *value
         memcpy(valuetoreturn, &valuetmp, attr_size);
     }
 }
-
-/* Return:
- *  memory reference to datatype (must be freed by user) */
-void IStorage::getAttr(const char* attr_name, void* valuetoreturn) const{
-
-    char *keytosend = (char*) malloc(sizeof(char*));
-    char *uuidmem = (char*) malloc(sizeof(uint64_t)*2);
-    int value_size = dataAccess->get_metadata()->get_values_size(dataAccess->get_metadata()->get_columnname_position(attr_name));
-
-    memcpy(keytosend, &uuidmem, sizeof(char*));
-    memcpy(uuidmem, storageid, sizeof(uint64_t)*2);
-
-    std::vector<const TupleRow *> result = dataAccess->retrieve_from_cassandra(keytosend, attr_name);
-
-    if (result.empty()) throw ModuleException("IStorage::getAttr: attribute " + std::string(attr_name) + " not found in object " + id_obj );
-    char *query_result= (char*)result[0]->get_payload();
-
-    DataModel* model = this->currentSession->getDataModel();
-    ObjSpec ospec = model->getObjSpec(this->id_model);
-    std::string value_type = ospec.getIDModelFromColName(attr_name);
-
-    extractFromQueryResult(value_type, value_size, query_result, valuetoreturn);
-
-    // Free the TupleRows...
-    for(auto i:result) {
-        delete(i);
-    }
-
-
-    return;
-}
-
 
 #if 0
 // TODO delete me done in StorageNumpy.h but I keep it here until the replacement is completed
