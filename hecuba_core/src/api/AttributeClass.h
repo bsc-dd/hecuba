@@ -11,6 +11,7 @@
 #include <hecuba/debug.h>
 #include "IStorage.h"
 #include "StorageDict.h"
+#include "UUID.h"
 
 
 
@@ -97,6 +98,12 @@ public:
         V1alt *v = new V1alt();
         sd->getCurrentSession()->registerObject(v);
         v->setPersistence(uuid);
+        // enable stream
+        if (v->isStream()){
+            v->getObjSpec().enableStream();
+            v->configureStream(UUID::UUID2str(uuid));
+        }
+
         return *v;
     }
 
