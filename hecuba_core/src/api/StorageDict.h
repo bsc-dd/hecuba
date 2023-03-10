@@ -44,9 +44,6 @@ public:
     
     ~StorageDict() {}
 
-    void deleteCache() {
-	deallocateDataAccess();
-    }
 
     // sd[k] = v or v = sd[k] 
     // return a reference to allow sd[k]=v

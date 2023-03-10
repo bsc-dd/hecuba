@@ -82,7 +82,6 @@ public:
     virtual std::vector<std::pair<std::string, std::string>> getPartitionKeys() {};
     virtual std::vector<std::pair<std::string, std::string>> getClusteringKeys() {};
     virtual void initialize_dataAcces() {};
-    virtual void deleteCache() {};
 
     void getByAlias(const std::string& name) ;
 
