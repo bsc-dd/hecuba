@@ -45,9 +45,9 @@ public:
     void setTableName(std::string tableName);
     void make_persistent(const std::string id_obj);
     bool is_pending_to_persist();
+    virtual void getItem(const void* key, void * valuetoreturn) const {};
 
     void getAttr(const char* attr_name, void * valuetoreturn) const;
-    void getItem(const void* key, void * valuetoreturn) const;
 
 	uint64_t* getStorageID();
 	const std::string& getName() const;
