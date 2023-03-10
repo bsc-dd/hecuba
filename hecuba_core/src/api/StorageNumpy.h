@@ -135,6 +135,11 @@ public:
 	    this->arrayStore = std::make_shared<ArrayDataStore> (*tmp);
     }
 
+    Writer * getDataWriter() const {
+        std::cout<< "getDataWriter numpy" << std::endl;
+        return this->arrayStore->getWriteCache()->get_writer();
+    }
+
     void persist_metadata(uint64_t* c_uuid) {
 	    // Register in hecuba.istorage
 	    registerNumpy(this->numpy_metas,  getObjectName(), c_uuid);
