@@ -129,9 +129,10 @@ public:
     void initialize_dataAcces() {
 	    // StorageNumpy
 	    HecubaSession *currentSession = getCurrentSession(); 
-	    this->arrayStore = new ArrayDataStore(getTableName().c_str(), 
-	    		currentSession->config["execution_name"].c_str(),
-			currentSession->getStorageInterface()->get_session(), currentSession->config);
+        ArrayDataStore *tmp = new ArrayDataStore(getTableName().c_str(),
+                                currentSession->config["execution_name"].c_str(),
+                                currentSession->getStorageInterface()->get_session(), currentSession->config);
+	    this->arrayStore = std::make_shared<ArrayDataStore> (*tmp);
     }
 
     void persist_metadata(uint64_t* c_uuid) {
@@ -193,7 +194,7 @@ void writePythonSpec() {} // StorageNumpy do not have python specification
 
 private:
 
-	ArrayDataStore* arrayStore = nullptr; /* Cache of written/read elements */
+    std::shared_ptr<ArrayDataStore> arrayStore = nullptr; /* Cache of written/read elements */
 
     uint32_t extractNumpyMetaData(const std::vector<uint32_t> &raw_numpy_meta, ArrayMetadata &arr_metas) {
     	std::vector <uint32_t> dims;
