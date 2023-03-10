@@ -77,7 +77,8 @@ CacheTable::CacheTable(const CacheTable& src) {
 CacheTable& CacheTable::operator = (const CacheTable& src) {
     if (this != &src) {
         this->session = src.session;
-        this->table_metadata = src.table_metadata; //  ColumnMeta implements copy assignment (I have modified a pointer copy), the rest of attributes are shared pointers, maps or strings.
+        if (this->table_metadata!=nullptr) { delete (this->table_metadata); }
+        this->table_metadata = new TableMetadata(*src.table_metadata);
         CassFuture *future = cass_session_prepare(session, table_metadata->get_select_query());
         CassError rc = cass_future_error_code(future);
         CHECK_CASS("CacheTable: Select row query preparation failed");
@@ -89,7 +90,8 @@ CacheTable& CacheTable::operator = (const CacheTable& src) {
         CHECK_CASS("CacheTable: Delete row query preparation failed");
         cass_future_free(future);
         this->myCache = NULL;
-        this->writer = src.writer;
+        if (this->writer!=nullptr) { delete (this->writer); }
+        this->writer = new Writer(*src.writer);
         if (this->keys_factory != nullptr) {delete (this->keys_factory);}
         this->keys_factory = new TupleRowFactory(table_metadata->get_keys()); // TODO check if TupleRowFactory implements copy assignment: integer and vector of ColumnMeta.... I guess it is not necessary to instantiate a new one
         if (this->values_factory != nullptr) {delete (this->values_factory);}
@@ -107,6 +109,7 @@ CacheTable& CacheTable::operator = (const CacheTable& src) {
             strcpy(this->topic_name, src.topic_name);
             this->kafka_conf = rd_kafka_conf_dup(src.kafka_conf);
             enable_stream_consumer(); // is it possible to delay this?
+            enable_stream_producer();
         } else {
             this->topic_name = nullptr;
             this->consumer = nullptr;
@@ -132,7 +135,10 @@ CacheTable::~CacheTable() {
     prepared_query = NULL;
     if (delete_query != NULL) cass_prepared_free(delete_query);
     delete_query = NULL;
-    delete (table_metadata);
+    if (table_metadata != nullptr) {
+        delete (table_metadata);
+        table_metadata = nullptr;
+    }
     if (topic_name) {
         free(topic_name);
         topic_name = nullptr;
