@@ -132,7 +132,6 @@ public:
 	    this->arrayStore = new ArrayDataStore(getTableName().c_str(), 
 	    		currentSession->config["execution_name"].c_str(),
 			currentSession->getStorageInterface()->get_session(), currentSession->config);
-	    this->setCache( this->arrayStore->getWriteCache() );
     }
 
     void persist_metadata(uint64_t* c_uuid) {
