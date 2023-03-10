@@ -197,6 +197,33 @@ public:
         delete(trow_values);
     }
 
+    void getItem(const void* key, void *valuetoreturn) const{
+        const TableMetadata* writerMD = getDataAccess()->get_metadata();
+        /* PRE: value arrives already coded as expected: block of memory with pointers to IStorages or basic values*/
+        std::pair<uint16_t, uint16_t> keySize = writerMD->get_keys_size();
+        int key_size = keySize.first + keySize.second;
+
+        std::shared_ptr<const std::vector<ColumnMeta> > columns = writerMD->get_keys();
+
+        void *keytosend = deep_copy_attribute_buffer(ISKEY, key, key_size, columns->size());
+
+        std::vector<const TupleRow *> result = getDataAccess()->get_crow(keytosend);
+
+        if (result.empty()) throw ModuleException("IStorage::getItem: key not found in object "+ getName());
+
+        char *query_result= (char*)result[0]->get_payload();
+
+        // WARNING: The order of fields in the TableMetadata and in the model may
+        // NOT be the same! Traverse the TableMetadata and construct the User
+        // buffer with the same order as the ospec. FIXME
+
+        extractMultiValuesFromQueryResult(query_result, valuetoreturn, COLUMNS);
+
+        // TODO this works only for dictionaries of one element. We should traverse the whole vector of values
+        // TODO delete the vector of tuple rows and the tuple rows
+        return;
+    }
+
 void send_values(const void *value) {
     DBG("START");
     const TableMetadata* writerMD = getDataWriter()->get_metadata();

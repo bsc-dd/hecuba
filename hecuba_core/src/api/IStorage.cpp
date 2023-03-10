@@ -574,33 +574,6 @@ void IStorage::getAttr(const char* attr_name, void* valuetoreturn) const{
     return;
 }
 
-void IStorage::getItem(const void* key, void *valuetoreturn) const{
-    const TableMetadata* writerMD = dataAccess->get_metadata();
-    /* PRE: value arrives already coded as expected: block of memory with pointers to IStorages or basic values*/
-    std::pair<uint16_t, uint16_t> keySize = writerMD->get_keys_size();
-    int key_size = keySize.first + keySize.second;
-
-    std::shared_ptr<const std::vector<ColumnMeta> > columns = writerMD->get_keys();
-
-    void *keytosend = deep_copy_attribute_buffer(ISKEY, key, key_size, columns->size());
-
-    std::vector<const TupleRow *> result = dataAccess->get_crow(keytosend);
-
-    if (result.empty()) throw ModuleException("IStorage::getItem: key not found in object "+ id_obj);
-
-    char *query_result= (char*)result[0]->get_payload();
-
-    // WARNING: The order of fields in the TableMetadata and in the model may
-    // NOT be the same! Traverse the TableMetadata and construct the User
-    // buffer with the same order as the ospec. FIXME
-
-    extractMultiValuesFromQueryResult(query_result, valuetoreturn, COLUMNS);
-
-    // TODO this works only for dictionaries of one element. We should traverse the whole vector of values
-    // TODO delete the vector of tuple rows and the tuple rows
-    return;
-}
-
 
 #if 0
 // TODO delete me done in StorageNumpy.h but I keep it here until the replacement is completed
