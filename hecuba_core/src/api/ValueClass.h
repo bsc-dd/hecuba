@@ -78,6 +78,7 @@ public:
 		w.pendingKeysBufferSize=0;
 		// TODO set values interpreting valuesBuffer
 		w.sd=nullptr;
+		this->sd=nullptr;
 		w.managedValues=0;
 		w.total_size=0;
 		w.valuesBuffer=nullptr;
@@ -89,6 +90,7 @@ public:
 			free(this->pendingKeysBuffer);
 			this->pendingKeysBuffer = nullptr;
 			this->pendingKeysBufferSize=0;
+			this->sd=nullptr;
 			this->valuesDesc=w.valuesDesc;
 			this->managedValues = w.managedValues;
 			this->total_size = w.total_size;

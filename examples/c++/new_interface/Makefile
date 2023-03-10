@@ -7,6 +7,7 @@ OBJS= \
     simple_rw \
 	nested_rw \
 	test_shared_ptr \
+	simple_so \
 
 # DO NOT REMOVE THIS LINE (MARKS THE END OF THE 'OBJS' VARIABLE)
 
@@ -32,6 +33,9 @@ nested_rw: nested_rw.cpp
 	g++ -o $@ $^   ${CPPFLAGS}
 
 test_shared_ptr: test_shared_ptr.cpp
+	g++ -o $@ $^   ${CPPFLAGS}
+
+simple_so: simple_so.cpp
 	g++ -o $@ $^   ${CPPFLAGS}
 clean:
 	rm ${OBJS}

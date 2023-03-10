@@ -281,113 +281,6 @@ IStorage::send_values(const void* value) {
 
     Therefore, 'key' and 'value' may be freed after this method.
 */
-void
-IStorage::writeTable(const void* key, const void* value, const enum IStorage::valid_writes mytype) {
-	/* PRE: key and value arrives already coded as expected */
-
-    void * cc_val;
-
-    const TableMetadata* writerMD = dataWriter->get_metadata();
-
-
-    DBG( "IStorage::writeTable enter" );
-
-    DataModel* model = this->currentSession->getDataModel();
-
-    ObjSpec ospec = model->getObjSpec(this->id_model);
-    //std::cout << "DEBUG: IStorage::setItem: obtained model for "<<id_model<<std::endl;
-
-    std::string value_type;
-    if (ospec.getType() == ObjSpec::valid_types::STORAGEDICT_TYPE) {
-        if (mytype != SETITEM_TYPE) {
-            throw ModuleException("IStorage:: Set Item on a non Dictionary is not supported");
-        }
-        // Dictionary values may have N  columns, create a new structure with all of them normalized.
-        DBG( "IStorage::WriteTable malloc("<<writerMD->get_values_size()<<")");
-        std::shared_ptr<const std::vector<ColumnMeta> > columns = writerMD->get_values();
-        uint32_t numcolumns = columns->size();
-        cc_val = deep_copy_attribute_buffer(!ISKEY, value, writerMD->get_values_size(), numcolumns);
-
-    } else if (ospec.getType() == ObjSpec::valid_types::STORAGEOBJ_TYPE) {
-        if (mytype != SETATTR_TYPE) {
-            throw ModuleException("IStorage::writeTable Set Attr on a non Object is not supported");
-        }
-        int64_t value_size = writerMD->get_single_column((char*)key)->size;
-        cc_val = malloc(value_size); // This memory will be freed after the execution of the query (at callback)
-
-        std::string value_type = ospec.getIDModelFromColName(std::string((char*)key));
-        convert_IStorage_to_UUID((char *)cc_val, value_type, value, value_size);
-    } else {
-        throw ModuleException("IStorage::writeTable Set individual components of a StorageNumpy is not supported");
-    }
-
-    //std::cout << "DEBUG: IStorage::setItem: After creating value object "<<std::endl;
-
-    // STORE THE ENTRY IN TABLE (Ex: keys + value ==> storage_id del numpy)
-
-    std::pair<uint16_t, uint16_t> keySize = writerMD->get_keys_size();
-    uint64_t partKeySize = keySize.first;
-    uint64_t clustKeySize = keySize.second;
-    DBG("IStorage::writeTable --> partKeySize = "<<partKeySize<<" clustKeySize = "<< clustKeySize);
-
-    void *cc_key= NULL;
-    if (mytype == SETITEM_TYPE) {
-
-        std::shared_ptr<const std::vector<ColumnMeta> > columns = writerMD->get_keys();
-        uint32_t numcolumns = columns->size();
-        cc_key = deep_copy_attribute_buffer(ISKEY, key, partKeySize+clustKeySize, numcolumns);
-
-    } else {
-        uint64_t* sid = this->getStorageID();
-        void* c_key = malloc(2*sizeof(uint64_t)); //uuid
-        std::memcpy(c_key, sid, 2*sizeof(uint64_t));
-
-        cc_key = malloc(sizeof(uint64_t *)); // This memory will be freed after the execution of the query (at callback)
-        std::memcpy(cc_key, &c_key, sizeof(uint64_t *));
-    }
-
-    if (mytype == SETITEM_TYPE) {
-        //TODO currently our c++ API only supports instantiation of persistent objects. If we add support to volatile objects
-        // we should extend this funtion to persist a volatile object assigned to a persistent object
-        const TupleRow* trow_key = this->dataAccess->get_new_keys_tuplerow(cc_key);
-        const TupleRow* trow_values = this->dataAccess->get_new_values_tuplerow(cc_val);
-        if (this->isStream()) {
-            this->dataWriter->send_event(trow_key, trow_values); // stream value (storage_id/value)
-            send_values(value); // If value is an IStorage type stream its contents also
-        }
-        this->dataAccess->put_crow(trow_key, trow_values);
-        delete(trow_key);
-        delete(trow_values);
-
-    } else { // SETATTR
-        char* attr_name = (char*) key;
-        #if 0
-        /* TODO: Enable this code when implementing storageobj streaming */
-        if (this->isStream() {
-            this->dataWriter->send_event(cc_key, cc_val, attr_name); // stream a single attribute
-        }
-        #endif
-        this->dataWriter->write_to_cassandra(cc_key, cc_val, attr_name);
-        // TODO: add here a call to send for attribute (NOT SUPPORTED YET)
-    }
-}
-
-
-
-#if 0
-
-// we have moved this to StorageDict.h
-void IStorage::setItem(void* key, void* value) {
-    /* PRE: value arrives already coded as expected: block of memory with pointers to IStorages or basic values*/
-    writeTable(key, value, SETITEM_TYPE);
-}
-
-void IStorage::setItem(void* key, IStorage * value){
-    /* 'writetable' expects a block of memory with pointers to IStorages, therefore add an indirection */
-    writeTable(key, (void *) &value, SETITEM_TYPE);
-}
-#endif
-
 //moved to StorageNumpy.h
 #if 0
 void IStorage::send(void) {
@@ -645,9 +538,12 @@ void IStorage::setTableName(std::string tableName) {
 bool IStorage::is_pending_to_persist() {
 	return this->pending_to_persist;
 }
+void IStorage::set_pending_to_persist() {
+    this->pending_to_persist=true;
+}
 
 void IStorage::make_persistent(const std::string  id_obj) {
-	
+
 	std::string id_object_str;
 	//if the object is not registered, i.e. the class_name is empty, we return error
 

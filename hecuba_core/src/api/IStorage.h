@@ -46,6 +46,8 @@ public:
     void setTableName(std::string tableName);
     void make_persistent(const std::string id_obj);
     bool is_pending_to_persist();
+    void set_pending_to_persist();
+
     virtual void getAttr(const std::string attr_name, void * valuetoreturn) {};
     virtual ObjSpec generateObjSpec() {};
     virtual void getItem(const void* key, void * valuetoreturn) const {};
@@ -100,11 +102,8 @@ private:
         SETATTR_TYPE,
         SETITEM_TYPE,
     };
-    void writeTable(const void* key, const void* value, const enum valid_writes mytype);
     std::string generate_numpy_table_name(std::string attributename);
 
-    /* convert_IStorage_to_UUID: Given a value (basic or persistent) convert it to the same value or its *storage_id* if it is a persistent one. Returns True if type is converted (aka was an IStorage). */
-    bool convert_IStorage_to_UUID(char * dst, const std::string& value_type, const void* src, int64_t src_size) const ;
 
     config_map keysnames;
     config_map keystypes;
@@ -135,5 +134,7 @@ struct metadata_info {
     void init_persistent_attributes(const std::string& id_object, uint64_t *uuid);
     void * deep_copy_attribute_buffer(bool isKey, const void* src, uint64_t src_size, uint32_t num_attrs) const ;
     void extractFromQueryResult(std::string value_type, uint32_t value_size, void *query_result, void *valuetoreturn) const;
+    /* convert_IStorage_to_UUID: Given a value (basic or persistent) convert it to the same value or its *storage_id* if it is a persistent one. Returns True if type is converted (aka was an IStorage). */
+    bool convert_IStorage_to_UUID(char * dst, const std::string& value_type, const void* src, int64_t src_size) const ;
 };
 #endif /* ISTORAGE_H */
