@@ -169,6 +169,31 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, std::sha
     this->storage = storage;
 }
 
+ArrayDataStore::ArrayDataStore(const ArrayDataStore& src) {
+    *this = src;
+}
+
+ArrayDataStore& ArrayDataStore::operator= (const ArrayDataStore& src) {
+
+    if (this != &src) {
+        TN  = src.TN;
+        if (cache != nullptr) { delete (cache); }
+        cache = new CacheTable(*src.cache);
+        read_cache = cache;
+        if (metadata_cache!=nullptr) { delete (metadata_cache); }
+        metadata_cache = new CacheTable(*src.metadata_cache);
+        if (metadata_read_cache!=nullptr) { delete (metadata_read_cache); }
+        metadata_read_cache = new CacheTable(*src.metadata_read_cache);
+        partitioner         = src.partitioner; // uses default copy assignment
+        arrow_enabled       = src.arrow_enabled;
+        arrow_optane        = src.arrow_optane;
+        arrow_path          = src.arrow_path;
+
+        storage = src.storage;
+        loaded_cluster_ids = src.loaded_cluster_ids;
+    }
+    return *this;
+}
 
 ArrayDataStore::~ArrayDataStore() {
     delete (this->cache);
