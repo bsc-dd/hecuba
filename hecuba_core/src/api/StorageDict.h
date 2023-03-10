@@ -106,7 +106,7 @@ public:
                         	std::string(")");
         CassError rc = getCurrentSession()->run_query(insquery);
                 if (rc != CASS_OK) {
-                    std::string msg = std::string("StorageDict::persist_metadata: Error executing query ") + query;
+                    std::string msg = std::string("StorageDict::persist_metadata: Error executing query ") + insquery;
                     throw ModuleException(msg);
                 }
     }
