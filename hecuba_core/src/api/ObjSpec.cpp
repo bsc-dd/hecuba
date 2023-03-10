@@ -73,6 +73,13 @@ std::map<std::string, std::string> ObjSpec::c_to_cass_conversion {
                     //{ //TODO "map",
                     //{ //TODO "tuple"
 };
+std::map<std::string, std::string> ObjSpec::cass_to_hecuba_conversion {
+                    { "boolean","bool"},
+                    { "double", "double"},
+                    { "int",    "int"},
+                    { "float",  "float"},
+                    { "text",   "str"}
+};
 
 
 
@@ -133,6 +140,17 @@ std::string ObjSpec::c_to_cass(const std::string attr_type) {
 	}
 	return res;
 }
+
+std::string ObjSpec::cass_to_hecuba(const std::string& attr_type) {
+    std::string res;
+    try {
+        res =  ObjSpec::cass_to_hecuba_conversion.at(attr_type);
+    } catch (std::out_of_range e) {
+        res = attr_type;
+    }
+    return res;
+}
+
 
 std::string ObjSpec::getKeysStr(void) {
     // Returns a string with a list of tuples name+type. Example: [('lat','int'), ('ts','int')]

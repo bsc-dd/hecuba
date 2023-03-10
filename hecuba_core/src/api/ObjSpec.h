@@ -31,7 +31,7 @@ public:
         ctText
     };
 
-    static enum cassandra_types string2CassandraType(std::string& cass_type) ;
+    static enum cassandra_types string2CassandraType(const std::string& cass_type) ;
 
 	std::string table_attr; // String to use in table creation with the attributes (keys+cols)
 
@@ -57,6 +57,7 @@ public:
     static bool isBasicType(std::string attr_type);
     static std::string yaml_to_cass(const std::string attr_type);
     static std::string c_to_cass(const std::string attr_type);
+    static std::string cass_to_hecuba(const std::string& attr_type);
 private:
     enum valid_types objtype;
     bool stream_enabled = false;
@@ -69,6 +70,7 @@ private:
     static std::unordered_set<std::string> valid_types_str;
     static std::map<std::string, std::string> yaml_to_cass_conversion;
     static std::map<std::string, std::string> c_to_cass_conversion;
+    static std::map<std::string, std::string> cass_to_hecuba_conversion;
     // Map to associate the strings with the enum values
     static std::map<std::string, ObjSpec::cassandra_types> mapString2CassandraType;
     //static std::unordered_set<std::string> basic_types_str = {
