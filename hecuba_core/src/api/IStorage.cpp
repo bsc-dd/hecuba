@@ -650,7 +650,17 @@ void IStorage::writePythonSpec() {
 
 }
 void IStorage::setObjSpec(ObjSpec &oSpec) {this->IStorageSpec=oSpec;}
-ObjSpec IStorage::getObjSpec() {return IStorageSpec;}
+
+ObjSpec IStorage::getObjSpec() {
+    if (delayedObjSpec) {
+        //only StorageObjects can have a delayedObjSpec because during the constructor maybe the attributes specification is unknown
+        IStorageSpec = generateObjSpec();
+        delayedObjSpec = false;
+    }
+    return IStorageSpec;
+}
+
+
 void IStorage::setPythonSpec(std::string pSpec) {this->pythonSpec=pSpec;}
 std::string IStorage::getPythonSpec() {
 	if (this->pythonSpec.empty()) {

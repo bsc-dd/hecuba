@@ -45,6 +45,7 @@ public:
     void setTableName(std::string tableName);
     void make_persistent(const std::string id_obj);
     bool is_pending_to_persist();
+    virtual ObjSpec generateObjSpec() {};
     virtual void getItem(const void* key, void * valuetoreturn) const {};
 
     void getAttr(const char* attr_name, void * valuetoreturn) const;
@@ -123,6 +124,7 @@ private:
     std::shared_ptr<CacheTable> dataAccess = nullptr; /* Cache of written/read elements */
 
 protected:
+        bool delayedObjSpec = false;
 struct metadata_info {
 	std::string name;
 	std::string class_name;
