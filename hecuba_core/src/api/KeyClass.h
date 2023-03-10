@@ -21,7 +21,7 @@ public:
     KeyClass() = default;
 
     // Constructor without specifying names.
-    KeyClass(const K1& part, rest... clustering):AttributeClass<K1,rest...>("keyname",part,clustering...) {
+    KeyClass(const K1& part, const rest&... clustering):AttributeClass<K1,rest...>("keyname",part,clustering...) {
 	setKeys(); // the first one of the attributes is the partition key, and the rest the clustering keys
     }
 
