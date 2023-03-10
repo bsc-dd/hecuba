@@ -36,7 +36,7 @@ public:
     }
 
     // c++ only calls implicitly the constructor without parameters. To invoke this constructor we need to add to the user class an explicit call to this
-    StorageDict(const std::string name) {
+    StorageDict(const std::string& name) {
 	initObjSpec();
 	id_obj=name;
 	pending_to_persist=true;
