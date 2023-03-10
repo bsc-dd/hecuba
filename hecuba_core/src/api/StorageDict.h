@@ -34,6 +34,11 @@ public:
     StorageDict() {
     	initObjSpec();
     }
+    StorageDict(const StorageDict<K,V>& sdsrc) {
+        std::cout << "StorageDict:: copy constructor this "<< this << " from "<< &sdsrc << std::endl;
+        *this = sdsrc;
+    }
+
 
     // c++ only calls implicitly the constructor without parameters. To invoke this constructor we need to add to the user class an explicit call to this
     StorageDict(const std::string& name) {
@@ -51,6 +56,19 @@ public:
     V& operator[](K &key) {
 	V *v = new V(this, key.getKeysBuffer(),key.getTotalSize());
         return *v;
+    }
+
+    //copy assignment
+    StorageDict<K,V> &operator = (const StorageDict<K,V> &sdsrc){
+        std::cout<< "StorageDict : operator =" << std::endl;
+        if (this != &sdsrc) {
+            this->IStorage::operator=(sdsrc); //Inherit IStorage attributes
+            sd = sdsrc.sd;
+            partitionKeys = sdsrc.partitionKeys;
+            clusteringKeys = sdsrc.clusteringKeys;
+            valuesDesc = sdsrc.valuesDesc;
+        }
+        return *this;
     }
 
 
