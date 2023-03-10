@@ -54,7 +54,7 @@ public:
 
     Writer * getDataWriter()const ;
     std::shared_ptr<CacheTable>getDataAccess()const ;
-    void setCache(CacheTable *cache);
+    void setCache(const CacheTable &cache);
 
     void sync(void);
 
