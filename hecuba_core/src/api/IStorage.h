@@ -122,8 +122,6 @@ private:
 	Writer* dataWriter = nullptr; /* Writer for entries in the object. EXTRACTED from 'dataAccess' */
     std::shared_ptr<CacheTable> dataAccess = nullptr; /* Cache of written/read elements */
 
-
-    void extractFromQueryResult(std::string value_type, uint32_t value_size, void *query_result, void *valuetoreturn) const;
 protected:
 struct metadata_info {
 	std::string name;
@@ -133,5 +131,6 @@ struct metadata_info {
     const struct metadata_info  getMetaData(uint64_t* uuid) const;
     void init_persistent_attributes(const std::string& id_object, uint64_t *uuid);
     void * deep_copy_attribute_buffer(bool isKey, const void* src, uint64_t src_size, uint32_t num_attrs) const ;
+    void extractFromQueryResult(std::string value_type, uint32_t value_size, void *query_result, void *valuetoreturn) const;
 };
 #endif /* ISTORAGE_H */
