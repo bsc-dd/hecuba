@@ -3,6 +3,15 @@
 
 
 //Initialize static attributes
+// mapString2CassandraType : map to translate from a cassandra string type to a constant value
+std::map<std::string, ObjSpec::cassandra_types>ObjSpec::mapString2CassandraType = {
+                    { "boolean", ObjSpec::ctBoolean},
+                    { "double", ObjSpec::ctDouble},
+                    { "int", ObjSpec::ctInt},
+                    { "bigint", ObjSpec::ctBigint},
+                    { "float", ObjSpec::ctFloat},
+                    { "text", ObjSpec::ctText}
+    };
 std::unordered_set<std::string> ObjSpec::basic_types_str = {
                     "counter",
                     "text",
@@ -345,4 +354,9 @@ void ObjSpec::generateTableAttr() {
 
 
     table_attr += pkey_str;
+}
+
+// string2CassandraType : translate a cassandra string type to its constant value
+ObjSpec::cassandra_types ObjSpec::string2CassandraType(const std::string& cass_type) {
+    return mapString2CassandraType.at(cass_type);
 }
