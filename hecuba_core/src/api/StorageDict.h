@@ -54,7 +54,7 @@ public:
     // return a reference to allow sd[k]=v
     // in the operator = for ValueClass we determine in which case we are
     V& operator[](K &key) {
-	V *v = new V(this, key.getKeysBuffer(),key.getTotalSize());
+	V *v = new V(static_cast<IStorage*>(this), key.getKeysBuffer(),key.getTotalSize()); //static_cast<IStorage*> is REQUIRED because we need to access later to its getStorageID method
         return *v;
     }
 
