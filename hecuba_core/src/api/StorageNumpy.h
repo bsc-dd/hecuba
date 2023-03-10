@@ -99,16 +99,8 @@ public:
         if (this->data != nullptr) {
             free (this->data);
         }
-        deleteCache();
     }
 
-    // this function is called in the destructor of IStorage;
-    void deleteCache() {
-        if (this->arrayStore != nullptr) {
-            delete (this->arrayStore);
-            this->arrayStore = nullptr;
-        }
-    }
     void generatePythonSpec() {
 	std::string StreamPart="";
 	if (isStream() ){

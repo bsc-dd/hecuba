@@ -28,7 +28,6 @@ IStorage::~IStorage() {
         free (storageid);
         storageid = nullptr;
     }
-	deleteCache();
 }
 
 IStorage::IStorage(const IStorage& src) {
