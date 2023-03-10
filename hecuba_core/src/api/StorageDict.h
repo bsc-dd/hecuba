@@ -88,16 +88,15 @@ public:
 
 	std::string itemSpec = "";
 	for (std::vector<std::pair<std::string,std::string>>::iterator it=partitionKeys.begin(); it!=partitionKeys.end(); ++it)
-		itemSpec+=it->first + ":"+ it->second + ",";
+		itemSpec+=it->first + ":"+ ObjSpec::cass_to_hecuba(it->second) + ",";
 	for (std::vector<std::pair<std::string,std::string>>::iterator it=clusteringKeys.begin(); it!=clusteringKeys.end(); ++it)
-		itemSpec+=it->first + ":"+ it->second + ",";
+		itemSpec+=it->first + ":"+ ObjSpec::cass_to_hecuba(it->second) + ",";
 
 	pythonSpec += itemSpec.substr(0, itemSpec.size()-1) + ">,"; // replace the last , with a >
 
 	itemSpec = "";
 	for (std::vector<std::pair<std::string,std::string>>::iterator it=valuesDesc.begin(); it!=valuesDesc.end(); ++it)
-		itemSpec+=it->first + ":"+ it->second + ",";
-
+		itemSpec+=it->first + ":"+ ObjSpec::cass_to_hecuba(it->second) + ",";
 	pythonSpec += itemSpec.substr(0, itemSpec.size()-1) + ">\n   '''\n"; // replace the last , with a >
 
 	setPythonSpec(pythonSpec);
