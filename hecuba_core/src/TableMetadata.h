@@ -30,6 +30,7 @@ struct ColumnMeta {
         this->size = CM.size;
         this->col_type = CM.col_type;
         this->pointer = CM.pointer;
+        return *this;
     }
 
     ColumnMeta(std::map<std::string, std::string> &info, CassValueType cv_type, CassDataType *cd_type, uint16_t offset, uint16_t bsize) {
