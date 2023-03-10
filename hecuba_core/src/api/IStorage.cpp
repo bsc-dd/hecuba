@@ -113,7 +113,7 @@ const std::string& IStorage::getTableName() const {
 }
 void
 IStorage::sync(void) {
-    this->dataWriter->flush_elements();
+    this->getDataWriter()->flush_elements();
 }
 
 
@@ -603,8 +603,9 @@ bool IStorage::isStream() {
 
 void IStorage::configureStream(std::string topic) {
 	enableStream();
-    this->dataWriter->enable_stream(topic.c_str(),(std::map<std::string, std::string>&)this->currentSession->config);
+    this->getDataWriter()->enable_stream(topic.c_str(),(std::map<std::string, std::string>&)this->currentSession->config);
 }
+
 
 void IStorage::setClassName(std::string name) {
 	this->class_name = name;
@@ -831,10 +832,6 @@ const struct IStorage::metadata_info IStorage::getMetaData(uint64_t* uuid) const
 	res.name = std::string( keytable );
 	res.class_name = std::string( classname );
 	return  res;
-}
-
-Writer * IStorage::getDataWriter() const {
-	return dataWriter;
 }
 
 std::shared_ptr<CacheTable> IStorage::getDataAccess() const {

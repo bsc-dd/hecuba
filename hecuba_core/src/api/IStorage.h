@@ -49,11 +49,11 @@ public:
     virtual void getItem(const void* key, void * valuetoreturn) const {};
 
     void getAttr(const char* attr_name, void * valuetoreturn) const;
+    virtual Writer * getDataWriter()const { return dataWriter;}
 
 	uint64_t* getStorageID();
 	const std::string& getName() const;
 
-    Writer * getDataWriter()const ;
     std::shared_ptr<CacheTable>getDataAccess()const ;
     void setCache(const CacheTable &cache);
 
