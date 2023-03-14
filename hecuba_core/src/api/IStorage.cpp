@@ -148,6 +148,7 @@ IStorage::sync(void) {
                +---------+
 
 */
+
 bool IStorage::convert_IStorage_to_UUID(char * dst, const std::string& value_type, const void* src, int64_t src_size) const {
     bool isIStorage = false;
     void * result;
@@ -426,23 +427,6 @@ void IStorage::extractMultiValuesFromQueryResult(void *query_result, void *value
     }
 }
 
-#if 0
-// TODO delete me done in StorageNumpy.h but I keep it here until the replacement is completed
-void IStorage::setNumpyAttributes(ArrayDataStore* array_store, ArrayMetadata &metas, void* value) {
-    this->arrayStore = array_store;
-    this->numpy_metas = metas;
-    DBG("DEBUG: IStorage::setNumpyAttributes: numpy Size "<< numpy_metas.get_array_size());
-
-    //this->data = value;
-    this->data = malloc(numpy_metas.get_array_size());
-    if (value) {
-        memcpy(data, value, numpy_metas.get_array_size());
-    } else {
-        std::list<std::vector<uint32_t>> coord = {};
-        arrayStore->read_numpy_from_cas_by_coords(getStorageID(), metas, coord, data);
-    }
-}
-#endif
 void IStorage::enableStream() {
     streamEnabled=true;
 }
@@ -568,14 +552,14 @@ void IStorage::make_persistent(const std::string  id_obj) {
 	}
 
 	uint64_t *c_uuid=UUID::generateUUID5(id_object_str.c_str()); // UUID for the new object
-	
+
 	init_persistent_attributes(id_object_str, c_uuid) ;
 
 	ObjSpec oType = this->getObjSpec();
 	bool new_element = true;
 	std::string query = "CREATE TABLE " +
 				currentSession->config["execution_name"] + "." + this->tableName +
-				oType.table_attr;	
+				oType.table_attr;
 
 	CassError rc = currentSession->run_query(query);
 	if (rc != CASS_OK) {
@@ -609,14 +593,13 @@ void IStorage::make_persistent(const std::string  id_obj) {
 
 	// Create READ/WRITE cache accesses
 	initialize_dataAcces();
-
     if (isStream()){
 		getObjSpec().enableStream();
 		configureStream(UUID::UUID2str(c_uuid));
 	}
 
 	persist_metadata(c_uuid); //depends on the type of persistent object
-				  // TODO: deal with the case of already existing dictionaries: new_element == false
+				// TODO: deal with the case of already existing dictionaries and manage new_element == false
 
 
 	// Now that the writer is created, persist data
@@ -637,22 +620,6 @@ void IStorage::init_persistent_attributes(const std::string& id_object_str, uint
 }
 
 
-// TODO: TO BE DELETED. MOVED TO STORAGEDICT AND STORAGENUMPY
-#if 0
-void IStorage::initialize_dataAcces() {
-        //  Create Writer
-	ObjSpec oType = this->getObjSpec();
-	std::vector<config_map>* keyNamesDict = oType.getKeysNamesDict();
-	std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
-	CacheTable *reader = this->currentSession->getStorageInterface()->make_cache(this->getTableName().c_str(),
-				this->currentSession->config["execution_name"].c_str(), *keyNamesDict, *colNamesDict, this->currentSession->config);
-        this->dataAccess = reader;
-        this->dataWriter = reader->get_writer();
-
-	delete keyNamesDict;
-	delete colNamesDict;
-}
-#endif
 /* Get name, classname and numpymetas from hecuba.istorage */
 const struct IStorage::metadata_info IStorage::getMetaData(uint64_t* uuid) const {
 
