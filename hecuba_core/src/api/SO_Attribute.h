@@ -12,7 +12,7 @@ class SO_Attribute {
 public:
     friend class StorageObject;
     //SO_Attribute<T>(IStorage *so, std::string name){
-    SO_Attribute<T>(StorageObject *so, std::string name){
+    SO_Attribute<T>(StorageObject *so, const std::string& name){
         std::cout << "SO_Attribute mi extranyo constructor "<< std::endl;
         this->so = so;
         this->name = (char *) malloc(name.length() + 1);

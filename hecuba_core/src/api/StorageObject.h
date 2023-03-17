@@ -31,15 +31,15 @@ class StorageObject: virtual public IStorage{
 
     /* Return:
     *  memory reference to datatype (must be freed by user) */
-    void getAttr(const std::string  attr_name, void* valuetoreturn);
+    void getAttr(const std::string&  attr_name, void* valuetoreturn);
 
 
-    void setAttr(const std::string attr_name, void* value);
+    void setAttr(const std::string& attr_name, void* value);
 
-    void setAttr(const std::string attr_name, IStorage* value);
+    void setAttr(const std::string& attr_name, IStorage* value);
 
 
-    void addAttrSpec(std::string type, std::string name);
+    void addAttrSpec(const std::string& type, std::string name);
     
     ObjSpec generateObjSpec();
 

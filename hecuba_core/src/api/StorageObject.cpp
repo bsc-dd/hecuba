@@ -62,7 +62,7 @@
 
         setPythonSpec(pythonSpec);
     }
-    void StorageObject::addAttrSpec(std::string type, std::string name) {
+    void StorageObject::addAttrSpec(const std::string& type, std::string name) {
         std::pair<std::string, std::string> d = {name, ObjSpec::c_to_cass(type)};
         this->valuesDesc.push_back(d);
     }
@@ -146,7 +146,7 @@
 
 /* Return:
  *  memory reference to datatype (must be freed by user) */
-void StorageObject::getAttr(const std::string  attr_name, void* valuetoreturn) {
+void StorageObject::getAttr(const std::string&  attr_name, void* valuetoreturn) {
 
     char *keytosend = (char*) malloc(sizeof(char*));
     char *uuidmem = (char*) malloc(sizeof(uint64_t)*2);
@@ -174,7 +174,7 @@ void StorageObject::getAttr(const std::string  attr_name, void* valuetoreturn) {
     return;
 }
 
-void StorageObject::setAttr(const std::string attr_name, void* value) {
+void StorageObject::setAttr(const std::string& attr_name, void* value) {
     /* PRE: value arrives already coded as expected: block of memory with pointers to IStorages or basic values*/
     //std::cout << "DEBUG: IStorage::setAttr: "<<std::endl;
     //writeTable(attr_name, value, SETATTR_TYPE);
@@ -199,7 +199,7 @@ void StorageObject::setAttr(const std::string attr_name, void* value) {
     getDataWriter()->write_to_cassandra(cc_key, cc_val, attr_name.c_str());
 }
 
-void StorageObject::setAttr(const std::string attr_name, IStorage* value) {
+void StorageObject::setAttr(const std::string& attr_name, IStorage* value) {
     /* 'setAttr' expects a block of memory with pointers to IStorages, therefore add an indirection */
     setAttr(attr_name, (void *) &value);
 }
