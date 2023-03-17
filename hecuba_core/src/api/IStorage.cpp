@@ -358,7 +358,10 @@ void IStorage::send(void* key, IStorage* value) {
 
 void IStorage::extractFromQueryResult(std::string value_type, uint32_t value_size, void *query_result, void *valuetoreturn) const{
     if (!ObjSpec::isBasicType(value_type)) {
-        memcpy(valuetoreturn, query_result, sizeof(uint64_t)*2); // Copy the UUID directly
+        uint64_t *uuid = *(uint64_t **) query_result;
+        char *tmp = (char *) malloc(sizeof(uint64_t)*2);
+        memcpy(tmp, uuid, sizeof(uint64_t)*2);
+        memcpy(valuetoreturn, &tmp, sizeof(uint64_t*));
     } else {
         if (value_type == "text") {
             char *str = *(char**)query_result;
