@@ -34,6 +34,19 @@
         set_pending_to_persist();
     }
 
+    StorageObject::StorageObject(const StorageObject& src) {
+        *this=src;
+    }
+
+    StorageObject& StorageObject::operator = (const StorageObject& src) {
+        if (this != &src ){
+            this->IStorage::operator=(src); //Inherit IStorage attributes
+            this->st = src.st;
+            this->valuesDesc = src.valuesDesc;
+            this->translate = src.translate;
+        }
+    }
+
     StorageObject::~StorageObject() {
         std::cout << "StorageObject:: Soy el destructor y vengo a arruinarte el dia" << std::endl;
     }
