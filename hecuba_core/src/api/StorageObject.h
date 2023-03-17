@@ -14,7 +14,9 @@ class StorageObject: virtual public IStorage{
     StorageObject();
     // c++ only calls implicitly the constructor without parameters. To invoke this constructor we need to add to the user class an explicit call to this
     StorageObject(std::string name);
+    StorageObject(const StorageObject& src);
     ~StorageObject();
+    StorageObject& operator = (const StorageObject& src);
 
 
     // It generates the python specification for the class during the registration of the object
