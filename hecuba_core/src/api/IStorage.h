@@ -48,7 +48,7 @@ public:
     bool is_pending_to_persist();
     void set_pending_to_persist();
 
-    virtual void getAttr(const std::string attr_name, void * valuetoreturn) {};
+    virtual void getAttr(const std::string& attr_name, void * valuetoreturn) {};
     virtual ObjSpec generateObjSpec() {};
     virtual void getItem(const void* key, void * valuetoreturn) const {};
 

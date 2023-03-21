@@ -15,8 +15,7 @@ public:
     SO_Attribute<T>(StorageObject *so, const std::string& name){
         std::cout << "SO_Attribute mi extranyo constructor "<< std::endl;
         this->so = so;
-        this->name = (char *) malloc(name.length() + 1);
-        memcpy(this->name, name.c_str(), name.length() + 1);
+        this->name = name;
         this->initialize = false;
         so->addAttrSpec(typeid(T).name(), name);
     }
@@ -103,7 +102,6 @@ public:
 
     /* Modifies 'this->attr_value' */
     void read_from_cassandra() {
-        std::string attr_name(name);
         // if T is a string or a IStorage: size = sizeof(char *)
         // if T is a basic type: size = sizeof(T)
         uint32_t attr_size;
@@ -115,7 +113,7 @@ public:
         }
 
         void* buffer = malloc(attr_size);
-        so->getAttr(attr_name, buffer);
+        so->getAttr(name, buffer);
         this->template setAttributeValue<T>(this->so, buffer);
         initialize = true;
     }
@@ -144,15 +142,10 @@ public:
     }
 
     void send_to_cassandra(const T& value) {
-        std::string attr_name(name);
-        so->setAttr(attr_name,(void *)cast2IStorageBuffer(value)); // TRICK: We need to static_cast to IStorage to be able to find the base class due to the 'virtual'
+        so->setAttr(name,(void *)cast2IStorageBuffer(value)); // TRICK: We need to static_cast to IStorage to be able to find the base class due to the 'virtual'
     }
     ~SO_Attribute() {
-        std::cout << "SO_Attribute:: Soy el destructor y vengo a arruinarte el dia" << std::endl;
-        if (name != nullptr) {
-            free(name);
-            name = nullptr;
-        }
+        std::cout << "SO_Attribute::destructor [" <<name<<"] "<< this << std::endl;
         so = nullptr;
     }
 
@@ -160,8 +153,7 @@ public:
         //IStorage *so = nullptr;
         StorageObject *so = nullptr;
         bool initialize = false;
-        //std::string name;//=std::string("NOT_DEFINED");
-        char* name=nullptr;
+        std::string name = std::string("NOT_DEFINED");
         T attr_value;
 
         void setSO (IStorage* so){
@@ -169,11 +161,6 @@ public:
         }
         void setInitialize (const bool init){
             this->initialize = init;
-        }
-        void setName (const std::string &name){
-            char *tmp = (char*)malloc(name.length())+1;
-            memcpy(tmp, name.c_str(),name.length()+1); 
-            this->name = tmp;
         }
 
 };
