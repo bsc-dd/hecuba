@@ -13,7 +13,7 @@ class StorageObject: virtual public IStorage{
 
     StorageObject();
     // c++ only calls implicitly the constructor without parameters. To invoke this constructor we need to add to the user class an explicit call to this
-    StorageObject(std::string name);
+    StorageObject(const std::string& name);
     StorageObject(const StorageObject& src);
     ~StorageObject();
     StorageObject& operator = (const StorageObject& src);
@@ -41,7 +41,7 @@ class StorageObject: virtual public IStorage{
     void setAttr(const std::string& attr_name, IStorage* value);
 
 
-    void addAttrSpec(const std::string& type, std::string name);
+    void addAttrSpec(const std::string& type, const std::string& name);
     
     ObjSpec generateObjSpec();
 

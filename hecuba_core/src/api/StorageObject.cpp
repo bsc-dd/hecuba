@@ -28,7 +28,7 @@
     }
 
     // c++ only calls implicitly the constructor without parameters. To invoke this constructor we need to add to the user class an explicit call to this
-    StorageObject::StorageObject(std::string name): IStorage() {
+    StorageObject::StorageObject(const std::string& name): IStorage() {
         delayedObjSpec = true;
         setObjectName(name);
         set_pending_to_persist();
@@ -75,7 +75,7 @@
 
         setPythonSpec(pythonSpec);
     }
-    void StorageObject::addAttrSpec(const std::string& type, std::string name) {
+    void StorageObject::addAttrSpec(const std::string& type, const std::string& name) {
         std::pair<std::string, std::string> d = {name, ObjSpec::c_to_cass(type)};
         this->valuesDesc.push_back(d);
     }
@@ -171,7 +171,7 @@ void StorageObject::getAttr(const std::string&  attr_name, void* valuetoreturn) 
 
     std::vector<const TupleRow *> result = getDataAccess()->retrieve_from_cassandra(keytosend, attr_name.c_str());
 
-    if (result.empty()) throw ModuleException("IStorage::getAttr: attribute " + std::string(attr_name) + " not found in object " + getObjectName() );
+    if (result.empty()) throw ModuleException("IStorage::getAttr: attribute " + attr_name + " not found in object " + getObjectName() );
     char *query_result= (char*)result[0]->get_payload();
 
     DataModel* model = getCurrentSession()->getDataModel();
