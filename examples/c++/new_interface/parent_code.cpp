@@ -65,33 +65,12 @@ void check_and_deallocate(const std::string& numpyname, char* data, const std::v
     }
 }
 
-void fnoshared(const std::string& name, char *data, const std::vector<uint32_t> &metas) {
-    std::cout<< " ---> Enter f " << std::endl;
-    // if you want to synchronize at the end of scope. When we reach the end of
-    // the scope of the object, the destructor is called automatically, which
-    // causes the synchronzation with Cassanddra and the deallocation of the memory.
-    StorageNumpy sn(data,metas);
-    sn.make_persistent(name); 
-    std::cout<< " <--- Exit f " << std::endl;
-}
-    
-
-int main() {
+int main(int argc, char**argv) {
     std::cout<< " --> Enter main " << std::endl;
-    std::string numpy_name_noshared("mynpnoshared");
+    std::string numpy_name_noshared(argv[1]);
 
     std::vector<uint32_t> metas = {3,4};
     char * data= generateNumpyContent(metas);
-    int p = fork();
-    if (p == 0) {
-        fnoshared(numpy_name_noshared, data, metas);
-        std::cout<< "<--- Before childs exits" << std::endl;
-        exit(0);
-    } else {
-        waitpid(p, NULL, 0); // Wait for the finalization of the HecubaSession created at 'fnoshared'
-        // with execlp we instantiate a new session, without execlp we use the same section from both processes
-        //execlp("./parent_code", "parent_code", numpy_name_noshared.c_str(),NULL);
-        check_and_deallocate(numpy_name_noshared, data, metas);
-    }
+    check_and_deallocate(numpy_name_noshared, data, metas);
     std::cout<< " <-- Exit main " << std::endl;
 }

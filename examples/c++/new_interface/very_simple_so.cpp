@@ -1,6 +1,5 @@
 #include <hecuba/HecubaSession.h>
 #include <hecuba/StorageObject.h>
-#include <hecuba/SO_Attribute.h>
 
 class mySO: public StorageObject {
     public:
@@ -10,15 +9,13 @@ class mySO: public StorageObject {
            )
 };
 
-void test_simple_rw(HecubaSession& s, const char* name) {
+void test_simple_rw(const char* name) {
     mySO o;
-    s.registerObject(&o);
     o.make_persistent(name);
     o.a = 42;
     o.b = (float)3.14;
 
     mySO retrieve;
-    s.registerObject(&retrieve);
     retrieve.getByAlias(name);
     if ((int)retrieve.a != 42) {
         std::cout << "Retrieved a is "<< (int)retrieve.a << " and should be 42: FAILED" << std::endl;
@@ -33,15 +30,13 @@ void test_simple_rw(HecubaSession& s, const char* name) {
     }
 }
 
-void test_assignment(HecubaSession& s, const char * namesrc, const char* namedst) {
+void test_assignment(const char * namesrc, const char* namedst) {
     mySO o;
-    s.registerObject(&o);
     o.make_persistent(namesrc);
     o.a = 42;
     o.b = (float)3.14;
 
     mySO q;
-    s.registerObject(&q);
     q.make_persistent(namedst);
     q.a = o.a;
     q.b = o.b;
@@ -60,9 +55,8 @@ void test_assignment(HecubaSession& s, const char * namesrc, const char* namedst
 
 }
 
-void test_retrieve(HecubaSession& s, const char* name) {
+void test_retrieve(const char* name) {
     mySO retrieve;
-    s.registerObject(&retrieve);
     retrieve.getByAlias(name);
     if ((int)retrieve.a != 42) {
         std::cout << "Retrieved a is "<< (int)retrieve.a << " and should be 42: FAILED" << std::endl;
@@ -78,11 +72,9 @@ void test_retrieve(HecubaSession& s, const char* name) {
 }
 
 main() {
-    HecubaSession s;
-
-    test_simple_rw(s, "testSO");
-    test_assignment(s, "srcSO", "dstSO");
-    test_retrieve(s, "testSO");
+    test_simple_rw("testSO");
+    test_assignment("srcSO", "dstSO");
+    test_retrieve("testSO");
 
 }
 

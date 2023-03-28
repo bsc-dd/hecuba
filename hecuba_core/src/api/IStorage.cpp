@@ -4,15 +4,13 @@
 #include <regex>
 #include <boost/uuid/uuid.hpp>
 #include <typeinfo>
-#include "debug.h"
 
 #define ISKEY true
 
 
 IStorage::IStorage() {}
 
-IStorage::IStorage(HecubaSession* session, std::string id_model, std::string id_object, uint64_t* storage_id, CacheTable* dataAccess) {
-	this->currentSession = session;
+IStorage::IStorage(std::string id_model, std::string id_object, uint64_t* storage_id, CacheTable* dataAccess) {
 	this->id_model = id_model;
 	this->id_obj = id_object;
 
@@ -61,8 +59,6 @@ IStorage& IStorage::operator = (const IStorage& src) {
         id_obj = src.id_obj;
         id_model = src.id_model;
         class_name = src.class_name;
-
-        currentSession = src.currentSession; // TODO is it necessary to implement copy assignment in HecubaSession.cpp? This is alive through all the program execution...
 
         streamEnabled = src.streamEnabled;
 
@@ -193,7 +189,7 @@ bool IStorage::convert_IStorage_to_UUID(char * dst, const std::string& value_typ
  *  num_attrs: Number of attributes inside the 'src' memory block
  * return a NEW block of memory with the same content as 'src' but creating NEW copies for internal complex data (currently STRINGS).
  */
-void * IStorage::deep_copy_attribute_buffer(bool isKey, const void* src, uint64_t src_size, uint32_t num_attrs) const {
+void * IStorage::deep_copy_attribute_buffer(bool isKey, const void* src, uint64_t src_size, uint32_t num_attrs) {
 
     /** WARNING: The 'src' buffer comes from user, therefore the fields order is
      * specified by the ObjSpec which may or may not (possibly the latter)
@@ -204,8 +200,7 @@ void * IStorage::deep_copy_attribute_buffer(bool isKey, const void* src, uint64_
     void * dst = malloc(src_size);
 
     // Process src to generate memory to complex types: UUIDs, strings,...
-    DataModel* model = this->currentSession->getDataModel();
-    ObjSpec ospec = model->getObjSpec(this->id_model);
+    const ObjSpec ospec = getObjSpec();
 
     const TableMetadata* writerMD = dataWriter->get_metadata();
 
@@ -248,7 +243,7 @@ void
 IStorage::send_values(const void* value) {
 	// This will be redefined by underlying subclasses
 }
-
+// this comment beloow is valid for both setItem (StorageDict.h) and setAttr (StorageObject.h). Find a proper place for it.
 /* Args:
     key and value are pointers to a block of memory with the values (if basic types) or pointers to IStorage or strings:
     key/value -.
@@ -282,79 +277,6 @@ IStorage::send_values(const void* value) {
 
     Therefore, 'key' and 'value' may be freed after this method.
 */
-//moved to StorageNumpy.h
-#if 0
-void IStorage::send(void) {
-    DataModel* model = this->currentSession->getDataModel();
-    ObjSpec ospec = model->getObjSpec(this->id_model);
-    DBG("DEBUG: IStorage::send: obtained model for "<<this->id_model );
-    if (ospec.getType() == ObjSpec::valid_types::STORAGENUMPY_TYPE) {
-         DBG("DEBUG: IStorage::send: sending numpy. Size "<< numpy_metas.get_array_size());
-         dataWriter->send_event((char *) data, numpy_metas.get_array_size());
-    } else {
-            throw ModuleException("IStorage:: Send only whole StorageNumpy implemented.");
-#if 0
-        if (ospec.getType() == ObjSpec::valid_types::STORAGEOBJ_TYPE) {
-            // Traverse all attributes and send everything
-            for (auto i: colsnames) {
-                this->dataAccess->put_crow(cc_key, cc_val);
-            }
-        } else {
-            throw ModuleException("IStorage:: Send only whole StorageNumpy implemented.");
-        }
-#endif
-    }
-}
-#endif
-
-#if 0
-void IStorage::send(void* key, void* value) {
-    DataModel* model = this->currentSession->getDataModel();
-
-    ObjSpec ospec = model->getObjSpec(this->id_model);
-    DBG("DEBUG: IStorage::send: obtained model for "<<id_model << " obj stream?"<<ospec.isStream());
-
-    if (this->isStream()) {
-        // dictionary case
-        uint64_t offset=0;
-        const TableMetadata* writerMD = dataWriter->get_metadata();
-        uint32_t numcolumns = writerMD->get_values()->size();
-        DBG( "Stream send numcols="<<numcolumns);
-        void * cc_val = malloc(writerMD->get_values_size()); // This memory will be freed after the execution of the query (at callback)
-
-        for (uint32_t i=0; i < numcolumns; i++) {
-            int64_t value_size;
-
-            DBG("Send offset ="<<offset);
-            value_size = writerMD->get_values_size(i);
-            std::string value_type = ospec.getIDModelFromCol(i);
-
-            bool isIStorage = convert_IStorage_to_UUID(((char *)cc_val)+offset, value_type, ((char*)value) + offset, value_size);
-            if (isIStorage) {
-                IStorage *myobj = *(IStorage **)((char *)value + offset);
-                if (!myobj->isStream()) {
-                    std::string topic = std::string(currentSession->UUID2str(myobj->getStorageID()));
-                    DBG("  Object "<< topic <<" is not stream enabled. Enabling.");
-                    myobj->configureStream(topic);
-                }
-                myobj->send();
-            }
-
-            offset += value_size;
-        }
-        // storageobj case: key is the attribute name TODO
-
-        this->dataWriter->send_event(key, cc_val); // stream AND store value in Cassandra
-
-    } else {
-        throw ModuleException("IStorage:: Send on an object that has no stream capability");
-    }
-}
-
-void IStorage::send(void* key, IStorage* value) {
-    send(key, (void *) &value);
-}
-#endif
 
 void IStorage::extractFromQueryResult(std::string value_type, uint32_t value_size, void *query_result, void *valuetoreturn) const{
     if (!ObjSpec::isBasicType(value_type)) {
@@ -378,10 +300,9 @@ void IStorage::extractFromQueryResult(std::string value_type, uint32_t value_siz
 /* Given a result from a cassandra query, extract all elements into valuetoreturn buffer*/
 /* type = KEYS/COLUMNS TODO: add ALL to support the iteration for both keys and values (pythom items method) */
 
-void IStorage::extractMultiValuesFromQueryResult(void *query_result, void *valuetoreturn, int type) const {
+void IStorage::extractMultiValuesFromQueryResult(void *query_result, void *valuetoreturn, int type) {
     uint32_t attr_size;
-    DataModel* model = this->currentSession->getDataModel();
-    ObjSpec ospec = model->getObjSpec(this->id_model);
+    ObjSpec ospec = getObjSpec();
 
     const TableMetadata* writerMD = dataWriter->get_metadata();
 
@@ -441,17 +362,17 @@ bool IStorage::isStream() {
 
 void IStorage::configureStream(std::string topic) {
 	enableStream();
-    this->getDataWriter()->enable_stream(topic.c_str(),(std::map<std::string, std::string>&)this->currentSession->config);
+    this->getDataWriter()->enable_stream(topic.c_str(),(std::map<std::string, std::string>&)getCurrentSession().config);
 }
 
 
 void IStorage::setClassName(std::string name) {
 	this->class_name = name;
 }
-std::string IStorage::getClassName() {
+const std::string& IStorage::getClassName() {
 	return this->class_name;
 }
-std::string IStorage::getIdModel() {
+const std::string& IStorage::getIdModel() {
 	return this->id_model;
 }
 
@@ -470,11 +391,8 @@ void IStorage::setIdModel(std::string name) {
 	this->id_model=name;
 }
 
-void IStorage::setSession(HecubaSession *s) {
-	this->currentSession = s;
-}
-HecubaSession * IStorage::getCurrentSession() {
-	return(this->currentSession);
+HecubaSession&  IStorage::getCurrentSession() const{
+	return(HecubaSession::get());
 }
 
 // file name: execution_name_class_name+.py
@@ -483,18 +401,16 @@ HecubaSession * IStorage::getCurrentSession() {
 
 void IStorage::writePythonSpec() {
         std::string pythonFileName =  this->getClassName() + ".py";
-        std::ofstream fd(pythonFileName, std::ofstream::app);
+        std::ofstream fd(pythonFileName);
         fd << this->getPythonSpec();
         fd.close();
 
 }
-void IStorage::setObjSpec(ObjSpec &oSpec) {this->IStorageSpec=oSpec;}
+void IStorage::setObjSpec(const ObjSpec &oSpec) {this->IStorageSpec=oSpec;}
 
-ObjSpec IStorage::getObjSpec() {
-    if (delayedObjSpec) {
-        //only StorageObjects can have a delayedObjSpec because during the constructor maybe the attributes specification is unknown
-        IStorageSpec = generateObjSpec();
-        delayedObjSpec = false;
+ObjSpec& IStorage::getObjSpec() {
+    if (delayedObjSpec) { // TODO Check that this is not happening and remove the delayedObjSpec from IStorage
+        throw ModuleException("OOOOppps IStorage::getObjSpec called with delayed ObjSpec. This should not happen");
     }
     return IStorageSpec;
 }
@@ -539,13 +455,14 @@ void IStorage::make_persistent(const std::string  id_obj) {
 
 	}
 
+    HecubaSession& currentSession = getCurrentSession();
 	if (id_obj.empty()) { //No name used
 		throw std::runtime_error("Trying to persist with an empty name ");
 	} else {
 		id_object_str = std::string(id_obj);
         size_t pos= id_object_str.find_first_of(".");
         if (pos == std::string::npos) {// Not found
-            id_object_str = currentSession->config["execution_name"] + "." + id_object_str;
+            id_object_str = currentSession.config["execution_name"] + "." + id_object_str;
         } else {
             pos = id_object_str.find_first_of(".", pos);
             if (pos != std::string::npos) {// Found
@@ -559,26 +476,27 @@ void IStorage::make_persistent(const std::string  id_obj) {
 	init_persistent_attributes(id_object_str, c_uuid) ;
 
 	ObjSpec oType = this->getObjSpec();
+
 	bool new_element = true;
 	std::string query = "CREATE TABLE " +
-				currentSession->config["execution_name"] + "." + this->tableName +
+				currentSession.config["execution_name"] + "." + this->tableName +
 				oType.table_attr;
 
-	CassError rc = currentSession->run_query(query);
+	CassError rc = currentSession.run_query(query);
 	if (rc != CASS_OK) {
 		if (rc == CASS_ERROR_SERVER_ALREADY_EXISTS ) {
                         new_element = false; //OOpps, creation failed. It is an already existent object.
                 } else if (rc == CASS_ERROR_SERVER_INVALID_QUERY) {
-                        std::cout<< "IStorage::make_persistent: Keyspace "<< currentSession->config["execution_name"]<< " not found. Creating keyspace." << std::endl;
+                        std::cout<< "IStorage::make_persistent: Keyspace "<< currentSession.config["execution_name"]<< " not found. Creating keyspace." << std::endl;
                         std::string create_keyspace = std::string(
-                                "CREATE KEYSPACE IF NOT EXISTS ") + currentSession->config["execution_name"] +
-                            std::string(" WITH replication = ") +  currentSession->config["replication"];
-                        rc = currentSession->run_query(create_keyspace);
+                                "CREATE KEYSPACE IF NOT EXISTS ") + currentSession.config["execution_name"] +
+                            std::string(" WITH replication = ") +  currentSession.config["replication"];
+                        rc = currentSession.run_query(create_keyspace);
                         if (rc != CASS_OK) {
                             std::string msg = std::string("IStorage::make_persistent: Error creating keyspace ") + create_keyspace;
                             throw ModuleException(msg);
                         } else {
-                            rc = currentSession->run_query(query);
+                            rc = currentSession.run_query(query);
                             if (rc != CASS_OK) {
                                 if (rc == CASS_ERROR_SERVER_ALREADY_EXISTS) {
                                     new_element = false; //OOpps, creation failed. It is an already existent object.
@@ -633,20 +551,21 @@ const struct IStorage::metadata_info IStorage::getMetaData(uint64_t* uuid) const
 	void * key = malloc(sizeof(char*));
 	memcpy(key, &localuuid, sizeof(uint64_t*));
 
-	std::vector <const TupleRow*> result = currentSession->getHecubaIstorageAccess()->retrieve_from_cassandra(key);
+    HecubaSession& currentSession = getCurrentSession();
+	std::vector <const TupleRow*> result = currentSession.getHecubaIstorageAccess()->retrieve_from_cassandra(key);
 
 	if (result.empty()) throw ModuleException("IStorage uuid "+UUID::UUID2str(uuid)+" not found. Unable to get its metadata.");
 
-	uint32_t pos = currentSession->getHecubaIstorageAccess()->get_metadata()->get_columnname_position("name");
+	uint32_t pos = currentSession.getHecubaIstorageAccess()->get_metadata()->get_columnname_position("name");
 	char *keytable = *(char**)result[0]->get_element(pos); //Value retrieved from cassandra has 'keyspace.tablename' format
 
 
 	// Check that retrieved classname form hecuba coincides with 'id_model'
-	pos = currentSession->getHecubaIstorageAccess()->get_metadata()->get_columnname_position("class_name");
+	pos = currentSession.getHecubaIstorageAccess()->get_metadata()->get_columnname_position("class_name");
 	char *classname = *(char**)result[0]->get_element(pos); //Value retrieved from cassandra has 'keyspace.tablename' format
 
 	// Read the UDT case (numpy_meta)from the row retrieved from cassandra
-	pos = currentSession->getHecubaIstorageAccess()->get_metadata()->get_columnname_position("numpy_meta");
+	pos = currentSession.getHecubaIstorageAccess()->get_metadata()->get_columnname_position("numpy_meta");
 	if (result[0]->get_element(pos) != 0) {
 		ArrayMetadata *numpy_metas = *(ArrayMetadata**)result[0]->get_element(pos);
 		res.numpy_metas = *numpy_metas;
@@ -668,7 +587,7 @@ void IStorage::setCache(const CacheTable& cache) {
 }
 
 void IStorage::getByAlias(const std::string& name) {
-	std::string FQname (currentSession->config["execution_name"] + "." + name);
+	std::string FQname (getCurrentSession().config["execution_name"] + "." + name);
 	uint64_t *c_uuid=UUID::generateUUID5(FQname.c_str()); // UUID for the new object
 
 	setPersistence(c_uuid);
@@ -678,3 +597,16 @@ void IStorage::getByAlias(const std::string& name) {
 	}
 }
 
+void IStorage::initializeClassName(std::string class_name) {
+	std::string FQname;
+	bool new_element = true;
+	if (class_name == "StorageNumpy") {
+		class_name="hecuba.hnumpy.StorageNumpy";
+		FQname=class_name;
+		new_element=false;
+	} else {
+		FQname = class_name + "." + class_name;
+	}
+	setIdModel(FQname);
+	setClassName(class_name);
+}

@@ -94,7 +94,7 @@ ObjSpec::ObjSpec(enum valid_types type, std::vector<std::pair<std::string, std::
     generateTableAttr();
 }
 
-std::string ObjSpec::getPythonString() {
+const std::string& ObjSpec::getPythonString() const {
     return pythonSpecString;
 
 }
@@ -223,10 +223,10 @@ ObjSpec::valid_types ObjSpec::getType() {
     return objtype;
 }
 
-std::string ObjSpec::getIDModelFromCol(int i) {
+const std::string& ObjSpec::getIDModelFromCol(int i) const {
     return cols[i].second;
 }
-std::string ObjSpec::getIDModelFromKey(int i) {
+const std::string& ObjSpec::getIDModelFromKey(int i) const {
     /* keys are splitted into partitionKeys and clusteringKeys */
     int partKeySize=partitionKeys.size();
 
@@ -238,21 +238,22 @@ std::string ObjSpec::getIDModelFromKey(int i) {
     }
 }
 
-const std::string& ObjSpec::getIDModelFromColName(const std::string & name) {
+const std::string& ObjSpec::getIDModelFromColName(const std::string & name) const{
     for(uint16_t i=0; i<cols.size(); i++) {
         if (cols[i].first == name) {
             return cols[i].second;
         }
     }
     throw ModuleException("ObjSpec::getIDModelFromColName Column name "+name+" does not exist");
-    return std::string("OK, OK, I'M NOT RETURNING THIS");
+    static std::string nothing("OK, OK, I'M NOT RETURNING THIS");
+    return nothing;
 }
 
-std::string ObjSpec::getIDObjFromCol(int i) {
+const std::string& ObjSpec::getIDObjFromCol(int i) const {
     return cols[i].first;
 }
 
-std::string ObjSpec::getIDObjFromKey(int i) {
+const std::string& ObjSpec::getIDObjFromKey(int i) const {
     /* keys are splitted into partitionKeys and clusteringKeys */
     int partKeySize=partitionKeys.size();
 

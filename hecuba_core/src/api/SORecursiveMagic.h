@@ -111,7 +111,11 @@
 #define SO_CONSTRUCTOR(t1,n1,...) StorageObject({ EVAL(VECTOR(t1,n1,__VA_ARGS__))})
 
 //this should be used to declare the attributes if the SO_CONSTRUCTOR is used and DEFAULT_CONSTRUCTOR is not used
+#if 0
 #define HECUBA_ATTRS(t1,n1,...) EVAL(DECL(t1,n1,__VA_ARGS__)) 
+#endif
+
+#define HECUBA_ATTRS(t1,n1,...) SO_ClassName myname = {this, typeid(*this).name()}; EVAL(DECL(t1,n1,__VA_ARGS__)) 
 //miso: public StorageObject {
 //      DEFAULT_CONSTRUCTOR(miso,int,a,float,b) {
 //          

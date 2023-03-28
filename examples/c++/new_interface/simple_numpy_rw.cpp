@@ -50,18 +50,16 @@ bool equalsNumpy(const StorageNumpy& s, double *data, std::vector<uint32_t> meta
 }
 
 
-void test_retrieve_simple(HecubaSession &s,const char *name) {
+void test_retrieve_simple(const char *name) {
     std::vector<uint32_t> metadata = {3, 4};
     char *data = generateNumpyContent(metadata);
     StorageNumpy sn(data,metadata);
 
-    s.registerObject(&sn);
     sn.make_persistent(name);
 
     sn.sync();
 
     StorageNumpy sn2;
-    s.registerObject(&sn2);
     sn2.getByAlias(name);
  
     if (!equalsNumpy(sn2, (double*)data, metadata)) {
@@ -73,11 +71,9 @@ void test_retrieve_simple(HecubaSession &s,const char *name) {
 
 int main() {
     std::cout<< "+ STARTING C++ APP"<<std::endl;
-    HecubaSession s;
-    std::cout<< "+ Session started"<<std::endl;
 
     std::cout << "Starting test 1 " <<std::endl;
-    test_retrieve_simple(s,"mynumpytoread");
+    test_retrieve_simple("mynumpytoread");
 
     std::cout << "End tests " <<std::endl;
 }
