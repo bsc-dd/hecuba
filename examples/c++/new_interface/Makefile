@@ -7,6 +7,7 @@ OBJS= \
     simple_rw \
 	nested_rw \
 	test_shared_ptr \
+	parent_code \
 	simple_so \
 	very_simple_so \
 	nested_so \
@@ -35,6 +36,8 @@ nested_rw: nested_rw.cpp
 	g++ -o $@ $^   ${CPPFLAGS}
 
 test_shared_ptr: test_shared_ptr.cpp
+	g++ -o $@ $^   ${CPPFLAGS}
+parent_code: parent_code.cpp
 	g++ -o $@ $^   ${CPPFLAGS}
 
 simple_so: simple_so.cpp

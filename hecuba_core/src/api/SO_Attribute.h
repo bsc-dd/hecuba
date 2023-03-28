@@ -1,7 +1,7 @@
 #ifndef __SO_ATTRIBUTE_H__
 #define __SO_ATTRIBUTE_H__
 #include "IStorage.h"
-#include "StorageObject.h"
+#include "Hecuba_StorageObject.h"
 
 
 //class StorageObject; // forward declaration
@@ -10,70 +10,90 @@ template <class T>
 class SO_Attribute {
 
 public:
-    friend class StorageObject;
     //SO_Attribute<T>(IStorage *so, std::string name){
     SO_Attribute<T>(StorageObject *so, const std::string& name){
-        std::cout << "SO_Attribute mi extranyo constructor "<< std::endl;
+        std::cout << "SO_Attribute::constructor "<<this<< " with name ["<<name<<"] and StorageObj "<< so << std::endl;
         this->so = so;
         this->name = name;
-        this->initialize = false;
         so->addAttrSpec(typeid(T).name(), name);
     }
     SO_Attribute() = delete;
 
-    SO_Attribute(T value) {
+    SO_Attribute(const T& value) {
+        std::cout << "SO_Attribute::constructor "<<this<< " with type "<< typeid(T).name() << std::endl;
         this->attr_value = value;
         // if this case possible? to call to this constructor from the StorageObject constructor?
-#if 0
-        if (this->so != nullptr) {
-            this->send_to_cassandra(value);
-            initialize = true;
-        }
-#endif
     }
-
 
     SO_Attribute(SO_Attribute& attr_to_copy) {
         std::cout << "SO_Attribute::copy constructor " << this << " from "<< &attr_to_copy << std::endl;
         *this = attr_to_copy;
     }
 
-    SO_Attribute &operator = (T value) {
-        std::cout << "SO_Attribute: operator = value" << std::endl;
+    /////////////////////////////////// MEGA TRICK BEGINs HERE ///////////////////////
+    ////    If T is a IStorage we cannot specify the source value as const because it conflicts with the other version of the operator =,
+    ////    where the source parameter is of type SO_Attribute<T> and cannot be const because the code modifies it
+    ////    (when attr_value is not loaded in memory). If T is a basic type or a string it must be const (because the parameter is a
+    ////    reference to avoid extra copies). So we need two different signatures: one with a const value and the other without the const.
+    ////    We cannot use enable_if as second parameter or operator = because the interface only allows one parameter, for this reason we
+    ////    have implemented the assignment functionality in a different function.
+    ////    So we have 3 versions of the operator =: One for IStorage (const), one for the other types (no const) and one for
+    ////    SO_Attribute<T>
+    ////    The problem: this.inner_value = value;
+
+    template <class V> void assignment (V& value, typename std::enable_if<std::is_base_of<IStorage,V>::value>::type* = 0){
         this->attr_value = value;
         if (so != nullptr) {
             this->send_to_cassandra(value);
-            initialize = true;
         }
     }
+
+    template <class V> void assignment (const V& value, typename std::enable_if<!std::is_base_of<IStorage,V>::value>::type* = 0){
+        this->attr_value = value;
+        if (so != nullptr) {
+            this->send_to_cassandra(value);
+        }
+    }
+
+    SO_Attribute &operator = (const T& value) {
+        std::cout << "SO_Attribute: operator " << this << " = with const value on [" <<name<<"] " << std::endl;
+        assignment<T>(value);
+    }
+
+    SO_Attribute &operator = (T& value) {
+        std::cout << "SO_Attribute: operator " << this << " = value on [" <<name<<"] " << std::endl;
+        assignment<T>(value);
+    }
+
     SO_Attribute &operator = (SO_Attribute<T>& attr_to_copy) {
         std::cout << "SO_Attribute: operator " << this << " = SO_Attribute " << &attr_to_copy << std::endl;
         if (this == &attr_to_copy) return *this;
         // if attr_to_copy has a so and it is not initialized we have to read it from cassandra. Finally we copy the value from memory
         if (attr_to_copy.so != nullptr) {
-            if (attr_to_copy.initialize == false) {
-                attr_to_copy.read_from_cassandra(); // read_from_cassanddra: if T is a IStorage attr_to_copy.attr_value will contain the instance of the IStorage. It's ok.
-            }
+            attr_to_copy.read_from_cassandra(); // read_from_cassanddra: if T is a IStorage attr_to_copy.attr_value will contain the instance of the IStorage. It's ok.
         }
         attr_value = attr_to_copy.attr_value;
+        name = attr_to_copy.name;
         if (so != nullptr) {
             this->send_to_cassandra(attr_value);
         }
-        initialize = true;
-        name = attr_to_copy.name;
+
         return *this;
     }
+    ////////////////////////// MEGA TRICK ENDs HERE //////////
 
-    operator T() {
-        if ((so != nullptr) && (initialize ==false)) {
-            attr_value = read_from_cassandra(); 
-        } 
+    operator T&() {
+        std::cout << "SO_Attribute::casting "<< name<< " to ["<< typeid(T).name() << "]"<<std::endl;
+        if (so != nullptr){
+            read_from_cassandra();
+        }
         return attr_value;
     };
 
     template <class V> void setAttributeValue(IStorage* sd, void* buffer, typename std::enable_if<std::is_base_of<IStorage, V>::value>::type* = 0 ) {
         uint64_t * uuid = *(uint64_t**) buffer;
         attr_value = instantiateIStorage<V>(sd, uuid);
+        // if the value is of type IStorage is the case of nested IStorage and to avoid inconsistencies we always go to Cassandra to get the values
     }
     template <class V> void setAttributeValue(IStorage* sd, void* buffer, typename std::enable_if< std::is_base_of<std::string, V>::value >::type* = 0 ) {
         attr_value = std::string(*(char **)buffer);
@@ -90,8 +110,8 @@ public:
     template <class V> V& instantiateIStorage(IStorage* sd,  uint64_t* uuid,
             typename std::enable_if<std::is_base_of<IStorage, V>::value>::type* =0 ) {
         V *v = new V();
-        sd->getCurrentSession()->registerObject(v);
         v->setPersistence(uuid);
+        sd->getCurrentSession().registerObject(v->getDataAccess(),v->getClassName());
         // enable stream
         if (v->isStream()){
             v->getObjSpec().enableStream();
@@ -115,7 +135,6 @@ public:
         void* buffer = malloc(attr_size);
         so->getAttr(name, buffer);
         this->template setAttributeValue<T>(this->so, buffer);
-        initialize = true;
     }
 
     template <class V > char *cast2IStorageBuffer(const V& value,  typename std::enable_if<!std::is_base_of<IStorage, V>::value>::type* =0) {
@@ -152,15 +171,11 @@ public:
     private:
         //IStorage *so = nullptr;
         StorageObject *so = nullptr;
-        bool initialize = false;
         std::string name = std::string("NOT_DEFINED");
         T attr_value;
 
         void setSO (IStorage* so){
             this->so = so;
-        }
-        void setInitialize (const bool init){
-            this->initialize = init;
         }
 
 };

@@ -45,12 +45,12 @@ public:
     std::string debug();
     enum valid_types getType();
 
-    std::string getIDModelFromCol(int pos);
-    std::string getIDModelFromKey(int pos);
-    const std::string& getIDModelFromColName(const std::string & name);
-    std::string getIDObjFromCol(int pos);
-    std::string getIDObjFromKey(int pos);
-    std::string getPythonString();
+    const std::string& getIDModelFromCol(int pos) const;
+    const std::string& getIDModelFromKey(int pos) const;
+    const std::string& getIDModelFromColName(const std::string & name) const;
+    const std::string& getIDObjFromCol(int pos) const;
+    const std::string& getIDObjFromKey(int pos) const;
+    const std::string& getPythonString()const;
     bool isStream(void) const;
     void enableStream(void) ;
     void disableStream(void) ;

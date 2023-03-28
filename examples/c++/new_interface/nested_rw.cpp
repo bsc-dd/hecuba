@@ -6,17 +6,16 @@
 
 using StringKeyClass = KeyClass <std::string,int32_t,int32_t>;
 using StringMultipleValueClass = ValueClass<std::string,int32_t>;
-class MultipleValueDict:public StorageDict <StringKeyClass,StringMultipleValueClass>{ };
+class MultipleValueDict:public StorageDict <StringKeyClass,StringMultipleValueClass,MultipleValueDict>{ };
 
 using nestedValue = ValueClass <MultipleValueDict>;
-class NestedDict:public StorageDict <StringKeyClass,nestedValue>{ };
+class NestedDict:public StorageDict <StringKeyClass,nestedValue,NestedDict>{ };
 
 
-void test_nested(HecubaSession& s) {
+void test_nested() {
 	MultipleValueDict mulD;
 	std::cout<<"*  Instantiate mulD " << &mulD<<std::endl;
 
-	s.registerObject(&mulD);
 	std::string mulname("inner");
 	mulD.make_persistent(mulname);
 	std::cout<<"* "<<mulname<<" persisted mulD " << &mulD<<std::endl;
@@ -33,7 +32,6 @@ void test_nested(HecubaSession& s) {
 	NestedDict nd; // The constructor of Nested Dict intantiates a dummy key and a dummy value (in this case StorageDict) to extract info 
 	std::cout<<"*   NestedDict nd instantiate " << &nd <<std::endl;
 
-	s.registerObject(&nd);
 	std::cout<<"*   NestedDict nd registered" << std::endl;
 	nd.make_persistent("nestedDictionary");
 	std::cout<<"* nestedDictionary persisted" << std::endl;
@@ -48,7 +46,6 @@ void test_nested(HecubaSession& s) {
 	std::cout<<"* inserted values in nestedDicitionary andd synched" << std::endl;
 
 	NestedDict ndread;
-	s.registerObject(&ndread);
 	ndread.getByAlias("nestedDictionary");
 
 	nestedValue  mulDvalue = ndread[strk]; //retrieve the value: a dictionary
@@ -68,8 +65,7 @@ void test_nested(HecubaSession& s) {
 
 }
 int main() { 
-	HecubaSession s; //connects with Cassandra
-    test_nested(s);
+    test_nested();
    
 	std::cout<<"END TEST" << std::endl;
 }

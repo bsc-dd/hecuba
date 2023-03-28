@@ -22,12 +22,11 @@ char * generateNumpyContent(const std::vector<uint32_t> &metas) {
     return (char*) numpy;
 }
 
-void test_really_simple(HecubaSession &s,const char *name) {
+void test_really_simple(const char *name) {
     std::vector<uint32_t> metadata = {3, 4};
     char *data = generateNumpyContent(metadata);
     StorageNumpy sn(data,metadata);
 
-    s.registerObject(&sn);
     sn.make_persistent(name);
 
     sn.sync();
@@ -37,11 +36,9 @@ void test_really_simple(HecubaSession &s,const char *name) {
 
 int main() {
     std::cout<< "+ STARTING C++ APP"<<std::endl;
-    HecubaSession s;
-    std::cout<< "+ Session started"<<std::endl;
 
     std::cout << "Starting test 1 " <<std::endl;
-    test_really_simple(s,"mynumpy");
+    test_really_simple("mynumpy");
 
     std::cout << "End tests " <<std::endl;
 }

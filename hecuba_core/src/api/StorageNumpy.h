@@ -50,6 +50,7 @@ public:
 			    , std::string("")
 			    );
 	    setObjSpec(snSpec);
+        initializeClassName("StorageNumpy");
     }
 
     StorageNumpy() {
@@ -57,16 +58,18 @@ public:
     }
 
     StorageNumpy(void *datasrc, const std::vector<uint32_t> &metas) {
-		initializeNumpy(datasrc, metas);
+		setNumpy(datasrc, metas);
 		initObjSpec();
     }
 
-	void initializeNumpy(void *datasrc, const std::vector<uint32_t>&metas) {
+	void setNumpy(void *datasrc, const std::vector<uint32_t>&metas) {
 		// Transform user metas to ArrayMetadata
 		this->metas = metas; // make a copy of user 'metas'
 		uint32_t numpy_size = extractNumpyMetaData(metas, this->numpy_metas);
 
 		// Make a copy of 'datasrc'
+        if (this->data != nullptr)
+            free(this->data);
 		this->data = malloc(numpy_size);
 		memcpy(this->data, datasrc, numpy_size);
 	}
@@ -95,7 +98,7 @@ public:
     
     ~StorageNumpy() {
 
-        std::cout << " StorageNumpy Compiler go to hell, please" << UUID::UUID2str(getStorageID())<<std::endl;
+        std::cout << " StorageNumpy::Destructor " << UUID::UUID2str(getStorageID())<<std::endl;
         if (this->data != nullptr) {
             free (this->data);
         }
@@ -106,7 +109,7 @@ public:
 	if (isStream() ){
 		StreamPart=std::string(", StorageStream");
 	}
-	std::string pythonSpec = "from hecuba import StorageNumpy"
+	std::string pythonSpec = PythonDisclaimerString + "from hecuba import StorageNumpy"
 				  + StreamPart
 				  + "\n\nclass "
 				  + getClassName() + "(StorageNumpy"
@@ -118,7 +121,7 @@ public:
 
     void assignTableName(const std::string& id_obj, const std::string& id_model) {
         size_t pos= id_obj.find_first_of(".");
-        if (getCurrentSession()->config["hecuba_sn_single_table"] == "false") {
+        if (getCurrentSession().config["hecuba_sn_single_table"] == "false") {
             this->setTableName(id_obj.substr(pos+1,id_obj.size())); //in the case of StorageObject this will be the name of the class
         } else {
             this->setTableName("HECUBA_StorageNumpy");
@@ -128,11 +131,11 @@ public:
 
     void initialize_dataAcces() {
 	    // StorageNumpy
-	    HecubaSession *currentSession = getCurrentSession(); 
-        ArrayDataStore *tmp = new ArrayDataStore(getTableName().c_str(),
-                                currentSession->config["execution_name"].c_str(),
-                                currentSession->getStorageInterface()->get_session(), currentSession->config);
-	    this->arrayStore = std::make_shared<ArrayDataStore> (*tmp);
+	    this->arrayStore = std::make_shared<ArrayDataStore> (getTableName().c_str(),
+                                getCurrentSession().config["execution_name"].c_str(),
+                                getCurrentSession().getStorageInterface()->get_session(), getCurrentSession().config);
+
+        getCurrentSession().registerObject(arrayStore,getClassName());
     }
 
     Writer * getDataWriter() const {
@@ -325,9 +328,10 @@ private:
 	memcpy(values+offset_values, &byte_array,  sizeof(unsigned char *)); // numpy_meta
 	offset_values += sizeof(unsigned char *);
 
+
 	try {
-		getCurrentSession()->getNumpyMetaWriter()->write_to_cassandra(keys, values);
-		getCurrentSession()->getNumpyMetaWriter()->wait_writes_completion(); // Ensure hecuba.istorage get all updates SYNCHRONOUSLY (to avoid race conditions with poll that may request a build_remotely on this new object)!
+		getCurrentSession().getNumpyMetaWriter()->write_to_cassandra(keys, values);
+		getCurrentSession().getNumpyMetaWriter()->wait_writes_completion(); // Ensure hecuba.istorage get all updates SYNCHRONOUSLY (to avoid race conditions with poll that may request a build_remotely on this new object)!
 	}
 	catch (std::exception &e) {
 		std::cerr << "HecubaSession::registerNumpy: Error writing" <<std::endl;

@@ -96,7 +96,7 @@ public:
     template < class V1alt> V1alt& instantiateIStorage(IStorage* sd,  uint64_t* uuid,
             typename std::enable_if<std::is_base_of<IStorage, V1alt>::value>::type* =0 ) {
         V1alt *v = new V1alt();
-        sd->getCurrentSession()->registerObject(v);
+        //sd->getCurrentSession().registerObject(v); move to setPersistence and object constructor
         v->setPersistence(uuid);
         // enable stream
         if (v->isStream()){

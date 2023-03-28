@@ -1,5 +1,5 @@
 #include "SO_Attribute.h"
-#include "StorageObject.h"
+#include "Hecuba_StorageObject.h"
 
 
 // Example of definition of user class that implements a StorageObject
@@ -27,24 +27,26 @@
         delayedObjSpec = true;
     }
 
+
     // c++ only calls implicitly the constructor without parameters. To invoke this constructor we need to add to the user class an explicit call to this
     StorageObject::StorageObject(const std::string& name): IStorage() {
         delayedObjSpec = true;
         setObjectName(name);
         set_pending_to_persist();
     }
-
-    StorageObject::StorageObject(const StorageObject& src) {
+    
+    StorageObject::StorageObject(const StorageObject& src): IStorage() {
         *this=src;
     }
 
     StorageObject& StorageObject::operator = (const StorageObject& src) {
         if (this != &src ){
             this->IStorage::operator=(src); //Inherit IStorage attributes
-            this->st = src.st;
+            //this->st = src.st;
             this->valuesDesc = src.valuesDesc;
             this->translate = src.translate;
         }
+        return *this;
     }
 
     StorageObject::~StorageObject() {
@@ -58,7 +60,7 @@
         if (isStream() ){
             StreamPart=std::string(", StorageStream");
         }
-        std::string pythonSpec = "from hecuba import StorageObject"
+        std::string pythonSpec = PythonDisclaimerString + "from hecuba import StorageObject"
             + StreamPart +
             + "\n\nclass "
             + getClassName() + "(StorageObject"
@@ -71,7 +73,7 @@
         for (std::vector<std::pair<std::string,std::string>>::iterator it=valuesDesc.begin(); it!=valuesDesc.end(); ++it)
             itemSpec+="   @Classfield "+it->first + " " + ObjSpec::cass_to_hecuba(it->second) + "\n";
 
-        pythonSpec += itemSpec;
+        pythonSpec += itemSpec + "   '''\n";
 
         setPythonSpec(pythonSpec);
     }
@@ -105,7 +107,7 @@
             "'" + this->getIdModel() + "'" + std::string(", ") +
             oType.getColsStr() +
             std::string(")");
-        CassError rc = getCurrentSession()->run_query(insquery);
+        CassError rc = getCurrentSession().run_query(insquery);
         if (rc != CASS_OK) {
             std::string msg = std::string("StorageDict::persist_metadata: Error executing query ") + insquery;
             throw ModuleException(msg);
@@ -123,7 +125,6 @@
 	    std::string keyspace = idObj.first;
 	    std::string tablename = idObj.first + "." + this->getClassName(); //"keysp.myclass"
 
-	    const char * id_object = idObj.second.c_str();
 	    // Check that retrieved classname form hecuba coincides with 'id_model'
 	    std::string sobj_table_name = row.class_name;   //"myclass.myclass"
 
@@ -134,13 +135,12 @@
 	    // meaning that in a complex scenario with different models...
 	    // we will loose information. FIXME
 	    if (sobj_table_name.compare(FQid_model) != 0) {
-		    throw ModuleException("HecubaSession::createObject uuid "+UUID::UUID2str(uuid)+" "+ tablename + " has unexpected class_name " + sobj_table_name + " instead of "+FQid_model);
+		    //throw ModuleException("HecubaSession::createObject uuid "+UUID::UUID2str(uuid)+" "+ tablename + " has unexpected class_name " + sobj_table_name + " instead of "+FQid_model);
 	    }
 
 	    init_persistent_attributes(tablename, uuid);
 	    // Create READ/WRITE cache accesses
 	    initialize_dataAcces();
-
 
     }
 
@@ -149,12 +149,16 @@
         ObjSpec oType = this->getObjSpec();
         std::vector<config_map>* keyNamesDict = oType.getKeysNamesDict();
         std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
-        CacheTable *reader = getCurrentSession()->getStorageInterface()->make_cache(this->getTableName().c_str(),
-                getCurrentSession()->config["execution_name"].c_str(), *keyNamesDict, *colNamesDict, getCurrentSession()->config);
+        CacheTable *reader = getCurrentSession().getStorageInterface()->make_cache(this->getTableName().c_str(),
+                getCurrentSession().config["execution_name"].c_str(), *keyNamesDict, *colNamesDict, getCurrentSession().config);
         this->setCache(*reader);
+
 
         delete keyNamesDict;
         delete colNamesDict;
+        if (getCurrentSession().registerObject(getDataAccess(),getClassName())) {
+            writePythonSpec();
+        }
     }
 
 /* Return:
@@ -174,8 +178,7 @@ void StorageObject::getAttr(const std::string&  attr_name, void* valuetoreturn) 
     if (result.empty()) throw ModuleException("IStorage::getAttr: attribute " + attr_name + " not found in object " + getObjectName() );
     char *query_result= (char*)result[0]->get_payload();
 
-    DataModel* model = getCurrentSession()->getDataModel();
-    ObjSpec ospec = model->getObjSpec(getIdModel());
+    ObjSpec ospec = getObjSpec();
     std::string value_type = ospec.getIDModelFromColName(attr_name);
 
     extractFromQueryResult(value_type, value_size, query_result, valuetoreturn);
@@ -195,8 +198,7 @@ void StorageObject::setAttr(const std::string& attr_name, void* value) {
     void * cc_val;
     const TableMetadata* writerMD = getDataWriter()->get_metadata();
     DBG( "StorageObject::setAttr enter" );
-    DataModel* model = getCurrentSession()->getDataModel();
-    ObjSpec ospec = model->getObjSpec(getIdModel());
+    ObjSpec ospec = getObjSpec();
     int64_t value_size = writerMD->get_single_column(attr_name)->size;
     cc_val = malloc(value_size); // This memory will be freed after the execution of the query (at callback)
     std::string value_type = ospec.getIDModelFromColName(std::string(attr_name));
@@ -215,5 +217,15 @@ void StorageObject::setAttr(const std::string& attr_name, void* value) {
 void StorageObject::setAttr(const std::string& attr_name, IStorage* value) {
     /* 'setAttr' expects a block of memory with pointers to IStorages, therefore add an indirection */
     setAttr(attr_name, (void *) &value);
+}
+
+ObjSpec& StorageObject::getObjSpec() {
+    if (delayedObjSpec) {
+        //only StorageObjects can have a delayedObjSpec because during the constructor maybe the attributes specification is unknown
+        setObjSpec(generateObjSpec());
+        initializeClassName (getClassName());
+        delayedObjSpec = false;
+    }
+    return IStorage::getObjSpec();
 }
 

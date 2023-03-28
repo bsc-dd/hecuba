@@ -12,28 +12,27 @@ using IntKeyClass = KeyClass<int32_t>;
 using FloatValueClass = ValueClass<float>;
 
 
-class MyDictClass: public StorageDict <IntKeyClass,FloatValueClass> {
+class MyDictClass: public StorageDict <IntKeyClass,FloatValueClass, MyDictClass> {
 
 };
 
 using MultipleKeyClass = KeyClass<std::string,int32_t>;
 
-class MultipleKeyDictClass: public StorageDict <MultipleKeyClass,FloatValueClass> {
+class MultipleKeyDictClass: public StorageDict <MultipleKeyClass,FloatValueClass,MultipleKeyDictClass> {
 
 };
 
 using StringKeyClass = KeyClass<std::string>;
 
-class StringKeyDictClass: public StorageDict <StringKeyClass, FloatValueClass> {
+class StringKeyDictClass: public StorageDict <StringKeyClass, FloatValueClass, StringKeyDictClass> {
 
 };
 
-void test_really_simple(HecubaSession &s,const char *name) {
+void test_really_simple(const char *name) {
     MyDictClass mydict;
     int tss[SIZE] ={42, 43, 44};
     float lats[SIZE]={0.666, 0.777, 0.888};
 
-    s.registerObject(&mydict);
     mydict.make_persistent(name);
 
     for (int i=0; i<SIZE; i++) {
@@ -83,10 +82,9 @@ void test_really_simple(HecubaSession &s,const char *name) {
     }
 }
 
-void test_multiplekey(HecubaSession& mys, const char *name) {
+void test_multiplekey(const char *name) {
     MultipleKeyDictClass mydict;
 
-    mys.registerObject(&mydict);
 
     mydict.make_persistent(name);
 
@@ -147,10 +145,9 @@ void test_multiplekey(HecubaSession& mys, const char *name) {
     }
 }
 
-void test_string(HecubaSession& mys, const char *name) {
+void test_string(const char *name) {
     StringKeyDictClass mydict;
 
-    mys.registerObject(&mydict);
     mydict.make_persistent(name);
 
 
@@ -203,17 +200,16 @@ void test_string(HecubaSession& mys, const char *name) {
 
 int main() {
     std::cout<< "+ STARTING C++ APP"<<std::endl;
-    HecubaSession s;
     std::cout<< "+ Session started"<<std::endl;
 
     std::cout << "Starting test 1 " <<std::endl;
-    test_really_simple(s,"mydict");
+    test_really_simple("mydict");
 
     std::cout << "Starting test 2 " <<std::endl;
-    test_multiplekey(s, "mydictmultiplekey");
+    test_multiplekey("mydictmultiplekey");
 
     std::cout << "Starting test 3 " <<std::endl;
-    test_string(s, "mydictString");
+    test_string("mydictString");
 
     std::cout << "End tests " <<std::endl;
 }

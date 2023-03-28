@@ -11,17 +11,16 @@ using IntKeyClass = KeyClass<int32_t>;
 
 using FloatValueClass = ValueClass<float>;
 
-class MyDictClass: public StorageDict <IntKeyClass,FloatValueClass> {
+class MyDictClass: public StorageDict <IntKeyClass,FloatValueClass,MyDictClass> {
 
 };
 
 
-void test_really_simple(HecubaSession &s,const char *name) {
+void test_really_simple(const char *name) {
 	MyDictClass mydict;
 	int tss[SIZE] ={42, 43, 44};
 	float lats[SIZE]={0.666, 0.777, 0.888};
 
-	s.registerObject(&mydict);
 	mydict.make_persistent(name);
 	for (int i=0; i<SIZE; i++) {
 		IntKeyClass k = IntKeyClass(tss[i]);
@@ -34,7 +33,6 @@ void test_really_simple(HecubaSession &s,const char *name) {
 	std::cout << "Insertion Completed" << std::endl;
 
 	MyDictClass mydict_read;
-	s.registerObject(&mydict_read);
 	mydict_read.getByAlias(name);	
 	std::cout << "Starting object read" << std::endl;
 
@@ -53,11 +51,9 @@ void test_really_simple(HecubaSession &s,const char *name) {
 
 int main() {
     std::cout<< "+ STARTING C++ APP"<<std::endl;
-    HecubaSession s;
-    std::cout<< "+ Session started"<<std::endl;
 
     std::cout << "Starting test 1 " <<std::endl;
-    test_really_simple(s,"mydict");
+    test_really_simple("mydict");
 
 
     std::cout << "End tests " <<std::endl;

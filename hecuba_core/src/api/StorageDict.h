@@ -4,16 +4,21 @@
 #include <map>
 #include <iostream>
 #include <type_traits>
-#include <hecuba/ObjSpec.h>
-#include <hecuba/debug.h>
-#include <hecuba/IStorage.h>
-#include <hecuba/KeyClass.h>
-#include <hecuba/ValueClass.h>
+#include "ObjSpec.h"
+#include "hecuba/debug.h"
+#include "IStorage.h"
+#include "KeyClass.h"
+#include "ValueClass.h"
 #include "UUID.h"
-#include <hecuba/StorageNumpy.h>
+#include "StorageNumpy.h"
 
+// C should be the class defined by the user
+// HecubaSession s; --> should be called just once in the user code and then shoul be accessible from all IStorages. How?
+// the new version of registerObject can be implemented in IStorage and receives as parametr the class_name that we extract from the template.
+// The registerObjet needs acccess to the session to store it in currentSession and to keep the object in the alive_objects list. The dataModel
+// can be delete (I think) because it is only used once in StorageObject (getAttr) and can be replaced by the getObjSpec of the IStorage.
 
-template<class K, class V>
+template<class K, class V, class C>
 
 class StorageDict:virtual public IStorage {
 
@@ -29,12 +34,18 @@ public:
 	ObjSpec dictSpec;
 	dictSpec=ObjSpec(ObjSpec::valid_types::STORAGEDICT_TYPE, partitionKeys, clusteringKeys, valuesDesc,"");
  	setObjSpec(dictSpec);
+    // extract class name from C and call the new registerObject. And the session??? HecubaSession::get() ?
+    //
+    int32_t status;
+    std::string class_name = abi::__cxa_demangle(typeid(C).name(),NULL,NULL,&status);
+    initializeClassName (class_name); // implemented in IStorage.cpp same code that current registerClassName of HecubaSession
     }
 
     StorageDict() {
+        std::cout << "StorageDict:: default constructor this "<< this <<std::endl;
     	initObjSpec();
     }
-    StorageDict(const StorageDict<K,V>& sdsrc) {
+    StorageDict(const StorageDict<K,V,C>& sdsrc) {
         std::cout << "StorageDict:: copy constructor this "<< this << " from "<< &sdsrc << std::endl;
         *this = sdsrc;
     }
@@ -59,7 +70,7 @@ public:
     }
 
     //copy assignment
-    StorageDict<K,V> &operator = (const StorageDict<K,V> &sdsrc){
+    StorageDict<K,V,C> &operator = (const StorageDict<K,V,C> &sdsrc){
         std::cout<< "StorageDict : operator =" << std::endl;
         if (this != &sdsrc) {
             this->IStorage::operator=(sdsrc); //Inherit IStorage attributes
@@ -78,7 +89,8 @@ public:
 	if (isStream() ){
 		StreamPart=std::string(", StorageStream");
 	}
-	std::string pythonSpec = "from hecuba import StorageDict"
+	std::string pythonSpec = PythonDisclaimerString +
+                    "from hecuba import StorageDict"
 				  + StreamPart +
 				  + "\n\nclass "
 				  + getClassName() + "(StorageDict"
@@ -116,12 +128,12 @@ public:
                         	std::string("VALUES ") +
                         	std::string("(") +
                         	UUID::UUID2str(c_uuid) + std::string(", ") +
-                        	"'" + getCurrentSession()->config["execution_name"] + "." + getTableName() + "'" + std::string(", ") +
+                        	"'" + getCurrentSession().config["execution_name"] + "." + getTableName() + "'" + std::string(", ") +
                         	"'" + this->getIdModel() + "'" + std::string(", ") +
                         	oType.getKeysStr() + std::string(", ") +
                         	oType.getColsStr() +
                         	std::string(")");
-        CassError rc = getCurrentSession()->run_query(insquery);
+        CassError rc = getCurrentSession().run_query(insquery);
                 if (rc != CASS_OK) {
                     std::string msg = std::string("StorageDict::persist_metadata: Error executing query ") + insquery;
                     throw ModuleException(msg);
@@ -156,7 +168,6 @@ public:
 	    init_persistent_attributes(tablename, uuid);
 	    // Create READ/WRITE cache accesses
 	    initialize_dataAcces();
-
 
     }
 
@@ -197,7 +208,7 @@ public:
         delete(trow_values);
     }
 
-    void getItem(const void* key, void *valuetoreturn) const{
+    void getItem(const void* key, void *valuetoreturn) {
         const TableMetadata* writerMD = getDataAccess()->get_metadata();
         /* PRE: value arrives already coded as expected: block of memory with pointers to IStorages or basic values*/
         std::pair<uint16_t, uint16_t> keySize = writerMD->get_keys_size();
@@ -261,12 +272,17 @@ void initialize_dataAcces() {
         ObjSpec oType = this->getObjSpec();
         std::vector<config_map>* keyNamesDict = oType.getKeysNamesDict();
         std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
-        CacheTable *reader = getCurrentSession()->getStorageInterface()->make_cache(this->getTableName().c_str(),
-                                getCurrentSession()->config["execution_name"].c_str(), *keyNamesDict, *colNamesDict, getCurrentSession()->config);
+        CacheTable *reader = getCurrentSession().getStorageInterface()->make_cache(this->getTableName().c_str(),
+                                getCurrentSession().config["execution_name"].c_str(), *keyNamesDict, *colNamesDict, getCurrentSession().config);
 	this->setCache(*reader);
 
         delete keyNamesDict;
         delete colNamesDict;
+        bool new_element=getCurrentSession().registerObject(getDataAccess(),getClassName());
+        if (new_element){
+            writePythonSpec();
+        }
+
 }
 
 std::vector<std::pair<std::string, std::string>> getPartitionKeys(){
@@ -360,10 +376,10 @@ struct keysIterator {
 keysIterator begin() {
         // Create thread and ask Casandra for data
 
-        config_map iterator_config = getCurrentSession()->config;
+        config_map iterator_config = getCurrentSession().config;
         iterator_config["type"]="keys"; // Request a prefetcher for 'keys' only
         return keysIterator(this,
-		 getCurrentSession()->getStorageInterface()->get_iterator(getDataAccess()->get_metadata(), iterator_config));
+		 getCurrentSession().getStorageInterface()->get_iterator(getDataAccess()->get_metadata(), iterator_config));
 }
 
 keysIterator end()   { return keysIterator(); } // NULL is the placeholder for last element
