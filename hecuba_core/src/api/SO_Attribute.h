@@ -12,7 +12,7 @@ class SO_Attribute {
 public:
     //SO_Attribute<T>(IStorage *so, std::string name){
     SO_Attribute<T>(StorageObject *so, const std::string& name){
-        std::cout << "SO_Attribute::constructor "<<this<< " with name ["<<name<<"] and StorageObj "<< so << std::endl;
+        DBG("SO_Attribute::constructor "<<this<< " with name ["<<name<<"] and StorageObj "<< so );
         this->so = so;
         this->name = name;
         so->addAttrSpec(typeid(T).name(), name);
@@ -20,13 +20,13 @@ public:
     SO_Attribute() = delete;
 
     SO_Attribute(const T& value) {
-        std::cout << "SO_Attribute::constructor "<<this<< " with type "<< typeid(T).name() << std::endl;
+        DBG( "SO_Attribute::constructor "<<this<< " with type "<< typeid(T).name() );
         this->attr_value = value;
         // if this case possible? to call to this constructor from the StorageObject constructor?
     }
 
     SO_Attribute(SO_Attribute& attr_to_copy) {
-        std::cout << "SO_Attribute::copy constructor " << this << " from "<< &attr_to_copy << std::endl;
+        DBG( "SO_Attribute::copy constructor " << this << " from "<< &attr_to_copy );
         *this = attr_to_copy;
     }
 
@@ -56,17 +56,17 @@ public:
     }
 
     SO_Attribute &operator = (const T& value) {
-        std::cout << "SO_Attribute: operator " << this << " = with const value on [" <<name<<"] " << std::endl;
+        DBG("SO_Attribute: operator " << this << " = with const value on [" <<name<<"] " );
         assignment<T>(value);
     }
 
     SO_Attribute &operator = (T& value) {
-        std::cout << "SO_Attribute: operator " << this << " = value on [" <<name<<"] " << std::endl;
+        DBG("SO_Attribute: operator " << this << " = value on [" <<name<<"] " );
         assignment<T>(value);
     }
 
     SO_Attribute &operator = (SO_Attribute<T>& attr_to_copy) {
-        std::cout << "SO_Attribute: operator " << this << " = SO_Attribute " << &attr_to_copy << std::endl;
+        DBG( "SO_Attribute: operator " << this << " = SO_Attribute " << &attr_to_copy );
         if (this == &attr_to_copy) return *this;
         // if attr_to_copy has a so and it is not initialized we have to read it from cassandra. Finally we copy the value from memory
         if (attr_to_copy.so != nullptr) {
@@ -83,7 +83,7 @@ public:
     ////////////////////////// MEGA TRICK ENDs HERE //////////
 
     operator T&() {
-        std::cout << "SO_Attribute::casting "<< name<< " to ["<< typeid(T).name() << "]"<<std::endl;
+        DBG( "SO_Attribute::casting "<< name<< " to ["<< typeid(T).name() << "]");
         if (so != nullptr){
             read_from_cassandra();
         }
@@ -164,7 +164,7 @@ public:
         so->setAttr(name,(void *)cast2IStorageBuffer(value)); // TRICK: We need to static_cast to IStorage to be able to find the base class due to the 'virtual'
     }
     ~SO_Attribute() {
-        std::cout << "SO_Attribute::destructor [" <<name<<"] "<< this << std::endl;
+        DBG("SO_Attribute::destructor [" <<name<<"] "<< this );
         so = nullptr;
     }
 

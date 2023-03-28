@@ -8,7 +8,7 @@
 #define ISKEY true
 
 
-IStorage::IStorage() {}
+IStorage::IStorage() { DBG( "default constructor this "<< this );}
 
 IStorage::IStorage(std::string id_model, std::string id_object, uint64_t* storage_id, CacheTable* dataAccess) {
 	this->id_model = id_model;
@@ -21,7 +21,7 @@ IStorage::IStorage(std::string id_model, std::string id_object, uint64_t* storag
 }
 
 IStorage::~IStorage() {
-		std::cout << " ISTORAGE Compiler go to hell, please " << UUID::UUID2str(getStorageID())<<std::endl;
+		DBG( UUID::UUID2str(getStorageID())<<" this: "<< this);
     if (storageid != nullptr) {
         free (storageid);
         storageid = nullptr;
@@ -29,12 +29,12 @@ IStorage::~IStorage() {
 }
 
 IStorage::IStorage(const IStorage& src) {
-    std::cout << "IStorage: copy constructor this " << this << " src " << &src << std::endl;
+    DBG(" copy constructor this " << this << " src " << &src );
     *this = src;
 }
 
 IStorage& IStorage::operator = (const IStorage& src) {
-    std::cout << "IStorage: copy assignment operator this "<< this << " src "<<&src<<std::endl;
+    DBG(" IStorage::copy operator = this "<< this << " src "<<&src);
     if (this != &src) {
         IStorageSpec = src.IStorageSpec;
         pythonSpec = src.pythonSpec;
@@ -148,9 +148,9 @@ IStorage::sync(void) {
 bool IStorage::convert_IStorage_to_UUID(char * dst, const std::string& value_type, const void* src, int64_t src_size) const {
     bool isIStorage = false;
     void * result;
-    DBG( "convert_IStorage_to_UUID " + value_type );
+    DBG( "IStorage::convert_IStorage_to_UUID " + value_type );
     if (!ObjSpec::isBasicType(value_type)) {
-        DBG( "convert_IStorage_to_UUID NOT BASIC" );
+        DBG( "IStorage::convert_IStorage_to_UUID NOT BASIC" );
         result = (*(IStorage **)src)->getStorageID(); // 'src' MUST be a valid pointer or it will segfault here...
 #if 0
         // Minimal Check for UUID
@@ -169,7 +169,7 @@ bool IStorage::convert_IStorage_to_UUID(char * dst, const std::string& value_typ
         isIStorage = true;
     } else{ // it is a basic type, just copy the value
         //if value_type is a string, copy it to a new variable to be independent of potential memory free from the user code
-        DBG( "convert_IStorage_to_UUID BASIC is " + value_type );
+        DBG( "IStorage::convert_IStorage_to_UUID BASIC is " + value_type );
         if (!value_type.compare(std::string{"text"})) {
             result = *(char**)src; // 'src' MUST be a valid pointer or it will segfault here...
             char* tmp = (char*)malloc (strlen((char*)result)+1);
@@ -204,14 +204,14 @@ void * IStorage::deep_copy_attribute_buffer(bool isKey, const void* src, uint64_
 
     const TableMetadata* writerMD = dataWriter->get_metadata();
 
-    DBG( "deep_copy_attribute_buffer num attributes="<<num_attrs);
+    DBG( "IStorage::deep_copy_attribute_buffer num attributes="<<num_attrs);
     int64_t value_size;
     uint64_t offset=0;
 
     // Traverse the buffer following the user order...
     for (uint32_t i=0; i < num_attrs; i++) {
 
-        DBG("  deep_copy_attribute_buffer offset ="<<offset);
+        DBG("  IStorage::deep_copy_attribute_buffer offset ="<<offset);
 
         std::string column_name;
         std::string value_type;
@@ -242,6 +242,7 @@ void * IStorage::deep_copy_attribute_buffer(bool isKey, const void* src, uint64_
 void
 IStorage::send_values(const void* value) {
 	// This will be redefined by underlying subclasses
+    DBG("IStorage::send_values");
 }
 // this comment beloow is valid for both setItem (StorageDict.h) and setAttr (StorageObject.h). Find a proper place for it.
 /* Args:
@@ -356,7 +357,6 @@ void IStorage::enableStream() {
 }
 
 bool IStorage::isStream() {
-	std::cout << "IStorage isStream" << std::endl;
     return streamEnabled;
 }
 
@@ -487,7 +487,7 @@ void IStorage::make_persistent(const std::string  id_obj) {
 		if (rc == CASS_ERROR_SERVER_ALREADY_EXISTS ) {
                         new_element = false; //OOpps, creation failed. It is an already existent object.
                 } else if (rc == CASS_ERROR_SERVER_INVALID_QUERY) {
-                        std::cout<< "IStorage::make_persistent: Keyspace "<< currentSession.config["execution_name"]<< " not found. Creating keyspace." << std::endl;
+                        std::cerr<< "IStorage::make_persistent: Keyspace "<< currentSession.config["execution_name"]<< " not found. Creating keyspace." << std::endl;
                         std::string create_keyspace = std::string(
                                 "CREATE KEYSPACE IF NOT EXISTS ") + currentSession.config["execution_name"] +
                             std::string(" WITH replication = ") +  currentSession.config["replication"];
@@ -526,6 +526,7 @@ void IStorage::make_persistent(const std::string  id_obj) {
 	// Now that the writer is created, persist data
 	persist_data();
 
+    DBG(" IStorage::make_persistent Object "<< id_model <<" with name "<< id_obj);
 
 }
 
@@ -595,6 +596,7 @@ void IStorage::getByAlias(const std::string& name) {
 		getObjSpec().enableStream();
 		configureStream(std::string(UUID::UUID2str(c_uuid)));
 	}
+    DBG(" IStorage::getByAlias object with name ["<<name<<"] and uuid ["<<UUID::UUID2str(c_uuid)<<"]");
 }
 
 void IStorage::initializeClassName(std::string class_name) {
@@ -609,4 +611,5 @@ void IStorage::initializeClassName(std::string class_name) {
 	}
 	setIdModel(FQname);
 	setClassName(class_name);
+    DBG(" IStorage::initializeClassName [" << FQname<<"] with name ["<<getName()<<"]");
 }

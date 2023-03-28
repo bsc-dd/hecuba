@@ -135,6 +135,7 @@ CacheTable::~CacheTable() {
     prepared_query = NULL;
     if (delete_query != NULL) cass_prepared_free(delete_query);
     delete_query = NULL;
+    DBG( this<< " table_metadata = "<< table_metadata);
     if (table_metadata != nullptr) {
         delete (table_metadata);
         table_metadata = nullptr;
