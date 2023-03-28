@@ -15,11 +15,12 @@ void Writer::async_query_thread_code() {
     }
 }
 
+
 Writer::Writer(const TableMetadata *table_meta, CassSession *session,
                std::map<std::string, std::string> &config) {
 
 
-    //std::cout<< " WRITER: Constructor "<< std::endl;
+    DBG( " WRITER: Constructor "<< this);
     int32_t buff_size = default_writer_buff;
     int32_t max_callbacks = default_writer_callbacks;
     this->disable_timestamps = false;
@@ -130,7 +131,7 @@ Writer& Writer::operator = (const Writer& src) {
 }
 
 Writer::~Writer() {
-    //std::cout<< " WRITER: Destructor "<< std::endl;
+    DBG( " WRITER: Destructor "<< ((topic_name!=nullptr)?topic_name:""));
     if (this->async_query_thread_created){
         wait_writes_completion(); // WARNING! It is necessary to wait for ALL CALLBACKS to finish, because the 'data' structure required by the callback will dissapear with this destructor
         auto async_query_thread_id = this->async_query_thread.get_id();

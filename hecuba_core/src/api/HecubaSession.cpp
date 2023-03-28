@@ -89,7 +89,7 @@ const {
             std::cerr<<"Address "<<contact[i]<<" unable to get IP address: "<<strerror(errno)<<std::endl;
             return std::string("");
         }
-        DBG("Address "<<contact[i]<<" translated to " <<std::string(host));
+        DBG(" HecubaSession::contact_names_2_IP_addr Address "<<contact[i]<<" translated to " <<std::string(host));
         contact_ips.push_back(host);
 
         freeaddrinfo(result);           /* No longer needed */
@@ -210,9 +210,9 @@ void HecubaSession::parse_environment(config_map &config) {
 }
 
 CassError HecubaSession::run_query(std::string query) const{
+	DBG( " HecubaSession::run_query [ "<< query << " ] ");
 	CassStatement *statement = cass_statement_new(query.c_str(), 0);
 
-    //std::cout << "DEBUG: HecubaSession.run_query : "<<query<<std::endl;
     CassFuture *result_future = cass_session_execute(const_cast<CassSession *>(storageInterface->get_session()), statement);
     cass_statement_free(statement);
 
@@ -287,7 +287,7 @@ void HecubaSession::createSchema(void) {
  ***************************/
 HecubaSession& HecubaSession::get() {
     static HecubaSession currentSession;
-	std::cout << " DEBUG : HecubaSession::get() [ "<< &currentSession << " ] "<<std::endl;
+	DBG(" HecubaSession::get() [ "<< &currentSession << " ] ");
     return currentSession;
 }
 
@@ -346,12 +346,12 @@ HecubaSession::~HecubaSession() {
     delete(numpyMetaAccess);
     for (std::list<std::shared_ptr<CacheTable>>::iterator it = alive_objects.begin(); it != alive_objects.end();) {
         std::shared_ptr<CacheTable> t = *it;
-        std::cout << "LIST DEL: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
+        //std::cout << "LIST DEL: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
         it = alive_objects.erase(it); // this will block waiting for the 'sync'
     }
     for (std::list<std::shared_ptr<ArrayDataStore>>::iterator it = alive_numpy_objects.begin(); it != alive_numpy_objects.end();) {
         std::shared_ptr<ArrayDataStore> t = *it;
-        std::cout << "LIST DEL: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
+        //std::cout << "LIST DEL: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
         it = alive_numpy_objects.erase(it); // this will block waiting for the 'sync'
     }
 }
@@ -590,7 +590,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 CassError rc = run_query(query);
                 if (rc != CASS_OK) {
                     if (rc == CASS_ERROR_SERVER_INVALID_QUERY) { // keyspace does not exist
-                        std::cout<< "HecubaSession::createObject: Keyspace "<< config["execution_name"]<< " not found. Creating keyspace." << std::endl;
+                        std::cerr<< "HecubaSession::createObject: Keyspace "<< config["execution_name"]<< " not found. Creating keyspace." << std::endl;
                         std::string create_keyspace = std::string(
                                 "CREATE KEYSPACE IF NOT EXISTS ") + config["execution_name"] +
                             std::string(" WITH replication = ") +  config["replication"];
@@ -651,7 +651,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                     if (rc == CASS_ERROR_SERVER_ALREADY_EXISTS ) {
                         new_element = false; //OOpps, creation failed. It is an already existent object.
                     } else if (rc == CASS_ERROR_SERVER_INVALID_QUERY) {
-                        std::cout<< "HecubaSession::createObject: Keyspace "<< config["execution_name"]<< " not found. Creating keyspace." << std::endl;
+                        std::cerr<< "HecubaSession::createObject: Keyspace "<< config["execution_name"]<< " not found. Creating keyspace." << std::endl;
                         std::string create_keyspace = std::string(
                                 "CREATE KEYSPACE IF NOT EXISTS ") + config["execution_name"] +
                             std::string(" WITH replication = ") +  config["replication"];

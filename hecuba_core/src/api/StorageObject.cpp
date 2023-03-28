@@ -1,5 +1,6 @@
 #include "SO_Attribute.h"
 #include "Hecuba_StorageObject.h"
+#include "hecuba/debug.h"
 
 
 // Example of definition of user class that implements a StorageObject
@@ -23,7 +24,7 @@
 
 
     StorageObject::StorageObject(): IStorage(){
-        std::cout << "StorageObject: constructor without parameters" <<std::endl;
+        DBG(" constructor without parameters " << this);
         delayedObjSpec = true;
     }
 
@@ -50,7 +51,7 @@
     }
 
     StorageObject::~StorageObject() {
-        std::cout << "StorageObject:: Soy el destructor y vengo a arruinarte el dia" << std::endl;
+        DBG( " "<<this);
     }
 
 

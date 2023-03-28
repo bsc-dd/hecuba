@@ -66,8 +66,9 @@ public:
    }
 
     template <class V> void manageAttr(std::string attrBaseName, const V& value) {
-            DBG("Clust Key " << value << " "<<std::string(typeid(decltype(value)).name())<<std::endl);
+            DBG("Clust Key " <<std::string(typeid(decltype(value)).name())<<std::endl);
 	    std::string valuetype=ObjSpec::c_to_cass(typeid(decltype(value)).name());
+
 	    std::pair<std::string, std::string> valuedesc(attrBaseName+std::to_string(managedValues), valuetype);
 	    valuesDesc.push_back(valuedesc);
 	    createAttributeBuffer <V>(valuetype,value);
