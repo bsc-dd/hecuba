@@ -20,8 +20,9 @@ Compiling your application with Hecuba
 ----------------------------------------
 Your application must include the headers from hecuba:
 ```
-    #include <hecuba/DataModel.h>
-    #include <hecuba/HecubaSession.h>
+    #include <StorageObject.h>
+    #include <StorageDict.h>
+    #include <StorageNumpy.h>
     ...
     /* Use the C++ API */
 ```
@@ -34,6 +35,7 @@ command:
         apitest.cpp  \
         -std=c++11 \
         -I ${HECUBA_ROOT}/include \
+        -I ${HECUBA_ROOT}/include/hecuba \
         -L${HECUBA_ROOT}/lib \
         -lhfetch \
         -Wl,-rpath,${HECUBA_ROOT}/lib
@@ -42,8 +44,9 @@ command:
 
 Executing your application
 --------------------------
-After defining any environment variable to configure Hecuba to contact with an
-already running Cassandra instance, you may execute your application:
+After defining environment variables to configure Hecuba (at least
+CONTACT_NAMES to contact with an already running Cassandra instance), you may
+execute your application:
 
 ```
     $ ./apitest
