@@ -1,8 +1,17 @@
 CPPFLAGS=-g -std=c++11   -I ${HECUBA_ROOT}/include  -L${HECUBA_ROOT}/lib   -lhfetch   -Wl,-rpath,${HECUBA_ROOT}/lib
+
 OBJS= \
-    apitest_complex \
-    apitest_complex_rw \
     apitest_iterator \
+    simple_numpy \
+    simple_numpy_rw \
+    simple_rw \
+	nested_rw \
+	test_shared_ptr \
+	parent_code \
+	simple_so \
+	very_simple_so \
+	nested_so \
+
 # DO NOT REMOVE THIS LINE (MARKS THE END OF THE 'OBJS' VARIABLE)
 
 all: ${HECUBA_ROOT}/lib/libhfetch.so ${OBJS}
@@ -11,14 +20,33 @@ ${HECUBA_ROOT}/lib/libhfetch.so:
 	@echo "HECUBA_ROOT must be set"
 	@false
 
-apitest_complex: apitest_complex.cpp
-	g++ -o apitest_complex   apitest_complex.cpp    ${CPPFLAGS}
-
-apitest_complex_rw: apitest_complex_rw.cpp
-	g++ -o apitest_complex_rw   apitest_complex_rw.cpp    ${CPPFLAGS}
-
 apitest_iterator: apitest_iterator.cpp
-	g++ -o apitest_iterator   apitest_iterator.cpp    ${CPPFLAGS}
+	g++ -o $@   $^    ${CPPFLAGS}
 
+simple_numpy: simple_numpy.cpp
+	g++ -o $@ $^   ${CPPFLAGS}
+
+simple_numpy_rw: simple_numpy_rw.cpp
+	g++ -o $@ $^   ${CPPFLAGS}
+
+simple_rw: simple_rw.cpp
+	g++ -o $@ $^   ${CPPFLAGS}
+
+nested_rw: nested_rw.cpp
+	g++ -o $@ $^   ${CPPFLAGS}
+
+test_shared_ptr: test_shared_ptr.cpp
+	g++ -o $@ $^   ${CPPFLAGS}
+parent_code: parent_code.cpp
+	g++ -o $@ $^   ${CPPFLAGS}
+
+simple_so: simple_so.cpp
+	g++ -o $@ $^   ${CPPFLAGS}
+
+very_simple_so: very_simple_so.cpp
+	g++ -o $@ $^   ${CPPFLAGS}
+
+nested_so: nested_so.cpp
+	g++ -o $@ $^   ${CPPFLAGS}
 clean:
 	rm ${OBJS}
