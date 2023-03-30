@@ -20,6 +20,10 @@
 #define EVAL2(...) EVAL1(EVAL1(__VA_ARGS__))
 #define EVAL1(...) __VA_ARGS__
 
+#define EMPTY()
+#define DEFER1(m) m EMPTY()
+#define DEFER2(m) m EMPTY EMPTY()()
+
 #define FIRST(a, ...) a
 #define SECOND(a, b, ...) b
 
