@@ -159,6 +159,8 @@ Writer::~Writer() {
     delete (this->v_factory);
     delete (this->timestamp_gen);
     delete (this->dirty_blocks);
+    // table_metadata NOT FREED (Shared?)
+    // session NOT FREED (Shared?)
 }
 
 
