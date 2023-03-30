@@ -5,7 +5,7 @@
 #include <iostream>
 #include <type_traits>
 #include "ObjSpec.h"
-#include "hecuba/debug.h"
+#include "debug.h"
 #include "IStorage.h"
 #include "KeyClass.h"
 #include "ValueClass.h"

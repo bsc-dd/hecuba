@@ -1,8 +1,6 @@
-#include <hecuba/HecubaSession.h>
-#include <hecuba/IStorage.h>
 #include <iostream>
 
-#include <hecuba/StorageNumpy.h>
+#include <StorageNumpy.h>
 #define COLS 3
 #define ROWS 4
 

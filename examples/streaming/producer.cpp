@@ -1,9 +1,8 @@
-#include <hecuba/HecubaSession.h>
-#include <hecuba/StorageDict.h>
-#include <hecuba/StorageNumpy.h>
-#include <hecuba/StorageStream.h>
-#include <hecuba/KeyClass.h>
-#include <hecuba/ValueClass.h>
+#include <StorageDict.h>
+#include <StorageNumpy.h>
+#include <StorageStream.h>
+#include <KeyClass.h>
+#include <ValueClass.h>
 #include <iostream>
 
 char * generateKey(int ts) {

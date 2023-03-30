@@ -1,10 +1,8 @@
-#include <hecuba/HecubaSession.h>
-#include <hecuba/IStorage.h>
 #include <iostream>
 
-#include <hecuba/StorageDict.h>
-#include <hecuba/KeyClass.h>
-#include <hecuba/ValueClass.h>
+#include <StorageDict.h>
+#include <KeyClass.h>
+#include <ValueClass.h>
 #define SIZE 3
 
 using IntKeyClass = KeyClass<int32_t>;
