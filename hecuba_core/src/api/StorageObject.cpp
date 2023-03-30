@@ -6,17 +6,19 @@
 // Example of definition of user class that implements a StorageObject
 // class mySOClass: public StorageObject {
 //
-//      HECUBA_DECL( 
+//      HECUBA_ATTRS(
 //              int, a,
 //              float, b,
 //              std::string, c
-//              ) 
+//              )
 //
 // };
-// the HECUBA_DECL macro defines the attributes a,b and c, with the initialization with the StorageObject and the namej
+// the HECUBA_ATTRS macro defines the attributes a,b and c, with the initialization with the StorageObject and the name of the attributes
+// and the name of the class
 // class mySOClass: public StorageObject {
+//      SO_ClassName myname  ={this, typeid(*this).name()};  --> sets the class name of the StorageObject
 //      SO_Attribute<int> a = {this, "a"};  --> this, to get access to the storageObject and enable the interaction with Cassandra
-//                                          --> the string with the name of the attribute to be used in the setAttr an getAttr methods 
+//                                          --> the string with the name of the attribute to be used in the setAttr an getAttr methods
 //      SO_Attribute<float> b = {this, "b"};
 //      SO_Attribute<std::string> c = {this, "c"};
 //
@@ -35,7 +37,7 @@
         setObjectName(name);
         set_pending_to_persist();
     }
-    
+
     StorageObject::StorageObject(const StorageObject& src): IStorage() {
         *this=src;
     }
@@ -97,7 +99,7 @@
     }
 
     void StorageObject::persist_metadata(uint64_t* c_uuid) {
-        ObjSpec oType = getObjSpec(); 
+        ObjSpec oType = getObjSpec();
         std::string insquery = 	std::string("INSERT INTO ") +
             std::string("hecuba.istorage") +
             std::string("(storage_id, name, class_name, columns)") +
@@ -195,7 +197,7 @@ void StorageObject::setAttr(const std::string& attr_name, void* value) {
     /* PRE: value arrives already coded as expected: block of memory with pointers to IStorages or basic values*/
     //std::cout << "DEBUG: IStorage::setAttr: "<<std::endl;
     //writeTable(attr_name, value, SETATTR_TYPE);
-    
+
     void * cc_val;
     const TableMetadata* writerMD = getDataWriter()->get_metadata();
     DBG( "StorageObject::setAttr enter" );
@@ -211,7 +213,7 @@ void StorageObject::setAttr(const std::string& attr_name, void* value) {
 
     void *cc_key = malloc(sizeof(uint64_t *)); // This memory will be freed after the execution of the query (at callback)
     std::memcpy(cc_key, &c_key, sizeof(uint64_t *));
-                                            
+
     getDataWriter()->write_to_cassandra(cc_key, cc_val, attr_name.c_str());
 }
 
