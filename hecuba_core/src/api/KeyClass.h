@@ -5,7 +5,7 @@
 #include <typeinfo>
 #include <cxxabi.h>
 #include <vector>
-#include "hecuba/debug.h"
+#include "debug.h"
 #include "ObjSpec.h"
 #include "AttributeClass.h"
 #include "IStorage.h"

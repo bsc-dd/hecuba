@@ -7,7 +7,7 @@
 #include <vector>
 #include <tuple>
 
-#include <hecuba/debug.h>
+#include "debug.h"
 #include "IStorage.h"
 #include "AttributeClass.h"
 

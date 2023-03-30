@@ -4,9 +4,9 @@
 #include <map>
 #include <iostream>
 #include <type_traits>
-#include <hecuba/ObjSpec.h>
-#include <hecuba/debug.h>
-#include <hecuba/IStorage.h>
+#include "ObjSpec.h"
+#include "debug.h"
+#include "IStorage.h"
 #include "UUID.h"
 #include "ArrayDataStore.h"
 

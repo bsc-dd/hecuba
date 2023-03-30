@@ -1,6 +1,5 @@
 #include <iostream>
-#include <hecuba/HecubaSession.h>
-#include <hecuba/StorageNumpy.h>
+#include <StorageNumpy.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>

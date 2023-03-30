@@ -2,6 +2,7 @@
 #define __SO_ATTRIBUTE_H__
 #include "IStorage.h"
 #include "Hecuba_StorageObject.h"
+#include "debug.h"
 
 
 //class StorageObject; // forward declaration

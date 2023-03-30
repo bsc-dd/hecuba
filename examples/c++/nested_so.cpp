@@ -1,5 +1,4 @@
-#include <hecuba/HecubaSession.h>
-#include <hecuba/StorageObject.h>
+#include <StorageObject.h>
 
 class innerSO: public StorageObject {
     public:

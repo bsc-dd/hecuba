@@ -1,6 +1,6 @@
 #include "SO_Attribute.h"
 #include "Hecuba_StorageObject.h"
-#include "hecuba/debug.h"
+#include "debug.h"
 
 
 // Example of definition of user class that implements a StorageObject

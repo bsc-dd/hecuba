@@ -8,7 +8,7 @@
 #include <tuple>
 #include <type_traits>
 
-#include <hecuba/debug.h>
+#include "debug.h"
 #include "IStorage.h"
 #include "StorageDict.h"
 #include "UUID.h"

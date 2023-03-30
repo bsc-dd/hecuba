@@ -1,8 +1,8 @@
-#include <hecuba/StorageDict.h>
-#include <hecuba/KeyClass.h>
-#include <hecuba/ValueClass.h>
+#include <StorageDict.h>
+#include <KeyClass.h>
+#include <ValueClass.h>
 #include <iostream>
-#include <hecuba/UUID.h>
+#include <UUID.h>
 
 using StringKeyClass = KeyClass <std::string,int32_t,int32_t>;
 using StringMultipleValueClass = ValueClass<std::string,int32_t>;
