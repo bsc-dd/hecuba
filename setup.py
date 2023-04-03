@@ -6,6 +6,7 @@ import subprocess
 import sys
 import glob
 import numpy
+import shutil
 
 c_binding_path=None
 
@@ -57,22 +58,18 @@ def cmake_build():
 
 
 def copy_files_to_dir(extra_files, destination_folder):
-    #copy list of 'extra_files' to 'destination_folder' (which is DELETED and RECREATED)
-
-    import os
-    import shutil
-
-    shutil.rmtree(destination_folder, ignore_errors=True)
     os.makedirs(destination_folder, 0o755, exist_ok=True)
-
     # fetch all files
     for file_name in extra_files:
         # construct full file path
-        destination = destination_folder + "/" + os.path.basename(file_name)
+        destination = os.path.join(destination_folder , os.path.basename(file_name))
         # copy only files
         if os.path.isfile(file_name):
-           shutil.copy(file_name, destination)
-           print('copied {} to {}'.format(file_name, destination_folder))
+            filetooverwrite = os.path.join(destination_folder, os.path.basename(file_name))
+            if  os.path.isfile(filetooverwrite):
+                os.remove(filetooverwrite)
+            shutil.copy(file_name, destination, follow_symlinks=False)
+            print('copied {} to {}'.format(file_name, destination_folder))
 
 
 def get_var(var):
@@ -96,6 +93,22 @@ def setup_packages():
         ## Copy 'jar' and 'arrow_helper' INSIDE package (hecuba and storage) so it gets included in the wheel
         copy_files_to_dir(['storageAPI/storageItf/target/StorageItf-1.0-jar-with-dependencies.jar'], "storageAPI/storage/ITF")
         copy_files_to_dir(glob.glob('build/bin/*'), "hecuba_py/hecuba/bin")
+
+    if 'install' in sys.argv:
+        # Get our own instance of Distribution
+        from distutils.dist import Distribution
+
+        dist = Distribution()
+        dist.parse_config_files()
+        dist.parse_command_line()
+
+        # Get prefix from either config file or command line
+        prefix = dist.get_option_dict('install')['prefix'][1]
+        print(' ==== PREFIX = {}'.format(prefix), flush=True)
+        copy_files_to_dir(glob.glob('build/include/*'), prefix + "/include")
+        copy_files_to_dir(glob.glob('build/include/hecuba/*'), prefix + "/include/hecuba")
+        copy_files_to_dir(glob.glob('build/lib/*'), prefix + "/lib")
+
 
 
     extra_link_args=[]
