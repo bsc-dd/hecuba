@@ -2,9 +2,7 @@
 #include "ArrayDataStore.h"
 #include "SpaceFillingCurve.h"
 #include "IStorage.h"
-#include "yaml-cpp/yaml.h"
 #include "ObjSpec.h"
-#include "DataModel.h"
 #include "UUID.h"
 
 #include "debug.h"
@@ -14,6 +12,7 @@
 #include <string>
 #include <sstream>
 #include <bits/stdc++.h>
+#include <cxxabi.h>
 
 #include <iostream>
 
@@ -21,148 +20,8 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
-//#include "numpy/arrayobject.h" // FIXME to use the numpy constants NPY_*
-#define NPY_ARRAY_C_CONTIGUOUS    0x0001
-#define NPY_ARRAY_F_CONTIGUOUS    0x0002
-#define NPY_ARRAY_OWNDATA         0x0004
-#define NPY_ARRAY_FORCECAST       0x0010
-#define NPY_ARRAY_ENSURECOPY      0x0020
-#define NPY_ARRAY_ENSUREARRAY     0x0040
-#define NPY_ARRAY_ELEMENTSTRIDES  0x0080
-#define NPY_ARRAY_ALIGNED         0x0100
-#define NPY_ARRAY_NOTSWAPPED      0x0200
-#define NPY_ARRAY_WRITEABLE       0x0400
-#define NPY_ARRAY_UPDATEIFCOPY    0x1000
+#include <typeinfo>
 
-// This code adds the decoding of YAML files to ObjSpec (NOT the other way around)
-namespace YAML {
-    template<>
-        struct convert<DataModel::datamodel_spec> {
-            static Node encode(const DataModel::datamodel_spec& obj) {
-                Node node;
-
-                return node;
-            }
-            static std::string mapUserType(std::string name) {
-                /* Translates 'user type' to 'data model type'. numpy.ndarray --> hecuba.hnumpy.StorageNumpy */
-                if ((name == "numpy.ndarray") || (name == "StorageNumpy")) {
-                    return "hecuba.hnumpy.StorageNumpy";
-                }
-                name = ObjSpec::yaml_to_cass(name);
-                return name;
-            }
-            static bool decode(const Node& node, DataModel::datamodel_spec& dmodel) {
-                ObjSpec::valid_types obj_type;
-                std::vector<std::pair<std::string, std::string>> partitionKeys;
-                std::vector<std::pair<std::string, std::string>> clusteringKeys;
-                std::vector<std::pair<std::string, std::string>> cols;
-                std::string pythonString="";
-
-                std::string attrName, attrType;
-                if(!node.IsMap()) { return false; }
-
-                const Node typespec = node["TypeSpec"];
-                if (!typespec.IsSequence() || (typespec.size() != 2)) { return false; }
-                bool streamEnabled = false;
-                dmodel.id=typespec[0].as<std::string>();
-                pythonString="class " + dmodel.id;
-
-                if ((typespec[1].as<std::string>() == "StorageDict")){
-                    pythonString="from hecuba import StorageDict\n\n" + pythonString;
-                    pythonString += " (StorageDict):\n";
-                    obj_type=ObjSpec::valid_types::STORAGEDICT_TYPE;
-
-                    if (node["KeySpec"]) {
-                        const Node keyspec =  node["KeySpec"];
-                        // TODO: Check that keyspec is not null
-                        if (!keyspec.IsSequence() || (keyspec.size() == 0)) { return false; }
-
-                        pythonString+="   '''\n   @TypeSpec dict <<";
-
-
-                        if (!keyspec[0].IsSequence() || (keyspec[0].size() != 2)) { return false; }
-
-                        attrName=keyspec[0][0].as<std::string>();
-                        attrType=keyspec[0][1].as<std::string>();
-                        pythonString+=attrName+":"+attrType;
-                        partitionKeys.push_back(std::pair<std::string,std::string>(attrName,mapUserType(attrType)));
-
-                        for (uint32_t i=1; i<keyspec.size();i++) {
-                            if (!keyspec[i].IsSequence() || (keyspec[i].size() != 2)) { return false; }
-
-                            attrName=keyspec[i][0].as<std::string>();
-                            attrType=keyspec[i][1].as<std::string>();
-                            pythonString+=","+attrName+":"+attrType;
-                            clusteringKeys.push_back(std::pair<std::string,std::string>(attrName,mapUserType(attrType)));
-                        }
-                        pythonString+=">";
-                    } else {
-                        throw ModuleException("Missing 'KeySpec' in specification");
-                    }
-
-                    if (node["ValueSpec"]) {
-                        const Node valuespec =  node["ValueSpec"];
-                        if (!valuespec.IsSequence() || (valuespec.size() == 0)) { return false; }
-                        for (uint32_t i=0; i<valuespec.size();i++) {
-                            if (!valuespec[i].IsSequence() || (valuespec[i].size() != 2)) { return false; }
-                            attrName=valuespec[i][0].as<std::string>();
-                            attrType=valuespec[i][1].as<std::string>();
-                            pythonString+=","+attrName+":"+attrType;
-                            cols.push_back(std::pair<std::string,std::string>(attrName,mapUserType(attrType)));
-                        }
-                        pythonString+=">\n";
-                    } else {
-                        throw ModuleException("Missing 'ValueSpec' in specification");
-                    }
-
-                    if (node["stream"]) {
-                        const Node stream =  node["stream"];
-                        pythonString+="   @stream\n";
-                        streamEnabled = true;
-                    }
-                    pythonString+="   '''\n";
-
-                } else if (typespec[1].as<std::string>() == "StorageObject") {
-                    pythonString="from hecuba import StorageObj\n\n" + pythonString;
-                    pythonString=pythonString+" (StorageObj):\n   '''\n";
-                    obj_type=ObjSpec::valid_types::STORAGEOBJ_TYPE;
-                    const Node classfields =  node["ClassField"];
-                    if (!classfields.IsSequence() || (classfields.size() == 0)) { return false; }
-                    partitionKeys.push_back(std::pair<std::string,std::string>("storage_id","uuid"));
-
-                    for (uint32_t i=0; i<classfields.size();i++) {
-                        if (!classfields[i].IsSequence() || (classfields[i].size() != 2)) { return false; }
-                        attrName=classfields[i][0].as<std::string>();
-                        attrType=classfields[i][1].as<std::string>();
-                        pythonString+="   @ClassField "+attrName+" "+attrType+"\n";
-                        cols.push_back(std::pair<std::string,std::string>(attrName,mapUserType(attrType)));
-                    }
-                    pythonString+="   '''\n";
-
-                } else if (typespec[1].as<std::string>() == "StorageNumpy") {
-                    pythonString="from hecuba import StorageNumpy\n\n" + pythonString;
-                    pythonString += " (StorageNumpy):\n";
-                    pythonString += "   '''\n";
-                    obj_type=ObjSpec::valid_types::STORAGENUMPY_TYPE;
-                    if (node["stream"]) {
-                        const Node stream =  node["stream"];
-                        pythonString += "   @stream\n";
-                        streamEnabled = true;
-                    }
-                    pythonString += "   '''\n";
-                } else {
-                    DBG("HecubaSession: decode: Parsed 0: " << typespec[0].as<std::string>() << " Parsed 1: "<< typespec[1].as<std::string>());
-                    return false;
-                }
-                DBG( " GENERATED: " << pythonString );
-                dmodel.o=ObjSpec(obj_type,partitionKeys,clusteringKeys,cols,pythonString);
-                if (streamEnabled) {
-                    dmodel.o.enableStream();
-                }
-                return true;
-            }
-        };
-};
 
 std::vector<std::string> HecubaSession::split (std::string s, std::string delimiter) const{
     size_t pos_start = 0, pos_end, delim_len = delimiter.length();
@@ -230,7 +89,7 @@ const {
             std::cerr<<"Address "<<contact[i]<<" unable to get IP address: "<<strerror(errno)<<std::endl;
             return std::string("");
         }
-        DBG("Address "<<contact[i]<<" translated to " <<std::string(host));
+        DBG(" HecubaSession::contact_names_2_IP_addr Address "<<contact[i]<<" translated to " <<std::string(host));
         contact_ips.push_back(host);
 
         freeaddrinfo(result);           /* No longer needed */
@@ -337,167 +196,40 @@ void HecubaSession::parse_environment(config_map &config) {
     } else {
         config["replication"] = std::string("{'class' : '") + config["replication_strategy"] + "', " + config["replication_strategy_options"] + "}";
     }
+
+    const char *hecubaSNSingleTable = std::getenv("HECUBA_SN_SINGLE_TABLE");
+    std::string hecubaSNSingleTable2;
+    if (hecubaSNSingleTable == nullptr) { // Default
+        hecubaSNSingleTable2 = std::string("true");
+    } else {
+        hecubaSNSingleTable2 = std::string(hecubaSNSingleTable);
+        std::transform(hecubaSNSingleTable2.begin(), hecubaSNSingleTable2.end(), hecubaSNSingleTable2.begin(),
+                [](unsigned char c){ return std::tolower(c); });
+    }
+    config["hecuba_sn_single_table"] = hecubaSNSingleTable2;
 }
 
 CassError HecubaSession::run_query(std::string query) const{
+	DBG( " HecubaSession::run_query [ "<< query << " ] ");
 	CassStatement *statement = cass_statement_new(query.c_str(), 0);
 
-    //std::cout << "DEBUG: HecubaSession.run_query : "<<query<<std::endl;
     CassFuture *result_future = cass_session_execute(const_cast<CassSession *>(storageInterface->get_session()), statement);
     cass_statement_free(statement);
 
     CassError rc = cass_future_error_code(result_future);
     if (rc != CASS_OK) {
-        printf("Query execution error: %s - %s\n", cass_error_desc(rc), query.c_str());
+        //printf("Query execution error: %s - %s\n", cass_error_desc(rc), query.c_str());
     }
     cass_future_free(result_future);
     return rc;
 }
 
-void HecubaSession::decodeNumpyMetadata(HecubaSession::NumpyShape *s, void* metadata) {
-    // Numpy Metadata(all unsigned): Ndims + Dim1 + Dim2 + ... + DimN  (Layout in C by default)
-    unsigned* value = (unsigned*)metadata;
-    s->ndims = *(value);
-    value ++;
-    s->dim = (unsigned *)malloc(s->ndims);
-    for (unsigned i = 0; i < s->ndims; i++) {
-        s->dim[i] = *(value + i);
-    }
-}
-void HecubaSession::getMetaData(void * raw_numpy_meta, ArrayMetadata &arr_metas) {
-    std::vector <uint32_t> dims;
-    std::vector <uint32_t> strides;
-
-    // decode void *metadatas
-    HecubaSession:: NumpyShape * s = new HecubaSession::NumpyShape();
-    decodeNumpyMetadata(s, raw_numpy_meta);
-    uint32_t acum=1;
-    for (uint32_t i=0; i < s->ndims; i++) {
-        dims.push_back( s->dim[i]);
-        acum *= s->dim[i];
-    }
-    for (uint32_t i=0; i < s->ndims; i++) {
-        strides.push_back(acum * sizeof(double));
-        acum /= s->dim[s->ndims-1-i];
-    }
-    uint32_t flags=NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE | NPY_ARRAY_ALIGNED;
-
-    arr_metas.dims = dims;
-    arr_metas.strides = strides;
-    arr_metas.elem_size = sizeof(double);
-    arr_metas.flags = flags;
-    arr_metas.partition_type = ZORDER_ALGORITHM;
-    arr_metas.typekind = 'f';
-    arr_metas.byteorder = '=';
+Writer * HecubaSession::getNumpyMetaWriter() const {
+    return numpyMetaWriter;
 }
 
-/* ASYNCHRONOUS */
-void HecubaSession::registerNumpy(ArrayMetadata &numpy_meta, std::string name, uint64_t* uuid) {
-
-    //std::cout<< "DEBUG: HecubaSession::registerNumpy BEGIN "<< name << UUID::UUID2str(uuid)<<std::endl;
-    void *keys = std::malloc(sizeof(uint64_t *));
-    uint64_t *c_uuid = (uint64_t *) malloc(sizeof(uint64_t) * 2);//new uint64_t[2];
-    c_uuid[0] = *uuid;
-    c_uuid[1] = *(uuid + 1);
-
-
-    std::memcpy(keys, &c_uuid, sizeof(uint64_t *));
-
-
-    char *c_name = (char *) std::malloc(name.length() + 1);
-    std::memcpy(c_name, name.c_str(), name.length() + 1);
-
-    //COPY VALUES
-    int offset = 0;
-    uint64_t size_name = strlen(c_name)+1;
-    uint64_t size = 0;
-
-    //size of the vector of dims
-    size += sizeof(uint32_t) * numpy_meta.dims.size();
-
-    //plus the other metas
-    size += sizeof(numpy_meta.elem_size)
-		+ sizeof(numpy_meta.partition_type)
-		+ sizeof(numpy_meta.flags)
-		+ sizeof(uint32_t)*numpy_meta.strides.size() // dims & strides
-		+ sizeof(numpy_meta.typekind)
-		+ sizeof(numpy_meta.byteorder);
-
-    //allocate plus the bytes counter
-    unsigned char *byte_array = (unsigned char *) malloc(size+ sizeof(uint64_t));
-    unsigned char *name_array = (unsigned char *) malloc(size_name);
-
-
-    // copy table name
-    memcpy(name_array, c_name, size_name); //lgarrobe
-
-    // Copy num bytes
-    memcpy(byte_array+offset, &size, sizeof(uint64_t));
-    offset += sizeof(uint64_t);
-
-
-    //copy everything from the metas
-	//	flags int, elem_size int, partition_type tinyint,
-    //       dims list<int>, strides list<int>, typekind text, byteorder text
-
-
-    memcpy(byte_array + offset, &numpy_meta.flags, sizeof(numpy_meta.flags));
-    offset += sizeof(numpy_meta.flags);
-
-    memcpy(byte_array + offset, &numpy_meta.elem_size, sizeof(numpy_meta.elem_size));
-    offset += sizeof(numpy_meta.elem_size);
-
-    memcpy(byte_array + offset, &numpy_meta.partition_type, sizeof(numpy_meta.partition_type));
-    offset += sizeof(numpy_meta.partition_type);
-
-    memcpy(byte_array + offset, &numpy_meta.typekind, sizeof(numpy_meta.typekind));
-    offset +=sizeof(numpy_meta.typekind);
-
-    memcpy(byte_array + offset, &numpy_meta.byteorder, sizeof(numpy_meta.byteorder));
-    offset +=sizeof(numpy_meta.byteorder);
-
-    memcpy(byte_array + offset, numpy_meta.dims.data(), sizeof(uint32_t) * numpy_meta.dims.size());
-    offset +=sizeof(uint32_t)*numpy_meta.dims.size();
-
-    memcpy(byte_array + offset, numpy_meta.strides.data(), sizeof(uint32_t) * numpy_meta.strides.size());
-    offset +=sizeof(uint32_t)*numpy_meta.strides.size();
-
-    //memcpy(byte_array + offset, &numpy_meta.inner_type, sizeof(numpy_meta.inner_type));
-    //offset += sizeof(numpy_meta.inner_type);
-
-    int offset_values = 0;
-    char *values = (char *) malloc(sizeof(char *)*4);
-
-    uint64_t *base_numpy = (uint64_t *) malloc(sizeof(uint64_t) * 2);//new uint64_t[2];
-    memcpy(base_numpy, c_uuid, sizeof(uint64_t)*2);
-    //std::cout<< "DEBUG: HecubaSession::registerNumpy &base_numpy = "<<base_numpy<<std::endl;
-    std::memcpy(values, &base_numpy, sizeof(uint64_t *));  // base_numpy
-    offset_values += sizeof(unsigned char *);
-
-    char *class_name=(char*)malloc(strlen("hecuba.hnumpy.StorageNumpy")+1);
-    strcpy(class_name, "hecuba.hnumpy.StorageNumpy");
-    //std::cout<< "DEBUG: HecubaSession::registerNumpy &class_name = "<<class_name<<std::endl;
-    memcpy(values+offset_values, &class_name, sizeof(unsigned char *)); //class_name
-    offset_values += sizeof(unsigned char *);
-
-    //std::cout<< "DEBUG: HecubaSession::registerNumpy &name = "<<name_array<<std::endl;
-    memcpy(values+offset_values, &name_array, sizeof(unsigned char *)); //name
-    offset_values += sizeof(unsigned char *);
-
-    //std::cout<< "DEBUG: HecubaSession::registerNumpy &np_meta = "<<byte_array<<std::endl;
-    memcpy(values+offset_values, &byte_array,  sizeof(unsigned char *)); // numpy_meta
-    offset_values += sizeof(unsigned char *);
-
-    try {
-        numpyMetaWriter->write_to_cassandra(keys, values);
-        numpyMetaWriter->wait_writes_completion(); // Ensure hecuba.istorage get all updates SYNCHRONOUSLY (to avoid race conditions with poll that may request a build_remotely on this new object)!
-    }
-    catch (std::exception &e) {
-        std::cerr << "HecubaSession::registerNumpy: Error writing" <<std::endl;
-        std::cerr << e.what();
-        throw e;
-    };
-
+CacheTable * HecubaSession::getHecubaIstorageAccess() const {
+    return numpyMetaAccess;
 }
 
 void HecubaSession::createSchema(void) {
@@ -553,9 +285,15 @@ void HecubaSession::createSchema(void) {
 /***************************
  * PUBLIC
  ***************************/
+HecubaSession& HecubaSession::get() {
+    static HecubaSession currentSession;
+	DBG(" HecubaSession::get() [ "<< &currentSession << " ] ");
+    return currentSession;
+}
+
 
 /* Constructor: Establish connection with underlying storage system */
-HecubaSession::HecubaSession() : currentDataModel(NULL) {
+HecubaSession::HecubaSession() {
 
     parse_environment(this->config);
 
@@ -601,104 +339,31 @@ numpyMetaAccess = storageInterface->make_cache("istorage", "hecuba",
 												config);
 numpyMetaWriter = numpyMetaAccess->get_writer();
 
+
 }
 
 HecubaSession::~HecubaSession() {
-    delete(currentDataModel);
     delete(numpyMetaAccess);
-}
-
-/* loadDataModel: loads a DataModel from 'model_filename' path which should be
- * a YAML file. It also generates its corresponding python generated class in
- * the same directory where the model resides or in the 'pythonSpecPath'
- * directory. */
-void HecubaSession::loadDataModel(const char * model_filename, const char * pythonSpecPath) {
-
-    if (currentDataModel != NULL) {
-        std::cerr << "WARNING: HecubaSession::loadDataModel: DataModel already defined. Discarded and load again"<<std::endl;
-        delete(currentDataModel);
+    for (std::list<std::shared_ptr<CacheTable>>::iterator it = alive_objects.begin(); it != alive_objects.end();) {
+        std::shared_ptr<CacheTable> t = *it;
+        //std::cout << "LIST DEL: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
+        it = alive_objects.erase(it); // this will block waiting for the 'sync'
     }
-
-    // TODO: parse file to get model information NOW HARDCODED
-
-    // class dataModel(StorageDict):
-    //    '''
-    //         @TypeSpec dict <<lat:int,ts:int>,metrics:numpy.ndarray>
-    //    '''
-
-
-    DataModel* d = new DataModel();
-
-
-    if (model_filename == NULL) {
-		throw std::runtime_error("Trying to load a NULL model file name ");
+    for (std::list<std::shared_ptr<ArrayDataStore>>::iterator it = alive_numpy_objects.begin(); it != alive_numpy_objects.end();) {
+        std::shared_ptr<ArrayDataStore> t = *it;
+        //std::cout << "LIST DEL: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
+        it = alive_numpy_objects.erase(it); // this will block waiting for the 'sync'
     }
-
-    // Detect dirname and basename for 'model_filename'
-    std::string pythonPath("");
-    std::string baseName(model_filename);
-
-    size_t pos = baseName.find_last_of('/');
-    if (pos != std::string::npos) { // model_filename has a path
-        if (pythonSpecPath != NULL) {
-            pythonPath = pythonSpecPath;
-        } else {
-            pythonPath = baseName.substr(0,pos);
-        }
-        baseName = baseName.substr(pos+1, baseName.size());
-    }
-    // Remove .yaml extension
-    pos = baseName.find_last_of('.');
-    if (pos != std::string::npos) {
-        baseName = baseName.substr(0, pos);
-    }
-    // Create moduleName
-    std::string moduleName;
-    if (pythonPath == "") {
-        moduleName = baseName;
-    } else {
-        moduleName = pythonPath + "/" + baseName;
-    }
-
-    d->setModuleName(moduleName);
-
-    // Add .py extension to moduleName
-    std::ofstream fd(moduleName+".py");
-
-    YAML::Node node = YAML::LoadFile(model_filename);
-
-    assert(node.Type() == YAML::NodeType::Sequence);
-
-    for(std::size_t i=0;i<node.size();i++) {
-		DataModel::datamodel_spec x = node[i].as<DataModel::datamodel_spec>();
-		d->addObjSpec(moduleName + "." + x.id, x.o);
-        fd<<x.o.getPythonString();
-    }
-    fd.close();
-
-    // ALWAYS Add numpy (just in case) ##############################
-    std::vector<std::pair<std::string, std::string>> pkeystypes_numpy = {
-                                  {"storage_id", "uuid"},
-                                  {"cluster_id", "int"}
-    };
-    std::vector<std::pair<std::string, std::string>> ckeystypes_numpy = {{"block_id","int"}};
-    std::vector<std::pair<std::string, std::string>> colstypes_numpy = {
-                                  {"payload", "blob"},
-    };
-    d->addObjSpec(ObjSpec::valid_types::STORAGENUMPY_TYPE, "hecuba.hnumpy.StorageNumpy", pkeystypes_numpy, ckeystypes_numpy, colstypes_numpy);
-    // ##############################
-
-    currentDataModel = d;
 }
 
 /* Given a class name 'id_model' returns its Fully Qualified Name with Python
  * Style using the current Data Model modulename.
  * Examples:
- *      classname --> modulename.classname
+ *      classname --> classname.classname
  *      hecuba.hnumpy.StorageNumpy --> hecuba.hnumpy.StorageNumpy
  *      path1.path2.classname -> NOT SUPPORTED YET (should be the same)
  */
-std::string HecubaSession::getFQname(const char* id_model) const {
+const std::string HecubaSession::getFQname(const char* id_model) const {
     std::string FQid_model (id_model);
     if (strcmp(id_model, "hecuba.hnumpy.StorageNumpy")==0) {
         // Special treatment for NUMPY
@@ -711,14 +376,14 @@ std::string HecubaSession::getFQname(const char* id_model) const {
         //             class info (StorageObj):
         //                  ...
         //      But we store the Fully Qualified name> "model_complex.info"
-        FQid_model.insert(0, currentDataModel->getModuleName() + ".");
+        FQid_model.insert(0, std::string(id_model) + ".");
 
     }
     return FQid_model;
 }
 
 /* Given a FQname return a name suitable to be stored as a tablename in Cassandra */
-std::string HecubaSession::getTableName(std::string FQname) const {
+std::string HecubaSession::generateTableName(std::string FQname) const {
     // FIXME: We currently only allow classes from a unique
     // model, because just the class name is stored in cassandra
     // without any reference to the modulename. An option could be
@@ -730,6 +395,7 @@ std::string HecubaSession::getTableName(std::string FQname) const {
     return table_name;
 }
 
+#if 0
 IStorage* HecubaSession::createObject(const char * id_model, uint64_t* uuid) {
     // Instantitate an existing object
 
@@ -801,7 +467,7 @@ IStorage* HecubaSession::createObject(const char * id_model, uint64_t* uuid) {
 
                 CacheTable *dataAccess = NULL;
                 if (oType.getType() == ObjSpec::valid_types::STORAGEOBJ_TYPE) {
-                    dataAccess = storageInterface->make_cache(getTableName(FQid_model).c_str(), keyspace.c_str(),
+                    dataAccess = storageInterface->make_cache(generateTableName(FQid_model).c_str(), keyspace.c_str(),
                             *keyNamesDict, *colNamesDict,
                             config);
                 } else {
@@ -822,7 +488,7 @@ IStorage* HecubaSession::createObject(const char * id_model, uint64_t* uuid) {
                 if (oType.isStream()) {
                     std::string topic = std::string(UUID::UUID2str(uuid));
                     DBG("     AND IT IS AN STREAM!");
-                    o->enableStream(topic);
+                    o->configureStream(topic);
                 }
             }
             break;
@@ -833,6 +499,9 @@ IStorage* HecubaSession::createObject(const char * id_model, uint64_t* uuid) {
                 // retrieve_from_cassandra creates a TupleRow of the parameter
                 // and therefore the parameter can NOT be a stack pointer... as
                 // it will be freed on success)
+
+
+#if 0
                 void * localuuid = malloc(2*sizeof(uint64_t));
                 memcpy(localuuid, uuid, 2*sizeof(uint64_t));
                 void * key = malloc(sizeof(char*));
@@ -871,8 +540,11 @@ IStorage* HecubaSession::createObject(const char * id_model, uint64_t* uuid) {
                 if (oType.isStream()) {
                     std::string topic = std::string(UUID::UUID2str(uuid));
                     DBG("     AND IT IS AN STREAM!");
-                    o->enableStream(topic);
+                    o->configureStream(topic);
                 }
+#else
+		throw ModuleException("HECUBA Session: createObject for already created numpy NOT IMPLEMENTED");
+#endif
             }
             break;
         default:
@@ -918,7 +590,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 CassError rc = run_query(query);
                 if (rc != CASS_OK) {
                     if (rc == CASS_ERROR_SERVER_INVALID_QUERY) { // keyspace does not exist
-                        std::cout<< "HecubaSession::createObject: Keyspace "<< config["execution_name"]<< " not found. Creating keyspace." << std::endl;
+                        std::cerr<< "HecubaSession::createObject: Keyspace "<< config["execution_name"]<< " not found. Creating keyspace." << std::endl;
                         std::string create_keyspace = std::string(
                                 "CREATE KEYSPACE IF NOT EXISTS ") + config["execution_name"] +
                             std::string(" WITH replication = ") +  config["replication"];
@@ -956,7 +628,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 std::vector<config_map>* keyNamesDict = oType.getKeysNamesDict();
                 std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
 
-                CacheTable *dataAccess = storageInterface->make_cache(getTableName(FQid_model).c_str(), config["execution_name"].c_str(),
+                CacheTable *dataAccess = storageInterface->make_cache(generateTableName(FQid_model).c_str(), config["execution_name"].c_str(),
                           *keyNamesDict, *colNamesDict,
                           config);
                 delete keyNamesDict;
@@ -979,7 +651,7 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                     if (rc == CASS_ERROR_SERVER_ALREADY_EXISTS ) {
                         new_element = false; //OOpps, creation failed. It is an already existent object.
                     } else if (rc == CASS_ERROR_SERVER_INVALID_QUERY) {
-                        std::cout<< "HecubaSession::createObject: Keyspace "<< config["execution_name"]<< " not found. Creating keyspace." << std::endl;
+                        std::cerr<< "HecubaSession::createObject: Keyspace "<< config["execution_name"]<< " not found. Creating keyspace." << std::endl;
                         std::string create_keyspace = std::string(
                                 "CREATE KEYSPACE IF NOT EXISTS ") + config["execution_name"] +
                             std::string(" WITH replication = ") +  config["replication"];
@@ -1054,13 +726,14 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 DBG("HecubaSession::createObject: CREATED NEW STORAGEDICT with uuid "<< topic);
                 if (oType.isStream()) {
                     DBG("     AND IT IS AN STREAM!");
-                    o->enableStream(topic);
+                    o->configureStream(topic);
                 }
             }
             break;
 
         case ObjSpec::valid_types::STORAGENUMPY_TYPE:
             {
+#if 0
                 // Create table
                 std::string query = "CREATE TABLE IF NOT EXISTS " + config["execution_name"] + "." + id_object_str +
                     " (storage_id uuid, cluster_id int, block_id int, payload blob, "
@@ -1095,9 +768,12 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
                 o->setNumpyAttributes(array_store, numpy_metas,value);
                 if (oType.isStream()) {
                     DBG("     AND IT IS AN STREAM!");
-                    o->enableStream(topic);
+                    o->configureStream(topic);
                 }
 
+#else
+		throw ModuleException("HECUBA SESSION: create object storagenumpy (use new interface)");
+#endif
             }
             break;
         default:
@@ -1107,8 +783,54 @@ IStorage* HecubaSession::createObject(const char * id_model, const char * id_obj
     //std::cout << "DEBUG: HecubaSession::createObject DONE" << std::endl;
     return o;
 }
+#endif
+//returns true if the class_name was not inserted and false otherwise
+bool HecubaSession::registerClassName(const std::string& class_name) {
+    std::pair<std::map<std::string,char>::iterator,bool> res = registeredClasses.insert(std::pair<std::string,char>(class_name,'c'));
+    return res.second;
+}
+bool HecubaSession::registerObject(const std::shared_ptr<CacheTable> c, const std::string& class_name) {
+    alive_objects.push_back(c);
+    deallocateObjects(); // check if it is possible to deallocate some objects
+    return registerClassName(class_name);
+}
+bool HecubaSession::registerObject(const std::shared_ptr<ArrayDataStore> a, const std::string& class_name) {
+    alive_numpy_objects.push_back(a);
+    deallocateObjects(); // check if it is possible to deallocate some objects
+    return registerClassName(class_name);
+}
 
+void HecubaSession::deallocateObjects() {
+    for (std::list<std::shared_ptr<CacheTable>>::iterator it = alive_objects.begin(); it != alive_objects.end();) {
+        std::shared_ptr<CacheTable> t = *it;
+        //std::cout << "LIST: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
+        if (t.use_count() == 2) { // The object has been "destroyed" from its use: 2 references variable t and alive_objects
+            if (t->get_writer()->is_write_completed()) { // Have the pending writes completed?
+                //std::cout << "DELETE FROM LIST: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
+                it = alive_objects.erase(it);
+            } else {
+                it++;
+            }
+        }else {
+            it ++;
+        }
+    }
+    for (std::list<std::shared_ptr<ArrayDataStore>>::iterator it = alive_numpy_objects.begin(); it != alive_numpy_objects.end();) {
+        std::shared_ptr<ArrayDataStore> t = *it;
+        //std::cout << "LIST: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
+        if (t.use_count() == 2) { // The object has been "destroyed" from its use: 2 references variable t and alive_numpy_objects
+            if (t->getWriteCache()->get_writer()->is_write_completed()) { // Have the pending writes completed?
+                //std::cout << "DELETE FROM LIST: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
+                it = alive_numpy_objects.erase(it);
+            } else {
+                it++;
+            }
+        }else {
+            it ++;
+        }
+    }
+}
 
-DataModel* HecubaSession::getDataModel() {
-    return currentDataModel;
+std::string HecubaSession::getExecutionName() {
+    return config["execution_name"];
 }

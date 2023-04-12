@@ -1,32 +1,69 @@
-#include <hecuba/HecubaSession.h>
-#include <hecuba/IStorage.h>
 #include <iostream>
 
+#include <StorageDict.h>
+#include <KeyClass.h>
+#include <ValueClass.h>
 #define SIZE 3
 
-void test_really_simple(HecubaSession &s,const char *name) {
-    IStorage* mydict = s.createObject("reallysimpledict", "mydict");
+using IntKeyClass = KeyClass<int32_t>;
+
+using FloatValueClass = ValueClass<float>;
+
+
+class MyDictClass: public StorageDict <IntKeyClass,FloatValueClass, MyDictClass> {
+
+};
+
+using MultipleKeyClass = KeyClass<std::string,int32_t>;
+
+class MultipleKeyDictClass: public StorageDict <MultipleKeyClass,FloatValueClass,MultipleKeyDictClass> {
+
+};
+
+using StringKeyClass = KeyClass<std::string>;
+
+class StringKeyDictClass: public StorageDict <StringKeyClass, FloatValueClass, StringKeyDictClass> {
+
+};
+
+void test_really_simple(const char *name) {
+    MyDictClass mydict;
     int tss[SIZE] ={42, 43, 44};
     float lats[SIZE]={0.666, 0.777, 0.888};
 
+    mydict.make_persistent(name);
+
     for (int i=0; i<SIZE; i++) {
-        mydict->setItem(&tss[i],&lats[i]);
+	IntKeyClass k = IntKeyClass(tss[i]);
+	FloatValueClass v = FloatValueClass(lats[i]);
+        mydict[k] = v; 
     }
 
-    mydict->sync();
+    mydict.sync();
+
     int i = 0;
     bool ok=true;
     int ts;
-    for(auto it = mydict->begin(); it != mydict->end(); it++) {
-        ts = (int64_t)(*it);
+    	IntKeyClass pk;
+    // iterating on dict
+    for(auto it = mydict.begin(); it != mydict.end(); it++) {
+	    pk=*it;
+	    ts = IntKeyClass::get<0>(pk);
         if (i>=SIZE) {
             ok=false;
             break;
         } else {
             bool found = false;
             for (int j = 0; j< SIZE && !found; j++) {
+                FloatValueClass v_read;
                 if (tss[j] == ts){
                     found = true;
+                    // double check that the retrieved key is a working key
+                    v_read=mydict[pk];
+                    if (lats[j] != FloatValueClass::get<0>(v_read)) {
+                        ok =false;
+                        break;
+                    }
                 }
             }
             if (!found) {
@@ -34,6 +71,7 @@ void test_really_simple(HecubaSession &s,const char *name) {
                 break;
             }
         }
+	i++;
     }
     if (ok) {
         std::cout<<"Test really simple on keyiterator PASSED"<<std::endl;
@@ -42,42 +80,42 @@ void test_really_simple(HecubaSession &s,const char *name) {
     }
 }
 
-void test_multiplekey(HecubaSession& mys, const char *name) {
-    IStorage* mydict = mys.createObject("dictMultipleKey", name);
+void test_multiplekey(const char *name) {
+    MultipleKeyDictClass mydict;
 
-    //Create key
+
+    mydict.make_persistent(name);
+
     const char *s[SIZE]={"how are you",
                   "I am fine",
                   "hope you are well" };
     float lats[SIZE]={0.666, 0.777, 0.888};
     int ts[SIZE]={42,43,44};
 
-    for (int i=0; i<SIZE; i++) {
-        char * mystring = (char *)malloc(strlen(s[i])+1);
-        char * key = (char *)malloc(sizeof(char *) + sizeof(int));
-        memcpy(mystring, s[i], strlen(s[i])+1);
-        memcpy (key, &mystring, sizeof(char *));
-        memcpy (key+sizeof(char *), &ts[i], sizeof(int));
-        mydict->setItem(key,&lats[i]);
-    }
-    mydict->sync();
 
-    //Iterate
+    //setting values
+    for (int i=0; i<SIZE; i++) {
+	MultipleKeyClass k = MultipleKeyClass(s[i],ts[i]);
+	FloatValueClass v = FloatValueClass(lats[i]);
+        mydict[k] = v;
+    }
+    mydict.sync();
+    //Iterating on dict 
     int i = 0;
     bool ok=true;
-    char *it_s;
+    std::string it_s;
     int it_ts;
-    char *buffer;
-    for(auto it = mydict->begin(); it != mydict->end(); it++) {
-        buffer = (char *)(*it);
-        it_s = *(char**)  buffer;
-        it_ts = *(int *) (buffer + sizeof(char*));
+    MultipleKeyClass pk;
+    for(auto it = mydict.begin(); it != mydict.end(); it++) {
+	pk=*it;
+	it_s = MultipleKeyClass::get<0>(pk);
+        it_ts =MultipleKeyClass::get<1>(pk); 
         if (i>=SIZE) {
             ok=false;
         } else {
             bool found = false;
             for (int j = 0; j < SIZE && !found; j++) {
-                if (strcmp(s[j],it_s)) {
+                if (strcmp(s[j],it_s.c_str())) {
                     found = true;
                 }
             }
@@ -103,13 +141,13 @@ void test_multiplekey(HecubaSession& mys, const char *name) {
     } else {
         std::cout<<"Test multiplekey on keyiterator FAILED "<<std::endl;
     }
-
 }
 
-void test_string(HecubaSession& mys, const char *name) {
-    IStorage* mydict = mys.createObject("dictStringKey", name);
+void test_string(const char *name) {
+    StringKeyDictClass mydict;
 
-    //Create key
+    mydict.make_persistent(name);
+
 
     const char *s[SIZE]={"how are you",
                   "I am fine",
@@ -118,25 +156,29 @@ void test_string(HecubaSession& mys, const char *name) {
     float lats[SIZE]={0.666, 0.777, 0.888};
 
     for (int i=0; i<SIZE; i++) {
-        char * key = (char*)malloc(strlen(s[i])+1);
-        memcpy(key, s[i], strlen(s[i])+1);
-        mydict->setItem(&key,&lats[i]);
+	StringKeyClass key = StringKeyClass(s[i]);
+	FloatValueClass v = FloatValueClass(lats[i]);
+        mydict[key]=v;
     }
 
-    mydict->sync();
+    mydict.sync();
 
     //Iterate
     int i = 0;
     bool ok=true;
-    char *ts;
-    for(auto it = mydict->begin(); it != mydict->end(); it++) {
-        ts = (char*)(*it);
+    std::string ts;
+
+    StringKeyClass pk;
+
+    for(auto it = mydict.begin(); it != mydict.end(); it++) {
+	pk = *it;
+	ts = StringKeyClass::get<0>(pk);
         if (i>=SIZE) {
             ok=false;
         } else {
             bool found = false;
             for (int j = 0; j < SIZE && !found; j++) {
-                if (strcmp(s[j],ts)) {
+                if (strcmp(s[j],ts.c_str())) {
                     found = true;
                 }
             }
@@ -151,20 +193,21 @@ void test_string(HecubaSession& mys, const char *name) {
     } else {
         std::cout<<"Test string key on keyterator FAILED "<<std::endl;
     }
-
 }
 
 
 int main() {
     std::cout<< "+ STARTING C++ APP"<<std::endl;
-    HecubaSession s;
     std::cout<< "+ Session started"<<std::endl;
 
-    s.loadDataModel("model_simple.yaml","model_simple.py");
-    std::cout<< "+ Data Model loaded"<<std::endl;
+    std::cout << "Starting test 1 " <<std::endl;
+    test_really_simple("mydict");
 
-    test_really_simple(s,"mydict");
-    test_multiplekey(s, "mydictmultiplekey");
-    test_string(s, "mydictString");
+    std::cout << "Starting test 2 " <<std::endl;
+    test_multiplekey("mydictmultiplekey");
 
+    std::cout << "Starting test 3 " <<std::endl;
+    test_string("mydictString");
+
+    std::cout << "End tests " <<std::endl;
 }

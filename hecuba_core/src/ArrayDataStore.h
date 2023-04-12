@@ -19,6 +19,8 @@ public:
     ArrayDataStore(const char *table, const char *keyspace, std::shared_ptr<StorageInterface> storage,
                    std::map<std::string, std::string> &config);
 
+    ArrayDataStore(const ArrayDataStore& src);
+    ArrayDataStore& operator= (const ArrayDataStore& src);
 
     ~ArrayDataStore();
 

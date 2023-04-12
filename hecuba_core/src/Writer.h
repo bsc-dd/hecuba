@@ -21,6 +21,8 @@ class Writer {
 public:
     Writer(const TableMetadata *table_meta, CassSession *session,
            std::map<std::string, std::string> &config);
+    Writer(const Writer& src);
+    Writer& operator =(const Writer& src);
 
     ~Writer();
 
@@ -46,6 +48,7 @@ public:
     // Overload 'write_to_casandra' to write a single column (instead of all the columns)
     void write_to_cassandra(void *keys, void *values , const char *value_name);
 
+    bool is_write_completed();
     void wait_writes_completion(void);
 
     void set_error_occurred(std::string error, const void *keys, const void *values);
@@ -76,26 +79,26 @@ private:
         }
     };
 
-    CassSession *session;
+    CassSession *session = nullptr;
 
 /** ownership **/
 
-    const CassPrepared *prepared_query;
+    const CassPrepared *prepared_query = nullptr;
 
-    TupleRowFactory *k_factory;
-    TupleRowFactory *v_factory;
+    TupleRowFactory *k_factory = nullptr;
+    TupleRowFactory *v_factory = nullptr;
 
     bool lazy_write_enabled;
-    tbb::concurrent_hash_map <const TupleRow *, const TupleRow *, HashCompare> *dirty_blocks;
+    tbb::concurrent_hash_map <const TupleRow *, const TupleRow *, HashCompare> *dirty_blocks = nullptr;
     tbb::concurrent_bounded_queue <std::pair<const TupleRow *, const TupleRow *>> data;
 
     uint32_t max_calls;
     std::atomic<uint32_t> ncallbacks;
     std::atomic<uint32_t> error_count;
-    const TableMetadata *table_metadata;
+    const TableMetadata *table_metadata = nullptr;
 
     bool disable_timestamps;
-    TimestampGenerator *timestamp_gen;
+    TimestampGenerator *timestamp_gen = nullptr;
 
 
     void flush_dirty_blocks();
@@ -108,9 +111,9 @@ private:
     bool finish_async_query_thread;
     std::thread async_query_thread;
     // StorageStream attributes
-    char * topic_name;
-    rd_kafka_topic_t *topic;
-    rd_kafka_t *producer;
+    char * topic_name = nullptr;
+    rd_kafka_topic_t *topic = nullptr;
+    rd_kafka_t *producer = nullptr;
 
 };
 

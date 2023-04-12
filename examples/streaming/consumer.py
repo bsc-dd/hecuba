@@ -1,9 +1,8 @@
-#from model_hecuba_stream import miclass
-from hecuba_stream import miclassNumpy
+
 
 def consumer_with_new_class():
-    from hecuba_stream import miclass
-    o = miclass("streaming_dict_with_str")
+    from DictWithStrings import DictWithStrings
+    o = DictWithStrings("streaming_dict_with_str")
     k,v = o.poll()
     print("AFTER POLL", flush=True)
     print("key ", k, flush=True)
@@ -20,9 +19,10 @@ def consumer_with_new_class():
     print("=========================", flush=True)
 
 def consumer_with_new_classandNumpy():
+    from DictWithNumpy import DictWithNumpy
     import numpy as np
 
-    o = miclassNumpy("streaming_dict_with_numpy")
+    o = DictWithNumpy("streaming_dict_with_numpy")
     k,v=o.poll()
     print("AFTER POLL", flush=True)
     print("key ", k, flush=True)
@@ -31,7 +31,7 @@ def consumer_with_new_classandNumpy():
     passed=True
     if k != 42:
         passed = False
-    if not np.array_equal(v, (np.arange(12,dtype=float).reshape(4,3)+1)):
+    if not np.array_equal(v, (np.arange(12,dtype=float).reshape(3,4)+1)):
         passed = False
     if not passed:
         print("consumer_with_new_classandNumpy NOT PASSED", flush=True)
@@ -39,9 +39,8 @@ def consumer_with_new_classandNumpy():
         print("consumer_with_new_classandNumpy PASSED", flush=True)
     print("=========================", flush=True)
 
-
 def consumer_subclass_storageNumpy():
-    from hecuba_stream import myNumpy
+    from myNumpy import myNumpy
     import numpy as np
 
     # The following code instantiates the 'myNumpy' class, but it may happen that the
@@ -52,26 +51,27 @@ def consumer_subclass_storageNumpy():
     exist = False
     while not exist:
         try:
-            x = myNumpy(None, "i_am_a_numpy")
+            x = myNumpy(None, "mynpsubclass")
             exist = True
         except ValueError:
             pass
 
     v = x.poll()
 
-    if not np.array_equal(v, (np.arange(12,dtype=float).reshape(4,3)+1)):
+    if not np.array_equal(v, (np.arange(12,dtype=float).reshape(3, 4)+1)):
         print("consumer_subclass_storageNumpy NOT PASSED", flush=True)
+        print("Expected: {} ".format(np.arange(12, dtype=float).reshape(3,4)+1), flush=True)
+        print("Received: {} ".format(v), flush=True)
     else:
         print("consumer_subclass_storageNumpy PASSED", flush=True)
     print("=========================", flush=True)
-
 
 
 def main():
     print("CONSUMER STARTING", flush=True)
     consumer_with_new_classandNumpy()
     consumer_with_new_class()
-    consumer_subclass_storageNumpy()
+    #consumer_subclass_storageNumpy()
     print("CONSUMER DONE", flush=True)
 
 

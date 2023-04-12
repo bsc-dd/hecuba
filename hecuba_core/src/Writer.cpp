@@ -15,11 +15,12 @@ void Writer::async_query_thread_code() {
     }
 }
 
+
 Writer::Writer(const TableMetadata *table_meta, CassSession *session,
                std::map<std::string, std::string> &config) {
 
 
-    //std::cout<< " WRITER: Constructor "<< std::endl;
+    DBG( " WRITER: Constructor "<< this);
     int32_t buff_size = default_writer_buff;
     int32_t max_callbacks = default_writer_callbacks;
     this->disable_timestamps = false;
@@ -81,9 +82,56 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
     this->producer = nullptr;
 }
 
+Writer::Writer(const Writer&  src) {
+    *this = src;
+}
+
+Writer& Writer::operator = (const Writer& src) {
+    this->disable_timestamps = src.disable_timestamps;
+    this->session = src.session; // CassSession is not deleted in the Writer destructor
+    this->table_metadata = src.table_metadata; // TableMetadata is not deleted in the Writer destructor
+    if (this->k_factory != nullptr) { delete(this->k_factory); }
+    if (this->v_factory != nullptr) { delete(this->v_factory); }
+    this->k_factory = new TupleRowFactory(src.table_metadata->get_keys());
+    this->v_factory = new TupleRowFactory(src.table_metadata->get_values());
+
+    CassFuture *future = cass_session_prepare(session, src.table_metadata->get_insert_query());
+    CassError rc = cass_future_error_code(future);
+    CHECK_CASS("writer cannot prepare: ");
+    this->prepared_query = cass_future_get_prepared(future);
+    cass_future_free(future);
+    // if we copy the writer we copy the characteristics of the writer but we do not inherit the pending writes: we initialize both dirty_blocks and data, and we set to 0 the number of callbacks
+    //this->data = src.data; // concurrent_bounded_queue implements copy assignment: this does not compile because concurrent bounded queue implements move assignment
+    //this->dirty_blocks = src.dirty_blocks; //concurrent_hash_map implements copy assignment
+    this->data.set_capacity(src.data.capacity());
+    if (this->dirty_blocks != nullptr) { delete (this->dirty_blocks); }
+    this->dirty_blocks = new tbb::concurrent_hash_map <const TupleRow *, const TupleRow *, Writer::HashCompare >();
+    this->ncallbacks = 0;
+    this->error_count = 0;
+    this->max_calls = src.max_calls;
+    if (this->timestamp_gen != nullptr) { delete (this->timestamp_gen); }
+    this->timestamp_gen = new TimestampGenerator();; // TimestampGenerator has a class attribute of type mutex which is not copy-assignable
+    this->lazy_write_enabled = src.lazy_write_enabled;
+    this->finish_async_query_thread = src.finish_async_query_thread;
+    this->async_query_thread_created = src.async_query_thread_created;
+
+    //kafka is plain c code, it does not implement copy assignment semantic
+    if (this->topic_name != nullptr){ free(this->topic_name); }
+    if (src.topic_name != nullptr) {
+        this->topic_name = (char *) malloc (strlen(src.topic_name)+1);
+        strcpy(this->topic_name, src.topic_name);
+        this->producer = src.producer; //TODO this should be shared pointer or create a new producer
+        this->topic = src.topic; // TODO this should be shared pointer or create a new topic
+    } else {
+        this->topic_name = nullptr;
+        this->topic = nullptr;
+        this->producer = nullptr;
+    }
+    return *this;
+}
 
 Writer::~Writer() {
-    //std::cout<< " WRITER: Destructor "<< std::endl;
+    DBG( " WRITER: Destructor "<< ((topic_name!=nullptr)?topic_name:""));
     if (this->async_query_thread_created){
         wait_writes_completion(); // WARNING! It is necessary to wait for ALL CALLBACKS to finish, because the 'data' structure required by the callback will dissapear with this destructor
         auto async_query_thread_id = this->async_query_thread.get_id();
@@ -111,6 +159,8 @@ Writer::~Writer() {
     delete (this->v_factory);
     delete (this->timestamp_gen);
     delete (this->dirty_blocks);
+    // table_metadata NOT FREED (Shared?)
+    // session NOT FREED (Shared?)
 }
 
 
@@ -308,6 +358,15 @@ void Writer::flush_dirty_blocks() {
 // flush all the pending write requests: send them to Cassandra driver and wait for finalization (called from outside)
 void Writer::flush_elements() {
     wait_writes_completion();
+}
+
+/* NOTE: It may 'block' if more than 'default_writer_buff' messages pending to be sent to cassandra */
+bool Writer::is_write_completed() {
+    if (lazy_write_enabled) {
+        flush_dirty_blocks();
+    }
+
+    return (data.empty() &&  (ncallbacks == 0));
 }
 
 // wait for callbacks execution for all sent write requests

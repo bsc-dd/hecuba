@@ -3,6 +3,15 @@
 
 
 //Initialize static attributes
+// mapString2CassandraType : map to translate from a cassandra string type to a constant value
+std::map<std::string, ObjSpec::cassandra_types>ObjSpec::mapString2CassandraType = {
+                    { "boolean", ObjSpec::ctBoolean},
+                    { "double", ObjSpec::ctDouble},
+                    { "int", ObjSpec::ctInt},
+                    { "bigint", ObjSpec::ctBigint},
+                    { "float", ObjSpec::ctFloat},
+                    { "text", ObjSpec::ctText}
+    };
 std::unordered_set<std::string> ObjSpec::basic_types_str = {
                     "counter",
                     "text",
@@ -46,6 +55,34 @@ std::map<std::string, std::string> ObjSpec::yaml_to_cass_conversion {
                     //{ //TODO "tuple"
 };
 
+std::map<std::string, std::string> ObjSpec::c_to_cass_conversion {
+                    //{ "counter",  "counter"},
+                    { "b",     "boolean"},
+                    //{ "???",      "decimal"},
+                    { "d",   "double"},
+                    { "i",      "int"},
+                    { "l",     "bigint"},
+                    //{ "blob",     "blob"},
+                    { "f",    "float"},
+		    {"basic_string", "text"}
+                    //{ "timestamp","???"},
+                    //{ "time",     "time"},
+                    //{ "date",     "date"},
+                    //{ //TODO "list",
+                    //{ //TODO "set",
+                    //{ //TODO "map",
+                    //{ //TODO "tuple"
+};
+std::map<std::string, std::string> ObjSpec::cass_to_hecuba_conversion {
+                    { "boolean","bool"},
+                    { "double", "double"},
+                    { "int",    "int"},
+                    { "float",  "float"},
+                    { "text",   "str"}
+};
+
+
+
 ObjSpec::ObjSpec() {}
 
 ObjSpec::ObjSpec(enum valid_types type, std::vector<std::pair<std::string, std::string>>partK, std::vector<std::pair<std::string, std::string>> clustK, std::vector<std::pair<std::string, std::string>> c, std::string pythonString){
@@ -57,7 +94,7 @@ ObjSpec::ObjSpec(enum valid_types type, std::vector<std::pair<std::string, std::
     generateTableAttr();
 }
 
-std::string ObjSpec::getPythonString() {
+const std::string& ObjSpec::getPythonString() const {
     return pythonSpecString;
 
 }
@@ -76,6 +113,44 @@ std::string ObjSpec::yaml_to_cass(const std::string attr_type) {
     }
     return res;
 }
+
+std::string ObjSpec::c_to_cass(const std::string attr_type) {
+
+	std::string res,type;
+	try{
+		res = ObjSpec::c_to_cass_conversion.at(attr_type);
+	} catch( std::out_of_range &e) {
+		int32_t st;
+		type =abi::__cxa_demangle(attr_type.c_str(), NULL, NULL, &st);
+		if (type.find("basic_string") != std::string::npos)
+			res="text";
+		else {
+		// To keep compatibility with the python layer of hecuba we register StorageNumpys as hecuba.hnumpy.StorageNumpy and we store any other Hecuba object with the
+		// fully qualified name. At this moment each class definition is stored in a separate file with the same name as the class, so the FQname is class.class
+			if (type == "StorageNumpy") {
+				// If the attribute is a StorageNumpy we store in cassandra the fully qualified name used in the python side of Hecuba
+				type = std::string("hecuba.hnumpy.StorageNumpy");
+			} else {
+				if (type.find_first_of(".") == std::string::npos) {
+					type = type + "." + type;
+				}
+			}
+			res = type;
+		}
+	}
+	return res;
+}
+
+std::string ObjSpec::cass_to_hecuba(const std::string& attr_type) {
+    std::string res;
+    try {
+        res =  ObjSpec::cass_to_hecuba_conversion.at(attr_type);
+    } catch (std::out_of_range e) {
+        res = attr_type;
+    }
+    return res;
+}
+
 
 std::string ObjSpec::getKeysStr(void) {
     // Returns a string with a list of tuples name+type. Example: [('lat','int'), ('ts','int')]
@@ -148,10 +223,10 @@ ObjSpec::valid_types ObjSpec::getType() {
     return objtype;
 }
 
-std::string ObjSpec::getIDModelFromCol(int i) {
+const std::string& ObjSpec::getIDModelFromCol(int i) const {
     return cols[i].second;
 }
-std::string ObjSpec::getIDModelFromKey(int i) {
+const std::string& ObjSpec::getIDModelFromKey(int i) const {
     /* keys are splitted into partitionKeys and clusteringKeys */
     int partKeySize=partitionKeys.size();
 
@@ -163,21 +238,22 @@ std::string ObjSpec::getIDModelFromKey(int i) {
     }
 }
 
-const std::string& ObjSpec::getIDModelFromColName(const std::string & name) {
+const std::string& ObjSpec::getIDModelFromColName(const std::string & name) const{
     for(uint16_t i=0; i<cols.size(); i++) {
         if (cols[i].first == name) {
             return cols[i].second;
         }
     }
     throw ModuleException("ObjSpec::getIDModelFromColName Column name "+name+" does not exist");
-    return std::string("OK, OK, I'M NOT RETURNING THIS");
+    static std::string nothing("OK, OK, I'M NOT RETURNING THIS");
+    return nothing;
 }
 
-std::string ObjSpec::getIDObjFromCol(int i) {
+const std::string& ObjSpec::getIDObjFromCol(int i) const {
     return cols[i].first;
 }
 
-std::string ObjSpec::getIDObjFromKey(int i) {
+const std::string& ObjSpec::getIDObjFromKey(int i) const {
     /* keys are splitted into partitionKeys and clusteringKeys */
     int partKeySize=partitionKeys.size();
 
@@ -297,4 +373,9 @@ void ObjSpec::generateTableAttr() {
 
 
     table_attr += pkey_str;
+}
+
+// string2CassandraType : translate a cassandra string type to its constant value
+ObjSpec::cassandra_types ObjSpec::string2CassandraType(const std::string& cass_type) {
+    return mapString2CassandraType.at(cass_type);
 }

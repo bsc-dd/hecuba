@@ -70,6 +70,57 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
     if (cache_size) this->myCache = new KVCache<TupleRow, TupleRow>(cache_size);
 };
 
+CacheTable::CacheTable(const CacheTable& src) {
+    *this = src;
+}
+
+CacheTable& CacheTable::operator = (const CacheTable& src) {
+    if (this != &src) {
+        this->session = src.session;
+        if (this->table_metadata!=nullptr) { delete (this->table_metadata); }
+        this->table_metadata = new TableMetadata(*src.table_metadata);
+        CassFuture *future = cass_session_prepare(session, table_metadata->get_select_query());
+        CassError rc = cass_future_error_code(future);
+        CHECK_CASS("CacheTable: Select row query preparation failed");
+        this->prepared_query = cass_future_get_prepared(future);
+        cass_future_free(future);
+        future = cass_session_prepare(session, table_metadata->get_delete_query());
+        rc = cass_future_error_code(future);
+        this->delete_query = cass_future_get_prepared(future);
+        CHECK_CASS("CacheTable: Delete row query preparation failed");
+        cass_future_free(future);
+        this->myCache = NULL;
+        if (this->writer!=nullptr) { delete (this->writer); }
+        this->writer = new Writer(*src.writer);
+        if (this->keys_factory != nullptr) {delete (this->keys_factory);}
+        this->keys_factory = new TupleRowFactory(table_metadata->get_keys()); // TODO check if TupleRowFactory implements copy assignment: integer and vector of ColumnMeta.... I guess it is not necessary to instantiate a new one
+        if (this->values_factory != nullptr) {delete (this->values_factory);}
+        this->values_factory = new TupleRowFactory(table_metadata->get_values());
+        if (this->row_factory != nullptr) {delete (this->row_factory);}
+        this->row_factory = new TupleRowFactory(table_metadata->get_items());
+        if (this->timestamp_gen != nullptr) {delete (this->timestamp_gen);}
+        this->timestamp_gen = new TimestampGenerator();
+        this->writer->set_timestamp_gen(this->timestamp_gen);
+        if (this->topic_name != nullptr) { free(this->topic_name); }
+        if (this->kafka_conf != nullptr) { free(this->kafka_conf); }
+        if (this->consumer != nullptr) { free(this->consumer); }
+        if (src.topic_name != nullptr) {
+            this->topic_name = (char *) malloc(strlen(src.topic_name)+1);
+            strcpy(this->topic_name, src.topic_name);
+            this->kafka_conf = rd_kafka_conf_dup(src.kafka_conf);
+            enable_stream_consumer(); // is it possible to delay this?
+            enable_stream_producer();
+        } else {
+            this->topic_name = nullptr;
+            this->consumer = nullptr;
+            this->kafka_conf = nullptr;
+        }
+        if (this->myCache !=nullptr) {delete(this->myCache);}
+        if (src.myCache != NULL) this->myCache = new KVCache<TupleRow, TupleRow>(src.myCache->get_max_cache_size());
+    }
+
+    return *this;
+}
 
 CacheTable::~CacheTable() {
     delete (writer);
@@ -84,7 +135,11 @@ CacheTable::~CacheTable() {
     prepared_query = NULL;
     if (delete_query != NULL) cass_prepared_free(delete_query);
     delete_query = NULL;
-    delete (table_metadata);
+    DBG( this<< " table_metadata = "<< table_metadata);
+    if (table_metadata != nullptr) {
+        delete (table_metadata);
+        table_metadata = nullptr;
+    }
     if (topic_name) {
         free(topic_name);
         topic_name = nullptr;
