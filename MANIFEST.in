@@ -9,6 +9,7 @@ prune hecuba_core/tests
 
 graft hecuba_py/hecuba
 graft storageAPI/storage
+include storageAPI/storageItf/target/*.jar
 
 # Exclude generated files
 prune */__pycache__

@@ -53,7 +53,7 @@ RUN cd; curl -L https://github.com/edenhill/librdkafka/archive/refs/tags/v1.9.2.
     && cd librdkafka-1.9.2/ \
     && ./configure \
     && make; make install \
-    && cd; rm -rf  librdkafka-1.9.2/ ; rm -rf librdkafka-1.9.2.zip\
+    && cd; rm -rf  librdkafka-1.9.2/ ; rm -rf librdkafka-1.9.2.zip
 
 # BOOST
 RUN cd; curl -L https://boostorg.jfrog.io/artifactory/main/release/1.67.0/source/boost_1_67_0.tar.gz|tar -xz \

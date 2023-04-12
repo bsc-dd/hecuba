@@ -11,7 +11,14 @@ build:	## Build the docker image
 	@echo ============================
 	@echo Use \'make wheel\' to generate the wheels
 
-wheel:	## Generate the 'wheel' files
+../storageAPI/storageItf/target/StorageItf-1.0.jar: ../storageAPI/storageItf/src/main/java/storage/StorageItf.java
+	@echo ============================
+	@echo [WARNING] Unable to find [ $@ ]
+	@echo 	Trying to regenerate it
+	@echo ============================
+	cd ../storageAPI/storageItf && mvn org.apache.maven.plugins:maven-assembly-plugin:assembly
+
+wheel:	 ../storageAPI/storageItf/target/StorageItf-1.0.jar ## Generate the 'wheel' files
 	docker container run --rm -it -e PLAT=${PLAT}     -v "${PWD}/..":/io     -e CMAKE_PARALLEL_BUILD=4 "${DOCKER_IMAGE}" /io/manylinux_container/build-wheels.sh
 
 bash:	## Open a bash session to the container (Testing)
