@@ -7,6 +7,10 @@
 
 #include "debug.h"
 
+#ifdef EXTRAE
+#include <extrae.h>
+#endif /* EXTRAE */
+
 #include <cstdlib>
 #include <vector>
 #include <string>
@@ -339,6 +343,9 @@ numpyMetaAccess = storageInterface->make_cache("istorage", "hecuba",
 												config);
 numpyMetaWriter = numpyMetaAccess->get_writer();
 
+#ifdef EXTRAE
+    Extrae_init();
+#endif /*EXTRAE*/
 
 }
 
