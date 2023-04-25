@@ -42,7 +42,9 @@ public:
 
     //lgarrobe
     std::string TN  = "";
+#ifdef ARROW
     void read_numpy_from_cas_arrow(const uint64_t *storage_id, ArrayMetadata &metadata, std::vector<uint64_t> &cols, void *save);
+#endif /*ARROW*/
     void store_numpy_into_cas_as_arrow(const uint64_t *storage_id, ArrayMetadata &metadata,
                                        void *data) const;
     void store_numpy_into_cas_by_cols_as_arrow(const uint64_t *storage_id, ArrayMetadata &metadata, void *data, std::vector<uint32_t> &cols) const;
@@ -69,11 +71,13 @@ protected:
 
     std::shared_ptr<StorageInterface> storage; //StorageInterface* storage;
 private:
+#ifdef ARROW
     int open_arrow_file(std::string arrow_file_name) ;
     int find_and_open_arrow_file(const uint64_t * storage_id, const uint32_t cluster_id, const std::string arrow_file_name);
+    void *get_in_addr(struct sockaddr *sa);
+#endif /*ARROW*/
     std::set<uint32_t> loaded_cluster_ids;
 
-    void *get_in_addr(struct sockaddr *sa);
 };
 
 
