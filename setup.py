@@ -38,6 +38,7 @@ def cmake_build():
     try:
         cmake_args=["cmake", "-H./hecuba_core", "-B./build"]
         #cmake_args=cmake_args + ["-DUSE_ARROW=TRUE"]
+        #cmake_args=cmake_args + ["-DUSE_EXTRAE=FALSE"]
         if c_binding_path:
             cmake_args=cmake_args + [ "-DC_BINDING_INSTALL_PREFIX={}".format(c_binding_path)]
             cmake_args=cmake_args + [ "-DPYTHON_VERSION=python{}.{}".format(sys.version_info.major, sys.version_info.minor)]
