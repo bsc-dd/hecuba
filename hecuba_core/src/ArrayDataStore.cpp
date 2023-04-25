@@ -1,5 +1,6 @@
 #include "ArrayDataStore.h"
 
+#ifdef ARROW
 #include <arrow/memory_pool.h>
 #include <arrow/io/file.h>
 #include <arrow/status.h>
@@ -29,6 +30,7 @@
 #include <arrow/util/key_value_metadata.h>
 #include <arrow/array/builder_primitive.h>
 #include <arrow/array/builder_binary.h>
+#endif /* ARROW */
 
 #include <unistd.h>
 #include <sys/mman.h>
@@ -398,6 +400,7 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
         std::cerr<< "store_numpy_into_cas_as_arrow called, but HECUBA_ARROW is not enabled" << std::endl;
         return;
     }
+#ifdef ARROW
 
     assert( metadata.dims.size() <= 2 ); // First version only supports 2 dimensions
 
@@ -503,6 +506,7 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
 
         cache->put_crow( (void*)_keys, (void*)_values ); //Send column to cassandra
     }
+#endif /* ARROW  */
 }
 
 /***
@@ -517,6 +521,7 @@ void ArrayDataStore::store_numpy_into_cas_by_cols_as_arrow(const uint64_t *stora
                                                    std::vector<uint32_t> &cols) const {
 
     throw ModuleException("NOT IMPLEMENTED YET");
+#ifdef ARROW
 
     assert( metadata.dims.size() <= 2 ); // First version only supports 2 dimensions
 
@@ -619,6 +624,7 @@ void ArrayDataStore::store_numpy_into_cas_by_cols_as_arrow(const uint64_t *stora
         //cache_arrow_write->put_crow( (void*)_keys, (void*)_values ); //Send column to cassandra
         cache->put_crow( (void*)_keys, (void*)_values ); //Send column to cassandra
     }
+#endif /* ARROW */
 }
 
 /***
@@ -891,6 +897,7 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
 
 }
 
+#ifdef ARROW
 /* Open an 'arrow_file_name' in a local environment.
  * It always succeed or raises exception
  */
@@ -1408,3 +1415,4 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
     }
     close(fdIn);
 }
+#endif /* ARROW */
