@@ -5,6 +5,8 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake) #folder with Fi
 
 set(CORE_SRC_DIR "${CMAKE_SOURCE_DIR}/src")
 
+option(USE_ARROW  "Enable ARROW support" FALSE)
+
 # CMAKE_BUILD_PARALLEL_LEVEL controls the level of parallelism, use it for Make also
 message(STATUS "===> CMAKE_BUILD_PARALLEL_LEVEL=$ENV{CMAKE_BUILD_PARALLEL_LEVEL}")
 if (NOT $ENV{CMAKE_BUILD_PARALLEL_LEVEL} STREQUAL "")
@@ -277,6 +279,7 @@ else ()
     set(ALL_LIBS ${ALL_LIBS} ${TBB})
 endif ()
 
+if (USE_ARROW)
 if (NOT ARROW)
     message("Downloading Apache ARROW")
     unset(ARROW) #to avoid name clash
@@ -310,6 +313,10 @@ else ()
     message(STATUS "Using system's ARROW " ${ARROW})
     set(ALL_LIBS ${ALL_LIBS} ${ARROW})
 endif ()
+add_compile_definitions(ARROW)    # Define ARROW preprocessor macro to enable arrow use
+else(USE_ARROW)
+    message(STATUS "ARROW (${ARROW}) is disabled by user!")
+endif(USE_ARROW)
 
 if (NOT YAML)
     message("Downloading YAML-CPP library")
