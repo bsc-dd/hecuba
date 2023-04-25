@@ -103,11 +103,14 @@ def setup_packages():
         dist.parse_command_line()
 
         # Get prefix from either config file or command line
-        prefix = dist.get_option_dict('install')['prefix'][1]
-        print(' ==== PREFIX = {}'.format(prefix), flush=True)
-        copy_files_to_dir(glob.glob('build/include/*'), prefix + "/include")
-        copy_files_to_dir(glob.glob('build/include/hecuba/*'), prefix + "/include/hecuba")
-        copy_files_to_dir(glob.glob('build/lib/*'), prefix + "/lib")
+        try:
+            prefix = dist.get_option_dict('install')['prefix'][1]
+            print('  == --prefix {} used. Copy header files and libraries inside.'.format(prefix), flush=True)
+            copy_files_to_dir(glob.glob('build/include/*'), prefix + "/include")
+            copy_files_to_dir(glob.glob('build/include/hecuba/*'), prefix + "/include/hecuba")
+            copy_files_to_dir(glob.glob('build/lib/*'), prefix + "/lib")
+        except (KeyError):
+            pass
 
 
 
