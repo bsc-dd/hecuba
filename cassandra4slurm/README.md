@@ -114,32 +114,14 @@ without generating snapshots, then can use the option KILL.
 
 The following table summarizes the options of the c4s command:
 
-  -----------------------------------------------------------------------
-  **Options**             **Valid           **Description**
-                          parameters**      
-  ----------------------- ----------------- -----------------------------
-  RUN                     -nT, -nC, -nA,    Starts a new cluster from
-                          -A, -s, -f (if -A scratch
-                          is used),         
-                          -disjoint, -t,    
-                          \--qos (and other 
-                          slurm parameters) 
+| **Options**   | **Valid parameters**  | **Description**  | 
+|---|---|---|
+| RUN  | -nT, -nC, -nA, -A, -s, -f (if -A is used), -disjoint, -t,\--qos (and other slurm parameters) | Starts a new cluster from scratch  | 
+| RECOVER  | -s, -r, -A, -f (if -A is used), \--qos (and other slurm parameters) | Starts a new cluster from a snapshot  | 
+| STOP  | None  | Stops the cluster in a controlled way (generates snapshot if required) | 
+| STATUS | None  | Shows the status of the cluster | 
+| KILL  | None  |  Cancels the slurm job (no snapshot if generated) |
 
-  RECOVER                 -s, -r, -A, -f    Starts a new cluster from a
-                          (if -A is used)   snapshot
-                          \--qos (and other 
-                          slurm parameters) 
-
-  STOP                    None              Stops the cluster in a
-                                            controlled way (generates
-                                            snapshot if required)
-
-  STATUS                  None              Shows the status of the
-                                            cluster
-
-  KILL                    None              Cancels the slurm job (no
-                                            snapshot is generated)
-  -----------------------------------------------------------------------
 
 ## Integration with enqueue_compss command
 
