@@ -29,9 +29,10 @@ For this reason, it is necessary to execute it preceded by ".": . c4s
 
 For example, to start from scratch a Cassandra cluster composed of 2 nodes during 1 hour using the debug queue of the queue system, the user could run the following command:
 
-'''
+```
 . c4s RUN -nC=2 -t=01:00:00 --qos=debug
-'''
+```
+
 
 The c4s command performs the following five steps:
 
