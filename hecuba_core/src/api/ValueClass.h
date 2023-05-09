@@ -17,99 +17,99 @@ template <class V1, class...rest>
 class ValueClass:public AttributeClass<V1,rest...>{ 
     //First _KeyClass;
     //KeyClass<Rest...> _nextKeyClass;
-public:
-    // Constructor called when instantiating a new value without parameters: MyValueClass v;
-    ValueClass() =default; 
+    public:
+        // Constructor called when instantiating a new value without parameters: MyValueClass v;
+        ValueClass() =default; 
 
-    // Constructor called when instantiating a new value with parameters: MyValueClass v(value);
-   ValueClass(const V1& part, rest... vals):AttributeClass<V1,rest...>("valuename",part,vals...) {
-   }
+        // Constructor called when instantiating a new value with parameters: MyValueClass v(value);
+        ValueClass(const V1& part, rest... vals):AttributeClass<V1,rest...>("valuename",part,vals...) {
+        }
 
-    // Constructor called when assigning another value during the instatiation: MyValueClass v = otherValue or MyValueClass v = d[k]
-    ValueClass(const ValueClass& w): AttributeClass<V1,rest...>(w){
-		if (w.pendingKeysBuffer != nullptr) {
-		// case myvalueclass v =d[k]
-			complete_reading();
-	
-		} 
-		// case else myvalueclass v = j copy constructor implemented in the AttributeClass copy constructor
-    }
+        // Constructor called when assigning another value during the instatiation: MyValueClass v = otherValue or MyValueClass v = d[k]
+        ValueClass(const ValueClass& w): AttributeClass<V1,rest...>(w){
+            if (w.pendingKeysBuffer != nullptr) {
+                // case myvalueclass v =d[k]
+                complete_reading();
 
-    void complete_reading() {
-		if (this->managedValues == 1) {
-			this->valuesBuffer= (char *)malloc(this->total_size);
-			this->sd->getItem(this->pendingKeysBuffer,this->valuesBuffer);
-		} else {
-			//for more than one attribute getItem allocates the space
-			this->sd->getItem(this->pendingKeysBuffer,&this->valuesBuffer);
-		}
-		this->template setTupleValues<0,V1,rest...>(this->sd, this->valuesBuffer);
+            } 
+            // case else myvalueclass v = j copy constructor implemented in the AttributeClass copy constructor
+        }
 
-	}
+        void complete_reading() {
+            if (this->managedValues == 1) {
+                this->valuesBuffer= (char *)malloc(this->total_size);
+                this->sd->getItem(this->pendingKeysBuffer,this->valuesBuffer);
+            } else {
+                //for more than one attribute getItem allocates the space
+                this->sd->getItem(this->pendingKeysBuffer,&this->valuesBuffer);
+            }
+            this->template setTupleValues<0,V1,rest...>(this->sd, this->valuesBuffer);
 
-   //Constructor called by the operator [] of StorageDict
-    ValueClass(IStorage *sd,char *keysBuffer, int bufferSize):AttributeClass<V1,rest...>() {
-		this->sd = sd;
-		this->pendingKeysBuffer = (char *) malloc(bufferSize);
-		this->pendingKeysBufferSize = bufferSize;
-		this->valuesDesc=this->sd->getValuesDesc();
-		this->total_size=sd->getDataWriter()->get_metadata()->get_values_size();
-		this->managedValues=this->valuesDesc.size();
-	    this->valuesBuffer=nullptr;
-		memcpy(this->pendingKeysBuffer, keysBuffer, bufferSize);
-    }
+        }
 
-    ValueClass &operator = (ValueClass & w) {
-	//  case v=sd[k]
-	if (w.pendingKeysBuffer != nullptr) {
-		this->sd=w.sd;
-		this->total_size=w.total_size;
-		this->managedValues = w.managedValues;
-		this->valuesDesc=w.valuesDesc;
-		this->pendingKeysBuffer = w.pendingKeysBuffer;
-		this->pendingKeysBufferSize = w.pendingKeysBufferSize;
+        //Constructor called by the operator [] of StorageDict
+        ValueClass(IStorage *sd,char *keysBuffer, int bufferSize):AttributeClass<V1,rest...>() {
+            this->sd = sd;
+            this->pendingKeysBuffer = (char *) malloc(bufferSize);
+            this->pendingKeysBufferSize = bufferSize;
+            this->valuesDesc=this->sd->getValuesDesc();
+            this->total_size=sd->getDataWriter()->get_metadata()->get_values_size();
+            this->managedValues=this->valuesDesc.size();
+            this->valuesBuffer=nullptr;
+            memcpy(this->pendingKeysBuffer, keysBuffer, bufferSize);
+        }
 
-		complete_reading();
+        ValueClass &operator = (ValueClass & w) {
+            //  case v=sd[k]
+            if (w.pendingKeysBuffer != nullptr) {
+                this->sd=w.sd;
+                this->total_size=w.total_size;
+                this->managedValues = w.managedValues;
+                this->valuesDesc=w.valuesDesc;
+                this->pendingKeysBuffer = w.pendingKeysBuffer;
+                this->pendingKeysBufferSize = w.pendingKeysBufferSize;
 
-		free(w.pendingKeysBuffer);
-		this->pendingKeysBuffer = nullptr;
-		w.pendingKeysBuffer=nullptr;
-		this->pendingKeysBufferSize=0;
-		w.pendingKeysBufferSize=0;
-		// TODO set values interpreting valuesBuffer
-		w.sd=nullptr;
-		this->sd=nullptr;
-		w.managedValues=0;
-		w.total_size=0;
-		w.valuesBuffer=nullptr;
+                complete_reading();
 
-	} else {
-		//  case sd[k]=v;
-		if (this->pendingKeysBuffer != nullptr) {
-			this->sd->setItem(this->pendingKeysBuffer,w.valuesBuffer);
-			free(this->pendingKeysBuffer);
-			this->pendingKeysBuffer = nullptr;
-			this->pendingKeysBufferSize=0;
-			this->sd=nullptr;
-			this->valuesDesc=w.valuesDesc;
-			this->managedValues = w.managedValues;
-			this->total_size = w.total_size;
-			this->valuesBuffer = (char *) malloc(this->total_size);
-			memcpy(this->valuesBuffer, w.valuesBuffer, this->total_size);
-			this->values = w.values;
-		} 
-	}
+                free(w.pendingKeysBuffer);
+                this->pendingKeysBuffer = nullptr;
+                w.pendingKeysBuffer=nullptr;
+                this->pendingKeysBufferSize=0;
+                w.pendingKeysBufferSize=0;
+                // TODO set values interpreting valuesBuffer
+                w.sd=nullptr;
+                this->sd=nullptr;
+                w.managedValues=0;
+                w.total_size=0;
+                w.valuesBuffer=nullptr;
 
-	return *this;
+            } else {
+                //  case sd[k]=v;
+                if (this->pendingKeysBuffer != nullptr) {
+                    this->sd->setItem(this->pendingKeysBuffer,w.valuesBuffer);
+                    free(this->pendingKeysBuffer);
+                    this->pendingKeysBuffer = nullptr;
+                    this->pendingKeysBufferSize=0;
+                    this->sd=nullptr;
+                    this->valuesDesc=w.valuesDesc;
+                    this->managedValues = w.managedValues;
+                    this->total_size = w.total_size;
+                    this->valuesBuffer = (char *) malloc(this->total_size);
+                    memcpy(this->valuesBuffer, w.valuesBuffer, this->total_size);
+                    this->values = w.values;
+                } 
+            }
 
-    }
-template <std::size_t ix, class ...Types> static typename std::tuple_element<ix, std::tuple<Types...>>::type& get(ValueClass<Types...>&v){
-	//if we come from d[k], we have to complete the getitem started at the operator []
-	if (v.valuesBuffer == nullptr) {
-		v.complete_reading();
-	}
-	return std::get<ix>(v.values);
-}
+            return *this;
+
+        }
+        template <std::size_t ix, class ...Types> static typename std::tuple_element<ix, std::tuple<Types...>>::type& get(ValueClass<Types...>&v){
+            //if we come from d[k], we have to complete the getitem started at the operator []
+            if (v.valuesBuffer == nullptr) {
+                v.complete_reading();
+            }
+            return std::get<ix>(v.values);
+        }
 
 };
 
