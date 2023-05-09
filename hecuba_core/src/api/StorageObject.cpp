@@ -25,144 +25,144 @@
 //}
 
 
-    StorageObject::StorageObject(): IStorage(){
-        DBG(" constructor without parameters " << this);
-        delayedObjSpec = true;
+StorageObject::StorageObject(): IStorage(){
+    DBG(" constructor without parameters " << this);
+    delayedObjSpec = true;
+}
+
+
+// c++ only calls implicitly the constructor without parameters. To invoke this constructor we need to add to the user class an explicit call to this
+StorageObject::StorageObject(const std::string& name): IStorage() {
+    delayedObjSpec = true;
+    setObjectName(name);
+    set_pending_to_persist();
+}
+
+StorageObject::StorageObject(const StorageObject& src): IStorage() {
+    *this=src;
+}
+
+StorageObject& StorageObject::operator = (const StorageObject& src) {
+    if (this != &src ){
+        this->IStorage::operator=(src); //Inherit IStorage attributes
+        //this->st = src.st;
+        this->valuesDesc = src.valuesDesc;
+        this->translate = src.translate;
+    }
+    return *this;
+}
+
+StorageObject::~StorageObject() {
+    DBG( " "<<this);
+}
+
+
+// It generates the python specification for the class during the registration of the object
+void StorageObject::generatePythonSpec() {
+    std::string StreamPart="";
+    if (isStream() ){
+        StreamPart=std::string(", StorageStream");
+    }
+    std::string pythonSpec = PythonDisclaimerString + "from hecuba import StorageObject"
+        + StreamPart +
+        + "\n\nclass "
+        + getClassName() + "(StorageObject"
+        + StreamPart
+        + "):\n"
+        + "   '''\n";
+
+    std::string itemSpec = "";
+
+    for (std::vector<std::pair<std::string,std::string>>::iterator it=valuesDesc.begin(); it!=valuesDesc.end(); ++it)
+        itemSpec+="   @Classfield "+it->first + " " + ObjSpec::cass_to_hecuba(it->second) + "\n";
+
+    pythonSpec += itemSpec + "   '''\n";
+
+    setPythonSpec(pythonSpec);
+}
+void StorageObject::addAttrSpec(const std::string& type, const std::string& name) {
+    std::pair<std::string, std::string> d = {name, ObjSpec::c_to_cass(type)};
+    this->valuesDesc.push_back(d);
+}
+
+ObjSpec StorageObject::generateObjSpec() {
+    ObjSpec soSpec;
+    std::vector<std::pair<std::string, std::string>> partitionKeys; //empty
+    std::vector<std::pair<std::string, std::string>> clusteringKeys; //empty
+    partitionKeys.push_back(std::pair<std::string,std::string>("storage_id","uuid"));
+    soSpec = ObjSpec(ObjSpec::valid_types::STORAGEOBJ_TYPE, partitionKeys, clusteringKeys, valuesDesc, "");
+    return soSpec;
+}
+
+void StorageObject::assignTableName(const std::string& id_obj, const std::string& class_name) {
+    this->setTableName(class_name);
+}
+
+void StorageObject::persist_metadata(uint64_t* c_uuid) {
+    ObjSpec oType = getObjSpec();
+    std::string insquery = 	std::string("INSERT INTO ") +
+        std::string("hecuba.istorage") +
+        std::string("(storage_id, name, class_name, columns)") +
+        std::string("VALUES ") +
+        std::string("(") +
+        UUID::UUID2str(c_uuid) + std::string(", ") +
+        "'" + getObjectName () + "'" + std::string(", ") +
+        "'" + this->getIdModel() + "'" + std::string(", ") +
+        oType.getColsStr() +
+        std::string(")");
+    CassError rc = getCurrentSession().run_query(insquery);
+    if (rc != CASS_OK) {
+        std::string msg = std::string("StorageDict::persist_metadata: Error executing query ") + insquery;
+        throw ModuleException(msg);
+    }
+}
+
+/* setPersistence - Inicializes current instance to conform to uuid object. To be used on an empty instance. */
+void StorageObject::setPersistence (uint64_t *uuid) {
+    // FQid_model: Fully Qualified name for the id_model: module_name.id_model
+    std::string FQid_model = this->getIdModel();    //"myclass.myclass"
+
+    struct metadata_info row = this->getMetaData(uuid);
+
+    std::pair<std::string, std::string> idObj = getKeyspaceAndTablename( row.name );  //"keysp.name'
+    std::string keyspace = idObj.first;
+    std::string tablename = idObj.first + "." + this->getClassName(); //"keysp.myclass"
+
+    // Check that retrieved classname form hecuba coincides with 'id_model'
+    std::string sobj_table_name = row.class_name;   //"myclass.myclass"
+
+    // The class_name retrieved in the case of the storageobj is
+    // the fully qualified name, but in cassandra the instances are
+    // stored in a table with the name of the last part(example:
+    // "model_complex.info" will have instances in "keyspace.info")
+    // meaning that in a complex scenario with different models...
+    // we will loose information. FIXME
+    if (sobj_table_name.compare(FQid_model) != 0) {
+        //throw ModuleException("HecubaSession::createObject uuid "+UUID::UUID2str(uuid)+" "+ tablename + " has unexpected class_name " + sobj_table_name + " instead of "+FQid_model);
     }
 
+    init_persistent_attributes(tablename, uuid);
+    // Create READ/WRITE cache accesses
+    initialize_dataAcces();
 
-    // c++ only calls implicitly the constructor without parameters. To invoke this constructor we need to add to the user class an explicit call to this
-    StorageObject::StorageObject(const std::string& name): IStorage() {
-        delayedObjSpec = true;
-        setObjectName(name);
-        set_pending_to_persist();
+}
+
+void StorageObject::initialize_dataAcces() {
+    //  Create Writer
+    ObjSpec oType = this->getObjSpec();
+    std::vector<config_map>* keyNamesDict = oType.getKeysNamesDict();
+    std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
+    CacheTable *reader = getCurrentSession().getStorageInterface()->make_cache(this->getTableName().c_str(),
+            getCurrentSession().config["execution_name"].c_str(), *keyNamesDict, *colNamesDict, getCurrentSession().config);
+    this->setCache(*reader);
+
+
+    delete keyNamesDict;
+    delete colNamesDict;
+    if (getCurrentSession().registerObject(getDataAccess(),getClassName())) {
+        writePythonSpec();
     }
-
-    StorageObject::StorageObject(const StorageObject& src): IStorage() {
-        *this=src;
-    }
-
-    StorageObject& StorageObject::operator = (const StorageObject& src) {
-        if (this != &src ){
-            this->IStorage::operator=(src); //Inherit IStorage attributes
-            //this->st = src.st;
-            this->valuesDesc = src.valuesDesc;
-            this->translate = src.translate;
-        }
-        return *this;
-    }
-
-    StorageObject::~StorageObject() {
-        DBG( " "<<this);
-    }
-
-
-    // It generates the python specification for the class during the registration of the object
-    void StorageObject::generatePythonSpec() {
-        std::string StreamPart="";
-        if (isStream() ){
-            StreamPart=std::string(", StorageStream");
-        }
-        std::string pythonSpec = PythonDisclaimerString + "from hecuba import StorageObject"
-            + StreamPart +
-            + "\n\nclass "
-            + getClassName() + "(StorageObject"
-            + StreamPart
-            + "):\n"
-            + "   '''\n";
-
-        std::string itemSpec = "";
-
-        for (std::vector<std::pair<std::string,std::string>>::iterator it=valuesDesc.begin(); it!=valuesDesc.end(); ++it)
-            itemSpec+="   @Classfield "+it->first + " " + ObjSpec::cass_to_hecuba(it->second) + "\n";
-
-        pythonSpec += itemSpec + "   '''\n";
-
-        setPythonSpec(pythonSpec);
-    }
-    void StorageObject::addAttrSpec(const std::string& type, const std::string& name) {
-        std::pair<std::string, std::string> d = {name, ObjSpec::c_to_cass(type)};
-        this->valuesDesc.push_back(d);
-    }
-
-    ObjSpec StorageObject::generateObjSpec() {
-        ObjSpec soSpec;
-        std::vector<std::pair<std::string, std::string>> partitionKeys; //empty
-        std::vector<std::pair<std::string, std::string>> clusteringKeys; //empty
-        partitionKeys.push_back(std::pair<std::string,std::string>("storage_id","uuid"));
-        soSpec = ObjSpec(ObjSpec::valid_types::STORAGEOBJ_TYPE, partitionKeys, clusteringKeys, valuesDesc, "");
-        return soSpec;
-    }
-
-    void StorageObject::assignTableName(const std::string& id_obj, const std::string& class_name) {
-        this->setTableName(class_name);
-    }
-
-    void StorageObject::persist_metadata(uint64_t* c_uuid) {
-        ObjSpec oType = getObjSpec();
-        std::string insquery = 	std::string("INSERT INTO ") +
-            std::string("hecuba.istorage") +
-            std::string("(storage_id, name, class_name, columns)") +
-            std::string("VALUES ") +
-            std::string("(") +
-            UUID::UUID2str(c_uuid) + std::string(", ") +
-            "'" + getObjectName () + "'" + std::string(", ") +
-            "'" + this->getIdModel() + "'" + std::string(", ") +
-            oType.getColsStr() +
-            std::string(")");
-        CassError rc = getCurrentSession().run_query(insquery);
-        if (rc != CASS_OK) {
-            std::string msg = std::string("StorageDict::persist_metadata: Error executing query ") + insquery;
-            throw ModuleException(msg);
-        }
-    }
-
-	/* setPersistence - Inicializes current instance to conform to uuid object. To be used on an empty instance. */
-    void StorageObject::setPersistence (uint64_t *uuid) {
-	    // FQid_model: Fully Qualified name for the id_model: module_name.id_model
-	    std::string FQid_model = this->getIdModel();    //"myclass.myclass"
-
-	    struct metadata_info row = this->getMetaData(uuid);
-
-	    std::pair<std::string, std::string> idObj = getKeyspaceAndTablename( row.name );  //"keysp.name'
-	    std::string keyspace = idObj.first;
-	    std::string tablename = idObj.first + "." + this->getClassName(); //"keysp.myclass"
-
-	    // Check that retrieved classname form hecuba coincides with 'id_model'
-	    std::string sobj_table_name = row.class_name;   //"myclass.myclass"
-
-	    // The class_name retrieved in the case of the storageobj is
-	    // the fully qualified name, but in cassandra the instances are
-	    // stored in a table with the name of the last part(example:
-	    // "model_complex.info" will have instances in "keyspace.info")
-	    // meaning that in a complex scenario with different models...
-	    // we will loose information. FIXME
-	    if (sobj_table_name.compare(FQid_model) != 0) {
-		    //throw ModuleException("HecubaSession::createObject uuid "+UUID::UUID2str(uuid)+" "+ tablename + " has unexpected class_name " + sobj_table_name + " instead of "+FQid_model);
-	    }
-
-	    init_persistent_attributes(tablename, uuid);
-	    // Create READ/WRITE cache accesses
-	    initialize_dataAcces();
-
-    }
-
-    void StorageObject::initialize_dataAcces() {
-        //  Create Writer
-        ObjSpec oType = this->getObjSpec();
-        std::vector<config_map>* keyNamesDict = oType.getKeysNamesDict();
-        std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
-        CacheTable *reader = getCurrentSession().getStorageInterface()->make_cache(this->getTableName().c_str(),
-                getCurrentSession().config["execution_name"].c_str(), *keyNamesDict, *colNamesDict, getCurrentSession().config);
-        this->setCache(*reader);
-
-
-        delete keyNamesDict;
-        delete colNamesDict;
-        if (getCurrentSession().registerObject(getDataAccess(),getClassName())) {
-            writePythonSpec();
-        }
-    }
+}
 
 /* Return:
  *  memory reference to datatype (must be freed by user) */
