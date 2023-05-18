@@ -82,6 +82,21 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
             arrow_optane = true;
         }
     }
+    // HECUBA_LAZY_WRITES = True/*False*
+    // Enables/Disables the use of Lazy Writes to store data into cassandra.
+    // Lazy Write stores the written data in memory instead of a call to
+    // cassandra, the cassandra access is delayed until the destruction of the
+    // object. Useful if there are multiple writes to the same object as
+    // it reduces the number of Cassandra accesses.
+    env_path = std::getenv("HECUBA_LAZY_WRITES");
+    if (env_path != nullptr) {
+        std::string hecuba_lazy(env_path);
+        std::transform(hecuba_lazy.begin(), hecuba_lazy.end(), hecuba_lazy.begin(),
+                        [](unsigned char c){ return std::tolower(c); });
+        if (hecuba_lazy.compare("true")==0) {
+            has_lazy_writes = true;
+        }
+    }
 
     char * full_name=(char *)malloc(strlen(table)+strlen(keyspace)+ 2);
     sprintf(full_name,"%s.%s",keyspace,table);
@@ -99,7 +114,9 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
 
         TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names, session);
         this->cache = new CacheTable(table_meta, session, config);
-        this->cache->get_writer()->enable_lazy_write();
+        if (this->has_lazy_writes) {
+            this->cache->get_writer()->enable_lazy_write();
+        }
 
         this->read_cache = this->cache; // TODO Remove 'read_cache' references
 
