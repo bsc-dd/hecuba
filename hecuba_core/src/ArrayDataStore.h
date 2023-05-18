@@ -42,9 +42,7 @@ public:
 
     //lgarrobe
     std::string TN  = "";
-#ifdef ARROW
     void read_numpy_from_cas_arrow(const uint64_t *storage_id, ArrayMetadata &metadata, std::vector<uint64_t> &cols, void *save);
-#endif /*ARROW*/
     void store_numpy_into_cas_as_arrow(const uint64_t *storage_id, ArrayMetadata &metadata,
                                        void *data) const;
     void store_numpy_into_cas_by_cols_as_arrow(const uint64_t *storage_id, ArrayMetadata &metadata, void *data, std::vector<uint32_t> &cols) const;
