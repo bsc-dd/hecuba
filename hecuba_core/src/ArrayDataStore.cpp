@@ -1441,7 +1441,7 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
             arrow::Status status;
 
             int num_batches = ipc_reader->num_record_batches();
-
+<<<<<<< HEAD
             for (int i = 0; i < num_batches; ++i) { //for each batch inside arrow File; Theoretically, there should be one batch
                 auto result_batch = ipc_reader->ReadRecordBatch(0);
                 std::shared_ptr<arrow::RecordBatch> batch;
