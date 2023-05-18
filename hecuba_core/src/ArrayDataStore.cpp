@@ -506,6 +506,8 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
 
         cache->put_crow( (void*)_keys, (void*)_values ); //Send column to cassandra
     }
+#else /* ARROW */
+    throw ModuleException("ARROW DISABLED by user! Enable it using USE_ARROW=true flag");
 #endif /* ARROW  */
 }
 
@@ -1230,6 +1232,7 @@ int ArrayDataStore::find_and_open_arrow_file(const uint64_t * storage_id, const 
     }
     return open_arrow_file(local_path + arrow_file_name);
 }
+#endif /* ARROW */
 
 /***
  * Retrieve some Numpy columns from Cassandra in Arrow format into a numpy ndarray
@@ -1244,6 +1247,7 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
         std::cerr<< "read_numpy_from_cas_arrow called, but HECUBA_ARROW is not enabled" << std::endl;
         return;
     }
+#ifdef ARROW
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
     std::vector<const TupleRow *> result;
@@ -1414,5 +1418,7 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
         close(fdIn);
     }
     close(fdIn);
-}
+#else /* ARROW */
+    throw ModuleException("ARROW DISABLED by user! Enable it using USE_ARROW=true flag");
 #endif /* ARROW */
+}
