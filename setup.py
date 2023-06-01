@@ -78,6 +78,13 @@ def get_var(var):
     return [p for p in value.split(':') if p != '']
 
 
+def do_build_process():
+    ## avoid the compilation again in the isolated virtual environment (as it is already compiled)
+    cmake_build()
+
+    ## Copy 'jar' and 'arrow_helper' INSIDE package (hecuba and storage) so it gets included in the wheel
+    copy_files_to_dir(['storageAPI/storageItf/target/StorageItf-1.0-jar-with-dependencies.jar'], "storageAPI/storage/ITF")
+    copy_files_to_dir(glob.glob('build/bin/*'), "hecuba_py/hecuba/bin")
 
 
 def setup_packages():
@@ -85,17 +92,20 @@ def setup_packages():
 
     c_binding_path = get_c_binding()
 
-    if 'build' in sys.argv or 'egg_info' in sys.argv:
+    print ("DEBUG: sys.argv {}<".format(sys.argv),flush=True)
+    if 'build' in sys.argv or 'egg_info' in sys.argv or 'bdist_wheel' in sys.argv:
         ## We first build C++ libraries
         ## 'egg_info' is the parameter used for 'python -m build' the first time is invoked and we need the libraries created
-        ## TODO avoid the compilation again in the isolated virtual environment (as it is already compiled)
-        cmake_build()
-
-        ## Copy 'jar' and 'arrow_helper' INSIDE package (hecuba and storage) so it gets included in the wheel
-        copy_files_to_dir(['storageAPI/storageItf/target/StorageItf-1.0-jar-with-dependencies.jar'], "storageAPI/storage/ITF")
-        copy_files_to_dir(glob.glob('build/bin/*'), "hecuba_py/hecuba/bin")
+        ## 'bdist_wheel' is the parameter used for 'spack' the first time is invoked and we need the libraries created
+        do_build_process()
 
     if 'install' in sys.argv:
+        # Check if library is already built and build it otherwise
+        libhfetch_path='build/lib/libhfetch.so'
+        if not os.path.isfile(libhfetch_path):
+            print(' == Library {}/{} is not present. Forcing build process!'.format(os.getcwd(), libhfetch_path), flush=True)
+            do_build_process()
+
         # Get our own instance of Distribution
         from distutils.dist import Distribution
 
