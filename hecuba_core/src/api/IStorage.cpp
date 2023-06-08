@@ -348,7 +348,7 @@ void IStorage::extractMultiValuesFromQueryResult(void *query_result, void *value
     if (metas->size() == 1) {
         memcpy(valuetoreturn, valuetmp, attr_size);
     } else {
-        memcpy(valuetoreturn, &valuetmp, attr_size);
+        memcpy(valuetoreturn, &valuetmp, sizeof(char*));
     }
 }
 
