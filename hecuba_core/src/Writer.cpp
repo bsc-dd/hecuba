@@ -11,7 +11,11 @@ void Writer::async_query_thread_code() {
         while((ncallbacks < max_calls) && !data.empty()) {
             call_async();
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        if (data.empty()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1)); // TODO: Change this sleep for a synchronazation (semaphore)
+        } else { //Saturated... quick
+            std::this_thread::yield();
+        }
     }
 }
 
@@ -374,7 +378,7 @@ void Writer::wait_writes_completion(void) {
     flush_dirty_blocks();
     //std::cout<< "Writer::wait_writes_completion * Waiting for "<< data.size() << " Pending "<<ncallbacks<<" callbacks" <<" inflight"<<std::endl;
     while(!data.empty() || ncallbacks>0) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::yield();
     }
     //std::cout<< "Writer::wait_writes_completion2* Waiting for "<< data.size() << " Pending "<<ncallbacks<<" callbacks" <<" inflight"<<std::endl;
 }
