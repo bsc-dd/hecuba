@@ -58,7 +58,7 @@ class IStorage {
         const std::string& getName() const;
 
         std::shared_ptr<CacheTable>getDataAccess()const ;
-        void setCache(const CacheTable &cache);
+        void setCache(CacheTable &cache);
 
         void sync(void);
 
