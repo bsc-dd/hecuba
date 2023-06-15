@@ -164,6 +164,11 @@ Writer::~Writer() {
         cass_prepared_free(this->prepared_query);
         prepared_query = NULL;
     }
+    for(auto it: prepared_partial_queries) {
+        cass_prepared_free(it.second);
+        it.second = nullptr;
+    }
+
     if (this->topic_name) {
         free(this->topic_name);
         this->topic_name = NULL;
