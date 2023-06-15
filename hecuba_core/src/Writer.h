@@ -84,6 +84,7 @@ private:
 /** ownership **/
 
     const CassPrepared *prepared_query = nullptr;
+    std::map<const std::string, const CassPrepared*> prepared_partial_queries;
 
     TupleRowFactory *k_factory = nullptr;
     TupleRowFactory *v_factory = nullptr;

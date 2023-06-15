@@ -72,6 +72,23 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
     CHECK_CASS("writer cannot prepare: ");
     this->prepared_query = cass_future_get_prepared(future);
     cass_future_free(future);
+
+    // Prepare partial queries for all values
+
+    for (auto cm: *(table_meta->get_values()) ) {
+        const char* insert_q = table_metadata->get_partial_insert_query(cm.info["name"]);
+        CassFuture *future = nullptr;
+        try {
+            future = cass_session_prepare(session, insert_q);
+        } catch (std::exception &e) {
+            std::string msg(e.what());
+            msg += " Problem in execute " + std::string(insert_q);
+            throw ModuleException(msg);
+        }
+        CassError rc = cass_future_error_code(future);
+        CHECK_CASS("writer cannot prepare: ");
+        prepared_partial_queries[cm.info["name"]] = cass_future_get_prepared(future);
+    }
     this->data.set_capacity(buff_size);
     this->max_calls = (uint32_t) max_callbacks;
     this->ncallbacks = 0;
@@ -415,20 +432,8 @@ void Writer::async_query_execute(const TupleRow *keys, const TupleRow *values) {
         if (values->n_elem() > 1)
             throw ModuleException("async_query_execute: only supports 1 or all attributes write");
 
-        const CassPrepared *prepared_query;
         ColumnMeta cm = values->get_metadata_element(0);
-        const char* insert_q = table_metadata->get_partial_insert_query(cm.info["name"]);
-        CassFuture *future = nullptr;
-        try {
-            future = cass_session_prepare(session, insert_q);
-        } catch (std::exception &e) {
-            std::string msg(e.what());
-            msg += " Problem in execute " + std::string(insert_q);
-            throw ModuleException(msg);
-        }
-        CassError rc = cass_future_error_code(future);
-        CHECK_CASS("writer cannot prepare: ");
-        prepared_query = cass_future_get_prepared(future);
+        const CassPrepared *prepared_query = prepared_partial_queries[cm.info["name"]];
         statement = cass_prepared_bind(prepared_query);
         this->k_factory->bind(statement, keys, 0); //error
         TupleRowFactory * v_single_factory = new TupleRowFactory(table_metadata->get_single_value(cm.info["name"].c_str()));
