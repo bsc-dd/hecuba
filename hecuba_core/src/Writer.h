@@ -15,6 +15,7 @@
 
 #include "TimestampGenerator.h"
 #include "TupleRowFactory.h"
+#include "Semaphore.h"
 
 
 class Writer {
@@ -95,6 +96,8 @@ private:
 
     uint32_t max_calls;
     std::atomic<uint32_t> ncallbacks;
+    Semaphore* sempending_data;  // Synchronization semaphore to wait for new elements in 'data'
+    Semaphore* semmaxcallbacks; //Resource limiting Semaphore to limit the number of in_flight callbacks.
     std::atomic<uint32_t> error_count;
     const TableMetadata *table_metadata = nullptr;
 
