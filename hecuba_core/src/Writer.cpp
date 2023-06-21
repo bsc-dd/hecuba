@@ -8,6 +8,7 @@
 /* Thread to process the pending data to be sent to cassandra */
 void Writer::async_query_thread_code() {
     while(!finish_async_query_thread) {
+#if 0
         while((ncallbacks < max_calls) && !data.empty()) {
             call_async();
         }
@@ -16,6 +17,10 @@ void Writer::async_query_thread_code() {
         } else { //Saturated... quick
             std::this_thread::yield();
         }
+#else
+        sempending_data->acquire(); // Wait for pending data
+        call_async();
+#endif
     }
 }
 
@@ -97,7 +102,9 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
     this->lazy_write_enabled = false; // Disabled by default, will be enabled on ArrayDataStore
     this->dirty_blocks = new tbb::concurrent_hash_map <const TupleRow *, const TupleRow *, Writer::HashCompare >();
     this->finish_async_query_thread = false;
-    this->async_query_thread_created = false;
+    sempending_data = new Semaphore(0);
+    semmaxcallbacks = new Semaphore(max_callbacks);
+    this->async_query_thread = std::thread(&Writer::async_query_thread_code, this);
     this->topic_name = nullptr;
     this->topic = nullptr;
     this->producer = nullptr;
@@ -134,7 +141,6 @@ Writer& Writer::operator = (const Writer& src) {
     this->timestamp_gen = new TimestampGenerator();; // TimestampGenerator has a class attribute of type mutex which is not copy-assignable
     this->lazy_write_enabled = src.lazy_write_enabled;
     this->finish_async_query_thread = src.finish_async_query_thread;
-    this->async_query_thread_created = src.async_query_thread_created;
 
     //kafka is plain c code, it does not implement copy assignment semantic
     if (this->topic_name != nullptr){ free(this->topic_name); }
@@ -153,17 +159,21 @@ Writer& Writer::operator = (const Writer& src) {
 
 Writer::~Writer() {
     DBG( " WRITER: Destructor "<< ((topic_name!=nullptr)?topic_name:""));
-    if (this->async_query_thread_created){
-        wait_writes_completion(); // WARNING! It is necessary to wait for ALL CALLBACKS to finish, because the 'data' structure required by the callback will dissapear with this destructor
-        auto async_query_thread_id = this->async_query_thread.get_id();
-        this->finish_async_query_thread = true;
-        this->async_query_thread.join();
-        //std::cout<< " WRITER: Finished thread "<< async_query_thread_id << std::endl;
-    }
+    wait_writes_completion(); // WARNING! It is necessary to wait for ALL CALLBACKS to finish, because the 'data' structure required by the callback will dissapear with this destructor
+    sempending_data->release();// Unblock the async_query_thread (which does not have any work)
+    auto async_query_thread_id = this->async_query_thread.get_id();
+    this->finish_async_query_thread = true;
+    this->async_query_thread.join();
+    //std::cout<< " WRITER: Finished thread "<< async_query_thread_id << std::endl;
     if (this->prepared_query != NULL) {
         cass_prepared_free(this->prepared_query);
         prepared_query = NULL;
     }
+    for(auto it: prepared_partial_queries) {
+        cass_prepared_free(it.second);
+        it.second = nullptr;
+    }
+
     if (this->topic_name) {
         free(this->topic_name);
         this->topic_name = NULL;
@@ -176,6 +186,8 @@ Writer::~Writer() {
         rd_kafka_destroy(this->producer);
         this->producer = NULL;
     }
+    delete (this->sempending_data);
+    delete (this->semmaxcallbacks);
     delete (this->k_factory);
     delete (this->v_factory);
     delete (this->timestamp_gen);
@@ -360,6 +372,7 @@ void Writer::queue_async_query( const TupleRow *keys, const TupleRow *values) {
 
     //std::cout<< "  Writer::flushing item created pair"<<std::endl;
     data.push(item);
+    sempending_data->release(); //One more pending msg
 }
 
 void Writer::flush_dirty_blocks() {
@@ -405,6 +418,7 @@ void Writer::callback(CassFuture *future, void *ptr) {
     void **data = reinterpret_cast<void **>(ptr);
     assert(data != NULL && data[0] != NULL);
     Writer *W = (Writer *) data[0];
+    W->semmaxcallbacks->release(); // Limit number of callbacks
 
     //std::cout<< "Writer::callback"<< std::endl;
     CassError rc = cass_future_error_code(future);
@@ -450,6 +464,8 @@ void Writer::async_query_execute(const TupleRow *keys, const TupleRow *values) {
         cass_statement_set_timestamp(statement, keys->get_timestamp());
     }
 
+    semmaxcallbacks->acquire(); // Limit number of callbacks
+
     CassFuture *query_future = cass_session_execute(session, statement);
     cass_statement_free(statement);
 
@@ -494,16 +510,6 @@ void Writer::disable_lazy_write(void) {
 
 void Writer::write_to_cassandra(const TupleRow *keys, const TupleRow *values) {
 
-    this->async_query_thread_lock.lock();
-    //std::cout<< " WRITER: write_to_cassandra" << std::endl;
-    if (this->async_query_thread_created == false) {
-        this->async_query_thread_created = true;
-        this->async_query_thread_lock.unlock();
-        this->async_query_thread = std::thread(&Writer::async_query_thread_code, this);
-        //std::cout<< " WRITER: Created thread "<< this->async_query_thread.get_id() << std::endl;
-    } else {
-        this->async_query_thread_lock.unlock();
-    }
     if (lazy_write_enabled) {
         //put into dirty_blocks. Skip the repeated 'keys' requests replacing the value.
         tbb::concurrent_hash_map <const TupleRow*, const TupleRow*, Writer::HashCompare>::accessor a;

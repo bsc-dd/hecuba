@@ -15,6 +15,7 @@
 
 #include "TimestampGenerator.h"
 #include "TupleRowFactory.h"
+#include "Semaphore.h"
 
 
 class Writer {
@@ -95,6 +96,8 @@ private:
 
     uint32_t max_calls;
     std::atomic<uint32_t> ncallbacks;
+    Semaphore* sempending_data;  // Synchronization semaphore to wait for new elements in 'data'
+    Semaphore* semmaxcallbacks; //Resource limiting Semaphore to limit the number of in_flight callbacks.
     std::atomic<uint32_t> error_count;
     const TableMetadata *table_metadata = nullptr;
 
@@ -106,8 +109,6 @@ private:
     void async_query_execute(const TupleRow *keys, const TupleRow *values);
     void queue_async_query( const TupleRow *keys, const TupleRow *values);
     static void callback(CassFuture *future, void *ptr);
-    std::mutex async_query_thread_lock;
-    bool async_query_thread_created;
     void async_query_thread_code();
     bool finish_async_query_thread;
     std::thread async_query_thread;
