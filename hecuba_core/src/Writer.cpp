@@ -160,9 +160,9 @@ Writer& Writer::operator = (const Writer& src) {
 Writer::~Writer() {
     DBG( " WRITER: Destructor "<< ((topic_name!=nullptr)?topic_name:""));
     wait_writes_completion(); // WARNING! It is necessary to wait for ALL CALLBACKS to finish, because the 'data' structure required by the callback will dissapear with this destructor
+    this->finish_async_query_thread = true; // Mark the async thread to finish BEFORE unblocking it.
     sempending_data->release();// Unblock the async_query_thread (which does not have any work)
     auto async_query_thread_id = this->async_query_thread.get_id();
-    this->finish_async_query_thread = true;
     this->async_query_thread.join();
     //std::cout<< " WRITER: Finished thread "<< async_query_thread_id << std::endl;
     if (this->prepared_query != NULL) {
