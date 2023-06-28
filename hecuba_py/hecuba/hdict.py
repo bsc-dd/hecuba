@@ -1,6 +1,7 @@
 import uuid
-from collections import Iterable, defaultdict
-from collections import Mapping
+from collections.abc import Iterable #Since python3.10
+from collections import defaultdict
+from collections.abc import Mapping #Since python3.10
 from collections import namedtuple
 
 from cassandra import OperationTimedOut
