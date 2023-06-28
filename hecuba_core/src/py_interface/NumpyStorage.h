@@ -3,6 +3,7 @@
 
 #include "../ArrayDataStore.h"
 #include "../MetaManager.h"
+#define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <climits>
 

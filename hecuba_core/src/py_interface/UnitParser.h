@@ -1,6 +1,7 @@
 #ifndef HFETCH_UNITPARSER_H
 #define HFETCH_UNITPARSER_H
 
+#define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
 #include <cassert>
