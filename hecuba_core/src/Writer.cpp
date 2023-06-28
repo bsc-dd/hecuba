@@ -1,5 +1,6 @@
 #include "Writer.h"
 #include "debug.h"
+#include "unistd.h"
 
 #define default_writer_buff 1000
 #define default_writer_callbacks 16

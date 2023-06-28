@@ -1,5 +1,6 @@
 #include "CacheTable.h"
 #include "debug.h"
+#include "unistd.h"
 
 #define default_cache_size 0
 
