@@ -13,14 +13,19 @@ Non-relational databases are nowadays a common solution when dealing with a huge
 + [Apache Cassandra](https://github.com/apache/cassandra) >= 4.0
 + [Kafka](https://kafka.apache.org) >= 2.13
 
-### Auto-downloaded dependencies (during the installation process):
-#### python dependencies
+### Python dependencies
 + numpy library >= 1.16
 + Cassandra driver for python >= 3.7.1
 + nose >= 1.3.7
 + ccm
 + mock
-#### c++ dependencies
+
+Install them using:
+```bash
+pip install -r requirements.txt
+```
+
+### C++ dependencies (Auto-downloaded during the installation process)
 + [Cassandra driver for C++](https://github.com/datastax/cpp-driver) >= 2.14.1
 + [Intel Threading Building Blocks (libTBB)](https://github.com/01org/tbb) >= 2020.0
 + [libuv](https://github.com/libuv/libuv) >= 1.11.0
@@ -51,7 +56,7 @@ cd hecuba_repo
 ```
 
 Then it is only necessary to run the `setup.py` Python script, which performs all the steps to compile and install Hecuba in the system. Notice that Hecuba is composed by Python code and C++ code. The `setup.py` script takes care of both, on the one hand, compiles the C++ Hecuba code and its dependencies and installs their C++ header files and generated libraries; and on the other hand, installs the Python package.
-The parameters passed to the `setup.py` script indicates what to do (build or install) and  where to install Hecuba and its dependencies:
+The parameters passed to the `setup.py` script indicates what to do (build or install) and  where to install Hecuba and its dependencies.
 
 ### Compilation
 
