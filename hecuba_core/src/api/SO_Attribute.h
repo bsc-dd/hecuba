@@ -59,11 +59,13 @@ public:
     SO_Attribute &operator = (const T& value) {
         DBG("SO_Attribute: operator " << this << " = with const value on [" <<name<<"] " );
         assignment<T>(value);
+        return *this;
     }
 
     SO_Attribute &operator = (T& value) {
         DBG("SO_Attribute: operator " << this << " = value on [" <<name<<"] " );
         assignment<T>(value);
+        return *this;
     }
 
     SO_Attribute &operator = (SO_Attribute<T>& attr_to_copy) {
