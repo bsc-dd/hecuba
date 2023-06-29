@@ -1,6 +1,7 @@
 #include "StorageInterface.h"
 #include "debug.h"
 #include <climits>
+#include "HecubaExtrae.h"
 
 #define default_io_threads 2
 #define default_low_watermark 20000
@@ -42,8 +43,10 @@ StorageInterface::StorageInterface(int nodePort, std::string contact_points) {
 
 
     // Provide the cluster object as configuration to connect the session
+    HecubaExtrae_event(HECUBACASS, HBCASS_CONNECT);
     connect_future = cass_session_connect(session, cluster);
     CassError rc = cass_future_error_code(connect_future);
+    HecubaExtrae_event(HECUBACASS, HBCASS_END);
     if (rc != CASS_OK) {
         std::string msg(cass_error_desc(rc));
         const char *dmsg;
@@ -190,11 +193,13 @@ void StorageInterface::query_tokens( const char * peer, const char* tokens, cons
         std::cerr<< "query_tokens ooops setting host "<< node << ":"<<nodePort<<std::endl;
         exit(1);
     }
+    HecubaExtrae_event(HECUBACASS, HBCASS_READ);
 	CassFuture* query_future = cass_session_execute(session, statement);
 
     cass_statement_free(statement);
 
     const CassResult* result = cass_future_get_result(query_future);
+    HecubaExtrae_event(HECUBACASS, HBCASS_END);
     if (result == NULL) {
         const char* error_message;
         size_t error_message_length;

@@ -3,6 +3,7 @@
 #include "IStorage.h"
 #include "Hecuba_StorageObject.h"
 #include "debug.h"
+#include "HecubaExtrae.h"
 
 
 //class StorageObject; // forward declaration
@@ -13,22 +14,28 @@ class SO_Attribute {
 public:
     //SO_Attribute<T>(IStorage *so, std::string name){
     SO_Attribute<T>(StorageObject *so, const std::string& name){
+        HecubaExtrae_event(HECUBAEV, HECUBA_SO_ATTR|HECUBA_INSTANTIATION);
         DBG("SO_Attribute::constructor "<<this<< " with name ["<<name<<"] and StorageObj "<< so );
         this->so = so;
         this->name = name;
         so->addAttrSpec(typeid(T).name(), name);
+        HecubaExtrae_event(HECUBAEV, HECUBA_END);
     }
     SO_Attribute() = delete;
 
     SO_Attribute(const T& value) {
+        HecubaExtrae_event(HECUBAEV, HECUBA_SO_ATTR|HECUBA_INSTANTIATION);
         DBG( "SO_Attribute::constructor "<<this<< " with type "<< typeid(T).name() );
         this->attr_value = value;
         // if this case possible? to call to this constructor from the StorageObject constructor?
+        HecubaExtrae_event(HECUBAEV, HECUBA_END);
     }
 
     SO_Attribute(SO_Attribute& attr_to_copy) {
+        HecubaExtrae_event(HECUBAEV, HECUBA_SO_ATTR|HECUBA_INSTANTIATION);
         DBG( "SO_Attribute::copy constructor " << this << " from "<< &attr_to_copy );
         *this = attr_to_copy;
+        HecubaExtrae_event(HECUBAEV, HECUBA_END);
     }
 
     /////////////////////////////////// MEGA TRICK BEGINs HERE ///////////////////////
@@ -57,14 +64,18 @@ public:
     }
 
     SO_Attribute &operator = (const T& value) {
+        HecubaExtrae_event(HECUBAEV, HECUBA_SO|HECUBA_WRITE);
         DBG("SO_Attribute: operator " << this << " = with const value on [" <<name<<"] " );
         assignment<T>(value);
+        HecubaExtrae_event(HECUBAEV, HECUBA_END);
         return *this;
     }
 
     SO_Attribute &operator = (T& value) {
+        HecubaExtrae_event(HECUBAEV, HECUBA_SO|HECUBA_WRITE);
         DBG("SO_Attribute: operator " << this << " = value on [" <<name<<"] " );
         assignment<T>(value);
+        HecubaExtrae_event(HECUBAEV, HECUBA_END);
         return *this;
     }
 
@@ -73,12 +84,16 @@ public:
         if (this == &attr_to_copy) return *this;
         // if attr_to_copy has a so and it is not initialized we have to read it from cassandra. Finally we copy the value from memory
         if (attr_to_copy.so != nullptr) {
+            HecubaExtrae_event(HECUBAEV, HECUBA_SO|HECUBA_READ);
             attr_to_copy.read_from_cassandra(); // read_from_cassanddra: if T is a IStorage attr_to_copy.attr_value will contain the instance of the IStorage. It's ok.
+            HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
         attr_value = attr_to_copy.attr_value;
         name = attr_to_copy.name;
         if (so != nullptr) {
+            HecubaExtrae_event(HECUBAEV, HECUBA_SO|HECUBA_WRITE);
             this->send_to_cassandra(attr_value);
+            HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 
         return *this;
@@ -88,7 +103,9 @@ public:
     operator T&() {
         DBG( "SO_Attribute::casting "<< name<< " to ["<< typeid(T).name() << "]");
         if (so != nullptr){
+            HecubaExtrae_event(HECUBAEV, HECUBA_SO|HECUBA_READ);
             read_from_cassandra();
+            HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
         return attr_value;
     };
@@ -167,8 +184,10 @@ public:
         so->setAttr(name,(void *)cast2IStorageBuffer(value)); // TRICK: We need to static_cast to IStorage to be able to find the base class due to the 'virtual'
     }
     ~SO_Attribute() {
+        HecubaExtrae_event(HECUBAEV, HECUBA_SO_ATTR|HECUBA_DESTROY);
         DBG("SO_Attribute::destructor [" <<name<<"] "<< this );
         so = nullptr;
+        HecubaExtrae_event(HECUBAEV, HECUBA_END);
     }
 
     private:

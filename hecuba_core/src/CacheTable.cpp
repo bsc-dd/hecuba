@@ -1,6 +1,7 @@
 #include "CacheTable.h"
 #include "debug.h"
 #include "unistd.h"
+#include "HecubaExtrae.h"
 
 #define default_cache_size 0
 
@@ -45,6 +46,7 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
 
 
     /** Parse names **/
+    HecubaExtrae_event(HECUBACASS, HBCASS_PREPARES);
     CassFuture *future = cass_session_prepare(session, table_meta->get_select_query());
     CassError rc = cass_future_error_code(future);
     CHECK_CASS("CacheTable: Select row query preparation failed");
@@ -55,6 +57,7 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
     this->delete_query = cass_future_get_prepared(future);
     CHECK_CASS("CacheTable: Delete row query preparation failed");
     cass_future_free(future);
+    HecubaExtrae_event(HECUBACASS, HBCASS_END);
     this->myCache = NULL;
     this->session = session;
     this->table_metadata = table_meta;
@@ -62,13 +65,17 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
     this->keys_factory = new TupleRowFactory(table_meta->get_keys());
     this->values_factory = new TupleRowFactory(table_meta->get_values());
     this->row_factory = new TupleRowFactory(table_meta->get_items());
+    HecubaExtrae_event(HECUBADBG, HECUBA_TIMESTAMPGENERATOR);
     this->timestamp_gen = new TimestampGenerator();
     this->writer->set_timestamp_gen(this->timestamp_gen);
+    HecubaExtrae_event(HECUBADBG, HECUBA_END);
     this->topic_name = nullptr;
     this->consumer = nullptr;
     this->kafka_conf = nullptr;
 
+    HecubaExtrae_event(HECUBADBG, HECUBA_KVCACHE);
     if (cache_size) this->myCache = new KVCache<TupleRow, TupleRow>(cache_size);
+    HecubaExtrae_event(HECUBADBG, HECUBA_END);
 };
 
 CacheTable::CacheTable(const CacheTable& src) {
@@ -453,8 +460,10 @@ std::vector<const TupleRow *> CacheTable::retrieve_from_cassandra(const TupleRow
 
     this->keys_factory->bind(statement, keys, 0);
 
+    HecubaExtrae_event(HECUBACASS, HBCASS_READ);
     CassFuture *query_future = cass_session_execute(session, statement);
     const CassResult *result = cass_future_get_result(query_future);
+    HecubaExtrae_event(HECUBACASS, HBCASS_END);
     CassError rc = cass_future_error_code(query_future);
     if (result == NULL) {
         /* Handle error */
@@ -539,8 +548,10 @@ void CacheTable::delete_crow(const TupleRow *keys) {
     if (disable_timestamps) this->writer->flush_elements();
     else cass_statement_set_timestamp(statement, timestamp_gen->next()); // Set delete time
 
+    HecubaExtrae_event(HECUBACASS, HBCASS_DELETE);
     CassFuture *query_future = cass_session_execute(session, statement);
     const CassResult *result = cass_future_get_result(query_future);
+    HecubaExtrae_event(HECUBACASS, HBCASS_END);
     CassError rc = cass_future_error_code(query_future);
     if (result == NULL) {
         /* Handle error */

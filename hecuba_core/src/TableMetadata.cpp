@@ -1,5 +1,6 @@
 #include "TableMetadata.h"
 #include <unistd.h>
+#include "HecubaExtrae.h"
 
 /***
  * Returns the allocation number of bytes required to allocate a type of data
@@ -210,6 +211,7 @@ std::map<std::string, ColumnMeta> TableMetadata::getMetaTypes(CassIterator *iter
 }
 
 const CassTableMeta *TableMetadata::getCassTableMeta(const CassSession * session) {
+    HecubaExtrae_event(HECUBACASS, HBCASS_META);
     const CassSchemaMeta *schema_meta = cass_session_get_schema_meta(session);
     if (!schema_meta) {
         std::string error_msg = "TableMetadata constructor: Cassandra schema doesn't exist, probably not connected...";
@@ -226,6 +228,7 @@ const CassTableMeta *TableMetadata::getCassTableMeta(const CassSession * session
 
     const CassTableMeta *table_meta = cass_keyspace_meta_table_by_name(keyspace_meta, this->table.c_str());
     cass_schema_meta_free(schema_meta);
+    HecubaExtrae_event(HECUBACASS, HBCASS_END);
 
     return table_meta;
 }
