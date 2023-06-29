@@ -7,7 +7,7 @@ set(CORE_SRC_DIR "${CMAKE_SOURCE_DIR}/src")
 
 # Default Options
 option(USE_ARROW  "Enable ARROW support" FALSE)
-option(USE_EXTRAE "Enable EXTRAE support" TRUE)
+option(USE_EXTRAE "Enable EXTRAE support" FALSE)
 
 # CMAKE_BUILD_PARALLEL_LEVEL controls the level of parallelism, use it for Make also
 message(STATUS "===> CMAKE_BUILD_PARALLEL_LEVEL=$ENV{CMAKE_BUILD_PARALLEL_LEVEL}")
@@ -160,7 +160,7 @@ if (USE_EXTRAE)
         message("EXTRAE NOT FOUND")
     else ()
         message(STATUS "Using system's EXTRAE Library: " ${EXTRAE})
-        set(ALL_LIBS ${ALL_LIBS} ${EXTRAE}/lib/libseqtrace.so)
+        set(ALL_LIBS ${ALL_LIBS} ${EXTRAE}/lib/libpttrace.so)
         include_directories(${EXTRAE}/include)
 
         add_compile_definitions(EXTRAE)    # Define EXTRAE preprocessor macro to enable extrae use

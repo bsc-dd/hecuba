@@ -1,6 +1,7 @@
 #include "Writer.h"
 #include "debug.h"
 #include "unistd.h"
+#include "HecubaExtrae.h"
 
 #define default_writer_buff 1000
 #define default_writer_callbacks 16
@@ -8,6 +9,7 @@
 
 /* Thread to process the pending data to be sent to cassandra */
 void Writer::async_query_thread_code() {
+    HecubaExtrae_event(HECUBADBG, HECUBA_ASYNCTHREAD);
     while(!finish_async_query_thread) {
 #if 0
         while((ncallbacks < max_calls) && !data.empty()) {
@@ -19,10 +21,16 @@ void Writer::async_query_thread_code() {
             std::this_thread::yield();
         }
 #else
+
+        HecubaExtrae_event(HECUBATHREADASYNC, 1);
+        //std::cout<< "Writer::async_query_thread_code "<< std::this_thread::get_id() << " waits..." << std::endl;
         sempending_data->acquire(); // Wait for pending data
+        //std::cout<< "Writer::async_query_thread_code "<< std::this_thread::get_id() << " awakes..." << std::endl;
+        HecubaExtrae_event(HECUBATHREADASYNC, 0);
         call_async();
 #endif
     }
+    HecubaExtrae_event(HECUBADBG, HECUBA_END);
 }
 
 
@@ -73,6 +81,7 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
     this->k_factory = new TupleRowFactory(table_meta->get_keys());
     this->v_factory = new TupleRowFactory(table_meta->get_values());
 
+    HecubaExtrae_event(HECUBACASS, HBCASS_PREPARES);
     CassFuture *future = cass_session_prepare(session, table_meta->get_insert_query());
     CassError rc = cass_future_error_code(future);
     CHECK_CASS("writer cannot prepare: ");
@@ -95,6 +104,7 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
         CHECK_CASS("writer cannot prepare: ");
         prepared_partial_queries[cm.info["name"]] = cass_future_get_prepared(future);
     }
+    HecubaExtrae_event(HECUBACASS, HBCASS_END);
     this->data.set_capacity(buff_size);
     this->max_calls = (uint32_t) max_callbacks;
     this->ncallbacks = 0;
@@ -103,9 +113,13 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
     this->lazy_write_enabled = false; // Disabled by default, will be enabled on ArrayDataStore
     this->dirty_blocks = new tbb::concurrent_hash_map <const TupleRow *, const TupleRow *, Writer::HashCompare >();
     this->finish_async_query_thread = false;
+    HecubaExtrae_event(HECUBADBG, HECUBA_CREATEASYNCTHREAD);
     sempending_data = new Semaphore(0);
     semmaxcallbacks = new Semaphore(max_callbacks);
+    HecubaExtrae_event(HECUBADBG, HECUBA_END);
+    HecubaExtrae_event(HECUBADBG, HECUBA_CREATEASYNCTHREAD);
     this->async_query_thread = std::thread(&Writer::async_query_thread_code, this);
+    HecubaExtrae_event(HECUBADBG, HECUBA_END);
     this->topic_name = nullptr;
     this->topic = nullptr;
     this->producer = nullptr;
@@ -406,11 +420,13 @@ bool Writer::is_write_completed() {
 
 // wait for callbacks execution for all sent write requests
 void Writer::wait_writes_completion(void) {
+    HecubaExtrae_event(HECUBADBG, HECUBA_FLUSHELEMENTS);
     flush_dirty_blocks();
     //std::cout<< "Writer::wait_writes_completion * Waiting for "<< data.size() << " Pending "<<ncallbacks<<" callbacks" <<" inflight"<<std::endl;
     while(!data.empty() || ncallbacks>0) {
         std::this_thread::yield();
     }
+    HecubaExtrae_event(HECUBADBG, HECUBA_END);
     //std::cout<< "Writer::wait_writes_completion2* Waiting for "<< data.size() << " Pending "<<ncallbacks<<" callbacks" <<" inflight"<<std::endl;
 }
 
@@ -435,6 +451,7 @@ void Writer::callback(CassFuture *future, void *ptr) {
         delete ((TupleRow *) data[2]);
         W->ncallbacks--;
     }
+    HecubaExtrae_comm(EXTRAE_USER_RECV, (long long int)ptr);
     free(data);
 }
 
@@ -467,13 +484,20 @@ void Writer::async_query_execute(const TupleRow *keys, const TupleRow *values) {
 
     semmaxcallbacks->acquire(); // Limit number of callbacks
 
-    CassFuture *query_future = cass_session_execute(session, statement);
-    cass_statement_free(statement);
-
+    HecubaExtrae_event(HECUBACASS, HBCASS_SENDDRIVER);
     const void **data = (const void **) malloc(sizeof(void *) * 3);
     data[0] = this;
     data[1] = keys;
     data[2] = values;
+#ifdef EXTRAE
+    HecubaExtrae_comm(EXTRAE_USER_SEND, (long long int)data); // parameter is used to  identify the callback
+#endif /* EXTRAE */
+    CassFuture *query_future = cass_session_execute(session, statement);
+    HecubaExtrae_event(HECUBACASS, HBCASS_END);
+
+
+    cass_statement_free(statement);
+
 
     cass_future_set_callback(query_future, callback, data);
     cass_future_free(query_future);

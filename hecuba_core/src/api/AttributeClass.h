@@ -26,6 +26,7 @@ class AttributeClass {
         }
 
         ~AttributeClass() {
+            HecubaExtrae_event(HECUBAEV, HECUBA_ATTRCLASS|HECUBA_DESTROY);
             if (valuesBuffer != nullptr) {
                 free(valuesBuffer);
                 valuesBuffer = nullptr;
@@ -34,9 +35,11 @@ class AttributeClass {
                 free(pendingKeysBuffer);
                 pendingKeysBuffer = nullptr;
             }
+            HecubaExtrae_event(HECUBAEV, HECUBA_END);
         };
         // Constructor called when instantiating a new value with parameters: MyValueClass v(value);
         AttributeClass(std::string attrBaseName, const V1& part, rest... vals) {
+            HecubaExtrae_event(HECUBAEV, HECUBA_ATTRCLASS|HECUBA_INSTANTIATION);
             //DEBUG("Number of clustering keys: "<<sizeof...(values)<<std::endl);
             // first element is the partition key, the rest of elements are clustering keys
             // only basic classes are suported
@@ -44,9 +47,11 @@ class AttributeClass {
             manageRest(attrBaseName,vals...);
             createValuesBuffer();
             values=std::make_tuple(part, vals...);
+            HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 
         AttributeClass& operator = (const AttributeClass& a) {
+            HecubaExtrae_event(HECUBAEV, HECUBA_ATTRCLASS|HECUBA_ASSIGNMENT);
             std::cout << "Copy constructor Attribute Class" << std::endl;
             valuesDesc = a.valuesDesc;
             managedValues = a.managedValues;
@@ -62,6 +67,7 @@ class AttributeClass {
             }	
             values = a.values;
 
+            HecubaExtrae_event(HECUBAEV, HECUBA_END);
             return *this;
         }
 

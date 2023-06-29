@@ -38,6 +38,7 @@
 #define HBCASS_CONNECT          0x6
 #define HBCASS_META             0x7
 #define HBCASS_PREPARES         0x8
+#define HBCASS_SENDDRIVER       0x9
 
 // HECUBADBG: Type to trace specific hecuba events
 #define HECUBADBG    44000
@@ -46,6 +47,14 @@
 #define HECUBA_KVCACHE          0x2
 #define HECUBA_REGISTER         0x3
 #define HECUBA_SESSION          0x4
+#define HECUBA_FLUSHELEMENTS    0x5
+#define HECUBA_WRITEPYTHONSPEC  0x6
+#define HECUBA_WRITEPYTHONSPEC  0x6
+#define HECUBA_TIMESTAMPGENERATOR 0x7
+#define HECUBA_CREATEASYNCTHREAD 0x8
+#define HECUBA_ASYNCTHREAD      0x9
+
+#define HECUBATHREADASYNC    45000
 
 #ifdef EXTRAE
 #include <extrae.h>

@@ -6,6 +6,7 @@
 #include "HecubaSession.h"
 #include "debug.h"
 #include "ObjSpec.h"
+#include "HecubaExtrae.h"
 
 //class HecubaSession; //Forward declaration
 

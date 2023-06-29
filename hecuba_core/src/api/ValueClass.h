@@ -10,6 +10,7 @@
 #include "debug.h"
 #include "IStorage.h"
 #include "AttributeClass.h"
+#include "HecubaExtrae.h"
 
 
 
@@ -23,16 +24,20 @@ class ValueClass:public AttributeClass<V1,rest...>{
 
         // Constructor called when instantiating a new value with parameters: MyValueClass v(value);
         ValueClass(const V1& part, rest... vals):AttributeClass<V1,rest...>("valuename",part,vals...) {
+            HecubaExtrae_event(HECUBAEV, HECUBA_SD_VALUE|HECUBA_INSTANTIATION);
+            HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 
         // Constructor called when assigning another value during the instatiation: MyValueClass v = otherValue or MyValueClass v = d[k]
         ValueClass(const ValueClass& w): AttributeClass<V1,rest...>(w){
+            HecubaExtrae_event(HECUBAEV, HECUBA_SD_VALUE|HECUBA_INSTANTIATION);
             if (w.pendingKeysBuffer != nullptr) {
                 // case myvalueclass v =d[k]
                 complete_reading();
 
             } 
             // case else myvalueclass v = j copy constructor implemented in the AttributeClass copy constructor
+            HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 
         void complete_reading() {
@@ -49,6 +54,7 @@ class ValueClass:public AttributeClass<V1,rest...>{
 
         //Constructor called by the operator [] of StorageDict
         ValueClass(IStorage *sd,char *keysBuffer, int bufferSize):AttributeClass<V1,rest...>() {
+            HecubaExtrae_event(HECUBAEV, HECUBA_SD_VALUE|HECUBA_SELECTOR);
             this->sd = sd;
             this->pendingKeysBuffer = (char *) malloc(bufferSize);
             this->pendingKeysBufferSize = bufferSize;
@@ -57,11 +63,13 @@ class ValueClass:public AttributeClass<V1,rest...>{
             this->managedValues=this->valuesDesc.size();
             this->valuesBuffer=nullptr;
             memcpy(this->pendingKeysBuffer, keysBuffer, bufferSize);
+            HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 
         ValueClass &operator = (ValueClass & w) {
             //  case v=sd[k]
             if (w.pendingKeysBuffer != nullptr) {
+                HecubaExtrae_event(HECUBAEV, HECUBA_SD|HECUBA_READ);
                 this->sd=w.sd;
                 this->total_size=w.total_size;
                 this->managedValues = w.managedValues;
@@ -85,6 +93,7 @@ class ValueClass:public AttributeClass<V1,rest...>{
 
             } else {
                 //  case sd[k]=v;
+                HecubaExtrae_event(HECUBAEV, HECUBA_SD|HECUBA_WRITE);
                 if (this->pendingKeysBuffer != nullptr) {
                     this->sd->setItem(this->pendingKeysBuffer,w.valuesBuffer);
                     free(this->pendingKeysBuffer);
@@ -99,6 +108,7 @@ class ValueClass:public AttributeClass<V1,rest...>{
                     this->values = w.values;
                 } 
             }
+            HecubaExtrae_event(HECUBAEV, HECUBA_END);
 
             return *this;
 
@@ -106,7 +116,9 @@ class ValueClass:public AttributeClass<V1,rest...>{
         template <std::size_t ix, class ...Types> static typename std::tuple_element<ix, std::tuple<Types...>>::type& get(ValueClass<Types...>&v){
             //if we come from d[k], we have to complete the getitem started at the operator []
             if (v.valuesBuffer == nullptr) {
+                HecubaExtrae_event(HECUBAEV, HECUBA_SD|HECUBA_READ);
                 v.complete_reading();
+                HecubaExtrae_event(HECUBAEV, HECUBA_END);
             }
             return std::get<ix>(v.values);
         }

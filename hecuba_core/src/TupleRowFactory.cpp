@@ -1,5 +1,6 @@
 #include "TupleRowFactory.h"
 #include "debug.h"
+#include "HecubaExtrae.h"
 
 // StringValue is used for easy comparing numpy metas
 enum StringValue {
@@ -32,6 +33,7 @@ static void initialize_mapStringValues()
  * @param table_meta Holds the table information
  */
 TupleRowFactory::TupleRowFactory(std::shared_ptr<const std::vector<ColumnMeta> > row_info) {
+    HecubaExtrae_event(HECUBADBG, HECUBA_TUPLEROWFACTORY);
     this->metadata = row_info;
     this->total_bytes = 0;
     if (row_info->end() != row_info->begin()) {
@@ -39,6 +41,7 @@ TupleRowFactory::TupleRowFactory(std::shared_ptr<const std::vector<ColumnMeta> >
         total_bytes = last_element->position + last_element->size;
     }
 	initialize_mapStringValues();
+    HecubaExtrae_event(HECUBADBG, HECUBA_END);
 }
 
 

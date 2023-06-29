@@ -11,6 +11,7 @@
 #include "ValueClass.h"
 #include "UUID.h"
 #include "StorageNumpy.h"
+#include "HecubaExtrae.h"
 
 // C should be the class defined by the user
 // HecubaSession s; --> should be called just once in the user code and then shoul be accessible from all IStorages. How?
@@ -42,23 +43,32 @@ class StorageDict:virtual public IStorage {
         }
 
         StorageDict() {
+            HecubaExtrae_event(HECUBAEV, HECUBA_SD|HECUBA_INSTANTIATION);
             std::cout << "StorageDict:: default constructor this "<< this <<std::endl;
             initObjSpec();
+            HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
         StorageDict(const StorageDict<K,V,C>& sdsrc) {
+            HecubaExtrae_event(HECUBAEV, HECUBA_SD|HECUBA_INSTANTIATION);
             std::cout << "StorageDict:: copy constructor this "<< this << " from "<< &sdsrc << std::endl;
             *this = sdsrc;
+            HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 
 
         // c++ only calls implicitly the constructor without parameters. To invoke this constructor we need to add to the user class an explicit call to this
         StorageDict(const std::string& name) {
+            HecubaExtrae_event(HECUBAEV, HECUBA_SD|HECUBA_INSTANTIATION);
             initObjSpec();
             id_obj=name;
             pending_to_persist=true;
+            HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 
-        ~StorageDict() {}
+        ~StorageDict() {
+            HecubaExtrae_event(HECUBAEV, HECUBA_SD|HECUBA_DESTROY);
+            HecubaExtrae_event(HECUBAEV, HECUBA_END);
+        }
 
 
         // sd[k] = v or v = sd[k] 
@@ -71,6 +81,7 @@ class StorageDict:virtual public IStorage {
 
         //copy assignment
         StorageDict<K,V,C> &operator = (const StorageDict<K,V,C> &sdsrc){
+            HecubaExtrae_event(HECUBAEV, HECUBA_SD|HECUBA_ASSIGNMENT);
             std::cout<< "StorageDict : operator =" << std::endl;
             if (this != &sdsrc) {
                 this->IStorage::operator=(sdsrc); //Inherit IStorage attributes
@@ -79,6 +90,7 @@ class StorageDict:virtual public IStorage {
                 clusteringKeys = sdsrc.clusteringKeys;
                 valuesDesc = sdsrc.valuesDesc;
             }
+            HecubaExtrae_event(HECUBAEV, HECUBA_END);
             return *this;
         }
 
@@ -133,7 +145,9 @@ class StorageDict:virtual public IStorage {
                 oType.getKeysStr() + std::string(", ") +
                 oType.getColsStr() +
                 std::string(")");
+            HecubaExtrae_event(HECUBACASS, HBCASS_SYNCWRITE);
             CassError rc = getCurrentSession().run_query(insquery);
+            HecubaExtrae_event(HECUBACASS, HBCASS_END);
             if (rc != CASS_OK) {
                 std::string msg = std::string("StorageDict::persist_metadata: Error executing query ") + insquery;
                 throw ModuleException(msg);
@@ -274,13 +288,19 @@ class StorageDict:virtual public IStorage {
             std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
             CacheTable *reader = getCurrentSession().getStorageInterface()->make_cache(this->getTableName().c_str(),
                     getCurrentSession().config["execution_name"].c_str(), *keyNamesDict, *colNamesDict, getCurrentSession().config);
+            HecubaExtrae_event(HECUBADBG, HECUBA_REGISTER);
             this->setCache(*reader);
+            HecubaExtrae_event(HECUBADBG, HECUBA_END);
 
             delete keyNamesDict;
             delete colNamesDict;
+            HecubaExtrae_event(HECUBADBG, HECUBA_REGISTER);
             bool new_element=getCurrentSession().registerObject(getDataAccess(),getClassName());
+            HecubaExtrae_event(HECUBADBG, HECUBA_END);
             if (new_element){
+            HecubaExtrae_event(HECUBADBG, HECUBA_REGISTER);
                 writePythonSpec();
+            HecubaExtrae_event(HECUBADBG, HECUBA_END);
             }
 
         }
@@ -295,6 +315,7 @@ class StorageDict:virtual public IStorage {
 
         /* Iterators */
         struct keysIterator {
+            // TODO : instrument this struct (destroy should finish the instrumentation)
             using iterator_category = std::input_iterator_tag;
             using difference_type   = std::ptrdiff_t;   // Is it really needed?
             //using value_type        = TupleRow;

@@ -1,4 +1,5 @@
 #include "Prefetch.h"
+#include "HecubaExtrae.h"
 
 #define MAX_TRIES 10
 #define default_prefetch_size 100
@@ -48,6 +49,7 @@ Prefetch::Prefetch(const std::vector<std::pair<int64_t, int64_t>> &token_ranges,
 
     this->tokens = token_ranges;
     this->completed = false;
+
     CassFuture *future = cass_session_prepare(session, query);
     CassError rc = cass_future_error_code(future);
     CHECK_CASS("prefetch cannot prepare query:" + std::string(query));
@@ -118,7 +120,9 @@ void Prefetch::consume_tokens() {
         CassStatement *statement = cass_prepared_bind(this->prepared_query);
         cass_statement_bind_int64(statement, 0, range.first);
         cass_statement_bind_int64(statement, 1, range.second);
+        HecubaExtrae_event(HECUBACASS, HBCASS_READ);
         CassFuture *future = cass_session_execute(session, statement);
+        HecubaExtrae_event(HECUBACASS, HBCASS_END);
         cass_statement_free(statement);
 
         const CassResult *result = NULL;

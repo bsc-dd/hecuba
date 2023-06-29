@@ -7,9 +7,7 @@
 
 #include "debug.h"
 
-#ifdef EXTRAE
-#include <extrae.h>
-#endif /* EXTRAE */
+#include "HecubaExtrae.h"
 
 #include <cstdlib>
 #include <vector>
@@ -277,6 +275,8 @@ void HecubaSession::createSchema(void) {
         std::string(" WITH replication = ") +  config["replication"];
     queries.push_back(create_keyspace);
 
+
+    HecubaExtrae_event(HECUBACASS, HBCASS_CREATE);
     for(auto q: queries) {
         CassError rc = run_query(q);
         if (rc != CASS_OK) {
@@ -284,6 +284,7 @@ void HecubaSession::createSchema(void) {
             throw ModuleException(msg);
         }
     }
+    HecubaExtrae_event(HECUBACASS, HBCASS_END);
 }
 
 /***************************
@@ -298,9 +299,10 @@ HecubaSession& HecubaSession::get() {
 
 /* Constructor: Establish connection with underlying storage system */
 HecubaSession::HecubaSession() {
+    HecubaExtrae_event(HECUBADBG, HECUBA_SESSION);
 
+    //HecubaExtrae_init();
     parse_environment(this->config);
-
 
 
     /* Establish connection */
@@ -343,10 +345,8 @@ numpyMetaAccess = storageInterface->make_cache("istorage", "hecuba",
 												config);
 numpyMetaWriter = numpyMetaAccess->get_writer();
 
-#ifdef EXTRAE
-    Extrae_init();
-#endif /*EXTRAE*/
 
+    HecubaExtrae_event(HECUBADBG, HECUBA_END);
 }
 
 HecubaSession::~HecubaSession() {
