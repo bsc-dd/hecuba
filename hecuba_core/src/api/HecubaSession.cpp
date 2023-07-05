@@ -306,7 +306,7 @@ HecubaSession::HecubaSession() {
 
 
     /* Establish connection */
-    this->storageInterface = std::make_shared<StorageInterface>(stoi(config["node_port"]), config["contact_names"]);
+    this->storageInterface = std::make_shared<StorageInterface>(stoi(config["node_port"]), config["contact_names"], config);
     //this->storageInterface = new StorageInterface(stoi(config["node_port"]), config["contact_names"]);
 
     if (this->config["create_schema"] == "true") {

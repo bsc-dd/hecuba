@@ -30,7 +30,7 @@ class StorageInterface {
 
 public:
 
-    StorageInterface(int nodePort, std::string contact_points);
+    StorageInterface(int nodePort, std::string contact_points, std::map<std::string, std::string>& config);
 
     ~StorageInterface();
 

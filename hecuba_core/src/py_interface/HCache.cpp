@@ -8,8 +8,9 @@ static PyObject *connectCassandra(PyObject *self, PyObject *args) {
     int nodePort;
     std::string contact_points = "";
     PyObject *py_contact_points;
+    PyObject *py_config;
 
-    if (!PyArg_ParseTuple(args, "Oi", &py_contact_points, &nodePort)) {
+    if (!PyArg_ParseTuple(args, "OiO", &py_contact_points, &nodePort, &py_config)) {
         return NULL;
     }
 
@@ -28,8 +29,30 @@ static PyObject *connectCassandra(PyObject *self, PyObject *args) {
         contact_points += std::string(str_temp) + ",";
     }
 
+    // Parse CONFIGURATION MAP
+    std::map<std::string, std::string> config;
+
+    if (PyDict_Check(py_config)) {
+        PyObject *dict, *key, *value;;
+        if (!PyArg_Parse(py_config, "O", &dict)) return NULL;
+
+        Py_ssize_t pos = 0;
+        while (PyDict_Next(dict, &pos, &key, &value)) {
+            std::string conf_key(PyUnicode_AsUTF8(key));
+            if (PyUnicode_Check(value)) {
+                std::string conf_val(PyUnicode_AsUTF8(value));
+                config[conf_key] = conf_val;
+            } else if (PyLong_Check(value)) {
+                int32_t c_val = (int32_t) PyLong_AsLong(value);
+                config[conf_key] = std::to_string(c_val);
+            } else {
+                throw TypeErrorException("Error parsing configuration dictionary ");
+            }
+        }
+    }
+
     try {
-        storage = std::make_shared<StorageInterface>(nodePort, contact_points);
+        storage = std::make_shared<StorageInterface>(nodePort, contact_points, config);
         //TODO storage = new StorageInterface(nodePort, contact_points);
     }
     catch (ModuleException &e) {
