@@ -1,6 +1,7 @@
 #include "StorageInterface.h"
 #include "debug.h"
 #include <climits>
+#include <map>
 #include "HecubaExtrae.h"
 
 #define default_io_threads 2
@@ -9,7 +10,7 @@
 #define bytes_high_watermark 17000000 //>128elements^3D * 8B_Double
 
 
-StorageInterface::StorageInterface(int nodePort, std::string contact_points) {
+StorageInterface::StorageInterface(int nodePort, std::string contact_points, std::map<std::string, std::string>& config) {
     CassFuture *connect_future = NULL;
     cluster = cass_cluster_new();
     session = cass_session_new();
