@@ -603,8 +603,8 @@ std::shared_ptr<CacheTable> IStorage::getDataAccess() const {
 	return dataAccess;
 }
 
-void IStorage::setCache(CacheTable& cache) {
-	dataAccess = std::shared_ptr<CacheTable>(&cache);
+void IStorage::setCache(CacheTable* cache) {
+	dataAccess = std::shared_ptr<CacheTable>(cache);
 	dataWriter = dataAccess->get_writer();
 }
 

@@ -289,7 +289,7 @@ class StorageDict:virtual public IStorage {
             CacheTable *reader = getCurrentSession().getStorageInterface()->make_cache(this->getTableName().c_str(),
                     getCurrentSession().config["execution_name"].c_str(), *keyNamesDict, *colNamesDict, getCurrentSession().config);
             HecubaExtrae_event(HECUBADBG, HECUBA_REGISTER);
-            this->setCache(*reader);
+            this->setCache(reader);
             HecubaExtrae_event(HECUBADBG, HECUBA_END);
 
             delete keyNamesDict;
