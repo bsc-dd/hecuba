@@ -167,7 +167,7 @@ void StorageObject::initialize_dataAcces() {
     std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
     CacheTable *reader = getCurrentSession().getStorageInterface()->make_cache(this->getTableName().c_str(),
             getCurrentSession().config["execution_name"].c_str(), *keyNamesDict, *colNamesDict, getCurrentSession().config);
-    this->setCache(*reader);
+    this->setCache(reader);
 
 
     delete keyNamesDict;
