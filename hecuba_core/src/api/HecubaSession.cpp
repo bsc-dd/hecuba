@@ -790,43 +790,57 @@ bool HecubaSession::registerClassName(const std::string& class_name) {
     return res.second;
 }
 bool HecubaSession::registerObject(const std::shared_ptr<CacheTable> c, const std::string& class_name) {
-    alive_objects.push_back(c);
+    {
+        std::lock_guard<decltype(mxalive_objects)> lock{mxalive_objects};
+        alive_objects.push_back(c);
+    }
     deallocateObjects(); // check if it is possible to deallocate some objects
     return registerClassName(class_name);
 }
 bool HecubaSession::registerObject(const std::shared_ptr<ArrayDataStore> a, const std::string& class_name) {
-    alive_numpy_objects.push_back(a);
+    {
+        std::lock_guard<decltype(mxalive_numpy_objects)> lock{mxalive_numpy_objects};
+        alive_numpy_objects.push_back(a);
+    }
     deallocateObjects(); // check if it is possible to deallocate some objects
     return registerClassName(class_name);
 }
 
 void HecubaSession::deallocateObjects() {
-    for (std::list<std::shared_ptr<CacheTable>>::iterator it = alive_objects.begin(); it != alive_objects.end();) {
-        std::shared_ptr<CacheTable> t = *it;
-        //std::cout << "LIST: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
-        if (t.use_count() == 2) { // The object has been "destroyed" from its use: 2 references variable t and alive_objects
-            if (t->get_writer()->is_write_completed()) { // Have the pending writes completed?
-                //std::cout << "DELETE FROM LIST: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
-                it = alive_objects.erase(it);
-            } else {
-                it++;
+
+    {
+        std::lock_guard<decltype(mxalive_objects)> lock{mxalive_objects};
+
+        for (std::list<std::shared_ptr<CacheTable>>::iterator it = alive_objects.begin(); it != alive_objects.end();) {
+            std::shared_ptr<CacheTable> t = *it;
+            //std::cout << "LIST: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
+            if (t.use_count() == 2) { // The object has been "destroyed" from its use: 2 references variable t and alive_objects
+                if (t->get_writer()->is_write_completed()) { // Have the pending writes completed?
+                    //std::cout << "DELETE FROM LIST: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
+                    it = alive_objects.erase(it);
+                } else {
+                    it++;
+                }
+            }else {
+                it ++;
             }
-        }else {
-            it ++;
         }
     }
-    for (std::list<std::shared_ptr<ArrayDataStore>>::iterator it = alive_numpy_objects.begin(); it != alive_numpy_objects.end();) {
-        std::shared_ptr<ArrayDataStore> t = *it;
-        //std::cout << "LIST: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
-        if (t.use_count() == 2) { // The object has been "destroyed" from its use: 2 references variable t and alive_numpy_objects
-            if (t->getWriteCache()->get_writer()->is_write_completed()) { // Have the pending writes completed?
-                //std::cout << "DELETE FROM LIST: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
-                it = alive_numpy_objects.erase(it);
-            } else {
-                it++;
+    {
+        std::lock_guard<decltype(mxalive_numpy_objects)> lock{mxalive_numpy_objects};
+        for (std::list<std::shared_ptr<ArrayDataStore>>::iterator it = alive_numpy_objects.begin(); it != alive_numpy_objects.end();) {
+            std::shared_ptr<ArrayDataStore> t = *it;
+            //std::cout << "LIST: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
+            if (t.use_count() == 2) { // The object has been "destroyed" from its use: 2 references variable t and alive_numpy_objects
+                if (t->getWriteCache()->get_writer()->is_write_completed()) { // Have the pending writes completed?
+                    //std::cout << "DELETE FROM LIST: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
+                    it = alive_numpy_objects.erase(it);
+                } else {
+                    it++;
+                }
+            }else {
+                it ++;
             }
-        }else {
-            it ++;
         }
     }
 }
