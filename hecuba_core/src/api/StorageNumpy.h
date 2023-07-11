@@ -108,7 +108,7 @@ class StorageNumpy:virtual public IStorage {
         ~StorageNumpy() {
 
             HecubaExtrae_event(HECUBAEV, HECUBA_SN|HECUBA_DESTROY);
-            std::cout << " StorageNumpy::Destructor " << UUID::UUID2str(getStorageID())<<std::endl;
+            //std::cout << " StorageNumpy::Destructor " << UUID::UUID2str(getStorageID())<<std::endl;
             if (this->data != nullptr) {
                 free (this->data);
             }

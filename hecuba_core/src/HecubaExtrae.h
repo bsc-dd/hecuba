@@ -85,8 +85,8 @@ inline void HecubaExtrae_comm(extrae_user_communication_types_t type, extrae_com
 #else /* !EXTRAE */
 
 #define HecubaExtrae_init()
-#define HecubaExtrae_event(...) printf("Disabled Extrae_event\n");
-#define HecubaExtrae_comm(...) printf("Disabled Extrae_comm\n");
+#define HecubaExtrae_event(...)
+#define HecubaExtrae_comm(...)
 
 #endif /* !EXTRAE */
 

@@ -10,7 +10,7 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
                std::map<std::string, std::string> &config) {
 
 
-    DBG( " WRITER: Constructor for "<<table_meta->keyspace<<"."<<table_meta->table" @"<< this);
+    DBG( " WRITER: Constructor for "<<table_meta->get_keyspace()<<"."<<table_meta->get_table_name()<<" @"<< this);
     this->disable_timestamps = false;
 
     if (config.find("timestamped_writes") != config.end()) {
@@ -61,6 +61,7 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
 
 Writer::Writer(const Writer&  src) {
     *this = src;
+    DBG( " WRITER: Copy Constructor for "<<table_metadata->get_keyspace()<<"."<<table_metadata->get_table_name()<<" @"<<this<<" dirty="<< dirty_blocks);
 }
 
 Writer& Writer::operator = (const Writer& src) {
@@ -104,7 +105,7 @@ Writer& Writer::operator = (const Writer& src) {
 }
 
 Writer::~Writer() {
-    DBG( " WRITER: Destructor "<< ((topic_name!=nullptr)?topic_name:""));
+    DBG( " WRITER: Destructor "<< ((topic_name!=nullptr)?topic_name:"") << " " << this << " dirty="<< dirty_blocks);
     wait_writes_completion(); // WARNING! It is necessary to wait for ALL CALLBACKS to finish, because the 'data' structure required by the callback will dissapear with this destructor
     //std::cout<< " WRITER: Finished thread "<< async_query_thread_id << std::endl;
     if (this->prepared_query != NULL) {
