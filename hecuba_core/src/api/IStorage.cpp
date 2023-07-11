@@ -15,18 +15,6 @@ IStorage::IStorage() {
     HecubaExtrae_event(HECUBAEV, HECUBA_END);
 }
 
-IStorage::IStorage(std::string id_model, std::string id_object, uint64_t* storage_id, CacheTable* dataAccess) {
-    HecubaExtrae_event(HECUBAEV, HECUBA_IS|HECUBA_INSTANTIATION);
-	this->id_model = id_model;
-	this->id_obj = id_object;
-
-	this->storageid = storage_id;
-	this->dataAccess = std::make_shared<CacheTable>(*dataAccess);
-	this->dataWriter = dataAccess->get_writer();
-    HecubaExtrae_event(HECUBAEV, HECUBA_END);
-
-}
-
 IStorage::~IStorage() {
     HecubaExtrae_event(HECUBAEV, HECUBA_IS|HECUBA_DESTROY);
     DBG( UUID::UUID2str(getStorageID())<<" this: "<< this);
