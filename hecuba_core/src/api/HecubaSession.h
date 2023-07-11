@@ -6,6 +6,7 @@
 #include "StorageInterface.h"
 #include "configmap.h"
 #include "ArrayDataStore.h"
+#include <mutex>
 
 class HecubaSession {
     /** Establish connection with Underlying storage system */
@@ -29,7 +30,9 @@ public:
     bool registerClassName(const std::string& class_name);
 private:
 
+    std::mutex mxalive_objects;
     std::list<std::shared_ptr<CacheTable>> alive_objects; //List of registered objects with pending writes
+    std::mutex mxalive_numpy_objects;
     std::list<std::shared_ptr<ArrayDataStore>> alive_numpy_objects; //List of registered numpy objects with pending writes
 
     std::map<std::string,char> registeredClasses; // Map of classes with at least one intance occurrence: to detect if it is necessary to generate the py file
