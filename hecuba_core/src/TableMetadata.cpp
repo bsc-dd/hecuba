@@ -1,6 +1,7 @@
 #include "TableMetadata.h"
 #include <unistd.h>
 #include "HecubaExtrae.h"
+#include <thread>
 
 /***
  * Returns the allocation number of bytes required to allocate a type of data
@@ -262,7 +263,7 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
         uint32_t i = 0;
 
         do {// wait until all nodes agree with the schema
-            sleep(1);
+            std::this_thread::yield();
             table_meta=getCassTableMeta(session);
             i++;
         }
