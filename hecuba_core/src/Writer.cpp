@@ -309,6 +309,7 @@ void Writer::finish_async_call() {
     ncallbacks--;
 }
 void Writer::flush_dirty_blocks() {
+    if (!this->lazy_write_enabled) return;
     //std::cout<< "Writer::flush_dirty_blocks "<<std::endl;
     int n = 0;
     for( auto x = dirty_blocks->begin(); x != dirty_blocks->end(); x++) {
