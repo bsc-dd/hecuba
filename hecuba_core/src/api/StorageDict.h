@@ -44,13 +44,13 @@ class StorageDict:virtual public IStorage {
 
         StorageDict() {
             HecubaExtrae_event(HECUBAEV, HECUBA_SD|HECUBA_INSTANTIATION);
-            std::cout << "StorageDict:: default constructor this "<< this <<std::endl;
+            //std::cout << "StorageDict:: default constructor this "<< this <<std::endl;
             initObjSpec();
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
         StorageDict(const StorageDict<K,V,C>& sdsrc) {
             HecubaExtrae_event(HECUBAEV, HECUBA_SD|HECUBA_INSTANTIATION);
-            std::cout << "StorageDict:: copy constructor this "<< this << " from "<< &sdsrc << std::endl;
+            //std::cout << "StorageDict:: copy constructor this "<< this << " from "<< &sdsrc << std::endl;
             *this = sdsrc;
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }

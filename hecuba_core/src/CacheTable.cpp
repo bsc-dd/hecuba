@@ -50,7 +50,7 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
     HecubaExtrae_event(HECUBACASS, HBCASS_PREPARES);
     CassFuture *future = cass_session_prepare(session, table_meta->get_select_query());
     CassError rc = cass_future_error_code(future);
-    CHECK_CASS("CacheTable: Select row query preparation failed");
+    CHECK_CASS("CacheTable: Select row query preparation failed " + table_meta->get_select_query());
     this->prepared_query = cass_future_get_prepared(future);
     cass_future_free(future);
     future = cass_session_prepare(session, table_meta->get_delete_query());

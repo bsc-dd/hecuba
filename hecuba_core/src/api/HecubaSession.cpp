@@ -345,12 +345,14 @@ numpyMetaAccess = storageInterface->make_cache("istorage", "hecuba",
 												config);
 numpyMetaWriter = numpyMetaAccess->get_writer();
 
+    //std::cout << " Constructor HecubaSession  id="<< std::this_thread::get_id()<<std::endl;
 
     HecubaExtrae_event(HECUBADBG, HECUBA_END);
 }
 
 HecubaSession::~HecubaSession() {
     delete(numpyMetaAccess);
+
     for (std::list<std::shared_ptr<CacheTable>>::iterator it = alive_objects.begin(); it != alive_objects.end();) {
         std::shared_ptr<CacheTable> t = *it;
         //std::cout << "LIST DEL: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
