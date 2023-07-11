@@ -62,8 +62,8 @@ IStorage& IStorage::operator = (const IStorage& src) {
 
         streamEnabled = src.streamEnabled;
 
-        dataWriter = src.dataWriter; // TODO copy assignment in writer.cpp is not dealing with kafka attributes (should be shared pointers) and it does not copy the buffers
-        dataAccess = src.dataAccess; // TODO copy assignment in writer.cpp is not dealing with kafka attributes (should be shared pointers) and it does not copy the buffers
+        dataWriter = src.dataWriter;
+        dataAccess = src.dataAccess;
 
         //partitionKeys = src.partitionKeys;
         //clusteringKeys = src.clusteringKeys;
