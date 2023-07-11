@@ -20,7 +20,7 @@ class CacheTable {
 public:
     CacheTable(const TableMetadata *table_meta,
                CassSession *session,
-               std::map<std::string, std::string> &config);
+               std::map<std::string, std::string> &config, bool free_table_meta=true);
 
     CacheTable(const CacheTable& src);
     CacheTable& operator = (const CacheTable& src);
@@ -68,6 +68,9 @@ public:
     const TupleRow* get_new_keys_tuplerow(void* keys) const;
     const TupleRow* get_new_values_tuplerow(void* values) const;
 
+    bool can_table_meta_be_freed() const{
+        return should_table_meta_be_freed;
+    }
 private:
     rd_kafka_message_t * kafka_poll(void) ;
 
@@ -94,6 +97,7 @@ private:
     std::map<std::string, std::string> stream_config;
     rd_kafka_conf_t *kafka_conf = nullptr;
     rd_kafka_t *consumer = nullptr;
+    bool should_table_meta_be_freed = false; //For cases where table_metadata is a static variable instead of a 'new' (numpys)
 };
 
 #endif //PREFETCHER_CACHE_TABLE_H

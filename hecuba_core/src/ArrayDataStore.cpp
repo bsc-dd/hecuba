@@ -53,6 +53,20 @@
 #define PMEM_OFFSET 8
 #define MAX_RETRIES 5
 
+TableMetadata* ArrayDataStore::getStaticTableMetadata(const char *table_name, const char *keyspace_name,
+                             std::vector<std::map<std::string, std::string>> &keys_names,
+                             std::vector<std::map<std::string, std::string>> &columns_names,
+                             const CassSession *session) {
+    static TableMetadata staticMetadata(table_name, keyspace_name, keys_names, columns_names, session);
+    return &staticMetadata;
+}
+
+CacheTable* ArrayDataStore::getStaticcache(TableMetadata* table_meta, CassSession* session,
+                               std::map<std::string, std::string> &config) {
+    static CacheTable staticCache(table_meta, session, config, false);
+    return &staticCache;
+}
+
 ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSession *session,
                                std::map<std::string, std::string> &config) {
 
@@ -112,8 +126,14 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
         std::vector<std::map<std::string, std::string> > columns_names = {{{"name", "payload"}}};
 
 
-        TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names, session);
-        this->cache = new CacheTable(table_meta, session, config);
+        if (config.at("hecuba_sn_single_table") != "false" ) { // Single Numpy table ENABLED
+            //std::cout<< " ArrayDataStore::constructor SINGLE TABLE ENABLED Creating CacheTable" << std:: endl;
+            TableMetadata *table_meta = ArrayDataStore::getStaticTableMetadata(table, keyspace, keys_names, columns_names, session);
+            this->cache = ArrayDataStore::getStaticcache(table_meta,session,config);
+        } else { //Multiple Numpy tables enabled
+            TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names, session);
+            this->cache = new CacheTable(table_meta, session, config);
+        }
         if (this->has_lazy_writes) {
             this->cache->get_writer()->enable_lazy_write();
         }
@@ -215,9 +235,20 @@ ArrayDataStore& ArrayDataStore::operator= (const ArrayDataStore& src) {
 }
 
 ArrayDataStore::~ArrayDataStore() {
-    delete (this->cache);
-    delete (this->metadata_cache);
-    delete (this->metadata_read_cache);
+    if (this->cache){
+        if ( this->cache->can_table_meta_be_freed() ) { // TODO FIX THIS THING
+            delete (this->cache);
+        }
+        this->cache = nullptr;
+    }
+    if (this->metadata_cache){
+        delete (this->metadata_cache);
+        this->metadata_cache = nullptr;
+    }
+    if (this->metadata_read_cache){
+        delete (this->metadata_read_cache);
+        this->metadata_read_cache = nullptr;
+    }
 };
 
 /***

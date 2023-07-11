@@ -16,8 +16,9 @@
  * @param session
  */
 CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
-                       std::map<std::string, std::string> &config) {
+                       std::map<std::string, std::string> &config, bool free_table_meta) {
 
+    //std::cout<< "CacheTable::CacheTable "<< table_meta->get_table_name()<<"."<<table_meta->get_keyspace()<<" free:"<<free_table_meta<<std::endl;
     if (!session)
         throw ModuleException("CacheTable: Session is Null");
 
@@ -72,6 +73,7 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
     this->topic_name = nullptr;
     this->consumer = nullptr;
     this->kafka_conf = nullptr;
+    this->should_table_meta_be_freed = free_table_meta;
 
     HecubaExtrae_event(HECUBADBG, HECUBA_KVCACHE);
     if (cache_size) this->myCache = new KVCache<TupleRow, TupleRow>(cache_size);
@@ -125,6 +127,7 @@ CacheTable& CacheTable::operator = (const CacheTable& src) {
         }
         if (this->myCache !=nullptr) {delete(this->myCache);}
         if (src.myCache != NULL) this->myCache = new KVCache<TupleRow, TupleRow>(src.myCache->get_max_cache_size());
+        this->should_table_meta_be_freed = src.should_table_meta_be_freed;
     }
 
     return *this;
@@ -145,7 +148,9 @@ CacheTable::~CacheTable() {
     delete_query = NULL;
     DBG( this<< " table_metadata = "<< table_metadata);
     if (table_metadata != nullptr) {
-        delete (table_metadata);
+        if (should_table_meta_be_freed) {
+            delete (table_metadata);
+        }
         table_metadata = nullptr;
     }
     if (topic_name) {
