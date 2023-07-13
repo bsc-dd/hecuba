@@ -276,6 +276,23 @@ void HecubaSession::createSchema(void) {
     queries.push_back(create_keyspace);
 
 
+    if (config["hecuba_sn_single_table"] == "true") {
+        std::string create_sn_table = std::string(
+            "CREATE TABLE IF NOT EXISTS ") + config["execution_name"] + std::string(".hecuba_storagenumpy ") +
+            std::string (
+                "("
+                    "storage_id uuid,"
+                    "cluster_id int,"
+                    "block_id int,"
+                    "payload blob,"
+                    "PRIMARY KEY ((storage_id, cluster_id), block_id)"
+                ");"
+            );
+        queries.push_back(create_sn_table);
+
+    }
+
+
     HecubaExtrae_event(HECUBACASS, HBCASS_CREATE);
     for(auto q: queries) {
         CassError rc = run_query(q);
