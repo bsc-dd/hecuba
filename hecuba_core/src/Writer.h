@@ -1,7 +1,6 @@
 #ifndef HFETCH_WRITER_H
 #define HFETCH_WRITER_H
 
-#define MAX_ERRORS 10
 
 #include <thread>
 #include <mutex>
@@ -15,7 +14,6 @@
 
 #include "TimestampGenerator.h"
 #include "TupleRowFactory.h"
-#include "Semaphore.h"
 
 
 class Writer {
@@ -29,7 +27,6 @@ public:
 
     void set_timestamp_gen(TimestampGenerator *time_gen);
 
-    bool call_async();
 
     void flush_elements();
 
@@ -49,16 +46,19 @@ public:
     // Overload 'write_to_casandra' to write a single column (instead of all the columns)
     void write_to_cassandra(void *keys, void *values , const char *value_name);
 
-    bool is_write_completed();
     void wait_writes_completion(void);
 
-    void set_error_occurred(std::string error, const void *keys, const void *values);
 
     const TableMetadata *get_metadata() {
         return table_metadata;
     }
     void enable_lazy_write(void);
     void disable_lazy_write(void);
+
+    CassStatement* bind_cassstatement(const TupleRow* keys, const TupleRow* values) const;
+    void finish_async_call();
+    CassSession* get_session() const;
+    bool is_write_completed() const;
 
 private:
     struct HashCompare {    // This is used for lazy_write, currently only
@@ -92,13 +92,10 @@ private:
 
     bool lazy_write_enabled;
     tbb::concurrent_hash_map <const TupleRow *, const TupleRow *, HashCompare> *dirty_blocks = nullptr;
-    tbb::concurrent_bounded_queue <std::pair<const TupleRow *, const TupleRow *>> data;
 
     uint32_t max_calls;
-    std::atomic<uint32_t> ncallbacks;
-    Semaphore* sempending_data;  // Synchronization semaphore to wait for new elements in 'data'
-    Semaphore* semmaxcallbacks; //Resource limiting Semaphore to limit the number of in_flight callbacks.
-    std::atomic<uint32_t> error_count;
+    std::atomic<uint32_t> ncallbacks; // In flight write requests to the cassandra driver (not finished)
+
     const TableMetadata *table_metadata = nullptr;
 
     bool disable_timestamps;
@@ -106,17 +103,14 @@ private:
 
 
     void flush_dirty_blocks();
-    void async_query_execute(const TupleRow *keys, const TupleRow *values);
-    void queue_async_query( const TupleRow *keys, const TupleRow *values);
-    static void callback(CassFuture *future, void *ptr);
-    void async_query_thread_code();
-    bool finish_async_query_thread;
-    std::thread async_query_thread;
+    void queue_async_query(const TupleRow* keys, const TupleRow* values);
+
     // StorageStream attributes
     char * topic_name = nullptr;
     rd_kafka_topic_t *topic = nullptr;
     rd_kafka_t *producer = nullptr;
 
+    std::map<std::string, std::string>* myconfig; // A reference to config, I would like to be a reference to the WriterThread, but this causes a double reference Writer<->WriterThread, this avoids the reference by forcing a call to the static method WriterThread.get(myconfig).
 };
 
 

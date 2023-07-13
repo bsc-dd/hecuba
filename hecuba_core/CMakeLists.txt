@@ -5,7 +5,9 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake) #folder with Fi
 
 set(CORE_SRC_DIR "${CMAKE_SOURCE_DIR}/src")
 
+# Default Options
 option(USE_ARROW  "Enable ARROW support" FALSE)
+option(USE_EXTRAE "Enable EXTRAE support" FALSE)
 
 # CMAKE_BUILD_PARALLEL_LEVEL controls the level of parallelism, use it for Make also
 message(STATUS "===> CMAKE_BUILD_PARALLEL_LEVEL=$ENV{CMAKE_BUILD_PARALLEL_LEVEL}")
@@ -148,6 +150,24 @@ FIND_LIBRARY(ARROW NAMES arrow PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBR
 #yolandab
 FIND_LIBRARY(KAFKA NAMES rdkafka PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
 FIND_PROGRAM(KAFKATOOLS NAMES kafka-server-start.sh zookeeper-server-start.sh PATHS ${C_BINDING_INSTALL_PREFIX}/bin ENV PATH)
+
+if (USE_EXTRAE)
+    # Locate Extrae library path (must contain 'include' and 'lib' directories)
+    FIND_PATH(EXTRAE include/extrae.h
+              PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
+
+    if (NOT EXTRAE)
+        message("EXTRAE NOT FOUND")
+    else ()
+        message(STATUS "Using system's EXTRAE Library: " ${EXTRAE})
+        set(ALL_LIBS ${ALL_LIBS} ${EXTRAE}/lib/libpttrace.so)
+        include_directories(${EXTRAE}/include)
+
+        add_compile_definitions(EXTRAE)    # Define EXTRAE preprocessor macro to enable extrae use
+    endif ()
+else(USE_EXTRAE)
+    message(STATUS "EXTRAE is disabled by user!")
+endif(USE_EXTRAE)
 
 #if (NOT KAFKATOOLS)
 #    message("Downloading Kafka TOOLS")

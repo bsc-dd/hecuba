@@ -7,6 +7,8 @@
 
 #include "debug.h"
 
+#include "HecubaExtrae.h"
+
 #include <cstdlib>
 #include <vector>
 #include <string>
@@ -273,6 +275,25 @@ void HecubaSession::createSchema(void) {
         std::string(" WITH replication = ") +  config["replication"];
     queries.push_back(create_keyspace);
 
+
+    if (config["hecuba_sn_single_table"] == "true") {
+        std::string create_sn_table = std::string(
+            "CREATE TABLE IF NOT EXISTS ") + config["execution_name"] + std::string(".hecuba_storagenumpy ") +
+            std::string (
+                "("
+                    "storage_id uuid,"
+                    "cluster_id int,"
+                    "block_id int,"
+                    "payload blob,"
+                    "PRIMARY KEY ((storage_id, cluster_id), block_id)"
+                ");"
+            );
+        queries.push_back(create_sn_table);
+
+    }
+
+
+    HecubaExtrae_event(HECUBACASS, HBCASS_CREATE);
     for(auto q: queries) {
         CassError rc = run_query(q);
         if (rc != CASS_OK) {
@@ -280,6 +301,7 @@ void HecubaSession::createSchema(void) {
             throw ModuleException(msg);
         }
     }
+    HecubaExtrae_event(HECUBACASS, HBCASS_END);
 }
 
 /***************************
@@ -294,13 +316,14 @@ HecubaSession& HecubaSession::get() {
 
 /* Constructor: Establish connection with underlying storage system */
 HecubaSession::HecubaSession() {
+    HecubaExtrae_event(HECUBADBG, HECUBA_SESSION);
 
+    //HecubaExtrae_init();
     parse_environment(this->config);
 
 
-
     /* Establish connection */
-    this->storageInterface = std::make_shared<StorageInterface>(stoi(config["node_port"]), config["contact_names"]);
+    this->storageInterface = std::make_shared<StorageInterface>(stoi(config["node_port"]), config["contact_names"], config);
     //this->storageInterface = new StorageInterface(stoi(config["node_port"]), config["contact_names"]);
 
     if (this->config["create_schema"] == "true") {
@@ -339,11 +362,14 @@ numpyMetaAccess = storageInterface->make_cache("istorage", "hecuba",
 												config);
 numpyMetaWriter = numpyMetaAccess->get_writer();
 
+    //std::cout << " Constructor HecubaSession  id="<< std::this_thread::get_id()<<std::endl;
 
+    HecubaExtrae_event(HECUBADBG, HECUBA_END);
 }
 
 HecubaSession::~HecubaSession() {
     delete(numpyMetaAccess);
+
     for (std::list<std::shared_ptr<CacheTable>>::iterator it = alive_objects.begin(); it != alive_objects.end();) {
         std::shared_ptr<CacheTable> t = *it;
         //std::cout << "LIST DEL: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;

@@ -58,6 +58,12 @@ protected:
     uint32_t get_row_elements(ArrayMetadata &metadata) const;
 
 
+    static TableMetadata* getStaticTableMetadata(const char *table_name, const char *keyspace_name,
+                             std::vector<std::map<std::string, std::string>> &keys_names,
+                             std::vector<std::map<std::string, std::string>> &columns_names,
+                             const CassSession *session);// This variable contains the cache table to be shared by all numpys if 'hecuba_sn_single_table' is set
+    static CacheTable* getStaticcache(TableMetadata* table_meta, CassSession* session,
+                               std::map<std::string, std::string> &config); // This variable contains the cache table to be shared by all numpys if 'hecuba_sn_single_table' is set
     CacheTable *cache = nullptr, *read_cache = nullptr;
     CacheTable *metadata_cache = nullptr, *metadata_read_cache=nullptr;
 
@@ -76,7 +82,6 @@ private:
     void *get_in_addr(struct sockaddr *sa);
 #endif /*ARROW*/
     std::set<uint32_t> loaded_cluster_ids;
-
 };
 
 

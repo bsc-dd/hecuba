@@ -9,6 +9,7 @@
 #include "IStorage.h"
 #include "UUID.h"
 #include "ArrayDataStore.h"
+#include "HecubaExtrae.h"
 
 
 #include "SpaceFillingCurve.h"
@@ -54,12 +55,16 @@ class StorageNumpy:virtual public IStorage {
         }
 
         StorageNumpy() {
+            HecubaExtrae_event(HECUBAEV, HECUBA_SN|HECUBA_INSTANTIATION);
             initObjSpec();
+            HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 
         StorageNumpy(void *datasrc, const std::vector<uint32_t> &metas) {
+            HecubaExtrae_event(HECUBAEV, HECUBA_SN|HECUBA_INSTANTIATION);
             setNumpy(datasrc, metas);
             initObjSpec();
+            HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 
         void setNumpy(void *datasrc, const std::vector<uint32_t>&metas) {
@@ -76,6 +81,7 @@ class StorageNumpy:virtual public IStorage {
 
         // StorageNumpy sn = misn;
         StorageNumpy(const StorageNumpy &src) {
+            HecubaExtrae_event(HECUBAEV, HECUBA_SN|HECUBA_INSTANTIATION);
             //JJ StorageNumpy(src.data, src.metas);
             // Transform user metas to ArrayMetadata
             this->metas = src.metas; // make a copy of user 'metas'
@@ -86,22 +92,27 @@ class StorageNumpy:virtual public IStorage {
             memcpy(this->data, src.data, numpy_size);
 
             initObjSpec();
+            HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 
         // StorageNumpy sn; sn = misn;
         StorageNumpy &operator = (const StorageNumpy & w) {
+            HecubaExtrae_event(HECUBAEV, HECUBA_SN|HECUBA_ASSIGNMENT);
             this->metas = w.metas;
             uint32_t numpy_size = extractNumpyMetaData(metas, this->numpy_metas);
             this->data = malloc(numpy_size);
             memcpy(this->data, w.data, numpy_size);
+            HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 
         ~StorageNumpy() {
 
-            std::cout << " StorageNumpy::Destructor " << UUID::UUID2str(getStorageID())<<std::endl;
+            HecubaExtrae_event(HECUBAEV, HECUBA_SN|HECUBA_DESTROY);
+            //std::cout << " StorageNumpy::Destructor " << UUID::UUID2str(getStorageID())<<std::endl;
             if (this->data != nullptr) {
                 free (this->data);
             }
+            HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 
         void generatePythonSpec() {

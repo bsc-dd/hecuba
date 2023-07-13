@@ -51,6 +51,7 @@ class Config:
             self.configured = False
             ## intercepted : list of numpy intercepted calls
             self.intercepted = {}
+            self.configdir = {} # map<string, string>
 
     instance = __Config()
 
@@ -103,6 +104,7 @@ class Config:
         else:
             singleton.arrow_enabled = False
             log.warn('Arrow access is DISABLED [HECUBA_ARROW=%s]', singleton.arrow_enabled)
+        singleton.configdir['hecuba_arrow'] = 'true' if singleton.arrow_enabled else 'false'
 
         if 'CONCURRENT_CREATION' in os.environ:
             if os.environ['CONCURRENT_CREATION']=='True':
@@ -113,6 +115,7 @@ class Config:
         else:
             singleton.concurrent_creation = False
             log.warn('Concurrent creation is DISABLED [CONCURRENT_CREATION=False]')
+        singleton.configdir['concurrent_creation'] = 'true' if singleton.concurrent_creation else 'false'
 
         if 'LOAD_ON_DEMAND' in os.environ:
             if os.environ['LOAD_ON_DEMAND']=='False':
@@ -123,6 +126,7 @@ class Config:
         else:
             singleton.load_on_demand = True
             log.warn('Load data on demand is ENABLED [LOAD_ON_DEMAND=True]')
+        singleton.configdir['load_on_demand'] = 'true' if singleton.load_on_demand else 'false'
 
         if 'CREATE_SCHEMA' in os.environ:
             env_var = os.environ['CREATE_SCHEMA'].lower()
@@ -131,12 +135,14 @@ class Config:
         else:
             singleton.id_create_schema = True
             log.warn('Creating keyspaces and tables by default [CREATE_SCHEMA=True]')
+        singleton.configdir['id_create_schema'] = 'true' if singleton.load_on_demand else 'false'
         try:
             singleton.nodePort = int(os.environ['NODE_PORT'])
             log.info('NODE_PORT: %d', singleton.nodePort)
         except KeyError:
             log.warn('using default NODE_PORT 9042')
             singleton.nodePort = 9042
+        singleton.configdir['node_port'] = str(singleton.nodePort)
 
         try:
             singleton.contact_names = os.environ['CONTACT_NAMES'].split(",")
@@ -157,6 +163,7 @@ class Config:
         except KeyError:
             log.warn('using default contact point localhost')
             singleton.contact_names = ['127.0.0.1']
+        singleton.configdir['contact_names'] = str.join(",", singleton.contact_names)
 
         try:
             singleton.kafka_names = os.environ['KAFKA_NAMES'].split(",")
@@ -164,6 +171,7 @@ class Config:
         except KeyError:
             log.warn('kakfa names defaults to %s', str.join(" ", singleton.contact_names))
             singleton.kafka_names = singleton.contact_names
+        singleton.configdir['kafka_names'] = str.join(",", singleton.kafka_names)
 
         if hasattr(singleton, 'session'):
             log.warn('Shutting down pre-existent sessions and cluster')
@@ -178,6 +186,7 @@ class Config:
         except KeyError:
             singleton.replication_factor = 1
             log.warn('using default REPLICA_FACTOR: %d', singleton.replication_factor)
+        singleton.configdir['replica_factor'] = str(singleton.replication_factor)
 
         try:
             user_defined_execution_name = os.environ['EXECUTION_NAME']
@@ -189,12 +198,15 @@ class Config:
         except KeyError:
             singleton.execution_name = 'my_app'
             log.warn('using default EXECUTION_NAME: %s', singleton.execution_name)
+        singleton.configdir['execution_name'] = singleton.execution_name
+
         try:
             singleton.splits_per_node = int(os.environ['SPLITS_PER_NODE'])
             log.info('SPLITS_PER_NODE: %d', singleton.splits_per_node)
         except KeyError:
             singleton.splits_per_node = 32
             log.warn('using default SPLITS_PER_NODE: %d', singleton.splits_per_node)
+        singleton.configdir['splits_per_node'] = str(singleton.splits_per_node)
 
         try:
             singleton.token_range_size = int(os.environ['TOKEN_RANGE_SIZE'])
@@ -209,6 +221,7 @@ class Config:
             except KeyError:
                 singleton.target_token_range_size = 64 * 1024
                 log.warn('using default TARGET_TOKEN_RANGE_SIZE: %d', singleton.target_token_range_size)
+        singleton.configdir['target_token_range_size'] = str(singleton.target_token_range_size)
 
         try:
             singleton.max_cache_size = int(os.environ['MAX_CACHE_SIZE'])
@@ -216,6 +229,7 @@ class Config:
         except KeyError:
             singleton.max_cache_size = 1000
             log.warn('using default MAX_CACHE_SIZE: %d', singleton.max_cache_size)
+        singleton.configdir['max_cache_size'] = str(singleton.max_cache_size)
 
         try:
             singleton.replication_strategy = os.environ['REPLICATION_STRATEGY']
@@ -223,13 +237,16 @@ class Config:
         except KeyError:
             singleton.replication_strategy = "SimpleStrategy"
             log.warn('using default REPLICATION_STRATEGY: %s', singleton.replication_strategy)
+        singleton.configdir['replication_strategy'] = singleton.replication_strategy
 
         try:
             singleton.replication_strategy_options = os.environ['REPLICATION_STRATEGY_OPTIONS']
             log.info('REPLICATION_STRATEGY_OPTIONS: %s', singleton.replication_strategy_options)
         except KeyError:
-            singleton.replication_strategy_options = ""
+            singleton.replication_strategy_options = "''"
             log.warn('using default REPLICATION_STRATEGY_OPTIONS: %s', singleton.replication_strategy_options)
+        singleton.configdir['replication_strategy_options'] = singleton.replication_strategy_options
+
 
         if singleton.replication_strategy == "SimpleStrategy":
             singleton.replication = "{'class' : 'SimpleStrategy', 'replication_factor': %d}" % \
@@ -243,6 +260,7 @@ class Config:
         except KeyError:
             singleton.hecuba_print_limit = 1000
             log.warn('using default HECUBA_PRINT_LIMIT: %s', singleton.hecuba_print_limit)
+        singleton.configdir['hecuba_print_limit'] = str(singleton.hecuba_print_limit)
 
         try:
             singleton.prefetch_size = int(os.environ['PREFETCH_SIZE'])
@@ -250,6 +268,7 @@ class Config:
         except KeyError:
             singleton.prefetch_size = 10000
             log.warn('using default PREFETCH_SIZE: %s', singleton.prefetch_size)
+        singleton.configdir['prefetch_size'] = str(singleton.prefetch_size)
 
         try:
             singleton.write_buffer_size = int(os.environ['WRITE_BUFFER_SIZE'])
@@ -257,6 +276,8 @@ class Config:
         except KeyError:
             singleton.write_buffer_size = 1000
             log.warn('using default WRITE_BUFFER_SIZE: %s', singleton.write_buffer_size)
+        singleton.configdir['write_buffer_size'] = str(singleton.write_buffer_size)
+
 
         try:
             singleton.write_callbacks_number = int(os.environ['WRITE_CALLBACKS_NUMBER'])
@@ -264,6 +285,7 @@ class Config:
         except KeyError:
             singleton.write_callbacks_number = 16
             log.warn('using default WRITE_CALLBACKS_NUMBER: %s', singleton.write_callbacks_number)
+        singleton.configdir['write_callbacks_number'] = str(singleton.write_callbacks_number)
 
         try:
             env_var = os.environ['TIMESTAMPED_WRITES'].lower()
@@ -272,6 +294,7 @@ class Config:
         except KeyError:
             singleton.timestamped_writes = False
             log.warn('using default TIMESTAMPED_WRITES: %s', singleton.timestamped_writes)
+        singleton.configdir['timestamped_writes'] = 'true' if singleton.timestamped_writes else 'false'
 
         if 'HECUBA_SN_SINGLE_TABLE' in os.environ:
             env_var = os.environ['HECUBA_SN_SINGLE_TABLE'].lower()
@@ -280,6 +303,7 @@ class Config:
         else:
             singleton.hecuba_sn_single_table = True
             log.warn('Create storagenumpys in a single table by default [HECUBA_SN_SINGLE_TABLE=True]')
+        singleton.configdir['hecuba_sn_single_table'] = 'true' if singleton.hecuba_sn_single_table else 'false'
 
         if singleton.max_cache_size < singleton.write_buffer_size:
             import warnings
@@ -350,7 +374,7 @@ class Config:
 
         from hecuba.hfetch import connectCassandra, HArrayMetadata
         # connecting c++ bindings
-        connectCassandra(singleton.contact_names, singleton.nodePort)
+        connectCassandra(singleton.contact_names, singleton.nodePort, singleton.configdir)
 
         if singleton.id_create_schema:
             time.sleep(10)

@@ -6,6 +6,7 @@
 #include "HecubaSession.h"
 #include "debug.h"
 #include "ObjSpec.h"
+#include "HecubaExtrae.h"
 
 //class HecubaSession; //Forward declaration
 
@@ -58,7 +59,7 @@ class IStorage {
         const std::string& getName() const;
 
         std::shared_ptr<CacheTable>getDataAccess()const ;
-        void setCache(CacheTable &cache);
+        void setCache(CacheTable *cache);
 
         void sync(void);
 

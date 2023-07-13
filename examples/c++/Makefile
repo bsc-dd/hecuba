@@ -4,7 +4,7 @@ OBJS= \
     apitest_iterator \
     simple_numpy \
     simple_numpy_rw \
-    simple_rw \
+    simple_dict_rw \
 	nested_rw \
 	test_shared_ptr \
 	parent_code \
@@ -29,7 +29,7 @@ simple_numpy: simple_numpy.cpp
 simple_numpy_rw: simple_numpy_rw.cpp
 	g++ -o $@ $^   ${CPPFLAGS}
 
-simple_rw: simple_rw.cpp
+simple_dict_rw: simple_dict_rw.cpp
 	g++ -o $@ $^   ${CPPFLAGS}
 
 nested_rw: nested_rw.cpp

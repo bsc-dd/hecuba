@@ -4,36 +4,36 @@
 #include <regex>
 #include <boost/uuid/uuid.hpp>
 #include <typeinfo>
+#include "HecubaExtrae.h"
 
 #define ISKEY true
 
 
-IStorage::IStorage() { DBG( "default constructor this "<< this );}
-
-IStorage::IStorage(std::string id_model, std::string id_object, uint64_t* storage_id, CacheTable* dataAccess) {
-	this->id_model = id_model;
-	this->id_obj = id_object;
-
-	this->storageid = storage_id;
-	this->dataAccess = std::make_shared<CacheTable>(*dataAccess);
-	this->dataWriter = dataAccess->get_writer();
-
+IStorage::IStorage() {
+    HecubaExtrae_event(HECUBAEV, HECUBA_IS|HECUBA_INSTANTIATION);
+    DBG( "default constructor this "<< this );
+    HecubaExtrae_event(HECUBAEV, HECUBA_END);
 }
 
 IStorage::~IStorage() {
-		DBG( UUID::UUID2str(getStorageID())<<" this: "<< this);
+    HecubaExtrae_event(HECUBAEV, HECUBA_IS|HECUBA_DESTROY);
+    DBG( UUID::UUID2str(getStorageID())<<" this: "<< this);
     if (storageid != nullptr) {
         free (storageid);
         storageid = nullptr;
     }
+    HecubaExtrae_event(HECUBAEV, HECUBA_END);
 }
 
 IStorage::IStorage(const IStorage& src) {
+    HecubaExtrae_event(HECUBAEV, HECUBA_IS|HECUBA_INSTANTIATION);
     DBG(" copy constructor this " << this << " src " << &src );
     *this = src;
+    HecubaExtrae_event(HECUBAEV, HECUBA_END);
 }
 
 IStorage& IStorage::operator = (const IStorage& src) {
+    HecubaExtrae_event(HECUBAEV, HECUBA_IS|HECUBA_ASSIGNMENT);
     DBG(" IStorage::copy operator = this "<< this << " src "<<&src);
     if (this != &src) {
         IStorageSpec = src.IStorageSpec;
@@ -62,14 +62,15 @@ IStorage& IStorage::operator = (const IStorage& src) {
 
         streamEnabled = src.streamEnabled;
 
-        dataWriter = src.dataWriter; // TODO copy assignment in writer.cpp is not dealing with kafka attributes (should be shared pointers) and it does not copy the buffers
-        dataAccess = src.dataAccess; // TODO copy assignment in writer.cpp is not dealing with kafka attributes (should be shared pointers) and it does not copy the buffers
+        dataWriter = src.dataWriter;
+        dataAccess = src.dataAccess;
 
         //partitionKeys = src.partitionKeys;
         //clusteringKeys = src.clusteringKeys;
         //valuesDesc = src.valuesDesc;
         delayedObjSpec = src.delayedObjSpec;
     }
+    HecubaExtrae_event(HECUBAEV, HECUBA_END);
     return *this;
 }
 
@@ -109,7 +110,9 @@ const std::string& IStorage::getTableName() const {
 }
 void
 IStorage::sync(void) {
+    HecubaExtrae_event(HECUBAEV, HECUBA_IS|HECUBA_SYNC);
     this->getDataWriter()->flush_elements();
+    HecubaExtrae_event(HECUBAEV, HECUBA_END);
 }
 
 
@@ -400,10 +403,12 @@ HecubaSession&  IStorage::getCurrentSession() const{
 // if the file already exists appends the new definition at the end
 
 void IStorage::writePythonSpec() {
+        HecubaExtrae_event(HECUBADBG, HECUBA_WRITEPYTHONSPEC);
         std::string pythonFileName =  this->getClassName() + ".py";
         std::ofstream fd(pythonFileName);
         fd << this->getPythonSpec();
         fd.close();
+        HecubaExtrae_event(HECUBADBG, HECUBA_END);
 
 }
 void IStorage::setObjSpec(const ObjSpec &oSpec) {this->IStorageSpec=oSpec;}
@@ -446,6 +451,7 @@ void IStorage::set_pending_to_persist() {
 }
 
 void IStorage::make_persistent(const std::string  id_obj) {
+    HecubaExtrae_event(HECUBAEV, HECUBA_IS|HECUBA_MK_PERSISTENT);
 
 	std::string id_object_str;
 	//if the object is not registered, i.e. the class_name is empty, we return error
@@ -454,6 +460,7 @@ void IStorage::make_persistent(const std::string  id_obj) {
 		throw std::runtime_error("Trying to persist a non-registered object with name "+ id_obj);
 
 	}
+
 
     HecubaSession& currentSession = getCurrentSession();
 	if (id_obj.empty()) { //No name used
@@ -482,6 +489,7 @@ void IStorage::make_persistent(const std::string  id_obj) {
 				currentSession.config["execution_name"] + "." + this->tableName +
 				oType.table_attr;
 
+    HecubaExtrae_event(HECUBACASS, HBCASS_CREATE);
 	CassError rc = currentSession.run_query(query);
 	if (rc != CASS_OK) {
 		if (rc == CASS_ERROR_SERVER_ALREADY_EXISTS ) {
@@ -511,6 +519,7 @@ void IStorage::make_persistent(const std::string  id_obj) {
                         throw ModuleException(msg);
                 }
         }
+    HecubaExtrae_event(HECUBACASS, HBCASS_END);
 
 	// Create READ/WRITE cache accesses
 	initialize_dataAcces();
@@ -527,7 +536,7 @@ void IStorage::make_persistent(const std::string  id_obj) {
 	persist_data();
 
     DBG(" IStorage::make_persistent Object "<< id_model <<" with name "<< id_obj);
-
+    HecubaExtrae_event(HECUBAEV, HECUBA_END);
 }
 
 /* id_object_str: User name for the object passed to make_persistent (includes keyspace)
@@ -582,12 +591,13 @@ std::shared_ptr<CacheTable> IStorage::getDataAccess() const {
 	return dataAccess;
 }
 
-void IStorage::setCache(CacheTable& cache) {
-	dataAccess = std::shared_ptr<CacheTable>(&cache);
+void IStorage::setCache(CacheTable* cache) {
+	dataAccess = std::shared_ptr<CacheTable>(cache);
 	dataWriter = dataAccess->get_writer();
 }
 
 void IStorage::getByAlias(const std::string& name) {
+    HecubaExtrae_event(HECUBAEV, HECUBA_IS|HECUBA_GET_BY_ALIAS);
 	std::string FQname (getCurrentSession().config["execution_name"] + "." + name);
 	uint64_t *c_uuid=UUID::generateUUID5(FQname.c_str()); // UUID for the new object
 
@@ -597,6 +607,7 @@ void IStorage::getByAlias(const std::string& name) {
 		configureStream(std::string(UUID::UUID2str(c_uuid)));
 	}
     DBG(" IStorage::getByAlias object with name ["<<name<<"] and uuid ["<<UUID::UUID2str(c_uuid)<<"]");
+    HecubaExtrae_event(HECUBAEV, HECUBA_END);
 }
 
 void IStorage::initializeClassName(std::string class_name) {

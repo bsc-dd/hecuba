@@ -1,6 +1,7 @@
 #include "SO_Attribute.h"
 #include "Hecuba_StorageObject.h"
 #include "debug.h"
+#include "HecubaExtrae.h"
 
 
 // Example of definition of user class that implements a StorageObject
@@ -26,34 +27,44 @@
 
 
 StorageObject::StorageObject(): IStorage(){
+    HecubaExtrae_event(HECUBAEV, HECUBA_SO|HECUBA_INSTANTIATION);
     DBG(" constructor without parameters " << this);
     delayedObjSpec = true;
+    HecubaExtrae_event(HECUBAEV, HECUBA_END);
 }
 
 
 // c++ only calls implicitly the constructor without parameters. To invoke this constructor we need to add to the user class an explicit call to this
 StorageObject::StorageObject(const std::string& name): IStorage() {
+    HecubaExtrae_event(HECUBAEV, HECUBA_SO|HECUBA_INSTANTIATION);
     delayedObjSpec = true;
     setObjectName(name);
     set_pending_to_persist();
+    HecubaExtrae_event(HECUBAEV, HECUBA_END);
 }
 
 StorageObject::StorageObject(const StorageObject& src): IStorage() {
+    HecubaExtrae_event(HECUBAEV, HECUBA_SO|HECUBA_INSTANTIATION);
     *this=src;
+    HecubaExtrae_event(HECUBAEV, HECUBA_END);
 }
 
 StorageObject& StorageObject::operator = (const StorageObject& src) {
+    HecubaExtrae_event(HECUBAEV, HECUBA_SO|HECUBA_ASSIGNMENT);
     if (this != &src ){
         this->IStorage::operator=(src); //Inherit IStorage attributes
         //this->st = src.st;
         this->valuesDesc = src.valuesDesc;
         this->translate = src.translate;
     }
+    HecubaExtrae_event(HECUBAEV, HECUBA_END);
     return *this;
 }
 
 StorageObject::~StorageObject() {
+    HecubaExtrae_event(HECUBAEV, HECUBA_SO|HECUBA_DESTROY);
     DBG( " "<<this);
+    HecubaExtrae_event(HECUBAEV, HECUBA_END);
 }
 
 
@@ -110,7 +121,9 @@ void StorageObject::persist_metadata(uint64_t* c_uuid) {
         "'" + this->getIdModel() + "'" + std::string(", ") +
         oType.getColsStr() +
         std::string(")");
+    HecubaExtrae_event(HECUBACASS, HBCASS_SYNCWRITE);
     CassError rc = getCurrentSession().run_query(insquery);
+    HecubaExtrae_event(HECUBACASS, HBCASS_END);
     if (rc != CASS_OK) {
         std::string msg = std::string("StorageDict::persist_metadata: Error executing query ") + insquery;
         throw ModuleException(msg);
@@ -154,7 +167,7 @@ void StorageObject::initialize_dataAcces() {
     std::vector<config_map>* colNamesDict = oType.getColsNamesDict();
     CacheTable *reader = getCurrentSession().getStorageInterface()->make_cache(this->getTableName().c_str(),
             getCurrentSession().config["execution_name"].c_str(), *keyNamesDict, *colNamesDict, getCurrentSession().config);
-    this->setCache(*reader);
+    this->setCache(reader);
 
 
     delete keyNamesDict;
