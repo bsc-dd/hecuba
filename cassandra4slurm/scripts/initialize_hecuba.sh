@@ -26,6 +26,29 @@ echo $commands | cqlsh ${1}
 echo "  Keyspace hecuba created"
 echo "  Table    istorage created"
 
+[ "0${EXECUTION_NAME}" == "0" ] && EXECUTION_NAME="my_app"
+[ "0${REPLICATION_STRATEGY}" == "0" ] && REPLICATION_STRATEGY="SimpleStrategy"
+[ "0${REPLICA_FACTOR}" == "0" ] && REPLICA_FACTOR="1"
+[ "0${REPLICATION_STRATEGY_OPTIONS}" == "0" ] && REPLICATION_STRATEGY_OPTIONS="''"
+
+if [ ${REPLICATION_STRATEGY} == "SimpleStrategy" ]; then
+commands="CREATE KEYSPACE IF NOT EXISTS ${EXECUTION_NAME} WITH replication=  {'class': '${REPLICATION_STRATEGY}', 'replication_factor': ${REPLICA_FACTOR}}; "
+else
+commands="CREATE KEYSPACE IF NOT EXISTS ${EXECUTION_NAME} WITH replication=  {'class': '${REPLICATION_STRATEGY}', ${REPLICATION_STRATEGY_OPTIONS}}; "
+fi
+
+
+echo $commands | cqlsh ${1}
+
+echo "  Keyspace ${EXECUTION_NAME} created"
+
+[ "0${HECUBA_SN_SINGLE_TABLE}" == "0" ] && HECUBA_SN_SINGLE_TABLE="true"
+if [ ${HECUBA_SN_SINGLE_TABLE} != "no" || ${HECUBA_SN_SINGLE_TABLE} != "false" ]; then
+    commands="CREATE TABLE IF NOT EXISTS ${EXECUTION_NAME}.hecuba_storagenumpy (storage_id uuid, cluster_id int, block_id int, payload blob, PRIMARY KEY ((storage_id, cluster_id), block_id));"
+    echo $commands | cqlsh ${1}
+    echo "  Table    hecuba_storagenumpy created"
+fi
+
 echo "Hecuba initialization completed"
 
 export CREATE_SCHEMA=False

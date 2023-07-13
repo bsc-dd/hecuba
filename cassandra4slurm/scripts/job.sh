@@ -257,6 +257,12 @@ cp $CASSFILE $CASSFILETOSYNC
 # Application launcher
 if [ "$APP_NODES" != "0" ]; then
     APP_AND_PARAMS=$(cat $APPPATHFILE)
+    if [ "$DISJOINT" == "1" ]; then
+        # TODO: is this required??? --> export PYCOMPSS_NODES=$(cat $APPFILE | tr '\n' ',' | sed "s/,/$full_iface,/g" | rev | cut -c 2- | rev) # Workaround for disjoint executions with PyCOMPSs
+        C4S_APP_CORES=$(nproc --all)
+    else
+        C4S_APP_CORES=$(( $(nproc --all) - $C4S_CASSANDRA_CORES ))
+    fi
     if [ "$PYCOMPSS_APP" == "1" ]; then
         PYCOMPSS_FLAGS=$(cat $PYCOMPSS_FLAGS_FILE)
         # TODO: Check if escaping chars is needed for app parameters
@@ -266,20 +272,16 @@ if [ "$APP_NODES" != "0" ]; then
         if [ "0$iface" != "0" ]; then
             full_iface="-"$iface
         fi
-        if [ "$DISJOINT" == "1" ]; then
-            export PYCOMPSS_NODES=$(cat $APPFILE | tr '\n' ',' | sed "s/,/$full_iface,/g" | rev | cut -c 2- | rev) # Workaround for disjoint executions with PyCOMPSs 
-            C4S_COMPSS_CORES=$(nproc --all)
-        else
-            C4S_COMPSS_CORES=$(( $(nproc --all) - $C4S_CASSANDRA_CORES ))
-        fi
+
+        C4S_COMPSS_CORES=$C4S_APP_CORES
 
         cat $MODULE_PATH/pycompss_template.sh | sed "s+PLACEHOLDER_CASSANDRA_NODES_FILE+$CASSFILE+g" | sed "s+PLACEHOLDER_PYCOMPSS_NODES_FILE+$APPFILE+g" | sed "s+PLACEHOLDER_APP_PATH_AND_PARAMETERS+$APP_AND_PARAMS+g" | sed "s+PLACEHOLDER_PYCOMPSS_FLAGS+$PYCOMPSS_FLAGS+g" | sed "s+PLACEHOLDER_PYCOMPSS_STORAGE+$PYCOMPSS_STORAGE+g" > $PYCOMPSS_FILE
 
         APP_NODELIST=$(cat $APPFILE | tr '\n' ',')
         SLURM_JOB_NUM_NODES=$APP_NODES SLURM_NTASKS=$(( $APP_NODES * $C4S_COMPSS_CORES )) SLURM_JOB_NODELIST=${APP_NODELIST::-1} bash $PYCOMPSS_FILE "-$iface" # Params - 1st: interface
     else
-        DBG " RUNNING IN $APP_NODES APP_NODES WITH NTASKS_PERNODE $SLURM_NTASKS_PER_NODE, NTASKS $SLURM_NTASKS AND NPROCS $SLURM_NPROCS"
-        SLURM_JOB_NUM_NODES=$APP_NODES source $MODULE_PATH/app_node.sh $UNIQ_ID
+        DBG " RUNNING IN $APP_NODES APP_NODES WITH NTASKS_PERNODE $SLURM_NTASKS_PER_NODE, NTASKS $(( $APP_NODES * $C4S_APP_CORES)) AND NPROCS $SLURM_NPROCS"
+        SLURM_JOB_NUM_NODES=$APP_NODES SLURM_NTASKS=$(( $APP_NODES * $C4S_APP_CORES)) source $MODULE_PATH/app_node.sh $UNIQ_ID
     fi
 else
     echo "[INFO] This job is not configured to run any application. Skipping..."
