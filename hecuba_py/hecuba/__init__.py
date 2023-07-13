@@ -243,7 +243,7 @@ class Config:
             singleton.replication_strategy_options = os.environ['REPLICATION_STRATEGY_OPTIONS']
             log.info('REPLICATION_STRATEGY_OPTIONS: %s', singleton.replication_strategy_options)
         except KeyError:
-            singleton.replication_strategy_options = ""
+            singleton.replication_strategy_options = "''"
             log.warn('using default REPLICATION_STRATEGY_OPTIONS: %s', singleton.replication_strategy_options)
         singleton.configdir['replication_strategy_options'] = singleton.replication_strategy_options
 
