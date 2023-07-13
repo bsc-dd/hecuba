@@ -22,3 +22,11 @@
 #export WRITE_BUFFER_SIZE=1000
 #export WRITE_CALLBACKS_NUMBER=16
 
+# Use a single table to store all StorageNumpys
+#export HECUBA_SN_SINGLE_TABLE=False
+
+# Configure number of cores to use for the application
+#export C4S_APP_CORES=1
+# Configure number of cores to use for cassandra
+#export C4S_CASSANDRA_CORES=1
+

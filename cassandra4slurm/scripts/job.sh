@@ -70,10 +70,12 @@ if [ "X$HECUBA_ARROW" != "X" ]; then
     echo "export HECUBA_ARROW_PATH=$ROOT_PATH/" >> $ENVFILE
 fi
 
-if [ "$DISJOINT" == "1" ]; then
-    C4S_CASSANDRA_CORES=$(nproc --all)
-else
-    C4S_CASSANDRA_CORES=4
+if [ "X$C4S_CASSANDRA_CORES" == "X" ]; then
+    if [ "$DISJOINT" == "1" ]; then
+        C4S_CASSANDRA_CORES=$(nproc --all)
+    else
+        C4S_CASSANDRA_CORES=4
+    fi
 fi
 
 RETRY_MAX=3000 # This value is around 50, higher now to test big clusters that need more time to be completely discovered
@@ -257,11 +259,13 @@ cp $CASSFILE $CASSFILETOSYNC
 # Application launcher
 if [ "$APP_NODES" != "0" ]; then
     APP_AND_PARAMS=$(cat $APPPATHFILE)
-    if [ "$DISJOINT" == "1" ]; then
-        # TODO: is this required??? --> export PYCOMPSS_NODES=$(cat $APPFILE | tr '\n' ',' | sed "s/,/$full_iface,/g" | rev | cut -c 2- | rev) # Workaround for disjoint executions with PyCOMPSs
-        C4S_APP_CORES=$(nproc --all)
-    else
-        C4S_APP_CORES=$(( $(nproc --all) - $C4S_CASSANDRA_CORES ))
+    if [ "X$C4S_APP_CORES" == X ]; then
+        if [ "$DISJOINT" == "1" ]; then
+            # TODO: is this required??? --> export PYCOMPSS_NODES=$(cat $APPFILE | tr '\n' ',' | sed "s/,/$full_iface,/g" | rev | cut -c 2- | rev) # Workaround for disjoint executions with PyCOMPSs
+            C4S_APP_CORES=$(nproc --all)
+        else
+            C4S_APP_CORES=$(( $(nproc --all) - $C4S_CASSANDRA_CORES ))
+        fi
     fi
     if [ "$PYCOMPSS_APP" == "1" ]; then
         PYCOMPSS_FLAGS=$(cat $PYCOMPSS_FLAGS_FILE)

@@ -33,5 +33,5 @@ fi
 
 
 echo "Launching application: $APP_PATH"
-eval $APP_PATH
+srun --overlap --mem=0 $APP_PATH
 echo "[INFO] The application execution has stopped in node $(hostname)"
