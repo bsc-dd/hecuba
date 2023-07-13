@@ -232,7 +232,26 @@ function launch_arrow_helpers () {
     #echo "INFO: Launching Arrow helper at [$CNAMES]:"
     #srun -s --nodelist $NODES --ntasks-per-node=1 --cpus-per-task=4 $ARROW_HELPER
 }
+reset_all_parameters(){
+    unset ACTION
+    unset JOBNAME
+    unset SNAPSH
+    unset DISJOINT
+    unset CONSTRAINTS
+    unset TOTAL_NODES
+    unset CASSANDRA_NODES
+    unset APP_NODES
+    unset APP
+    unset path_to_executable
+    unset PYCOMPSS_APP
+    unset JOB_MAX_TIME
+    unset FINISH
+    unset input_snap
+    unset LOGS_DIR
+    unset UNK_FLAGS
+}
 
+reset_all_parameters
 for i in "$@"; do
 case $i in
     -h|--help)
