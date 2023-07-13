@@ -163,8 +163,8 @@ void WriterThread::set_error_occurred(std::string error, const void* writer_p, c
         --ncallbacks;
         throw ModuleException("Try # " + std::to_string(MAX_ERRORS) + " :" + error);
     } else {
-        std::cerr << "Connectivity problems: " << error_count << " " << error << std::endl;
-        std::cerr << "  WARNING: We can NOT ensure write requests order->POTENTIAL INCONSISTENCY"<<std::endl;
+        std::cerr << "Connectivity problems: " << error_count << " (" << error << std::endl;
+        std::cerr << "  WARNING: We can NOT ensure write requests (table: " << ((Writer *)writer_p)->get_metadata()->get_table_name() << ") order->POTENTIAL INCONSISTENCY"<<std::endl;
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
 
