@@ -632,6 +632,8 @@ then
             exit_no_cluster
         fi
     fi
+
+    DBG "[STATUS] JOBNAME: $JOBNAME"
     get_job_info
     if [ "$JOB_ID" != "" ]
     then
@@ -643,36 +645,39 @@ then
         N_NODES=$(cat $C4S_HOME/casslist-"$JOBNAME".txt | wc -l)
         get_cluster_node 
         #NODE_STATE_LIST=`ssh $NODE_ID "$CASS_HOME/bin/nodetool -h $NODE_ID$CASS_IFACE status" | sed 1,5d | sed '$ d' | awk '{ print $1 }'`
-        NODE_STATE_LIST=`$CASS_HOME/bin/nodetool -h $NODE_ID$CASS_IFACE status 2> /dev/null | sed 1,5d | sed '$ d' | awk '{ print $1 }'`
-	if [ "$NODE_STATE_LIST" == "" ]
-	then
-            echo "ERROR: No status found. The Cassandra Cluster may be still bootstrapping. Try again later."
-            exit
-        fi
-        NODE_COUNTER=0
-        for state in $NODE_STATE_LIST
-        do
-            if [ $state != "UN" ]
-            then
-                echo "E1"
-                exit_bad_node_status
-            else
-                NODE_COUNTER=$(($NODE_COUNTER+1))
-            fi
-       	done
+        #yolandab: show just the output of nodetool without any additional processing
+        #NODE_STATE_LIST=`$CASS_HOME/bin/nodetool -h $NODE_ID status 2> /dev/null | sed 1,5d | sed '$ d' | awk '{ print $1 }'`
+        $CASS_HOME/bin/nodetool -h $NODE_ID status 2> /dev/null
+    #if [ "$NODE_STATE_LIST" == "" ]
+	#then
+    #        echo "ERROR: No status found. The Cassandra Cluster may be still bootstrapping. Try again later."
+    #        exit
+    #    fi
+    #    NODE_COUNTER=0
+    #    for state in $NODE_STATE_LIST
+    #    do
+    #        if [ $state != "UN" ]
+    #        then
+    #            echo "E1"
+    #            exit_bad_node_status
+    #        else
+    #            NODE_COUNTER=$(($NODE_COUNTER+1))
+    #        fi
+    #   	done
 # TODO: Fix N_NODES_FILE for this case, it will fail because a new process id is used to get the UNIQ_ID and is not matching with any host file.
 # This check should look for cassandra clusters (if any) and show a list of identifiers to choose one / details of each of them or about the cluster if there is only one.
-        NODES_FILE=$C4S_HOME/casslist-"$(squeue | grep $JOBNAME | awk '{ print $3 }')".txt
-        if [ "$N_NODES" == "$NODE_COUNTER" ]
-        then
-            echo "Cassandra Cluster Status: OK"
-       	    $CASS_HOME/bin/nodetool -h $NODE_ID$CASS_IFACE status 2> /dev/null
-        else
-            echo "E2"
-            echo "NODES_EXPECTED: "$N_NODES
-            echo "NODE_COUNTER: "$NODE_COUNTER
-            exit_bad_node_status
-        fi
+    #    NODES_FILE=$C4S_HOME/casslist-"$(squeue | grep $JOBNAME | awk '{ print $3 }')".txt
+    #    if [ "$N_NODES" == "$NODE_COUNTER" ]
+    #    then
+    #        echo "Cassandra Cluster Status: OK"
+    #   	    $CASS_HOME/bin/nodetool -h $NODE_ID$CASS_IFACE status 2> /dev/null
+    #    else
+    #        echo "E2"
+    #        echo "NODES_EXPECTED: "$N_NODES
+    #        echo "NODE_COUNTER: "$NODE_COUNTER
+    #        exit_bad_node_status
+    #    fi
+    #    end yolandab
     else
         exit_no_cluster
     fi
