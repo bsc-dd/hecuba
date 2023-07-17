@@ -43,7 +43,7 @@ echo $commands | cqlsh ${1}
 echo "  Keyspace ${EXECUTION_NAME} created"
 
 [ "0${HECUBA_SN_SINGLE_TABLE}" == "0" ] && HECUBA_SN_SINGLE_TABLE="true"
-if [ ${HECUBA_SN_SINGLE_TABLE} != "no" || ${HECUBA_SN_SINGLE_TABLE} != "false" ]; then
+if [[ ${HECUBA_SN_SINGLE_TABLE} != "no" && ${HECUBA_SN_SINGLE_TABLE} != "false" ]]; then
     commands="CREATE TABLE IF NOT EXISTS ${EXECUTION_NAME}.hecuba_storagenumpy (storage_id uuid, cluster_id int, block_id int, payload blob, PRIMARY KEY ((storage_id, cluster_id), block_id));"
     echo $commands | cqlsh ${1}
     echo "  Table    hecuba_storagenumpy created"
