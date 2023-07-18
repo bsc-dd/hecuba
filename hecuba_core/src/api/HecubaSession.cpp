@@ -373,11 +373,19 @@ HecubaSession::~HecubaSession() {
     for (std::list<std::shared_ptr<CacheTable>>::iterator it = alive_objects.begin(); it != alive_objects.end();) {
         std::shared_ptr<CacheTable> t = *it;
         //std::cout << "LIST DEL: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
+        if (t.use_count()>2) {
+            t.get()->get_writer()->wait_writes_completion();
+            DBG( "  LIST DEL AFTER: "<< t.get() <<" ("<<t.use_count()<<")");
+        }
         it = alive_objects.erase(it); // this will block waiting for the 'sync'
     }
     for (std::list<std::shared_ptr<ArrayDataStore>>::iterator it = alive_numpy_objects.begin(); it != alive_numpy_objects.end();) {
         std::shared_ptr<ArrayDataStore> t = *it;
-        //std::cout << "LIST DEL: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
+        //std::cout << "LIST DEL ARRAY: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
+        if (t.use_count()>2) {
+            t.get()->getWriteCache()->get_writer()->wait_writes_completion();
+            DBG( "  LIST DEL AFTER: "<< t.get() <<" ("<<t.use_count()<<")");
+        }
         it = alive_numpy_objects.erase(it); // this will block waiting for the 'sync'
     }
 }
