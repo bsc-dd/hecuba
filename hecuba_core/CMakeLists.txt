@@ -18,7 +18,7 @@ include(ExternalProject)
 
 
 # Compiler related configuration
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
 #If the default compiler doesn't support C++11, set the environment vars [CC,CXX] pointing to the compilers binaries
 # desired to compile C and C++ respectively
@@ -256,9 +256,8 @@ if (NOT ARROW)
     ExternalProject_Add(
             ARROW	#ARROW-prefix
             DOWNLOAD_DIR ${CMAKE_CURRENT_LIST_DIR}/dependencies
-            URL "https://archive.apache.org/dist/arrow/arrow-0.15.1/apache-arrow-0.15.1.tar.gz"
-            URL_HASH SHA256=9a2c58c72310eafebb4997244cbeeb8c26696320d0ae3eb3e8512f75ef856fc9
-            CONFIGURE_COMMAND ""
+            URL "https://archive.apache.org/dist/arrow/arrow-10.0.1/apache-arrow-10.0.1.tar.gz"
+            URL_HASH SHA256=c814e0670112a22c1a6ec03ab420a52ae236a9a42e9e438c3cbd37f37e658fb3                                                                                                                       CONFIGURE_COMMAND ""
             BUILD_COMMAND     ${CMAKE_COMMAND} -E echo "==== Starting configure build"
             COMMAND           ${CMAKE_COMMAND} cpp -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_INSTALL_PREFIX=${C_BINDING_INSTALL_PREFIX} -DARROW_BUILD_STATIC=false
             COMMAND           ${CMAKE_COMMAND} -E echo "==== Starting Patch"

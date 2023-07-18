@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cassandra.h>
 #include "gtest/gtest.h"
+#include <random>
 #include "../src/MetaManager.h"
 #include "../src/StorageInterface.h"
 #include "../src/ArrayDataStore.h"
