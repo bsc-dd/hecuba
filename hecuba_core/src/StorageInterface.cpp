@@ -74,6 +74,8 @@ StorageInterface::~StorageInterface() {
 int StorageInterface::disconnectCassandra() {
     if (session != NULL) {
         CassFuture *close_future = cass_session_close(session);
+        CassError rc = cass_future_error_code(close_future);
+        CHECK_CASS("StorageInterface::disconnectCassandra Failed");
         cass_future_free(close_future);
         cass_session_free(session);
         cass_cluster_free(cluster);
