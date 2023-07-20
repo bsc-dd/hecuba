@@ -17,7 +17,6 @@
 #include "ThreadPoolReader.h"
 
 //#include "ArrayDataStore.h"
-#include "MetaManager.h"
 
 #include "configmap.h"
 
@@ -76,13 +75,6 @@ public:
 
     Prefetch *get_iterator(const TableMetadata *table_meta,
                            config_map &config);
-
-
-    MetaManager *make_meta_manager(const char *table, const char *keyspace,
-                                   std::vector<config_map> &keys_names,
-                                   std::vector<config_map> &columns_names,
-                                   config_map &config);
-
 
     inline CassSession *get_session() {
         if (!this->session) throw ModuleException("Cassandra not connected yet, session unavailable");

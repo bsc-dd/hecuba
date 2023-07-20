@@ -18,7 +18,6 @@ NumpyStorage::NumpyStorage(const char *table, const char *keyspace, std::shared_
 
     CassSession* session = storage->get_session();
     TableMetadata *table_meta = new TableMetadata("istorage", "hecuba", keys_names, columns_names, session);
-    this ->MM = new MetaManager(table_meta, session, config);
 }
 
 NumpyStorage::~NumpyStorage() {
