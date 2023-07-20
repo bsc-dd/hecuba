@@ -14,8 +14,6 @@ class ArrayDataStore {
 
 public:
 
-    ArrayDataStore(const char *table, const char *keyspace, CassSession *session,
-                   std::map<std::string, std::string> &config);
     ArrayDataStore(const char *table, const char *keyspace, std::shared_ptr<StorageInterface> storage,
                    std::map<std::string, std::string> &config);
 

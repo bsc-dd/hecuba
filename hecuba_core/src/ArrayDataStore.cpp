@@ -75,9 +75,10 @@ CacheTable* ArrayDataStore::getStaticHecubaIstorageCacheTable(const char *table_
     return &metadata_cache;
 }
 
-ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSession *session,
+ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, std::shared_ptr<StorageInterface> storage,
                                std::map<std::string, std::string> &config) {
-
+    this->storage = storage;
+    CassSession* session = storage->get_session();
     char * env_path = std::getenv("HECUBA_ARROW");
     if (env_path != nullptr) {
         std::string hecuba_arrow(env_path);
@@ -187,38 +188,9 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
     }
 
     //Metadata needed only for *reading* numpy metas from hecuba.istorage
-    //lgarrobe
-    std::vector<std::map<std::string, std::string> > metadata_keys = {{{"name", "storage_id"}}};
-
-    std::vector<std::map<std::string, std::string> > metadata_columns = {{{"name", "base_numpy"}}
-									,{{"name", "class_name"}}
-									,{{"name", "name"}}
-									,{{"name", "numpy_meta"}}};
-
-#if 0
-    TableMetadata *metadata_table_meta = new TableMetadata("istorage", "hecuba", metadata_keys, metadata_columns, session);
-
-    this->metadata_cache = new CacheTable(metadata_table_meta, session, config);
-
-
-    std::vector<std::map<std::string, std::string>> read_metadata_keys  (metadata_keys.begin(), (metadata_keys.end() ));
-    std::vector<std::map<std::string, std::string>> read_metadata_columns = metadata_columns;
-
-    metadata_table_meta = new TableMetadata("istorage", "hecuba", read_metadata_keys, read_metadata_columns, session);
-
-    this->metadata_read_cache = new CacheTable(metadata_table_meta, session, config);
-#else
-
-    this->metadata_cache = ArrayDataStore::getStaticHecubaIstorageCacheTable("istorage", "hecuba", metadata_keys, metadata_columns, session, config);
+    this->metadata_cache = storage->get_static_metadata_cache(config);
     this->metadata_read_cache = this->metadata_cache;
-#endif
 
-}
-
-ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, std::shared_ptr<StorageInterface> storage,
-                               std::map<std::string, std::string> &config) :
-    ArrayDataStore(table, keyspace, storage->get_session(), config) {
-    this->storage = storage;
 }
 
 ArrayDataStore::ArrayDataStore(const ArrayDataStore& src) {
@@ -229,13 +201,19 @@ ArrayDataStore& ArrayDataStore::operator= (const ArrayDataStore& src) {
 
     if (this != &src) {
         TN  = src.TN;
-        if (cache != nullptr) { delete (cache); }
-        cache = new CacheTable(*src.cache);
+        if (cache != nullptr) {
+            if ( cache->can_table_meta_be_freed() ) { // TODO FIX THIS THING
+                delete (this->cache);
+            }
+        }
+        if (src.cache->can_table_meta_be_freed()) { // TODO FIX THIS THING
+            cache = new CacheTable(*src.cache);
+        } else {
+            cache = src.cache;
+        }
         read_cache = cache;
-        if (metadata_cache!=nullptr) { delete (metadata_cache); }
-        metadata_cache = new CacheTable(*src.metadata_cache);
-        if (metadata_read_cache!=nullptr) { delete (metadata_read_cache); }
-        metadata_read_cache = new CacheTable(*src.metadata_read_cache);
+        metadata_cache      = src.metadata_cache;
+        metadata_read_cache = src.metadata_read_cache;
         partitioner         = src.partitioner; // uses default copy assignment
         arrow_enabled       = src.arrow_enabled;
         arrow_optane        = src.arrow_optane;
@@ -255,9 +233,6 @@ ArrayDataStore::~ArrayDataStore() {
         this->cache = nullptr;
     }
     if (this->metadata_cache){
-        if ( this->metadata_cache->can_table_meta_be_freed() ) { // TODO FIX THIS THING
-            delete (this->metadata_cache);
-        }
         this->metadata_cache = nullptr;
     }
     if (this->metadata_read_cache){
