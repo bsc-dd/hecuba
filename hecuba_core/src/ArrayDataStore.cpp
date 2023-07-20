@@ -62,18 +62,25 @@
 #define PMEM_OFFSET 8
 #define MAX_RETRIES 5
 
-TableMetadata* ArrayDataStore::getStaticTableMetadata(const char *table_name, const char *keyspace_name,
+CacheTable* ArrayDataStore::getStaticcache( const char *table_name, const char *keyspace_name,
                              std::vector<std::map<std::string, std::string>> &keys_names,
                              std::vector<std::map<std::string, std::string>> &columns_names,
-                             const CassSession *session) {
+                             CassSession* session,
+                             std::map<std::string, std::string> &config) {
     static TableMetadata staticMetadata(table_name, keyspace_name, keys_names, columns_names, session);
-    return &staticMetadata;
+    static CacheTable staticCache(&staticMetadata, session, config, false);
+    return &staticCache;
 }
 
-CacheTable* ArrayDataStore::getStaticcache(TableMetadata* table_meta, CassSession* session,
-                               std::map<std::string, std::string> &config) {
-    static CacheTable staticCache(table_meta, session, config, false);
-    return &staticCache;
+CacheTable* ArrayDataStore::getStaticHecubaIstorageCacheTable(const char *table_name, const char *keyspace_name,
+                             std::vector<std::map<std::string, std::string>> &keys_names,
+                             std::vector<std::map<std::string, std::string>> &columns_names,
+                             CassSession *session,
+                             std::map<std::string, std::string> &config) {
+
+    static TableMetadata metadata_table_meta(table_name, keyspace_name, keys_names, columns_names, session);
+    static CacheTable metadata_cache(&metadata_table_meta, session, config, false);
+    return &metadata_cache;
 }
 
 ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSession *session,
@@ -136,9 +143,8 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
 
 
         if (config.at("hecuba_sn_single_table") != "false" ) { // Single Numpy table ENABLED
-            //std::cout<< " ArrayDataStore::constructor SINGLE TABLE ENABLED Creating CacheTable" << std:: endl;
-            TableMetadata *table_meta = ArrayDataStore::getStaticTableMetadata(table, keyspace, keys_names, columns_names, session);
-            this->cache = ArrayDataStore::getStaticcache(table_meta,session,config);
+            std::cout<< " ArrayDataStore::constructor SINGLE TABLE ENABLED Creating CacheTable" << std:: endl;
+            this->cache = ArrayDataStore::getStaticcache(table, keyspace, keys_names, columns_names, session, config);
         } else { //Multiple Numpy tables enabled
             TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names, session);
             this->cache = new CacheTable(table_meta, session, config);
@@ -197,6 +203,7 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
 									,{{"name", "name"}}
 									,{{"name", "numpy_meta"}}};
 
+#if 0
     TableMetadata *metadata_table_meta = new TableMetadata("istorage", "hecuba", metadata_keys, metadata_columns, session);
 
     this->metadata_cache = new CacheTable(metadata_table_meta, session, config);
@@ -208,6 +215,11 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, CassSess
     metadata_table_meta = new TableMetadata("istorage", "hecuba", read_metadata_keys, read_metadata_columns, session);
 
     this->metadata_read_cache = new CacheTable(metadata_table_meta, session, config);
+#else
+
+    this->metadata_cache = ArrayDataStore::getStaticHecubaIstorageCacheTable("istorage", "hecuba", metadata_keys, metadata_columns, session, config);
+    this->metadata_read_cache = this->metadata_cache;
+#endif
 
 }
 
@@ -251,11 +263,12 @@ ArrayDataStore::~ArrayDataStore() {
         this->cache = nullptr;
     }
     if (this->metadata_cache){
-        delete (this->metadata_cache);
+        if ( this->metadata_cache->can_table_meta_be_freed() ) { // TODO FIX THIS THING
+            delete (this->metadata_cache);
+        }
         this->metadata_cache = nullptr;
     }
     if (this->metadata_read_cache){
-        delete (this->metadata_read_cache);
         this->metadata_read_cache = nullptr;
     }
 };
@@ -423,6 +436,10 @@ CacheTable* ArrayDataStore::getWriteCache(void) const {
 
 CacheTable* ArrayDataStore::getReadCache(void) const {
     return read_cache;
+}
+
+CacheTable* ArrayDataStore::getMetaDataCache(void) const {
+    return metadata_cache;
 }
 
 /* get_row_elements - Calculate #elements per dimension 
