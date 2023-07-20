@@ -237,7 +237,6 @@ echo "CHECKING CASSANDRA STATUS: "
 first_node=`head -n1 $CASSFILE`"$CASS_IFACE"
 $CASS_HOME/bin/nodetool -h $first_node status
 
-sleep 12
 firstnode=$(echo $seeds | awk -F ',' '{ print $1 }')
 CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $CASSFILE)$CASS_IFACE
 CNAMES=$(echo $CNAMES | sed "s/,/$CASS_IFACE,/g")
