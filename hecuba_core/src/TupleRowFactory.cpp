@@ -767,10 +767,6 @@ TupleRowFactory::bind(CassStatement *statement, const TupleRow *row, u_int16_t o
 
                     CassUserType* cass_np_meta = cass_user_type_new_from_data_type(metadata->at(i).dtype);
 
-                    ////////
-                    // NOTE: The code here MUST match the code in 'MetaManager.register_obj'
-                    ////////
-
                     ArrayMetadata np_metas = ArrayMetadata(); // Dummy ArrayMetadata to store temporal values
 
                     /* Minimum size of ArrayMetaData. 'sizeof' can not be used as the compiler may add some padding */

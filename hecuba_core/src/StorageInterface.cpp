@@ -136,19 +136,6 @@ Writer *StorageInterface::make_writer(const TableMetadata *table_meta,
 //}
 
 
-MetaManager *StorageInterface::make_meta_manager(const char *table, const char *keyspace,
-                                                 std::vector<config_map> &keys_names,
-                                                 std::vector<config_map> &columns_names,
-                                                 config_map &config) {
-    if (!session){
-        std::cerr<<"StorageInterface not connected to any node"<<std::endl;
-        throw ModuleException("StorageInterface not connected to any node");
-    }
- 
-    TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names, session);
-    return new MetaManager(table_meta, session, config);
-}
-
 /*** ITERATOR METHODS AND SETUP ***/
 
 /***

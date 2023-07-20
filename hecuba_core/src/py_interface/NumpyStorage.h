@@ -2,7 +2,6 @@
 #define HFETCH_NUMPYSTORAGE_H
 
 #include "../ArrayDataStore.h"
-#include "../MetaManager.h"
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <climits>
@@ -44,8 +43,6 @@ public:
     void poll(ArrayMetadata &np_metas, PyArrayObject *numpy );
 
 private:
-
-    MetaManager *MM;
 
     //ArrayMetadata *get_np_metadata(PyArrayObject *numpy) const;
 
