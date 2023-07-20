@@ -582,9 +582,9 @@ if [ "$ACTION" == "RUN" ]; then
  
     #WHILE DEBUGGING
     echo "EXECUTION SUMMARY:"
-    echo "# of Cassandra nodes: "$CASSANDRA_NODES
-    echo "# of application nodes: "$APP_NODES
-    echo "# total of requested nodes: "$TOTAL_NODES
+    echo "# of Cassandra nodes      : $CASSANDRA_NODES"
+    echo "# of application nodes    : $APP_NODES"
+    echo "# total of requested nodes: $TOTAL_NODES"
     #END DEBUGGING
     
     echo "Job allocation started..."

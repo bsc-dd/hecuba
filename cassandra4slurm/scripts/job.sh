@@ -160,7 +160,13 @@ casslist=`cat $CASSFILE`
 seedlist=`head -n 2 $CASSFILE`
 seeds=`echo $seedlist | sed "s/ /-$iface,/g"`
 seeds=$seeds-$iface #using only infiniband atm, will change later
-sed "s/.*seeds:.*/          - seeds: \"$seeds\"/" $C4S_HOME/conf/template.yaml | sed "s/.*rpc_interface:.*/rpc_interface: $iface/" | sed "s/.*listen_interface:.*/listen_interface: $iface/" | sed "s/.*listen_address:.*/#listen_address: localhost/" | sed "s/.*rpc_address:.*/#rpc_address: localhost/" | sed "s/.*initial_token:.*/#initial_token:/" > $C4S_HOME/conf/template-aux-"$SLURM_JOB_ID".yaml
+sed "s/.*seeds:.*/          - seeds: \"$seeds\"/" $C4S_HOME/conf/template.yaml \
+| sed "s/.*rpc_interface:.*/rpc_interface: $iface/" \
+| sed "s/.*listen_interface:.*/listen_interface: $iface/" \
+| sed "s/.*listen_address:.*/#listen_address: localhost/" \
+| sed "s/.*rpc_address:.*/#rpc_address: localhost/" \
+| sed "s/.*initial_token:.*/#initial_token:/" \
+> $C4S_HOME/conf/template-aux-"$SLURM_JOB_ID".yaml
 
 
 DBG $(ls -la $C4S_HOME/conf/template-aux-"$SLURM_JOB_ID".yaml)
