@@ -43,6 +43,9 @@ public:
                            std::vector<config_map> &columns_names,
                            config_map &config);
 
+    CacheTable *get_static_metadata_cache(config_map &config);
+
+
     Writer *make_writer(const char *table, const char *keyspace,
                         std::vector<config_map> &keys_names,
                         std::vector<config_map> &columns_names,
