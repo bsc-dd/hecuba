@@ -341,8 +341,10 @@ class StorageNumpy:virtual public IStorage {
 
 
             try {
-                getCurrentSession().getNumpyMetaWriter()->write_to_cassandra(keys, values);
-                getCurrentSession().getNumpyMetaWriter()->wait_writes_completion(); // Ensure hecuba.istorage get all updates SYNCHRONOUSLY (to avoid race conditions with poll that may request a build_remotely on this new object)!
+                //getCurrentSession().getNumpyMetaWriter()->write_to_cassandra(keys, values);
+                //getCurrentSession().getNumpyMetaWriter()->wait_writes_completion(); // Ensure hecuba.istorage get all updates SYNCHRONOUSLY (to avoid race conditions with poll that may request a build_remotely on this new object)!
+                arrayStore->getMetaDataCache()->get_writer()->write_to_cassandra(keys, values);
+                arrayStore->getMetaDataCache()->get_writer()->wait_writes_completion(); // Ensure hecuba.istorage get all updates SYNCHRONOUSLY (to avoid race conditions with poll that may request a build_remotely on this new object)!
             }
             catch (std::exception &e) {
                 std::cerr << "HecubaSession::registerNumpy: Error writing" <<std::endl;

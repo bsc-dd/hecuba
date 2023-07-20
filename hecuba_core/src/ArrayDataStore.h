@@ -52,18 +52,23 @@ public:
 
     CacheTable* getWriteCache(void) const ;
     CacheTable* getReadCache(void) const ;
+    CacheTable* getMetaDataCache(void) const ;
 protected:
 
     void store_numpy_partition_into_cas(const uint64_t *storage_id , Partition part) const;
     uint32_t get_row_elements(ArrayMetadata &metadata) const;
 
 
-    static TableMetadata* getStaticTableMetadata(const char *table_name, const char *keyspace_name,
+    static CacheTable* getStaticcache(const char *table_name, const char *keyspace_name,
                              std::vector<std::map<std::string, std::string>> &keys_names,
                              std::vector<std::map<std::string, std::string>> &columns_names,
-                             const CassSession *session);// This variable contains the cache table to be shared by all numpys if 'hecuba_sn_single_table' is set
-    static CacheTable* getStaticcache(TableMetadata* table_meta, CassSession* session,
-                               std::map<std::string, std::string> &config); // This variable contains the cache table to be shared by all numpys if 'hecuba_sn_single_table' is set
+                             CassSession* session,
+                             std::map<std::string, std::string> &config); // This variable contains the cache table to be shared by all numpys if 'hecuba_sn_single_table' is set
+    static CacheTable* getStaticHecubaIstorageCacheTable(const char *table_name, const char *keyspace_name,
+                             std::vector<std::map<std::string, std::string>> &keys_names,
+                             std::vector<std::map<std::string, std::string>> &columns_names,
+                             CassSession *session,
+                             std::map<std::string, std::string> &config);
     CacheTable *cache = nullptr, *read_cache = nullptr;
     CacheTable *metadata_cache = nullptr, *metadata_read_cache=nullptr;
 
