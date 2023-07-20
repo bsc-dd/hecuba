@@ -99,6 +99,20 @@ CacheTable *StorageInterface::make_cache(const char *table, const char *keyspace
     return new CacheTable(table_meta, session, config);
 }
 
+CacheTable *StorageInterface::get_static_metadata_cache( config_map &config) {
+    std::vector<std::map<std::string, std::string> > metadata_keys = {{{"name", "storage_id"}}};
+
+    std::vector<std::map<std::string, std::string> > metadata_columns = {{{"name", "base_numpy"}}
+									,{{"name", "class_name"}}
+									,{{"name", "name"}}
+									,{{"name", "numpy_meta"}}};
+
+    if (!session) throw ModuleException("StorageInterface not connected to any node");
+    static TableMetadata table_meta ("istorage", "hecuba", metadata_keys, metadata_columns, session);
+    static CacheTable staticCacheTable (&table_meta, session, config, false);
+    return &staticCacheTable;
+}
+
 
 Writer *StorageInterface::make_writer(const char *table, const char *keyspace,
                                       std::vector<config_map> &keys_names,

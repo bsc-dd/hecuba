@@ -144,7 +144,7 @@ class StorageNumpy:virtual public IStorage {
             // StorageNumpy
             this->arrayStore = std::make_shared<ArrayDataStore> (getTableName().c_str(),
                     getCurrentSession().config["execution_name"].c_str(),
-                    getCurrentSession().getStorageInterface()->get_session(), getCurrentSession().config);
+                    getCurrentSession().getStorageInterface(), getCurrentSession().config);
 
             getCurrentSession().registerObject(arrayStore,getClassName());
         }

@@ -344,22 +344,7 @@ HecubaSession::HecubaSession() {
 // TODO: extend writer to support lists
 
 
-std::vector<config_map> pkeystypes_n = { {{"name", "storage_id"}} };
-std::vector<config_map> ckeystypes_n = {};
-std::vector<config_map> colstypes_n = {
-						{{"name", "base_numpy"}},
-                        {{"name", "class_name"}},
-						{{"name", "name"}},
-						{{"name", "numpy_meta"}},
-						//{{"name", "block_id"}}, //NOT USED
-						//{{"name", "view_serialization"}},  //Used by Python, uses pickle format. Let it be NULL and initialized at python code
-};
-						// TODO: extend writer to support lists {{"name", "tokens"}} }; //list
-
-// The attributes stored in istorage for all numpys are the same, we use a single writer for the session
-numpyMetaAccess = storageInterface->make_cache("istorage", "hecuba",
-												pkeystypes_n, colstypes_n,
-												config);
+numpyMetaAccess = storageInterface->get_static_metadata_cache(config);
 numpyMetaWriter = numpyMetaAccess->get_writer();
 
     //std::cout << " Constructor HecubaSession  id="<< std::this_thread::get_id()<<std::endl;
@@ -368,7 +353,9 @@ numpyMetaWriter = numpyMetaAccess->get_writer();
 }
 
 HecubaSession::~HecubaSession() {
-    delete(numpyMetaAccess);
+    if (numpyMetaAccess->can_table_meta_be_freed()) { // TODO FIX THIS THING
+        delete(numpyMetaAccess);
+    }
 
     for (std::list<std::shared_ptr<CacheTable>>::iterator it = alive_objects.begin(); it != alive_objects.end();) {
         std::shared_ptr<CacheTable> t = *it;
