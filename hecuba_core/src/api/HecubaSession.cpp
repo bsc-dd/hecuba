@@ -353,6 +353,7 @@ numpyMetaWriter = numpyMetaAccess->get_writer();
 }
 
 HecubaSession::~HecubaSession() {
+    HecubaExtrae_event(HECUBADBG, HECUBA_SESSIONDESTROY);
     if (numpyMetaAccess->can_table_meta_be_freed()) { // TODO FIX THIS THING
         delete(numpyMetaAccess);
     }
@@ -375,6 +376,7 @@ HecubaSession::~HecubaSession() {
         }
         it = alive_numpy_objects.erase(it); // this will block waiting for the 'sync'
     }
+    HecubaExtrae_event(HECUBADBG, HECUBA_END);
 }
 
 /* Given a class name 'id_model' returns its Fully Qualified Name with Python
@@ -829,6 +831,7 @@ bool HecubaSession::registerObject(const std::shared_ptr<ArrayDataStore> a, cons
 
 void HecubaSession::deallocateObjects() {
 
+    HecubaExtrae_event(HECUBADBG, HECUBA_DEALLOCATEOBJS);
     {
         std::lock_guard<decltype(mxalive_objects)> lock{mxalive_objects};
 
@@ -864,6 +867,7 @@ void HecubaSession::deallocateObjects() {
             }
         }
     }
+    HecubaExtrae_event(HECUBADBG, HECUBA_END);
 }
 
 std::string HecubaSession::getExecutionName() {
