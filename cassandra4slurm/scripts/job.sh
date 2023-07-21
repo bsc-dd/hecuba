@@ -119,6 +119,23 @@ function get_nodes_up () {
     NODE_COUNTER=$($CASS_HOME/bin/nodetool -h $first_node status | sed 1,5d | sed '$ d' | awk '{ print $1 }' | grep "UN" | wc -l)
 }
 
+function check_cassandra_is_available () {
+    local first_node=`head -n1 $CASSFILE`"$CASS_IFACE"
+    local res=1
+    local nretries=1
+    while [ "$res" != "0" ] ; do
+        #echo " * Checking Cassandra is available... $nretries/$RETRY_MAX"
+        $CASS_HOME/bin/cqlsh $first_node -e 'describe keyspaces;' > /dev/null
+        res=$?
+        ((nretries++))
+        if [ $nretries -ge $RETRY_MAX ]; then
+            echo "ERROR: Too many retries. Cassandra seems unavailable!! ($CASS_HOME/bin/cassandra)"
+            echo "Exiting..."
+            exit
+        fi
+    done
+    echo " * Cassandra is available!"
+}
 
 if [ ! -f $CASS_HOME/bin/cassandra ]; then
     echo "ERROR: Cassandra executable is not placed where it was expected. ($CASS_HOME/bin/cassandra)"
@@ -237,6 +254,7 @@ echo "CHECKING CASSANDRA STATUS: "
 first_node=`head -n1 $CASSFILE`"$CASS_IFACE"
 $CASS_HOME/bin/nodetool -h $first_node status
 
+
 firstnode=$(echo $seeds | awk -F ',' '{ print $1 }')
 CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $CASSFILE)$CASS_IFACE
 CNAMES=$(echo $CNAMES | sed "s/,/$CASS_IFACE,/g")
@@ -249,6 +267,8 @@ echo $CNAMES | tr , '\n' > $PYCOMPSS_STORAGE # Set list of nodes (with interface
 # Workaround: Creating hecuba.istorage before execution.
 #$CASS_HOME/bin/cqlsh $(head -n 1 $CASSFILE)$CASS_IFACE < $MODULE_PATH/hecuba-istorage.cql
 #$CASS_HOME/bin/cqlsh $(head -n 1 $CASSFILE)$CASS_IFACE < $MODULE_PATH/tables_numpy.cql
+
+check_cassandra_is_available
 
 source $MODULE_PATH/initialize_hecuba.sh $firstnode
 
