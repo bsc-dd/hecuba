@@ -19,7 +19,9 @@ WriterThread::WriterThread(std::map<std::string, std::string>& config):
     sempending_data(new Semaphore(0)),
     ncallbacks(0),
     error_count(0),
+#ifdef EXTRAE
     msgid(0),
+#endif /* EXTRAE */
     finish_async_query_thread(false)
 {
     HecubaExtrae_event(HECUBADBG, HECUBA_CREATEASYNCTHREAD);
