@@ -154,13 +154,14 @@ FIND_PROGRAM(KAFKATOOLS NAMES kafka-server-start.sh zookeeper-server-start.sh PA
 if (USE_EXTRAE)
     # Locate Extrae library path (must contain 'include' and 'lib' directories)
     FIND_PATH(EXTRAE include/extrae.h
-              PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
+              PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH ENV EXTRAE_HOME)
 
     if (NOT EXTRAE)
         message("EXTRAE NOT FOUND")
     else ()
         message(STATUS "Using system's EXTRAE Library: " ${EXTRAE})
-        set(ALL_LIBS ${ALL_LIBS} ${EXTRAE}/lib/libpttrace.so)
+        #set(ALL_LIBS ${ALL_LIBS} ${EXTRAE}/lib/libpttrace.so)
+        set(ALL_LIBS ${ALL_LIBS} ${EXTRAE}/lib/libptmpitrace.so)
         include_directories(${EXTRAE}/include)
 
         add_compile_definitions(EXTRAE)    # Define EXTRAE preprocessor macro to enable extrae use
