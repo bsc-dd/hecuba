@@ -59,6 +59,11 @@
 
 #ifdef EXTRAE
 #include <extrae.h>
+#include <unistd.h>
+#include <dlfcn.h>
+
+// HECUBA_MPI_COMM_WORLD should match MPI_COMM_WORLD from mpi.h (this avoids linking with the MPI library)
+#define  HECUBA_MPI_COMM_WORLD 0x44000000
 
 inline void HecubaExtrae_init() {
     Extrae_init();
@@ -69,12 +74,24 @@ inline void HecubaExtrae_event (extrae_type_t type, extrae_value_t value){
 inline void HecubaExtrae_comm(extrae_user_communication_types_t type, extrae_comm_id_t id) {
     struct extrae_UserCommunication write_async;
 	struct extrae_CombinedEvents events;
+    static int (*mpi_comm_rank_ptr)(int, int*) = nullptr;
+    static bool is_mpi_comm_rank_ptr_initialized = false;
 
     Extrae_init_UserCommunication(&write_async);
     write_async.type = type;
     write_async.tag = 0;
     write_async.size = 0;
-    write_async.partner = 0;
+    if (!is_mpi_comm_rank_ptr_initialized) {
+        mpi_comm_rank_ptr = (int (*)(int, int*))dlsym(RTLD_NEXT, "MPI_Comm_rank");
+        is_mpi_comm_rank_ptr_initialized = true;
+    }
+    int rank = 0;
+    if (mpi_comm_rank_ptr != nullptr) {
+        //MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+        mpi_comm_rank_ptr(HECUBA_MPI_COMM_WORLD, &rank);
+    }
+
+    write_async.partner = rank;
     write_async.id = id;
 
 	Extrae_init_CombinedEvents (&events);
