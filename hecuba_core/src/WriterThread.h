@@ -40,6 +40,9 @@ class WriterThread {
         uint32_t error_count;
         uint32_t max_calls;
         std::atomic<uint32_t> ncallbacks;
+#ifdef EXTRAE
+        std::atomic<uint32_t> msgid;
+#endif /*EXTRAE*/
 
         tbb::concurrent_bounded_queue <std::tuple<const Writer*, const TupleRow *, const TupleRow *>> data;
 

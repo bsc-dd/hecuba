@@ -19,6 +19,7 @@ WriterThread::WriterThread(std::map<std::string, std::string>& config):
     sempending_data(new Semaphore(0)),
     ncallbacks(0),
     error_count(0),
+    msgid(0),
     finish_async_query_thread(false)
 {
     HecubaExtrae_event(HECUBADBG, HECUBA_CREATEASYNCTHREAD);
@@ -126,7 +127,7 @@ void WriterThread::callback(CassFuture *future, void *ptr) {
         WThread->ncallbacks--;
         ((Writer*) data[1])->finish_async_call(); //Notify Writer of another finished request.
     }
-    HecubaExtrae_comm(EXTRAE_USER_RECV, (long long int)ptr);
+    HecubaExtrae_comm(EXTRAE_USER_RECV, (long long int)data[4]);
     free(data);
 }
 
@@ -137,13 +138,20 @@ void WriterThread::async_query_execute(const Writer* w, const TupleRow *keys, co
     semmaxcallbacks->acquire(); // Limit number of callbacks
 
     HecubaExtrae_event(HECUBACASS, HBCASS_SENDDRIVER);
+#ifdef EXTRAE
+    const void **data = (const void **) malloc(sizeof(void *) * 5);
+#else
     const void **data = (const void **) malloc(sizeof(void *) * 4);
+#endif
     data[0] = this;
     data[1] = w;
     data[2] = keys;
     data[3] = values;
 #ifdef EXTRAE
-    HecubaExtrae_comm(EXTRAE_USER_SEND, (long long int)data); // parameter is used to  identify the callback
+    msgid++;
+    data[4] = (void*)((((long long int)getpid())<<32) | msgid);
+
+    HecubaExtrae_comm(EXTRAE_USER_SEND, (long long int)data[4]); // parameter is used to  identify the callback (lower 12 bits from data will be zeroed and then the 12 lower bits from PID added)
 #endif /* EXTRAE */
     CassFuture *query_future = cass_session_execute(w->get_session(), statement);
     HecubaExtrae_event(HECUBACASS, HBCASS_END);
