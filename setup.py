@@ -72,6 +72,8 @@ def copy_files_to_dir(extra_files, destination_folder):
                 os.remove(filetooverwrite)
             shutil.copy(file_name, destination, follow_symlinks=False)
             print('copied {} to {}'.format(file_name, destination_folder))
+        else:
+            copy_files_to_dir(glob.glob('{}/*'.format(file_name)), destination)
 
 
 def get_var(var):
