@@ -1,4 +1,5 @@
-CPPFLAGS=-g -std=c++11   -I ${HECUBA_ROOT}/include  -I ${HECUBA_ROOT}/include/hecuba  -L${HECUBA_ROOT}/lib   -lhfetch   -Wl,-rpath,${HECUBA_ROOT}/lib
+CPPFLAGS=-g -std=c++11   -I ${HECUBA_ROOT}/include  -I ${HECUBA_ROOT}/include/hecuba  -L${HECUBA_ROOT}/lib   -lhfetch   -Wl,-rpath,${HECUBA_ROOT}/lib \
+		-Wl,-rpath,${HECUBA_ROOT}/../Hecuba.libs
 
 OBJS= \
     apitest_iterator \

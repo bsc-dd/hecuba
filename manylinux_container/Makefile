@@ -2,8 +2,9 @@
 # DOCKER: Docker engine to use (docker|podman)
 DOCKER=docker
 DOCKER_IMAGE=bsc_dd/hecubacassandra
+# PLAT must match the image from the Dockerfile
+PLAT=manylinux_2_28_x86_64
 PLAT=manylinux2014_x86_64
-
 .PHONY: build run bash
 
 build:	## Build the docker image

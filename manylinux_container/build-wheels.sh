@@ -24,6 +24,9 @@ ORIGINAL_LD=${LD_LIBRARY_PATH}
 # Compile wheels
 for PYBIN in /opt/python/cp3*; do
     VNAME=`basename ${PYBIN}`
+    if [ "$VNAME" == "cp312-cp312" ]; then
+       continue
+    fi
     export CPATH=$PYBIN/include:/io/build/include:/usr/local/include:${ORIGINAL_CPATH}
     # Add libraries path: /io/build/lib #Building directory (just in case) 
     #                     /usr/local/lib #Installed  directory (arrow, boost, rdkafka,uv)

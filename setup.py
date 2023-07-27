@@ -88,6 +88,10 @@ def do_build_process():
     ## Copy 'jar' and 'arrow_helper' INSIDE package (hecuba and storage) so it gets included in the wheel
     copy_files_to_dir(['storageAPI/storageItf/target/StorageItf-1.0-jar-with-dependencies.jar'], "storageAPI/storage/ITF")
     copy_files_to_dir(glob.glob('build/bin/*'), "hecuba_py/hecuba/bin")
+    ## Emulate lib and include hierarchy inside the python package to be compatible with C++ installation
+    copy_files_to_dir(glob.glob('build/include/hecuba/*'), "hecuba_py/hecuba/include")
+    copy_files_to_dir(glob.glob('includedep/*'), "hecuba_py/hecuba/include") # TODO: includedep contains header requeriments (manually created) automate the generation of this directory
+    copy_files_to_dir(['build/lib/libhfetch.so'], "hecuba_py/hecuba/lib")
 
 
 def setup_packages():
@@ -163,6 +167,8 @@ def setup_packages():
                     package_data={ # REQUIRED
                         "storage.ITF" : glob.glob("storageAPI/storage/ITF/*.jar"),
                         "hecuba.bin"  : glob.glob("hecuba_py/hecuba/bin/*"),
+                        "hecuba.include"  : glob.glob("hecuba_py/hecuba/include/*.h"),
+                        "hecuba.lib"  : glob.glob("hecuba_py/hecuba/lib/*"),
                                   },
 
                     # metadata for upload to PyPI

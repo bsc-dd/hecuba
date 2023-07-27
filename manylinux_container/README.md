@@ -3,7 +3,7 @@ Hecuba deployment
 
 Hecuba has a C++ core (libhfetch.so) and a Python wrapper to it.
 
-To create the required 'wheel' format compatible with Pypy we need to use one of the manylinux_* docker images from [Pypa](https://github.com/pypa/manylinux).
+To create the required 'wheel' format compatible with Pypy we need to use one of the manylinux_\* docker images from [Pypa](https://github.com/pypa/manylinux).
 Then use the Python 'build' module:
 '''
     $ python -m build
@@ -76,12 +76,14 @@ Hecuba Distribution
    of errors just increase the version.
 
     $ ... increase version number ...
+    $ ... regenerate wheels ...
 
 3) Upload a version to 'testPypy' first!
     This implies that the 'hecuba' name of the package MUST be changed because
     somebody used the name before T_T (We use 'hecuba-bsc-upc' in the meantime)
 
-    $ ... change the package name ...
+    $ ... change the package name in 'setup.py' ...
+    $ ... regenerate wheels ...
     $ python3 -m twine upload --repository testpypi wheelhouse/Hecuba*
 
 
@@ -94,6 +96,7 @@ Hecuba Distribution
 5) If everything suits your needs, upload to Pypy for real now.
 
     $ ... restore the package name ...
+    $ ... regenerate wheels ...
     $ python3 -m twine upload wheelhouse/Hecuba*
 
 
