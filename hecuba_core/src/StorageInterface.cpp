@@ -61,6 +61,8 @@ StorageInterface::StorageInterface(int nodePort, std::string contact_points, std
     // Query tokens
     std::string node = contact_points.substr(0, contact_points.find_first_of(","));
     set_tokens_per_host(node.c_str(), nodePort);
+
+    thPool = ThreadPoolReader::getInstance(4); //TODO be able to set the number of threads
 }
 
 
@@ -320,4 +322,8 @@ char * StorageInterface::get_host_per_token(int64_t token) {
     }
     //printf("JCOSTA token found %ld -> %ld %s\n", token, th->token, th->host);
     return th->host;
+}
+
+ThreadPoolReader* StorageInterface::getThreadPoolReader() {
+    return thPool;
 }

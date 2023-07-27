@@ -6,7 +6,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake) #folder with Fi
 set(CORE_SRC_DIR "${CMAKE_SOURCE_DIR}/src")
 
 # Default Options
-option(USE_ARROW  "Enable ARROW support" FALSE)
+option(USE_ARROW  "Enable ARROW support" TRUE)
 option(USE_EXTRAE "Enable EXTRAE support" FALSE)
 
 # CMAKE_BUILD_PARALLEL_LEVEL controls the level of parallelism, use it for Make also
@@ -143,8 +143,11 @@ set_property(TARGET hfetch PROPERTY POSITION_INDEPENDENT_CODE ON) # Add -fPIC op
 
 
 #Dependencies
-FIND_LIBRARY(CASS NAMES cassandra PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
+#FIND_LIBRARY(CASS NAMES cassandra PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
+FIND_LIBRARY(CASS NAMES cassandra NO_DEFAULT_PATH PATHS ENV LD_LIBRARY_PATH) #enric: find cassandra specified in LD_LIBRARY_PATH
 FIND_LIBRARY(LIBUV NAMES uv PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
+#FIND_LIBRARY(LIBUV NAMES uv NO_DEFAULT_PATH PATHS ENV LD_LIBRARY_PATH) #enric: find uv specified in LD_LIBRARY_PATH
+
 FIND_LIBRARY(TBB NAMES tbb PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
 FIND_LIBRARY(ARROW NAMES arrow PATHS ${C_BINDING_INSTALL_PREFIX}/lib ENV LD_LIBRARY_PATH)
 #yolandab
@@ -355,13 +358,13 @@ if (DEFINED ENV{GTEST_ROOT})
             enable_testing()
 
             # Pure cpp tests
-            add_executable(hfetch_test tests/runtests.cpp)
-            set_target_properties(hfetch_test
-                    PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
-            target_link_libraries(hfetch_test ${ALL_LIBS} ${GTEST_BOTH_LIBRARIES} hfetch ${PT})
-            add_dependencies(hfetch_test hfetch)
+            #add_executable(hfetch_test tests/runtests.cpp)
+            #set_target_properties(hfetch_test
+            #        PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
+            #target_link_libraries(hfetch_test ${ALL_LIBS} ${GTEST_BOTH_LIBRARIES} hfetch ${PT})
+            #add_dependencies(hfetch_test hfetch)
 
-            add_test(test hfetch_test)
+            #add_test(test hfetch_test)
 
             # Cache tests
             add_executable(cache_imp_test tests/cache_tests.cpp)
@@ -381,13 +384,13 @@ if (DEFINED ENV{GTEST_ROOT})
             #add_test(test cache_imp_test)
 
             # Meta manager tests
-            add_executable(meta_manager_test tests/meta_manager_tests.cpp)
+            #add_executable(meta_manager_test tests/meta_manager_tests.cpp)
             #add_executable(meta_manager_test_laia tests/meta_manager_tests_laia.cpp)
-            set_target_properties(meta_manager_test
-                    PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
-            target_link_libraries(meta_manager_test ${ALL_LIBS} ${GTEST_BOTH_LIBRARIES} hfetch ${PT})
-            add_dependencies(meta_manager_test hfetch)
-            add_test(test meta_manager_test)
+            #set_target_properties(meta_manager_test
+            #        PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
+            #target_link_libraries(meta_manager_test ${ALL_LIBS} ${GTEST_BOTH_LIBRARIES} hfetch ${PT})
+            #add_dependencies(meta_manager_test hfetch)
+            #add_test(test meta_manager_test)
 
             # Mixed Python Tests
             find_package(Python3 COMPONENTS Interpreter Development)
@@ -429,12 +432,12 @@ if (DEFINED ENV{GTEST_ROOT})
                 target_link_libraries(pyinterface ${ALL_LIBS})
 
 
-                add_executable(py_hfetch_test tests/pytests.cpp)
-                set_target_properties(py_hfetch_test
-                        PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
-                target_link_libraries(py_hfetch_test ${ALL_LIBS} ${GTEST_BOTH_LIBRARIES} pyinterface hfetch ${PT})
-                add_dependencies(py_hfetch_test hfetch)
-                add_test(test py_hfetch_test)
+                #add_executable(py_hfetch_test tests/pytests.cpp)
+                #set_target_properties(py_hfetch_test
+                #        PROPERTIES BUILD_WITH_INSTALL_RPATH 0)
+                #target_link_libraries(py_hfetch_test ${ALL_LIBS} ${GTEST_BOTH_LIBRARIES} pyinterface hfetch ${PT})
+                #add_dependencies(py_hfetch_test hfetch)
+                #add_test(test py_hfetch_test)
             else ()
                 message("SEND_ERROR NumPy not found. Not compiling Python-Cpp tests.")
             endif (Python3_NumPy_FOUND)

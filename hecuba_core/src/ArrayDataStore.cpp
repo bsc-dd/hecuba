@@ -1,7 +1,7 @@
 #include "ArrayDataStore.h"
 
 
-#ifdef ARROW
+//#ifdef ARROW
 #include <arrow/api.h>
 #include <arrow/io/api.h>
 #include <arrow/ipc/api.h>
@@ -20,7 +20,7 @@
 #include "arrow/util/io_util.h"
 #include <arrow/array/builder_primitive.h>
 #include <arrow/array/builder_binary.h>
-#endif /* ARROW */
+//#endif /* ARROW */
 
 #include <cassandra.h>
 
@@ -1297,7 +1297,9 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
         std::cerr<< "read_numpy_from_cas_arrow called, but HECUBA_ARROW is not enabled" << std::endl;
         return;
     }
-#ifdef ARROW
+//#ifdef ARROW
+    ThreadPoolReader* pool = storage->getThreadPoolReader();
+    std::cout << "read_numpy_from_cas_arrow called, HECUBA_ARROW is enabled" << std::endl;
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
     std::vector<const TupleRow *> result;
@@ -1467,7 +1469,8 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
                 dst += cols[it]*row_size;
 
                 const uint8_t* bytesbatch = databatch->value_data()->data();
-                memcpy(dst, bytesbatch, column->length()*elem_size); // Copy the whole column
+                //pool->queueJobsAndWait(bytesbatch, dst, pool->getNumThreads(), column->length()*elem_size); //par
+                memcpy(dst, bytesbatch, column->length()*elem_size); // Copy the whole column seq
             }
 
 
@@ -1486,7 +1489,7 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
         close(fdIn);
     }
     close(fdIn);
-#else /* ARROW */
+//#else /* ARROW */
     throw ModuleException("ARROW DISABLED by user! Enable it using USE_ARROW=true flag");
-#endif /* ARROW */
+//#endif /* ARROW */
 }

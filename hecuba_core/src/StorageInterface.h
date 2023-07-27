@@ -14,6 +14,7 @@
 #include "Prefetch.h"
 #include "Writer.h"
 #include "CacheTable.h"
+#include "ThreadPoolReader.h"
 
 //#include "ArrayDataStore.h"
 #include "MetaManager.h"
@@ -92,11 +93,13 @@ public:
 
     char * get_host_per_token(int64_t token);
     std::vector<std::pair<int64_t,int64_t>> get_token_ranges() const;
+    ThreadPoolReader* getThreadPoolReader();
 
 private:
 
     std::vector< struct tokenHost > tokensInCluster;
     std::vector <std::pair<int64_t,int64_t>> token_ranges = {};
+    ThreadPoolReader* thPool;
 
     CassSession *session;
 

@@ -76,11 +76,11 @@ protected:
 
     std::shared_ptr<StorageInterface> storage; //StorageInterface* storage;
 private:
-#ifdef ARROW
+//#ifdef ARROW
     int open_arrow_file(std::string arrow_file_name) ;
     int find_and_open_arrow_file(const uint64_t * storage_id, const uint32_t cluster_id, const std::string arrow_file_name);
     void *get_in_addr(struct sockaddr *sa);
-#endif /*ARROW*/
+//#endif /*ARROW*/
     std::set<uint32_t> loaded_cluster_ids;
 };
 
