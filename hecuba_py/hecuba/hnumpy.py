@@ -709,7 +709,8 @@ class StorageNumpy(IStorage, np.ndarray):
         hcache_params = (ksp, table,
                          {'cache_size': config.max_cache_size,
                           'writer_par': config.write_callbacks_number,
-                          'write_buffer': config.write_buffer_size,
+                          'writer_buffer': config.write_buffer_size,
+                          'hecuba_sn_single_table':config.hecuba_sn_single_table,
                           'timestamped_writes': False})
 
         return HNumpyStore(*hcache_params)

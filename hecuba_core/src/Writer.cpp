@@ -56,7 +56,9 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
     this->topic_name = nullptr;
     this->topic = nullptr;
     this->producer = nullptr;
-    myconfig = &config;
+    // TODO: Avoid making a copy of the configuration file and share it between all instances (myconfig = &config) currently this is required for the Python interface that removes the variable. It is related to the multiple parsing of configuration variables.
+    static std::map<std::string, std::string> my_local_config = config;
+    myconfig = &my_local_config;
 }
 
 Writer::Writer(const Writer&  src) {
