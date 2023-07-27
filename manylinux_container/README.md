@@ -62,6 +62,10 @@ therefore you just need to:
 
     $ make && make wheel
 
+Due to different Linux distributions going further, it is also required to
+generate the 'manylinux_2_28_x86_64' version, so update the Dockerfile and
+Makefile accordingly.
+
 
 Hecuba Distribution
 -------------------
