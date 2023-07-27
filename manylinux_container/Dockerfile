@@ -1,8 +1,9 @@
 #FROM quay.io/pypa/manylinux1_x86_64 DEPRECATED!
+#FROM quay.io/pypa/manylinux_2_28_x86_64
 FROM quay.io/pypa/manylinux2014_x86_64
 
 # Define Hecuba Environment variables
-ENV CMAKE_BUILD_PARALLEL_LEVEL=4
+ENV CMAKE_BUILD_PARALLEL_LEVEL=32
 
 # Install a system package required by our library
 RUN yum -y upgrade
