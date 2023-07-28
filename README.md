@@ -20,11 +20,6 @@ Non-relational databases are nowadays a common solution when dealing with a huge
 + ccm
 + mock
 
-Install them using:
-```bash
-pip install -r requirements.txt
-```
-
 ### C++ dependencies (Auto-downloaded during the installation process)
 + [Cassandra driver for C++](https://github.com/datastax/cpp-driver) >= 2.14.1
 + [Intel Threading Building Blocks (libTBB)](https://github.com/01org/tbb) >= 2020.0
@@ -53,6 +48,11 @@ The first step is to download the code.
 # Clone the repository
 git clone https://github.com/bsc-dd/hecuba.git hecuba_repo
 cd hecuba_repo
+```
+
+Install the python dependencies using:
+```bash
+pip install -r requirements.txt
 ```
 
 Then it is only necessary to run the `setup.py` Python script, which performs all the steps to compile and install Hecuba in the system. Notice that Hecuba is composed by Python code and C++ code. The `setup.py` script takes care of both, on the one hand, compiles the C++ Hecuba code and its dependencies and installs their C++ header files and generated libraries; and on the other hand, installs the Python package.
