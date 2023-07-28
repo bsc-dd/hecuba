@@ -32,7 +32,7 @@ class StorageNumpy:virtual public IStorage {
         void *data = nullptr;   /* Pointer to memory containing the object. */
         std::vector<uint32_t> metas;
         ArrayMetadata numpy_metas; /* Pointer to memory containing the metadata. READ ONLY. DO NOT FREE. This object does NOT own the memory! */
-        void initObjSpec() {
+        void initObjSpec(char dtype) {
             std::vector<std::pair<std::string, std::string>> pkeystypes_numpy = {
                 {"storage_id", "uuid"},
                 {"cluster_id", "int"}
@@ -51,26 +51,30 @@ class StorageNumpy:virtual public IStorage {
                     , std::string("")
                     );
             setObjSpec(snSpec);
+            numpy_metas.typekind = dtype;
             initializeClassName("StorageNumpy");
         }
 
         StorageNumpy() {
             HecubaExtrae_event(HECUBAEV, HECUBA_SN|HECUBA_INSTANTIATION);
-            initObjSpec();
+            initObjSpec('f'); // Float by default
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 
-        StorageNumpy(void *datasrc, const std::vector<uint32_t> &metas) {
+        /* Note: 'dtype' uses the array-interface api which is slightly different from Python
+         *  array-interface:https://numpy.org/doc/1.21/reference/arrays.interface.html#arrays-interface
+         *  python: https://numpy.org/doc/stable/reference/arrays.dtypes.html */
+        StorageNumpy(void *datasrc, const std::vector<uint32_t> &metas,char dtype='f') { // TODO: change 'dtype' type to string or better add another parameter with the size
             HecubaExtrae_event(HECUBAEV, HECUBA_SN|HECUBA_INSTANTIATION);
-            setNumpy(datasrc, metas);
-            initObjSpec();
+            setNumpy(datasrc, metas, dtype);
+            initObjSpec(dtype);
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 
-        void setNumpy(void *datasrc, const std::vector<uint32_t>&metas) {
+        void setNumpy(void *datasrc, const std::vector<uint32_t>&metas, char dtype) {
             // Transform user metas to ArrayMetadata
             this->metas = metas; // make a copy of user 'metas'
-            uint32_t numpy_size = extractNumpyMetaData(metas, this->numpy_metas);
+            uint32_t numpy_size = extractNumpyMetaData(metas, dtype, this->numpy_metas );
 
             // Make a copy of 'datasrc'
             if (this->data != nullptr)
@@ -85,13 +89,13 @@ class StorageNumpy:virtual public IStorage {
             //JJ StorageNumpy(src.data, src.metas);
             // Transform user metas to ArrayMetadata
             this->metas = src.metas; // make a copy of user 'metas'
-            uint32_t numpy_size = extractNumpyMetaData(src.metas, this->numpy_metas);
+            uint32_t numpy_size = extractNumpyMetaData(src.metas, src.numpy_metas.typekind, this->numpy_metas);
 
             // Make a copy of 'datasrc'
             this->data = malloc(numpy_size);
             memcpy(this->data, src.data, numpy_size);
 
-            initObjSpec();
+            initObjSpec(src.numpy_metas.typekind);
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 
@@ -99,7 +103,8 @@ class StorageNumpy:virtual public IStorage {
         StorageNumpy &operator = (const StorageNumpy & w) {
             HecubaExtrae_event(HECUBAEV, HECUBA_SN|HECUBA_ASSIGNMENT);
             this->metas = w.metas;
-            uint32_t numpy_size = extractNumpyMetaData(metas, this->numpy_metas);
+            this->numpy_metas=w.numpy_metas;
+            uint32_t numpy_size = extractNumpyMetaData(metas, numpy_metas.typekind, this->numpy_metas);
             this->data = malloc(numpy_size);
             memcpy(this->data, w.data, numpy_size);
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
@@ -215,10 +220,28 @@ class StorageNumpy:virtual public IStorage {
 
         std::shared_ptr<ArrayDataStore> arrayStore = nullptr; /* Cache of written/read elements */
 
-        uint32_t extractNumpyMetaData(const std::vector<uint32_t> &raw_numpy_meta, ArrayMetadata &arr_metas) {
+        uint32_t getDtypeSize(char dtype) const {
+            switch(dtype) {
+                case 'f': //NPY_FLOAT
+                          return sizeof(double);
+                case 'i': //NPY_BYTE
+                case 'u': //NPY_UBYTE
+                case 'b': //NPY_BOOL
+                          return sizeof(char);
+                default: {
+                             std::string msg ("StorageNumpy::getDtypeSize: Unsupported type [");
+                             msg += dtype;
+                             msg += "] ";
+                             throw ModuleException(msg);
+                         }
+            }
+        }
+
+        uint32_t extractNumpyMetaData(const std::vector<uint32_t> &raw_numpy_meta, char dtype, ArrayMetadata &arr_metas) {
             std::vector <uint32_t> dims;
             std::vector <uint32_t> strides;
 
+            arr_metas.elem_size = getDtypeSize(dtype); // TODO: This should be a parameter!
             // decode void *metadatas
             uint32_t acum=1;
             uint32_t numpy_size=0;
@@ -229,16 +252,15 @@ class StorageNumpy:virtual public IStorage {
             numpy_size = acum;
             for (uint32_t i=0; i < raw_numpy_meta.size(); i++) {
                 acum/=raw_numpy_meta[i];
-                strides.push_back(acum * sizeof(double));
+                strides.push_back(acum * arr_metas.elem_size);
             }
             uint32_t flags=NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE | NPY_ARRAY_ALIGNED;
 
             arr_metas.dims = dims;
             arr_metas.strides = strides;
-            arr_metas.elem_size = sizeof(double);
             arr_metas.flags = flags;
             arr_metas.partition_type = ZORDER_ALGORITHM;
-            arr_metas.typekind = 'f';
+            arr_metas.typekind = dtype;
             arr_metas.byteorder = '=';
             return numpy_size*arr_metas.elem_size;
         }
