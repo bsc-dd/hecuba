@@ -534,12 +534,16 @@ void IStorage::make_persistent(const std::string  id_obj) {
 		configureStream(UUID::UUID2str(c_uuid));
 	}
 
+    HecubaExtrae_event(HECUBADBG, HECUBA_PERSIST_METADATA);
 	persist_metadata(c_uuid); //depends on the type of persistent object
 				// TODO: deal with the case of already existing dictionaries and manage new_element == false
+    HecubaExtrae_event(HECUBADBG, HBCASS_END);
 
 
 	// Now that the writer is created, persist data
+    HecubaExtrae_event(HECUBADBG, HECUBA_PERSIST_DATA);
 	persist_data();
+    HecubaExtrae_event(HECUBADBG, HBCASS_END);
 
     DBG(" IStorage::make_persistent Object "<< id_model <<" with name "<< id_obj);
     HecubaExtrae_event(HECUBAEV, HECUBA_END);
