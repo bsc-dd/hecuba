@@ -12,6 +12,12 @@
 IStorage::IStorage() {
     HecubaExtrae_event(HECUBAEV, HECUBA_IS|HECUBA_INSTANTIATION);
     DBG( "default constructor this "<< this );
+    try {
+        // Start cassandra connection as soon as possible to speedup the global startup (removing the cassandra connection from the critical path)
+	    HecubaSession& currentSession = getCurrentSession();
+    } catch (ModuleException &e) {
+        // Cassandra is not up yet... continuing with volatile objects...
+    }
     HecubaExtrae_event(HECUBAEV, HECUBA_END);
 }
 
