@@ -352,30 +352,42 @@ numpyMetaWriter = numpyMetaAccess->get_writer();
     HecubaExtrae_event(HECUBADBG, HECUBA_END);
 }
 
+int HecubaSession::wait_writes_completion() {
+    for (std::list<std::shared_ptr<CacheTable>>::iterator it = alive_objects.begin(); it != alive_objects.end(); it++) {
+        std::shared_ptr<CacheTable> t = *it;
+        //std::cout << "wait_writes_completion LIST DEL: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
+        //printf("wait_writes_completion LIST DEL:  %p(%d)\n", t.get(), t.use_count());
+        if (t.use_count()>=2) {
+            t.get()->get_writer()->wait_writes_completion();
+            DBG( "  LIST DEL AFTER: "<< t.get() <<" ("<<t.use_count()<<")");
+        }
+    }
+    for (std::list<std::shared_ptr<ArrayDataStore>>::iterator it = alive_numpy_objects.begin(); it != alive_numpy_objects.end(); it++) {
+        std::shared_ptr<ArrayDataStore> t = *it;
+        //std::cout << "LIST DEL ARRAY: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
+        if (t.use_count()>=2) {
+            t.get()->getWriteCache()->get_writer()->wait_writes_completion();
+            DBG( "  LIST DEL AFTER: "<< t.get() <<" ("<<t.use_count()<<")");
+        }
+    }
+}
+
 HecubaSession::~HecubaSession() {
     HecubaExtrae_event(HECUBADBG, HECUBA_SESSIONDESTROY);
     if (numpyMetaAccess->can_table_meta_be_freed()) { // TODO FIX THIS THING
         delete(numpyMetaAccess);
     }
 
+    wait_writes_completion();
+
+    // Clean alive_objects
     for (std::list<std::shared_ptr<CacheTable>>::iterator it = alive_objects.begin(); it != alive_objects.end();) {
-        std::shared_ptr<CacheTable> t = *it;
-        //std::cout << "LIST DEL: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
-        if (t.use_count()>2) {
-            t.get()->get_writer()->wait_writes_completion();
-            DBG( "  LIST DEL AFTER: "<< t.get() <<" ("<<t.use_count()<<")");
-        }
-        it = alive_objects.erase(it); // this will block waiting for the 'sync'
+        it = alive_objects.erase(it);
     }
     for (std::list<std::shared_ptr<ArrayDataStore>>::iterator it = alive_numpy_objects.begin(); it != alive_numpy_objects.end();) {
-        std::shared_ptr<ArrayDataStore> t = *it;
-        //std::cout << "LIST DEL ARRAY: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
-        if (t.use_count()>2) {
-            t.get()->getWriteCache()->get_writer()->wait_writes_completion();
-            DBG( "  LIST DEL AFTER: "<< t.get() <<" ("<<t.use_count()<<")");
-        }
-        it = alive_numpy_objects.erase(it); // this will block waiting for the 'sync'
+        it = alive_numpy_objects.erase(it);
     }
+
     HecubaExtrae_event(HECUBADBG, HECUBA_END);
 }
 
