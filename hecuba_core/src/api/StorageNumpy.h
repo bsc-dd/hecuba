@@ -108,6 +108,7 @@ class StorageNumpy:virtual public IStorage {
             this->data = malloc(numpy_size);
             memcpy(this->data, w.data, numpy_size);
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
+            return *this;
         }
 
         ~StorageNumpy() {
