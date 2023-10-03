@@ -352,33 +352,38 @@ numpyMetaWriter = numpyMetaAccess->get_writer();
     HecubaExtrae_event(HECUBADBG, HECUBA_END);
 }
 
-int HecubaSession::wait_writes_completion() {
+int HecubaSession::wait_writes_completion(void) {
+    std::lock_guard<decltype(mxalive_objects)> lock{mxalive_objects};
+
     for (std::list<std::shared_ptr<CacheTable>>::iterator it = alive_objects.begin(); it != alive_objects.end(); it++) {
         std::shared_ptr<CacheTable> t = *it;
         //std::cout << "wait_writes_completion LIST DEL: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
-        //printf("wait_writes_completion LIST DEL:  %p(%d)\n", t.get(), t.use_count());
         if (t.use_count()>=2) {
             t.get()->get_writer()->wait_writes_completion();
             DBG( "  LIST DEL AFTER: "<< t.get() <<" ("<<t.use_count()<<")");
         }
     }
+    std::lock_guard<decltype(mxalive_numpy_objects)> locknumpy{mxalive_numpy_objects};
     for (std::list<std::shared_ptr<ArrayDataStore>>::iterator it = alive_numpy_objects.begin(); it != alive_numpy_objects.end(); it++) {
         std::shared_ptr<ArrayDataStore> t = *it;
+
         //std::cout << "LIST DEL ARRAY: "<< t.get() <<" ("<<t.use_count()<<")"<<std::endl;
         if (t.use_count()>=2) {
             t.get()->getWriteCache()->get_writer()->wait_writes_completion();
             DBG( "  LIST DEL AFTER: "<< t.get() <<" ("<<t.use_count()<<")");
         }
     }
+    return 0;
 }
 
 HecubaSession::~HecubaSession() {
     HecubaExtrae_event(HECUBADBG, HECUBA_SESSIONDESTROY);
+
+    wait_writes_completion();
+
     if (numpyMetaAccess->can_table_meta_be_freed()) { // TODO FIX THIS THING
         delete(numpyMetaAccess);
     }
-
-    wait_writes_completion();
 
     // Clean alive_objects
     for (std::list<std::shared_ptr<CacheTable>>::iterator it = alive_objects.begin(); it != alive_objects.end();) {

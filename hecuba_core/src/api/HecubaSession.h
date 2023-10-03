@@ -28,7 +28,7 @@ public:
     bool registerObject(const std::shared_ptr<CacheTable> c, const std::string& class_name) ;
     bool registerObject(const std::shared_ptr<ArrayDataStore> a, const std::string& class_name) ;
     bool registerClassName(const std::string& class_name);
-    int wait_writes_completion(); /* Wait for the finalization of any pending write operation */
+    int wait_writes_completion(void); /* Wait for the finalization of any pending write operation */
 private:
 
     std::mutex mxalive_objects;
