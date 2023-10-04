@@ -144,7 +144,7 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, std::sha
 
 
         if (config.at("hecuba_sn_single_table") != "false" ) { // Single Numpy table ENABLED
-            std::cout<< " ArrayDataStore::constructor SINGLE TABLE ENABLED Creating CacheTable" << std:: endl;
+            //std::cout<< " ArrayDataStore::constructor SINGLE TABLE ENABLED Creating CacheTable" << std:: endl;
             this->cache = ArrayDataStore::getStaticcache(table, keyspace, keys_names, columns_names, session, config);
         } else { //Multiple Numpy tables enabled
             TableMetadata *table_meta = new TableMetadata(table, keyspace, keys_names, columns_names, session);
