@@ -51,17 +51,6 @@ class StorageObject: virtual public IStorage{
         //valuesDesc is used to generate the python definition of the class and to store the attributes description in Cassandra
         std::vector<std::pair<std::string, std::string>> valuesDesc;
 
-        int32_t st;
-        std::map<std::string, std::string> translate = {    //TODO: This table should be defined STATIC  one per class, not one per instance
-            {"int", typeid(int).name()},
-            {"std::string", abi::__cxa_demangle(typeid(std::string).name(), NULL, NULL, &st)},
-            {"float", typeid(float).name()},
-            {"char", typeid(char).name()},
-            {"long", typeid(long).name()},
-            {"double", typeid(double).name()},
-            {"bool", typeid(bool).name()}
-        };
-
 
 };
 

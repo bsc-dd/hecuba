@@ -55,7 +55,6 @@ StorageObject& StorageObject::operator = (const StorageObject& src) {
         this->IStorage::operator=(src); //Inherit IStorage attributes
         //this->st = src.st;
         this->valuesDesc = src.valuesDesc;
-        this->translate = src.translate;
     }
     HecubaExtrae_event(HECUBAEV, HECUBA_END);
     return *this;
