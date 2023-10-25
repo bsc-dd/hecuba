@@ -27,7 +27,9 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
 
     if (config.find("timestamped_writes") != config.end()) {
         std::string check_timestamps = config["timestamped_writes"];
-        std::transform(check_timestamps.begin(), check_timestamps.end(), check_timestamps.begin(), ::tolower);
+        for (long unsigned int i = 0; i < check_timestamps.size(); i++) {
+            check_timestamps[i] = ::tolower(check_timestamps[i]);
+        }
         if (check_timestamps == "false" || check_timestamps == "no")
             this->disable_timestamps = true;
     }

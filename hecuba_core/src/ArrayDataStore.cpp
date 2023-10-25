@@ -90,8 +90,9 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, std::sha
     char * env_path = std::getenv("HECUBA_ARROW");
     if (env_path != nullptr) {
         std::string hecuba_arrow(env_path);
-        std::transform(hecuba_arrow.begin(), hecuba_arrow.end(), hecuba_arrow.begin(),
-                        [](unsigned char c){ return std::tolower(c); });
+        for (long unsigned int i = 0; i < hecuba_arrow.size(); i++) {
+            hecuba_arrow[i] = std::tolower(hecuba_arrow[i]);
+        }
         if ((hecuba_arrow.compare("no")==0) ||
             (hecuba_arrow.compare("false")==0) ) {
             arrow_enabled = false;
@@ -107,8 +108,9 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, std::sha
     env_path = std::getenv("HECUBA_ARROW_OPTANE");
     if (env_path != nullptr) {
         std::string hecuba_arrow(env_path);
-        std::transform(hecuba_arrow.begin(), hecuba_arrow.end(), hecuba_arrow.begin(),
-                        [](unsigned char c){ return std::tolower(c); });
+        for (long unsigned int i = 0; i < hecuba_arrow.size(); i++) {
+            hecuba_arrow[i] = std::tolower(hecuba_arrow[i]);
+        }
         if (hecuba_arrow.compare("true")==0) {
             arrow_optane = true;
         }
@@ -122,8 +124,9 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, std::sha
     env_path = std::getenv("HECUBA_LAZY_WRITES");
     if (env_path != nullptr) {
         std::string hecuba_lazy(env_path);
-        std::transform(hecuba_lazy.begin(), hecuba_lazy.end(), hecuba_lazy.begin(),
-                        [](unsigned char c){ return std::tolower(c); });
+        for (long unsigned int i = 0; i < hecuba_lazy.size(); i++) {
+            hecuba_lazy[i] = std::tolower(hecuba_lazy[i]);
+        }
         if (hecuba_lazy.compare("true")==0) {
             has_lazy_writes = true;
         }

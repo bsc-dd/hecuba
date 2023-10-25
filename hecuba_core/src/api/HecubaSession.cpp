@@ -13,7 +13,6 @@
 #include <vector>
 #include <string>
 #include <sstream>
-#include <bits/stdc++.h>
 #include <cxxabi.h>
 
 #include <iostream>
@@ -133,8 +132,9 @@ void HecubaSession::parse_environment(config_map &config) {
         createSchema2 = std::string("true");
     } else {
         createSchema2 = std::string(createSchema);
-        std::transform(createSchema2.begin(), createSchema2.end(), createSchema2.begin(),
-                [](unsigned char c){ return std::tolower(c); });
+        for (long unsigned int i=0; i < createSchema2.size(); i++ ) {
+            createSchema2[i] = ::tolower(createSchema2[i]);
+        }
     }
     config["create_schema"] = createSchema2;
 
@@ -150,8 +150,9 @@ void HecubaSession::parse_environment(config_map &config) {
         timestampedWrites2 = std::string("false");
     } else {
         timestampedWrites2 = std::string(timestampedWrites);
-        std::transform(timestampedWrites2.begin(), timestampedWrites2.end(), timestampedWrites2.begin(),
-                [](unsigned char c){ return std::tolower(c); });
+        for (long unsigned int i=0; i < timestampedWrites2.size(); i++ ) {
+            timestampedWrites2[i] = ::tolower(timestampedWrites2[i]);
+        }
     }
     config["timestamped_writes"] = timestampedWrites2;
 
@@ -205,8 +206,9 @@ void HecubaSession::parse_environment(config_map &config) {
         hecubaSNSingleTable2 = std::string("true");
     } else {
         hecubaSNSingleTable2 = std::string(hecubaSNSingleTable);
-        std::transform(hecubaSNSingleTable2.begin(), hecubaSNSingleTable2.end(), hecubaSNSingleTable2.begin(),
-                [](unsigned char c){ return std::tolower(c); });
+        for (long unsigned int i=0; i < hecubaSNSingleTable2.size(); i++ ) {
+            hecubaSNSingleTable2[i] = ::tolower(hecubaSNSingleTable2[i]);
+        }
     }
     config["hecuba_sn_single_table"] = hecubaSNSingleTable2;
 }

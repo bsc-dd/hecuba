@@ -245,17 +245,19 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
     uint32_t n_keys = (uint32_t) keys_names.size();
     uint32_t n_cols = (uint32_t) columns_names.size(); //TODO check for *
     for (uint32_t i = 0; i < n_keys; ++i) {
-        std::transform(keys_names[i]["name"].begin(), keys_names[i]["name"].end(), keys_names[i]["name"].begin(),
-                       ::tolower);
+        for (long unsigned int j = 0; j < keys_names[i]["name"].size(); j ++)
+            keys_names[i]["name"][j] = ::tolower(keys_names[i]["name"][j]);
     }
     for (uint32_t i = 0; i < n_cols; ++i) {
-        std::transform(columns_names[i]["name"].begin(), columns_names[i]["name"].end(),
-                       columns_names[i]["name"].begin(), ::tolower);
+        for (long unsigned int j = 0; j < keys_names[i]["name"].size(); j ++)
+            columns_names[i]["name"][j] = ::tolower(columns_names[i]["name"][j]);
     }
     this->table = std::string(table_name);
-    std::transform(this->table.begin(), this->table.end(), this->table.begin(), ::tolower);
+    for (long unsigned int j = 0; j < table.size(); j ++)
+        table[j] = ::tolower(table[j]);
     this->keyspace = std::string(keyspace_name);
-    std::transform(this->keyspace.begin(), this->keyspace.end(), this->keyspace.begin(), ::tolower);
+    for (long unsigned int j = 0; j < keyspace.size(); j ++)
+        keyspace[j] = ::tolower(keyspace[j]);
 
 
     const CassTableMeta *table_meta = getCassTableMeta(session);
@@ -381,8 +383,9 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
 /* Return the position in the metadata table for 'columnname' or -1 if not found */
 uint32_t TableMetadata::get_columnname_position(const std::string &columnname) const {
     std::string lower_columnname = columnname;
-    std::transform(columnname.begin(), columnname.end(), lower_columnname.begin(),
-                       ::tolower);
+    for (long unsigned int j = 0; j < columnname.size(); j ++)
+        lower_columnname[j] = ::tolower(columnname[j]);
+
     ColumnMeta m;
     for (uint32_t i = 0; i < cols->size(); ++i) {
         m = (*cols)[i];
@@ -394,8 +397,8 @@ uint32_t TableMetadata::get_columnname_position(const std::string &columnname) c
 }
 uint32_t TableMetadata::get_keyname_position(const std::string &keyname) const {
     std::string lower_keyname = keyname;
-    std::transform(keyname.begin(), keyname.end(), lower_keyname.begin(),
-                       ::tolower);
+    for (long unsigned int j = 0; j < keyname.size(); j ++)
+        lower_keyname[j] = ::tolower(keyname[j]);
     ColumnMeta m;
     for (uint32_t i = 0; i < keys->size(); ++i) {
         m = (*keys)[i];

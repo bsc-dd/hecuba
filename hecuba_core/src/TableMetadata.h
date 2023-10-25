@@ -3,7 +3,6 @@
 
 #include <cassandra.h>
 #include <cstdint>
-#include <algorithm>
 #include <stdlib.h>
 #include <iostream>
 #include <memory>

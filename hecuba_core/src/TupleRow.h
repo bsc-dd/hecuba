@@ -2,7 +2,6 @@
 #define TUPLEROW_H
 
 #include <iostream>
-#include <memory>
 #include <cstring>
 #include <string>
 #include <stdlib.h>
