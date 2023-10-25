@@ -248,11 +248,11 @@ if (NOT CASS)
     unset(CASS) #to avoid name clash
 
     if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-        set(CASS_URL https://github.com/polsm91/cpp-driver/archive/2.7.1.0.tar.gz)
-        set(CASS_SHA1 814878b3750ebd379b66df239bd3aa23981044b5)
+        set(CASS_URL https://github.com/pericpalots/cpp-driver/archive/refs/tags/v2.16.2.0.tar.gz)
+        set(CASS_SHA1 7c3604b1058a381cd5867bb481425ad75276d1a8)
     else ()
-        set(CASS_URL https://github.com/datastax/cpp-driver/archive/2.14.1.tar.gz)
-        set(CASS_SHA1 c6399a03d49d1391ee53415e75e58d64bc32795c)
+        set(CASS_URL https://github.com/datastax/cpp-driver/archive/refs/tags/2.16.2.tar.gz)
+        set(CASS_SHA1 2f0c77e1ccbd878df46f1ab8dfe95f7a64578d2f)
     endif ()
     ExternalProject_Add(
             CASS
