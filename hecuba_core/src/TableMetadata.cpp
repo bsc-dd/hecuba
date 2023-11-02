@@ -249,7 +249,7 @@ TableMetadata::TableMetadata(const char *table_name, const char *keyspace_name,
             keys_names[i]["name"][j] = ::tolower(keys_names[i]["name"][j]);
     }
     for (uint32_t i = 0; i < n_cols; ++i) {
-        for (long unsigned int j = 0; j < keys_names[i]["name"].size(); j ++)
+        for (long unsigned int j = 0; j < columns_names[i]["name"].size(); j ++)
             columns_names[i]["name"][j] = ::tolower(columns_names[i]["name"][j]);
     }
     this->table = std::string(table_name);
