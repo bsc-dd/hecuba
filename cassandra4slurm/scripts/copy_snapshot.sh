@@ -4,6 +4,7 @@ SNAP_NAME=${1}
 ROOT_PATH=${2}
 CLUSTER=${3}
 UNIQ_ID=${4}
+SNAP_PATH=${5}
 
 C4S_HOME=$HOME/.c4s
 
@@ -16,17 +17,17 @@ HST_IFACE="-ib0" #interface configured in the cassandra.yaml file
 
 source $HECUBA_ROOT/bin/cassandra4slurm/hecuba_debug.sh
 
-DBG " Current SNAP_PATH [$SNAP_PATH]"
+DBG " $(hostname) Current SNAP_PATH [$SNAP_PATH]"
 SNAP_DEST=$SNAP_PATH/$SNAP_NAME/$(hostname)
 SNAP_STATUS_FILE=$C4S_HOME/snap-status-$SNAP_NAME-$(hostname)-file.txt
 
     # Creates the destination directory for this snapshot
 mkdir -p $SNAP_DEST
 while [ ! -s $RINGDONE ]; do
-    echo " [INFO] Current RINGDONE [$RINGDONE] non existent"
+    echo " [INFO] $(hostname) Current RINGDONE [$RINGDONE] non existent"
     sleep 1
 done
-DBG "  Current RINGFILE $RINGFILE -> $(hostname) $SNAP_DEST/$SNAP_NAME-ring.txt"
+DBG " $(hostname) Current RINGFILE $RINGFILE -> $(hostname) $SNAP_DEST/$SNAP_NAME-ring.txt"
 NODE_IP=$(cat /etc/hosts | grep $(hostname)"$HST_IFACE" |awk '{print $1}')
 
 cat $RINGFILE | grep -F $NODE_IP | awk '{print $NF }' | tr "\n" "," > $SNAP_DEST/$SNAP_NAME-ring.txt
