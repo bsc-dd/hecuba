@@ -27,10 +27,13 @@ source $HECUBA_ROOT/bin/cassandra4slurm/hecuba_debug.sh
 
 # Get & set the token list (safely)
 RECOVERY=$(cat $RECOVER_FILE)
+
+DBG " $(hostname) Recovery file: $RECOVER_FILE"
+DBG " $(hostname) Content of Recovery file: $RECOVERY"
 if [ "$RECOVERY" != "" ]
 then
     TKNFILE_LIST=$(find $SNAP_ORIG/$RECOVERY -type f -name $RECOVERY-ring.txt)
-    DBG "TKNFILE_LIST: "$TKNFILE_LIST
+    DBG "$(hostname) TKNFILE_LIST: "$TKNFILE_LIST
 
     OLD_NODES=$(echo $TKNFILE_LIST | sed 's+/+ +g' | sed "s+$RECOVERY-ring.txt++g" | awk '{ print $NF }')
     filecounter=0

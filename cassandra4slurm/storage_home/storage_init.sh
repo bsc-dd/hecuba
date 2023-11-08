@@ -161,6 +161,12 @@ RETRY_MAX=500 # This value is around 50, higher now to test big clusters that ne
 
 #check if the user wants to start from a stored snapshot
 if [ "X$RECOVER" !=  "X" ]; then
+    DBG "Trying to recover $SNAP_PATH/$RECOVER"
+    if [ ! -e $SNAP_PATH/$RECOVER ]; then
+        echo "[ERROR] Unable to find snapshot at $SNAP_PATH/$RECOVER !"
+        echo " Exitting"
+        exit
+    fi
     echo $RECOVER > $RECOVER_FILE
     export CLUSTER=$RECOVER
     RECOVERING=$CLUSTER
@@ -231,7 +237,7 @@ function launch_arrow_helpers () {
 }
 
 if [ ! -f $CASS_HOME/bin/cassandra ]; then
-    echo "ERROR: Cassandra executable is not placed where it was expected. ($CASS_HOME/bin/cassandra)"
+    echo "[ERROR]: Cassandra executable is not placed where it was expected. ($CASS_HOME/bin/cassandra)"
     echo "Exiting..."
     exit
 fi
@@ -294,6 +300,7 @@ sleep 5
 # Recover snapshot if any
 
 if [ "X$RECOVERING" != "X" ]; then
+    DBG "Launchig recover.sh"
     run srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 --nodes=$N_NODES \
             $MODULE_PATH/recover.sh $ROOT_PATH $UNIQ_ID
 fi
@@ -326,7 +333,7 @@ then
 
     show_time "[STATS] Cluster launching process took: " $TIME_START $TIME_END
 else
-    echo "[STATS] ERROR: Cassandra Cluster RUN timeout. Check STATUS."
+    echo "[ERROR]: Cassandra Cluster RUN timeout. Check STATUS."
     exit_bad_node_status
 fi
 

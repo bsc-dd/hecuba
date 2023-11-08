@@ -154,6 +154,11 @@ if [ ! -f $C4S_HOME/stop."$UNIQ_ID".txt ]; then
 fi
 
 if [ "$(cat $RECOVER_FILE)" != "" ]; then
+    if [ ! -e $SNAP_PATH/$CLUSTER ]; then
+        echo "[ERROR] Unable to find snapshot at $SNAP_PATH/$CLUSTER !"
+        echo " Exitting"
+        exit
+    fi
     RECOVERING=$(cat $RECOVER_FILE)
     echo "[INFO] Recovering snapshot: $RECOVERING"
 fi
