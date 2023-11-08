@@ -299,9 +299,9 @@ if [ "X$RECOVERING" != "X" ]; then
 fi
 
 # Launching Cassandra in every node
-run srun \
+run srun --overlap --mem=0 \
         --output ${C4S_HOME}/${UNIQ_ID}/cassandra.output \
-        --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES \
+        --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=${C4S_CASSANDRA_CORES} --nodes=$N_NODES \
         $MODULE_PATH/enqueue_cass_node.sh $UNIQ_ID &
 sleep 5
 
