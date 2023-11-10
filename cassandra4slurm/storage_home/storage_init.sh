@@ -94,6 +94,11 @@ RECOVER_FILE=$C4S_HOME/cassandra-recover-file-"$UNIQ_ID".txt
 HECUBA_TEMPLATE_FILE=$MODULE_PATH/hecuba_environment.template
 CASSFILE=$C4S_HOME/casslist-"$UNIQ_ID".txt
 
+CASSANDRA_NODELIST=$(echo $WORKER_NODES |sed s/\ /,/g)
+echo $CASSANDRA_NODELIST |tr "," "\n" > $CASSFILE
+NODETOOL_HOST=$( get_first_node $CASSANDRA_NODELIST )-$iface
+export N_NODES=$CASSANDRA_NODES
+
 export THETIME=$(date "+%Y%m%dD%H%Mh%Ss")"-$SLURM_JOB_ID"
 
 
@@ -319,11 +324,6 @@ else
     # Generating nodefiles
     #yolandab: this assumes that the n initial nodes are worker nodes. We have the variable worker nodes with the nodes separated by blanks, for the run command we need to use comma as the separator
     #head -n $CASSANDRA_NODES $NODEFILE > $CASSFILE
-    CASSANDRA_NODELIST=$(echo $WORKER_NODES |sed s/\ /,/g)
-    echo $CASSANDRA_NODELIST |tr "," "\n" > $CASSFILE
-    NODETOOL_HOST=$( get_first_node $CASSANDRA_NODELIST )-$iface
-    export N_NODES=$CASSANDRA_NODES
-
 
 
     if [ ! -f $CASS_HOME/bin/cassandra ]; then
