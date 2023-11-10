@@ -52,6 +52,7 @@ if [ "x$WORKER_NODES" == "x" ]; then
 	WORKER_NODES=$MASTER_NODE
 fi
 
+
 CASSANDRA_NODES=$(echo $WORKER_NODES | wc -w)  # Number of Cassandra nodes to spawn (in this case in every node)
 DBG " CASSANDRA NODES   : $CASSANDRA_NODES"
 DISJOINT=0            # Guarantee disjoint allocation. 1: Yes, 0 or empty otherwise
@@ -201,6 +202,29 @@ function get_nodes_up () {
     NODE_COUNTER=$($CASS_HOME/bin/nodetool -h $NODETOOL_HOST status | sed 1,5d | sed '$ d' | awk '{ print $1 }' | grep "UN" | wc -l)
 }
 
+function check_cassandra_table () {
+    local what="$1" # Target to 'describe' to check different states in cassandra
+    local first_node=`head -n1 $CASSFILE`"-$iface"
+    local res=1
+    local nretries=1
+    while [ "$res" != "0" ] ; do
+        echo " * Checking Cassandra [$what] is available @$first_node... $nretries/$RETRY_MAX"
+        $CASS_HOME/bin/cqlsh $first_node -e "describe $what;" > /dev/null
+        res=$?
+        ((nretries++))
+        if [ $nretries -ge $RETRY_MAX ]; then
+            echo "[ERROR]: Too many retries checking [$what]. Cassandra seems unavailable!! ($CASS_HOME/bin/cassandra)"
+            echo "Exiting..."
+            exit
+        fi
+    done
+}
+
+function check_cassandra_is_available () {
+    check_cassandra_table "keyspaces"
+    echo " * Cassandra is available!"
+}
+
 function launch_arrow_helpers () {
     # Launch the 'arrow_helper' tool at each node in NODES, and leave their logs in LOGDIR
     NODES=$1
@@ -262,6 +286,7 @@ function run_cass_singularity() {
     echo "STARTING UP CASSANDRA (Singularity)..."
 
     run srun \
+        --overlap --mem=0 \
         --output ${LOG_DIR}/cassandra.output \
         --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=${C4S_CASSANDRA_CORES} --nodes=$N_NODES \
         singularity run  \
@@ -269,7 +294,6 @@ function run_cass_singularity() {
             --env LOCAL_JMX='no' \
             -B ${LOG_DIR}:/var/log/cassandra,${DATA_PATH}:/var/lib/cassandra,${CASS_CONF}/singularity:/etc/cassandra\
             ${HECUBA_ROOT}/singularity/cassandra    &
-    sleep 8 #Give time to cassandra to start up
 }
 
 TIME_START=`date +"%T.%3N"` # Time to start cassandra
@@ -438,10 +462,9 @@ fi
 echo "CHECKING CASSANDRA STATUS: "
 $CASS_HOME/bin/nodetool -h $NODETOOL_HOST status
 
-firstnode=$( get_first_node $seeds )
+check_cassandra_is_available
 
-sleep 10
-
+firstnode=$( get_first_node $CASSANDRA_NODELIST )-${iface}
 source $MODULE_PATH/initialize_hecuba.sh  $firstnode
 
 CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $CASSFILE)
