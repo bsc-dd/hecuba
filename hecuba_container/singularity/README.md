@@ -14,7 +14,7 @@ docker save 5b647422e184 -o cassandra.tar
 
 Move the generated cassandra.tar to MN4:
 '''
-scp cassandra.tar bsc31226@mn1.bsc.es:.
+scp cassandra.tar username@mn1.bsc.es:.
 '''
 
 Build a singularity sandbox from the Cassandra.tar file:
