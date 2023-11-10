@@ -1,0 +1,41 @@
+#!/bin/bash
+
+SEED=hecuba_container_cassandra-seed_1
+HECUBA_IMG=hecuba_container_hecuba
+CONFIGFILE=$HOME/.c4s/conf/hecuba_environment
+
+ARGS=("$@")
+
+# Request the CONTACT_NAMES from the cassandra-seed node: all cassandra IP nodes separated by comma
+get_nodes()
+{
+    docker exec -it ${SEED} nodetool status|grep UN|awk '{print $2}'|tr '\n' ','|head -c -1
+}
+
+#RUN APP
+shared() {
+    APP=$@
+    # Run the application in the cassandra-seed node
+    echo ==== "${CONF} ${APP}" ===
+    docker container exec -it -e "CONTACT_NAMES=$(get_nodes)" ${SEED} /bin/bash -c "${CONF} ${APP}"
+}
+
+disjoint() {
+    APP="$@"
+    # The 'disjoint' case implies that the application is run on a node different from cassandra, therefore start a new container with only the hecuba part
+    docker container run -it -e "CONTACT_NAMES=$(get_nodes)" ${HECUBA_IMG} /bin/bash -c "${CONF} ${APP}"
+}
+
+CONF=
+if [ -f ${CONFIGFILE} ]; then
+    CONF="source ${CONFIGFILE} &&"
+fi
+
+if [ ${ARGS[0]} == "--disjoint" ] ; then
+    unset ARGS[0] #Destroy parameter
+    disjoint ${ARGS[*]}
+
+else
+    shared ${ARGS[*]}
+fi
+
