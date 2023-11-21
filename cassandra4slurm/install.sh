@@ -1,6 +1,11 @@
 #!/bin/bash
 
+DIR="$(dirname $0)" #DIR="${0%/*}" #in case 'dirname' is missing
 INSTALL_DIR=${1}
+
+echo " [INFO] Installing files:"
+echo "          From [$DIR]"
+echo "          To   [$INSTALL_DIR]"
 
 
 mkdir -p ${INSTALL_DIR}/bin/cassandra4slurm
@@ -14,11 +19,11 @@ fi
 mkdir -p ${INSTALL_DIR}/bin/cassandra4slurm/storage_home
 mkdir -p ${INSTALL_DIR}/compss/ITF
 
-cp ./scripts/* ${INSTALL_DIR}/bin/cassandra4slurm
-cp ./enqueue_cass_node.sh ${INSTALL_DIR}/bin/cassandra4slurm
-cp ./storage_home/* ${INSTALL_DIR}/bin/cassandra4slurm/storage_home
+cp ${DIR}/scripts/* ${INSTALL_DIR}/bin/cassandra4slurm
+cp ${DIR}/enqueue_cass_node.sh ${INSTALL_DIR}/bin/cassandra4slurm
+cp ${DIR}/storage_home/* ${INSTALL_DIR}/bin/cassandra4slurm/storage_home
 ln -sf ${INSTALL_DIR}/bin/cassandra4slurm/storage_home ${INSTALL_DIR}/compss/scripts
 ln -sf ${INSTALL_DIR}/bin/cassandra4slurm/launcher.sh  ${INSTALL_DIR}/bin/c4s
 ln -sf ${INSTALL_DIR}/bin/cassandra4slurm/execute.sh ${INSTALL_DIR}/bin/runapp
-cp ${INSTALL_DIR}/src/hecuba_repo/storageAPI/storageItf/target/*jar ${INSTALL_DIR}/compss/ITF
+cp ${DIR}/../storageAPI/storageItf/target/*jar ${INSTALL_DIR}/compss/ITF
 
