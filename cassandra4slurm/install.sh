@@ -1,6 +1,7 @@
 #!/bin/bash
 
 DIR="$(dirname $0)" #DIR="${0%/*}" #in case 'dirname' is missing
+DIR="$(cd $DIR && pwd)"
 INSTALL_DIR=${1}
 
 echo " [INFO] Installing files:"
