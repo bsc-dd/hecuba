@@ -53,6 +53,7 @@ if [ "x$WORKER_NODES" == "x" ]; then
 fi
 
 
+SINGULARITYIMG="disabled"
 CASSANDRA_NODES=$(echo $WORKER_NODES | wc -w)  # Number of Cassandra nodes to spawn (in this case in every node)
 DBG " CASSANDRA NODES   : $CASSANDRA_NODES"
 DISJOINT=0            # Guarantee disjoint allocation. 1: Yes, 0 or empty otherwise
@@ -69,10 +70,11 @@ else
     iface="eth0"
 fi
 if [ "${SINGULARITY}" != "false" ]; then
-    if [ "${SINGULARITY}" != "default" ]; then
-        echo "Warning: SINGULARITY=[$SINGULARITY] is not supported. Only 'default'."
+    if [ "${SINGULARITY}" == "default" ]; then
+        SINGULARITYIMG="$HECUBA_ROOT/singularity/cassandra"
+    else
+        SINGULARITYIMG=${SINGULARITY}
     fi
-    SINGULARITY="enabled"
 fi
 
 
@@ -202,9 +204,9 @@ function get_nodes_up () {
     NODE_COUNTER=$($CASS_HOME/bin/nodetool -h $NODETOOL_HOST status | sed 1,5d | sed '$ d' | awk '{ print $1 }' | grep "UN" | wc -l)
 }
 
-function check_cassandra_table () {
+function check_cassandra_table_at () {
     local what="$1" # Target to 'describe' to check different states in cassandra
-    local first_node=`head -n1 $CASSFILE`"-$iface"
+    local first_node="$2"
     local res=1
     local nretries=1
     while [ "$res" != "0" ] ; do
@@ -218,6 +220,13 @@ function check_cassandra_table () {
             exit
         fi
     done
+}
+function check_cassandra_table () {
+    local what="$1" # Target to 'describe' to check different states in cassandra
+    local first_node=`head -n1 $CASSFILE`"-$iface"
+    local last_node=`tail -n1 $CASSFILE`"-$iface"
+    check_cassandra_table_at ${what} ${first_node}
+    check_cassandra_table_at ${what} ${last_node}
 }
 
 function check_cassandra_is_available () {
@@ -254,35 +263,45 @@ function run_cass_singularity() {
     local LOG_DIR=${4}              # Directory where the cassandra logs will be stored (hopefully local to the node)
     local DATA_PATH=${5}            # Directory where the cassandra data will be stored (hopefully local to the node)
     local CASS_CONF=${6}            # Directory where the cassandra configuration files will be stored (may be shared to all nodes)
+    local SINGULARITYIMG=${7}       # Singularity image to use
 
-    [ -z "$CASS_CONF" ] && die "Missing parameter: run_singularity CASSANDRA_NODELIST=${CASSANDRA_NODELIST} iface=${iface} C4S_CASSANDRA_CORES=${C4S_CASSANDRA_CORES} LOG_DIR=${LOG_DIR} DATA_PATH=${DATA_PATH} CASS_CONF=${CASS_CONF}"
+    [ -z "$SINGULARITYIMG" ] && die "Missing parameter: run_singularity CASSANDRA_NODELIST=${CASSANDRA_NODELIST} iface=${iface} C4S_CASSANDRA_CORES=${C4S_CASSANDRA_CORES} LOG_DIR=${LOG_DIR} DATA_PATH=${DATA_PATH} CASS_CONF=${CASS_CONF} SINGULARITYIMG=${SINGULARITYIMG}"
 
+    DBG " SINGULARITY: Launching container at [${SINGULARITYIMG}] "
     # Prepare directory to store singularity configuration files
     mkdir -p ${CASS_CONF}/singularity
-    cp -Rf $HECUBA_ROOT/singularity/cassandra/etc/cassandra/* ${CASS_CONF}/singularity/ 
+    DBG " SINGULARITY: CREATED [${CASS_CONF}/singularity] directory for cassandra configuration"
+
+    XCASSPATH=$(singularity run ${SINGULARITYIMG} which cassandra)
+    XCASSPATH=$(dirname ${XCASSPATH})/..
+    DBG " SINGULARITY: CASSANDRA PATH [${XCASSPATH}] "
+    singularity run ${SINGULARITYIMG} cp -LRf ${XCASSPATH}/conf ${CASS_CONF}/singularity  || die " SINGULARITY: copy failed"
+
     # Modify 'cassandra.yaml' from cassandra container to adapt to MN
-    cp ${CASS_CONF}/singularity/cassandra.yaml ${CASS_CONF}/singularity/cassandra.yaml.orig
-    cat ${CASS_CONF}/singularity/cassandra.yaml.orig \
+    local SEED=$(get_first_node ${CASSANDRA_NODELIST})-${iface}
+
+    cp ${CASS_CONF}/singularity/conf/cassandra.yaml ${CASS_CONF}/singularity/conf/cassandra.yaml.orig
+    cat ${CASS_CONF}/singularity/conf/cassandra.yaml.orig \
+        | sed "s/.*seeds:.*/          - seeds: \"$SEED\"/" \
         | sed "s/.*rpc_interface:.*/rpc_interface: $iface/" \
         | sed "s/.*listen_interface:.*/listen_interface: $iface/" \
         | sed "s/.*listen_address:.*/#listen_address: localhost/" \
         | sed "s/.*broadcast_address:.*/#broadcast_address: localhost/" \
         | sed "s/.*rpc_address:.*/#rpc_address: localhost/" \
         | sed "s/.*initial_token:.*/#initial_token:/" \
-        > ${CASS_CONF}/singularity/cassandra.yaml
+        > ${CASS_CONF}/singularity/conf/cassandra.yaml
 
     # Disable JMX authentication (nodetool)
-    cp ${CASS_CONF}/singularity/cassandra-env.sh ${CASS_CONF}/singularity/cassandra-env.sh.orig
-    cat ${CASS_CONF}/singularity/cassandra-env.sh.orig \
+    cp ${CASS_CONF}/singularity/conf/cassandra-env.sh ${CASS_CONF}/singularity/conf/cassandra-env.sh.orig
+    cat ${CASS_CONF}/singularity/conf/cassandra-env.sh.orig \
         | sed "s/jmxremote.authenticate=true/jmxremote.authenticate=false/" \
-        >${CASS_CONF}/singularity/cassandra-env.sh
+        >${CASS_CONF}/singularity/conf/cassandra-env.sh
 
     # Prepare LOG_DIR
     mkdir -p ${LOG_DIR}
 
     #for each node launch a singularity instance
-    local SEED=$(get_first_node ${CASSANDRA_NODELIST})-${iface}
-
+    DBG "CASSANDRA_SEEDS SET TO ${SEED}"
     echo "STARTING UP CASSANDRA (Singularity)..."
 
     run srun \
@@ -291,15 +310,17 @@ function run_cass_singularity() {
         --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=${C4S_CASSANDRA_CORES} --nodes=$N_NODES \
         singularity run  \
             --env CASSANDRA_SEEDS=$SEED \
+            --env CASSANDRA_CONF=${CASS_CONF}/singularity/conf \
             --env LOCAL_JMX='no' \
-            -B ${LOG_DIR}:/var/log/cassandra,${DATA_PATH}:/var/lib/cassandra,${CASS_CONF}/singularity:/etc/cassandra\
-            ${HECUBA_ROOT}/singularity/cassandra    &
+            -B ${LOG_DIR}:${XCASSPATH}/logs,${DATA_PATH}:${XCASSPATH}/data \
+            ${SINGULARITYIMG} \
+            ${XCASSPATH}/bin/cassandra -f &
 }
 
 TIME_START=`date +"%T.%3N"` # Time to start cassandra
-if [ "${SINGULARITY}" == "enabled" ]; then 
+if [ "${SINGULARITYIMG}" != "disabled" ]; then
     # TODO: LOGS_DIR uses *current* directory by default. Meaning that all instances would map that directory (which means that the content of that directory will be bullshit as all the nodes will overwrite the same data)
-    run run_cass_singularity ${CASSANDRA_NODELIST} ${iface} ${C4S_CASSANDRA_CORES} ${LOGS_DIR}/${UNIQ_ID} ${DATA_PATH} ${C4S_HOME}/conf/${UNIQ_ID}
+    run run_cass_singularity ${CASSANDRA_NODELIST} ${iface} ${C4S_CASSANDRA_CORES} ${LOGS_DIR}/${UNIQ_ID} ${DATA_PATH} ${C4S_HOME}/conf/${UNIQ_ID} ${SINGULARITYIMG}
 else
 
     #check if cassandra is already running and then just configure hecuba environment
@@ -373,12 +394,6 @@ else
     # If template is not there, it is copied from cassandra config folder
     if [ ! -s $C4S_HOME/conf/template.yaml ]; then
         cp $CASS_HOME/conf/cassandra.yaml $C4S_HOME/conf/template.yaml || die "Error copying $C4S_HOME/conf/cassandra.yaml"
-    fi
-
-    # If original config exists and template does not, it is moved
-    if [ -f $CASS_HOME/conf/cassandra.yaml ] && [[ ! -s $C4S_HOME/conf/template.yaml ]]; then
-        rm -f $C4S_HOME/conf/template.yaml
-        cp $CASS_HOME/conf/cassandra.yaml $C4S_HOME/conf/template.yaml
     fi
 
     seedlist=`head -n 2 $CASSFILE`
@@ -494,7 +509,7 @@ DBG $(cat ${FILE_TO_SET_ENV_VARS})
 PYCOMPSS_STORAGE=$C4S_HOME/pycompss_storage_"$UNIQ_ID".txt
 echo $CNAMES | tr , '\n' > $PYCOMPSS_STORAGE # Set list of nodes (with interface) in PyCOMPSs file
 
-if [ ! "$SINGULARITY" == "enabled" ]; then
+if [ "$SINGULARITYIMG" == "disabled" ]; then
 
     if [ "X$STREAMING" != "X" ]; then
         if [ ${STREAMING,,} == "true" ]; then
@@ -504,4 +519,4 @@ if [ ! "$SINGULARITY" == "enabled" ]; then
     fi
 
     launch_arrow_helpers $CASSFILE  $LOGS_DIR/$UNIQ_ID
-fi # SINGULARITY
+fi # SINGULARITYIMG
