@@ -17,7 +17,7 @@ NODE_YAML=$C4S_HOME/conf/cassandra-$(hostname).yaml
 mkdir -p $ROOT_PATH/
 
 # If the data path exists, cleans the content, otherwise it is created
-# It gives group write permissions by default 
+# It gives group write permissions by default
 if [ -d $DATA_PATH ]; then
     rm -rf $DATA_PATH/*
 fi
@@ -30,6 +30,15 @@ if [ -d $COMM_PATH ]; then
     rm -rf $COMM_PATH/*
 fi
 mkdir -p $COMM_PATH
+
+# Saved caches directory
+# If path exists, cleans the content, otherwise it is created
+# It gives group write permissions by default
+if [ -d $SAV_CACHE ]; then
+    rm -rf $SAV_CACHE/*
+fi
+mkdir -p $SAV_CACHE
+
 
 # Set the cluster name and data path in the config file (safely)
 sed "s/.*cluster_name:.*/cluster_name: \'$CLUSTER\'/g" $TEMPLATE_FILE \

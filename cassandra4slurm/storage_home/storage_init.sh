@@ -103,6 +103,7 @@ NODETOOL_HOST=$( get_first_node $CASSANDRA_NODELIST )-$iface
 export N_NODES=$CASSANDRA_NODES
 
 export THETIME=$(date "+%Y%m%dD%H%Mh%Ss")"-$SLURM_JOB_ID"
+export CLUSTER=$THETIME
 
 
 [ ! -d ${C4S_HOME}/${UNIQ_ID} ] && mkdir -p ${C4S_HOME}/${UNIQ_ID}
@@ -129,11 +130,13 @@ if [ ! -f $CFG_FILE ]; then
     exit
 fi
 
+echo "[INFO] Reading configuration file [$CFG_FILE]"
 source $CFG_FILE
 if [ "0$LOGS_DIR" == "0" ]; then
 	#yolandab
     DEFAULT_LOGS_DIR=$(cat $CFG_FILE | grep "LOG_PATH=")
     if [ $? -eq 1 ]; then
+            echo "[INFO] LOG_PATH not defined. Using current directory"
             DEFAULT_LOGS_DIR=$PWD
     else
             DEFAULT_LOGS_DIR=$(echo $DEFAULT_LOGS_DIR| sed 's/LOG_PATH=//g' | sed 's/"//g')
@@ -261,27 +264,36 @@ function run_cass_singularity() {
     local iface=${2}                # Network interface to use: 'infiniband' / any other
     local C4S_CASSANDRA_CORES=${3}  # Number of cores to use by cassandra
     local LOG_DIR=${4}              # Directory where the cassandra logs will be stored (hopefully local to the node)
-    local DATA_PATH=${5}            # Directory where the cassandra data will be stored (hopefully local to the node)
+    local ROOT_PATH=${5}            # Directory where the cassandra data will be stored (hopefully local to the node)
     local CASS_CONF=${6}            # Directory where the cassandra configuration files will be stored (may be shared to all nodes)
-    local SINGULARITYIMG=${7}       # Singularity image to use
+    local CLUSTER_NAME=${7}            # Directory where the cassandra configuration files will be stored (may be shared to all nodes)
+    local SINGULARITYIMG=${8}       # Singularity image to use
 
-    [ -z "$SINGULARITYIMG" ] && die "Missing parameter: run_singularity CASSANDRA_NODELIST=${CASSANDRA_NODELIST} iface=${iface} C4S_CASSANDRA_CORES=${C4S_CASSANDRA_CORES} LOG_DIR=${LOG_DIR} DATA_PATH=${DATA_PATH} CASS_CONF=${CASS_CONF} SINGULARITYIMG=${SINGULARITYIMG}"
+    [ -z "$SINGULARITYIMG" ] && die "Missing parameter: run_singularity CASSANDRA_NODELIST=${CASSANDRA_NODELIST} iface=${iface} C4S_CASSANDRA_CORES=${C4S_CASSANDRA_CORES} LOG_DIR=${LOG_DIR} ROOT_PATH=${ROOT_PATH} CASS_CONF=${CASS_CONF} CLUSTER_NAME=${CLUSTER_NAME} SINGULARITYIMG=${SINGULARITYIMG}"
 
     DBG " SINGULARITY: Launching container at [${SINGULARITYIMG}] "
     # Prepare directory to store singularity configuration files
     mkdir -p ${CASS_CONF}/singularity
-    DBG " SINGULARITY: CREATED [${CASS_CONF}/singularity] directory for cassandra configuration"
+    DBG " SINGULARITY: CREATED [${CASS_CONF}/singularity] directory to store cassandra configuration"
 
     XCASSPATH=$(singularity run ${SINGULARITYIMG} which cassandra)
     XCASSPATH=$(dirname ${XCASSPATH})/..
-    DBG " SINGULARITY: CASSANDRA PATH [${XCASSPATH}] "
+    DBG " SINGULARITY: CASSANDRA PATH inside container [${XCASSPATH}] "
+
+    # Copy containerized cassandra configuration files to CASS_CONF
     singularity run ${SINGULARITYIMG} cp -LRf ${XCASSPATH}/conf ${CASS_CONF}/singularity  || die " SINGULARITY: copy failed"
 
     # Modify 'cassandra.yaml' from cassandra container to adapt to MN
     local SEED=$(get_first_node ${CASSANDRA_NODELIST})-${iface}
 
+    DBG " SINGULARITY: using [${ROOT_PATH}] to store cassandra data"
+    local DATA_HOME=$ROOT_PATH/cassandra-data
+    local COMM_HOME=$ROOT_PATH/cassandra-commitlog
+    local SAV_CACHE=$ROOT_PATH/saved_caches
+
     cp ${CASS_CONF}/singularity/conf/cassandra.yaml ${CASS_CONF}/singularity/conf/cassandra.yaml.orig
     cat ${CASS_CONF}/singularity/conf/cassandra.yaml.orig \
+        | sed "s/.*cluster_name:.*/cluster_name: \'$CLUSTER_NAME\'/g" \
         | sed "s/.*seeds:.*/          - seeds: \"$SEED\"/" \
         | sed "s/.*rpc_interface:.*/rpc_interface: $iface/" \
         | sed "s/.*listen_interface:.*/listen_interface: $iface/" \
@@ -297,6 +309,12 @@ function run_cass_singularity() {
         | sed "s/jmxremote.authenticate=true/jmxremote.authenticate=false/" \
         >${CASS_CONF}/singularity/conf/cassandra-env.sh
 
+
+    # ESTO INTENTA BORRAR ${ROOT_PATH} (/scratch/tmp). Hay que hacerlo con un srun a los nodos workers
+    # Clearing data from previous executions and checking symlink coherence
+    run srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES \
+            $MODULE_PATH/tmp-set.sh NOT_USED $DATA_HOME $COMM_HOME $SAV_CACHE $ROOT_PATH $CLUSTER $UNIQ_ID
+
     # Prepare LOG_DIR
     mkdir -p ${LOG_DIR}
 
@@ -309,10 +327,13 @@ function run_cass_singularity() {
         --output ${LOG_DIR}/cassandra.output \
         --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=${C4S_CASSANDRA_CORES} --nodes=$N_NODES \
         singularity run  \
-            --env CASSANDRA_SEEDS=$SEED \
             --env CASSANDRA_CONF=${CASS_CONF}/singularity/conf \
             --env LOCAL_JMX='no' \
-            -B ${LOG_DIR}:${XCASSPATH}/logs,${DATA_PATH}:${XCASSPATH}/data \
+                    -B ${LOG_DIR}:${XCASSPATH}/logs \
+                  -B ${DATA_HOME}:${XCASSPATH}/data/data \
+                  -B ${COMM_HOME}:${XCASSPATH}/data/commitlog \
+                  -B ${SAV_CACHE}:${XCASSPATH}/data/saved_caches \
+            -B ${DATA_HOME}/hints:${XCASSPATH}/data/hints \
             ${SINGULARITYIMG} \
             ${XCASSPATH}/bin/cassandra -f &
 }
@@ -320,7 +341,7 @@ function run_cass_singularity() {
 TIME_START=`date +"%T.%3N"` # Time to start cassandra
 if [ "${SINGULARITYIMG}" != "disabled" ]; then
     # TODO: LOGS_DIR uses *current* directory by default. Meaning that all instances would map that directory (which means that the content of that directory will be bullshit as all the nodes will overwrite the same data)
-    run run_cass_singularity ${CASSANDRA_NODELIST} ${iface} ${C4S_CASSANDRA_CORES} ${LOGS_DIR}/${UNIQ_ID} ${DATA_PATH} ${C4S_HOME}/conf/${UNIQ_ID} ${SINGULARITYIMG}
+    run run_cass_singularity ${CASSANDRA_NODELIST} ${iface} ${C4S_CASSANDRA_CORES} ${LOGS_DIR}/${UNIQ_ID} ${ROOT_PATH} ${C4S_HOME}/conf/${UNIQ_ID} ${CLUSTER} ${SINGULARITYIMG}
 else
 
     #check if cassandra is already running and then just configure hecuba environment
@@ -352,8 +373,6 @@ else
         export CLUSTER=$RECOVER
         RECOVERING=$CLUSTER
         echo "[INFO] Recovering snapshot: $RECOVERING"
-    else
-        export CLUSTER=$THETIME
     fi
 
 
