@@ -167,31 +167,64 @@ echo "STARTING UP CASSANDRA..."
 DBG " I am $(hostname)."
 #export REPLICA_FACTOR=2
 
-# If template is not there, it is copied from cassandra config folder 
-if [ ! -f $C4S_HOME/conf/template.yaml ]; then
-    cp $CASS_HOME/conf/cassandra.yaml $C4S_HOME/conf/template.yaml
-fi
+export CASS_CONF=$C4S_HOME/conf/${UNIQ_ID}
 
-# If original config exists and template does not, it is moved
-if [ -f $CASS_HOME/conf/cassandra.yaml ] && [[ ! -s $C4S_HOME/conf/template.yaml ]]; then
-    rm -f $C4S_HOME/conf/template.yaml
-    cp $CASS_HOME/conf/cassandra.yaml $C4S_HOME/conf/template.yaml
-fi
+# Create current execution directory
+mkdir ${CASS_CONF}  || die "[ERROR] Unabled to create directory [${CASS_CONF}]"
+
+
+export CASS_YAML_FILE=${CASS_CONF}/cassandra.yaml
+export CASS_ENV_FILE=${CASS_CONF}/cassandra-env.sh
+export TEMPLATE_CASS_YAML_FILE=${CASS_CONF}/template.yaml.orig
+export TEMPLATE_CASS_ENV_FILE=${CASS_CONF}/cassandra-env.sh.orig
+
+# Copy CASSANDRA configuration files to Current execution directory
+cp $CASS_HOME/conf/cassandra.yaml ${TEMPLATE_CASS_YAML_FILE}
+cp $CASS_HOME/conf/cassandra-env.sh ${TEMPLATE_CASS_ENV_FILE}
 
 casslist=`cat $CASSFILE`
-seedlist=`head -n 2 $CASSFILE`
+seedlist=`head -n 1 $CASSFILE`
 seeds=`echo $seedlist | sed "s/ /-$iface,/g"`
-seeds=$seeds-$iface #using only infiniband atm, will change later
-sed "s/.*seeds:.*/          - seeds: \"$seeds\"/" $C4S_HOME/conf/template.yaml \
-| sed "s/.*rpc_interface:.*/rpc_interface: $iface/" \
-| sed "s/.*listen_interface:.*/listen_interface: $iface/" \
-| sed "s/.*listen_address:.*/#listen_address: localhost/" \
-| sed "s/.*rpc_address:.*/#rpc_address: localhost/" \
-| sed "s/.*initial_token:.*/#initial_token:/" \
-> $C4S_HOME/conf/template-aux-"$SLURM_JOB_ID".yaml
 
+#only one node needs to do this, all the nodes share the same file
+if [ $(hostname) == $seeds ]; then
+    seeds=$seeds-$iface #using only infiniband atm, will change later
+    cat $TEMPLATE_CASS_YAML_FILE \
+        | sed "s/.*cluster_name:.*/cluster_name: \'$CLUSTER\'/g" \
+        | sed "s/.*num_tokens:.*/num_tokens: 256/g" \
+        | sed "s+.*hints_directory:.*+hints_directory: $DATA_HOME/hints+" \
+        | sed 's/.*data_file_directories.*/data_file_directories:/' \
+        | sed "/data_file_directories:/!b;n;c     - $DATA_HOME" \
+        | sed "s+.*commitlog_directory:.*+commitlog_directory: $COMM_HOME+" \
+        | sed "s+.*saved_caches_directory:.*+saved_caches_directory: $SAV_CACHE+g" \
+        | sed "s/.*seeds:.*/          - seeds: \"$seeds\"/" \
+        | sed "s/.*rpc_interface:.*/rpc_interface: $iface/" \
+        | sed "s/.*listen_interface:.*/listen_interface: $iface/" \
+        | sed "s/.*listen_address:.*/#listen_address: localhost/" \
+        | sed "s/.*rpc_address:.*/#rpc_address: localhost/" \
+        | sed "s/.*initial_token:.*/#initial_token:/" \
+        > ${CASS_YAML_FILE}
+        echo "auto_bootstrap: false" >> ${CASS_YAML_FILE}
 
-DBG $(ls -la $C4S_HOME/conf/template-aux-"$SLURM_JOB_ID".yaml)
+    # Generate a configuration file for each cassandra node (used in recover)
+    for i in $casslist; do
+        cp ${CASS_YAML_FILE} ${CASS_CONF}/cassandra-${i}.yaml
+    done
+
+    cat ${TEMPLATE_CASS_ENV_FILE} \
+        | sed "s/jmxremote.authenticate=true/jmxremote.authenticate=false/" \
+        >${CASS_ENV_FILE}
+else
+    cont=1
+    while [ $cont != 1 ]; do
+        grep -q -s "jmxremote.authenticate=true/jmxremote.authenticate=false" ${CASS_ENV_FILE}
+        cont=$?
+        echo "Cassandra configuration files are not ready.... waiting..."
+    done
+fi
+
+DBG $(ls -la ${CASS_YAML_FILE})
+DBG $(ls -la ${CASS_ENV_FILE})
 
 TIME_START=`date +"%T.%3N"`
 echo "Launching Cassandra in the following hosts: $casslist"
@@ -200,14 +233,14 @@ export CASSANDRA_NODELIST=$(echo $casslist | sed -e 's+ +,+g')
 DBG " CASSANDRA_NODELIST var: "$CASSANDRA_NODELIST
 
 # Clearing data from previous executions and checking symlink coherence
-run srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 --nodes=$N_NODES $MODULE_PATH/tmp-set.sh $CASS_HOME $DATA_HOME $COMM_HOME $SAV_CACHE $ROOT_PATH $CLUSTER $UNIQ_ID
+run srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 --nodes=$N_NODES $MODULE_PATH/tmp-set.sh $DATA_HOME $COMM_HOME $SAV_CACHE $ROOT_PATH
 sleep 5
 
 if [ "$(cat $RECOVER_FILE)" != "" ]
 then
     RECOVERTIME1=`date +"%T.%3N"`
     # Moving data to each datapath
-    run srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 --nodes=$N_NODES $MODULE_PATH/recover.sh $ROOT_PATH $UNIQ_ID
+    run srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 --nodes=$N_NODES $MODULE_PATH/recover.sh $ROOT_PATH $UNIQ_ID ${CASS_CONF}
     RECOVERTIME2=`date +"%T.%3N"`
 
     DBG "[DEBUG] Recover process initial datetime: $RECOVERTIME1"
@@ -227,9 +260,6 @@ if [ "X$STREAMING" != "X" ]; then
         launch_kafka $CASSANDRA_NODELIST $UNIQ_ID $N_NODES
     fi
 fi
-
-# Cleaning config template
-rm -f $C4S_HOME/conf/template-aux-"$SLURM_JOB_ID".yaml
 
 # Checking cluster status until all nodes are UP (or timeout)
 echo "Checking..."

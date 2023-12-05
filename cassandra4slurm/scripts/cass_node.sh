@@ -36,7 +36,7 @@ if [ "$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt | grep $(hostname))" != "" ]; then
     DBG " JAVA_HOME="$JAVA_HOME
     DBG " Cassandra node $(hostname) is starting now..."
     DBG " CASS_HOME="$CASS_HOME
-    $CASS_HOME/bin/cassandra -Dcassandra.consistent.rangemovement=false -Dcassandra.config=file://$C4S_HOME/conf/cassandra-$(hostname).yaml -f  | awk "{ print  \""$(hostname)"\",\$0 }"
+    $CASS_HOME/bin/cassandra -Dcassandra.consistent.rangemovement=false -Dcassandra.config=file://$C4S_HOME/conf/${UNIQ_ID}/cassandra-$(hostname).yaml -f  | awk "{ print  \""$(hostname)"\",\$0 }"
     echo "Cassandra has stopped in node $(hostname)"
 else
     echo "Node $(hostname) is not part of the Cassandra node list."

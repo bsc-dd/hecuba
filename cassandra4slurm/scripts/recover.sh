@@ -19,6 +19,7 @@ source $CFG_FILE
 SNAP_ORIG=$SNAP_PATH
 ROOT_PATH=${1}
 UNIQ_ID=${2}
+CASS_CONF=${3}
 DATA_HOME=$ROOT_PATH/cassandra-data
 CASSFILE=$C4S_HOME/casslist-"$UNIQ_ID".txt
 RECOVER_FILE=$C4S_HOME/cassandra-recover-file-"$UNIQ_ID".txt
@@ -62,8 +63,8 @@ then
             else
                 DBG "Restoring snapshot in node #"$filecounter": "$(hostname)
                 ORIGINAL_CLUSTER_NAME=$(cat $SNAP_ORIG/$RECOVERY/$old_node/$RECOVERY-cluster.txt)
-                sed -i "s/.*cluster_name:.*/cluster_name: \'$ORIGINAL_CLUSTER_NAME\'/g" $C4S_HOME/conf/cassandra-$(hostname).yaml
-                sed -i "s/.*initial_token:.*/initial_token: $(cat $tokens)/" $C4S_HOME/conf/cassandra-$(hostname).yaml
+                sed -i "s/.*cluster_name:.*/cluster_name: \'$ORIGINAL_CLUSTER_NAME\'/g" ${CASS_CONF}/cassandra-$(hostname).yaml
+                sed -i "s/.*initial_token:.*/initial_token: $(cat $tokens)/" ${CASS_CONF}/cassandra-$(hostname).yaml
 
                 for folder in $(find $SNAP_ORIG/$RECOVERY/$old_node -maxdepth 1 -type d | sed -e "1d")
                 do
