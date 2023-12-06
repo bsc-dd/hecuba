@@ -19,6 +19,9 @@ UNIQ_ID=${1}          # Unique ID to identify related files
 C4S_HOME=$HOME/.c4s
 MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
 
+CASSFILE=$C4S_HOME/casslist-"$UNIQ_ID".txt
+CASSANDRA_NODELIST=$(cat $CASSFILE|tr '\n' ,)   # cassandra node names separated by ','
+N_NODES=$(cat $CASSFILE|wc -l)                  # number of cassandra nodes
 
 #CASSANDRA_NODES=${2}  # Number of Cassandra nodes to spawn
 # I guess we dont need any of these.
@@ -30,7 +33,7 @@ DBG "  SNAPSHOT_FILE=$SNAPSHOT_FILE"
 # If an snapshot was ordered, it is done
 if [[ -f $SNAPSHOT_FILE   &&  "$(cat $SNAPSHOT_FILE)" != "" ]]
 then
-    source $SNAPSHOT_FILE 
+    source $SNAPSHOT_FILE   # CASSANDRA_NODELIST, C4S_CASSANDRA_CORES, N_NODES, THETIME, ROOT_PATH, CLUSTER
     TIME1=`date +"%T.%3N"`
     SNAP_NAME="$THETIME"
 

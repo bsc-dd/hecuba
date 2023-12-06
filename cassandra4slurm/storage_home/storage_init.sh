@@ -154,6 +154,7 @@ export ROOT_PATH=$DATA_PATH/$THETIME
 export DATA_HOME=$ROOT_PATH/cassandra-data
 export COMM_HOME=$ROOT_PATH/cassandra-commitlog
 export SAV_CACHE=$ROOT_PATH/saved_caches
+export HINTS_HOME=$ROOT_PATH/hints
 
 export ENVFILE=$C4S_HOME/environ-"$UNIQ_ID".txt
 if [ ! -f $HECUBA_ENVIRON ]; then
@@ -285,16 +286,6 @@ function run_cass_singularity() {
     DBG " SINGULARITY: Launching container at [${SINGULARITYIMG}] "
     DBG " SINGULARITY: using [${ROOT_PATH}] to store cassandra data"
 
-    # Clearing data from previous executions and checking symlink coherence
-    run srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES \
-            $MODULE_PATH/tmp-set.sh $DATA_HOME $COMM_HOME $SAV_CACHE $ROOT_PATH
-
-    if [ "X$RECOVERING" != "X" ]; then
-        DBG "Launchig recover.sh"
-        run srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 --nodes=$N_NODES \
-                $MODULE_PATH/recover.sh $ROOT_PATH $UNIQ_ID ${CASS_CONF}
-    fi
-
     # Prepare LOG_DIR
     mkdir -p ${LOG_DIR}
 
@@ -341,11 +332,15 @@ fi
 TIME_START=`date +"%T.%3N"` # Time to start cassandra
 SEED=$(get_first_node ${CASSANDRA_NODELIST})-${iface}
 
+####### CONFIGURATION FILES #########
 # set variables with cassandra configuration files
-# Ideally for the execution in the physical machine the target directory for the adapted conf files
-# should by conf/UNIQ_ID and then the names could be the same for both cases execution in containers and in physical machine
+# Directory CASS_CONF contains the configuration files for current cassandra execution
 
 export CASS_CONF=$C4S_HOME/conf/${UNIQ_ID}
+# Create current configuration files directory
+mkdir ${CASS_CONF}  || die "[ERROR] Unabled to create directory [${CASS_CONF}]"
+
+# Copy configuration files to CASS_CONF
 if [ "${SINGULARITYIMG}" != "disabled" ]; then
     export CASS_CONF=${CASS_CONF}/singularity/
     # Prepare directory to store singularity configuration files
@@ -358,36 +353,28 @@ if [ "${SINGULARITYIMG}" != "disabled" ]; then
     # copy the cassandra conf directory from the singularity container
     singularity run ${SINGULARITYIMG} cp -LRf ${XCASSPATH}/conf ${CASS_CONF}  || die " SINGULARITY: copy failed"
     CASS_CONF=${CASS_CONF}/conf
-    export CASS_YAML_FILE=${CASS_CONF}/cassandra.yaml
-    export CASS_ENV_FILE=${CASS_CONF}/cassandra-env.sh
-    export TEMPLATE_CASS_YAML_FILE=${CASS_CONF}/cassandra.yaml.orig
-    export TEMPLATE_CASS_ENV_FILE=${CASS_CONF}/cassandra-env.sh.orig
-    # keep a copy of the original config files to check changes
-    cp ${CASS_YAML_FILE} ${TEMPLATE_CASS_YAML_FILE}
-    cp ${CASS_ENV_FILE} ${TEMPLATE_CASS_ENV_FILE}
 else
-    # Create current execution directory
-    mkdir ${CASS_CONF}  || die "[ERROR] Unabled to create directory [${CASS_CONF}]"
-
-
-    export CASS_YAML_FILE=${CASS_CONF}/cassandra.yaml
-    export CASS_ENV_FILE=${CASS_CONF}/cassandra-env.sh
-    export TEMPLATE_CASS_YAML_FILE=${CASS_CONF}/template.yaml.orig
-    export TEMPLATE_CASS_ENV_FILE=${CASS_CONF}/cassandra-env.sh.orig
-
-    # Copy CASSANDRA configuration files to Current execution directory
-    cp ${CASS_HOME}/conf/cassandra.yaml ${TEMPLATE_CASS_YAML_FILE} || die "Error copying $CASS_HOME/conf/cassandra.yaml"
-    cp ${CASS_HOME}/conf/cassandra-env.sh ${TEMPLATE_CASS_ENV_FILE} || die "Error copying $CASS_HOME/conf/cassandra-env.sh"
-
+    # copy the original cassandra configuration files to CASS_CONF directory
+    cp ${CASS_HOME}/conf/cassandra.yaml ${CASS_CONF} || die "Error copying $CASS_HOME/conf/cassandra.yaml"
+    cp ${CASS_HOME}/conf/cassandra-env.sh ${CASS_CONF} || die "Error copying $CASS_HOME/conf/cassandra-env.sh"
 fi
+
+export CASS_YAML_FILE=${CASS_CONF}/cassandra.yaml
+export CASS_ENV_FILE=${CASS_CONF}/cassandra-env.sh
+export TEMPLATE_CASS_YAML_FILE=${CASS_CONF}/cassandra.yaml.orig
+export TEMPLATE_CASS_ENV_FILE=${CASS_CONF}/cassandra-env.sh.orig
+# keep a copy of the original config files to check changes
+cp ${CASS_YAML_FILE} ${TEMPLATE_CASS_YAML_FILE} || die "Error copying ${CASS_YAML_FILE}"
+cp ${CASS_ENV_FILE} ${TEMPLATE_CASS_ENV_FILE} || die "Error copying ${CASS_ENV_FILE}"
+
 DBG "SRC CONFIG FILES ARE ${TEMPLATE_CASS_YAML_FILE} ${TEMPLATE_CASS_ENV_FILE}"
 DBG "DEST CONFIG FILES ARE ${CASS_YAML_FILE} ${CASS_ENV_FILE}"
 
 
-# JJ TODO se pone el directorio hints DENTRO de DATA_HOME, pero en el por defecto lo coloca a la misma altura. Cambiarlo para ser igual que el por defecto.
+## ADAPT CONFIGURATION FILE TO CURRENT EXECUTION NEEDS...
 cat $TEMPLATE_CASS_YAML_FILE \
         | sed "s/.*cluster_name:.*/cluster_name: \'$CLUSTER\'/g" \
-        | sed "s+.*hints_directory:.*+hints_directory: $DATA_HOME/hints+" \
+        | sed "s+.*hints_directory:.*+hints_directory: $HINTS_HOME+" \
         | sed 's/.*data_file_directories.*/data_file_directories:/' \
         | sed "s/.*num_tokens:.*/num_tokens: 256/g" \
         | sed "/data_file_directories:/!b;n;c     - $DATA_HOME" \
@@ -402,16 +389,61 @@ cat $TEMPLATE_CASS_YAML_FILE \
         | sed "s/.*initial_token:.*/#initial_token:/" \
         > $CASS_YAML_FILE
         echo "auto_bootstrap: false" >> ${CASS_YAML_FILE}
+DBG "[+] Generated cassandra configuration file ${CASS_YAML_FILE}"
 
-    # Generate a configuration file for each cassandra node (used in recover)
-    casslist=`cat $CASSFILE`
-    for i in $casslist; do
-        cp ${CASS_YAML_FILE} ${CASS_CONF}/cassandra-${i}.yaml
-    done
+# Generate a configuration file for each cassandra node (required by recover)
+#casslist=`cat $CASSFILE`
+for i in $WORKER_NODES; do
+    cp ${CASS_YAML_FILE} ${CASS_CONF}/cassandra-${i}.yaml
+done
 
 cat ${TEMPLATE_CASS_ENV_FILE} \
         | sed "s/jmxremote.authenticate=true/jmxremote.authenticate=false/" \
         >${CASS_ENV_FILE}
+
+DBG "[+] Generated cassandra configuration file ${CASS_ENV_FILE}"
+
+## DELETE? NODEFILE_REMOVEME=$C4S_HOME/hostlist-"$UNIQ_ID".txt
+## DELETE?
+## DELETE? #export APPFILE=$C4S_HOME/applist-"$UNIQ_ID".txt
+## DELETE? APPPATHFILE=$C4S_HOME/app-"$UNIQ_ID".txt
+## DELETE? PYCOMPSS_FLAGS_FILE=$C4S_HOME/pycompss-flags-"$UNIQ_ID".txt
+## DELETE? PYCOMPSS_FILE=$C4S_HOME/pycompss-"$UNIQ_ID".sh
+## DELETE? scontrol show hostnames $SLURM_NODELIST > $NODEFILE_REMOVEME
+
+# Generating nodefiles
+#yolandab: this assumes that the n initial nodes are worker nodes. We have the variable worker nodes with the nodes separated by blanks, for the run command we need to use comma as the separator
+#head -n $CASSANDRA_NODES $NODEFILE > $CASSFILE
+
+if [ ! -f $C4S_HOME/stop."$UNIQ_ID".txt ]; then
+    #we will end cassandra when the application ends
+    #TODO: add a configuration to storage_props to keep it alive
+    echo "1" > $C4S_HOME/stop."$UNIQ_ID".txt
+fi
+
+echo "STARTING UP CASSANDRA..."
+DBG " I am $(hostname)."
+if [ $N_NODES -gt 1 ]; then
+    export REPLICA_FACTOR=2
+else
+    export REPLICA_FACTOR=1
+fi
+
+
+echo "Launching Cassandra in the following hosts: $CASSANDRA_NODELIST"
+
+# Clearing data from previous executions and checking symlink coherence
+run srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES \
+        $MODULE_PATH/tmp-set.sh $DATA_HOME $COMM_HOME $SAV_CACHE $ROOT_PATH
+sleep 5
+
+# Recover snapshot if any
+
+if [ "X$RECOVERING" != "X" ]; then
+    DBG "Launchig recover.sh"
+    run srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 --nodes=$N_NODES \
+            $MODULE_PATH/recover.sh $ROOT_PATH $UNIQ_ID ${CASS_CONF}
+fi
 
 
 if [ "${SINGULARITYIMG}" != "disabled" ]; then
@@ -419,54 +451,10 @@ if [ "${SINGULARITYIMG}" != "disabled" ]; then
     run run_cass_singularity ${CASSANDRA_NODELIST} ${C4S_CASSANDRA_CORES} ${LOGS_DIR}/${UNIQ_ID} ${ROOT_PATH} ${CASS_CONF} ${XCASSPATH} ${SINGULARITYIMG}
 else
 
-
-    NODEFILE_REMOVEME=$C4S_HOME/hostlist-"$UNIQ_ID".txt
-
-    #export APPFILE=$C4S_HOME/applist-"$UNIQ_ID".txt
-    APPPATHFILE=$C4S_HOME/app-"$UNIQ_ID".txt
-    PYCOMPSS_FLAGS_FILE=$C4S_HOME/pycompss-flags-"$UNIQ_ID".txt
-    PYCOMPSS_FILE=$C4S_HOME/pycompss-"$UNIQ_ID".sh
-    scontrol show hostnames $SLURM_NODELIST > $NODEFILE_REMOVEME
-
-    # Generating nodefiles
-    #yolandab: this assumes that the n initial nodes are worker nodes. We have the variable worker nodes with the nodes separated by blanks, for the run command we need to use comma as the separator
-    #head -n $CASSANDRA_NODES $NODEFILE > $CASSFILE
-
-
     if [ ! -f $CASS_HOME/bin/cassandra ]; then
         echo "[ERROR]: Cassandra executable is not placed where it was expected. ($CASS_HOME/bin/cassandra)"
         echo "Exiting..."
         exit
-    fi
-
-    if [ ! -f $C4S_HOME/stop."$UNIQ_ID".txt ]; then
-        #we will end cassandra when the application ends
-        #TODO: add a configuration to storage_props to keep it alive
-        echo "1" > $C4S_HOME/stop."$UNIQ_ID".txt
-    fi
-
-    echo "STARTING UP CASSANDRA..."
-    DBG " I am $(hostname)."
-    if [ $N_NODES -gt 1 ]; then
-        export REPLICA_FACTOR=2
-    else
-        export REPLICA_FACTOR=1
-    fi
-
-
-    echo "Launching Cassandra in the following hosts: $CASSANDRA_NODELIST"
-
-    # Clearing data from previous executions and checking symlink coherence
-    run srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=4 --nodes=$N_NODES \
-            $MODULE_PATH/tmp-set.sh $DATA_HOME $COMM_HOME $SAV_CACHE $ROOT_PATH
-    sleep 5
-
-    # Recover snapshot if any
-
-    if [ "X$RECOVERING" != "X" ]; then
-        DBG "Launchig recover.sh"
-        run srun --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 --nodes=$N_NODES \
-                $MODULE_PATH/recover.sh $ROOT_PATH $UNIQ_ID ${CASS_CONF}
     fi
 
     # Launching Cassandra in every node
