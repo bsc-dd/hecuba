@@ -146,6 +146,9 @@ if [ "0$LOGS_DIR" == "0" ]; then
     #DEFAULT_LOGS_DIR=$(cat $CFG_FILE | grep "LOG_PATH=" | sed 's/LOG_PATH=//g' | sed 's/"//g')
     LOGS_DIR=$DEFAULT_LOGS_DIR
 fi
+LOGS_DIR=$LOGS_DIR/$UNIQ_ID
+mkdir ${LOGS_DIR} || die "[ERROR] ($(hostname)) Unable to create directory [${LOGS_DIR}]"
+
 export CASS_HOME
 export DATA_PATH
 export SNAP_PATH
@@ -270,34 +273,6 @@ function launch_arrow_helpers () {
     # TODO Review this
     #echo "INFO: Launching Arrow helper at [$NODES] Log at [$LOGDIR/arrow_helper.$i.out]:"
     #srun --nodelist $NODES --ntasks-per-node=1 --cpus-per-task=4 $ARROW_HELPER
-}
-
-function run_cass_singularity() {
-    local CASSANDRA_NODELIST=${1}   # List of nodes separated by ',' where cassandra must be started
-    local C4S_CASSANDRA_CORES=${2}  # Number of cores to use by cassandra
-    local LOG_DIR=${3}              # Directory where the cassandra logs will be stored (hopefully local to the node)
-    local ROOT_PATH=${4}            # Directory where the cassandra data will be stored (hopefully local to the node)
-    local CASS_CONF=${5}            # Directory where the cassandra configuration files will be stored (may be shared to all nodes)
-    local XCASSPATH=${6}            # Cassandra home directory in the container
-    local SINGULARITYIMG=${7}       # Singularity image to use
-
-    [ -z "$SINGULARITYIMG" ] && die "Missing parameter: run_singularity CASSANDRA_NODELIST=${CASSANDRA_NODELIST} C4S_CASSANDRA_CORES=${C4S_CASSANDRA_CORES} LOG_DIR=${LOG_DIR} ROOT_PATH=${ROOT_PATH} CASS_CONF=${CASS_CONF} SINGULARITYIMG=${SINGULARITYIMG}"
-
-    DBG " SINGULARITY: Launching container at [${SINGULARITYIMG}] "
-    DBG " SINGULARITY: using [${ROOT_PATH}] to store cassandra data"
-
-    # Prepare LOG_DIR
-    mkdir -p ${LOG_DIR}
-
-    #for each node launch a singularity instance
-    echo "STARTING UP CASSANDRA (Singularity)..."
-
-
-    run srun \
-        --overlap --mem=0 \
-        --output ${LOG_DIR}/cassandra.output \
-        --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=${C4S_CASSANDRA_CORES} --nodes=$N_NODES \
-        $MODULE_PATH/run_singularity.sh ${UNIQ_ID} ${CASS_CONF} ${XCASSPATH} ${LOG_DIR} ${SINGULARITYIMG} &
 }
 
 #check if cassandra is already running and then just configure hecuba environment
@@ -446,9 +421,15 @@ if [ "X$RECOVERING" != "X" ]; then
 fi
 
 
+# Launching Cassandra in every node
 if [ "${SINGULARITYIMG}" != "disabled" ]; then
-    # TODO: LOGS_DIR uses *current* directory by default. Meaning that all instances would map that directory (which means that the content of that directory will be bullshit as all the nodes will overwrite the same data)
-    run run_cass_singularity ${CASSANDRA_NODELIST} ${C4S_CASSANDRA_CORES} ${LOGS_DIR}/${UNIQ_ID} ${ROOT_PATH} ${CASS_CONF} ${XCASSPATH} ${SINGULARITYIMG}
+    DBG " SINGULARITY: Launching container at [${SINGULARITYIMG}] "
+    DBG " SINGULARITY: using [${ROOT_PATH}] to store cassandra data"
+    run srun \
+        --overlap --mem=0 \
+        --output ${LOGS_DIR}/cassandra.output \
+        --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=${C4S_CASSANDRA_CORES} --nodes=$N_NODES \
+        $MODULE_PATH/run_singularity.sh ${UNIQ_ID} ${CASS_CONF} ${XCASSPATH} ${LOGS_DIR} ${SINGULARITYIMG} &
 else
 
     if [ ! -f $CASS_HOME/bin/cassandra ]; then
@@ -457,15 +438,13 @@ else
         exit
     fi
 
-    # Launching Cassandra in every node
     run srun --overlap --mem=0 \
             --output ${C4S_HOME}/${UNIQ_ID}/cassandra.output \
             --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=${C4S_CASSANDRA_CORES} --nodes=$N_NODES \
             $MODULE_PATH/enqueue_cass_node.sh $UNIQ_ID &
     sleep 5
 
-
-fi # !SINGULARITY
+fi # !SINGULARITYIMG
 
 # Checking cluster status until all nodes are UP (or timeout)
 echo "Checking..."
@@ -534,5 +513,5 @@ if [ "$SINGULARITYIMG" == "disabled" ]; then
         fi
     fi
 
-    launch_arrow_helpers $CASSFILE  $LOGS_DIR/$UNIQ_ID
+    launch_arrow_helpers $CASSFILE  $LOGS_DIR
 fi # SINGULARITYIMG
