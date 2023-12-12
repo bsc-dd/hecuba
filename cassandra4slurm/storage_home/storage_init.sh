@@ -380,14 +380,6 @@ cat ${TEMPLATE_CASS_ENV_FILE} \
 
 DBG "[+] Generated cassandra configuration file ${CASS_ENV_FILE}"
 
-## DELETE? NODEFILE_REMOVEME=$C4S_HOME/hostlist-"$UNIQ_ID".txt
-## DELETE?
-## DELETE? #export APPFILE=$C4S_HOME/applist-"$UNIQ_ID".txt
-## DELETE? APPPATHFILE=$C4S_HOME/app-"$UNIQ_ID".txt
-## DELETE? PYCOMPSS_FLAGS_FILE=$C4S_HOME/pycompss-flags-"$UNIQ_ID".txt
-## DELETE? PYCOMPSS_FILE=$C4S_HOME/pycompss-"$UNIQ_ID".sh
-## DELETE? scontrol show hostnames $SLURM_NODELIST > $NODEFILE_REMOVEME
-
 # Generating nodefiles
 #yolandab: this assumes that the n initial nodes are worker nodes. We have the variable worker nodes with the nodes separated by blanks, for the run command we need to use comma as the separator
 #head -n $CASSANDRA_NODES $NODEFILE > $CASSFILE
