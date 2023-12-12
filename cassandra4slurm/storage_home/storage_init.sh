@@ -72,8 +72,10 @@ fi
 if [ "${SINGULARITY}" != "false" ]; then
     if [ "${SINGULARITY}" == "default" ]; then
         SINGULARITYIMG="$HECUBA_ROOT/singularity/cassandra"
+        [ ! -d ${SINGULARITYIMG} ] && die "Singularity IMAGE not found [$SINGULARITYIMG]"
     else
         SINGULARITYIMG=${SINGULARITY}
+        [ ! -e ${SINGULARITYIMG} ] && die "Singularity IMAGE not found [$SINGULARITYIMG]"
     fi
 fi
 
