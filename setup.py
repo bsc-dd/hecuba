@@ -92,6 +92,8 @@ def do_build_process():
     copy_files_to_dir(glob.glob('build/include/hecuba/*'), "hecuba_py/hecuba/include")
     copy_files_to_dir(glob.glob('includedep/*'), "hecuba_py/hecuba/include") # TODO: includedep contains header requeriments (manually created) automate the generation of this directory
     copy_files_to_dir(['build/lib/libhfetch.so'], "hecuba_py/hecuba/lib")
+    ## Copy VERSION.txt to 'hecuba_py/hecuba' so it gets included in the python package
+    copy_files_to_dir(['VERSION.txt'], 'hecuba_py/hecuba' )
 
 
 def setup_packages():
@@ -127,6 +129,7 @@ def setup_packages():
             copy_files_to_dir(glob.glob('build/include/*'), prefix + "/include")
             copy_files_to_dir(glob.glob('build/include/hecuba/*'), prefix + "/include/hecuba")
             copy_files_to_dir(glob.glob('build/lib/*'), prefix + "/lib")
+            copy_files_to_dir(['VERSION.txt'], prefix) # put a copy of VERSION.txt in the installation directory for easy finding
         except (KeyError):
             pass
 
