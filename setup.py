@@ -80,9 +80,20 @@ def get_var(var):
     value = os.environ.get(var,'')
     return [p for p in value.split(':') if p != '']
 
+def install_requirements():
+    # https://stackoverflow.com/questions/12332975/how-can-i-install-a-python-module-within-code
+    import subprocess
+    import sys
+
+    print("HECUBA REQUIREMENTS INSTALLATION")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
+    print("================================")
 
 def do_build_process():
     ## avoid the compilation again in the isolated virtual environment (as it is already compiled)
+
+    install_requirements()
+
     cmake_build()
 
     ## Copy 'jar' and 'arrow_helper' INSIDE package (hecuba and storage) so it gets included in the wheel
