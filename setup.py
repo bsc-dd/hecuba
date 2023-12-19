@@ -5,7 +5,6 @@ import errno
 import subprocess
 import sys
 import glob
-import numpy
 import shutil
 
 c_binding_path=None
@@ -80,19 +79,31 @@ def get_var(var):
     value = os.environ.get(var,'')
     return [p for p in value.split(':') if p != '']
 
-def install_requirements():
+def install_requirements(prefix=None):
     # https://stackoverflow.com/questions/12332975/how-can-i-install-a-python-module-within-code
     import subprocess
-    import sys
 
     print("HECUBA REQUIREMENTS INSTALLATION")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
-    print("================================")
+    parameters = [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"]
+    if prefix is not None:
+        # append /lib/python3.10/site-packages to prefix
+        PYVER = str(sys.version_info.major) + '.' + str(sys.version_info.minor)
+        install_dir = prefix+'/lib/python'+PYVER+'/site-packages'
+        print(" [+] Installation directory set to {}".format(install_dir));
+        parameters = parameters + ["-t", install_dir]
+        # Change PYTHONPATH (sys.path) to detect new installed requirements required in this setup.py (numpy)
+        os.environ["PYTHONPATH"] = install_dir + ":" + os.environ.get("PYTHONPATH","")
+        sys.path.insert(1, install_dir);
+
+        # Reload site <Ref:https://stackoverflow.com/questions/25384922/how-to-refresh-sys-path>
+        from importlib import invalidate_caches
+        invalidate_caches() #python3
+
+    subprocess.check_call(parameters)
 
 def do_build_process():
     ## avoid the compilation again in the isolated virtual environment (as it is already compiled)
 
-    install_requirements()
 
     cmake_build()
 
@@ -141,7 +152,9 @@ def setup_packages():
             copy_files_to_dir(glob.glob('build/include/hecuba/*'), prefix + "/include/hecuba")
             copy_files_to_dir(glob.glob('build/lib/*'), prefix + "/lib")
             copy_files_to_dir(['VERSION.txt'], prefix) # put a copy of VERSION.txt in the installation directory for easy finding
+            install_requirements(prefix)
         except (KeyError):
+            install_requirements()
             pass
 
 
@@ -157,6 +170,7 @@ def setup_packages():
         # located (and wheel generation will solve the dependencies anyway)
         extra_link_args += [ '-Wl,-rpath='+c_binding_path+'/lib']
 
+    import numpy
     print ("DEBUG: numpy.get_include=>{}<".format(numpy.get_include()),flush=True)
     extensions = [
         Extension(
