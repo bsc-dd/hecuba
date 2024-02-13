@@ -24,11 +24,9 @@ source $MODULE_PATH/hecuba_debug.sh
 
 UNIQ_ID="c4s"$(echo $RANDOM | cut -c -5)
 DEFAULT_NUM_NODES=4
-DEFAULT_MAX_TIME="04:00:00"
 RETRY_MAX=30
 PYCOMPSS_SET=0
 EXEC_NAME=$(echo ${0} | sed "s+/+ +g" | awk '{ print $NF }')
-QUEUE=""
 
 function set_workspace () {
     mkdir -p $C4S_HOME/logs
@@ -80,7 +78,7 @@ fi
 
 function usage () {
     # Prints a help message
-    echo "Usage: . $EXEC_NAME [ -h | RUN [ -s ] [ -f ] [ --disjoint ] [ -nC=cass_nodes ] [ -nA=app_nodes ] [ -nT=total_nodes ] [ --appl=PATH ARGS ] [ --pycompss=PARAMS ] [ -t=JOB_MAX_TIME ] [ --jobname=JOBNAME ] [ --logs=DIR ] | RECOVER [ -s ] | STATUS [ cluster_id ] | STOP [ -c=cluster_id ] | KILL [ -c=cluster_id ] ]"
+    echo "Usage: . $EXEC_NAME [ -h | RUN [ -s ] [ -f ] [ --disjoint ] [ -nC=cass_nodes ] [ -nA=app_nodes ] [ -nT=total_nodes ] [ --appl=PATH ARGS ] [ --pycompss=PARAMS ] [ --jobname=JOBNAME ] [ --logs=DIR ] | RECOVER [ -s ] | STATUS [ cluster_id ] | STOP [ -c=cluster_id ] | KILL [ -c=cluster_id ] ]"
     echo " "
     echo "IMPORTANT: The leading dot is needed since this launcher sets some environment variables."
     echo " "
@@ -97,12 +95,10 @@ function usage () {
     echo "       To execute an application after the Cassandra cluster is up it is used --appl to set the path to the executable and its arguments, if any."
     echo "       If the application must be executed using PyCOMPSs the variable --pycompss should contain its PyCOMPSs parameters."
     echo "       Using -s it will save a snapshot after the execution."
-    echo "       Using -t it will set the maximum time of the job to this value, with HH:MM:ss format. Default is 4 hours (04:00:00)."
     echo "       Using -f it will run the Cassandra cluster, the application (if set), take the snapshot (if set) and finish the execution automatically. Default is keep alive."
     echo "       Using --jobname=<JOBNAME> that will be the job name sent to the queue."
     echo "       Using --logs=<directory path> that will be the destination of the log files."
-    echo "       Using --qos=debug it will run in the testing queue. It has some restrictions (a single job and 2h max.) so any higher requirements will be rejected by the queuing system."
-    echo "       Everything passed using --constraint flags will be sent as it is to the job scheduler."
+    echo "       NOTE: Any parameter not processed by C4S will be sent as it is to the job scheduler."
     echo " "
     echo "       RECOVER [ -s ]:"
     echo "       Shows a list of snapshots from previous Cassandra Clusters and restores the chosen one."
@@ -237,18 +233,16 @@ reset_all_parameters(){
     unset JOBNAME
     unset SNAPSH
     unset DISJOINT
-    unset CONSTRAINTS
     unset TOTAL_NODES
     unset CASSANDRA_NODES
     unset APP_NODES
     unset APP
     unset path_to_executable
     unset PYCOMPSS_APP
-    unset JOB_MAX_TIME
     unset FINISH
     unset input_snap
     unset LOGS_DIR
-    unset UNK_FLAGS
+    unset SLURM_FLAGS
 }
 
 reset_all_parameters
@@ -295,18 +289,6 @@ case $i in
     echo "The jobname is: "$JOBNAME
     shift
     ;;
-    -q=*|--qos=*)
-    QUEUE="--qos=""${i#*=}"
-    shift
-    ;;
-    -res=*|--reservation=*)
-    CONSTRAINTS=$CONSTRAINTS" --reservation=""${i#*=}"
-    shift
-    ;;
-    -con=*|--constraint=*)
-    CONSTRAINTS=$CONSTRAINTS" --constraint=""${i#*=}"
-    shift
-    ;;
     -nT=*|--total_nodes=*)
     TOTAL_NODES="${i#*=}"
     shift
@@ -331,10 +313,6 @@ case $i in
     fi
     PYCOMPSS_APP="${i#*=}"
     PYCOMPSS_SET=1
-    shift
-    ;;
-    -t=*|--time=*)
-    JOB_MAX_TIME="${i#*=}"
     shift
     ;;
     -f|--finish)
@@ -373,20 +351,17 @@ case $i in
     shift
     ;;
     *)
-    UNK_FLAGS=$UNK_FLAGS"${i#=*}"" "
+    SLURM_FLAGS=$SLURM_FLAGS" ""${i}"
     ;;
 esac
 done
 
-if [ "0$UNK_FLAGS" != "0" ]; then
-    if [ "$(echo $UNK_FLAGS | wc -w)" -gt 1 ]; then
+if [ "0$SLURM_FLAGS" != "0" ]; then
+    if [ "$(echo $SLURM_FLAGS | wc -w)" -gt 1 ]; then
         MANY_FLAGS="s"
     fi
-    echo "ERROR: Unknown flag$MANY_FLAGS: "$UNK_FLAGS
-    echo "Check help: $EXEC_NAME -h"
-    exit
+    echo " Passing the following flag$MANY_FLAGS to SLURM: [$SLURM_FLAGS]"
 fi
-
 
 if [ ! -f $HECUBA_ENV ]; then
     echo "[INFO] Environment variables to load NOT found at $HECUBA_ENV"
@@ -594,12 +569,8 @@ if [ "$ACTION" == "RUN" ]; then
 
     # Enables/Disables the snapshot option after the execution
     set_snapshot_value
-    if [ "0$JOB_MAX_TIME" == "0" ]; then
-        JOB_MAX_TIME=$DEFAULT_MAX_TIME
-    fi
-    echo "SUBMITTING sbatch --job-name="$UNIQ_ID" --nodes=$TOTAL_NODES --time=$JOB_MAX_TIME --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $QUEUE $CONSTRAINTS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT"
-
-    SUBMIT_MSG=$(sbatch --job-name="$UNIQ_ID" --nodes=$TOTAL_NODES --time=$JOB_MAX_TIME --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $QUEUE $CONSTRAINTS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT) #nproc result is 48 here
+    echo "SUBMITTING sbatch --job-name="$UNIQ_ID" --nodes=$TOTAL_NODES --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $SLURM_FLAGS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT"
+    SUBMIT_MSG=$(sbatch --job-name="$UNIQ_ID" --nodes=$TOTAL_NODES --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $SLURM_FLAGS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT) #nproc result is 48 here
     echo $SUBMIT_MSG" ("$UNIQ_ID")"
     JOB_NUMBER=$(echo $SUBMIT_MSG | awk '{ print $NF }')
     echo $JOB_NUMBER $UNIQ_ID" " >> $C4S_JOBLIST
@@ -736,9 +707,6 @@ then
         APP_NODES=$N_NODES
     fi
 
-    if [ "0$JOB_MAX_TIME" == "0" ]; then
-        JOB_MAX_TIME=$DEFAULT_MAX_TIME
-    fi
 
     echo "[ PARAM DEBUG ]"
     echo "UNIQ_ID: "$UNIQ_ID
@@ -747,8 +715,8 @@ then
     echo "PYCOMPSS_SET: "$PYCOMPSS_SET
     echo "DISJOINT: "$DISJOINT
      
-    echo sbatch --job-name="$UNIQ_ID" --nodes=$TOTAL_NODES --time=$JOB_MAX_TIME --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $QUEUE $CONSTRAINTS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT
-    SUBMIT_MSG=$(sbatch --job-name="$UNIQ_ID" --nodes=$TOTAL_NODES --time=$JOB_MAX_TIME --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $QUEUE $CONSTRAINTS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT) 
+    echo sbatch --job-name="$UNIQ_ID" --nodes=$TOTAL_NODES --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $SLURM_FLAGS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT
+    SUBMIT_MSG=$(sbatch --job-name="$UNIQ_ID" --nodes=$TOTAL_NODES --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $SLURM_FLAGS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT)
     echo $SUBMIT_MSG" ("$UNIQ_ID")"
     JOB_NUMBER=$(echo $SUBMIT_MSG | awk '{ print $NF }')
     echo $JOB_NUMBER $UNIQ_ID" " >> $C4S_JOBLIST
