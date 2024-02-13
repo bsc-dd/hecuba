@@ -569,8 +569,9 @@ if [ "$ACTION" == "RUN" ]; then
 
     # Enables/Disables the snapshot option after the execution
     set_snapshot_value
-    echo "SUBMITTING sbatch --job-name="$UNIQ_ID" --nodes=$TOTAL_NODES --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $SLURM_FLAGS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT"
-    SUBMIT_MSG=$(sbatch --job-name="$UNIQ_ID" --nodes=$TOTAL_NODES --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $SLURM_FLAGS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT) #nproc result is 48 here
+    X="sbatch --job-name=$UNIQ_ID --nodes=$TOTAL_NODES --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $SLURM_FLAGS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT"
+    echo "SUBMITTING $X"
+    SUBMIT_MSG=$($X)
     echo $SUBMIT_MSG" ("$UNIQ_ID")"
     JOB_NUMBER=$(echo $SUBMIT_MSG | awk '{ print $NF }')
     echo $JOB_NUMBER $UNIQ_ID" " >> $C4S_JOBLIST
@@ -719,8 +720,9 @@ then
     echo "PYCOMPSS_SET: "$PYCOMPSS_SET
     echo "DISJOINT: "$DISJOINT
      
-    echo sbatch --job-name="$UNIQ_ID" --nodes=$TOTAL_NODES --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $SLURM_FLAGS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT
-    SUBMIT_MSG=$(sbatch --job-name="$UNIQ_ID" --nodes=$TOTAL_NODES --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $SLURM_FLAGS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT)
+    X="sbatch --job-name=$UNIQ_ID --nodes=$TOTAL_NODES --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $SLURM_FLAGS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT"
+    echo "SUBMITTING $X"
+    SUBMIT_MSG=$($X)
     echo $SUBMIT_MSG" ("$UNIQ_ID")"
     JOB_NUMBER=$(echo $SUBMIT_MSG | awk '{ print $NF }')
     echo $JOB_NUMBER $UNIQ_ID" " >> $C4S_JOBLIST
