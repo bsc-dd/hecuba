@@ -579,6 +579,10 @@ if [ "$ACTION" == "RUN" ]; then
 	while [ ! -f "$C4S_HOME/casslistDONE-"$UNIQ_ID".txt" ]; do
         echo "Checking for Cassandra cluster up... "
         get_job_info
+        if [ "$JOB_STATUS" == "" ]
+        then
+            exit_no_cluster
+        fi
         sleep 5
 	done
     echo "Cassandra Cluster with "$CASSANDRA_NODES" node(s) started successfully."
