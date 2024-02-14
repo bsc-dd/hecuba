@@ -41,7 +41,6 @@ PYCOMPSS_FILE=$C4S_HOME/pycompss-"$UNIQ_ID".sh
 SNAPSHOT_FILE=$C4S_HOME/cassandra-snapshot-file-"$UNIQ_ID".txt
 RECOVER_FILE=$C4S_HOME/cassandra-recover-file-"$UNIQ_ID".txt
 rm -f $NODEFILE $CASSFILE $CASSFILETOSYNC $APPFILE
-scontrol show hostnames $SLURM_NODELIST > $NODEFILE
 
 source $CFG_FILE
 export CASS_HOME
@@ -80,18 +79,44 @@ fi
 
 RETRY_MAX=3000 # This value is around 50, higher now to test big clusters that need more time to be completely discovered
 
-# Generating nodefiles
-tail -n $CASSANDRA_NODES $NODEFILE > $CASSFILE
-head -n $APP_NODES $NODEFILE > $APPFILE
-export APPNODELIST=$(cat $APPFILE | tr '\n' ',' | sed "s/,/$full_iface,/g" | rev | cut -c 2- | rev)
+# hostnames2IP(file): Transform all host names into 'iface' IPs for 'file'
+function hostnames2IP() {
+    local FILE="$1"
+    echo "* Transforming [$FILE] to iface [$iface]"
+    rm -f ${FILE}.ips
+    for node in $(cat ${FILE}); do
+        nodeIP=$(get_node_ip $node $iface)
+        [ "$nodeIP" != "" ] || die "Device [$iface] not found in node [$node]. Modify CASS_IFACE in the 'cassandra4slurm.cfg' file"
+        echo "** Node [$node == $nodeIP]"
+        echo $nodeIP >> ${FILE}.ips
+    done
+}
 
 source $MODULE_PATH/hecuba_debug.sh
 
-DBG " iter="$iter
-DBG " app_count="$app_count
-DBG " APP_NODES="$APP_NODES
+# Generating nodefiles
+# =====================
+# Each host may have different interfaces, and therefore we need to decide
+# which one (IFACE) to use. In a magical world, using the IP of that interface
+# would work in all cases, ... but Slurm requires hostnames (sigh), so we keep
+# both.
+# There will be 2 files, one with hostnames and one with IP numbers:
+#   - hostnames: casslist-$UNIQ_ID.txt (CASSFILE)
+#   - IP number: casslist-$UNIQ_ID.txt.ips (CASSFILE.ips)
+scontrol show hostnames $SLURM_NODELIST > $NODEFILE
+tail -n $CASSANDRA_NODES $NODEFILE > $CASSFILE
+head -n $APP_NODES $NODEFILE > $APPFILE
+
+# Obtain IPs for iface (keep a copy of original files)
+hostnames2IP $CASSFILE
+hostnames2IP $APPFILE
+# Generate LIST with hostnames separated by ',' required by Slurm
+export APPNODELIST=$(cat $APPFILE | tr '\n' ',' | sed "s/,$//g")
+
+
+DBG " APP_NODES      ="$APP_NODES
 DBG " CASSANDRA_NODES="$CASSANDRA_NODES
-DBG " DISJOINT="$DISJOINT
+DBG " DISJOINT       ="$DISJOINT
 
 N_NODES=$(cat $CASSFILE | wc -l)
 
@@ -115,12 +140,12 @@ function exit_bad_node_status () {
 }
 
 function get_nodes_up () {
-    first_node=`head -n1 $CASSFILE`"$CASS_IFACE"
+    first_node=`head -n1 $CASSFILE`
     NODE_COUNTER=$($CASS_HOME/bin/nodetool -h $first_node status | sed 1,5d | sed '$ d' | awk '{ print $1 }' | grep "UN" | wc -l)
 }
 
 function check_cassandra_is_available () {
-    local first_node=`head -n1 $CASSFILE`"$CASS_IFACE"
+    local first_node=`head -n1 $CASSFILE`
     local res=1
     local nretries=1
     while [ "$res" != "0" ] ; do
@@ -184,11 +209,10 @@ cp $CASS_HOME/conf/cassandra-env.sh ${TEMPLATE_CASS_ENV_FILE}
 
 casslist=`cat $CASSFILE`
 seedlist=`head -n 1 $CASSFILE`
-seeds=`echo $seedlist | sed "s/ /-$iface,/g"`
+seeds=`head -n 1 $CASSFILE.ips`
 
 #only one node needs to do this, all the nodes share the same file
-if [ $(hostname) == $seeds ]; then
-    seeds=$seeds-$iface #using only infiniband atm, will change later
+if [ $(hostname) == $seedlist ]; then
     cat $TEMPLATE_CASS_YAML_FILE \
         | sed "s/.*cluster_name:.*/cluster_name: \'$CLUSTER\'/g" \
         | sed "s/.*num_tokens:.*/num_tokens: 256/g" \
@@ -286,13 +310,12 @@ fi
 
 # THIS IS THE APPLICATION CODE EXECUTING SOME TASKS USING CASSANDRA DATA, ETC
 echo "CHECKING CASSANDRA STATUS: "
-first_node=`head -n1 $CASSFILE`"$CASS_IFACE"
+first_node=`head -n1 $CASSFILE`
 $CASS_HOME/bin/nodetool -h $first_node status
 
 
 firstnode=$(echo $seeds | awk -F ',' '{ print $1 }')
-CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $CASSFILE)$CASS_IFACE
-CNAMES=$(echo $CNAMES | sed "s/,/$CASS_IFACE,/g")
+CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $CASSFILE)
 export CONTACT_NAMES=$CNAMES
 echo "CONTACT_NAMES=$CONTACT_NAMES"
 #echo $CNAMES | tr , '\n' > $HOME/bla.txt # Set list of nodes (with interface) in PyCOMPSs file
@@ -300,8 +323,8 @@ PYCOMPSS_STORAGE=$C4S_HOME/pycompss_storage_"$UNIQ_ID".txt
 echo $CNAMES | tr , '\n' > $PYCOMPSS_STORAGE # Set list of nodes (with interface) in PyCOMPSs file
 
 # Workaround: Creating hecuba.istorage before execution.
-#$CASS_HOME/bin/cqlsh $(head -n 1 $CASSFILE)$CASS_IFACE < $MODULE_PATH/hecuba-istorage.cql
-#$CASS_HOME/bin/cqlsh $(head -n 1 $CASSFILE)$CASS_IFACE < $MODULE_PATH/tables_numpy.cql
+#$CASS_HOME/bin/cqlsh $(head -n 1 $CASSFILE) < $MODULE_PATH/hecuba-istorage.cql
+#$CASS_HOME/bin/cqlsh $(head -n 1 $CASSFILE) < $MODULE_PATH/tables_numpy.cql
 
 check_cassandra_is_available
 
@@ -332,17 +355,18 @@ if [ "$APP_NODES" != "0" ]; then
         # TODO: Check if escaping chars is needed for app parameters
         echo "export CONTACT_NAMES=$CNAMES" >> $ENVFILE # Setting Cassandra cluster environment variable for Hecuba
 
-        full_iface=$iface
-        if [ "0$iface" != "0" ]; then
-            full_iface="-"$iface
-        fi
-
         C4S_COMPSS_CORES=$C4S_APP_CORES
 
-        cat $MODULE_PATH/pycompss_template.sh | sed "s+PLACEHOLDER_CASSANDRA_NODES_FILE+$CASSFILE+g" | sed "s+PLACEHOLDER_PYCOMPSS_NODES_FILE+$APPFILE+g" | sed "s+PLACEHOLDER_APP_PATH_AND_PARAMETERS+$APP_AND_PARAMS+g" | sed "s+PLACEHOLDER_PYCOMPSS_FLAGS+$PYCOMPSS_FLAGS+g" | sed "s+PLACEHOLDER_PYCOMPSS_STORAGE+$PYCOMPSS_STORAGE+g" > $PYCOMPSS_FILE
+        cat $MODULE_PATH/pycompss_template.sh \
+            | sed "s+PLACEHOLDER_CASSANDRA_NODES_FILE+$CASSFILE.ips+g" \
+            | sed "s+PLACEHOLDER_PYCOMPSS_NODES_FILE+$APPFILE+g" \
+            | sed "s+PLACEHOLDER_APP_PATH_AND_PARAMETERS+$APP_AND_PARAMS+g" \
+            | sed "s+PLACEHOLDER_PYCOMPSS_FLAGS+$PYCOMPSS_FLAGS+g" \
+            | sed "s+PLACEHOLDER_PYCOMPSS_STORAGE+$PYCOMPSS_STORAGE+g" \
+            > $PYCOMPSS_FILE
 
         APP_NODELIST=$(cat $APPFILE | tr '\n' ',')
-        SLURM_JOB_NUM_NODES=$APP_NODES SLURM_NTASKS=$(( $APP_NODES * $C4S_COMPSS_CORES )) SLURM_JOB_NODELIST=${APP_NODELIST::-1} bash $PYCOMPSS_FILE "-$iface" # Params - 1st: interface
+        SLURM_JOB_NUM_NODES=$APP_NODES SLURM_NTASKS=$(( $APP_NODES * $C4S_COMPSS_CORES )) SLURM_JOB_NODELIST=${APP_NODELIST::-1} bash $PYCOMPSS_FILE
     else
         DBG " RUNNING IN $APP_NODES APP_NODES WITH NTASKS_PERNODE $SLURM_NTASKS_PER_NODE, NTASKS $(( $APP_NODES * $C4S_APP_CORES)) AND NPROCS $SLURM_NPROCS"
         SLURM_JOB_NUM_NODES=$APP_NODES SLURM_NTASKS=$(( $APP_NODES * $C4S_APP_CORES)) source $MODULE_PATH/app_node.sh $UNIQ_ID

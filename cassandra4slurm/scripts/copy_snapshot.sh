@@ -12,7 +12,6 @@ DATA_HOME=$ROOT_PATH/cassandra-data
 CASSFILE=$C4S_HOME/casslist-"$UNIQ_ID".txt
 RINGFILE=$C4S_HOME/ringfile-"$UNIQ_ID".txt
 RINGDONE=$C4S_HOME/ringdone-"$UNIQ_ID".txt
-HST_IFACE="-ib0" #interface configured in the cassandra.yaml file
 
 
 source $HECUBA_ROOT/bin/cassandra4slurm/hecuba_debug.sh
@@ -28,7 +27,9 @@ while [ ! -s $RINGDONE ]; do
     sleep 1
 done
 DBG " $(hostname) Current RINGFILE $RINGFILE -> $(hostname) $SNAP_DEST/$SNAP_NAME-ring.txt"
-NODE_IP=$(cat /etc/hosts | grep $(hostname)"$HST_IFACE" |awk '{print $1}')
+# Obtain used interface from Cassandra configuration file
+HST_IFACE=$(grep "/listen_interface: " ${C4S_HOME}/conf/${UNIQ_ID}/cassandra-$(hostname).yaml |awk '{print $2}')
+NODE_IP=$(get_node_ip $(hostname) $HST_IFACE)
 
 cat $RINGFILE | grep -F $NODE_IP | awk '{print $NF }' | tr "\n" "," > $SNAP_DEST/$SNAP_NAME-ring.txt
 

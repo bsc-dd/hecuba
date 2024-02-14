@@ -46,3 +46,12 @@ run() {
 get_first_node() {
     echo "$@" | cut -d, -f1
 }
+
+# get_node_ip(node iface): Return the IP of the 'iface' interface of 'node'
+function get_node_ip() {
+    local node="$1"
+    local iface="$2"
+    local IP=$(ssh $node "ip --brief address show dev $iface"| awk '{print $3}') #192.168.1.1/25
+    echo ${IP%/*} #Remove the last slashed content
+}
+
