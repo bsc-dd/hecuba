@@ -152,12 +152,12 @@ function get_job_info () {
 
 function get_cluster_node () {
     # Gets the ID of the first node
-    NODE_ID=$(head -n 1 $C4S_HOME/hostlist-"$JOBNAME".txt)
+    NODE_ID=$(head -n 1 $C4S_HOME/casslist-"$JOBNAME".txt)
 }
 
 function get_cluster_ips () {
     # Gets the IP of every node in the cluster
-    NODE_IPS=$(ssh $NODE_ID "$CASS_HOME/bin/nodetool -h $NODE_ID$CASS_IFACE status" | awk '/Address/{p=1;next}{if(p){print $2}}')
+    NODE_IPS=$("$CASS_HOME/bin/nodetool -h $NODE_ID status" | awk '/Address/{p=1;next}{if(p){print $2}}')
 }
 
 function exit_no_cluster () {
@@ -587,8 +587,8 @@ if [ "$ACTION" == "RUN" ]; then
         sleep 5
 	done
     echo "Cassandra Cluster with "$CASSANDRA_NODES" node(s) started successfully."
-	CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $C4S_HOME/casslist-"$UNIQ_ID".txt)$CASS_IFACE
-	CNAMES=$(echo $CNAMES | sed "s/,/$CASS_IFACE,/g")
+    CNAMES=$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips)
+    CNAMES=$(echo $CNAMES|sed "s/ /,/g")
 	export CONTACT_NAMES=$CNAMES
 	echo "Contact names environment variable (CONTACT_NAMES) should be set to: $CNAMES"
     launch_arrow_helpers $C4S_HOME/casslist-"$UNIQ_ID".txt $LOGS_DIR/$UNIQ_ID
@@ -620,7 +620,6 @@ then
         fi
         N_NODES=$(cat $C4S_HOME/casslist-"$JOBNAME".txt | wc -l)
         get_cluster_node 
-        #NODE_STATE_LIST=`ssh $NODE_ID "$CASS_HOME/bin/nodetool -h $NODE_ID$CASS_IFACE status" | sed 1,5d | sed '$ d' | awk '{ print $1 }'`
         #yolandab: show just the output of nodetool without any additional processing
         #NODE_STATE_LIST=`$CASS_HOME/bin/nodetool -h $NODE_ID status 2> /dev/null | sed 1,5d | sed '$ d' | awk '{ print $1 }'`
         $CASS_HOME/bin/nodetool -h $NODE_ID status 2> /dev/null
@@ -734,8 +733,8 @@ then
         sleep 5
     done
     echo "Cassandra Cluster with "$CASSANDRA_NODES" node(s) started successfully."
-    CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $C4S_HOME/casslist-"$UNIQ_ID".txt)$CASS_IFACE
-    CNAMES=$(echo $CNAMES | sed "s/,/$CASS_IFACE,/g")
+    CNAMES=$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips)
+    CNAMES=$(echo $CNAMES|sed "s/ /,/g")
     export CONTACT_NAMES=$CNAMES
     echo "Contact names environment variable (CONTACT_NAMES) should be set to: $CNAMES"
     launch_arrow_helpers $C4S_HOME/casslist-"$UNIQ_ID".txt $LOGS_DIR/$UNIQ_ID

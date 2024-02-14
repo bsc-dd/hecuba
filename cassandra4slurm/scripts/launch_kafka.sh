@@ -44,11 +44,12 @@ launch_kafka () {
     local N_NODES="$3"
 
     local ZKNODE=$( get_first_node $CASSANDRA_NODELIST )
+    local ZKNODEIP=$( get_first_node $CASSANDRA_NODELIST.ips )
 
     KAFKA_PATH=$(get_kafka_path)
 
     # Prepare configuration files
-    update_kafka_configuration "$ZKNODE-$iface"
+    update_kafka_configuration "$ZKNODEIP"
 
     # Start Zookeeper
     run srun  --overlap --mem=0 --nodelist $ZKNODE --ntasks=1 --nodes=1 --ntasks-per-node=1 --cpus-per-task=1 \

@@ -24,7 +24,6 @@ DATA_HOME=$ROOT_PATH/cassandra-data
 CASSFILE=$C4S_HOME/casslist-"$UNIQ_ID".txt
 RINGFILE=$C4S_HOME/ringfile-"$UNIQ_ID".txt
 RINGDONE=$C4S_HOME/ringdone-"$UNIQ_ID".txt
-HST_IFACE="-ib0" #interface configured in the cassandra.yaml file
 
 NODETOOLFILE=$C4S_HOME/nodetool-"$UNIQ_ID".txt
 
