@@ -42,6 +42,8 @@ function set_workspace () {
     echo "SNAP_PATH=\"$DEFAULT_DATA_PATH/hecuba/snapshots\"" >> $CFG_FILE
     echo "# CASSANDRA_LOG_DIR is the destination path for the cassandra log." >> $CFG_FILE
     echo "CASSANDRA_LOG_DIR=\"$LOG_PATH\"" >> $CFG_FILE
+    echo "# CASS_IFACE is the network interface to use by cassandra  " >> $CFG_FILE
+    echo "CASS_IFACE=\"ib0\"" >> $CFG_FILE
 }
 
 if [ ! -f $CFG_FILE ]; then

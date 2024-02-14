@@ -86,6 +86,7 @@ function hostnames2IP() {
     rm -f ${FILE}.ips
     for node in $(cat ${FILE}); do
         nodeIP=$(get_node_ip $node $iface)
+        [ "$nodeIP" != "" ] || die "Device [$iface] not found in node [$node]. Modify CASS_IFACE in the 'cassandra4slurm.cfg' file"
         echo "** Node [$node == $nodeIP]"
         echo $nodeIP >> ${FILE}.ips
     done
