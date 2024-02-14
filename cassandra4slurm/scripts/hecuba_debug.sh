@@ -51,7 +51,8 @@ get_first_node() {
 function get_node_ip() {
     local node="$1"
     local iface="$2"
-    local IP=$(ssh $node "ip --brief address show dev $iface"| awk '{print $3}') #192.168.1.1/25
+    local IPCMD=$(which ip) # Some 'ssh' clients may loose the PATH, therefore assume that it will be at the same place...
+    local IP=$(ssh $node "$IPCMD --brief address show dev $iface"| awk '{print $3}') #192.168.1.1/25
     echo ${IP%/*} #Remove the last slashed content
 }
 
