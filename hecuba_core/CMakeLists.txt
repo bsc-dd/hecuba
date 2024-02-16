@@ -343,6 +343,8 @@ else ()
     set(ALL_LIBS ${ALL_LIBS} ${ARROW})
 endif ()
 add_compile_definitions(ARROW)    # Define ARROW preprocessor macro to enable arrow use
+# ARROW_HELPER
+add_executable(arrow_helper ${CORE_SRC_DIR}/arrow_helper/server.cpp)
 else(USE_ARROW)
     message(STATUS "ARROW (${ARROW}) is disabled by user!")
 endif(USE_ARROW)
@@ -455,7 +457,5 @@ if (DEFINED ENV{GTEST_ROOT})
     endif (PT)
 endif (DEFINED ENV{GTEST_ROOT})
 
-# ARROW_HELPER
-add_executable(arrow_helper ${CORE_SRC_DIR}/arrow_helper/server.cpp)
 
 
