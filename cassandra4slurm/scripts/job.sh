@@ -140,12 +140,12 @@ function exit_bad_node_status () {
 }
 
 function get_nodes_up () {
-    first_node=`head -n1 $CASSFILE`
+    first_node="$1"
     NODE_COUNTER=$($CASS_HOME/bin/nodetool -h $first_node status | sed 1,5d | sed '$ d' | awk '{ print $1 }' | grep "UN" | wc -l)
 }
 
 function check_cassandra_is_available () {
-    local first_node=`head -n1 $CASSFILE`
+    local first_node="$1"
     local res=1
     local nretries=1
     while [ "$res" != "0" ] ; do
@@ -286,14 +286,15 @@ if [ "X$STREAMING" != "X" ]; then
 fi
 
 # Checking cluster status until all nodes are UP (or timeout)
+firstnode=$(echo $seeds | awk -F ',' '{ print $1 }')
 echo "Checking..."
 RETRY_COUNTER=0
-get_nodes_up
+get_nodes_up $firstnode
 while [ "$NODE_COUNTER" != "$N_NODES" ] && [ $RETRY_COUNTER -lt $RETRY_MAX ]; do
     echo "$NODE_COUNTER/$N_NODES nodes UP. Retry #$RETRY_COUNTER"
     echo "Checking..."
     sleep 5
-    get_nodes_up
+    get_nodes_up $firstnode
     ((RETRY_COUNTER++))
 done
 if [ "$NODE_COUNTER" == "$N_NODES" ]
@@ -310,11 +311,9 @@ fi
 
 # THIS IS THE APPLICATION CODE EXECUTING SOME TASKS USING CASSANDRA DATA, ETC
 echo "CHECKING CASSANDRA STATUS: "
-first_node=`head -n1 $CASSFILE`
-$CASS_HOME/bin/nodetool -h $first_node status
+$CASS_HOME/bin/nodetool -h $firstnode status
 
 
-firstnode=$(echo $seeds | awk -F ',' '{ print $1 }')
 CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $CASSFILE)
 export CONTACT_NAMES=$CNAMES
 echo "CONTACT_NAMES=$CONTACT_NAMES"
@@ -326,7 +325,7 @@ echo $CNAMES | tr , '\n' > $PYCOMPSS_STORAGE # Set list of nodes (with interface
 #$CASS_HOME/bin/cqlsh $(head -n 1 $CASSFILE) < $MODULE_PATH/hecuba-istorage.cql
 #$CASS_HOME/bin/cqlsh $(head -n 1 $CASSFILE) < $MODULE_PATH/tables_numpy.cql
 
-check_cassandra_is_available
+check_cassandra_is_available $firstnode
 
 source $MODULE_PATH/initialize_hecuba.sh $firstnode
 
