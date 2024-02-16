@@ -593,7 +593,9 @@ if [ "$ACTION" == "RUN" ]; then
     CNAMES=$(echo $CNAMES|sed "s/ /,/g")
 	export CONTACT_NAMES=$CNAMES
 	echo "Contact names environment variable (CONTACT_NAMES) should be set to: $CNAMES"
-    launch_arrow_helpers $C4S_HOME/casslist-"$UNIQ_ID".txt $LOGS_DIR/$UNIQ_ID
+    if [ "X$HECUBA_ARROW" != "X" ]; then
+        launch_arrow_helpers $C4S_HOME/casslist-"$UNIQ_ID".txt $LOGS_DIR/$UNIQ_ID
+    fi
 
 elif [ "$ACTION" == "STATUS" ] || [ "$ACTION" == "status" ]
 then
