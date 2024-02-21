@@ -314,7 +314,7 @@ echo "CHECKING CASSANDRA STATUS: "
 $CASS_HOME/bin/nodetool -h $firstnode status
 
 
-CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $CASSFILE)
+CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $CASSFILE.ips)
 export CONTACT_NAMES=$CNAMES
 echo "CONTACT_NAMES=$CONTACT_NAMES"
 #echo $CNAMES | tr , '\n' > $HOME/bla.txt # Set list of nodes (with interface) in PyCOMPSs file
