@@ -39,12 +39,13 @@ get_kafka_path () {
 }
 
 launch_kafka () {
-    local CASSANDRA_NODELIST="$1"
+    local CASSFILE="$1"
     local UNIQ_ID="$2"
     local N_NODES="$3"
 
-    local ZKNODE=$( get_first_node $CASSANDRA_NODELIST )
-    local ZKNODEIP=$( get_first_node $CASSANDRA_NODELIST.ips )
+    local ZKNODE=$( head -n 1 $CASSFILE )
+    local ZKNODEIP=$( head -n 1 $CASSFILE.ips )
+    local CASSANDRA_NODELIST=$(cat $CASSFILE | sed -e 's+ +,+g')
 
     KAFKA_PATH=$(get_kafka_path)
 
