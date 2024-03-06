@@ -492,41 +492,43 @@ void IStorage::make_persistent(const std::string  id_obj) {
 	ObjSpec oType = this->getObjSpec();
 
 	bool new_element = true;
-	std::string query = "CREATE TABLE " +
-				currentSession.config["execution_name"] + "." + this->tableName +
-				oType.table_attr;
+    if (is_create_table_required()){ // If we are a Numpy sharing the table, we do NOT need to create the table (as it is shared and already created)
+        std::string query = "CREATE TABLE " +
+            currentSession.config["execution_name"] + "." + this->tableName +
+            oType.table_attr;
 
-    HecubaExtrae_event(HECUBACASS, HBCASS_CREATE);
-	CassError rc = currentSession.run_query(query);
-	if (rc != CASS_OK) {
-		if (rc == CASS_ERROR_SERVER_ALREADY_EXISTS ) {
-                        new_element = false; //OOpps, creation failed. It is an already existent object.
-                } else if (rc == CASS_ERROR_SERVER_INVALID_QUERY) {
-                        std::cerr<< "IStorage::make_persistent: Keyspace "<< currentSession.config["execution_name"]<< " not found. Creating keyspace." << std::endl;
-                        std::string create_keyspace = std::string(
-                                "CREATE KEYSPACE IF NOT EXISTS ") + currentSession.config["execution_name"] +
-                            std::string(" WITH replication = ") +  currentSession.config["replication"];
-                        rc = currentSession.run_query(create_keyspace);
-                        if (rc != CASS_OK) {
-                            std::string msg = std::string("IStorage::make_persistent: Error creating keyspace ") + create_keyspace;
-                            throw ModuleException(msg);
-                        } else {
-                            rc = currentSession.run_query(query);
-                            if (rc != CASS_OK) {
-                                if (rc == CASS_ERROR_SERVER_ALREADY_EXISTS) {
-                                    new_element = false; //OOpps, creation failed. It is an already existent object.
-                                }  else {
-                                    std::string msg = std::string("IStorage::make_persistent: Error executing query ") + query;
-                                    throw ModuleException(msg);
-                                }
-                            }
-                        }
+        HecubaExtrae_event(HECUBACASS, HBCASS_CREATE);
+        CassError rc = currentSession.run_query(query);
+        if (rc != CASS_OK) {
+            if (rc == CASS_ERROR_SERVER_ALREADY_EXISTS ) {
+                new_element = false; //OOpps, creation failed. It is an already existent object.
+            } else if (rc == CASS_ERROR_SERVER_INVALID_QUERY) {
+                std::cerr<< "IStorage::make_persistent: Keyspace "<< currentSession.config["execution_name"]<< " not found. Creating keyspace." << std::endl;
+                std::string create_keyspace = std::string(
+                        "CREATE KEYSPACE IF NOT EXISTS ") + currentSession.config["execution_name"] +
+                    std::string(" WITH replication = ") +  currentSession.config["replication"];
+                rc = currentSession.run_query(create_keyspace);
+                if (rc != CASS_OK) {
+                    std::string msg = std::string("IStorage::make_persistent: Error creating keyspace ") + create_keyspace;
+                    throw ModuleException(msg);
                 } else {
-                        std::string msg = std::string("IStorage::make_persistent: Error executing query ") + query;
-                        throw ModuleException(msg);
+                    rc = currentSession.run_query(query);
+                    if (rc != CASS_OK) {
+                        if (rc == CASS_ERROR_SERVER_ALREADY_EXISTS) {
+                            new_element = false; //OOpps, creation failed. It is an already existent object.
+                        }  else {
+                            std::string msg = std::string("IStorage::make_persistent: Error executing query ") + query;
+                            throw ModuleException(msg);
+                        }
+                    }
                 }
+            } else {
+                std::string msg = std::string("IStorage::make_persistent: Error executing query ") + query;
+                throw ModuleException(msg);
+            }
         }
-    HecubaExtrae_event(HECUBACASS, HBCASS_END);
+        HecubaExtrae_event(HECUBACASS, HBCASS_END);
+    }
 
 	// Create READ/WRITE cache accesses
 	initialize_dataAcces();

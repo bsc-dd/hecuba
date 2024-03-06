@@ -99,6 +99,8 @@ class IStorage {
         bool pending_to_persist = false;
         bool persistent = false;
 
+        virtual bool is_create_table_required() {return true;}; // Does the object requires to create a table at each instantiation?
+
         enum valid_writes {
             SETATTR_TYPE,
             SETITEM_TYPE,
