@@ -74,7 +74,7 @@ class StorageNumpy:virtual public IStorage {
         void setNumpy(void *datasrc, const std::vector<uint32_t>&metas, char dtype='f') {
             // Transform user metas to ArrayMetadata
             this->metas = metas; // make a copy of user 'metas'
-            uint32_t numpy_size = extractNumpyMetaData(metas, dtype, this->numpy_metas );
+            uint64_t numpy_size = extractNumpyMetaData(metas, dtype, this->numpy_metas );
 
             // Make a copy of 'datasrc'
             if (this->data != nullptr)
@@ -89,7 +89,7 @@ class StorageNumpy:virtual public IStorage {
             //JJ StorageNumpy(src.data, src.metas);
             // Transform user metas to ArrayMetadata
             this->metas = src.metas; // make a copy of user 'metas'
-            uint32_t numpy_size = extractNumpyMetaData(src.metas, src.numpy_metas.typekind, this->numpy_metas);
+            uint64_t numpy_size = extractNumpyMetaData(src.metas, src.numpy_metas.typekind, this->numpy_metas);
 
             // Make a copy of 'datasrc'
             this->data = malloc(numpy_size);
@@ -104,7 +104,7 @@ class StorageNumpy:virtual public IStorage {
             HecubaExtrae_event(HECUBAEV, HECUBA_SN|HECUBA_ASSIGNMENT);
             this->metas = w.metas;
             this->numpy_metas=w.numpy_metas;
-            uint32_t numpy_size = extractNumpyMetaData(metas, numpy_metas.typekind, this->numpy_metas);
+            uint64_t numpy_size = extractNumpyMetaData(metas, numpy_metas.typekind, this->numpy_metas);
             this->data = malloc(numpy_size);
             memcpy(this->data, w.data, numpy_size);
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
@@ -238,14 +238,14 @@ class StorageNumpy:virtual public IStorage {
             }
         }
 
-        uint32_t extractNumpyMetaData(const std::vector<uint32_t> &raw_numpy_meta, char dtype, ArrayMetadata &arr_metas) {
+        uint64_t extractNumpyMetaData(const std::vector<uint32_t> &raw_numpy_meta, char dtype, ArrayMetadata &arr_metas) {
             std::vector <uint32_t> dims;
             std::vector <uint32_t> strides;
 
             arr_metas.elem_size = getDtypeSize(dtype); // TODO: This should be a parameter!
             // decode void *metadatas
-            uint32_t acum=1;
-            uint32_t numpy_size=0;
+            uint64_t acum=1;
+            uint64_t numpy_size=0;
             for (uint32_t i=0; i < raw_numpy_meta.size(); i++) {
                 dims.push_back( raw_numpy_meta[i]);
                 acum *= raw_numpy_meta[i];
