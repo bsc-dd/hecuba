@@ -1,3 +1,28 @@
+##########
+# NOTICE:
+# The classes 'DictWithStrings' and 'DictWithNumpy' required in this file
+# are generated automatically by 'producer.cpp' and are like the following:
+#
+# DictWithNumpy.py:
+# ================
+#from hecuba import StorageDict, StorageStream
+#
+#class DictWithNumpy(StorageDict, StorageStream):
+#   '''
+#   @TypeSpec dict <<keyname0:int>,valuename0:hecuba.hnumpy.StorageNumpy>
+#   '''
+# DictWithStrings.py:
+# ===================
+#from hecuba import StorageDict, StorageStream
+#
+#class DictWithStrings(StorageDict, StorageStream):
+#   '''
+#   @TypeSpec dict <<keyname0:int>,valuename0:str>
+#   '''
+#
+# If 'producer.cpp' has not been executed in the current directory you need to
+# create these files manually.
+
 
 
 def consumer_with_new_class():

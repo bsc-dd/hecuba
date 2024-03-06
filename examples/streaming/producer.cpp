@@ -55,16 +55,14 @@ void dict_with_numpys() {
     StorageNumpy my_sn(data, metadata);
 	my_sn.make_persistent("mynp");
 
-    my_sn.sync(); // currently we do not support nested send, therefore the following setItem sends the uuid only and the consumer builds the object. To guarantee that the consumer can access the numpy, the producer needs to execute a sync after setting the element
-
 	IntKeyClass key(42);
     std::cout<< "+  key created"<< std::endl;
 
 	NumpyValueClass my_value = NumpyValueClass(my_sn);
-    mydict[key] = my_value; // currently we do not support nested send, this setItem sends the uuid only and the consumer builds the object. To guarantee that the consumer can access the numpy, the producer nees to execute a sync after setting the element. This only affects to 'IStorage *', the basic types are sent correctly.
+    mydict[key] = my_value;
+
     std::cout<< "+ value created at "<<std::hex<<(void*)my_sn.getStorageID()<<std::endl;
 
-	mydict.sync();
     std::cout<< "+ AFTER sync "<<std::endl;
 }
 
@@ -87,7 +85,6 @@ void dict_with_string() {
     midict[keyInt] = value;
     std::cout<< "+ AFTER setitem "<<std::endl;
 
-	//midict.sync();
     std::cout<< "+ AFTER sync "<<std::endl;
 }
 
