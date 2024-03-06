@@ -210,6 +210,8 @@ function set_snapshot_value () {
 
 
 function launch_arrow_helpers () {
+    [ "X$HECUBA_ARROW" == "X" ] && return
+
     # Launch the 'arrow_helper' tool at each node in NODES, and leave their logs in LOGDIR
     NODES=$1
     LOGDIR=$2
@@ -595,9 +597,7 @@ if [ "$ACTION" == "RUN" ]; then
     CNAMES=$(echo $CNAMES|sed "s/ /,/g")
 	export CONTACT_NAMES=$CNAMES
 	echo "Contact names environment variable (CONTACT_NAMES) should be set to: $CNAMES"
-    if [ "X$HECUBA_ARROW" != "X" ]; then
-        launch_arrow_helpers $C4S_HOME/casslist-"$UNIQ_ID".txt $LOGS_DIR/$UNIQ_ID
-    fi
+    launch_arrow_helpers $C4S_HOME/casslist-"$UNIQ_ID".txt $LOGS_DIR/$UNIQ_ID
 
 elif [ "$ACTION" == "STATUS" ] || [ "$ACTION" == "status" ]
 then
