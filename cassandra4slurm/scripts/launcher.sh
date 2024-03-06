@@ -38,6 +38,8 @@ function set_workspace () {
     echo "# DATA_PATH is a path to be used to store the data in every node. Using the SSD local storage of each node is recommended." >> $CFG_FILE
     echo "DATA_PATH=\"$DEFAULT_DATA_PATH\"" >> $CFG_FILE
     echo "CASS_HOME=\"\$HECUBA_ROOT/cassandra-d8tree\"" >> $CFG_FILE
+    echo "# KAFKA_PATH is the base directory of KAFKA installation." >> $CFG_FILE
+    echo "KAFKA_PATH=\"\$HECUBA_ROOT/kafka\"" >> $CFG_FILE
     echo "# SNAP_PATH is the destination path for snapshots." >> $CFG_FILE
     echo "SNAP_PATH=\"$DEFAULT_DATA_PATH/hecuba/snapshots\"" >> $CFG_FILE
     echo "# CASSANDRA_LOG_DIR is the destination path for the cassandra log." >> $CFG_FILE
