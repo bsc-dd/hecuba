@@ -110,7 +110,7 @@ void subclass_storageNumpy() {
     myNumpy my_sn (data, metadata);
 #else 
     myNumpy my_sn;
-	my_sn.setNumpy(data,metadata);
+	my_sn.setNumpy(data,metadata,'f');
 #endif
 	my_sn.make_persistent("mynpsubclass");
 

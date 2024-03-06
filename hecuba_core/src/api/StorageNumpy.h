@@ -71,7 +71,7 @@ class StorageNumpy:virtual public IStorage {
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 
-        void setNumpy(void *datasrc, const std::vector<uint32_t>&metas, char dtype) {
+        void setNumpy(void *datasrc, const std::vector<uint32_t>&metas, char dtype='f') {
             // Transform user metas to ArrayMetadata
             this->metas = metas; // make a copy of user 'metas'
             uint32_t numpy_size = extractNumpyMetaData(metas, dtype, this->numpy_metas );
