@@ -281,7 +281,7 @@ sleep 5
 if [ "X$STREAMING" != "X" ]; then
     if [ ${STREAMING,,} == "true" ]; then
         source $HECUBA_ROOT/bin/cassandra4slurm/launch_kafka.sh
-        launch_kafka $CASSANDRA_NODELIST $UNIQ_ID $N_NODES
+        launch_kafka $CASSFILE $UNIQ_ID $N_NODES
     fi
 fi
 
