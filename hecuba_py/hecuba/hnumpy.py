@@ -252,11 +252,12 @@ class StorageNumpy(IStorage, np.ndarray):
     #       cls       : Class to use for instantiation
     #       name      : A *qualified* cassandra name (keyspace.table_name) to instantiate
     #       storage_id: The UUID to instantiate
+    #       fromGetByAlias: Instantiate from a get_by_alias
     # If both, name and storage_id, are given, name is ignored.
     # It reserves memory to store the numpy (zeros).
     @staticmethod
-    def _initialize_existing_object(cls, name, storage_id):
-        #    StorageNumpy(None, name="xxx", none)
+    def _initialize_existing_object(cls, name, storage_id, fromGetByAlias):
+        #    StorageNumpy(None, name="xxx", none) == get_by_alias()
         # or StorageNumpy(None, none, storage_id="xxx")
         # or StorageNumpy(None, name="xxx", storage_id="yyy") Does it exist?
         log.debug("INITIALIZE EXISTING OBJECT name=%s sid=%s", name, storage_id)
@@ -268,10 +269,13 @@ class StorageNumpy(IStorage, np.ndarray):
         # Load metadata
         istorage_metas = get_istorage_attrs(storage_id)
         if len(istorage_metas) == 0:
-            msg = "Persistent StorageNumpy Storage_id={}".format(storage_id)
+            msg = "Instantiation of a non-existent persistent StorageNumpy Storage_id={}".format(storage_id)
             if name:
-                msg = msg + " name={}".format(name)
-            raise ValueError("{} does not exist".format(msg))
+                if fromGetByAlias:
+                    msg = "StorageNumpy: get_by_alias on a non-existent object [{}]".format(name)
+                else:
+                    msg = msg + " name={}".format(name)
+            raise RuntimeError("{} ".format(msg))
         name = istorage_metas[0].name
         my_metas = istorage_metas[0].numpy_meta
         metas_to_reserve = my_metas
@@ -335,7 +339,7 @@ class StorageNumpy(IStorage, np.ndarray):
     def _arrow_enabled(input_array):
         return (config.arrow_enabled and getattr(input_array, 'ndim', 0) == 2)
 
-    def __new__(cls, input_array=None, name=None, storage_id=None, block_id=None, **kwargs):
+    def __new__(cls, input_array=None, name=None, storage_id=None, block_id=None, fromGetByAlias=False, **kwargs):
         log.debug("input_array=%s name=%s storage_id=%s ENTER ",input_array is not None, name, storage_id)
 
         if input_array is not None and not isinstance(input_array, np.ndarray):
@@ -351,7 +355,7 @@ class StorageNumpy(IStorage, np.ndarray):
                 raise AttributeError("The name of an user StorageNumpy is limited to 40 chars and can not start 'HECUBA' {}".format(table))
 
         if input_array is None and (name is not None or storage_id is not None):
-            obj = StorageNumpy._initialize_existing_object(cls, name, storage_id)
+            obj = StorageNumpy._initialize_existing_object(cls, name, storage_id, fromGetByAlias)
             name = obj._get_name()
 
         else:
@@ -374,7 +378,7 @@ class StorageNumpy(IStorage, np.ndarray):
                 else:
                     obj = np.asfortranarray(input_array.copy()).view(cls) #to set the fortran contiguous flag it is necessary to do the copy before
                     log.debug("Created ARROW")
-            super(StorageNumpy, obj).__init__(name=name, storage_id=storage_id, kwargs=kwargs)
+            super(StorageNumpy, obj).__init__(name=name, storage_id=storage_id, fromGetByAlias=fromGetByAlias, kwargs=kwargs)
 
             if name or storage_id: # The object needs to be persisted
                 load_data= (input_array is None) and (config.load_on_demand == False)
@@ -390,7 +394,7 @@ class StorageNumpy(IStorage, np.ndarray):
         log.debug("CREATED NEW StorageNumpy storage_id=%s with input_array=%s name=%s ", storage_id, input_array is not None, name)
         return obj
 
-    def __init__(self, input_array=None, name=None, storage_id=None, **kwargs):
+    def __init__(self, input_array=None, name=None, storage_id=None, fromGetByAlias=False, **kwargs):
         pass # DO NOT REMOVE THIS FUNCTION!!! Yolanda's eyes bleed!
 
     @staticmethod

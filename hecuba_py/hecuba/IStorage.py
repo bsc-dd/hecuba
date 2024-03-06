@@ -27,6 +27,7 @@ class IStorage(object):
         self._built_remotely = kwargs.pop("built_remotely", False)
         self._tokens = kwargs.pop("tokens", None)
         given_name = kwargs.pop("name", None)
+        fromGetByAlias = kwargs.pop("fromGetByAlias", False)
         if given_name:
             try:
                 self._ksp, self._table = extract_ks_tab(given_name)
@@ -44,6 +45,8 @@ class IStorage(object):
                 if not getattr(self, '_tokens', None): #Tokens are received from kwargs or IStorage otherwise...
                     self._tokens = generate_token_ring_ranges()
             except IndexError:
+                if fromGetByAlias:
+                    raise RuntimeError ("IStorage: get_by_alias on a non-existent object [{}]".format(given_name))
                 pass
         elif self.storage_id:
             try:
@@ -66,7 +69,7 @@ class IStorage(object):
 
     @classmethod
     def get_by_alias(cls, alias=""):
-        return cls(name=alias)
+        return cls(name=alias, fromGetByAlias=True)
 
     def __eq__(self, other):
         """

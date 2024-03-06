@@ -240,7 +240,7 @@ class StorageDict(IStorage, dict):
         if topic_name is not None:
             self._hcache.enable_stream(self._topic_name, {'kafka_names': str.join(",",config.kafka_names)})
 
-    def __init__(self, name=None, primary_keys=None, columns=None, indexed_on=None, storage_id=None, **kwargs):
+    def __init__(self, name=None, primary_keys=None, columns=None, indexed_on=None, storage_id=None, fromGetByAlias=False, **kwargs):
         """
         Creates a new StorageDict.
 
@@ -254,7 +254,7 @@ class StorageDict(IStorage, dict):
             kwargs: other parameters
         """
 
-        super(StorageDict, self).__init__(name=name, storage_id=storage_id, **kwargs)
+        super(StorageDict, self).__init__(name=name, storage_id=storage_id, fromGetByAlias=fromGetByAlias, **kwargs)
         log.debug("CREATE StorageDict(%s,%s)", primary_keys, columns)
 
         '''
