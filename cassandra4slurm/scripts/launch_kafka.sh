@@ -17,13 +17,15 @@ update_kafka_configuration() {
     mkdir -p ${C4S_HOME}/${UNIQ_ID}
 
     # copy configuration files to EXECUTION directory
-    cp ${KAFKA_PATH}/config/server.properties ${C4S_HOME}/${UNIQ_ID}/server.properties
-    sed -i "s/zookeeper.connect=localhost:/zookeeper.connect=${ZKNODE}:/" ${C4S_HOME}/${UNIQ_ID}/server.properties
-    sed -i 's/broker.id=.$/broker.id.generation.enable=true/' ${C4S_HOME}/${UNIQ_ID}/server.properties
-    sed -i "s#log.dirs=/tmp/kafka-logs#log.dirs=/tmp/${UNIQ_ID}/kafka-logs#" ${C4S_HOME}/${UNIQ_ID}/server.properties
+    cat ${KAFKA_PATH}/config/server.properties \
+        | sed "s/zookeeper.connect=localhost:/zookeeper.connect=${ZKNODE}:/" \
+        | sed 's/broker.id=.$/broker.id.generation.enable=true/' \
+        | sed "s#log.dirs=/tmp/kafka-logs#log.dirs=/tmp/${UNIQ_ID}/kafka-logs#" \
+        > ${C4S_HOME}/${UNIQ_ID}/server.properties
 
-    cp ${KAFKA_PATH}/config/zookeeper.properties ${C4S_HOME}/${UNIQ_ID}/zookeeper.properties
-    sed -i "s#dataDir=/tmp/zookeeper#dataDir=/tmp/${UNIQ_ID}/zookeeper#" ${C4S_HOME}/${UNIQ_ID}/zookeeper.properties
+    cat  ${KAFKA_PATH}/config/zookeeper.properties \
+        | sed "s#dataDir=/tmp/zookeeper#dataDir=/tmp/${UNIQ_ID}/zookeeper#" \
+        > ${C4S_HOME}/${UNIQ_ID}/zookeeper.properties
     DBG " Kafka configuration UPDATED"
 
 }
