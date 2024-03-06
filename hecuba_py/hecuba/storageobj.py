@@ -67,7 +67,7 @@ class StorageObj(IStorage):
            if (self._istorage_metas.columns[pos][0] != val[0]) or (self._istorage_metas.columns[pos][1] != val[1]):
                 raise RuntimeError("StorageObj: {}: Metadata does not match specification. Trying {} but stored specification {}".format(txt, self._columns, self._istorage_metas.columns))
 
-    def __init__(self, name=None, storage_id=None, *args, **kwargs):
+    def __init__(self, name=None, storage_id=None, fromGetByAlias=False, *args, **kwargs):
         """
             Creates a new storageobj.
             Args:
@@ -77,7 +77,7 @@ class StorageObj(IStorage):
                 kwargs: more optional parameters
         """
 
-        super().__init__(name=name, storage_id=storage_id, *args, **kwargs)
+        super().__init__(name=name, storage_id=storage_id, fromGetByAlias=fromGetByAlias, *args, **kwargs)
 
         self._columns = [] # Empty object
         if getattr(self, "__doc__", None) is not None:
