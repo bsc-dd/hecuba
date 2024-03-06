@@ -623,6 +623,10 @@ void IStorage::getByAlias(const std::string& name) {
     HecubaExtrae_event(HECUBAEV, HECUBA_END);
 }
 
+void IStorage::get_by_alias(const std::string& name) {
+    getByAlias(name);
+}
+
 void IStorage::initializeClassName(std::string class_name) {
 	std::string FQname;
 	bool new_element = true;
