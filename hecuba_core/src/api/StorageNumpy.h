@@ -376,6 +376,14 @@ class StorageNumpy:virtual public IStorage {
             };
 
         }
+
+        bool is_create_table_required(void) {
+            // If a single table is used, then it is NOT required to create a
+            // table at each instantiation (just the first time, which is done
+            // at initialization time))
+            static bool current_table_required = (getCurrentSession().config["hecuba_sn_single_table"] == "false");
+            return current_table_required;
+        }
     
 };
 
