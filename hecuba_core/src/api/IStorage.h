@@ -89,6 +89,7 @@ class IStorage {
         virtual void initialize_dataAcces() {};
 
         void getByAlias(const std::string& name) ;
+        void get_by_alias(const std::string&);
 
         void extractMultiValuesFromQueryResult(void *query_result, void *valuetoreturn, int type) ;
     private:
