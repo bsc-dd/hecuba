@@ -327,7 +327,7 @@ echo $CNAMES | tr , '\n' > $PYCOMPSS_STORAGE # Set list of nodes (with interface
 
 check_cassandra_is_available $firstnode
 
-source $MODULE_PATH/initialize_hecuba.sh $firstnode
+source $MODULE_PATH/initialize_hecuba.sh $firstnode ${CASS_HOME}/bin/cqlsh
 
 if [ "0$SCHEMA" != "0" ]; then
   echo "Connecting to $firstnode for tables creation. Schema $SCHEMA."
@@ -389,7 +389,7 @@ then
     # Looping over the assigned hosts until the snapshots are confirmed
     DBG " Launching snapshot tasks on nodes $CASSANDRA_NODELIST"
 
-    source $MODULE_PATH/snapshot.sh $SNAP_NAME $ROOT_PATH $CLUSTER $UNIQ_ID
+    source $MODULE_PATH/snapshot.sh $SNAP_NAME $ROOT_PATH $CLUSTER $UNIQ_ID ${CASSHOME}/bin/nodetool
 
     SNAP_CONT=0
     while [ "$SNAP_CONT" != "$N_NODES" ]
