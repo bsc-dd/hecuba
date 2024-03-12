@@ -99,9 +99,24 @@ RECOVER_FILE=$C4S_HOME/cassandra-recover-file-"$UNIQ_ID".txt
 HECUBA_TEMPLATE_FILE=$MODULE_PATH/hecuba_environment.template
 CASSFILE=$C4S_HOME/casslist-"$UNIQ_ID".txt
 
+
+# hostnames2IP(file): Transform all host names into 'iface' IPs for 'file'
+function hostnames2IP() {
+    local FILE="$1"
+    echo "* Transforming [$FILE] to iface [$iface]"
+    rm -f ${FILE}.ips
+    for node in $(cat ${FILE}); do
+        nodeIP=$(get_node_ip $node $iface)
+        [ "$nodeIP" != "" ] || die "Device [$iface] not found in node [$node]. Modify CASS_IFACE in the 'cassandra4slurm.cfg' file"
+        echo "** Node [$node == $nodeIP]"
+        echo $nodeIP >> ${FILE}.ips
+    done
+}
+
 CASSANDRA_NODELIST=$(echo $WORKER_NODES |sed s/\ /,/g)
 echo $CASSANDRA_NODELIST |tr "," "\n" > $CASSFILE
-NODETOOL_HOST=$( get_first_node $CASSANDRA_NODELIST )-$iface
+hostnames2IP $CASSFILE
+NODETOOL_HOST=`head -n 1 $CASSFILE.ips`
 export N_NODES=$CASSANDRA_NODES
 
 export THETIME=$(date "+%Y%m%dD%H%Mh%Ss")"-$SLURM_JOB_ID"
@@ -228,7 +243,8 @@ function exit_bad_node_status () {
     exit
 }
 function get_nodes_up () {
-    NODE_COUNTER=$($CASS_HOME/bin/nodetool -h $NODETOOL_HOST status | sed 1,5d | sed '$ d' | awk '{ print $1 }' | grep "UN" | wc -l)
+    #NODE_COUNTER=$($CASS_HOME/bin/nodetool -h $NODETOOL_HOST status | sed 1,5d | sed '$ d' | awk '{ print $1 }' | grep "UN" | wc -l)
+    NODE_COUNTER=$($NODETOOL_CMD -h $NODETOOL_HOST status | sed 1,5d | sed '$ d' | awk '{ print $1 }' | grep "UN" | wc -l)
 }
 
 function check_cassandra_table_at () {
@@ -238,7 +254,8 @@ function check_cassandra_table_at () {
     local nretries=1
     while [ "$res" != "0" ] ; do
         echo " * Checking Cassandra [$what] is available @$first_node... $nretries/$RETRY_MAX"
-        $CASS_HOME/bin/cqlsh $first_node -e "describe $what;" > /dev/null
+        #$CASS_HOME/bin/cqlsh $first_node -e "describe $what;" > /dev/null
+        ${CQLSH_CMD} $first_node -e "describe $what;" > /dev/null
         res=$?
         ((nretries++))
         if [ $nretries -ge $RETRY_MAX ]; then
@@ -250,8 +267,8 @@ function check_cassandra_table_at () {
 }
 function check_cassandra_table () {
     local what="$1" # Target to 'describe' to check different states in cassandra
-    local first_node=`head -n1 $CASSFILE`"-$iface"
-    local last_node=`tail -n1 $CASSFILE`"-$iface"
+    local first_node=`head -n1 $CASSFILE.ips`
+    local last_node=`tail -n1 $CASSFILE.ips`
     check_cassandra_table_at ${what} ${first_node}
     check_cassandra_table_at ${what} ${last_node}
 }
@@ -287,7 +304,7 @@ function launch_arrow_helpers () {
 # CONTACT_NAMES sould be set in STORAGE_PROPS file
 if [[ $( grep -v ^# $STORAGE_PROPS | grep -q CONTACT_NAMES ) -eq 1 ]]; then
         firstnode=$( get_first_node $CONTACT_NAMES )
-        source $MODULE_PATH/initialize_hecuba.sh  $firstnode
+        source $MODULE_PATH/initialize_hecuba.sh  $firstnode ${CASS_HOME}/bin/cqlsh
         #echo "CONTACT_NAMES=$CONTACT_NAMES"
         #echo "export CONTACT_NAMES=$CONTACT_NAMES" >> ${FILE_TO_SET_ENV_VARS}
         DBG " FILE TO EXPORT VARS IS  ${FILE_TO_SET_ENV_VARS}"
@@ -313,7 +330,7 @@ if [ "X$RECOVER" !=  "X" ]; then
 fi
 
 TIME_START=`date +"%T.%3N"` # Time to start cassandra
-SEED=$(get_first_node ${CASSANDRA_NODELIST})-${iface}
+SEED=`head -n 1 $CASSFILE.ips`
 
 ####### CONFIGURATION FILES #########
 # set variables with cassandra configuration files
@@ -336,10 +353,14 @@ if [ "${SINGULARITYIMG}" != "disabled" ]; then
     # copy the cassandra conf directory from the singularity container
     singularity run ${SINGULARITYIMG} cp -LRf ${XCASSPATH}/conf ${CASS_CONF}  || die " SINGULARITY: copy failed"
     CASS_CONF=${CASS_CONF}/conf
+    NODETOOL_CMD=singularity run ${SINGULARITYIMG} ${XCASSPATH}/bin/nodetool
+    CQLSH_CMD=singularity run ${SINGULARITYIMG} ${XCASSPATH}/bin/cqlsh
 else
     # copy the original cassandra configuration files to CASS_CONF directory
     cp ${CASS_HOME}/conf/cassandra.yaml ${CASS_CONF} || die "Error copying $CASS_HOME/conf/cassandra.yaml"
     cp ${CASS_HOME}/conf/cassandra-env.sh ${CASS_CONF} || die "Error copying $CASS_HOME/conf/cassandra-env.sh"
+    NODETOOL_CMD=${CASS_HOME}/bin/nodetool
+    CQLSH_CMD=${CASS_HOME}/bin/cqlsh
 fi
 
 export CASS_YAML_FILE=${CASS_CONF}/cassandra.yaml
@@ -470,30 +491,18 @@ fi
 
 # THIS IS THE APPLICATION CODE EXECUTING SOME TASKS USING CASSANDRA DATA, ETC
 echo "CHECKING CASSANDRA STATUS: "
-$CASS_HOME/bin/nodetool -h $NODETOOL_HOST status
+#$CASS_HOME/bin/nodetool -h $NODETOOL_HOST status
+${NODETOOL_CMD} -h $NODETOOL_HOST status
 
 check_cassandra_is_available
 
-firstnode=$( get_first_node $CASSANDRA_NODELIST )-${iface}
-source $MODULE_PATH/initialize_hecuba.sh  $firstnode
+firstnode=`head -n 1 $CASSFILE.ips`
+source $MODULE_PATH/initialize_hecuba.sh  $firstnode ${CQLSH_CMD}
 
-CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $CASSFILE)
-CNAMES=$(echo $CNAMES | sed "s/,/-$iface,/g")-$iface
-
+CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $CASSFILE.ips)
 # WARNING! CONTACT_NAMES MUST be IP numbers!
-first=1
-CONTACT_NAMES=""
-COMMA=""
-for node in $(cat $CASSFILE); do
-    if [ "$first" == "1" ]; then
-        first=0
-    else
-        COMMA=","
-    fi
-    IP=$(host $node-$iface |cut -d' ' -f 4) #GET IP Address
-    CONTACT_NAMES="${CONTACT_NAMES}${COMMA}${IP}"
-done
-export CONTACT_NAMES=$CONTACT_NAMES
+export CONTACT_NAMES=$CNAMES
+
 echo "CONTACT_NAMES=$CONTACT_NAMES"
 echo "export CONTACT_NAMES=$CONTACT_NAMES" >> ${FILE_TO_SET_ENV_VARS}
 
