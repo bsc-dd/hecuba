@@ -213,11 +213,13 @@ cp $CASS_HOME/conf/cassandra.yaml ${TEMPLATE_CASS_YAML_FILE}
 cp $CASS_HOME/conf/cassandra-env.sh ${TEMPLATE_CASS_ENV_FILE}
 
 casslist=`cat $CASSFILE`
-seedlist=`head -n 1 $CASSFILE`
 seeds=`head -n 1 $CASSFILE.ips`
 
+# Do NOT use hostname! There are machines that return a differnt name than the one used in SLURM.
+HOSTNAMEIP=$(get_node_ip $(hostname) $CASS_IFACE)
+
 #only one node needs to do this, all the nodes share the same file
-if [ $(hostname) == $seedlist ]; then
+if [ $HOSTNAMEIP == $seeds ]; then
     cat $TEMPLATE_CASS_YAML_FILE \
         | sed "s/.*cluster_name:.*/cluster_name: \'$CLUSTER\'/g" \
         | sed "s/.*num_tokens:.*/num_tokens: 256/g" \

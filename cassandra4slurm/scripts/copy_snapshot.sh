@@ -28,7 +28,7 @@ while [ ! -s $RINGDONE ]; do
 done
 DBG " $(hostname) Current RINGFILE $RINGFILE -> $(hostname) $SNAP_DEST/$SNAP_NAME-ring.txt"
 # Obtain used interface from Cassandra configuration file
-HST_IFACE=$(grep "/listen_interface: " ${C4S_HOME}/conf/${UNIQ_ID}/cassandra-$(hostname).yaml |awk '{print $2}')
+HST_IFACE=$(grep "listen_interface: " ${C4S_HOME}/conf/${UNIQ_ID}/cassandra.yaml |awk '{print $2}')
 NODE_IP=$(get_node_ip $(hostname) $HST_IFACE)
 
 cat $RINGFILE | grep -F $NODE_IP | awk '{print $NF }' | tr "\n" "," > $SNAP_DEST/$SNAP_NAME-ring.txt

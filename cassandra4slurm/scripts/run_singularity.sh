@@ -50,4 +50,4 @@ singularity run  \
             ${SINGULARITYIMG} \
             ${XCASSPATH}/bin/cassandra -f \
                 -Dcassandra.consistent.rangemovement=false \
-                -Dcassandra.config=file://$CASSANDRA_CONF/cassandra-$HOSTNAMEIP.yaml -f | awk "{ print  \"$(hostname)\",\$0 }"
+                -Dcassandra.config=file://$CASSANDRA_CONF/cassandra-$HOSTNAMEIP.yaml -f | awk "{ print  \"$HOSTNAMEIP\",\$0 }"
