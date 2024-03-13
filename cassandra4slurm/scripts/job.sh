@@ -231,7 +231,7 @@ if [ $(hostname) == $seedlist ]; then
         echo "auto_bootstrap: false" >> ${CASS_YAML_FILE}
 
     # Generate a configuration file for each cassandra node (used in recover)
-    for i in $casslist; do
+    for i in $(cat $CASSFILE.ips); do
         cp ${CASS_YAML_FILE} ${CASS_CONF}/cassandra-${i}.yaml
     done
 
