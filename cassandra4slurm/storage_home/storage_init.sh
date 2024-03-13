@@ -396,8 +396,8 @@ cat $TEMPLATE_CASS_YAML_FILE \
 DBG "[+] Generated cassandra configuration file ${CASS_YAML_FILE}"
 
 # Generate a configuration file for each cassandra node (required by recover)
-#casslist=`cat $CASSFILE`
-for i in $WORKER_NODES; do
+casslist=`cat $CASSFILE.ips`
+for i in $casslist; do
     cp ${CASS_YAML_FILE} ${CASS_CONF}/cassandra-${i}.yaml
 done
 
@@ -450,7 +450,7 @@ if [ "${SINGULARITYIMG}" != "disabled" ]; then
         --overlap --mem=0 \
         --output ${LOGS_DIR}/cassandra.output \
         --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=${C4S_CASSANDRA_CORES} --nodes=$N_NODES \
-        $MODULE_PATH/run_singularity.sh ${UNIQ_ID} ${CASS_CONF} ${XCASSPATH} ${LOGS_DIR} ${SINGULARITYIMG} &
+        $MODULE_PATH/run_singularity.sh ${UNIQ_ID} ${CASS_CONF} ${XCASSPATH} ${LOGS_DIR} ${SINGULARITYIMG} ${iface} &
 else
 
     if [ ! -f $CASS_HOME/bin/cassandra ]; then

@@ -29,6 +29,7 @@ CASSANDRA_CONF=${2}     # Directory with the cassandra configuration DIRECTORY
 XCASSPATH=${3}          # Cassandra installation directory (inside container)
 LOG_DIR=${4}            # Directory to store cassandra logs
 SINGULARITYIMG=${5}     # Singularity image to run
+IFACE=${6}              # Network interface to use
 
 export C4S_HOME=$HOME/.c4s
 
@@ -37,7 +38,11 @@ DBG " CASSANDRA_CONF=[$CASSANDRA_CONF]"
 DBG " XCASSPATH     =[$XCASSPATH]"
 DBG " LOG_DIR       =[$LOG_DIR]"
 DBG " SINGULARITYIMG=[$SINGULARITYIMG]"
+DBG " IFACE         =[$IFACE]"
 
+# Calculate hostname IP to know the file to access
+HOSTNAMEIP=$(hostname)
+HOSTNAMEIP=$(get_node_ip $HOSTNAMEIP $IFACE)
 singularity run  \
             --env CASSANDRA_CONF=${CASSANDRA_CONF} \
             --env LOCAL_JMX='no' \
@@ -45,4 +50,4 @@ singularity run  \
             ${SINGULARITYIMG} \
             ${XCASSPATH}/bin/cassandra -f \
                 -Dcassandra.consistent.rangemovement=false \
-                -Dcassandra.config=file://$CASSANDRA_CONF/cassandra-$(hostname).yaml -f | awk "{ print  $(hostname),\$0 }"
+                -Dcassandra.config=file://$CASSANDRA_CONF/cassandra-$(HOSTNAMEIP).yaml -f | awk "{ print  \"$(hostname)\",\$0 }"
