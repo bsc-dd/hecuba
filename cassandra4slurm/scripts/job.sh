@@ -389,7 +389,7 @@ then
     # Looping over the assigned hosts until the snapshots are confirmed
     DBG " Launching snapshot tasks on nodes $CASSANDRA_NODELIST"
 
-    source $MODULE_PATH/snapshot.sh $SNAP_NAME $ROOT_PATH $CLUSTER $UNIQ_ID ${CASSHOME}/bin/nodetool
+    source $MODULE_PATH/snapshot.sh $SNAP_NAME $ROOT_PATH $CLUSTER $UNIQ_ID ${CASS_HOME}/bin/nodetool
 
     SNAP_CONT=0
     while [ "$SNAP_CONT" != "$N_NODES" ]
