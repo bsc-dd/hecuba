@@ -161,7 +161,7 @@ function get_cluster_node () {
 
 function get_cluster_ips () {
     # Gets the IP of every node in the cluster
-    NODE_IPS=$("$CASS_HOME/bin/nodetool -h $NODE_ID status" | awk '/Address/{p=1;next}{if(p){print $2}}')
+    NODE_IPS=$("$CASS_HOME/bin/nodetool -Dcom.sun.jndi.rmiURLParsing=legacy -h $NODE_ID status" | awk '/Address/{p=1;next}{if(p){print $2}}')
 }
 
 function exit_no_cluster () {

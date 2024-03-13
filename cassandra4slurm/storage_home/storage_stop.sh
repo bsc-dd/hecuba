@@ -23,6 +23,8 @@ CASSFILE=$C4S_HOME/casslist-"$UNIQ_ID".txt
 CASSANDRA_NODELIST=$(cat $CASSFILE|tr '\n' ,)   # cassandra node names separated by ','
 N_NODES=$(cat $CASSFILE|wc -l)                  # number of cassandra nodes
 
+source $C4S_HOME/conf/cassandra4slurm.cfg # to get CASS_HOME value needed to generate snapshots.sh
+
 #CASSANDRA_NODES=${2}  # Number of Cassandra nodes to spawn
 # I guess we dont need any of these.
 SNAPSHOT_FILE=$C4S_HOME/cassandra-snapshot-file-"$UNIQ_ID".txt # EXPORTS IN STORAGE_INIT ARE NOT AVAILABLE HERE? LOL
@@ -37,7 +39,7 @@ then
     TIME1=`date +"%T.%3N"`
     SNAP_NAME="$THETIME"
 
-    source $MODULE_PATH/snapshot.sh $SNAP_NAME $ROOT_PATH $CLUSTER $UNIQ_ID
+    source $MODULE_PATH/snapshot.sh $SNAP_NAME $ROOT_PATH $CLUSTER $UNIQ_ID $CASS_HOME/bin/nodetool
 
     SNAP_CONT=0
     while [ "$SNAP_CONT" != "$N_NODES" ]

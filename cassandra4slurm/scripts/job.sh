@@ -141,7 +141,7 @@ function exit_bad_node_status () {
 
 function get_nodes_up () {
     first_node="$1"
-    NODE_COUNTER=$($CASS_HOME/bin/nodetool -h $first_node status | sed 1,5d | sed '$ d' | awk '{ print $1 }' | grep "UN" | wc -l)
+    NODE_COUNTER=$($CASS_HOME/bin/nodetool -Dcom.sun.jndi.rmiURLParsing=legacy -h $first_node status | sed 1,5d | sed '$ d' | awk '{ print $1 }' | grep "UN" | wc -l)
 }
 
 function check_cassandra_is_available () {
@@ -311,7 +311,7 @@ fi
 
 # THIS IS THE APPLICATION CODE EXECUTING SOME TASKS USING CASSANDRA DATA, ETC
 echo "CHECKING CASSANDRA STATUS: "
-$CASS_HOME/bin/nodetool -h $firstnode status
+$CASS_HOME/bin/nodetool -Dcom.sun.jndi.rmiURLParsing=legacy -h $firstnode status
 
 
 CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $CASSFILE.ips)

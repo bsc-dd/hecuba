@@ -131,7 +131,7 @@ function get_cluster_node () {
 
 function get_cluster_ips () {
     # Gets the IP of every node in the cluster
-    NODE_IPS=$(ssh $NODE_ID "$CASS_HOME/bin/nodetool -h $NODE_ID$CASS_IFACE status" | awk '/Address/{p=1;next}{if(p){print $2}}')
+    NODE_IPS=$(ssh $NODE_ID "$CASS_HOME/bin/nodetool -Dcom.sun.jndi.rmiURLParsing=legacy -h $NODE_ID$CASS_IFACE status" | awk '/Address/{p=1;next}{if(p){print $2}}')
 }
 
 function exit_no_cluster () {
@@ -179,7 +179,7 @@ function get_nodes_up () {
         if [ "$JOB_STATUS" == "R" ]
         then    
             get_cluster_node 
-            NODE_STATE_LIST=`ssh -q $NODE_ID "$CASS_HOME/bin/nodetool -h $NODE_ID$CASS_IFACE status" | sed 1,5d | sed '$ d' | awk '{ print $1 }'`
+            NODE_STATE_LIST=`ssh -q $NODE_ID "$CASS_HOME/bin/nodetool -Dcom.sun.jndi.rmiURLParsing=legacy -h $NODE_ID$CASS_IFACE status" | sed 1,5d | sed '$ d' | awk '{ print $1 }'`
             if [ "$NODE_STATE_LIST" != "" ]
             then
                 NODE_COUNTER=0

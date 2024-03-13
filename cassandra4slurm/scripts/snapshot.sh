@@ -20,6 +20,7 @@ SNAP_NAME=${1}
 ROOT_PATH=${2}
 CLUSTER=${3}
 UNIQ_ID=${4}
+NODETOOL_CMD="${5} -Dcom.sun.jndi.rmiURLParsing=legacy"
 DATA_HOME=$ROOT_PATH/cassandra-data
 CASSFILE=$C4S_HOME/casslist-"$UNIQ_ID".txt
 RINGFILE=$C4S_HOME/ringfile-"$UNIQ_ID".txt
@@ -37,22 +38,22 @@ mkdir -p $SNAP_PATH
 DBG "  Repairing cassandra"
 for u_host in $casslist
 do
-    $CASS_HOME/bin/nodetool -h ${u_host} repair >> $NODETOOLFILE
+    ${NODETOOL_CMD} -h ${u_host} repair >> $NODETOOLFILE
 done
 
 first_node=`head -n1 $CASSFILE`
 
 DBG "  Generating RingFile $RINGFILE"
 rm -f $RINGFILE $RINGDONE
-$CASS_HOME/bin/nodetool -h ${first_node} ring > $RINGFILE
+${NODETOOL_CMD} -h ${first_node} ring > $RINGFILE
 echo "1" > $RINGDONE
 
 echo "[INFO] Generating Snapshot $SNAP_NAME"
 
 for u_host in $casslist
 do
-    $CASS_HOME/bin/nodetool -h ${u_host} snapshot -t $SNAP_NAME >> $NODETOOLFILE
-    $CASS_HOME/bin/nodetool -h ${u_host} drain >> $NODETOOLFILE
+    ${NODETOOL_CMD} -h ${u_host} snapshot -t $SNAP_NAME >> $NODETOOLFILE
+    ${NODETOOL_CMD} -h ${u_host} drain >> $NODETOOLFILE
 done
 DBG "  Snapshot Done. Copying to GPFS"
 

@@ -353,13 +353,13 @@ if [ "${SINGULARITYIMG}" != "disabled" ]; then
     # copy the cassandra conf directory from the singularity container
     singularity run ${SINGULARITYIMG} cp -LRf ${XCASSPATH}/conf ${CASS_CONF}  || die " SINGULARITY: copy failed"
     CASS_CONF=${CASS_CONF}/conf
-    NODETOOL_CMD=singularity run ${SINGULARITYIMG} ${XCASSPATH}/bin/nodetool
+    NODETOOL_CMD="singularity run ${SINGULARITYIMG} ${XCASSPATH}/bin/nodetool -Dcom.sun.jndi.rmiURLParsing=legacy"
     CQLSH_CMD=singularity run ${SINGULARITYIMG} ${XCASSPATH}/bin/cqlsh
 else
     # copy the original cassandra configuration files to CASS_CONF directory
     cp ${CASS_HOME}/conf/cassandra.yaml ${CASS_CONF} || die "Error copying $CASS_HOME/conf/cassandra.yaml"
     cp ${CASS_HOME}/conf/cassandra-env.sh ${CASS_CONF} || die "Error copying $CASS_HOME/conf/cassandra-env.sh"
-    NODETOOL_CMD=${CASS_HOME}/bin/nodetool
+    NODETOOL_CMD="${CASS_HOME}/bin/nodetool -Dcom.sun.jndi.rmiURLParsing=legacy"
     CQLSH_CMD=${CASS_HOME}/bin/cqlsh
 fi
 
