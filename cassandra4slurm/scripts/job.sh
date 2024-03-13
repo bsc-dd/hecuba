@@ -148,9 +148,13 @@ function check_cassandra_is_available () {
     local first_node="$1"
     local res=1
     local nretries=1
+
+    TMP=$(mktemp -t hecuba.tmp.XXXXXX)
+    echo "describe keyspaces;" > $TMP
+    trap "cleanup $TMP" SIGINT SIGQUIT SIGABRT
     while [ "$res" != "0" ] ; do
         #echo " * Checking Cassandra is available... $nretries/$RETRY_MAX"
-        $CASS_HOME/bin/cqlsh $first_node -e 'describe keyspaces;' > /dev/null
+        $CASS_HOME/bin/cqlsh $first_node -f $TMP > /dev/null
         res=$?
         ((nretries++))
         if [ $nretries -ge $RETRY_MAX ]; then
@@ -160,6 +164,7 @@ function check_cassandra_is_available () {
         fi
     done
     echo " * Cassandra is available!"
+    cleanup $TMP
 }
 
 if [ ! -f $CASS_HOME/bin/cassandra ]; then

@@ -252,10 +252,12 @@ function check_cassandra_table_at () {
     local first_node="$2"
     local res=1
     local nretries=1
+    TMP=$(mktemp -t hecuba.tmp.XXXXXX)
+    echo "describe keyspaces;" > $TMP
+    trap "cleanup $TMP" SIGINT SIGQUIT SIGABRT
     while [ "$res" != "0" ] ; do
         echo " * Checking Cassandra [$what] is available @$first_node... $nretries/$RETRY_MAX"
-        #$CASS_HOME/bin/cqlsh $first_node -e "describe $what;" > /dev/null
-        ${CQLSH_CMD} $first_node -e "describe $what;" > /dev/null
+        ${CQLSH_CMD} $first_node -f $TMP > /dev/null
         res=$?
         ((nretries++))
         if [ $nretries -ge $RETRY_MAX ]; then
@@ -264,6 +266,7 @@ function check_cassandra_table_at () {
             exit
         fi
     done
+    cleanup $TMP
 }
 function check_cassandra_table () {
     local what="$1" # Target to 'describe' to check different states in cassandra
@@ -304,7 +307,7 @@ function launch_arrow_helpers () {
 # CONTACT_NAMES sould be set in STORAGE_PROPS file
 if [[ $( grep -v ^# $STORAGE_PROPS | grep -q CONTACT_NAMES ) -eq 1 ]]; then
         firstnode=$( get_first_node $CONTACT_NAMES )
-        source $MODULE_PATH/initialize_hecuba.sh  $firstnode ${CASS_HOME}/bin/cqlsh
+        source $MODULE_PATH/initialize_hecuba.sh  $firstnode $CQLSH_CMD
         #echo "CONTACT_NAMES=$CONTACT_NAMES"
         #echo "export CONTACT_NAMES=$CONTACT_NAMES" >> ${FILE_TO_SET_ENV_VARS}
         DBG " FILE TO EXPORT VARS IS  ${FILE_TO_SET_ENV_VARS}"

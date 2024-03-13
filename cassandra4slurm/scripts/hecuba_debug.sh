@@ -56,3 +56,9 @@ function get_node_ip() {
     echo ${IP%/*} #Remove the last slashed content
 }
 
+# Remove file passed as a parameter
+function cleanup() {
+    local TMP="$1"
+    DBG " Removing temporal file [$TMP]"
+    rm $TMP
+}
