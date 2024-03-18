@@ -14,7 +14,10 @@
 ###############################################################################################################
 
 export C4S_HOME=$HOME/.c4s
-export CASS_IFACE="-ib0"
+export CASS_IFACE="ib0"
+
+DIRCMD=$(dirname $0)
+DIRCMD=$(cd $DIRCMD && pwd)
 MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
 CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
 HECUBA_ENV=$C4S_HOME/conf/hecuba_environment

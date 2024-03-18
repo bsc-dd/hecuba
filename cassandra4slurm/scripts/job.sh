@@ -219,6 +219,10 @@ seeds=`head -n 1 $CASSFILE.ips`
 HOSTNAMEIP=$(get_node_ip $(hostname) $CASS_IFACE)
 
 #only one node needs to do this, all the nodes share the same file
+        #| sed "s/.*rpc_interface:.*/rpc_interface: $iface/" \
+        #| sed "s/.*listen_interface:.*/listen_interface: $iface/" \
+        #| sed "s/.*listen_address:.*/#listen_address: localhost/" \
+        #| sed "s/.*rpc_address:.*/#rpc_address: localhost/" \
 if [ $HOSTNAMEIP == $seeds ]; then
     cat $TEMPLATE_CASS_YAML_FILE \
         | sed "s/.*cluster_name:.*/cluster_name: \'$CLUSTER\'/g" \
@@ -229,17 +233,20 @@ if [ $HOSTNAMEIP == $seeds ]; then
         | sed "s+.*commitlog_directory:.*+commitlog_directory: $COMM_HOME+" \
         | sed "s+.*saved_caches_directory:.*+saved_caches_directory: $SAV_CACHE+g" \
         | sed "s/.*seeds:.*/          - seeds: \"$seeds\"/" \
-        | sed "s/.*rpc_interface:.*/rpc_interface: $iface/" \
-        | sed "s/.*listen_interface:.*/listen_interface: $iface/" \
-        | sed "s/.*listen_address:.*/#listen_address: localhost/" \
-        | sed "s/.*rpc_address:.*/#rpc_address: localhost/" \
+        | sed "s/.*broadcast_address:.*/#broadcast_address: localhost/" \
         | sed "s/.*initial_token:.*/#initial_token:/" \
         > ${CASS_YAML_FILE}
         echo "auto_bootstrap: false" >> ${CASS_YAML_FILE}
 
     # Generate a configuration file for each cassandra node (used in recover)
     for i in $(cat $CASSFILE.ips); do
-        cp ${CASS_YAML_FILE} ${CASS_CONF}/cassandra-${i}.yaml
+        #cp ${CASS_YAML_FILE} ${CASS_CONF}/cassandra-${i}.yaml
+        cat ${CASS_YAML_FILE} \
+            | sed "s/.*listen_address:.*/listen_address: $i/" \
+            | sed "s/.*rpc_address:.*/rpc_address: $i/" \
+            | sed "s/.*rpc_interface:.*/#rpc_interface: $iface/" \
+            | sed "s/.*listen_interface:.*/#listen_interface: $iface/" \
+            > ${CASS_CONF}/cassandra-${i}.yaml
     done
 
     cat ${TEMPLATE_CASS_ENV_FILE} \

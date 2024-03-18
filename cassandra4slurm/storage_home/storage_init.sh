@@ -379,6 +379,10 @@ DBG "DEST CONFIG FILES ARE ${CASS_YAML_FILE} ${CASS_ENV_FILE}"
 
 
 ## ADAPT CONFIGURATION FILE TO CURRENT EXECUTION NEEDS...
+        #| sed "s/.*listen_interface:.*/listen_interface: $iface/" \
+        #| sed "s/.*listen_address:.*/#listen_address: localhost/" \
+        #| sed "s/.*rpc_address:.*/#rpc_address: localhost/" \
+        #| sed "s/.*rpc_interface:.*/rpc_interface: $iface/" \
 cat $TEMPLATE_CASS_YAML_FILE \
         | sed "s/.*cluster_name:.*/cluster_name: \'$CLUSTER\'/g" \
         | sed "s+.*hints_directory:.*+hints_directory: $HINTS_HOME+" \
@@ -388,11 +392,7 @@ cat $TEMPLATE_CASS_YAML_FILE \
         | sed "s+.*commitlog_directory:.*+commitlog_directory: $COMM_HOME+" \
         | sed "s+.*saved_caches_directory:.*+saved_caches_directory: $SAV_CACHE+g" \
         | sed "s/.*seeds:.*/          - seeds: \"$SEED\"/" \
-        | sed "s/.*rpc_interface:.*/rpc_interface: $iface/" \
-        | sed "s/.*listen_interface:.*/listen_interface: $iface/" \
-        | sed "s/.*listen_address:.*/#listen_address: localhost/" \
         | sed "s/.*broadcast_address:.*/#broadcast_address: localhost/" \
-        | sed "s/.*rpc_address:.*/#rpc_address: localhost/" \
         | sed "s/.*initial_token:.*/#initial_token:/" \
         > $CASS_YAML_FILE
         echo "auto_bootstrap: false" >> ${CASS_YAML_FILE}
@@ -401,7 +401,13 @@ DBG "[+] Generated cassandra configuration file ${CASS_YAML_FILE}"
 # Generate a configuration file for each cassandra node (required by recover)
 casslist=`cat $CASSFILE.ips`
 for i in $casslist; do
-    cp ${CASS_YAML_FILE} ${CASS_CONF}/cassandra-${i}.yaml
+    #cp ${CASS_YAML_FILE} ${CASS_CONF}/cassandra-${i}.yaml
+        cat ${CASS_YAML_FILE} \
+            | sed "s/.*listen_address:.*/listen_address: $i/" \
+            | sed "s/.*listen_interface:.*/#listen_interface: $iface/" \
+            | sed "s/.*rpc_address:.*/rpc_address: $i/" \
+            | sed "s/.*rpc_interface:.*/#rpc_interface: $iface/" \
+            > ${CASS_CONF}/cassandra-${i}.yaml
 done
 
 cat ${TEMPLATE_CASS_ENV_FILE} \
