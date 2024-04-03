@@ -254,10 +254,11 @@ function check_cassandra_table_at () {
     local nretries=1
     TMP=$(mktemp -t hecuba.tmp.XXXXXX)
     echo "describe keyspaces;" > $TMP
+    echo "EXECUTING ${CQLSH_CMD} $first_node -f $TMP "
     trap "cleanup $TMP" SIGINT SIGQUIT SIGABRT
     while [ "$res" != "0" ] ; do
         echo " * Checking Cassandra [$what] is available @$first_node... $nretries/$RETRY_MAX"
-        ${CQLSH_CMD} $first_node -f $TMP > /dev/null
+        eval "${CQLSH_CMD} $first_node -f $TMP" > /dev/null
         res=$?
         ((nretries++))
         if [ $nretries -ge $RETRY_MAX ]; then
@@ -356,8 +357,9 @@ if [ "${SINGULARITYIMG}" != "disabled" ]; then
     # copy the cassandra conf directory from the singularity container
     singularity run ${SINGULARITYIMG} cp -LRf ${XCASSPATH}/conf ${CASS_CONF}  || die " SINGULARITY: copy failed"
     CASS_CONF=${CASS_CONF}/conf
-    NODETOOL_CMD="singularity run ${SINGULARITYIMG} ${XCASSPATH}/bin/nodetool -Dcom.sun.jndi.rmiURLParsing=legacy"
-    CQLSH_CMD="singularity run ${SINGULARITYIMG} ${XCASSPATH}/bin/cqlsh"
+    NODETOOL_CMD="singularity run ${SINGULARITYIMG} nodetool -Dcom.sun.jndi.rmiURLParsing=legacy"
+    # Disable PYTHONHOME and PYTHONPATH to execute the python inside the container
+    CQLSH_CMD='PYTHONPATH= PYTHONHOME= singularity run ${SINGULARITYIMG} cqlsh'
 else
     # copy the original cassandra configuration files to CASS_CONF directory
     cp ${CASS_HOME}/conf/cassandra.yaml ${CASS_CONF} || die "Error copying $CASS_HOME/conf/cassandra.yaml"
