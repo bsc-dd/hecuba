@@ -47,7 +47,8 @@ launch_kafka () {
 
     local ZKNODE=$( head -n 1 $CASSFILE )
     local ZKNODEIP=$( head -n 1 $CASSFILE.ips )
-    local CASSANDRA_NODELIST=$(cat $CASSFILE | sed -e 's+ +,+g')
+    casslist=`cat $CASSFILE`
+    local CASSANDRA_NODELIST=$(echo $casslist | sed -e 's+ +,+g')
 
     KAFKA_PATH=$(get_kafka_path)
 
@@ -65,7 +66,7 @@ launch_kafka () {
     # Start Kakfa daemons
     local OLDCLASSPATH="$CLASSPATH"
     unset CLASSPATH
-    run srun --overlap --mem=0 --nodelist $CASSANDRA_NODELIST --ntasks=$N_NODES --nodes=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 \
+    run srun --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --nodes=$N_NODES --ntasks-per-node=1 --cpus-per-task=1 \
         --output ${C4S_HOME}/${UNIQ_ID}/kafka.output \
         kafka-server-start.sh ${C4S_HOME}/${UNIQ_ID}/server.properties &
     CLASSPATH="$OLDCLASSPATH"
