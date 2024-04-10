@@ -215,51 +215,36 @@ cp $CASS_HOME/conf/cassandra-env.sh ${TEMPLATE_CASS_ENV_FILE}
 casslist=`cat $CASSFILE`
 seeds=`head -n 1 $CASSFILE.ips`
 
+# GENERATE CASSANDRA CONFIGURATION FILES
 # Do NOT use hostname! There are machines that return a differnt name than the one used in SLURM.
-HOSTNAMEIP=$(get_node_ip $(hostname) $CASS_IFACE)
-
 #only one node needs to do this, all the nodes share the same file
-        #| sed "s/.*rpc_interface:.*/rpc_interface: $iface/" \
-        #| sed "s/.*listen_interface:.*/listen_interface: $iface/" \
-        #| sed "s/.*listen_address:.*/#listen_address: localhost/" \
-        #| sed "s/.*rpc_address:.*/#rpc_address: localhost/" \
-if [ $HOSTNAMEIP == $seeds ]; then
-    cat $TEMPLATE_CASS_YAML_FILE \
-        | sed "s/.*cluster_name:.*/cluster_name: \'$CLUSTER\'/g" \
-        | sed "s/.*num_tokens:.*/num_tokens: 256/g" \
-        | sed "s+.*hints_directory:.*+hints_directory: $DATA_HOME/hints+" \
-        | sed 's/.*data_file_directories.*/data_file_directories:/' \
-        | sed "/data_file_directories:/!b;n;c     - $DATA_HOME" \
-        | sed "s+.*commitlog_directory:.*+commitlog_directory: $COMM_HOME+" \
-        | sed "s+.*saved_caches_directory:.*+saved_caches_directory: $SAV_CACHE+g" \
-        | sed "s/.*seeds:.*/          - seeds: \"$seeds\"/" \
-        | sed "s/.*broadcast_address:.*/#broadcast_address: localhost/" \
-        | sed "s/.*initial_token:.*/#initial_token:/" \
-        > ${CASS_YAML_FILE}
-        echo "auto_bootstrap: false" >> ${CASS_YAML_FILE}
+cat $TEMPLATE_CASS_YAML_FILE \
+    | sed "s/.*cluster_name:.*/cluster_name: \'$CLUSTER\'/g" \
+    | sed "s/.*num_tokens:.*/num_tokens: 256/g" \
+    | sed "s+.*hints_directory:.*+hints_directory: $DATA_HOME/hints+" \
+    | sed 's/.*data_file_directories.*/data_file_directories:/' \
+    | sed "/data_file_directories:/!b;n;c     - $DATA_HOME" \
+    | sed "s+.*commitlog_directory:.*+commitlog_directory: $COMM_HOME+" \
+    | sed "s+.*saved_caches_directory:.*+saved_caches_directory: $SAV_CACHE+g" \
+    | sed "s/.*seeds:.*/          - seeds: \"$seeds\"/" \
+    | sed "s/.*broadcast_address:.*/#broadcast_address: localhost/" \
+    | sed "s/.*initial_token:.*/#initial_token:/" \
+    > ${CASS_YAML_FILE}
+    echo "auto_bootstrap: false" >> ${CASS_YAML_FILE}
 
-    # Generate a configuration file for each cassandra node (used in recover)
-    for i in $(cat $CASSFILE.ips); do
-        #cp ${CASS_YAML_FILE} ${CASS_CONF}/cassandra-${i}.yaml
-        cat ${CASS_YAML_FILE} \
-            | sed "s/.*listen_address:.*/listen_address: $i/" \
-            | sed "s/.*rpc_address:.*/rpc_address: $i/" \
-            | sed "s/.*rpc_interface:.*/#rpc_interface: $iface/" \
-            | sed "s/.*listen_interface:.*/#listen_interface: $iface/" \
-            > ${CASS_CONF}/cassandra-${i}.yaml
-    done
+# Generate a configuration file for each cassandra node (used in recover)
+for i in $(cat $CASSFILE.ips); do
+    cat ${CASS_YAML_FILE} \
+        | sed "s/.*listen_address:.*/listen_address: $i/" \
+        | sed "s/.*rpc_address:.*/rpc_address: $i/" \
+        | sed "s/.*rpc_interface:.*/#rpc_interface: $iface/" \
+        | sed "s/.*listen_interface:.*/#listen_interface: $iface/" \
+        > ${CASS_CONF}/cassandra-${i}.yaml
+done
 
-    cat ${TEMPLATE_CASS_ENV_FILE} \
-        | sed "s/jmxremote.authenticate=true/jmxremote.authenticate=false/" \
-        >${CASS_ENV_FILE}
-else
-    cont=1
-    while [ $cont != 1 ]; do
-        grep -q -s "jmxremote.authenticate=true/jmxremote.authenticate=false" ${CASS_ENV_FILE}
-        cont=$?
-        echo "Cassandra configuration files are not ready.... waiting..."
-    done
-fi
+cat ${TEMPLATE_CASS_ENV_FILE} \
+    | sed "s/jmxremote.authenticate=true/jmxremote.authenticate=false/" \
+    >${CASS_ENV_FILE}
 
 DBG $(ls -la ${CASS_YAML_FILE})
 DBG $(ls -la ${CASS_ENV_FILE})
