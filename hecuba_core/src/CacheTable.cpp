@@ -72,8 +72,7 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
     this->timestamp_gen = new TimestampGenerator();
     this->writer->set_timestamp_gen(this->timestamp_gen);
     HecubaExtrae_event(HECUBADBG, HECUBA_END);
-    this->topic_name = nullptr;
-    this->consumer = nullptr;
+
     this->kafka_conf = nullptr;
     this->should_table_meta_be_freed = free_table_meta;
 
@@ -113,19 +112,15 @@ CacheTable& CacheTable::operator = (const CacheTable& src) {
         if (this->timestamp_gen != nullptr) {delete (this->timestamp_gen);}
         this->timestamp_gen = new TimestampGenerator();
         this->writer->set_timestamp_gen(this->timestamp_gen);
-        if (this->topic_name != nullptr) { free(this->topic_name); }
         if (this->kafka_conf != nullptr) { free(this->kafka_conf); }
-        if (this->consumer != nullptr) { free(this->consumer); }
-        if (src.topic_name != nullptr) {
-            this->topic_name = (char *) malloc(strlen(src.topic_name)+1);
-            strcpy(this->topic_name, src.topic_name);
-            this->kafka_conf = rd_kafka_conf_dup(src.kafka_conf);
-            enable_stream_consumer(); // is it possible to delay this?
-            enable_stream_producer();
-        } else {
-            this->topic_name = nullptr;
-            this->consumer = nullptr;
-            this->kafka_conf = nullptr;
+        if (src.kafka_conf != nullptr) { this->kafka_conf = rd_kafka_conf_dup(src.kafka_conf); }
+        for (auto const &x:kafkaConsumer) {
+            free(x.second); //deallocate consumer
+            kafkaConsumer.erase(x.first);
+        }
+        for (auto const &x:src.kafkaConsumer) {
+            enable_stream_consumer(x.first.c_str()); // is it possible to delay this?
+            enable_stream_producer(x.first.c_str());
         }
         if (this->myCache !=nullptr) {delete(this->myCache);}
         if (src.myCache != NULL) this->myCache = new KVCache<TupleRow, TupleRow>(src.myCache->get_max_cache_size());
@@ -136,6 +131,9 @@ CacheTable& CacheTable::operator = (const CacheTable& src) {
 }
 
 CacheTable::~CacheTable() {
+    for (auto const &x: kafkaConsumer) {
+       close_stream(x.first.c_str()); //send EOD to the consumer before deleting the writer
+    }
     delete (writer);
     if (myCache) {
         //stl tree calls deallocate for cache nodes on clear()->erase(), and later on destroy, which ends up calling the deleters
@@ -155,13 +153,9 @@ CacheTable::~CacheTable() {
         }
         table_metadata = nullptr;
     }
-    if (topic_name) {
-        free(topic_name);
-        topic_name = nullptr;
-    }
-    if (consumer) {
-        rd_kafka_destroy(consumer);
-        consumer = nullptr;
+    for (auto const &x: kafkaConsumer) {
+        rd_kafka_destroy(x.second);
+        kafkaConsumer.erase(x.first);
     }
 }
 
@@ -174,8 +168,8 @@ const void CacheTable::wait_elements() const {
     this->writer->wait_writes_completion();
 }
 
-void CacheTable::send_event(const TupleRow *keys, const TupleRow *values) {
-    this->writer->send_event(keys, values);
+void CacheTable::send_event(const char* topic_name, const TupleRow *keys, const TupleRow *values) {
+    this->writer->send_event(topic_name, keys, values);
     if (myCache) this->myCache->add(*keys, values); //Inserts if not present, otherwise replaces
 }
 
@@ -234,10 +228,7 @@ void CacheTable::add_to_cache(const TupleRow  *keys, const TupleRow *values) {
 Writer * CacheTable::get_writer() {
     return this->writer;
 }
-void  CacheTable::enable_stream(const char * topic_name, std::map<std::string, std::string> &config) {
-    int size = strlen(topic_name)+1;
-    this->topic_name = (char*) malloc(size);
-    memcpy(this->topic_name, topic_name, size);
+void  CacheTable::enable_stream(std::map<std::string, std::string> &config) {
     this->stream_config = config; //Copy values
 
     /* Kafka conf... */
@@ -285,57 +276,68 @@ void  CacheTable::enable_stream(const char * topic_name, std::map<std::string, s
     this->kafka_conf = conf;
 }
 
-void  CacheTable::enable_stream_producer(void) {
-    this->get_writer()->enable_stream(this->topic_name, this->stream_config);
+void  CacheTable::enable_stream_producer(const char* topic_name) {
+    this->get_writer()->enable_stream(topic_name, this->stream_config);
 }
 
-void  CacheTable::enable_stream_consumer(void) {
+void  CacheTable::enable_stream_consumer(const char* topic_name) {
     char errstr[512];
+    std::string topic = std::string(topic_name);
 
-    /* Create Kafka consumer handle */
-    rd_kafka_t *rk;
-    if (!(rk = rd_kafka_new(RD_KAFKA_CONSUMER, this->kafka_conf,
-                    errstr, sizeof(errstr)))) {
-        fprintf(stderr, "%% Failed to create new consumer: %s\n", errstr);
-        exit(1);
-    }
-
-    rd_kafka_resp_err_t err;
-    rd_kafka_topic_partition_list_t* topics = rd_kafka_topic_partition_list_new(1);
-    rd_kafka_topic_partition_list_add(topics, this->topic_name, RD_KAFKA_PARTITION_UA);
-
-    if ((err = rd_kafka_subscribe(rk, topics))) {
-        fprintf(stderr, "%% Failed to start consuming topics: %s\n", rd_kafka_err2str(err));
-        exit(1);
-    }
-
-    rd_kafka_topic_partition_list_t* current_topics;
-    bool finish = false;
-    while(!finish) {
-        err = rd_kafka_subscription(rk, &current_topics);
-        if (err) {
-            fprintf(stderr, "%% Failed to get topics: %s\n", rd_kafka_err2str(err));
+    if (kafkaConsumer.find(topic) != kafkaConsumer.end()) { // Topic already Exists
+        throw ModuleException(" Ooops. Stream "+topic+" already initialized.");
+    } else {
+        /* Create Kafka consumer handle (1 consumer per topic) */
+        rd_kafka_t *rk;
+        if (!(rk = rd_kafka_new(RD_KAFKA_CONSUMER, this->kafka_conf, errstr, sizeof(errstr)))) {
+            fprintf(stderr, "%% Failed to create new consumer: %s\n", errstr);
             exit(1);
         }
-        if (current_topics->cnt == 0) {
-            fprintf(stderr, "%% Failed to get topics: NO ELEMENTS\n");
-        } else{
-            //fprintf(stderr, "%% I got you \n");
-            //fprintf(stderr, "%% I got you %s\n", current_topics->elems[0].topic);
-            finish = true;
+
+
+        rd_kafka_resp_err_t err;
+        rd_kafka_topic_partition_list_t* topics = rd_kafka_topic_partition_list_new(1);
+        rd_kafka_topic_partition_list_add(topics, topic_name, RD_KAFKA_PARTITION_UA);
+
+        if ((err = rd_kafka_subscribe(rk, topics))) {
+            fprintf(stderr, "%% Failed to start consuming topics: %s\n", rd_kafka_err2str(err));
+            exit(1);
         }
 
-        rd_kafka_topic_partition_list_destroy(current_topics);
+        rd_kafka_topic_partition_list_t* current_topics;
+        bool finish = false;
+        while(!finish) {
+            err = rd_kafka_subscription(rk, &current_topics);
+            if (err) {
+                fprintf(stderr, "%% Failed to get topics: %s\n", rd_kafka_err2str(err));
+                exit(1);
+            }
+            if (current_topics->cnt == 0) {
+                fprintf(stderr, "%% Failed to get topics: NO ELEMENTS\n");
+            } else{
+                //fprintf(stderr, "%% I got you \n");
+                // fprintf(stderr, "%% I got you %s\n", current_topics->elems[0].topic);
+                finish = true;
+            }
+
+            rd_kafka_topic_partition_list_destroy(current_topics);
+        }
+        kafkaConsumer[topic] = rk;
     }
-    this->consumer = rk;
 
 }
 
-rd_kafka_message_t * CacheTable::kafka_poll(void) {
+rd_kafka_message_t * CacheTable::kafka_poll(const char* topic_name) {
     bool finish = false;
+    rd_kafka_t *consumer;
+    try {
+        consumer=kafkaConsumer.at(std::string(topic_name));
+    } catch (std::out_of_range &e) {
+        throw ModuleException(" Ooops. Stream "+std::string(topic_name)+" not initialized.");
+    }
     rd_kafka_message_t *rkmessage = NULL;
     while(! finish) {
-        rkmessage = rd_kafka_consumer_poll(this->consumer, 500);
+        rkmessage = rd_kafka_consumer_poll(consumer, 500);
         if (rkmessage) {
             if (rkmessage->err) {
                     fprintf(stderr, "poll topic[%s]: error %s\n", topic_name, rd_kafka_err2str(rkmessage->err));
@@ -350,8 +352,8 @@ rd_kafka_message_t * CacheTable::kafka_poll(void) {
 }
 
 // If we are receiving a numpy, we already have the memory allocated. We just need to copy on that memory the message received
-void CacheTable::poll(char *data, const uint64_t size) {
-    rd_kafka_message_t *rkmessage = this->kafka_poll();
+void CacheTable::poll(const char *topic_name, char *data, const uint64_t size) {
+    rd_kafka_message_t *rkmessage = this->kafka_poll(topic_name);
     if (size != rkmessage->len) {
         char b[256];
         sprintf(b, "Expected numpy of size %ld, received a buffer of size %ld",size,rkmessage->len);
@@ -363,10 +365,10 @@ void CacheTable::poll(char *data, const uint64_t size) {
 }
 
 // If we are receiving a dictionary, we need to build the data structure to return and we need to add the key and the value to the cache
-std::vector<const TupleRow *>  CacheTable::poll(void) {
+std::vector<const TupleRow *>  CacheTable::poll(const char *topic_name) {
     std::vector<const TupleRow *> result(1);
 
-    rd_kafka_message_t *rkmessage = this->kafka_poll();
+    rd_kafka_message_t *rkmessage = this->kafka_poll(topic_name);
     DBG("CacheTable::poll: after kafka_poll" << topic_name);
 
     // The received message contains a sequence containing:
@@ -432,7 +434,7 @@ std::vector<const TupleRow *>  CacheTable::poll(void) {
  * Sends an EOD to to the topic (basically a couple of TupleRows with all its
  * elements to NULL)
  */
-void  CacheTable::close_stream(void) {
+void  CacheTable::close_stream(const char *topic_name) {
     // Create empty TupleRows for Keys and Values
     uint64_t keyslength = keys_factory->get_nbytes();
     char * keys_b = (char*)malloc(keyslength);
@@ -449,7 +451,7 @@ void  CacheTable::close_stream(void) {
     }
 
     // Send EOD
-    this->writer->send_event(k, v);
+    this->writer->send_event(topic_name, k, v);
 }
 
 

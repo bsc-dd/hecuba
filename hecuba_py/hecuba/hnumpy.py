@@ -959,7 +959,7 @@ class StorageNumpy(IStorage, np.ndarray):
     def _initialize_stream_capability(self, topic_name=None):
         super()._initialize_stream_capability(topic_name)
         if topic_name is not None:
-            self._hcache.enable_stream(self._topic_name, {'kafka_names': str.join(",",config.kafka_names)})
+            self._hcache.enable_stream({'kafka_names': str.join(",",config.kafka_names)})
 
     def send(self, key=None, val=None):
         """
@@ -974,12 +974,12 @@ class StorageNumpy(IStorage, np.ndarray):
             self._initialize_stream_capability(self.storage_id)
 
         if not self._stream_producer_enabled:
-            self._hcache.enable_stream_producer()
+            self._hcache.enable_stream_producer(self._topic_name)
             self._stream_producer_enabled = True
 
         if key is None and val is None:
             # Send the WHOLE numpy
-            self._hcache.send_event(self._build_args.metas, [self._get_base_array()], None)
+            self._hcache.send_event(self._topic_name, self._build_args.metas, [self._get_base_array()], None)
 
         else:
             raise NotImplementedError("SEND partial numpy not supported")
@@ -994,7 +994,7 @@ class StorageNumpy(IStorage, np.ndarray):
             self._initialize_stream_capability(self.storage_id)
 
         if not self._stream_consumer_enabled:
-            self._hcache.enable_stream_consumer()
+            self._hcache.enable_stream_consumer(self._topic_name)
             self._stream_consumer_enabled=True
 
         self._hcache.poll(self._build_args.metas, [self._get_base_array()])

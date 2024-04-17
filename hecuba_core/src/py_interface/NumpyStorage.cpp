@@ -138,7 +138,7 @@ PyObject *NumpyStorage::get_row_elements(const uint64_t *storage_id, ArrayMetada
     return Py_BuildValue("i", row_elements);
 }
 
-void NumpyStorage::send_event(ArrayMetadata &np_metas, PyArrayObject *numpy, PyObject* coord) {
+void NumpyStorage::send_event(const char* topic_name, ArrayMetadata &np_metas, PyArrayObject *numpy, PyObject* coord) {
     void *data = PyArray_DATA(numpy);
 	if (coord != Py_None) {
         throw ModuleException("Sending specific numpy blocks is NOT IMPLEMENTED");
@@ -149,12 +149,12 @@ void NumpyStorage::send_event(ArrayMetadata &np_metas, PyArrayObject *numpy, PyO
     DBG("SEND_EVENT "<<i<<" elements");
     }
     DBG("SEND_EVENT "<<np_metas.get_array_size()<<"bytes");
-    myCache->get_writer()->send_event((char *) data, np_metas.get_array_size());
+    myCache->get_writer()->send_event(topic_name, (char *) data, np_metas.get_array_size());
 }
 
-void NumpyStorage::poll(ArrayMetadata &np_metas, PyArrayObject *numpy ) {
+void NumpyStorage::poll(const char* topic_name, ArrayMetadata &np_metas, PyArrayObject *numpy ) {
     void *data = PyArray_DATA(numpy);
-    this->getReadCache()->poll((char*)data, np_metas.get_array_size());
+    this->getReadCache()->poll(topic_name, (char*)data, np_metas.get_array_size());
 }
 
 /***

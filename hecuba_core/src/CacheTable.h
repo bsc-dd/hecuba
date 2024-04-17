@@ -39,8 +39,8 @@ public:
     std::vector<const TupleRow *> retrieve_from_cassandra(const TupleRow *keys, const char* attr_name=NULL );
 
     void put_crow(const TupleRow *keys, const TupleRow *values);
-    void send_event(const TupleRow *keys, const TupleRow *values);
-    void close_stream();
+    void send_event(const char* topic_name, const TupleRow *keys, const TupleRow *values);
+    void close_stream(const char *topic_name);
 
     void delete_crow(const TupleRow *keys);
 
@@ -58,11 +58,11 @@ public:
     Writer * get_writer();
 
     /*** Stream operations ***/
-    void  enable_stream(const char * topic_name, std::map<std::string, std::string> &config);
-    void  enable_stream_producer(void);
-    void  enable_stream_consumer(void);
-    void poll(char *data, const uint64_t size);
-    std::vector<const TupleRow *>  poll(void);
+    void  enable_stream(std::map<std::string, std::string> &config);
+    void  enable_stream_producer(const char* topic_name);
+    void  enable_stream_consumer(const char* topic_name);
+    void poll(const char * topic_name, char *data, const uint64_t size);
+    std::vector<const TupleRow *>  poll(const char* topic_name);
 
     /*** Auxiliary methods ***/
     const TupleRow* get_new_keys_tuplerow(void* keys) const;
@@ -72,7 +72,7 @@ public:
         return should_table_meta_be_freed;
     }
 private:
-    rd_kafka_message_t * kafka_poll(void) ;
+    rd_kafka_message_t * kafka_poll(const char* topic_name) ;
 
 
     /* CASSANDRA INFORMATION FOR RETRIEVING DATA */
@@ -93,10 +93,9 @@ private:
 
     Writer *writer = nullptr;
     /*** Stream information ***/
-    char * topic_name = nullptr;
     std::map<std::string, std::string> stream_config;
     rd_kafka_conf_t *kafka_conf = nullptr;
-    rd_kafka_t *consumer = nullptr;
+    std::map<std::string, rd_kafka_t*> kafkaConsumer; // [topic_name, consumer]
     bool should_table_meta_be_freed = false; //For cases where table_metadata is a static variable instead of a 'new' (numpys)
 };
 
