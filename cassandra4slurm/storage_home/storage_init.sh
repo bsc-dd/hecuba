@@ -88,6 +88,14 @@ MAKE_SNAPSHOT=0
 DBG " STORAGE PROPS CONTENT:"
 DBG $(cat $STORAGE_PROPS)
 source $STORAGE_PROPS
+# If EXECUTION_NAME variable is set, ensure it will be exported
+if [ ! -z "$EXECUTION_NAME" ]; then
+    EXPORTED_EXECUTION_NAME=$(bash -c '{echo $EXECUTION_NAME}')   # TODO: Can we do this better?
+    if [ "$EXECUTION_NAME" != "$EXPORTED_EXECUTION_NAME" ]; then
+        echo "[WARN] EXECUTION_NAME [$EXECUTION_NAME] does NOT use 'export' therefore would not be properly propagated."
+    fi
+fi
+
 
 export C4S_HOME=$HOME/.c4s
 export HECUBA_ENVIRON=$C4S_HOME/conf/hecuba_environment
