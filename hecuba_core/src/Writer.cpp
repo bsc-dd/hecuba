@@ -55,8 +55,6 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
     this->timestamp_gen = new TimestampGenerator();
     this->lazy_write_enabled = false; // Disabled by default, will be enabled on ArrayDataStore
     this->dirty_blocks = new tbb::concurrent_hash_map <const TupleRow *, const TupleRow *, Writer::HashCompare >();
-    this->topic_name = nullptr;
-    this->topic = nullptr;
     this->producer = nullptr;
     // TODO: Avoid making a copy of the configuration file and share it between all instances (myconfig = &config) currently this is required for the Python interface that removes the variable. It is related to the multiple parsing of configuration variables.
     static std::map<std::string, std::string> my_local_config = config;
@@ -93,17 +91,15 @@ Writer& Writer::operator = (const Writer& src) {
     this->timestamp_gen = new TimestampGenerator();; // TimestampGenerator has a class attribute of type mutex which is not copy-assignable
     this->lazy_write_enabled = src.lazy_write_enabled;
 
+    deleteKafkaProducer();
     //kafka is plain c code, it does not implement copy assignment semantic
-    if (this->topic_name != nullptr){ free(this->topic_name); }
-    if (src.topic_name != nullptr) {
-        this->topic_name = (char *) malloc (strlen(src.topic_name)+1);
-        strcpy(this->topic_name, src.topic_name);
-        this->producer = src.producer; //TODO this should be shared pointer or create a new producer
-        this->topic = src.topic; // TODO this should be shared pointer or create a new topic
+    if (src.producer != nullptr) {
+        producer = src.producer; //TODO this should be shared pointer or create a new producer
+        for (auto it = src.kafkaTopics.begin(); it != src.kafkaTopics.end(); ++it) {
+            kafkaTopics[it->first] = it->second;//TODO this should be shared pointer or create a new producer
+        }
     } else {
-        this->topic_name = nullptr;
-        this->topic = nullptr;
-        this->producer = nullptr;
+        producer = nullptr;
     }
     return *this;
 }
@@ -121,18 +117,7 @@ Writer::~Writer() {
         it.second = nullptr;
     }
 
-    if (this->topic_name) {
-        free(this->topic_name);
-        this->topic_name = NULL;
-        rd_kafka_topic_destroy(this->topic);
-        this->topic = NULL;
-        rd_kafka_resp_err_t err;
-        do {
-            err = rd_kafka_flush(this->producer, 500);
-        } while(err == RD_KAFKA_RESP_ERR__TIMED_OUT);
-        rd_kafka_destroy(this->producer);
-        this->producer = NULL;
-    }
+    deleteKafkaProducer();
     delete (this->k_factory);
     delete (this->v_factory);
     delete (this->timestamp_gen);
@@ -141,6 +126,22 @@ Writer::~Writer() {
     // session NOT FREED (Shared?)
 }
 
+void Writer::deleteKafkaProducer(void) {
+    if (producer) {
+        //Destroy ALL topics
+        for(auto i = kafkaTopics.begin(); i != kafkaTopics.end(); ++i) {
+            rd_kafka_topic_destroy(i->second);
+            rd_kafka_resp_err_t err;
+            do {
+                err = rd_kafka_flush(producer, 500);
+            } while(err == RD_KAFKA_RESP_ERR__TIMED_OUT);
+            DBG("Writer::deleteKafkaProducer. Deleted KAKFA topic ["<<i->first<<"]");
+        }
+        rd_kafka_destroy(producer);
+        DBG("Writer::deleteKafkaProducer. Deleted KAKFA producer ["<<producer<<"]");
+        producer = NULL;
+    }
+}
 
 rd_kafka_conf_t * Writer::create_stream_conf(std::map<std::string,std::string> &config){
     char errstr[512];
@@ -183,44 +184,48 @@ rd_kafka_conf_t * Writer::create_stream_conf(std::map<std::string,std::string> &
 
 
 void Writer::enable_stream(const char* topic_name, std::map<std::string, std::string> &config) {
-    if (this->topic_name != nullptr) {
-        throw ModuleException(" Ooops. Stream already initialized.Trying to initialize "+std::string(this->topic_name)+" with "+std::string(topic_name));
-    }
-
     DBG("Writer::enable_stream with topic ["<<topic_name<<"]");
 
-    rd_kafka_conf_t * conf = create_stream_conf(config);
 
-
-    this->topic_name = (char *) malloc(strlen(topic_name) + 1);
-    strcpy(this->topic_name, topic_name);
-
-    char errstr[512];
-
-    /* Create Kafka producer handle */
-    rd_kafka_t *rk;
-    if (!(rk = rd_kafka_new(RD_KAFKA_PRODUCER, conf, errstr, sizeof(errstr)))) {
-          fprintf(stderr, "%% Failed to create new producer: %s\n", errstr);
-            exit(1);
+    if (producer == nullptr) { // First time, initialize producer
+        char errstr[512];
+        /* Create Kafka producer handle */
+        rd_kafka_t *rk;
+        rd_kafka_conf_t * conf = create_stream_conf(config);
+        if (!(rk = rd_kafka_new(RD_KAFKA_PRODUCER, conf, errstr, sizeof(errstr)))) {
+            fprintf(stderr, "%% Failed to create new producer: %s\n", errstr);
+                exit(1);
+        }
+        DBG("Writer::enable_stream. Created new KAKFA producer ["<<rk<<"]");
+        producer = rk;
     }
 
-    // Create topic
-    rd_kafka_topic_t *rkt = rd_kafka_topic_new(rk, topic_name, NULL);
 
-    this->producer = rk;
-    this->topic = rkt;
+    std::string topic = std::string(topic_name);
+    if (kafkaTopics.find(topic) != kafkaTopics.end()) { // Topic already Exists
+        throw ModuleException(" Ooops. Stream "+topic+" already initialized.");
+    } else {
+        // Create topic
+        rd_kafka_topic_t *rkt = rd_kafka_topic_new(producer, topic_name, NULL);
+        DBG("Writer::enable_stream. Created new KAKFA topic ["<<topic<<"]");
+
+        kafkaTopics[topic] = rkt;
+    }
 }
 
-void Writer::send_event(char* event, const uint64_t size) {
-    if (this->topic_name == nullptr) {
-        throw ModuleException(" Ooops. Stream is not initialized");
+void Writer::send_event(const char* topic_name, char* event, const uint64_t size) {
+    if (producer == nullptr) {
+        throw ModuleException(" Writer::send_event: Ooops. Stream is not initialized");
+    }
+    if (topic_name == nullptr) {
+        throw ModuleException(" Writer::send_event: Ooops. Invalid topic_name [NULL]");
     }
 	rd_kafka_resp_err_t err;
 	err = rd_kafka_producev(
                     /* Producer handle */
-                    this->producer,
+                    producer,
                     /* Topic name */
-                    RD_KAFKA_V_TOPIC(this->topic_name),
+                    RD_KAFKA_V_TOPIC(topic_name),
                     /* Make a copy of the payload. */
                     RD_KAFKA_V_MSGFLAGS(RD_KAFKA_MSG_F_COPY),
                     /* Message value and length */
@@ -234,13 +239,13 @@ void Writer::send_event(char* event, const uint64_t size) {
 	if (err) {
         char b[256];
         sprintf(b, "%% Failed to produce to topic %s: %s\n",
-                this->topic_name, rd_kafka_err2str(rd_kafka_errno2err(errno)));
+                topic_name, rd_kafka_err2str(rd_kafka_errno2err(errno)));
         throw ModuleException(b);
 	}
-
+    DBG("Writer::send_event. "<<size<<" bytes sent to "<<std::string(topic_name)<<"]");
 }
 
-void Writer::send_event(const TupleRow* key, const TupleRow *value) {
+void Writer::send_event(const char* topic_name, const TupleRow* key, const TupleRow *value) {
     std::vector <uint32_t> key_sizes = this->k_factory->get_content_sizes(key);
     std::vector <uint32_t> value_sizes = this->v_factory->get_content_sizes(value);
 
@@ -263,7 +268,7 @@ void Writer::send_event(const TupleRow* key, const TupleRow *value) {
     this->k_factory->encode(key, rowpayload);
     this->v_factory->encode(value, rowpayload+key_size+keynullvalues_size);
 
-    this->send_event(rowpayload, row_size);
+    send_event(topic_name, rowpayload, row_size);
 
     // REMOVE ME //fprintf(stderr, "Send event to topic %s\n", this->topic_name);
     // REMOVE ME bool is_all_null=true;
@@ -278,10 +283,10 @@ void Writer::send_event(const TupleRow* key, const TupleRow *value) {
 
 }
 /* send_event: Send and Store a WHOLE ROW in CASSANDRA */
-void Writer::send_event(void* key, void* value) {
+void Writer::send_event(const char* topic_name, void* key, void* value) {
     const TupleRow *k = k_factory->make_tuple(key);
     const TupleRow *v = v_factory->make_tuple(value);
-    this->send_event(k, v);
+    send_event(topic_name, k, v);
     delete(k);
     delete(v);
 }

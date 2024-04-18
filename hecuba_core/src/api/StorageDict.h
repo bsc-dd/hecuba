@@ -213,7 +213,7 @@ class StorageDict:virtual public IStorage {
             const TupleRow* trow_values = this->getDataAccess()->get_new_values_tuplerow(cc_val);
 #if 1
             if (this->isStream()) {
-                this->getDataWriter()->send_event(trow_key, trow_values); // stream value (storage_id/value)
+                this->getDataWriter()->send_event(UUID::UUID2str(getStorageID()), trow_key, trow_values); // stream value (storage_id/value)
                 send_values(value); // If value is an IStorage type stream its contents also
             }
 #endif

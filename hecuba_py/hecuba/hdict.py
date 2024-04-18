@@ -238,7 +238,7 @@ class StorageDict(IStorage, dict):
     def _initialize_stream_capability(self, topic_name=None):
         super()._initialize_stream_capability(topic_name)
         if topic_name is not None:
-            self._hcache.enable_stream(self._topic_name, {'kafka_names': str.join(",",config.kafka_names)})
+            self._hcache.enable_stream({'kafka_names': str.join(",",config.kafka_names)})
 
     def __init__(self, name=None, primary_keys=None, columns=None, indexed_on=None, storage_id=None, fromGetByAlias=False, **kwargs):
         """
@@ -786,7 +786,11 @@ class StorageDict(IStorage, dict):
             send(kN..)
             close_stream()
         '''
-        self._hcache.close_stream()
+        if getattr(self,"_topic_name",None) is not None:
+            self._hcache.close_stream(self._topic_name)
+        else:
+            raise RuntimeError("current dictionary {} is not a stream".format(self._name))
+
 
     def send(self, key=None, val=None):
         if key is None and val is None:
@@ -805,7 +809,7 @@ class StorageDict(IStorage, dict):
             self._initialize_stream_capability(self.storage_id)
 
         if not self._stream_producer_enabled:
-            self._hcache.enable_stream_producer()
+            self._hcache.enable_stream_producer(self._topic_name)
             self._stream_producer_enabled=True
 
         tosend=[]
@@ -821,7 +825,7 @@ class StorageDict(IStorage, dict):
             else:
                 tosend.append(element)
 
-        self._hcache.send_event(key, tosend) # Send currrent object list with storageids and basic_types
+        self._hcache.send_event(self._topic_name, key, tosend) # Send currrent object list with storageids and basic_types
 
     def __setitem__(self, key, val):
         """
@@ -858,7 +862,7 @@ class StorageDict(IStorage, dict):
         if getattr(self,"_topic_name",None) is None:
             self._initialize_stream_capability(self.storage_id)
         if not self._stream_consumer_enabled:
-            self._hcache.enable_stream_consumer()
+            self._hcache.enable_stream_consumer(self._topic_name)
             self._stream_consumer_enabled=True
 
         row = self._hcache.poll() # polls any value and caches it

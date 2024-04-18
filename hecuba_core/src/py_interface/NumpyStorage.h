@@ -39,8 +39,8 @@ public:
     void load_numpy_arrow(const uint64_t *storage_id, ArrayMetadata &np_metas, PyArrayObject *save, PyObject *cols);
     std::vector<uint64_t> get_cols(PyObject *coord) const;
 
-    void send_event(ArrayMetadata &np_metas, PyArrayObject *numpy, PyObject* coord);
-    void poll(ArrayMetadata &np_metas, PyArrayObject *numpy );
+    void send_event(const char* topic_name, ArrayMetadata &np_metas, PyArrayObject *numpy, PyObject* coord);
+    void poll(const char* topic_name, ArrayMetadata &np_metas, PyArrayObject *numpy );
 
 private:
 
