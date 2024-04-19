@@ -212,7 +212,7 @@ class StorageNumpy:virtual public IStorage {
 
         void send(void) {
             DBG("DEBUG: IStorage::send: sending numpy. Size "<< numpy_metas.get_array_size());
-            getDataWriter()->send_event(UUID::UUID2str(getStorageID()), (char *) data, numpy_metas.get_array_size());
+            getDataWriter()->send_event(UUID::UUID2str(getStorageID()).c_str(), (char *) data, numpy_metas.get_array_size());
         }
 
         void writePythonSpec() {} // StorageNumpy do not have python specification
