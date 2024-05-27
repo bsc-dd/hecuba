@@ -8,6 +8,7 @@
 #include <vector>
 #include <cassandra.h>
 #include <cmath>
+#include <cstdint>
 
 
 #include "TableMetadata.h"

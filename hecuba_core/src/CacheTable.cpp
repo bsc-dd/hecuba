@@ -131,9 +131,18 @@ CacheTable& CacheTable::operator = (const CacheTable& src) {
 }
 
 CacheTable::~CacheTable() {
+    if (this->writer->is_stream_out_enable()) { 
+       for (auto const &x: this->writer->getKafkaTopics()){
+           close_stream (x.first.c_str());
+       } 
+    }
+    //yolandab: los topics son los de writer, si no se ha inicializado para escribir no hay que hacer close_stream
+#if 0
     for (auto const &x: kafkaConsumer) {
+	std::cout<<"~CacheTable: close_stream: " << x.first.c_str()<<std::endl;
        close_stream(x.first.c_str()); //send EOD to the consumer before deleting the writer
     }
+#endif
     delete (writer);
     if (myCache) {
         //stl tree calls deallocate for cache nodes on clear()->erase(), and later on destroy, which ends up calling the deleters
@@ -153,10 +162,10 @@ CacheTable::~CacheTable() {
         }
         table_metadata = nullptr;
     }
-    for (auto const &x: kafkaConsumer) {
+    for (auto const &x:kafkaConsumer) {
         rd_kafka_destroy(x.second);
-        kafkaConsumer.erase(x.first);
     }
+    kafkaConsumer.clear();
 }
 
 
@@ -436,22 +445,26 @@ std::vector<const TupleRow *>  CacheTable::poll(const char *topic_name) {
  */
 void  CacheTable::close_stream(const char *topic_name) {
     // Create empty TupleRows for Keys and Values
-    uint64_t keyslength = keys_factory->get_nbytes();
-    char * keys_b = (char*)malloc(keyslength);
-    TupleRow *k = keys_factory->make_tuple(keys_b);
-    for (uint32_t i = 0; i < k->n_elem(); i++) {
-        k->setNull(i);
-    }
+    if (this->writer != nullptr){
+    if (this->writer->is_stream_out_enable()){
+    	uint64_t keyslength = keys_factory->get_nbytes();
+    	char * keys_b = (char*)malloc(keyslength);
+    	TupleRow *k = keys_factory->make_tuple(keys_b);
+    	for (uint32_t i = 0; i < k->n_elem(); i++) {
+        	k->setNull(i);
+    	}
 
-    uint64_t valueslength = values_factory->get_nbytes();
-    char * values_b = (char*)malloc(valueslength);
-    TupleRow *v = values_factory->make_tuple(values_b);
-    for (uint32_t i = 0; i < v->n_elem(); i++) {
-        v->setNull(i);
-    }
+    	uint64_t valueslength = values_factory->get_nbytes();
+    	char * values_b = (char*)malloc(valueslength);
+    	TupleRow *v = values_factory->make_tuple(values_b);
+    	for (uint32_t i = 0; i < v->n_elem(); i++) {
+        	v->setNull(i);
+    	}
 
-    // Send EOD
-    this->writer->send_event(topic_name, k, v);
+    	// Send EOD
+    	this->writer->send_event(topic_name, k, v);
+    }
+    }
 }
 
 

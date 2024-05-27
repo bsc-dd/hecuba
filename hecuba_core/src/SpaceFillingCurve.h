@@ -8,6 +8,7 @@
 #include "limits.h"
 #include <map>
 #include <list>
+#include <cstdint>
 
 #define BLOCK_SIZE 4096
 #define CLUSTER_SIZE 2

@@ -8,6 +8,7 @@
 #include <map>
 #include <functional>
 #include <librdkafka/rdkafka.h>
+#include <cstdint>
 
 #include "tbb/concurrent_queue.h"
 #include "tbb/concurrent_hash_map.h"
@@ -58,6 +59,9 @@ public:
     void finish_async_call();
     CassSession* get_session() const;
     bool is_write_completed() const;
+    bool is_stream_out_enable();
+    std::map<std::string,rd_kafka_topic_t*>&getKafkaTopics();
+
 
 private:
     struct HashCompare {    // This is used for lazy_write, currently only

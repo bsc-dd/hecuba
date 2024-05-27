@@ -104,6 +104,10 @@ Writer& Writer::operator = (const Writer& src) {
     return *this;
 }
 
+std::map<std::string,rd_kafka_topic_t*>&Writer::getKafkaTopics() {
+	return kafkaTopics;
+}
+
 Writer::~Writer() {
     DBG( " WRITER: Destructor "<< ((topic_name!=nullptr)?topic_name:"") << " " << this << " dirty="<< dirty_blocks);
     wait_writes_completion(); // WARNING! It is necessary to wait for ALL CALLBACKS to finish, because the 'data' structure required by the callback will dissapear with this destructor
@@ -211,6 +215,10 @@ void Writer::enable_stream(const char* topic_name, std::map<std::string, std::st
 
         kafkaTopics[topic] = rkt;
     }
+}
+
+bool Writer::is_stream_out_enable(){
+	return (producer != nullptr);
 }
 
 void Writer::send_event(const char* topic_name, char* event, const uint64_t size) {

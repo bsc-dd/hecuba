@@ -5,6 +5,7 @@
 #include <map>
 #include <string>
 #include <unordered_set>
+#include <cstdint>
 #include <cxxabi.h>
 
 #include "configmap.h"

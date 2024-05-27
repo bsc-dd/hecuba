@@ -13,6 +13,7 @@ OBJS= \
 	simple_so \
 	very_simple_so \
 	nested_so \
+	dict_with_numpy\
 
 # DO NOT REMOVE THIS LINE (MARKS THE END OF THE 'OBJS' VARIABLE)
 
@@ -53,5 +54,8 @@ very_simple_so: very_simple_so.cpp
 
 nested_so: nested_so.cpp
 	g++ -o $@ $^   ${CPPFLAGS}
+dict_with_numpy: dict_with_numpy.cpp
+	g++ -o $@ $^   ${CPPFLAGS}
+
 clean:
 	rm ${OBJS}

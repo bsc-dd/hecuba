@@ -4,6 +4,7 @@
 #include <thread>
 #include <string>
 #include <map>
+#include <cstdint>
 #include "Writer.h"
 #include "TupleRow.h"
 #include "Semaphore.h"

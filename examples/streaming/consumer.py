@@ -26,8 +26,10 @@
 
 
 def consumer_with_new_class():
+    print("BEFORE INSTATIATION", flush=True)
     from DictWithStrings import DictWithStrings
     o = DictWithStrings("streaming_dict_with_str")
+    print("AFTER INSTATIATION", flush=True)
     k,v = o.poll()
     print("AFTER POLL", flush=True)
     print("key ", k, flush=True)
@@ -95,6 +97,7 @@ def consumer_subclass_storageNumpy():
 def main():
     print("CONSUMER STARTING", flush=True)
     consumer_with_new_classandNumpy()
+    print("CONSUMER 2 STARTING", flush=True)
     consumer_with_new_class()
     #consumer_subclass_storageNumpy()
     print("CONSUMER DONE", flush=True)

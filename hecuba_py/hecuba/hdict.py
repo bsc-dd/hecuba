@@ -786,6 +786,7 @@ class StorageDict(IStorage, dict):
             send(kN..)
             close_stream()
         '''
+        print("close_stream", flush=True)
         if getattr(self,"_topic_name",None) is not None:
             self._hcache.close_stream(self._topic_name)
         else:
@@ -865,7 +866,8 @@ class StorageDict(IStorage, dict):
             self._hcache.enable_stream_consumer(self._topic_name)
             self._stream_consumer_enabled=True
 
-        row = self._hcache.poll() # polls any value and caches it
+        #yolandab: poll requires topic_name to deal with the numpy case where one writer supports several objects  
+        row = self._hcache.poll(self._topic_name) # polls any value and caches it
 
         v=row[-(len(row)-self._k_size):]
         k=row[0:self._k_size]

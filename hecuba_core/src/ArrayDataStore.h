@@ -6,6 +6,7 @@
 #include "CacheTable.h"
 #include "StorageInterface.h"
 #include <set>
+#include <cstdint>
 
 #include <string.h>
 

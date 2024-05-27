@@ -997,7 +997,8 @@ class StorageNumpy(IStorage, np.ndarray):
             self._hcache.enable_stream_consumer(self._topic_name)
             self._stream_consumer_enabled=True
 
-        self._hcache.poll(self._build_args.metas, [self._get_base_array()])
+        #yolandab add topic name to deal with numpys with just one writer
+        self._hcache.poll(self._topic_name,self._build_args.metas, [self._get_base_array()])
         self._numpy_full_loaded = True
         return self
 
