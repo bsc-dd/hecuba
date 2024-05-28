@@ -12,6 +12,7 @@ class NamedIterator:
         return self
 
     def __next__(self):
+        print("NamedIterator", flush=True) 
         n = self.hiterator.get_next()
         if self.builder is not None:
             if self._storage_father._get_set_types() is not None:
@@ -37,13 +38,21 @@ class NamedItemsIterator:
         return self
 
     def __next__(self):
-        n = self.hiterator.get_next()
-        if self.key_builder is None:
-            k = n[0]
+        if self._storage_father._is_stream():
+            r=self._storage_father.poll()
+            # the sender sends EOD to end the communication
+            # EOD == all keys and values set to none if the key is None we assume that it is an EOD
+            if (r[0]== None):
+                 raise StopIteration
+            return r
         else:
-            k = self.key_builder(*n[0:self.k_size])
-        if self.column_builder is None:
-            v = n[self.k_size]
-        else:
-            v = self.column_builder(*n[self.k_size:])
-        return self.builder(k, v)
+            n = self.hiterator.get_next()
+            if self.key_builder is None:
+                k = n[0]
+            else:
+                k = self.key_builder(*n[0:self.k_size])
+            if self.column_builder is None:
+                v = n[self.k_size]
+            else:
+                v = self.column_builder(*n[self.k_size:])
+            return self.builder(k, v)
