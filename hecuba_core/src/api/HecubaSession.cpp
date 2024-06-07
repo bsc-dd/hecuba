@@ -852,7 +852,7 @@ bool HecubaSession::registerObject(const std::shared_ptr<ArrayDataStore> a, cons
 bool HecubaSession::unregisterObject(const std::shared_ptr<CacheTable> c) {
     {
         std::lock_guard<decltype(mxalive_numpy_objects)> lock{mxalive_numpy_objects};
-	auto it = std::find(alive_objects.begin(), alive_objects.end(), a);
+	auto it = std::find(alive_objects.begin(), alive_objects.end(), c);
 	if (it == alive_objects.end()) return false;
         alive_objects.erase(it);
     }
