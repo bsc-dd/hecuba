@@ -67,6 +67,7 @@ class StorageDict:virtual public IStorage {
 
         ~StorageDict() {
             HecubaExtrae_event(HECUBAEV, HECUBA_SD|HECUBA_DESTROY);
+            getCurrentSession().unregisterObject(getDataAccess());
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 

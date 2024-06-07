@@ -19,6 +19,7 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
                        std::map<std::string, std::string> &config, bool free_table_meta) {
 
     //std::cout<< "CacheTable::CacheTable "<< table_meta->get_table_name()<<"."<<table_meta->get_keyspace()<<" free:"<<free_table_meta<<std::endl;
+    DBG( "CacheTable::CacheTable "<< table_meta->get_table_name()<<"."<<table_meta->get_keyspace()<<" free:"<<free_table_meta << " @" << std::hex<< this) ;
     if (!session)
         throw ModuleException("CacheTable: Session is Null");
 
@@ -82,10 +83,12 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
 };
 
 CacheTable::CacheTable(const CacheTable& src) {
+	DBG(" Copy operator ");
     *this = src;
 }
 
 CacheTable& CacheTable::operator = (const CacheTable& src) {
+	DBG(" Assignment operator ");
     if (this != &src) {
         this->session = src.session;
         if (this->table_metadata!=nullptr) { delete (this->table_metadata); }
@@ -131,6 +134,7 @@ CacheTable& CacheTable::operator = (const CacheTable& src) {
 }
 
 CacheTable::~CacheTable() {
+    DBG( " Destructor  "<< table_metadata->get_table_name()<<"."<<table_metadata->get_keyspace()<<" free:"<< should_table_meta_be_freed<< " @" << std::hex<< this) ;
     if (this->writer->is_stream_out_enable()) { 
        for (auto const &x: this->writer->getKafkaTopics()){
            close_stream (x.first.c_str());
@@ -170,10 +174,12 @@ CacheTable::~CacheTable() {
 
 
 const void CacheTable::flush_elements() const {
+    DBG(" Flushing "<<get_metadata()->get_table_name());
     this->writer->flush_elements();
 }
 
 const void CacheTable::wait_elements() const {
+    DBG(" Waiting "<<get_metadata()->get_table_name());
     this->writer->wait_writes_completion();
 }
 
@@ -475,7 +481,7 @@ void  CacheTable::close_stream(const char *topic_name) {
 std::vector<const TupleRow *> CacheTable::retrieve_from_cassandra(const TupleRow *keys, const char* attr_name) {
 
     // To avoid consistency problems we flush the elements pending to be written
-    this->writer->flush_elements();
+    flush_elements();
 
     /* Not present on cache, a query is performed */
     CassStatement *statement = cass_prepared_bind(prepared_query);
@@ -567,7 +573,7 @@ void CacheTable::delete_crow(const TupleRow *keys) {
     CassStatement *statement = cass_prepared_bind(delete_query);
 
     this->keys_factory->bind(statement, keys, 0);
-    if (disable_timestamps) this->writer->flush_elements();
+    if (disable_timestamps) flush_elements();
     else cass_statement_set_timestamp(statement, timestamp_gen->next()); // Set delete time
 
     HecubaExtrae_event(HECUBACASS, HBCASS_DELETE);

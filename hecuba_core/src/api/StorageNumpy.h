@@ -95,6 +95,8 @@ class StorageNumpy:virtual public IStorage {
             this->data = malloc(numpy_size);
             memcpy(this->data, src.data, numpy_size);
 
+	    this->arrayStore = src.arrayStore;
+
             initObjSpec(src.numpy_metas.typekind);
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
@@ -107,6 +109,7 @@ class StorageNumpy:virtual public IStorage {
             uint64_t numpy_size = extractNumpyMetaData(metas, numpy_metas.typekind, this->numpy_metas);
             this->data = malloc(numpy_size);
             memcpy(this->data, w.data, numpy_size);
+	    this->arrayStore = w.arrayStore;
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
             return *this;
         }
@@ -118,6 +121,7 @@ class StorageNumpy:virtual public IStorage {
             if (this->data != nullptr) {
                 free (this->data);
             }
+            getCurrentSession().unregisterObject(arrayStore);
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 

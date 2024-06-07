@@ -26,7 +26,9 @@ public:
     CacheTable * getHecubaIstorageAccess() const;
 
     bool registerObject(const std::shared_ptr<CacheTable> c, const std::string& class_name) ;
+    bool unregisterObject(const std::shared_ptr<CacheTable> c) ;
     bool registerObject(const std::shared_ptr<ArrayDataStore> a, const std::string& class_name) ;
+    bool unregisterObject(const std::shared_ptr<ArrayDataStore> a) ;
     bool registerClassName(const std::string& class_name);
     int wait_writes_completion(void); /* Wait for the finalization of any pending write operation */
 private:

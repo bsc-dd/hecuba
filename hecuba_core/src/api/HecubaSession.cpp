@@ -22,6 +22,7 @@
 #include <netdb.h>
 
 #include <typeinfo>
+#include <algorithm>
 
 
 std::vector<std::string> HecubaSession::split (std::string s, std::string delimiter) const{
@@ -379,6 +380,7 @@ int HecubaSession::wait_writes_completion(void) {
 }
 
 HecubaSession::~HecubaSession() {
+    DBG(" Destructor ");
     HecubaExtrae_event(HECUBADBG, HECUBA_SESSIONDESTROY);
 
     wait_writes_completion();
@@ -846,6 +848,24 @@ bool HecubaSession::registerObject(const std::shared_ptr<ArrayDataStore> a, cons
     }
     deallocateObjects(); // check if it is possible to deallocate some objects
     return registerClassName(class_name);
+}
+bool HecubaSession::unregisterObject(const std::shared_ptr<CacheTable> c) {
+    {
+        std::lock_guard<decltype(mxalive_numpy_objects)> lock{mxalive_numpy_objects};
+	auto it = std::find(alive_objects.begin(), alive_objects.end(), a);
+	if (it == alive_objects.end()) return false;
+        alive_objects.erase(it);
+    }
+    return true;
+}
+bool HecubaSession::unregisterObject(const std::shared_ptr<ArrayDataStore> a) {
+    {
+        std::lock_guard<decltype(mxalive_numpy_objects)> lock{mxalive_numpy_objects};
+	auto it = std::find(alive_numpy_objects.begin(), alive_numpy_objects.end(), a);
+	if (it == alive_numpy_objects.end()) return false;
+        alive_numpy_objects.erase(it);
+    }
+    return true;
 }
 
 void HecubaSession::deallocateObjects() {

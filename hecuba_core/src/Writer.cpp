@@ -109,7 +109,7 @@ std::map<std::string,rd_kafka_topic_t*>&Writer::getKafkaTopics() {
 }
 
 Writer::~Writer() {
-    DBG( " WRITER: Destructor "<< ((topic_name!=nullptr)?topic_name:"") << " " << this << " dirty="<< dirty_blocks);
+    DBG( " WRITER: Destructor "<< table_metadata->get_keyspace()<<"."<<table_metadata->get_table_name()<<" @"<< this);
     wait_writes_completion(); // WARNING! It is necessary to wait for ALL CALLBACKS to finish, because the 'data' structure required by the callback will dissapear with this destructor
     //std::cout<< " WRITER: Finished thread "<< async_query_thread_id << std::endl;
     if (this->prepared_query != NULL) {

@@ -26,7 +26,7 @@ public:
     CacheTable& operator = (const CacheTable& src);
     ~CacheTable();
 
-    const TableMetadata *get_metadata() {
+    const TableMetadata *get_metadata() const{
         return table_metadata;
     }
 

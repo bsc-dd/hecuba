@@ -59,6 +59,8 @@
 
 #include "UUID.h"
 
+#include "debug.h"
+
 #define PMEM_OFFSET 8
 #define MAX_RETRIES 5
 
@@ -85,6 +87,7 @@ CacheTable* ArrayDataStore::getStaticHecubaIstorageCacheTable(const char *table_
 
 ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, std::shared_ptr<StorageInterface> storage,
                                std::map<std::string, std::string> &config) {
+    DBG("ArrayDataStore: Constructor "<<this);
     this->storage = storage;
     CassSession* session = storage->get_session();
     char * env_path = std::getenv("HECUBA_ARROW");
@@ -205,11 +208,13 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, std::sha
 }
 
 ArrayDataStore::ArrayDataStore(const ArrayDataStore& src) {
+    DBG("ArrayDataStore: Copy Constructor");
     *this = src;
 }
 
 ArrayDataStore& ArrayDataStore::operator= (const ArrayDataStore& src) {
 
+    DBG("ArrayDataStore: Assignment Operator");
     if (this != &src) {
         TN  = src.TN;
         if (cache != nullptr) {
@@ -237,6 +242,7 @@ ArrayDataStore& ArrayDataStore::operator= (const ArrayDataStore& src) {
 }
 
 ArrayDataStore::~ArrayDataStore() {
+	DBG(" Destructor "<<this);
     if (this->cache){
         if ( this->cache->can_table_meta_be_freed() ) { // TODO FIX THIS THING
             delete (this->cache);

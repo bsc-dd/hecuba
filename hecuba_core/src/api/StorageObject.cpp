@@ -63,6 +63,7 @@ StorageObject& StorageObject::operator = (const StorageObject& src) {
 StorageObject::~StorageObject() {
     HecubaExtrae_event(HECUBAEV, HECUBA_SO|HECUBA_DESTROY);
     DBG( " "<<this);
+    getCurrentSession().unregisterObject(getDataAccess());
     HecubaExtrae_event(HECUBAEV, HECUBA_END);
 }
 
