@@ -83,12 +83,8 @@ class AttributeClass {
 
         template <class V1alt, class...restalt> void manageRest(std::string attrBaseName, const V1alt& part, restalt... restValues){
             /* deal with the first parameter */
-            DBG("Clust Key " << part << " "<<std::string(typeid(decltype(part)).name())<<std::endl);
-            std::string valuetype=ObjSpec::c_to_cass(typeid(decltype(part)).name());
-            std::pair<std::string, std::string> valuedesc(attrBaseName+std::to_string(managedValues), valuetype);
-            valuesDesc.push_back(valuedesc);
-            createAttributeBuffer <V1alt>(valuetype,part);
-            managedValues++;
+            //DBG("Clust Key " << part << " "<<std::string(typeid(decltype(part)).name())<<std::endl);
+            manageAttr(attrBaseName, part);
             manageRest(attrBaseName, restValues...);
         }
 
