@@ -23,7 +23,7 @@ class ValueClass:public AttributeClass<V1,rest...>{
         ValueClass() =default; 
 
         // Constructor called when instantiating a new value with parameters: MyValueClass v(value);
-        ValueClass(const V1& part, rest... vals):AttributeClass<V1,rest...>("valuename",part,vals...) {
+        ValueClass(const V1& part, const rest&... vals):AttributeClass<V1,rest...>("valuename",part,vals...) {
             HecubaExtrae_event(HECUBAEV, HECUBA_SD_VALUE|HECUBA_INSTANTIATION);
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }

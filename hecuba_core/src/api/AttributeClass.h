@@ -38,7 +38,7 @@ class AttributeClass {
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
         };
         // Constructor called when instantiating a new value with parameters: MyValueClass v(value);
-        AttributeClass(std::string attrBaseName, const V1& part, rest... vals) {
+        AttributeClass(std::string attrBaseName, const V1& part, const rest&... vals) {
             HecubaExtrae_event(HECUBAEV, HECUBA_ATTRCLASS|HECUBA_INSTANTIATION);
             //DEBUG("Number of clustering keys: "<<sizeof...(values)<<std::endl);
             // first element is the partition key, the rest of elements are clustering keys
@@ -74,17 +74,16 @@ class AttributeClass {
         template <class V> void manageAttr(std::string attrBaseName, const V& value) {
             DBG("Clust Key " <<std::string(typeid(decltype(value)).name())<<std::endl);
             std::string valuetype=ObjSpec::c_to_cass(typeid(decltype(value)).name());
-
             std::pair<std::string, std::string> valuedesc(attrBaseName+std::to_string(managedValues), valuetype);
             valuesDesc.push_back(valuedesc);
             createAttributeBuffer <V>(valuetype,value);
             managedValues++;
         }
 
-        template <class V1alt, class...restalt> void manageRest(std::string attrBaseName, const V1alt& part, restalt... restValues){
+        template <class V1alt, class...restalt> void manageRest(std::string attrBaseName, const V1alt& part, const restalt&... restValues){
             /* deal with the first parameter */
             //DBG("Clust Key " << part << " "<<std::string(typeid(decltype(part)).name())<<std::endl);
-            manageAttr(attrBaseName, part);
+            manageAttr<V1alt>(attrBaseName, part);
             manageRest(attrBaseName, restValues...);
         }
 

@@ -14,6 +14,7 @@ OBJS= \
 	very_simple_so \
 	nested_so \
 	dict_with_numpy\
+	dict_with_multiple_values\
 
 # DO NOT REMOVE THIS LINE (MARKS THE END OF THE 'OBJS' VARIABLE)
 
@@ -55,6 +56,9 @@ very_simple_so: very_simple_so.cpp
 nested_so: nested_so.cpp
 	g++ -o $@ $^   ${CPPFLAGS}
 dict_with_numpy: dict_with_numpy.cpp
+	g++ -o $@ $^   ${CPPFLAGS}
+
+dict_with_multiple_values: dict_with_multiple_values.cpp
 	g++ -o $@ $^   ${CPPFLAGS}
 
 clean:
