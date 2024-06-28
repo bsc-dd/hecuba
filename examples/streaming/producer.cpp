@@ -215,6 +215,6 @@ int main() {
     dict_with_multiple_values();
     dict_with_multiple_values2();
     dict_with_string();
-    //subclass_storageNumpy(); //TODO: Generate automatically myNumpy.py
+    subclass_storageNumpy(); //TODO: Generate automatically myNumpy.py
     std::cout<< "++++ REMEMBER TO LAUNCH: python3 ./consumer.py to test the streaming results"<<std::endl;
 }

@@ -198,7 +198,7 @@ def main():
     consumer_with_multiple_values()
     consumer_with_multiple_values2()
     consumer_with_new_class()
-    #consumer_subclass_storageNumpy()
+    consumer_subclass_storageNumpy()
 
 
 
