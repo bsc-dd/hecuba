@@ -445,6 +445,11 @@ std::vector<const TupleRow *>  CacheTable::poll(const char *topic_name) {
     return result;
 }
 
+/* disable_send_EOD: Avoid sending an EOD at close_stream. Useful for StorageNumpys */
+void CacheTable::disable_send_EOD(void) {
+	send_EOD=false;
+}
+
 /*
  * Sends an EOD to to the topic (basically a couple of TupleRows with all its
  * elements to NULL)
@@ -453,6 +458,7 @@ void  CacheTable::close_stream(const char *topic_name) {
     // Create empty TupleRows for Keys and Values
     if (this->writer != nullptr){
     if (this->writer->is_stream_out_enable()){
+	    if (send_EOD) {
     	uint64_t keyslength = keys_factory->get_nbytes();
     	char * keys_b = (char*)malloc(keyslength);
     	TupleRow *k = keys_factory->make_tuple(keys_b);
@@ -469,6 +475,7 @@ void  CacheTable::close_stream(const char *topic_name) {
 
     	// Send EOD
     	this->writer->send_event(topic_name, k, v);
+	    }
     }
     }
 }

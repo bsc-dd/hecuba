@@ -71,10 +71,13 @@ public:
     bool can_table_meta_be_freed() const{
         return should_table_meta_be_freed;
     }
+
+    void disable_send_EOD(void);
+
 private:
     rd_kafka_message_t * kafka_poll(const char* topic_name) ;
 
-
+    bool send_EOD = true;
     /* CASSANDRA INFORMATION FOR RETRIEVING DATA */
     CassSession *session = nullptr;
     const CassPrepared *prepared_query = nullptr, *delete_query = nullptr;

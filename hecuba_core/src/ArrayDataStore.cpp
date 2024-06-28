@@ -200,6 +200,7 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, std::sha
                                                             keys_arrow_names, columns_arrow_names, session);
         this->read_cache = new CacheTable(table_meta_arrow, session, config);
     }
+    this->read_cache->disable_send_EOD();
 
     //Metadata needed only for *reading* numpy metas from hecuba.istorage
     this->metadata_cache = storage->get_static_metadata_cache(config);
