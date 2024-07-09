@@ -26,6 +26,8 @@ RECOVER_FILE=$C4S_HOME/cassandra-recover-file-"$UNIQ_ID".txt
 
 source $HECUBA_ROOT/bin/cassandra4slurm/hecuba_debug.sh
 
+HOSTNAMEIP=$(get_node_ip $(hostname) $CASS_IFACE)
+
 # Get & set the token list (safely)
 RECOVERY=$(cat $RECOVER_FILE)
 
@@ -61,10 +63,10 @@ then
             if [ "$(cat $CASSFILE | grep $old_node)" != "" ] && [ "$old_node" != "$(hostname)" ]; then
                 ((oldcounter++))
             else
-                DBG "Restoring snapshot in node #"$filecounter": "$(hostname)
+                DBG "Restoring snapshot in node #"$filecounter": "$(hostname)" :$HOSTNAMEIP"
                 ORIGINAL_CLUSTER_NAME=$(cat $SNAP_ORIG/$RECOVERY/$old_node/$RECOVERY-cluster.txt)
-                sed -i "s/.*cluster_name:.*/cluster_name: \'$ORIGINAL_CLUSTER_NAME\'/g" ${CASS_CONF}/cassandra-$(hostname).yaml
-                sed -i "s/.*initial_token:.*/initial_token: $(cat $tokens)/" ${CASS_CONF}/cassandra-$(hostname).yaml
+                sed -i "s/.*cluster_name:.*/cluster_name: \'$ORIGINAL_CLUSTER_NAME\'/g" ${CASS_CONF}/cassandra-${HOSTNAMEIP}.yaml
+                sed -i "s/.*initial_token:.*/initial_token: $(cat $tokens)/" ${CASS_CONF}/cassandra-${HOSTNAMEIP}.yaml
 
                 for folder in $(find $SNAP_ORIG/$RECOVERY/$old_node -maxdepth 1 -type d | sed -e "1d")
                 do
