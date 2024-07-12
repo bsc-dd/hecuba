@@ -223,6 +223,20 @@ class StorageNumpy(IStorage, np.ndarray):
             yield resultado
 
     @staticmethod
+    def get_singletable_name(name):
+        # get_singletable_name returns the table name for object name.
+        # It returns the same name unless HECUBA_SN_SINGLE_TABLE flag is set.
+        # Where the table name is changed to HECUBA_StorageNumpy.
+        if config.hecuba_sn_single_table == True:
+            # When using a single SN table the user table name is lost
+            # (already saved in super().make_persistent) and we change it
+            # to a ksp.HECUBA_StorageNumpy
+            (ksp,table) = extract_ks_tab(name)
+            table = "HECUBA_StorageNumpy"
+            name = ksp + "." + table
+        return name
+
+    @staticmethod
     def get_arrow_name(name):
         # get_arrow_name: Returns the keyspace and table name of the arrow table (READ) of table name
         (ksp,table) = extract_ks_tab(name)
@@ -658,8 +672,6 @@ class StorageNumpy(IStorage, np.ndarray):
     @staticmethod
     def _create_tables(name):
         (ksp, table) = extract_ks_tab(name)
-        if config.hecuba_sn_single_table == True:
-            table = "HECUBA_StorageNumpy"
         log.debug("Create table %s %s", ksp, table)
         query_keyspace = "CREATE KEYSPACE IF NOT EXISTS %s WITH replication = %s" % (ksp, config.replication)
         config.executelocked(query_keyspace)
@@ -707,8 +719,6 @@ class StorageNumpy(IStorage, np.ndarray):
     @staticmethod
     def _create_hcache(name):
         (ksp, table) = extract_ks_tab(name)
-        if config.hecuba_sn_single_table == True:
-            table = "HECUBA_StorageNumpy"
         log.debug("Create cache for %s %s", ksp, table)
         hcache_params = (ksp, table,
                          {'cache_size': config.max_cache_size,
@@ -745,6 +755,7 @@ class StorageNumpy(IStorage, np.ndarray):
     def reserve_numpy_array(storage_id, name, metas):
         '''Provides a numpy array with the number of elements obtained through storage_id'''
         log.debug(" Reserve memory for {} {} {}".format(name, storage_id, metas))
+        name = StorageNumpy.get_singletable_name(name)
         hcache = StorageNumpy._create_hcache(name)
         result = hcache.allocate_numpy(storage_id, metas)
         if len(result) == 1:
@@ -1015,6 +1026,7 @@ class StorageNumpy(IStorage, np.ndarray):
         if None in self or not self.ndim:
             raise NotImplemented("Empty array persistance")
 
+        name = StorageNumpy.get_singletable_name(name)
         if not getattr(self,'_built_remotely', None):
             if StorageNumpy._arrow_enabled(self._get_base_array()):
                 if formato == 0: # If arrow & ZORDER -> FortranOrder
