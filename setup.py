@@ -151,6 +151,7 @@ def setup_packages():
             copy_files_to_dir(glob.glob('build/include/*'), prefix + "/include")
             copy_files_to_dir(glob.glob('build/include/hecuba/*'), prefix + "/include/hecuba")
             copy_files_to_dir(glob.glob('build/lib/*'), prefix + "/lib")
+            copy_files_to_dir(glob.glob('build/bin/*'), prefix + "/bin")
             copy_files_to_dir(['VERSION.txt'], prefix) # put a copy of VERSION.txt in the installation directory for easy finding
             install_requirements(prefix)
         except (KeyError):

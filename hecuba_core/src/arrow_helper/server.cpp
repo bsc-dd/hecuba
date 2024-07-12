@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <string>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -83,6 +84,14 @@ int main(int argc, char *argv[])
         printf("%s ", argv[i]);
     }
     printf("\n");
+
+
+    char *env_path = std::getenv("HECUBA_ARROW_PATH");
+    std::string hecuba_arrow_path(".");
+    if (env_path != nullptr) {
+        hecuba_arrow_path = std::string(env_path);
+    }
+    printf("HECUBA_ARROW_PATH =  [%s]\n", hecuba_arrow_path.c_str());
     fflush(stdout);
 
     memset(&hints, 0, sizeof hints);
@@ -146,6 +155,11 @@ int main(int argc, char *argv[])
     }
     printf("server [%s]: waiting for connections...\n\n", hostname);
 
+    // ARROW HELPER
+    // 		waits a connection from a client,
+    // 		then receives a file path to read (strlen(s), s)
+    //	 		This PATH is relative to HECUBA_ARROW_PATH.
+    //	 	finally opens the local file and send it to client
     while(1) {  // main accept() loop
         sin_size = sizeof their_addr;
         new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
@@ -163,6 +177,7 @@ int main(int argc, char *argv[])
         if (!fork()) { // this is the child process
             close(sockfd); // child doesn't need the listener
             
+
             //numbytes = recv(new_fd, buf, MAXDATASIZE-1, 0);
             numbytes = recv(new_fd, &pathsize, sizeof(pathsize), 0); // --> ntohs
             //printf("FINAL pathsize: %i\n", pathsize);
@@ -172,19 +187,26 @@ int main(int argc, char *argv[])
             path[pathsize] = '\0';
             printf("Path received: %s\n", path);
 
+	    std::string path_to_read (hecuba_arrow_path);
+	    path_to_read += "/";
+	    path_to_read += path;
             //useful
-            int newfile = open(path, O_RDONLY);
+            int newfile = open(path_to_read.c_str(), O_RDONLY);
             if (newfile > 0) {
                 int filesize = lseek(newfile, 0, SEEK_END); //TODO DEBUG only
                 if (filesize < 0) {
-                    perror("server: unable to lseek to end of file");
+		    std::string tmp("server: unable to lseek to end of file ");
+		    tmp += path_to_read;
+                    perror(tmp.c_str());
                     exit(1);
                 }
                 printf("Bytes to send: %i. Sending file now...\n", filesize); //TODO DEBUG only
 
                 filesize = lseek(newfile, 0, SEEK_SET); //TODO DEBUG only
                 if (filesize < 0) {
-                    perror("server: unable to lseek to start of file");
+		    std::string tmp("server: unable to lseek to start of file ");
+		    tmp += path_to_read;
+                    perror(tmp.c_str());
                     exit(1);
                 }
 
@@ -198,11 +220,11 @@ int main(int argc, char *argv[])
                     bytesread = read(newfile, buf, MAXDATASIZE-1); 
                     total_bytes += bytesread; //TODO DEBUG only
                 }
-                printf("Sent File: %s\n", path);
+                printf("Sent File: %s\n", path_to_read);
                 printf("Total bytes sent to %s: %i. Total sends performed: %i\n\n", s, total_bytes, total_sends); //TODO DEBUG only
             } else {
                 char s[1000];
-                sprintf(s, "Opening file [%s] at host %s:",path, hostname);
+                sprintf(s, "Opening file [%s] at host %s:",path_to_read.c_str(), hostname);
                 perror(s);
             }
             free(path);
