@@ -222,14 +222,12 @@ function launch_arrow_helpers () {
         DBG " Creating directory to store Arrow helper logs at [$LOGDIR]:"
         mkdir -p $LOGDIR
     fi
-    ARROW_HELPER=$HECUBA_ROOT/src/hecuba_repo/build/arrow_helper
-    ARROW_HELPER=$HECUBA_ROOT/bin/arrow_helper
 
+    ARROW_HELPER=$MODULE_PATH/launch_arrow_helper.sh
 
     for i in $(cat $NODES); do
         DBG " Launching Arrow helper at [$i] Log at [$LOGDIR/arrow_helper.$i.out]:"
-        #ssh  $i $ARROW_HELPER >& $LOGDIR/arrow_helper.$i.out &
-        ssh  $i $ARROW_HELPER $LOGDIR/arrow_helper.$i.out &
+        ssh  $i HECUBA_ROOT=$HECUBA_ROOT $ARROW_HELPER $LOGDIR/arrow_helper.$i.out &
     done
     #echo "INFO: Launching Arrow helper at [$NODES]:"
 	#CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $NODES)

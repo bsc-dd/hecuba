@@ -65,8 +65,11 @@ cat $HECUBA_ENVIRON > $ENVFILE
 
 if [ "X$HECUBA_ARROW" != "X" ]; then
     #Set HECUBA_ARROW_PATH to the DATA_PATH/TIME
-    export HECUBA_ARROW_PATH=$ROOT_PATH/
-    echo "export HECUBA_ARROW_PATH=$ROOT_PATH/" >> $ENVFILE
+    if [ "X$HECUBA_ARROW_PATH" == "X" ]; then
+	export HECUBA_ARROW_PATH=$ROOT_PATH/
+	echo "[INFO] HECUBA_ARROW_PATH is NOT defined. Setting HECUBA_ARROW_PATH to [$HECUBA_ARROW_PATH]"
+	echo "export HECUBA_ARROW_PATH=$ROOT_PATH/" >> $ENVFILE
+    fi
 fi
 
 if [ "X$C4S_CASSANDRA_CORES" == "X" ]; then
