@@ -1424,9 +1424,6 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
 
             //read from devdax
             arrow::io::BufferReader bufferReader((const uint8_t*)&src[page_offset], *arrow_size);
-            for (int i = 0; i < *arrow_size; ++i) {
-                std::cout << src[page_offset+i];
-            } std::cout << std::endl;
             auto result_ipc_reader = arrow::ipc::RecordBatchFileReader::Open(&bufferReader);
 
             std::shared_ptr<arrow::ipc::RecordBatchFileReader> ipc_reader;
