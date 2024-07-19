@@ -216,7 +216,23 @@ class StorageNumpy:virtual public IStorage {
 
         void send(void) {
             DBG("DEBUG: IStorage::send: sending numpy. Size "<< numpy_metas.get_array_size());
-            getDataWriter()->send_event(UUID::UUID2str(getStorageID()).c_str(), (char *) data, numpy_metas.get_array_size());
+
+            uint64_t total_size = numpy_metas.get_array_size();
+            uint64_t offset = 0;
+            uint64_t partition_size = 262144;
+            while (offset < total_size) {
+                uint64_t actual_size;
+                //check if last partition is less than partition_size
+                if ((total_size-offset) < partition_size) {
+                    actual_size = total_size-offset;
+                } else {
+                    actual_size = partition_size;
+                }
+                char* tmp = (char*)data;
+                getDataWriter()->send_event(UUID::UUID2str(getStorageID()).c_str(), &tmp[offset], actual_size);
+
+                offset += partition_size;
+            }
         }
 
         void writePythonSpec() {} // StorageNumpy do not have python specification
