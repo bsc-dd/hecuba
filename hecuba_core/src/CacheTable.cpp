@@ -368,15 +368,22 @@ rd_kafka_message_t * CacheTable::kafka_poll(const char* topic_name) {
 
 // If we are receiving a numpy, we already have the memory allocated. We just need to copy on that memory the message received
 void CacheTable::poll(const char *topic_name, char *data, const uint64_t size) {
-    rd_kafka_message_t *rkmessage = this->kafka_poll(topic_name);
-    if (size != rkmessage->len) {
-        char b[256];
-        sprintf(b, "Expected numpy of size %ld, received a buffer of size %ld",size,rkmessage->len);
-        throw ModuleException(b);
-    }
+    uint64_t offset = 0;
 
-    memcpy(data, rkmessage->payload, rkmessage->len);
-    rd_kafka_message_destroy(rkmessage);
+    while (offset < size) {
+        rd_kafka_message_t *rkmessage = this->kafka_poll(topic_name);
+
+        if (size < (rkmessage->len+offset)) {
+            char b[256];
+            sprintf(b, "Expected numpy of size %ld, received buffers for a total size of %ld",size,rkmessage->len+offset);
+            throw ModuleException(b);
+        }
+
+        memcpy(&data[offset], rkmessage->payload, rkmessage->len);
+        rd_kafka_message_destroy(rkmessage);
+
+        offset += rkmessage->len;
+    }
 }
 
 // If we are receiving a dictionary, we need to build the data structure to return and we need to add the key and the value to the cache
