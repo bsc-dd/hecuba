@@ -250,6 +250,11 @@ reset_all_parameters(){
     unset input_snap
     unset LOGS_DIR
     unset SLURM_FLAGS
+    unset HECUBA_ARROW
+    unset HECUBA_ARROW_PATH
+    unset HECUBA_OPTANE
+    unset HECUBA_SN_SINGLE_TABLE
+    unset STREAMING
 }
 
 reset_all_parameters
