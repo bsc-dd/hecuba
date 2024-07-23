@@ -68,8 +68,12 @@ if [ "X$HECUBA_ARROW" != "X" ]; then
     if [ "X$HECUBA_ARROW_PATH" == "X" ]; then
 	export HECUBA_ARROW_PATH=$ROOT_PATH/
 	echo "[INFO] HECUBA_ARROW_PATH is NOT defined. Setting HECUBA_ARROW_PATH to [$HECUBA_ARROW_PATH]"
-	echo "export HECUBA_ARROW_PATH=$ROOT_PATH/" >> $ENVFILE
+    else
+        # Just append the cluster name
+        export HECUBA_ARROW_PATH=$HECUBA_ARROW_PATH/$CLUSTER
+        echo "[INFO] HECUBA_ARROW_PATH modified to be [$HECUBA_ARROW_PATH]"
     fi
+    echo "export HECUBA_ARROW_PATH=$HECUBA_ARROW_PATH/" >> $ENVFILE
 fi
 
 if [ "X$C4S_CASSANDRA_CORES" == "X" ]; then
