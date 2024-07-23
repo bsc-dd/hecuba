@@ -14,6 +14,7 @@
 ###############################################################################################################
 export C4S_HOME=$HOME/.c4s
 UNIQ_ID=${1}
+WITHDLB=${2}
 APP_PATH=$(cat $C4S_HOME/app-"$UNIQ_ID".txt)
 
 if [[ "0$SCHEMA" != "0" ]]; then
@@ -33,5 +34,13 @@ fi
 
 
 echo "Launching application: $APP_PATH"
-srun --overlap --mem=0 $APP_PATH
+#commented to test bindind 
+#srun --overlap --mem=0 $APP_PATH
+if [ $WITHDLB == 1 ]; then
+	DLB_HOME=/apps/GPP/PM/dlb/git/impi/
+	preload="$DLB_HOME/lib/libdlb_mpi.so"
+	preload="$preload:$HOME/dlb/doc/examples/lewi_custom_rt/libcustom_rt.so"
+	export LD_PRELOAD=$preload
+fi
+srun --overlap --mem=0 --cpu-bind=verbose,cores $APP_PATH
 echo "[INFO] The application execution has stopped in node $(hostname)"

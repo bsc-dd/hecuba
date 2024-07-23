@@ -31,6 +31,8 @@ public:
     bool unregisterObject(const std::shared_ptr<ArrayDataStore> a) ;
     bool registerClassName(const std::string& class_name);
     int wait_writes_completion(void); /* Wait for the finalization of any pending write operation */
+    void getCassandraAffinity(cpu_set_t* currentMask) const ;
+    cpu_set_t setCassandraAffinity(cpu_set_t* newMask);
 private:
 
     std::mutex mxalive_objects;
@@ -58,6 +60,12 @@ private:
     std::string contact_names_2_IP_addr(std::string &contact_names) const;
 
     void createSchema(void);
+    
+    cpu_set_t cassandraMask;  // Affinity mask for Cassandra process
+    uint32_t  cassandraPID=0;   // Cassandra process PID
+    std::string CPUSET2INT(const cpu_set_t *cpuset) const;
+    void limitMaskToCores(cpu_set_t* mask, unsigned int cores) const ;
+
 };
 
 #endif /* HECUBA_SESSION_H */

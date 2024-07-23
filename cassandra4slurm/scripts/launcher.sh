@@ -250,6 +250,7 @@ reset_all_parameters(){
     unset input_snap
     unset LOGS_DIR
     unset SLURM_FLAGS
+    unset WITHDLB
     unset HECUBA_ARROW
     unset HECUBA_ARROW_PATH
     unset HECUBA_OPTANE
@@ -362,11 +363,21 @@ case $i in
     input_snap="${i#*=}"
     shift
     ;;
+    -dl|--dlb)
+    WITHDLB=1
+    shift
+    ;;
     *)
     SLURM_FLAGS=$SLURM_FLAGS" ""${i}"
     ;;
 esac
 done
+
+
+if [ "X$WITHDLB" == "X" ]; then
+    WITHDLB=0
+fi
+
 
 if [ "0$SLURM_FLAGS" != "0" ]; then
     if [ "$(echo $SLURM_FLAGS | wc -w)" -gt 1 ]; then
@@ -581,7 +592,7 @@ if [ "$ACTION" == "RUN" ]; then
 
     # Enables/Disables the snapshot option after the execution
     set_snapshot_value
-    X="sbatch --job-name=$UNIQ_ID --nodes=$TOTAL_NODES --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $SLURM_FLAGS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT"
+    X="sbatch --job-name=$UNIQ_ID --nodes=$TOTAL_NODES --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $SLURM_FLAGS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $WITHDLB $DISJOINT"
     echo "SUBMITTING $X"
     SUBMIT_MSG=$($X)
     echo $SUBMIT_MSG" ("$UNIQ_ID")"

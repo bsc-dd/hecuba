@@ -20,7 +20,8 @@ UNIQ_ID=${1}          # Unique ID to identify related files
 CASSANDRA_NODES=${2}  # Number of Cassandra nodes to spawn
 APP_NODES=${3}        # Number of nodes to run the application
 PYCOMPSS_APP=${4}     # Application execution using PyCOMPSs. 0: No, 1: Yes
-DISJOINT=${5}         # Guarantee disjoint allocation. 1: Yes, empty otherwise
+WITHDLB=${5}	      # If set to 1 use dlb to manage allocation between cassandra and the application
+DISJOINT=${6}         # Guarantee disjoint allocation. 1: Yes, empty otherwise
 
 export C4S_HOME=$HOME/.c4s
 HECUBA_ENVIRON=$C4S_HOME/conf/hecuba_environment
@@ -277,7 +278,11 @@ fi
 #exit # TODO QUITAR ESTO DE AQUÍ, SI NO NO FUNCIONA!!! TODO
 # Launching Cassandra in every node
 
-run srun --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES $MODULE_PATH/cass_node.sh $UNIQ_ID &
+#commented to test binding 
+#run srun --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES $MODULE_PATH/cass_node.sh $UNIQ_ID &
+#run srun --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES --cpu-bind=verbose,cores $MODULE_PATH/cass_node.sh $UNIQ_ID &
+# We use 'nproc --all' to cpus-per-task instead of C4S_CASSANDRA_CORES to make SLURM assign affinity to ALL cores and play with DLB
+run srun --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$(($(nproc --all)/2)) --nodes=$N_NODES --cpu-bind=verbose,cores $MODULE_PATH/cass_node.sh $UNIQ_ID &
 sleep 5
 
 if [ "X$STREAMING" != "X" ]; then
@@ -370,7 +375,15 @@ if [ "$APP_NODES" != "0" ]; then
         SLURM_JOB_NUM_NODES=$APP_NODES SLURM_NTASKS=$(( $APP_NODES * $C4S_COMPSS_CORES )) SLURM_JOB_NODELIST=${APP_NODELIST::-1} bash $PYCOMPSS_FILE
     else
         DBG " RUNNING IN $APP_NODES APP_NODES WITH NTASKS_PERNODE $SLURM_NTASKS_PER_NODE, NTASKS $(( $APP_NODES * $C4S_APP_CORES)) AND NPROCS $SLURM_NPROCS"
-        SLURM_JOB_NUM_NODES=$APP_NODES SLURM_NTASKS=$(( $APP_NODES * $C4S_APP_CORES)) source $MODULE_PATH/app_node.sh $UNIQ_ID
+
+	sleep 10 #yolandab test if we need some time before launching appl
+
+	# CASSPIDFILE must point to the dirname containing the .pid file generated at cass_node.sh
+        export CASSPIDFILE=$C4S_HOME/conf/${UNIQ_ID}/
+        SLURM_JOB_NUM_NODES=$APP_NODES SLURM_NTASKS=$(( $APP_NODES * $C4S_APP_CORES)) SLURM_CPUS_PER_TASK=1 source $MODULE_PATH/app_node.sh $UNIQ_ID $WITHDLB
+        #SLURM_JOB_NUM_NODES=$APP_NODES SLURM_NTASKS=$(( $APP_NODES * $C4S_APP_CORES)) source $MODULE_PATH/app_node.sh $UNIQ_ID $WITHDLB
+
+	# test to understand affinity SLURM_JOB_NUM_NODES=$APP_NODES SLURM_NTASKS=$APP_NODES SLURM_CPUS_PER_TASK=$C4S_APP_CORES source $MODULE_PATH/app_node.sh $UNIQ_ID $WITHDLB
     fi
 else
     echo "[INFO] This job is not configured to run any application. Skipping..."
@@ -415,7 +428,6 @@ then
     # Cleaning status files
     rm -f $C4S_HOME/snap-status-$SNAP_NAME-*-file.txt
 fi
-sleep 10
 
 DBG " Stopping CASSANDRA JOB"
 run srun  --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --nodes=$N_NODES $MODULE_PATH/killer.sh

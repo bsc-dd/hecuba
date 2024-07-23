@@ -38,8 +38,29 @@ if [ "$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips | grep $HOSTNAMEIP)" != "" ]; 
     DBG " Cassandra node $(hostname) is starting now..."
     DBG " CASS_HOME="$CASS_HOME
     DBG " CASSANDDRA CONF $C4S_HOME/conf/${UNIQ_ID}/cassandra-${HOSTNAMEIP}.yaml"
-    $CASS_HOME/bin/cassandra -Dcassandra.consistent.rangemovement=false -Dcassandra.config=file://$C4S_HOME/conf/${UNIQ_ID}/cassandra-${HOSTNAMEIP}.yaml -f  | awk "{ print  \""$HOSTNAMEIP"\",\$0 }"
+    export CASSPIDFILE=$C4S_HOME/conf/${UNIQ_ID}/cassandra-${HOSTNAMEIP}.pid
+    $CASS_HOME/bin/cassandra \
+	    -Dcassandra.consistent.rangemovement=false \
+	    -Dcassandra.config=file://$C4S_HOME/conf/${UNIQ_ID}/cassandra-${HOSTNAMEIP}.yaml \
+	    -p $CASSPIDFILE \
+	    #-f  \
+	    #| awk "{ print  \""$HOSTNAMEIP"\",\$0 }"
+
+    while [ ! -f $CASSPIDFILE ]; do
+    	echo "Waiting Cassandra starting up @$(hostname)"
+	sleep 1
+    done
+    while [ ! -s $CASSPIDFILE ]; do
+    	echo "Waiting Cassandra writing PID @$(hostname)"
+	sleep 1
+    done
+    while [ -f $CASSPIDFILE ]; do
+	sleep 1
+    done
+
+
     echo "Cassandra has stopped in node $(hostname)"
+
 else
     echo "Node $(hostname) is not part of the Cassandra node list."
 fi
