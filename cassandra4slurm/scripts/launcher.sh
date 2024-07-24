@@ -215,9 +215,10 @@ function set_snapshot_value () {
 function launch_arrow_helpers () {
     [ "X$HECUBA_ARROW" == "X" ] && return
 
+    UNIQ_ID=$1
     # Launch the 'arrow_helper' tool at each node in NODES, and leave their logs in LOGDIR
-    NODES=$1
-    LOGDIR=$2
+    NODES=$C4S_HOME/casslist-"$UNIQ_ID".txt
+    LOGDIR=$LOGS_DIR/$UNIQ_ID
     if [ ! -d $LOGDIR ]; then
         DBG " Creating directory to store Arrow helper logs at [$LOGDIR]:"
         mkdir -p $LOGDIR
@@ -227,7 +228,7 @@ function launch_arrow_helpers () {
 
     for i in $(cat $NODES); do
         DBG " Launching Arrow helper at [$i] Log at [$LOGDIR/arrow_helper.$i.out]:"
-        ssh  $i HECUBA_ROOT=$HECUBA_ROOT $ARROW_HELPER $LOGDIR/arrow_helper.$i.out &
+        ssh  $i HECUBA_ROOT=$HECUBA_ROOT $ARROW_HELPER $UNIQ_ID $LOGDIR/arrow_helper.$i.out &
     done
     #echo "INFO: Launching Arrow helper at [$NODES]:"
 	#CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $NODES)
@@ -603,7 +604,7 @@ if [ "$ACTION" == "RUN" ]; then
     CNAMES=$(echo $CNAMES|sed "s/ /,/g")
 	export CONTACT_NAMES=$CNAMES
 	echo "Contact names environment variable (CONTACT_NAMES) should be set to: $CNAMES"
-    launch_arrow_helpers $C4S_HOME/casslist-"$UNIQ_ID".txt $LOGS_DIR/$UNIQ_ID
+    launch_arrow_helpers $UNIQ_ID
 
 elif [ "$ACTION" == "STATUS" ] || [ "$ACTION" == "status" ]
 then
@@ -749,7 +750,7 @@ then
     CNAMES=$(echo $CNAMES|sed "s/ /,/g")
     export CONTACT_NAMES=$CNAMES
     echo "Contact names environment variable (CONTACT_NAMES) should be set to: $CNAMES"
-    launch_arrow_helpers $C4S_HOME/casslist-"$UNIQ_ID".txt $LOGS_DIR/$UNIQ_ID
+    launch_arrow_helpers  $UNIQ_ID
 
 elif [ "$ACTION" == "STOP" ] || [ "$ACTION" == "stop" ]
 then
