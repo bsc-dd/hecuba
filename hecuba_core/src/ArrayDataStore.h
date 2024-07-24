@@ -76,7 +76,7 @@ protected:
     bool has_lazy_writes = false; // flag to enable/disable lazy writes in cassandra (useful if there are multiple writes to the same object)
     bool arrow_enabled = false;
     bool arrow_optane  = false; // Intel OPTANE disk enabled?
-    std::string arrow_path  = "";
+    std::string arrow_path  = "./";
 
     std::shared_ptr<StorageInterface> storage; //StorageInterface* storage;
 private:
