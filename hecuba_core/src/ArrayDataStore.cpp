@@ -929,6 +929,7 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
 
             //We fetch the data
             TupleRow *block_key = new TupleRow(keys_metas, keys_size, buffer);
+	    DBG(" Reading numpy block sid=" << UUID::UUID2str(storage_id)<< " cid="<<(*it).cluster_id<<" blkid="<<(*it).block_id);
             result = read_cache->get_crow(block_key);
             delete (block_key);
             //build cluster
@@ -1262,6 +1263,7 @@ int ArrayDataStore::find_and_open_arrow_file(const uint64_t * storage_id, const 
 
     // Detect the location of the file
     if ( !itsme(host) ) {
+        //std::cout << " DEBUG token is REMOTE! Retrieving... " << std::endl;
         std::string remote_path;
         remote_path = local_path + "REMOTES/";
 
