@@ -154,6 +154,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
     printf("server [%s]: waiting for connections...\n\n", hostname);
+    fflush(stdout);
 
     // ARROW HELPER
     // 		waits a connection from a client,
