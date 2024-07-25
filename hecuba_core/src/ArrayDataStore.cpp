@@ -1,36 +1,27 @@
 #include "ArrayDataStore.h"
 
 #ifdef ARROW
+#include <arrow/api.h>
+#include <arrow/io/api.h>
+#include <arrow/ipc/api.h>
 #include <arrow/memory_pool.h>
 #include <arrow/io/file.h>
 #include <arrow/status.h>
 #include <arrow/ipc/reader.h>
+#include <arrow/ipc/writer.h>
 #include <arrow/buffer.h>
 #include <arrow/array.h>
 #include <arrow/type.h>
 #include <arrow/type_fwd.h>
 #include <arrow/util/key_value_metadata.h>
-#include <arrow/io/api.h>
-#include <arrow/ipc/writer.h>
 #include <arrow/io/interfaces.h>
 #include <arrow/ipc/feather.h>
-#include "arrow/io/file.h"
-#include "arrow/ipc/reader.h"
-#include "arrow/ipc/writer.h"
-#include "arrow/status.h"
 #include "arrow/util/io_util.h"
-#include <arrow/memory_pool.h>
-#include <arrow/io/file.h>
-#include <arrow/status.h>
-#include <arrow/ipc/reader.h>
-#include <arrow/buffer.h>
-#include <arrow/array.h>
-#include <arrow/type.h>
-#include <arrow/type_fwd.h>
-#include <arrow/util/key_value_metadata.h>
 #include <arrow/array/builder_primitive.h>
 #include <arrow/array/builder_binary.h>
 #endif /* ARROW */
+
+#include <cassandra.h>
 
 #include <unistd.h>
 #include <sys/mman.h>
@@ -106,7 +97,7 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, std::sha
     env_path = std::getenv("HECUBA_ARROW_PATH");
     if (env_path != nullptr) {
         std::string hecuba_arrow(env_path);
-        arrow_path = hecuba_arrow;
+        arrow_path = hecuba_arrow+"/";
     }
     env_path = std::getenv("HECUBA_ARROW_OPTANE");
     if (env_path != nullptr) {
@@ -464,6 +455,7 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
 
     // FIXME Encapsulate the following code into a function f(data, columns) -> Arrow
     //arrow
+    //TODO use of ARROW_RETURN_NOT_OK and ARROW_ASSIGN_OR_RAISE instead of so many 'if (not status.ok()) {...}'
     arrow::Status status;
     auto memory_pool = arrow::default_memory_pool(); //arrow
     auto field = arrow::field("field", arrow::binary());
@@ -492,30 +484,37 @@ void ArrayDataStore::store_numpy_into_cas_as_arrow(const uint64_t *storage_id,
         if (!status.ok())
             std::cout << "Status: " << status.ToString() << " at builder.Finish" << std::endl;
         auto batch = arrow::RecordBatch::Make(schema, num_rows, {array});
-        std::shared_ptr<arrow::io::BufferOutputStream> bufferOutputStream;
-        status = arrow::io::BufferOutputStream::Create(0, memory_pool, &bufferOutputStream);
-        if (!status.ok())
-            std::cout << "Status: " << status.ToString() << " at BufferOutputStream::Create" << std::endl;
-        std::shared_ptr<arrow::ipc::RecordBatchWriter> file_writer;
-        status = arrow::ipc::RecordBatchFileWriter::Open(bufferOutputStream.get(), schema, &file_writer);
-        if (!status.ok())
-            std::cout << "Status: " << status.ToString() << " at RecordBatchFileWriter::Open" << std::endl;
 
-        status = file_writer->WriteRecordBatch(*batch);
-        if (!status.ok())
-            std::cout << "Status: " << status.ToString() << " at file_writer->WriteRecordBatch" << std::endl;
-        status = file_writer->Close();
-        if (!status.ok())
-            std::cout << "Status: " << status.ToString() << " at file_writer->Close" << std::endl;
+        auto result_bufferOutputStream = arrow::io::BufferOutputStream::Create(0, memory_pool);
+        std::shared_ptr<arrow::io::BufferOutputStream> bufferOutputStream;
+        if (result_bufferOutputStream.ok()) {
+            bufferOutputStream = result_bufferOutputStream.ValueOrDie();
+        } else {
+            throw ModuleException("RecordBatchFileReader::Open error");
+        }
+
+        auto result_ipc_writer = arrow::ipc::MakeFileWriter(bufferOutputStream, batch->schema());
+        std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc_writer;
+        if (result_ipc_writer.ok()) {
+            ipc_writer = result_ipc_writer.ValueOrDie();
+        } else {
+            throw ModuleException("RecordBatchFileReader::Open error");
+        }
+
+        ipc_writer->WriteRecordBatch(*batch);
+        ipc_writer->Close();
+
         status = bufferOutputStream->Close();
         if (!status.ok())
             std::cout << "Status: " << status.ToString() << " at bufferOutputStream->Close" << std::endl;
 
+        auto result_result = bufferOutputStream->Finish();
         std::shared_ptr<arrow::Buffer> result;
-        status = bufferOutputStream->Finish(&result); //arrow
-        if (!status.ok())
-            std::cout << "Status: " << status.ToString() << " at bufferOutputStream->Finish" << std::endl;
-
+        if (result_result.ok()) {
+            result = result_result.ValueOrDie();
+        } else {
+            throw ModuleException("RecordBatchFileReader::Open error");
+        }
 
         //Store Column
         // Allocate memory for keys
@@ -575,6 +574,7 @@ void ArrayDataStore::store_numpy_into_cas_by_cols_as_arrow(const uint64_t *stora
     throw ModuleException("NOT IMPLEMENTED YET");
 #ifdef ARROW
 
+    /*
     assert( metadata.dims.size() <= 2 ); // First version only supports 2 dimensions
 
     // Calculate row and element sizes
@@ -676,6 +676,7 @@ void ArrayDataStore::store_numpy_into_cas_by_cols_as_arrow(const uint64_t *stora
         //cache_arrow_write->put_crow( (void*)_keys, (void*)_values ); //Send column to cassandra
         cache->put_crow( (void*)_keys, (void*)_values ); //Send column to cassandra
     }
+     */
 #endif /* ARROW */
 }
 
@@ -928,6 +929,7 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
 
             //We fetch the data
             TupleRow *block_key = new TupleRow(keys_metas, keys_size, buffer);
+	    DBG(" Reading numpy block sid=" << UUID::UUID2str(storage_id)<< " cid="<<(*it).cluster_id<<" blkid="<<(*it).block_id);
             result = read_cache->get_crow(block_key);
             delete (block_key);
             //build cluster
@@ -1182,13 +1184,24 @@ bool itsme(const char *target) {
     return false;
 }
 
-int get_remote_file(const char *host, const std::string sourcepath, const std::string filename, const std::string destination_path)
+int get_remote_file(const char *host, const std::string filename, const std::string destination_path)
 {
     int r = 0;
     //std::cerr << "destination_path: " << destination_path << std::endl;
     //std::cerr << "filename: " << filename << std::endl;
 
-    if (access((destination_path + filename).c_str(), R_OK) != 0) { //File DOES NOT exist
+    struct stat sb;
+    if (stat((destination_path + filename).c_str(), &sb) == 0) { // fstatat
+	    // File ALREADY exists, is it valid?
+	    if (sb.st_size > 0) {
+		    // File has content ... use it
+		    return 0;
+	    }
+	    // File was empty? remove it...
+
+    }
+    // File DOES NOT exist
+    //if (access((destination_path + filename).c_str(), R_OK) != 0) { //File DOES NOT exist
         size_t path_size = strlen(destination_path.c_str());
         char aux_path[path_size+1];
         char *p;
@@ -1216,8 +1229,8 @@ int get_remote_file(const char *host, const std::string sourcepath, const std::s
                 exit(1); //FIXME
             }
         }
-        r = scp(host, (sourcepath + filename).c_str(), (destination_path).c_str());
-    }
+        r = scp(host, (filename).c_str(), (destination_path).c_str());
+    //}
 
     return r;
 }
@@ -1250,6 +1263,7 @@ int ArrayDataStore::find_and_open_arrow_file(const uint64_t * storage_id, const 
 
     // Detect the location of the file
     if ( !itsme(host) ) {
+        //std::cout << " DEBUG token is REMOTE! Retrieving... " << std::endl;
         std::string remote_path;
         remote_path = local_path + "REMOTES/";
 
@@ -1260,9 +1274,9 @@ int ArrayDataStore::find_and_open_arrow_file(const uint64_t * storage_id, const 
         ksp = arrow_file_name.substr(0, pos);
         arrow_file = arrow_file_name.substr(pos, arrow_file_name.length());
 
-        if (get_remote_file(host, local_path + ksp, arrow_file, remote_path + ksp) < 0) {
+        if (get_remote_file(host, arrow_file_name, remote_path + ksp) < 0) {
             std::string msg = " ArrayDataStore::find_and_open_arrow_file: File "
-                             + (local_path + ksp + arrow_file)
+                             + (ksp + arrow_file)
                              + " does not exist remotelly at " + host + "!! ";
             throw ModuleException(msg);
         }
@@ -1298,6 +1312,7 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
         return;
     }
 #ifdef ARROW
+    std::cout << "read_numpy_from_cas_arrow called, HECUBA_ARROW is enabled" << std::endl;
     std::shared_ptr<const std::vector<ColumnMeta> > keys_metas = read_cache->get_metadata()->get_keys();
     uint32_t keys_size = (*--keys_metas->end()).size + (*--keys_metas->end()).position;
     std::vector<const TupleRow *> result;
@@ -1305,7 +1320,6 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
     char *_keys = nullptr;
     int32_t offset = 0;
 
-    std::shared_ptr<arrow::ipc::RecordBatchFileReader> sptrFileReader;
 
     uint64_t row_size   = metadata.strides[1]; // Columns are stored in rows, therefore even the name, this is the number of columns
     uint32_t elem_size  = metadata.elem_size;
@@ -1423,32 +1437,39 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
 
             //read from devdax
             arrow::io::BufferReader bufferReader((const uint8_t*)&src[page_offset], *arrow_size);
+            auto result_ipc_reader = arrow::ipc::RecordBatchFileReader::Open(&bufferReader);
 
-            arrow::Status status;
-            status = arrow::ipc::RecordBatchFileReader::Open(&bufferReader, &sptrFileReader); //TODO handle RecordBatchFileReader::Open errors
-            if (not status.ok()) {
-                std::cerr << " OOOOPS: "<< status.message() << std::endl;
+            std::shared_ptr<arrow::ipc::RecordBatchFileReader> ipc_reader;
+            if (result_ipc_reader.ok()) {
+                ipc_reader = result_ipc_reader.ValueOrDie();
+            } else {
                 throw ModuleException("RecordBatchFileReader::Open error");
             }
 
-            const std::shared_ptr<arrow::ipc::RecordBatchFileReader> localPtr = sptrFileReader;
-            int num_batches = localPtr->num_record_batches();
+            arrow::Status status;
+
+            int num_batches = ipc_reader->num_record_batches();
 
             for (int i = 0; i < num_batches; ++i) { //for each batch inside arrow File; Theoretically, there should be one batch
-                std::shared_ptr<arrow::RecordBatch> chunk;
-                status = localPtr->ReadRecordBatch(i, &chunk);
+                auto result_batch = ipc_reader->ReadRecordBatch(0);
+                std::shared_ptr<arrow::RecordBatch> batch;
+                if (result_batch.ok()) {
+                    batch = result_batch.ValueOrDie();
+                } else {
+                    throw ModuleException("RecordBatchFileReader::Open error");
+                }
                 if (not status.ok()) { //TODO ReadRecordBatch
                     throw ModuleException("ReadRecordBatch error");
                 }
-                std::shared_ptr<arrow::Array> col = chunk->column(0); //Theoretically, there must be one column
+                std::shared_ptr<arrow::Array> column = batch->column(0); //Theoretically, there must be one column
 
-                std::shared_ptr<arrow::BinaryArray> data = std::dynamic_pointer_cast<arrow::BinaryArray>(col);
+                std::shared_ptr<arrow::BinaryArray> databatch = std::dynamic_pointer_cast<arrow::BinaryArray>(column);
 
                 char* dst = (char*) save;
                 dst += cols[it]*row_size;
 
-                const uint8_t* bytes = data->value_data()->data();
-                memcpy(dst, bytes, col->length()*elem_size); // Copy the whole column
+                const uint8_t* bytesbatch = databatch->value_data()->data();
+                memcpy(dst, bytesbatch, column->length()*elem_size); // Copy the whole column
             }
 
 
@@ -1463,7 +1484,6 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
         }
     }
     for (const TupleRow *item:result) delete (item);
-    sptrFileReader.reset();
     if (this->arrow_optane) {
         close(fdIn);
     }
