@@ -211,7 +211,6 @@ function set_snapshot_value () {
     fi
 }
 
-
 function launch_arrow_helpers () {
     [ "X$HECUBA_ARROW" == "X" ] && return
 
@@ -236,6 +235,44 @@ function launch_arrow_helpers () {
     #echo "INFO: Launching Arrow helper at [$CNAMES]:"
     #srun -s --nodelist $NODES --ntasks-per-node=1 --cpus-per-task=4 $ARROW_HELPER
 }
+
+function launch_cassandra_and_app () {
+	# Submit Cassandra, App and others to the cluster
+	# REQUIRED input parameters:
+	# 	UNIQ_ID
+	# 	TOTAL_NODES
+	# 	LOGS_DIR
+	# 	SLURM_FLAGS
+	# 	MODULE_PATH
+	# 	CASSANDRA_NODES
+	# 	APP_NODES
+	# 	PYCOMPSS_SET
+	# 	DISJOINT
+    X="sbatch --job-name=$UNIQ_ID --nodes=$TOTAL_NODES --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $SLURM_FLAGS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT"
+    echo "SUBMITTING $X"
+    SUBMIT_MSG=$($X)
+    echo $SUBMIT_MSG" ("$UNIQ_ID")"
+    JOB_NUMBER=$(echo $SUBMIT_MSG | awk '{ print $NF }')
+    echo $JOB_NUMBER $UNIQ_ID" " >> $C4S_JOBLIST
+    echo "Please, be patient. It may take a while until it shows a correct status (and it may show some harmless errors during this process)."
+
+	while [ ! -f "$C4S_HOME/casslistDONE-"$UNIQ_ID".txt" ]; do
+        echo "Checking for Cassandra cluster up... "
+        get_job_info
+        if [ "$JOB_STATUS" == "" ]
+        then
+            exit_no_cluster
+        fi
+        sleep 5
+	done
+    echo "Cassandra Cluster with "$CASSANDRA_NODES" node(s) started successfully."
+    CNAMES=$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips)
+    CNAMES=$(echo $CNAMES|sed "s/ /,/g")
+	export CONTACT_NAMES=$CNAMES
+	echo "Contact names environment variable (CONTACT_NAMES) should be set to: $CNAMES"
+    launch_arrow_helpers $UNIQ_ID
+}
+
 reset_all_parameters(){
     unset ACTION
     unset JOBNAME
@@ -582,29 +619,9 @@ if [ "$ACTION" == "RUN" ]; then
 
     # Enables/Disables the snapshot option after the execution
     set_snapshot_value
-    X="sbatch --job-name=$UNIQ_ID --nodes=$TOTAL_NODES --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $SLURM_FLAGS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT"
-    echo "SUBMITTING $X"
-    SUBMIT_MSG=$($X)
-    echo $SUBMIT_MSG" ("$UNIQ_ID")"
-    JOB_NUMBER=$(echo $SUBMIT_MSG | awk '{ print $NF }')
-    echo $JOB_NUMBER $UNIQ_ID" " >> $C4S_JOBLIST
-    echo "Please, be patient. It may take a while until it shows a correct status (and it may show some harmless errors during this process)."
 
-	while [ ! -f "$C4S_HOME/casslistDONE-"$UNIQ_ID".txt" ]; do
-        echo "Checking for Cassandra cluster up... "
-        get_job_info
-        if [ "$JOB_STATUS" == "" ]
-        then
-            exit_no_cluster
-        fi
-        sleep 5
-	done
-    echo "Cassandra Cluster with "$CASSANDRA_NODES" node(s) started successfully."
-    CNAMES=$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips)
-    CNAMES=$(echo $CNAMES|sed "s/ /,/g")
-	export CONTACT_NAMES=$CNAMES
-	echo "Contact names environment variable (CONTACT_NAMES) should be set to: $CNAMES"
-    launch_arrow_helpers $UNIQ_ID
+    launch_cassandra_and_app
+
 
 elif [ "$ACTION" == "STATUS" ] || [ "$ACTION" == "status" ]
 then
@@ -726,31 +743,16 @@ then
 
 
     echo "[ PARAM DEBUG ]"
-    echo "UNIQ_ID: "$UNIQ_ID
-    echo "CASSANDRA_NODES: "$CASSANDRA_NODES
-    echo "APP_NODES: "$APP_NODES
-    echo "PYCOMPSS_SET: "$PYCOMPSS_SET
-    echo "DISJOINT: "$DISJOINT
+    echo "UNIQ_ID         : "$UNIQ_ID
+    echo "CASSANDRA_NODES : "$CASSANDRA_NODES
+    echo "APP_NODES       : "$APP_NODES
+    echo "PYCOMPSS_SET    : "$PYCOMPSS_SET
+    echo "DISJOINT        : "$DISJOINT
      
-    X="sbatch --job-name=$UNIQ_ID --nodes=$TOTAL_NODES --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $SLURM_FLAGS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT"
-    echo "SUBMITTING $X"
-    SUBMIT_MSG=$($X)
-    echo $SUBMIT_MSG" ("$UNIQ_ID")"
-    JOB_NUMBER=$(echo $SUBMIT_MSG | awk '{ print $NF }')
-    echo $JOB_NUMBER $UNIQ_ID" " >> $C4S_JOBLIST
-
     echo "Launching $TOTAL_NODES nodes to recover snapshot $input_snap"
-    while [ ! -f "$C4S_HOME/casslistDONE-"$UNIQ_ID".txt" ]; do
-        echo "Checking for Cassandra cluster up... "
-        get_job_info
-        sleep 5
-    done
-    echo "Cassandra Cluster with "$CASSANDRA_NODES" node(s) started successfully."
-    CNAMES=$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips)
-    CNAMES=$(echo $CNAMES|sed "s/ /,/g")
-    export CONTACT_NAMES=$CNAMES
-    echo "Contact names environment variable (CONTACT_NAMES) should be set to: $CNAMES"
-    launch_arrow_helpers  $UNIQ_ID
+
+    launch_cassandra_and_app
+
 
 elif [ "$ACTION" == "STOP" ] || [ "$ACTION" == "stop" ]
 then
