@@ -15,7 +15,9 @@
 
 export C4S_HOME=$HOME/.c4s
 UNIQ_ID=${1}
-CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
+CFG_FILE=$C4S_HOME/conf/${UNIQ_ID}/cassandra4slurm.cfg
+
+MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
 
 source $HECUBA_ROOT/bin/cassandra4slurm/hecuba_debug.sh
 source $CFG_FILE    # To get CASSANDRA_LOG_DIR
@@ -23,9 +25,29 @@ source $CFG_FILE    # To get CASSANDRA_LOG_DIR
 [ ! -z "$CASSANDRA_LOG_DIR" ] \
     && export CASSANDRA_LOG_DIR="$CASSANDRA_LOG_DIR/$UNIQ_ID"
 
+function launch_arrow_helper () {
+    [ "X$HECUBA_ARROW" == "X" ] && return
+
+    # Launch the 'arrow_helper' tool at each node in NODES, and leave their logs in LOGDIR
+    NODES=$C4S_HOME/casslist-"$UNIQ_ID".txt
+    LOGDIR=$CASSANDRA_LOG_DIR/arrow
+    if [ ! -d $LOGDIR ]; then
+        DBG " Creating directory to store Arrow helper logs at [$LOGDIR]:"
+        mkdir -p $LOGDIR
+    fi
+
+    ARROW_HELPER=$MODULE_PATH/launch_arrow_helper.sh
+
+    DBG " Launching Arrow helper at [$i] Log at [$LOGDIR/arrow_helper.$i.out]:"
+    HECUBA_ROOT=$HECUBA_ROOT $ARROW_HELPER $UNIQ_ID $LOGDIR/arrow_helper.$(hostname).out &
+}
+
 HOSTNAMEIP=$(get_node_ip $(hostname) $CASS_IFACE)
 
 if [ "$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips | grep $HOSTNAMEIP)" != "" ]; then
+
+    launch_arrow_helper
+
     INDEX=$(awk "/$HOSTNAMEIP/{ print NR; exit }" $C4S_HOME/casslist-"$UNIQ_ID".txt.ips)
     #SLEEP_TIME=$(((INDEX - 7) * 8))
     SLEEP_TIME=30

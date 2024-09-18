@@ -25,7 +25,8 @@ HECUBA_TEMPLATE_FILE=$MODULE_PATH/hecuba_environment.template
 
 source $MODULE_PATH/hecuba_debug.sh
 
-UNIQ_ID="c4s"$(echo $RANDOM | cut -c -5)
+# Generate a UNIQUE ID for the job. Use the date plus nanoseconds to avoid repetitions.
+UNIQ_ID="c4s"$(date "+%y%m%d%H%M%S%N")
 DEFAULT_NUM_NODES=4
 RETRY_MAX=30
 PYCOMPSS_SET=0
@@ -138,6 +139,16 @@ function set_utils_paths () {
     if [ "0$APP" != "0" ]; then
         echo $APP > $APP_PATH_FILE
     fi
+
+    # Create current execution directory (so different executions may be launched into SLURM)
+    export CASS_CONF=$C4S_HOME/conf/${UNIQ_ID}
+    mkdir ${CASS_CONF}  || die "[ERROR] Unabled to create directory [${CASS_CONF}]"
+
+    # Copy CASSANDRA configuration files to Current execution directory
+    cp ${CFG_FILE} ${CASS_CONF}
+    cp ${HECUBA_ENV} ${CASS_CONF}
+    cp $CASS_HOME/conf/cassandra.yaml ${CASS_CONF}
+    cp $CASS_HOME/conf/cassandra-env.sh ${CASS_CONF}
 }
 
 function get_job_info () {
@@ -211,30 +222,6 @@ function set_snapshot_value () {
     fi
 }
 
-function launch_arrow_helpers () {
-    [ "X$HECUBA_ARROW" == "X" ] && return
-
-    UNIQ_ID=$1
-    # Launch the 'arrow_helper' tool at each node in NODES, and leave their logs in LOGDIR
-    NODES=$C4S_HOME/casslist-"$UNIQ_ID".txt
-    LOGDIR=$LOGS_DIR/$UNIQ_ID
-    if [ ! -d $LOGDIR ]; then
-        DBG " Creating directory to store Arrow helper logs at [$LOGDIR]:"
-        mkdir -p $LOGDIR
-    fi
-
-    ARROW_HELPER=$MODULE_PATH/launch_arrow_helper.sh
-
-    for i in $(cat $NODES); do
-        DBG " Launching Arrow helper at [$i] Log at [$LOGDIR/arrow_helper.$i.out]:"
-        ssh  $i HECUBA_ROOT=$HECUBA_ROOT $ARROW_HELPER $UNIQ_ID $LOGDIR/arrow_helper.$i.out &
-    done
-    #echo "INFO: Launching Arrow helper at [$NODES]:"
-	#CNAMES=$(sed ':a;N;$!ba;s/\n/,/g' $NODES)
-	#CNAMES=$(echo $CNAMES | sed "s/,/$CASS_IFACE,/g")$CASS_IFACE
-    #echo "INFO: Launching Arrow helper at [$CNAMES]:"
-    #srun -s --nodelist $NODES --ntasks-per-node=1 --cpus-per-task=4 $ARROW_HELPER
-}
 
 function launch_cassandra_and_app () {
 	# Submit Cassandra, App and others to the cluster
@@ -254,7 +241,10 @@ function launch_cassandra_and_app () {
     echo $SUBMIT_MSG" ("$UNIQ_ID")"
     JOB_NUMBER=$(echo $SUBMIT_MSG | awk '{ print $NF }')
     echo $JOB_NUMBER $UNIQ_ID" " >> $C4S_JOBLIST
-    echo "Please, be patient. It may take a while until it shows a correct status (and it may show some harmless errors during this process)."
+    # If no APPLICATION is set then it means that just the Cassandra cluster is required,
+    # therefore wait for cassandra as it will be an interactive session, otherwise just skip the waiting
+    if [ "no${APP}" == "no" ]; then
+        echo "Please, be patient. It may take a while until it shows a correct status (and it may show some harmless errors during this process)."
 
 	while [ ! -f "$C4S_HOME/casslistDONE-"$UNIQ_ID".txt" ]; do
         echo "Checking for Cassandra cluster up... "
@@ -265,12 +255,12 @@ function launch_cassandra_and_app () {
         fi
         sleep 5
 	done
-    echo "Cassandra Cluster with "$CASSANDRA_NODES" node(s) started successfully."
-    CNAMES=$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips)
-    CNAMES=$(echo $CNAMES|sed "s/ /,/g")
+        echo "Cassandra Cluster with "$CASSANDRA_NODES" node(s) started successfully."
+        CNAMES=$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips)
+        CNAMES=$(echo $CNAMES|sed "s/ /,/g")
 	export CONTACT_NAMES=$CNAMES
 	echo "Contact names environment variable (CONTACT_NAMES) should be set to: $CNAMES"
-    launch_arrow_helpers $UNIQ_ID
+    fi
 }
 
 reset_all_parameters(){
