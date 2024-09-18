@@ -23,9 +23,9 @@ PYCOMPSS_APP=${4}     # Application execution using PyCOMPSs. 0: No, 1: Yes
 DISJOINT=${5}         # Guarantee disjoint allocation. 1: Yes, empty otherwise
 
 export C4S_HOME=$HOME/.c4s
-HECUBA_ENVIRON=$C4S_HOME/conf/hecuba_environment
+HECUBA_ENVIRON=$C4S_HOME/conf/${UNIQ_ID}/hecuba_environment
 MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
-CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
+CFG_FILE=$C4S_HOME/conf/${UNIQ_ID}/cassandra4slurm.cfg
 NODEFILE=$C4S_HOME/hostlist-"$UNIQ_ID".txt
 
 # CASSFILETOSYNC is a special file that is consulted by other scripts,
@@ -206,18 +206,12 @@ DBG " I am $(hostname)."
 
 export CASS_CONF=$C4S_HOME/conf/${UNIQ_ID}
 
-# Create current execution directory
-mkdir ${CASS_CONF}  || die "[ERROR] Unabled to create directory [${CASS_CONF}]"
-
-
 export CASS_YAML_FILE=${CASS_CONF}/cassandra.yaml
 export CASS_ENV_FILE=${CASS_CONF}/cassandra-env.sh
 export TEMPLATE_CASS_YAML_FILE=${CASS_CONF}/template.yaml.orig
 export TEMPLATE_CASS_ENV_FILE=${CASS_CONF}/cassandra-env.sh.orig
-
-# Copy CASSANDRA configuration files to Current execution directory
-cp $CASS_HOME/conf/cassandra.yaml ${TEMPLATE_CASS_YAML_FILE}
-cp $CASS_HOME/conf/cassandra-env.sh ${TEMPLATE_CASS_ENV_FILE}
+cp $CASS_YAML_FILE $TEMPLATE_CASS_YAML_FILE
+cp $CASS_ENV_FILE $TEMPLATE_CASS_ENV_FILE
 
 casslist=`cat $CASSFILE`
 seeds=`head -n 1 $CASSFILE.ips`

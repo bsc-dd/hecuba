@@ -14,8 +14,6 @@
 ###############################################################################################################
 
 export C4S_HOME=$HOME/.c4s
-CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
-source $CFG_FILE
 SNAP_ORIG=$SNAP_PATH
 ROOT_PATH=${1}
 UNIQ_ID=${2}
@@ -25,6 +23,8 @@ CASSFILE=$C4S_HOME/casslist-"$UNIQ_ID".txt
 RECOVER_FILE=$C4S_HOME/cassandra-recover-file-"$UNIQ_ID".txt
 
 source $HECUBA_ROOT/bin/cassandra4slurm/hecuba_debug.sh
+CFG_FILE=$C4S_HOME/conf/$UNIQ_ID/cassandra4slurm.cfg
+source $CFG_FILE
 
 HOSTNAMEIP=$(get_node_ip $(hostname) $CASS_IFACE)
 
