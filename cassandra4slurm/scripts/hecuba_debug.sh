@@ -64,3 +64,8 @@ function cleanup() {
     DBG " Removing temporal file [$TMP]"
     rm $TMP
 }
+
+function is_HECUBA_ARROW_enabled() {
+	local ARROW=$( echo $HECUBA_ARROW | tr '[:upper:]' '[:lower:]' )
+	[ "${ARROW}" == "true" ]
+}

@@ -45,7 +45,7 @@ popd
 
 
 # If HECUBA_ARROW is enabled, copy the ARROW directory
-if [ ! -z $HECUBA_ARROW ]; then
+if is_HECUBA_ARROW_enabled; then
     DBG " HECUBA ARROW is enabled"
     DBG "    HECUBA_ARROW_PATH $HECUBA_ARROW_PATH/arrow"
     DBG "    -> SNAP_DEST      $SNAP_DEST/.arrow"
