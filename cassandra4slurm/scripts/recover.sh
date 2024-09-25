@@ -82,7 +82,7 @@ then
                     done
                 done
                 # Recover Arrow files if needed
-                if [ ! -z $HECUBA_ARROW ]; then
+                if is_HECUBA_ARROW_enabled ; then
                     if [ ! -f $SNAP_ORIG/$RECOVERY/$old_node/hecuba_environment.txt ]; then
                         echo "HECUBA_ARROW is enabled, but snapshot is not ARROW enabled!"
                         echo " Exitting"

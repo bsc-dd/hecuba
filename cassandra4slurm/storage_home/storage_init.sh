@@ -206,7 +206,7 @@ source $HECUBA_ENVIRON
 # Inherit ALL hecuba environment variables
 cat $HECUBA_ENVIRON > $ENVFILE
 
-if [ "X$HECUBA_ARROW" != "X" ]; then
+if is_HECUBA_ARROW_enabled ; then
     #Set HECUBA_ARROW_PATH to the DATA_PATH/TIME
     export HECUBA_ARROW_PATH=$ROOT_PATH/
     echo "export HECUBA_ARROW_PATH=$ROOT_PATH/" >> $ENVFILE
@@ -291,7 +291,7 @@ function check_cassandra_is_available () {
 }
 
 function launch_arrow_helpers () {
-    [ "X$HECUBA_ARROW" == "X" ] && return
+    ! is_HECUBA_ARROW_enabled && return
 
     UNIQ_ID=$1
     # Launch the 'arrow_helper' tool at each node in NODES, and leave their logs in LOGDIR

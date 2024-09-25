@@ -26,7 +26,7 @@ source $CFG_FILE    # To get CASSANDRA_LOG_DIR
     && export CASSANDRA_LOG_DIR="$CASSANDRA_LOG_DIR/$UNIQ_ID"
 
 function launch_arrow_helper () {
-    [ "X$HECUBA_ARROW" == "X" ] && return
+    ! is_HECUBA_ARROW_enabled  && return
 
     # Launch the 'arrow_helper' tool at each node in NODES, and leave their logs in LOGDIR
     NODES=$C4S_HOME/casslist-"$UNIQ_ID".txt

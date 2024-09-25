@@ -63,7 +63,9 @@ source $HECUBA_ENVIRON
 echo "[INFO] Generated FILE WITH HECUBA ENVIRON at  ${ENVFILE}"
 cat $HECUBA_ENVIRON > $ENVFILE
 
-if [ "X$HECUBA_ARROW" != "X" ]; then
+source $MODULE_PATH/hecuba_debug.sh
+
+if is_HECUBA_ARROW_enabled ; then
     #Set HECUBA_ARROW_PATH to the DATA_PATH/TIME
     if [ "X$HECUBA_ARROW_PATH" == "X" ]; then
 	export HECUBA_ARROW_PATH=$DATA_PATH/
@@ -99,7 +101,6 @@ function hostnames2IP() {
     done
 }
 
-source $MODULE_PATH/hecuba_debug.sh
 
 # Generating nodefiles
 # =====================
