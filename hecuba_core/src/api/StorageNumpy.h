@@ -160,7 +160,7 @@ class StorageNumpy:virtual public IStorage {
         }
 
         Writer * getDataWriter() const {
-            std::cout<< "getDataWriter numpy" << std::endl;
+            //std::cout<< "getDataWriter numpy" << std::endl;
             return this->arrayStore->getWriteCache()->get_writer();
         }
 
