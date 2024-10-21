@@ -206,7 +206,7 @@ source $HECUBA_ENVIRON
 # Inherit ALL hecuba environment variables
 cat $HECUBA_ENVIRON > $ENVFILE
 
-if [ "X$HECUBA_ARROW" != "X" ]; then
+if is_HECUBA_ARROW_enabled ; then
     #Set HECUBA_ARROW_PATH to the DATA_PATH/TIME
     export HECUBA_ARROW_PATH=$ROOT_PATH/
     echo "export HECUBA_ARROW_PATH=$ROOT_PATH/" >> $ENVFILE
@@ -291,21 +291,21 @@ function check_cassandra_is_available () {
 }
 
 function launch_arrow_helpers () {
+    ! is_HECUBA_ARROW_enabled && return
+
+    UNIQ_ID=$1
     # Launch the 'arrow_helper' tool at each node in NODES, and leave their logs in LOGDIR
-    NODES=$1
-    LOGDIR=$2
+    NODES=$C4S_HOME/casslist-"$UNIQ_ID".txt
+    LOGDIR=$LOGS_DIR/$UNIQ_ID
     if [ ! -d $LOGDIR ]; then
         DBG " Creating directory to store Arrow helper logs at [$LOGDIR]:"
         mkdir -p $LOGDIR
     fi
-    ARROW_HELPER=$HECUBA_ROOT/src/hecuba_repo/build/arrow_helper
-    ARROW_HELPER=$HECUBA_ROOT/bin/arrow_helper
-
+    ARROW_HELPER=$MODULE_PATH/launch_arrow_helper.sh
 
     for i in $(cat $NODES); do
         DBG " Launching Arrow helper at [$i] Log at [$LOGDIR/arrow_helper.$i.out]:"
-        #ssh $i $ARROW_HELPER >& $LOGDIR/arrow_helper.$i.out &
-        ssh $i $ARROW_HELPER  $LOGDIR/arrow_helper.$i.out &
+        ssh  $i HECUBA_ROOT=$HECUBA_ROOT $ARROW_HELPER $UNIQ_ID $LOGDIR/arrow_helper.$i.out &
     done
     # TODO Review this
     #echo "INFO: Launching Arrow helper at [$NODES] Log at [$LOGDIR/arrow_helper.$i.out]:"
@@ -370,6 +370,7 @@ if [ "${SINGULARITYIMG}" != "disabled" ]; then
     CQLSH_CMD='PYTHONPATH= PYTHONHOME= singularity run ${SINGULARITYIMG} cqlsh'
 else
     # copy the original cassandra configuration files to CASS_CONF directory
+    cp ${CFG_FILE} ${CASS_CONF}
     cp ${CASS_HOME}/conf/cassandra.yaml ${CASS_CONF} || die "Error copying $CASS_HOME/conf/cassandra.yaml"
     cp ${CASS_HOME}/conf/cassandra-env.sh ${CASS_CONF} || die "Error copying $CASS_HOME/conf/cassandra-env.sh"
     NODETOOL_CMD="${CASS_HOME}/bin/nodetool -Dcom.sun.jndi.rmiURLParsing=legacy"
@@ -541,5 +542,5 @@ if [ "$SINGULARITYIMG" == "disabled" ]; then
         fi
     fi
 
-    launch_arrow_helpers $CASSFILE  $LOGS_DIR
+    launch_arrow_helpers $UNIQ_ID
 fi # SINGULARITYIMG

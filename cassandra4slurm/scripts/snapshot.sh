@@ -14,8 +14,6 @@
 ###############################################################################################################
 
 C4S_HOME=$HOME/.c4s
-CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
-source $CFG_FILE
 SNAP_NAME=${1}
 ROOT_PATH=${2}
 CLUSTER=${3}
@@ -29,6 +27,8 @@ RINGDONE=$C4S_HOME/ringdone-"$UNIQ_ID".txt
 NODETOOLFILE=$C4S_HOME/nodetool-"$UNIQ_ID".txt
 
 source $HECUBA_ROOT/bin/cassandra4slurm/hecuba_debug.sh
+CFG_FILE=$C4S_HOME/conf/${UNIQ_ID}/cassandra4slurm.cfg
+source $CFG_FILE
 
 casslist=`cat $CASSFILE`
 

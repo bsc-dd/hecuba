@@ -24,9 +24,9 @@ WITHDLB=${5}	      # If set to 1 use dlb to manage allocation between cassandra 
 DISJOINT=${6}         # Guarantee disjoint allocation. 1: Yes, empty otherwise
 
 export C4S_HOME=$HOME/.c4s
-HECUBA_ENVIRON=$C4S_HOME/conf/hecuba_environment
+HECUBA_ENVIRON=$C4S_HOME/conf/${UNIQ_ID}/hecuba_environment
 MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
-CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
+CFG_FILE=$C4S_HOME/conf/${UNIQ_ID}/cassandra4slurm.cfg
 NODEFILE=$C4S_HOME/hostlist-"$UNIQ_ID".txt
 
 # CASSFILETOSYNC is a special file that is consulted by other scripts,
@@ -64,13 +64,19 @@ source $HECUBA_ENVIRON
 echo "[INFO] Generated FILE WITH HECUBA ENVIRON at  ${ENVFILE}"
 cat $HECUBA_ENVIRON > $ENVFILE
 
-if [ "X$HECUBA_ARROW" != "X" ]; then
+source $MODULE_PATH/hecuba_debug.sh
+
+if is_HECUBA_ARROW_enabled ; then
     #Set HECUBA_ARROW_PATH to the DATA_PATH/TIME
     if [ "X$HECUBA_ARROW_PATH" == "X" ]; then
-	export HECUBA_ARROW_PATH=$ROOT_PATH/
+	export HECUBA_ARROW_PATH=$DATA_PATH/
 	echo "[INFO] HECUBA_ARROW_PATH is NOT defined. Setting HECUBA_ARROW_PATH to [$HECUBA_ARROW_PATH]"
-	echo "export HECUBA_ARROW_PATH=$ROOT_PATH/" >> $ENVFILE
     fi
+    # Just append the cluster name
+    export HECUBA_ARROW_PATH=$HECUBA_ARROW_PATH/$CLUSTER
+    echo "[INFO] HECUBA_ARROW_PATH modified to be [$HECUBA_ARROW_PATH]"
+    #export HECUBA_ARROW_PATH=$ROOT_PATH/
+    echo "export HECUBA_ARROW_PATH=$HECUBA_ARROW_PATH/" >> $ENVFILE
 fi
 
 if [ "X$C4S_CASSANDRA_CORES" == "X" ]; then
@@ -96,7 +102,6 @@ function hostnames2IP() {
     done
 }
 
-source $MODULE_PATH/hecuba_debug.sh
 
 # Generating nodefiles
 # =====================
@@ -203,18 +208,12 @@ DBG " I am $(hostname)."
 
 export CASS_CONF=$C4S_HOME/conf/${UNIQ_ID}
 
-# Create current execution directory
-mkdir ${CASS_CONF}  || die "[ERROR] Unabled to create directory [${CASS_CONF}]"
-
-
 export CASS_YAML_FILE=${CASS_CONF}/cassandra.yaml
 export CASS_ENV_FILE=${CASS_CONF}/cassandra-env.sh
 export TEMPLATE_CASS_YAML_FILE=${CASS_CONF}/template.yaml.orig
 export TEMPLATE_CASS_ENV_FILE=${CASS_CONF}/cassandra-env.sh.orig
-
-# Copy CASSANDRA configuration files to Current execution directory
-cp $CASS_HOME/conf/cassandra.yaml ${TEMPLATE_CASS_YAML_FILE}
-cp $CASS_HOME/conf/cassandra-env.sh ${TEMPLATE_CASS_ENV_FILE}
+cp $CASS_YAML_FILE $TEMPLATE_CASS_YAML_FILE
+cp $CASS_ENV_FILE $TEMPLATE_CASS_ENV_FILE
 
 casslist=`cat $CASSFILE`
 seeds=`head -n 1 $CASSFILE.ips`

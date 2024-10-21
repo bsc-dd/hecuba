@@ -153,7 +153,6 @@ int main(int argc, char *argv[])
         perror("gethostname");
         exit(1);
     }
-    printf("server [%s]: waiting for connections...\n\n", hostname);
 
     // ARROW HELPER
     // 		waits a connection from a client,
@@ -161,6 +160,8 @@ int main(int argc, char *argv[])
     //	 		This PATH is relative to HECUBA_ARROW_PATH.
     //	 	finally opens the local file and send it to client
     while(1) {  // main accept() loop
+        printf("server [%s]: waiting for connections...\n\n", hostname);
+        fflush(stdout);
         sin_size = sizeof their_addr;
         new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
         if (new_fd == -1) {
@@ -188,9 +189,10 @@ int main(int argc, char *argv[])
             printf("Path received: %s\n", path);
 
 	    std::string path_to_read (hecuba_arrow_path);
-	    path_to_read += "/";
+	    path_to_read += "/arrow/";
 	    path_to_read += path;
             //useful
+            printf("Retrieving file: [%s]\n", path_to_read.c_str());
             int newfile = open(path_to_read.c_str(), O_RDONLY);
             if (newfile > 0) {
                 int filesize = lseek(newfile, 0, SEEK_END); //TODO DEBUG only
@@ -230,7 +232,7 @@ int main(int argc, char *argv[])
             free(path);
                 
 
-            printf("\n");
+            printf("SERVED\n");
             close(new_fd);
             exit(0);
         }

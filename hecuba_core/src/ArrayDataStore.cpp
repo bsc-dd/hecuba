@@ -97,7 +97,7 @@ ArrayDataStore::ArrayDataStore(const char *table, const char *keyspace, std::sha
     env_path = std::getenv("HECUBA_ARROW_PATH");
     if (env_path != nullptr) {
         std::string hecuba_arrow(env_path);
-        arrow_path = hecuba_arrow;
+        arrow_path = hecuba_arrow+"/";
     }
     env_path = std::getenv("HECUBA_ARROW_OPTANE");
     if (env_path != nullptr) {
@@ -929,6 +929,7 @@ void ArrayDataStore::read_numpy_from_cas_by_coords(const uint64_t *storage_id, A
 
             //We fetch the data
             TupleRow *block_key = new TupleRow(keys_metas, keys_size, buffer);
+	    DBG(" Reading numpy block sid=" << UUID::UUID2str(storage_id)<< " cid="<<(*it).cluster_id<<" blkid="<<(*it).block_id);
             result = read_cache->get_crow(block_key);
             delete (block_key);
             //build cluster
@@ -1183,13 +1184,24 @@ bool itsme(const char *target) {
     return false;
 }
 
-int get_remote_file(const char *host, const std::string sourcepath, const std::string filename, const std::string destination_path)
+int get_remote_file(const char *host, const std::string filename, const std::string destination_path)
 {
     int r = 0;
     //std::cerr << "destination_path: " << destination_path << std::endl;
     //std::cerr << "filename: " << filename << std::endl;
 
-    if (access((destination_path + filename).c_str(), R_OK) != 0) { //File DOES NOT exist
+    struct stat sb;
+    if (stat((destination_path + filename).c_str(), &sb) == 0) { // fstatat
+	    // File ALREADY exists, is it valid?
+	    if (sb.st_size > 0) {
+		    // File has content ... use it
+		    return 0;
+	    }
+	    // File was empty? remove it...
+
+    }
+    // File DOES NOT exist
+    //if (access((destination_path + filename).c_str(), R_OK) != 0) { //File DOES NOT exist
         size_t path_size = strlen(destination_path.c_str());
         char aux_path[path_size+1];
         char *p;
@@ -1217,8 +1229,8 @@ int get_remote_file(const char *host, const std::string sourcepath, const std::s
                 exit(1); //FIXME
             }
         }
-        r = scp(host, (sourcepath + filename).c_str(), (destination_path).c_str());
-    }
+        r = scp(host, (filename).c_str(), (destination_path).c_str());
+    //}
 
     return r;
 }
@@ -1251,6 +1263,7 @@ int ArrayDataStore::find_and_open_arrow_file(const uint64_t * storage_id, const 
 
     // Detect the location of the file
     if ( !itsme(host) ) {
+        //std::cout << " DEBUG token is REMOTE! Retrieving... " << std::endl;
         std::string remote_path;
         remote_path = local_path + "REMOTES/";
 
@@ -1261,9 +1274,9 @@ int ArrayDataStore::find_and_open_arrow_file(const uint64_t * storage_id, const 
         ksp = arrow_file_name.substr(0, pos);
         arrow_file = arrow_file_name.substr(pos, arrow_file_name.length());
 
-        if (get_remote_file(host, local_path + ksp, arrow_file, remote_path + ksp) < 0) {
+        if (get_remote_file(host, arrow_file_name, remote_path + ksp) < 0) {
             std::string msg = " ArrayDataStore::find_and_open_arrow_file: File "
-                             + (local_path + ksp + arrow_file)
+                             + (ksp + arrow_file)
                              + " does not exist remotelly at " + host + "!! ";
             throw ModuleException(msg);
         }

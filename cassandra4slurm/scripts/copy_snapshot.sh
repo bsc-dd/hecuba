@@ -28,7 +28,7 @@ while [ ! -s $RINGDONE ]; do
 done
 DBG " $(hostname) Current RINGFILE $RINGFILE -> $(hostname) $SNAP_DEST/$SNAP_NAME-ring.txt"
 # Obtain used interface from Cassandra configuration file
-CFG_FILE=$C4S_HOME/conf/cassandra4slurm.cfg
+CFG_FILE=$C4S_HOME/conf/${UNIQ_ID}/cassandra4slurm.cfg
 HST_IFACE=$(grep -v "^ *#" $CFG_FILE|grep CASS_IFACE|cut -d"=" -f2)
 NODE_IP=$(get_node_ip $(hostname) $HST_IFACE)
 DBG " $0 $(hostname) HST_IFACE=$HST_IFACE NODE_IP=$NODE_IP"
@@ -45,7 +45,7 @@ popd
 
 
 # If HECUBA_ARROW is enabled, copy the ARROW directory
-if [ ! -z $HECUBA_ARROW ]; then
+if is_HECUBA_ARROW_enabled; then
     DBG " HECUBA ARROW is enabled"
     DBG "    HECUBA_ARROW_PATH $HECUBA_ARROW_PATH/arrow"
     DBG "    -> SNAP_DEST      $SNAP_DEST/.arrow"

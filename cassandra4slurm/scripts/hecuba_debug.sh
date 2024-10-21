@@ -18,14 +18,16 @@ show_time () {
     local MILL2=$(echo $RECOVERTIME2 | cut -c 10-12)
     local TIMESEC1=$(date -d "$RECOVERTIME1" +%s)
     local TIMESEC2=$(date -d "$RECOVERTIME2" +%s)
+    # Preceding values may begin with a 0, so it is required to use '10#' to
+    # avoid considering the number as octal
     local TIMESEC=$(( 10#$TIMESEC2 - 10#$TIMESEC1 ))
     local MILL=$(( 10#$MILL2 - 10#$MILL1 ))
 
     # Adjusting seconds if necessary
     if [ $MILL -lt 0 ]
     then
-        MILL=$(( 1000 + 10#$MILL ))
-        TIMESEC=$(( 10#$TIMESEC - 1 ))
+        MILL=$(( 1000 + $MILL ))
+        TIMESEC=$(( $TIMESEC - 1 ))
     fi
 
     echo "$MSG ${TIMESEC}s.  ${MILL}ms."
@@ -61,4 +63,9 @@ function cleanup() {
     local TMP="$1"
     DBG " Removing temporal file [$TMP]"
     rm $TMP
+}
+
+function is_HECUBA_ARROW_enabled() {
+	local ARROW=$( echo $HECUBA_ARROW | tr '[:upper:]' '[:lower:]' )
+	[ "${ARROW}" == "true" ]
 }
