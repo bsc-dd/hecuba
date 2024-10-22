@@ -67,15 +67,13 @@ if [ "$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips | grep $HOSTNAMEIP)" != "" ]; 
 	    -p $CASSPIDFILE \
 	    #-f  \
 	    #| awk "{ print  \""$HOSTNAMEIP"\",\$0 }"
-
-    while [ ! -f $CASSPIDFILE ]; do
-    	echo "Waiting Cassandra starting up @$(hostname)"
-	sleep 1
-    done
+    # Wait for cassandra to start up and write the PID file
     while [ ! -s $CASSPIDFILE ]; do
     	echo "Waiting Cassandra writing PID @$(hostname)"
 	sleep 1
     done
+
+    # Wait for termination --> 'wait' does not work :(
     while [ -f $CASSPIDFILE ]; do
 	sleep 1
     done
