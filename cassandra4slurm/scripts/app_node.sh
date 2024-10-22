@@ -36,7 +36,7 @@ fi
 echo "Launching application: $APP_PATH"
 #commented to test bindind 
 #srun --overlap --mem=0 $APP_PATH
-if [ $WITHDLB == 1 ]; then
+if [ "$WITHDLB" == "1" ]; then
 	DLB_HOME=/apps/GPP/PM/dlb/git/impi/
 	preload="$DLB_HOME/lib/libdlb_mpi.so"
 	preload="$preload:$HOME/dlb/doc/examples/lewi_custom_rt/libcustom_rt.so"
