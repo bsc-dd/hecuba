@@ -66,6 +66,11 @@ cat $HECUBA_ENVIRON > $ENVFILE
 
 source $MODULE_PATH/hecuba_debug.sh
 
+function get_numphyscores() {
+	# nproc --all --> gives physical AND virtual cores, but slurm only accepts 'physical'
+	lscpu -p=Core |grep -v '#'| sort -u |wc -l
+}
+
 if is_HECUBA_ARROW_enabled ; then
     #Set HECUBA_ARROW_PATH to the DATA_PATH/TIME
     if [ "X$HECUBA_ARROW_PATH" == "X" ]; then
@@ -81,7 +86,7 @@ fi
 
 if [ "X$C4S_CASSANDRA_CORES" == "X" ]; then
     if [ "$DISJOINT" == "1" ]; then
-        C4S_CASSANDRA_CORES=$(nproc --all)
+        C4S_CASSANDRA_CORES=$(get_numphyscores)
     else
         C4S_CASSANDRA_CORES=4
     fi
@@ -350,9 +355,9 @@ if [ "$APP_NODES" != "0" ]; then
     if [ "X$C4S_APP_CORES" == X ]; then
         if [ "$DISJOINT" == "1" ]; then
             # TODO: is this required??? --> export PYCOMPSS_NODES=$(cat $APPFILE | tr '\n' ',' | sed "s/,/$full_iface,/g" | rev | cut -c 2- | rev) # Workaround for disjoint executions with PyCOMPSs
-            C4S_APP_CORES=$(nproc --all)
+	    C4S_APP_CORES=$(get_numphyscores)
         else
-            C4S_APP_CORES=$(( $(nproc --all) - $C4S_CASSANDRA_CORES ))
+            C4S_APP_CORES=$(( $(get_numphyscores) - $C4S_CASSANDRA_CORES ))
         fi
     fi
     if [ "$PYCOMPSS_APP" == "1" ]; then
