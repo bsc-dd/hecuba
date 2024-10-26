@@ -22,7 +22,7 @@
 #define _GNU_SOURCE
 #endif /* !  _GNU_SOURCE */
 #include <sched.h>
-#include <poll.h>
+#include <sys/select.h>
 
 
 #define DBG(X) do {\
@@ -65,28 +65,29 @@ void *get_in_addr(struct sockaddr *sa)
 }
 
 // Add a new file descriptor to the set
-void add_to_pfds(struct pollfd *pfds[], int newfd, int *fd_count, int *fd_size)
+void add_to_pfds(fd_set *pfds, int newfd, int *fd_max)
 {
-    // If we don't have room, add more space in the pfds array
-    if (*fd_count == *fd_size) {
-        *fd_size *= 2; // Double it
-
-        *pfds = (struct pollfd*) realloc(*pfds, sizeof(**pfds) * (*fd_size));
+    if (newfd >= *fd_max){
+	    *fd_max = newfd +1;
     }
-
-    (*pfds)[*fd_count].fd = newfd;
-    (*pfds)[*fd_count].events = POLLIN; // Check ready-to-read
-
-    (*fd_count)++;
+    FD_SET(newfd, pfds);
 }
 
 // Remove an index from the set
-void del_from_pfds(struct pollfd pfds[], int i, int *fd_count)
+void del_from_pfds(fd_set *pfds, int i, int *fd_max)
 {
-    // Copy the one from the end over this one
-    pfds[i] = pfds[*fd_count-1];
-
-    (*fd_count)--;
+	FD_CLR(i, pfds);
+	if (i == (*fd_max - 1)) { //last one... search for a previous one
+		int last = -1;
+		i--; // Deleted file descriptor is no more...
+		for (; i > 0; i-- ) {
+			if (FD_ISSET(i, pfds)) {
+				last = i;
+				break; // FOUND!
+			}
+		}
+		*fd_max = (last + 1);
+	}
 }
 
 // Return a string to show a cpuset
@@ -127,6 +128,8 @@ int setCassandraAfinity(const cpu_set_t* cassandraMask) {
 		perror(msg.c_str());
 		return -1;
 	}
+	// cassandraMask = newMask;
+	memcpy(&currentCassandraMask, cassandraMask, sizeof(cpu_set_t));
 	return 0;
 }
 
@@ -137,10 +140,7 @@ void addMask(const cpu_set_t* newMask) {
    cpu_set_t mask;
    CPU_OR(&mask, newMask, &currentCassandraMask);
    DBG(" Setting affinity [" << CPUSET2INT(&mask) <<"]");
-   if (setCassandraAfinity(&mask) != -1) {
-	// cassandraMask = newMask;
-	memcpy(&currentCassandraMask, &mask, sizeof(cpu_set_t));
-   }
+   setCassandraAfinity(&mask);
 }
 
 // Removes cores in 'newMask' from currentCassandraMask
@@ -152,10 +152,7 @@ void removeMask(const cpu_set_t* newMask) {
    CPU_XOR(&mask, &currentCassandraMask, newMask);
    CPU_AND(&mask, &currentCassandraMask, &mask);
    DBG(" Setting affinity [" << CPUSET2INT(&mask) <<"]");
-   if (setCassandraAfinity(&mask) != -1) {
-	// cassandraMask = newMask;
-	memcpy(&currentCassandraMask, &mask, sizeof(cpu_set_t));
-   }
+   setCassandraAfinity(&mask);
 }
 
 // Obtain cassandra Mask
@@ -273,15 +270,14 @@ int main(int argc, char *argv[])
 
 	// Start off with room for 5 connections
 	// (We'll realloc as necessary)
-	int fd_count = 0;
-	int fd_size = 5;
-	struct pollfd *pfds = (struct pollfd*) malloc(sizeof(*pfds) * fd_size);
+	int fd_max = 0;
+	fd_set read_fds; // Modifiable set for select
+	fd_set pfds; //Connected file descriptors
+	FD_ZERO(&pfds);
 
 	// Add the listener to set
-	pfds[0].fd = sockfd;
-	pfds[0].events = POLLIN; // Report ready to read on incoming connection
-
-	fd_count = 1; // For the listener
+	FD_SET(sockfd, &pfds);
+	fd_max = sockfd + 1; // For the listener
 
 	// CASSANDRA MGR
 	// 		waits a connection from a client,
@@ -300,94 +296,108 @@ int main(int argc, char *argv[])
 	struct sockaddr_storage their_addr; // connector's address information
 	DBG("server ["<< hostname << "]: waiting for connections at port "<<PORT);
 	while(!finish) {  // main accept() loop
-		int poll_count = poll(pfds, fd_count, -1);
+		read_fds = pfds; //Copy connected fds to temporal variable as 'select' modifies resulting set
+		int poll_count = select(fd_max, &read_fds, NULL, NULL, NULL);
 		if (poll_count == -1) {
 			perror("poll");
 			exit(1);
 		}
 
 		// Run through the existing connections looking for data to read
-		for(int i = 0; i < fd_count; i++) {
-			if (pfds[i].fd == sockfd) {
-				// If listener is ready to read, handle new connection
-				sin_size = sizeof their_addr;
-				new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
+		for(int i = 0; i < fd_max; i++) {
+			if (FD_ISSET(i, &read_fds)) {
+				if (i == sockfd) {
+					// If listener is ready to read, handle new connection
+					sin_size = sizeof their_addr;
+					new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
 
-				if (new_fd == -1) {
-					perror("accept");
-				} else {
-					char s[INET6_ADDRSTRLEN];
-					add_to_pfds(&pfds, new_fd, &fd_count, &fd_size);
-
-					inet_ntop(their_addr.ss_family,
-							get_in_addr((struct sockaddr *)&their_addr),
-							s, sizeof(s));
-					DBG("server: got connection from "<< s << " ===> "<< new_fd);
-				}
-			} else {
-				// If not the listener, we're just a regular client
-
-				int cmd;
-				int numbytes = recv(pfds[i].fd, &cmd, sizeof(cmd), 0); // --> ntohs
-				if (numbytes <= 0) {
-					// Got error or connection closed by client
-					if (numbytes == 0) {
-						// Connection closed
-						DBG("pollserver: socket "<< pfds[i].fd << " hung up" );
+					if (new_fd == -1) {
+						perror("accept");
 					} else {
-						perror("recv");
+
+						fcntl(new_fd, F_SETFL, O_NONBLOCK); // Set NON-Blocking
+						add_to_pfds(&pfds, new_fd, &fd_max);
+
+						char s[INET6_ADDRSTRLEN];
+						inet_ntop(their_addr.ss_family,
+								get_in_addr((struct sockaddr *)&their_addr),
+								s, sizeof(s));
+						DBG("server: got connection from "<< s << " ===> "<< new_fd);
 					}
-
-					close(pfds[i].fd); // Bye!
-
-					del_from_pfds(pfds, i, &fd_count);
-
 				} else {
-					// We got some good data from a client
+					// If not the listener, we're just a regular client
 
-					new_fd = pfds[i].fd;
-					cmd = ntohl(cmd);
-					if ( cmd > END ) {
-						DBG("ERROR: Unknown command received ["<< cmd << "]. Ignored.");
-						continue;
-					}
-					DBG(" Received cmd: " << std::string(cmd_str[cmd]) << " from "<< new_fd);
-					switch (cmd) {
-						case ADD:
-							{
-								// Receive SET SIZE
-								int set_size;
-								int numbytes = recv(new_fd, &set_size, sizeof(set_size), 0); // --> ntohs
-								set_size = ntohl(set_size);
-								// Receive SET itself
-								cpu_set_t s;
-								numbytes = recv(new_fd, &s, set_size, 0);
-								addMask(&s);
-								break;
+					int cmd;
+					int numbytes = recv(i, &cmd, sizeof(cmd), 0); // --> ntohs
+   					DBG("server: received command "<<ntohl(cmd)<<" with " <<sizeof(cmd)<<" bytes using "<< numbytes << " bytes");
+					if (numbytes <= 0) {
+						// Got error or connection closed by client
+						if (numbytes == 0) {
+							// Connection closed
+							DBG("pollserver: socket "<< i << " hung up" );
+						} else {
+							if ((errno == EWOULDBLOCK)||(errno == EAGAIN)) {
+									continue; // This is a 'select' "Feature" it may block in the recv even it says it would not...
 							}
-						case REMOVE:
-							{
-								int set_size;
-								int numbytes = recv(new_fd, &set_size, sizeof(set_size), 0); // --> ntohs
-								set_size = ntohl(set_size);
-								cpu_set_t s;
-								numbytes = recv(new_fd, &s, set_size, 0);
-								removeMask(&s);
-								int ack='1';
-								numbytes = send(new_fd, &ack, sizeof(ack), 0);
+							perror("recv");
+						}
+
+						close(i); // Close socket
+						del_from_pfds(&pfds, i, &fd_max);
+
+					} else {
+						// We got some good data from a client
+
+						new_fd = i;
+						cmd = ntohl(cmd);
+						if ( cmd > END ) {
+							DBG("ERROR: Unknown command received ["<< cmd << "]. Ignored.");
+							continue;
+						}
+						DBG(" Received cmd: " << std::string(cmd_str[cmd]) << " from "<< new_fd);
+						switch (cmd) {
+							case ADD:
+								{
+									// Receive SET SIZE
+									int set_size;
+									int numbytes = recv(new_fd, &set_size, sizeof(set_size), 0); // --> ntohs
+									set_size = ntohl(set_size);
+   									DBG("server: received size "<<set_size<<"/"<<sizeof(cpu_set_t)<<" with " <<sizeof(set_size)<<" bytes using "<< numbytes << " bytes");
+									// Receive SET itself
+									cpu_set_t s;
+									numbytes = recv(new_fd, &s, set_size, 0);
+   									DBG("server: received cpuset with size " <<set_size<<" bytes using "<< numbytes << " bytes");
+									addMask(&s);
+									break;
+								}
+							case REMOVE:
+								{
+									// Receive SET SIZE
+									int set_size;
+									int numbytes = recv(new_fd, &set_size, sizeof(set_size), 0); // --> ntohs
+									set_size = ntohl(set_size);
+   									DBG("server: received size "<<set_size<<" with " <<sizeof(set_size)<<" bytes using "<< numbytes << " bytes");
+									// Receive SET itself
+									cpu_set_t s;
+									numbytes = recv(new_fd, &s, set_size, 0);
+   									DBG("server: received cpuset with size " <<set_size<<" bytes using "<< numbytes << " bytes");
+									removeMask(&s);
+									int ack='1';
+									//numbytes = send(new_fd, &ack, sizeof(ack), 0);
+									break;
+								}
+							case END:
+								finish = 1;
 								break;
-							}
-						case END:
-							finish = 1;
-							break;
+						}
 					}
 				}
 			}
 		}
 	}
 
-	for(int i = 0; i < fd_count; i++) {
-		close(pfds[i].fd);
+	for(int i = 0; i < fd_max; i++) {
+		if (FD_ISSET(i, &pfds)) close(i);
 	}
 	return 0;
 }

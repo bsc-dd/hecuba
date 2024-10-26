@@ -190,24 +190,36 @@ void HecubaSession::getCurrentCassandraAffinity(cpu_set_t* currentMask) const {
 }
 
 int HecubaSession::sendCassandraMgr(int cmd, const cpu_set_t* newMask) const {
-   int numbytes;
-   numbytes = send(cass_MGR_socket, &cmd, sizeof(cmd), 0);
-   if (numbytes<0) {
-	   perror("send cmd");
-	   return -1;
-   }
-   cmd = sizeof(cpu_set_t);
-   numbytes = send(cass_MGR_socket, &cmd, sizeof(cmd), 0);
-   if (numbytes<0) {
-	   perror("send set size");
-	   return -1;
-   }
-   numbytes = send(cass_MGR_socket, newMask, sizeof(cpu_set_t), 0);
-   if (numbytes<0) {
-	   perror("send set");
-	   return -1;
-   }
-   return 1;
+	int numbytes;
+	// Command
+	cmd = htonl(cmd);
+	numbytes = send(cass_MGR_socket, &cmd, sizeof(cmd), 0);
+	if (numbytes<0) {
+		perror("HecubaSession::sendCassandraMgr: send cmd");
+		return -1;
+	}
+	DBG("Sent command "<<std::dec<<ntohl(cmd)<<" using " << std::dec<<numbytes<< " bytes");
+
+	if (newMask != NULL) {
+		// Set size
+		cmd = sizeof(cpu_set_t);
+		cmd = htonl(cmd);
+		numbytes = send(cass_MGR_socket, &cmd, sizeof(cmd), 0);
+		if (numbytes<0) {
+			perror("HecubaSession::sendCassandraMgr: send set size");
+			return -1;
+		}
+		DBG("Sent size of cpu_set_t "<<std::dec<<ntohl(cmd)<<" bytes using "<< std::dec<<numbytes << " bytes");
+
+		// Set
+		numbytes = send(cass_MGR_socket, newMask, sizeof(cpu_set_t), 0);
+		if (numbytes<0) {
+			perror("HecubaSession::sendCassandraMgr: send set");
+			return -1;
+		}
+		DBG("Sent cpu_set_t with "<<std::dec<<sizeof(cpu_set_t)<<" bytes using "<< std::dec<<numbytes << " bytes");
+	}
+	return 1;
 }
 int HecubaSession::waitCassandraMgr() const {
 		int ack;
@@ -230,7 +242,7 @@ cpu_set_t HecubaSession::addCassandraAffinity(cpu_set_t* newMask) {
 	memcpy(&currentCassandraMask, &mask, sizeof(cpu_set_t));
    }
 #else
-   if (sendCassandraMgr(0, newMask)<0) {return currentCassandraMask;}
+   sendCassandraMgr(0, newMask);
 #endif
    return currentCassandraMask;
 }
@@ -249,7 +261,7 @@ cpu_set_t HecubaSession::removeCassandraAffinity(cpu_set_t* newMask) {
 	memcpy(&currentCassandraMask, &mask, sizeof(cpu_set_t));
    }
 #else
-   if (sendCassandraMgr(1, newMask)<0) {return currentCassandraMask;}
+   sendCassandraMgr(1, newMask);
    //waitCassandraMgr();
 #endif
    return currentCassandraMask;
