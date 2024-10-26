@@ -344,6 +344,7 @@ endif ()
 add_compile_definitions(ARROW)    # Define ARROW preprocessor macro to enable arrow use
 # ARROW_HELPER
 add_executable(arrow_helper ${CORE_SRC_DIR}/arrow_helper/server.cpp)
+add_executable(cass_mgr ${CORE_SRC_DIR}/cass_mgr/cass_mgr.cpp)
 else(USE_ARROW)
     message(STATUS "ARROW (${ARROW}) is disabled by user!")
 endif(USE_ARROW)

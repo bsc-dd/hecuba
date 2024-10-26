@@ -31,10 +31,13 @@ public:
     bool unregisterObject(const std::shared_ptr<ArrayDataStore> a) ;
     bool registerClassName(const std::string& class_name);
     int wait_writes_completion(void); /* Wait for the finalization of any pending write operation */
-    void getCassandraAffinity(cpu_set_t* currentMask) const ;
-    cpu_set_t setCassandraAffinity(cpu_set_t* newMask);
+    void getCurrentCassandraAffinity(cpu_set_t* currentMask) const ;
+    cpu_set_t addCassandraAffinity(cpu_set_t* newMask);
+    cpu_set_t removeCassandraAffinity(cpu_set_t* newMask);
 private:
+    int cass_MGR_socket; 	// Socket to connect to cassandra manager
 
+    int setCassandraAfinity(const cpu_set_t* cassandraMask);
     std::mutex mxalive_objects;
     std::list<std::shared_ptr<CacheTable>> alive_objects; //List of registered objects with pending writes
     std::mutex mxalive_numpy_objects;
@@ -62,9 +65,12 @@ private:
     void createSchema(void);
     
     cpu_set_t cassandraMask;  // Affinity mask for Cassandra process
+    cpu_set_t currentCassandraMask;  // Currently used Affinity mask for Cassandra process
     uint32_t  cassandraPID=0;   // Cassandra process PID
     std::string CPUSET2INT(const cpu_set_t *cpuset) const;
     void limitMaskToCores(cpu_set_t* mask, unsigned int cores) const ;
+    int sendCassandraMgr(int cmd, const cpu_set_t* newMask) const;
+    int waitCassandraMgr() const ;
 
 };
 

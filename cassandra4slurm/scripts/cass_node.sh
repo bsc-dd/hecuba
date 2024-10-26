@@ -73,6 +73,10 @@ if [ "$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips | grep $HOSTNAMEIP)" != "" ]; 
 	sleep 1
     done
 
+    # Launch cassandra manager
+    echo "Starting Cassandra manager for PID $(cat $CASSPIDFILE)"
+    $HECUBA_ROOT/bin/cass_mgr $(cat $CASSPIDFILE) &
+
     # Wait for termination --> 'wait' does not work :(
     while [ -f $CASSPIDFILE ]; do
 	sleep 1
