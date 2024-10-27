@@ -189,36 +189,27 @@ void HecubaSession::getCurrentCassandraAffinity(cpu_set_t* currentMask) const {
    memcpy(currentMask, &currentCassandraMask, sizeof(cpu_set_t));
 }
 
+struct message {
+	int 		operation;
+	int 		cpusetsize;
+	cpu_set_t 	set;
+};
 int HecubaSession::sendCassandraMgr(int cmd, const cpu_set_t* newMask) const {
 	int numbytes;
-	// Command
-	cmd = htonl(cmd);
-	numbytes = send(cass_MGR_socket, &cmd, sizeof(cmd), 0);
+	struct message msg;
+	msg.operation = cmd;
+	if (newMask == NULL) {
+		msg.cpusetsize = 0;
+	} else {
+		msg.cpusetsize = sizeof(cpu_set_t);
+		memcpy(&msg.set, newMask, msg.cpusetsize);
+	}
+	numbytes = send(cass_MGR_socket, &msg, sizeof(msg), 0);
 	if (numbytes<0) {
-		perror("HecubaSession::sendCassandraMgr: send cmd");
+		perror("HecubaSession::sendCassandraMgr: send msg");
 		return -1;
 	}
-	DBG("Sent command "<<std::dec<<ntohl(cmd)<<" using " << std::dec<<numbytes<< " bytes");
-
-	if (newMask != NULL) {
-		// Set size
-		cmd = sizeof(cpu_set_t);
-		cmd = htonl(cmd);
-		numbytes = send(cass_MGR_socket, &cmd, sizeof(cmd), 0);
-		if (numbytes<0) {
-			perror("HecubaSession::sendCassandraMgr: send set size");
-			return -1;
-		}
-		DBG("Sent size of cpu_set_t "<<std::dec<<ntohl(cmd)<<" bytes using "<< std::dec<<numbytes << " bytes");
-
-		// Set
-		numbytes = send(cass_MGR_socket, newMask, sizeof(cpu_set_t), 0);
-		if (numbytes<0) {
-			perror("HecubaSession::sendCassandraMgr: send set");
-			return -1;
-		}
-		DBG("Sent cpu_set_t with "<<std::dec<<sizeof(cpu_set_t)<<" bytes using "<< std::dec<<numbytes << " bytes");
-	}
+	DBG("Sent message with "<<std::dec<<sizeof(msg)<<" bytes using "<< std::dec<<numbytes << " bytes");
 	return 1;
 }
 int HecubaSession::waitCassandraMgr() const {

@@ -52,6 +52,14 @@ char * cmd_str[] = {
 	"REMOVE",
 	"END"
 };
+
+
+struct message {
+	int 		operation;
+	int 		cpusetsize;
+	cpu_set_t 	set;
+};
+
 /* PROTOCOL COMMANDS END */
 
 // get sockaddr, IPv4 or IPv6:
@@ -327,9 +335,9 @@ int main(int argc, char *argv[])
 				} else {
 					// If not the listener, we're just a regular client
 
-					int cmd;
-					int numbytes = recv(i, &cmd, sizeof(cmd), 0); // --> ntohs
-   					DBG("server: received command "<<ntohl(cmd)<<" with " <<sizeof(cmd)<<" bytes using "<< numbytes << " bytes");
+					struct message msg;
+					int numbytes = recv(i, &msg, sizeof(msg), 0); // --> ntohs
+					DBG("server: received "<<numbytes<<"/"<<sizeof(msg)<<" bytes from message");
 					if (numbytes <= 0) {
 						// Got error or connection closed by client
 						if (numbytes == 0) {
@@ -349,7 +357,7 @@ int main(int argc, char *argv[])
 						// We got some good data from a client
 
 						new_fd = i;
-						cmd = ntohl(cmd);
+						int cmd = msg.operation;
 						if ( cmd > END ) {
 							DBG("ERROR: Unknown command received ["<< cmd << "]. Ignored.");
 							continue;
@@ -358,30 +366,18 @@ int main(int argc, char *argv[])
 						switch (cmd) {
 							case ADD:
 								{
-									// Receive SET SIZE
 									int set_size;
-									int numbytes = recv(new_fd, &set_size, sizeof(set_size), 0); // --> ntohs
-									set_size = ntohl(set_size);
-   									DBG("server: received size "<<set_size<<"/"<<sizeof(cpu_set_t)<<" with " <<sizeof(set_size)<<" bytes using "<< numbytes << " bytes");
-									// Receive SET itself
-									cpu_set_t s;
-									numbytes = recv(new_fd, &s, set_size, 0);
-   									DBG("server: received cpuset with size " <<set_size<<" bytes using "<< numbytes << " bytes");
-									addMask(&s);
+									set_size = msg.cpusetsize;
+									DBG("server: received size "<<set_size<<"/"<<sizeof(cpu_set_t));
+									addMask(&msg.set);
 									break;
 								}
 							case REMOVE:
 								{
-									// Receive SET SIZE
 									int set_size;
-									int numbytes = recv(new_fd, &set_size, sizeof(set_size), 0); // --> ntohs
-									set_size = ntohl(set_size);
-   									DBG("server: received size "<<set_size<<" with " <<sizeof(set_size)<<" bytes using "<< numbytes << " bytes");
-									// Receive SET itself
-									cpu_set_t s;
-									numbytes = recv(new_fd, &s, set_size, 0);
-   									DBG("server: received cpuset with size " <<set_size<<" bytes using "<< numbytes << " bytes");
-									removeMask(&s);
+									set_size = msg.cpusetsize;
+									DBG("server: received size "<<set_size<<"/"<<sizeof(cpu_set_t));
+									removeMask(&msg.set);
 									int ack='1';
 									//numbytes = send(new_fd, &ack, sizeof(ack), 0);
 									break;
