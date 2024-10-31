@@ -18,49 +18,24 @@
 #include <fcntl.h>
 #include <iostream>
 #include <sys/utsname.h>
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif /* !  _GNU_SOURCE */
-#include <sched.h>
 #include <sys/select.h>
+#include <dirent.h>
 
+#include "cass_mgr.h"
 
-#define DBG(X) do {\
-		std::cerr << "CASS_MGR [" << getpid() << "] "<< X << std::endl;\
-	} while (0);
+#include "debug.h"
 
-#define PORT "6666"  // the port users will be connecting to
-
-#define BACKLOG 10   // how many pending connections queue will hold
-
-//#define MAXDATASIZE 100
-#define MAXDATASIZE 4096
-
-int cassandraPID=0;
-cpu_set_t cassandraMask; /* Original cassandra mask */
-cpu_set_t currentCassandraMask; /* Current cassandra mask */
-
-/* PROTOCOL COMMANDS */
-enum cmd_state {
-	ADD,
-	REMOVE,
-	END
-};
-
+// Helper variable to print cmd value
 char * cmd_str[] = {
 	"ADD",
 	"REMOVE",
 	"END"
 };
 
-
-struct message {
-	int 		operation;
-	int 		cpusetsize;
-	cpu_set_t 	set;
-};
-
-/* PROTOCOL COMMANDS END */
+char hostname[256];
+int cassandraPID=0;
+cpu_set_t cassandraMask; /* Original cassandra mask */
+cpu_set_t currentCassandraMask; /* Current cassandra mask */
 
 // get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa)
@@ -116,10 +91,78 @@ std::string CPUSET2INT(const cpu_set_t *cpuset) {
 	return std::string(cpus);
 }
 
+
+int setCassandraAffinityRecursive(int pid, const cpu_set_t* newMask)
+{
+
+
+#define FILE_PATH_SIZE 512
+#define CHILDS_TO_CHECK_SIZE 32768
+
+	char file_path[FILE_PATH_SIZE];
+	/*buffer used for various things through the program, it doesn't have a specific purpose*/
+	/*array of all the processe we've searched its child and the ones we still have to
+	 *   current_child_to_check will hold the position in the array of the process we are currently checking
+	 *   last_child will hold the position in the array of the last process we'll have to check
+	 */
+	int childs_to_check[CHILDS_TO_CHECK_SIZE];
+
+	DIR* proc;
+	struct dirent* dir_entry;
+	int last_child;
+	int error;
+
+	childs_to_check[0] = pid;
+	last_child = 1;
+
+	// /proc/pid/task contains the list of all THREADS created by PID
+	sprintf(file_path, "/proc/%d/task", pid);
+	proc = opendir(file_path);
+	if (proc == NULL) {
+		perror("Failed to open the dir\n");
+		return -1;
+	}
+
+
+	/*Iterate through all the directories*/
+	while ((dir_entry = readdir(proc))){
+		/* child processes will have a PID greater than its parent one */
+		int th = atoi(dir_entry->d_name);
+		if (th != pid) {
+			if (last_child == CHILDS_TO_CHECK_SIZE) {
+				std::cerr << " setCassandraAffinityRecursive:: Maximum number of childs arrived... Ignoring." << std::endl;
+			} else {
+				childs_to_check[last_child++] = th;
+			}
+		}
+	}
+	closedir(proc);
+
+	// TODO CHECK /proc/pid/task/pid/children file for a list of children processes (Cassandra seems to avoid creating processes) And it is NOT RELIABLE! only stopped or frozen processes!
+
+
+#if 0
+	std::cerr << "CASS_MGR [" << getpid() << "] ";
+	for (int i = 0; i < last_child; ++i){
+			std::cerr<< std::dec<<i <<" ";
+	}
+	std::cerr << std::endl;
+#endif
+
+	for (int i = 0; i < last_child; ++i){
+		/*change the mask of all the threads*/
+		error = sched_setaffinity(childs_to_check[i], sizeof(cpu_set_t), newMask);
+		if (error) {
+			perror("Error changing the affinity mask\n");
+			return -1;
+		}
+	}
+
+	return 0;
+}
 // Sets 'cassandraMask' as the cassandra mask
 int setCassandraAfinity(const cpu_set_t* cassandraMask) {
-	// TODO setaffinity for all cassandra processes
-	if (sched_setaffinity(cassandraPID, sizeof(cpu_set_t), cassandraMask) == -1) {
+	if (setCassandraAffinityRecursive(cassandraPID, cassandraMask) < 0) {
 		char tmp[100];
 		sprintf(tmp, "HecubaSession::setCassandraAfinity CPU_SETSIZE=%d", CPU_SETSIZE);
 		std::string msg = tmp;
@@ -245,6 +288,10 @@ int get_listener_socket(void) {
  */
 int main(int argc, char *argv[])
 {
+	if (gethostname(&hostname[0], 256) < 0) {
+		perror("gethostname");
+		exit(1);
+	}
 
 	DBG("=== Starting Cassandra Manager:");
 	if (argc == 1) {
@@ -264,11 +311,6 @@ int main(int argc, char *argv[])
 	initCassandraAffinity();
 
 
-	char hostname[256];
-	if (gethostname(&hostname[0], 256) < 0) {
-		perror("gethostname");
-		exit(1);
-	}
 
 	int sockfd = get_listener_socket();
 	if (sockfd <0) {
@@ -379,7 +421,7 @@ int main(int argc, char *argv[])
 									DBG("server: received size "<<set_size<<"/"<<sizeof(cpu_set_t));
 									removeMask(&msg.set);
 									int ack='1';
-									//numbytes = send(new_fd, &ack, sizeof(ack), 0);
+									numbytes = send(new_fd, &ack, sizeof(ack), 0);
 									break;
 								}
 							case END:
