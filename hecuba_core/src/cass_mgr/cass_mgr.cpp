@@ -24,6 +24,15 @@
 #include "cass_mgr.h"
 
 #include "debug.h"
+#include <sys/time.h>
+
+
+
+struct timeval startTV;
+struct timeval stopTV;
+struct timeval diff;
+struct timeval acum;
+
 
 // Helper variable to print cmd value
 char * cmd_str[] = {
@@ -36,6 +45,7 @@ char hostname[256];
 int cassandraPID=0;
 cpu_set_t cassandraMask; /* Original cassandra mask */
 cpu_set_t currentCassandraMask; /* Current cassandra mask */
+int change_mask=0;
 
 // get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa)
@@ -188,10 +198,9 @@ int setCassandraAfinity(const cpu_set_t* cassandraMask) {
 void addMask(const cpu_set_t* newMask) {
    if (cassandraPID == 0) return ; // Affinity is disabled
    DBG(" Adding mask [" << CPUSET2INT(newMask) <<"]");
-   cpu_set_t mask;
-   CPU_OR(&mask, newMask, &currentCassandraMask);
+   CPU_OR(&currentCassandraMask, newMask, &currentCassandraMask);
    DBG(" Setting affinity [" << CPUSET2INT(&mask) <<"]");
-   setCassandraAfinity(&mask);
+   change_mask = 1;
 }
 
 // Removes cores in 'newMask' from currentCassandraMask
@@ -201,9 +210,9 @@ void removeMask(const cpu_set_t* newMask) {
    // Remove cores from currentCassandraMask
    cpu_set_t mask;
    CPU_XOR(&mask, &currentCassandraMask, newMask);
-   CPU_AND(&mask, &currentCassandraMask, &mask);
+   CPU_AND(&currentCassandraMask, &currentCassandraMask, &mask);
    DBG(" Setting affinity [" << CPUSET2INT(&mask) <<"]");
-   setCassandraAfinity(&mask);
+   change_mask = 1;
 }
 
 // Obtain cassandra Mask
@@ -221,6 +230,7 @@ void initCassandraAffinity(void) {
 		DBG(" 	["<<CPUSET2INT(&cassandraMask)<<"]");
 		memcpy(&currentCassandraMask, &cassandraMask, sizeof(cpu_set_t));
 	}
+	timerclear(&acum);
 }
 
 // Obtain a listening socket
@@ -344,14 +354,31 @@ int main(int argc, char *argv[])
 	int finish = 0;
 	socklen_t sin_size;
 	struct sockaddr_storage their_addr; // connector's address information
+	struct timeval timeout = {0, 1000}; //1ms
+	struct timeval restimeout = {0, 1000}; // Temporal copy for timeout (as select modifies it)
 	DBG("server ["<< hostname << "]: waiting for connections at port "<<PORT);
+	int pending = 0;
 	while(!finish) {  // main accept() loop
 		read_fds = pfds; //Copy connected fds to temporal variable as 'select' modifies resulting set
-		int poll_count = select(fd_max, &read_fds, NULL, NULL, NULL);
+		restimeout = timeout;
+		int poll_count = select(fd_max, &read_fds, NULL, NULL, &restimeout);
 		if (poll_count == -1) {
 			perror("poll");
 			exit(1);
 		}
+		pending += poll_count;
+		if (pending > (fd_max/2)) {
+				if (change_mask) {
+					std::cerr<< "server ["<<hostname<<"] changing mask"<<std::endl;
+   					setCassandraAfinity(&currentCassandraMask);
+					change_mask = 0;
+					pending = 0;
+				}
+		}
+		if (poll_count == 0) {//Timeout
+				continue;
+		}
+
 
 		// Run through the existing connections looking for data to read
 		for(int i = 0; i < fd_max; i++) {
@@ -437,5 +464,6 @@ int main(int argc, char *argv[])
 	for(int i = 0; i < fd_max; i++) {
 		if (FD_ISSET(i, &pfds)) close(i);
 	}
+	std::cout << " server: Finished: Total Time = "<< acum.tv_sec <<"s "<< acum.tv_usec/1000<<"ms"<<std::endl;
 	return 0;
 }
