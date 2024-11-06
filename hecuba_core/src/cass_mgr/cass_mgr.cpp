@@ -34,12 +34,33 @@ struct timeval diff;
 struct timeval acum;
 
 
+
+#define PORT "6666"  // the port users will be connecting to
+
+#define BACKLOG 10   // how many pending connections queue will hold
+
 // Helper variable to print cmd value
-char * cmd_str[] = {
+const char * cmd_str[] = {
 	"ADD",
 	"REMOVE",
 	"END"
 };
+
+
+#define CASSANDRA_SNOOPY_SLOT_SIZE_US 1000000		/* Slot of 1ms between updates of cassandra threads pids */
+/** Buffered vector for READ and WRITE. So we can read one while the other is written */
+#define CHILDS_TO_CHECK_SIZE 4096
+struct buffered_vector {
+	int childs[CHILDS_TO_CHECK_SIZE];
+	int last_child;
+};
+struct buffered_vector childs_to_check[2];
+
+struct buffered_vector* childs_to_check_read  = &childs_to_check[0];
+struct buffered_vector* childs_to_check_write = &childs_to_check[1];
+
+/* Buffered vector END */
+int finish_cassandra_snoopy = 0 ;
 
 char hostname[256];
 int cassandraPID=0;
@@ -101,77 +122,28 @@ std::string CPUSET2INT(const cpu_set_t *cpuset) {
 	return std::string(cpus);
 }
 
-
 int setCassandraAffinityRecursive(int pid, const cpu_set_t* newMask)
 {
-
-
-#define FILE_PATH_SIZE 512
-#define CHILDS_TO_CHECK_SIZE 32768
-
-	char file_path[FILE_PATH_SIZE];
-	/*buffer used for various things through the program, it doesn't have a specific purpose*/
-	/*array of all the processe we've searched its child and the ones we still have to
-	 *   current_child_to_check will hold the position in the array of the process we are currently checking
-	 *   last_child will hold the position in the array of the last process we'll have to check
-	 */
-	int childs_to_check[CHILDS_TO_CHECK_SIZE];
-
-	DIR* proc;
-	struct dirent* dir_entry;
-	int last_child;
 	int error;
-
-	childs_to_check[0] = pid;
-	last_child = 1;
-
-	// /proc/pid/task contains the list of all THREADS created by PID
-	sprintf(file_path, "/proc/%d/task", pid);
-	proc = opendir(file_path);
-	if (proc == NULL) {
-		perror("Failed to open the dir\n");
-		return -1;
-	}
-
-
-	/*Iterate through all the directories*/
-	while ((dir_entry = readdir(proc))){
-		/* child processes will have a PID greater than its parent one */
-		int th = atoi(dir_entry->d_name);
-		if (th != pid) {
-			if (last_child == CHILDS_TO_CHECK_SIZE) {
-				std::cerr << " setCassandraAffinityRecursive:: Maximum number of childs arrived... Ignoring." << std::endl;
-			} else {
-				childs_to_check[last_child++] = th;
-			}
-		}
-	}
-	closedir(proc);
-
-	// TODO CHECK /proc/pid/task/pid/children file for a list of children processes (Cassandra seems to avoid creating processes) And it is NOT RELIABLE! only stopped or frozen processes!
-
-
-#if 0
-	std::cerr << "CASS_MGR [" << getpid() << "] ";
-	for (int i = 0; i < last_child; ++i){
-			std::cerr<< std::dec<<i <<" ";
-	}
-	std::cerr << std::endl;
-#endif
-
-	for (int i = 0; i < last_child; ++i){
+	char buff[10];
+	int n = childs_to_check_read->last_child;
+	int *ch = childs_to_check_read->childs;
+	for (int i = 0; i < n; ++i){
 		/*change the mask of all the threads*/
-		error = sched_setaffinity(childs_to_check[i], sizeof(cpu_set_t), newMask);
-		if (error) {
+		error = sched_setaffinity(ch[i], sizeof(cpu_set_t), newMask);
+		if (error && (errno != ESRCH)) {  // the pid vector is eventually updated and may contain pids that are no longer alive
 			perror("Error changing the affinity mask\n");
 			return -1;
 		}
+		DBG("setCassandraAffinityRecursive: pid :"<<ch[i]);
 	}
 
 	return 0;
 }
 // Sets 'cassandraMask' as the cassandra mask
 int setCassandraAfinity(const cpu_set_t* cassandraMask) {
+	gettimeofday(&startTV, NULL);
+
 	if (setCassandraAffinityRecursive(cassandraPID, cassandraMask) < 0) {
 		char tmp[100];
 		sprintf(tmp, "HecubaSession::setCassandraAfinity CPU_SETSIZE=%d", CPU_SETSIZE);
@@ -191,6 +163,9 @@ int setCassandraAfinity(const cpu_set_t* cassandraMask) {
 	}
 	// cassandraMask = newMask;
 	memcpy(&currentCassandraMask, cassandraMask, sizeof(cpu_set_t));
+	gettimeofday(&stopTV, NULL);
+	timersub(&stopTV, &startTV, &diff);
+	timeradd(&diff, &acum, &acum);
 	return 0;
 }
 
@@ -292,6 +267,67 @@ int get_listener_socket(void) {
 
 }
 
+int cassandra_snoopy(void* arg) {
+#define FILE_PATH_SIZE 512
+
+	DBG(" Cassandra SNOOPY started! ");
+	while( ! finish_cassandra_snoopy ) {
+		char file_path[FILE_PATH_SIZE];
+		/*array of all the processe we've searched its child and the ones we still have to
+		 *   last_child will hold the position in the array of the last process we'll have to check
+		 */
+
+		DIR* proc;
+		struct dirent* dir_entry;
+
+		childs_to_check_write->childs[0] = cassandraPID;
+		childs_to_check_write->last_child = 1;
+
+		// /proc/pid/task contains the list of all THREADS created by PID
+		sprintf(file_path, "/proc/%d/task", cassandraPID);
+		proc = opendir(file_path);
+		if (proc == NULL) {
+			perror("Failed to open the dir\n");
+			return -1;
+		}
+
+
+		/*Iterate through all the directories*/
+		while ((dir_entry = readdir(proc))){
+			/* child processes will have a PID greater than its parent one */
+			int th = atoi(dir_entry->d_name);
+			if (childs_to_check_write->last_child == CHILDS_TO_CHECK_SIZE) {
+				std::cerr << getpid()<<" setCassandraAffinityRecursive:: Maximum number of childs arrived... Ignoring." << std::endl;
+			} else {
+				childs_to_check_write->childs[childs_to_check_write->last_child++] = th;
+			}
+		}
+	        DBG(" Cassandra SNOOPY detected "<< childs_to_check_write->last_child<< "children ");
+		closedir(proc);
+		// Swap buffered vectors
+		struct buffered_vector* tmp = childs_to_check_read;
+		childs_to_check_read = childs_to_check_write;
+		childs_to_check_write = tmp;
+		// Wait until next slot
+		usleep(CASSANDRA_SNOOPY_SLOT_SIZE_US);
+	}
+	DBG(" Cassandra SNOOPY finished! ");
+	return 0;
+}
+
+char stack[4096];
+/* start_cassandra_snoopy: Start a thread (cassandra_snoopy) sharing cass_mgr
+ * memory to get the threads that Cassandra is using, updating the
+ * 'childs_to_check_read' variable.
+ */
+void start_cassandra_snoopy() {
+	int cassandra_snooppy_tid = clone(cassandra_snoopy, &stack[4096], CLONE_VM, NULL);
+	if (cassandra_snooppy_tid<0) {
+		perror("Creating cassandra_snoopy");
+		exit(1);
+	}
+}
+
 /* cass_mgr PID
  * 	PID	Cassandra PID
  * POLL code adapted from https://beej.us/guide/bgnet/html/index-wide.html
@@ -319,6 +355,9 @@ int main(int argc, char *argv[])
 
 
 	initCassandraAffinity();
+
+	start_cassandra_snoopy();
+
 
 
 
@@ -369,7 +408,7 @@ int main(int argc, char *argv[])
 		pending += poll_count;
 		if (pending > (fd_max/2)) {
 				if (change_mask) {
-					std::cerr<< "server ["<<hostname<<"] changing mask"<<std::endl;
+					DBG("server ["<<hostname<<"] changing mask ["<<CPUSET2INT(&currentCassandraMask) <<"]");
    					setCassandraAfinity(&currentCassandraMask);
 					change_mask = 0;
 					pending = 0;
@@ -447,8 +486,8 @@ int main(int argc, char *argv[])
 									set_size = msg.cpusetsize;
 									DBG("server: received size "<<set_size<<"/"<<sizeof(cpu_set_t));
 									removeMask(&msg.set);
-									int ack='1';
-									numbytes = send(new_fd, &ack, sizeof(ack), 0);
+									//int ack='1';
+									//numbytes = send(new_fd, &ack, sizeof(ack), 0); // Acknowledge is not sent to ensure asynchrony
 									break;
 								}
 							case END:
@@ -461,9 +500,13 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	// Finish cassandra_snoopy
+	finish_cassandra_snoopy = 1;
+
 	for(int i = 0; i < fd_max; i++) {
 		if (FD_ISSET(i, &pfds)) close(i);
 	}
-	std::cout << " server: Finished: Total Time = "<< acum.tv_sec <<"s "<< acum.tv_usec/1000<<"ms"<<std::endl;
+
+	std::cerr << " server: Finished: Total Time = "<< acum.tv_sec <<"s "<< acum.tv_usec/1000<<"ms"<<std::endl;
 	return 0;
 }

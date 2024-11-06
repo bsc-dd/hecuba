@@ -6,13 +6,6 @@
 #endif /* !  _GNU_SOURCE */
 #include <sched.h>
 
-#define PORT "6666"  // the port users will be connecting to
-
-#define BACKLOG 10   // how many pending connections queue will hold
-
-//#define MAXDATASIZE 100
-#define MAXDATASIZE 4096
-
 extern int cassandraPID;
 extern cpu_set_t cassandraMask; /* Original cassandra mask */
 extern cpu_set_t currentCassandraMask; /* Current cassandra mask */
@@ -24,7 +17,7 @@ enum cmd_state {
 	END	//END cassandra manager
 };
 
-extern char * cmd_str[];
+extern const char * cmd_str[];
 
 struct message {
 	int 		operation;

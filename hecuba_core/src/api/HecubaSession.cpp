@@ -28,6 +28,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include "cass_mgr/cass_mgr.h"
 
 
 #ifndef _GNU_SOURCE
@@ -189,11 +190,6 @@ void HecubaSession::getCurrentCassandraAffinity(cpu_set_t* currentMask) const {
    memcpy(currentMask, &currentCassandraMask, sizeof(cpu_set_t));
 }
 
-struct message {
-	int 		operation;
-	int 		cpusetsize;
-	cpu_set_t 	set;
-};
 int HecubaSession::sendCassandraMgr(int cmd, const cpu_set_t* newMask) const {
 	int numbytes;
 	struct message msg;
@@ -209,52 +205,37 @@ int HecubaSession::sendCassandraMgr(int cmd, const cpu_set_t* newMask) const {
 		perror("HecubaSession::sendCassandraMgr: send msg");
 		return -1;
 	}
-	DBG("Sent message with "<<std::dec<<sizeof(msg)<<" bytes using "<< std::dec<<numbytes << " bytes");
+	DBG("Sent message to "<< cass_MGR_socket <<" with "<<std::dec<<sizeof(msg)<<" bytes using "<< std::dec<<numbytes << " bytes");
 	return 1;
 }
 int HecubaSession::waitCassandraMgr() const {
-		int ack;
-		int numbytes = recv(cass_MGR_socket, &ack, sizeof(ack), 0);
-		if (numbytes<0) {
-				perror("send set");
-				return -1;
-		}
+	int ack;
+	DBG("HecubaSession::waitCassandraMgr Waiting...");
+
+	int numbytes;
+	numbytes = recv(cass_MGR_socket, &ack, sizeof(ack), 0);
+	if (numbytes < 0) {
+		DBG("waitCassandraMgr2 at "<< cass_MGR_socket <<" with "<<std::dec<<sizeof(ack)<<" bytes getting "<< numbytes << " bytes");
+		perror("HecubaSession::waitCassandraMgr recv ACK");
+		//return -1;
+	}
+	DBG("HecubaSession::waitCassandraMgr Stop waiting... received "<< numbytes << "/" << sizeof(ack)<<"  bytes");
+	return 1;
 }
 
 cpu_set_t HecubaSession::addCassandraAffinity(cpu_set_t* newMask) {
    if (cassandraPID == 0) return currentCassandraMask; // Affinity is disabled
+   if (newMask == NULL)   return currentCassandraMask;
    DBG(" Adding mask [" << CPUSET2INT(newMask) <<"]");
-#if 0
-   cpu_set_t mask;
-   CPU_OR(&mask, newMask, &currentCassandraMask);
-   DBG(" Setting affinity [" << CPUSET2INT(&mask) <<"]");
-   if (setCassandraAfinity(&mask) != -1) {
-	// cassandraMask = newMask;
-	memcpy(&currentCassandraMask, &mask, sizeof(cpu_set_t));
-   }
-#else
-   sendCassandraMgr(0, newMask);
-#endif
+   sendCassandraMgr(ADD, newMask);
    return currentCassandraMask;
 }
 
 cpu_set_t HecubaSession::removeCassandraAffinity(cpu_set_t* newMask) {
    if (cassandraPID == 0) return currentCassandraMask; // Affinity is disabled
    DBG(" Removing mask [" << CPUSET2INT(newMask) <<"]");
-#if 0
-   // Remove cores from currentCassandraMask
-   cpu_set_t mask;
-   CPU_XOR(&mask, &currentCassandraMask, newMask);
-   CPU_AND(&mask, &currentCassandraMask, &mask);
-   DBG(" Setting affinity [" << CPUSET2INT(&mask) <<"]");
-   if (setCassandraAfinity(&mask) != -1) {
-	// cassandraMask = newMask;
-	memcpy(&currentCassandraMask, &mask, sizeof(cpu_set_t));
-   }
-#else
-   sendCassandraMgr(1, newMask);
-   //waitCassandraMgr();
-#endif
+   sendCassandraMgr(REMOVE, newMask);
+   //waitCassandraMgr(); // No wait is required as the cores for the app are unchanged and cassandra will eventually leave them alone
    return currentCassandraMask;
 }
 
