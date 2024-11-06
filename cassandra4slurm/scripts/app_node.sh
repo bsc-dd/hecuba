@@ -13,8 +13,9 @@
 #													      #
 ###############################################################################################################
 export C4S_HOME=$HOME/.c4s
-UNIQ_ID=${1}
-WITHDLB=${2}
+APP_NTASKS=${1}
+UNIQ_ID=${2}
+WITHDLB=${3}
 APP_PATH=$(cat $C4S_HOME/app-"$UNIQ_ID".txt)
 
 if [[ "0$SCHEMA" != "0" ]]; then
@@ -34,13 +35,14 @@ fi
 
 
 echo "Launching application: $APP_PATH"
-#commented to test bindind 
-#srun --overlap --mem=0 $APP_PATH
 if [ "$WITHDLB" == "1" ]; then
 	DLB_HOME=/apps/GPP/PM/dlb/git/impi/
 	preload="$DLB_HOME/lib/libdlb_mpi.so"
 	preload="$preload:$HOME/dlb/doc/examples/lewi_custom_rt/libcustom_rt.so"
 	export LD_PRELOAD=$preload
 fi
-srun --overlap --mem=0 --cpu-bind=verbose,cores $APP_PATH
+# FOR SOME F.... REASON the 'srun' tool does not take into account the SLURM Environment VARIABLES
+BINDING="--cpu-bind=verbose"	# to show assigned cpu_mask
+srun --mem=0 --nodes=$SLURM_JOB_NUM_NODES --ntasks=$APP_NTASKS $BINDING --cpus-per-task=$C4S_APP_CORES $APP_PATH
+
 echo "[INFO] The application execution has stopped in node $(hostname)"

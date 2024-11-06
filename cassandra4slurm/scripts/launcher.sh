@@ -86,7 +86,7 @@ fi
 
 function usage () {
     # Prints a help message
-    echo "Usage: . $EXEC_NAME [ -h | RUN [ -s ] [ -f ] [ --disjoint ] [ -nC=cass_nodes ] [ -nA=app_nodes ] [ -nT=total_nodes ] [ --appl=PATH ARGS ] [ --pycompss=PARAMS ] [ --jobname=JOBNAME ] [ --logs=DIR ] | RECOVER [ -s ] | STATUS [ cluster_id ] | STOP [ -c=cluster_id ] | KILL [ -c=cluster_id ] ]"
+    echo "Usage: . $EXEC_NAME [ -h | RUN [ -s ] [ -f ] [ --disjoint ] [ -nC=cass_nodes ] [ -nA=app_nodes ] [ -nT=total_nodes ] [ --appl=PATH ARGS ] [-n=num_processes] [ --pycompss=PARAMS ] [ --jobname=JOBNAME ] [ --logs=DIR ] | RECOVER [ -s ] | STATUS [ cluster_id ] | STOP [ -c=cluster_id ] | KILL [ -c=cluster_id ] ]"
     echo " "
     echo "IMPORTANT: The leading dot is needed since this launcher sets some environment variables."
     echo " "
@@ -101,6 +101,7 @@ function usage () {
     echo "       If flag --disjoint is used, the application nodes will be different than Cassandra ones. (In this situation nT>=nC+nA)"
     echo "       If nT>nC+nA, nT nodes will be reserved but a warning will be shown, as some resources will be initially unused."
     echo "       To execute an application after the Cassandra cluster is up it is used --appl to set the path to the executable and its arguments, if any."
+    echo "       n is the total number of instances of the application (if any)  to run in the allocation. Default is 1"
     echo "       If the application must be executed using PyCOMPSs the variable --pycompss should contain its PyCOMPSs parameters."
     echo "       Using -s it will save a snapshot after the execution."
     echo "       Using -f it will run the Cassandra cluster, the application (if set), take the snapshot (if set) and finish the execution automatically. Default is keep alive."
@@ -233,9 +234,10 @@ function launch_cassandra_and_app () {
 	# 	MODULE_PATH
 	# 	CASSANDRA_NODES
 	# 	APP_NODES
+	#	APP_NTASKS
 	# 	PYCOMPSS_SET
 	# 	DISJOINT
-    X="sbatch --job-name=$UNIQ_ID --nodes=$TOTAL_NODES --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $SLURM_FLAGS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $PYCOMPSS_SET $DISJOINT"
+    X="sbatch --job-name=$UNIQ_ID --nodes=$TOTAL_NODES --exclusive --output=$LOGS_DIR/cassandra-%j.out --error=$LOGS_DIR/cassandra-%j.err $SLURM_FLAGS $MODULE_PATH/job.sh $UNIQ_ID $CASSANDRA_NODES $APP_NODES $APP_NTASKS $PYCOMPSS_SET $DISJOINT"
     echo "SUBMITTING $X"
     SUBMIT_MSG=$($X)
     echo $SUBMIT_MSG" ("$UNIQ_ID")"
@@ -270,6 +272,7 @@ reset_all_parameters(){
     unset DISJOINT
     unset TOTAL_NODES
     unset CASSANDRA_NODES
+    unset APP_NTASKS
     unset APP_NODES
     unset APP
     unset path_to_executable
@@ -342,6 +345,10 @@ case $i in
     CASSANDRA_NODES="${i#*=}"
     shift
     ;;
+    -n=*|--ntasks=*)
+    APP_NTASKS="${i#*=}"
+    shift
+    ;;
     -a=*|--appl=*)
     APP="${i#*=}"
     shift
@@ -401,6 +408,13 @@ case $i in
 esac
 done
 
+if [ "X$APP" != "X" ]; then
+	if [ "X$APP_NTASKS" == "X" ]; then
+		APP_NTASKS=1 	# default number of app instance per node
+	fi
+else
+	APP_NTASKS=0
+fi
 
 if [ "X$WITHDLB" == "X" ]; then
     WITHDLB=0

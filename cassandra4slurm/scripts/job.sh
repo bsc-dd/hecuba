@@ -19,9 +19,10 @@ iface=$(echo "$CASS_IFACE" | sed 's/-//g')
 UNIQ_ID=${1}          # Unique ID to identify related files
 CASSANDRA_NODES=${2}  # Number of Cassandra nodes to spawn
 APP_NODES=${3}        # Number of nodes to run the application
-PYCOMPSS_APP=${4}     # Application execution using PyCOMPSs. 0: No, 1: Yes
-WITHDLB=${5}	      # If set to 1 use dlb to manage allocation between cassandra and the application
-DISJOINT=${6}         # Guarantee disjoint allocation. 1: Yes, empty otherwise
+APP_NTASKS=${4}       # Number of total instances of the application to run in the cluster
+PYCOMPSS_APP=${5}     # Application execution using PyCOMPSs. 0: No, 1: Yes
+WITHDLB=${6}          # If set to 1 use dlb to manage allocation between cassandra and the application
+DISJOINT=${7}         # Guarantee disjoint allocation. 1: Yes, empty otherwise
 
 export C4S_HOME=$HOME/.c4s
 HECUBA_ENVIRON=$C4S_HOME/conf/${UNIQ_ID}/hecuba_environment
@@ -107,6 +108,33 @@ function hostnames2IP() {
     done
 }
 
+# gen_mask FIRST/LAST NUM_CORES: Generate a mask of NUM_CORES cores starting from the beginning or from the end
+function gen_mask () {
+	local BEGIN="$1"
+	local NUM_CORES="$2"
+	local CORES_TOT=$(get_numphyscores)
+
+	# 10 cores
+	# gen_mask FIRST 4
+	# 1111 0000 00
+	# 1	001	1		0000000001
+	# 2	003	3		0000000011
+	# 3	007	7		0000000111
+	# (2^NUM_CORES)-1
+	# gen_mask LAST 1
+	# 1	200	512	1*2^9	1000000000
+	# 2	300	768	3*2^8	1100000000
+	# 3	380	896	7*2^7	1110000000
+	# ((2^NUM_CORES)-1)*(2^(CORES_TOT-NUM_CORES))
+	if [ "$BEGIN" == "FIRST" ]; then
+		MASK=$(echo "obase=16;(2^${NUM_CORES})-1"|bc)
+		#echo "Generated Mask using $NUM_CORES starting cores: = $MASK"
+	else # LAST
+		MASK=$(echo "obase=16;((2^${NUM_CORES})-1)*(2^(${CORES_TOT}-${NUM_CORES}))"|bc)
+		#echo "Generated Mask using last $NUM_CORES cores: = $MASK"
+	fi
+	echo $MASK
+}
 
 # Generating nodefiles
 # =====================
@@ -128,9 +156,11 @@ hostnames2IP $APPFILE
 export APPNODELIST=$(cat $APPFILE | tr '\n' ',' | sed "s/,$//g")
 
 
-DBG " APP_NODES      ="$APP_NODES
-DBG " CASSANDRA_NODES="$CASSANDRA_NODES
-DBG " DISJOINT       ="$DISJOINT
+DBG " APP_NODES             ="$APP_NODES
+DBG "     CORES x PROCESS   ="$C4S_APP_CORES
+DBG " CASSANDRA_NODES       ="$CASSANDRA_NODES
+DBG "     CORES x CASS_NODE ="$C4S_CASSANDRA_CORES
+DBG " DISJOINT              ="$DISJOINT
 
 N_NODES=$(cat $CASSFILE | wc -l)
 
@@ -279,14 +309,16 @@ then
 
     show_time "[STATS] Cluster recover process (copy files and set tokens for all nodes) took: " $RECOVERTIME1 $RECOVERTIME2
 fi       
-#exit # TODO QUITAR ESTO DE AQUÍ, SI NO NO FUNCIONA!!! TODO
 # Launching Cassandra in every node
 
-#commented to test binding 
-#run srun --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES $MODULE_PATH/cass_node.sh $UNIQ_ID &
-#run srun --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$C4S_CASSANDRA_CORES --nodes=$N_NODES --cpu-bind=verbose,cores $MODULE_PATH/cass_node.sh $UNIQ_ID &
-# We use 'nproc --all' to cpus-per-task instead of C4S_CASSANDRA_CORES to make SLURM assign affinity to ALL cores and play with DLB
-run srun --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --cpus-per-task=$(($(nproc --all)/2)) --nodes=$N_NODES --cpu-bind=verbose,cores $MODULE_PATH/cass_node.sh $UNIQ_ID &
+CASS_CORE_LIST=$( gen_mask LAST $C4S_CASSANDRA_CORES)
+
+run srun --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST \
+	--ntasks=$N_NODES \
+	--ntasks-per-node=1 \
+	--nodes=$N_NODES \
+	--cpu-bind=verbose,mask_cpu:${CASS_CORE_LIST} \
+	$MODULE_PATH/cass_node.sh $UNIQ_ID &
 sleep 5
 
 if [ "X$STREAMING" != "X" ]; then
@@ -353,13 +385,23 @@ cp $CASSFILE $CASSFILETOSYNC
 if [ "$APP_NODES" != "0" ]; then
     APP_AND_PARAMS=$(cat $APPPATHFILE)
     if [ "X$C4S_APP_CORES" == X ]; then
+	#if it is not defined, we allocate equal number of cores per process
         if [ "$DISJOINT" == "1" ]; then
             # TODO: is this required??? --> export PYCOMPSS_NODES=$(cat $APPFILE | tr '\n' ',' | sed "s/,/$full_iface,/g" | rev | cut -c 2- | rev) # Workaround for disjoint executions with PyCOMPSs
-	    C4S_APP_CORES=$(get_numphyscores)
+	    APP_AVAIL_CORES=$(get_numphyscores)
         else
-            C4S_APP_CORES=$(( $(get_numphyscores) - $C4S_CASSANDRA_CORES ))
+            APP_AVAIL_CORES=$(( $(get_numphyscores) - $C4S_CASSANDRA_CORES ))
         fi
+	C4S_APP_CORES=$(( ($APP_AVAIL_CORES * $APP_NODES) / $APP_NTASKS ))
+	if [ "$C4S_APP_CORES" == "0" ]; then
+		echo " WARN: More tasks than available cores. Using 1 core per task."
+		C4S_APP_CORES=1
+	fi
     fi
+
+
+
+    DBG "C4S_APP_CORES = $C4S_APP_CORES"
     if [ "$PYCOMPSS_APP" == "1" ]; then
         PYCOMPSS_FLAGS=$(cat $PYCOMPSS_FLAGS_FILE)
         # TODO: Check if escaping chars is needed for app parameters
@@ -376,18 +418,16 @@ if [ "$APP_NODES" != "0" ]; then
             > $PYCOMPSS_FILE
 
         APP_NODELIST=$(cat $APPFILE | tr '\n' ',')
-        SLURM_JOB_NUM_NODES=$APP_NODES SLURM_NTASKS=$(( $APP_NODES * $C4S_COMPSS_CORES )) SLURM_JOB_NODELIST=${APP_NODELIST::-1} bash $PYCOMPSS_FILE
+	echo " TODO: THIS CODE IS NOT REVISED. It may fail "
+	#TODO (is this required?) ---> SLURM_JOB_NUM_NODES=$APP_NODES SLURM_NTASKS=$(( $APP_NODES * $C4S_COMPSS_CORES )) SLURM_JOB_NODELIST=${APP_NODELIST::-1} bash $PYCOMPSS_FILE
+        bash $PYCOMPSS_FILE
     else
-        DBG " RUNNING IN $APP_NODES APP_NODES WITH NTASKS_PERNODE $SLURM_NTASKS_PER_NODE, NTASKS $(( $APP_NODES * $C4S_APP_CORES)) AND NPROCS $SLURM_NPROCS"
-
-	sleep 10 #yolandab test if we need some time before launching appl
 
 	# CASSPIDFILE must point to the dirname containing the .pid file generated at cass_node.sh
         export CASSPIDFILE=$C4S_HOME/conf/${UNIQ_ID}/
-        SLURM_JOB_NUM_NODES=$APP_NODES SLURM_NTASKS=$(( $APP_NODES * $C4S_APP_CORES)) SLURM_CPUS_PER_TASK=1 source $MODULE_PATH/app_node.sh $UNIQ_ID $WITHDLB
-        #SLURM_JOB_NUM_NODES=$APP_NODES SLURM_NTASKS=$(( $APP_NODES * $C4S_APP_CORES)) source $MODULE_PATH/app_node.sh $UNIQ_ID $WITHDLB
 
-	# test to understand affinity SLURM_JOB_NUM_NODES=$APP_NODES SLURM_NTASKS=$APP_NODES SLURM_CPUS_PER_TASK=$C4S_APP_CORES source $MODULE_PATH/app_node.sh $UNIQ_ID $WITHDLB
+        DBG " RUNNING IN $APP_NODES APP_NODES WITH NTASKS_PERNODE $APP_NTASKS"
+	source $MODULE_PATH/app_node.sh $APP_NTASKS $UNIQ_ID $WITHDLB
     fi
 else
     echo "[INFO] This job is not configured to run any application. Skipping..."

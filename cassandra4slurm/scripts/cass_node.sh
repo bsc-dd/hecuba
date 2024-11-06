@@ -65,8 +65,8 @@ if [ "$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips | grep $HOSTNAMEIP)" != "" ]; 
 	    -Dcassandra.consistent.rangemovement=false \
 	    -Dcassandra.config=file://$C4S_HOME/conf/${UNIQ_ID}/cassandra-${HOSTNAMEIP}.yaml \
 	    -p $CASSPIDFILE \
+	    | awk "{ print  \""$HOSTNAMEIP"\",\$0 }"
 	    #-f  \
-	    #| awk "{ print  \""$HOSTNAMEIP"\",\$0 }"
     # Wait for cassandra to start up and write the PID file
     while [ ! -s $CASSPIDFILE ]; do
     	echo "Waiting Cassandra writing PID @$(hostname)"
