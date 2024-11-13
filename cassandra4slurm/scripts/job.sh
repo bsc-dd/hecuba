@@ -256,6 +256,8 @@ seeds=`head -n 1 $CASSFILE.ips`
 # GENERATE CASSANDRA CONFIGURATION FILES
 # Do NOT use hostname! There are machines that return a differnt name than the one used in SLURM.
 #only one node needs to do this, all the nodes share the same file
+
+CASS_CONCURRENT_WRITES=$((8*$C4S_CASSANDRA_CORES)) # recommended number of concurrent writes is 8 times the number of cores
 cat $TEMPLATE_CASS_YAML_FILE \
     | sed "s/.*cluster_name:.*/cluster_name: \'$CLUSTER\'/g" \
     | sed "s/.*num_tokens:.*/num_tokens: 256/g" \
@@ -267,6 +269,7 @@ cat $TEMPLATE_CASS_YAML_FILE \
     | sed "s/.*seeds:.*/          - seeds: \"$seeds\"/" \
     | sed "s/.*broadcast_address:.*/#broadcast_address: localhost/" \
     | sed "s/.*initial_token:.*/#initial_token:/" \
+    | sed "s/.*concurrent_writes:.*/concurrent_writes: $CASS_CONCURRENT_WRITES/g" \
     > ${CASS_YAML_FILE}
     echo "auto_bootstrap: false" >> ${CASS_YAML_FILE}
 
