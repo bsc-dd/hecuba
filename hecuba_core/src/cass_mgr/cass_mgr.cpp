@@ -271,28 +271,25 @@ int get_listener_socket(void) {
 
 int cassandra_snoopy(void* arg) {
 #define FILE_PATH_SIZE 100
+	char file_path[FILE_PATH_SIZE];
+	DIR* proc;
 
 	std::cerr << " Cassandra SNOOPY started!  Monitoring ["<<cassandraPID<<"]"<<std::endl;
+	// /proc/pid/task contains the list of all THREADS created by PID
+	sprintf(file_path, "/proc/%d/task", cassandraPID);
+	proc = opendir(file_path);
+	if (proc == NULL) {
+		perror("Failed to open the dir\n");
+		return -1;
+	}
 	while( ! finish_cassandra_snoopy ) {
-		char file_path[FILE_PATH_SIZE];
-		/*array of all the processe we've searched its child and the ones we still have to
-		 *   last_child will hold the position in the array of the last process we'll have to check
-		 */
-
-		DIR* proc;
-		struct dirent* dir_entry;
 
 		childs_to_check_write->childs[0] = cassandraPID;
 		childs_to_check_write->last_child = 1;
 
-		// /proc/pid/task contains the list of all THREADS created by PID
-		sprintf(file_path, "/proc/%d/task", cassandraPID);
-		proc = opendir(file_path);
-		if (proc == NULL) {
-			perror("Failed to open the dir\n");
-			return -1;
-		}
+		rewinddir(proc);
 
+		struct dirent* dir_entry;
 		/*Iterate through all the directories*/
 		while ((dir_entry = readdir(proc))){
 			if (dir_entry->d_name[0] != '.') {
@@ -323,7 +320,6 @@ int cassandra_snoopy(void* arg) {
 			}
 		}
 		DBG(" Cassandra SNOOPY detected "<< childs_to_check_write->last_child<< "children ");
-		closedir(proc);
 		// Swap buffered vectors
 		struct buffered_vector* tmp = childs_to_check_read;
 		childs_to_check_read = childs_to_check_write;
@@ -331,6 +327,7 @@ int cassandra_snoopy(void* arg) {
 		// Wait until next slot
 		usleep(CASSANDRA_SNOOPY_SLOT_SIZE_US);
 	}
+	closedir(proc);
 	DBG(" Cassandra SNOOPY finished! ");
 	return 0;
 }
