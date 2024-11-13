@@ -413,28 +413,14 @@ int main(int argc, char *argv[])
 	struct timeval timeout = {0, 1000}; //1ms
 	struct timeval restimeout = {0, 1000}; // Temporal copy for timeout (as select modifies it)
 	DBG("server ["<< hostname << "]: waiting for connections at port "<<PORT);
-	int pending = 0;
 	while(!finish) {  // main accept() loop
 		read_fds = pfds; //Copy connected fds to temporal variable as 'select' modifies resulting set
 		restimeout = timeout;
-		int poll_count = select(fd_max, &read_fds, NULL, NULL, &restimeout);
+		int poll_count = select(fd_max, &read_fds, NULL, NULL, NULL);
 		if (poll_count == -1) {
 			perror("poll");
 			exit(1);
 		}
-		pending += poll_count;
-		if (pending > (fd_max/2)) {
-				if (change_mask) {
-					DBG("server ["<<hostname<<"] changing mask ["<<CPUSET2INT(&currentCassandraMask) <<"]");
-   					setCassandraAfinity(&currentCassandraMask);
-					change_mask = 0;
-					pending = 0;
-				}
-		}
-		if (poll_count == 0) {//Timeout
-				continue;
-		}
-
 
 		// Run through the existing connections looking for data to read
 		for(int i = 0; i < fd_max; i++) {
@@ -514,6 +500,14 @@ int main(int argc, char *argv[])
 					}
 				}
 			}
+		}
+		if (change_mask) {
+			DBG("server ["<<hostname<<"] changing mask ["<<CPUSET2INT(&currentCassandraMask) <<"]");
+			std::cerr<< "cass_mgr @"<<hostname<<" changing affinity. It has "<<num_adds<<" adds and "<<num_removes<<" removes "<<std::endl;
+			setCassandraAfinity(&currentCassandraMask);
+			num_adds = 0;
+			num_removes = 0;
+			change_mask = 0;
 		}
 	}
 
