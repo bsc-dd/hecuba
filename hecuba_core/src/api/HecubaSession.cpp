@@ -307,7 +307,7 @@ void HecubaSession::parse_environment(config_map &config) {
     }
     config["write_buffer_size"] = std::string(writeBufferSize);
 
-        ///writer_par ==> 'WRITE_CALLBACKS_NUMBER'
+        ///write_callbacks_number ==> 'WRITE_CALLBACKS_NUMBER'
     const char *writeCallbacksNum = std::getenv("WRITE_CALLBACKS_NUMBER");
     if (writeCallbacksNum == nullptr) {
         writeCallbacksNum = "16";

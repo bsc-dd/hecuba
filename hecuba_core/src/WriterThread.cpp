@@ -41,15 +41,15 @@ WriterThread::WriterThread(std::map<std::string, std::string>& config):
     this->data.set_capacity(buff_size);
 
     int32_t max_callbacks = DEFAULT_WRITER_CALLBACKS;
-    if (config.find("writer_par") != config.end()) {
-        std::string max_callbacks_str = config["writer_par"];
+    if (config.find("write_callbacks_number") != config.end()) {
+        std::string max_callbacks_str = config["write_callbacks_number"];
         try {
             max_callbacks = std::stoi(max_callbacks_str);
             if (max_callbacks <= 0) throw ModuleException("Writer parallelism value must be > 0");
         }
         catch (std::exception &e) {
             std::string msg(e.what());
-            msg += " Malformed value in config for writer_par";
+            msg += " Malformed value in config for write_callbacks_number";
             throw ModuleException(msg);
         }
     }

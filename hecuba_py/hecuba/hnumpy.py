@@ -722,7 +722,7 @@ class StorageNumpy(IStorage, np.ndarray):
         log.debug("Create cache for %s %s", ksp, table)
         hcache_params = (ksp, table,
                          {'cache_size': config.max_cache_size,
-                          'writer_par': config.write_callbacks_number,
+                          'write_callbacks_number': config.write_callbacks_number,
                           'write_buffer_size': config.write_buffer_size,
                           'hecuba_sn_single_table':config.hecuba_sn_single_table,
                           'timestamped_writes': False})

@@ -141,7 +141,7 @@ class QbeastIterator(IStorage):
                                self.storage_id,
                                self._tokens, key_names, persistent_values,
                                {'cache_size': config.max_cache_size,
-                                'writer_par': config.write_callbacks_number,
+                                'write_callbacks_number': config.write_callbacks_number,
                                 'write_buffer_size': config.write_buffer_size,
                                 'timestamped_writes': config.timestamped_writes})
         log.debug("HCACHE params %s", self._hcache_params)
