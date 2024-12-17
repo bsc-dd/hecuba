@@ -723,7 +723,7 @@ class StorageNumpy(IStorage, np.ndarray):
         hcache_params = (ksp, table,
                          {'cache_size': config.max_cache_size,
                           'writer_par': config.write_callbacks_number,
-                          'writer_buffer': config.write_buffer_size,
+                          'write_buffer_size': config.write_buffer_size,
                           'hecuba_sn_single_table':config.hecuba_sn_single_table,
                           'timestamped_writes': False})
 

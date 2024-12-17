@@ -300,7 +300,7 @@ void HecubaSession::parse_environment(config_map &config) {
     }
     config["timestamped_writes"] = timestampedWrites2;
 
-        //{"writer_buffer",      std::to_string(writer_queue)},??? == WRITE_BUFFER_SIZE?
+        //{"write_buffer_size",      std::to_string(writer_queue)},??? == WRITE_BUFFER_SIZE?
     const char * writeBufferSize = std::getenv("WRITE_BUFFER_SIZE");
     if (writeBufferSize == nullptr) {
         writeBufferSize = "1000";

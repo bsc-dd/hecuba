@@ -26,15 +26,15 @@ WriterThread::WriterThread(std::map<std::string, std::string>& config):
 {
     HecubaExtrae_event(HECUBADBG, HECUBA_CREATEASYNCTHREAD);
     int32_t buff_size = DEFAULT_WRITER_BUFF;
-    if (config.find("writer_buffer") != config.end()) {
-        std::string buff_size_str = config["writer_buffer"];
+    if (config.find("write_buffer_size") != config.end()) {
+        std::string buff_size_str = config["write_buffer_size"];
         try {
             buff_size = std::stoi(buff_size_str);
             if (buff_size < 0) throw ModuleException("Writer buffer value must be >= 0");
         }
         catch (std::exception &e) {
             std::string msg(e.what());
-            msg += " Malformed value in config for writer_buffer";
+            msg += " Malformed value in config for write_buffer_size";
             throw ModuleException(msg);
         }
     }

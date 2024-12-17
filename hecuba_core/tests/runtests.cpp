@@ -1209,7 +1209,7 @@ TEST(TestingCacheTable, GetRowC) {
     std::vector<std::pair<int64_t, int64_t> > tokens = {std::pair<int64_t, int64_t>(-10000, 10000)};
     std::map<std::string, std::string> config;
     config["writer_par"] = "4";
-    config["writer_buffer"] = "20";
+    config["write_buffer_size"] = "20";
     config["cache_size"] = "10";
 
     TableMetadata *table_meta = new TableMetadata(particles_table, keyspace, keysnames, colsnames, test_session);
@@ -1289,7 +1289,7 @@ TEST(TestingEmptyValues, WriteSimple) {
 
     std::map<std::string, std::string> config;
     config["writer_par"] = "4";
-    config["writer_buffer"] = "20";
+    config["write_buffer_size"] = "20";
     config["cache_size"] = "10";
 
 
@@ -1371,7 +1371,7 @@ TEST(TestingCacheTable, StoreNull) {
 
     std::map<std::string, std::string> config;
     config["writer_par"] = "4";
-    config["writer_buffer"] = "20";
+    config["write_buffer_size"] = "20";
     config["cache_size"] = "10";
 
 
@@ -1491,7 +1491,7 @@ TEST(TestingCacheTable, StoreNullBulk) {
 
     std::map<std::string, std::string> config;
     config["writer_par"] = "4";
-    config["writer_buffer"] = "20";
+    config["write_buffer_size"] = "20";
     config["cache_size"] = "10";
 
 
@@ -1568,7 +1568,7 @@ TEST(TestingCacheTable, StoreNullBulkText) {
 
     std::map<std::string, std::string> config;
     config["writer_par"] = "4";
-    config["writer_buffer"] = "20";
+    config["write_buffer_size"] = "20";
     config["cache_size"] = "10";
 
 
@@ -1645,7 +1645,7 @@ TEST(TestingCacheTable, StoreNumpies) {
 
     std::map<std::string, std::string> config;
     config["writer_par"] = "4";
-    config["writer_buffer"] = "20";
+    config["write_buffer_size"] = "20";
     config["cache_size"] = "10";
 
 
@@ -1727,7 +1727,7 @@ TEST(TestingCacheTable, ReadNull) {
 
     std::map<std::string, std::string> config;
     config["writer_par"] = "4";
-    config["writer_buffer"] = "20";
+    config["write_buffer_size"] = "20";
     config["cache_size"] = "10";
 
 
@@ -1848,7 +1848,7 @@ TEST(TestingCacheTable, GetRowStringC) {
 
     std::map<std::string, std::string> config;
     config["writer_par"] = "4";
-    config["writer_buffer"] = "20";
+    config["write_buffer_size"] = "20";
     config["cache_size"] = "10";
 
     TableMetadata *table_meta = new TableMetadata(particles_table, keyspace, keysnames, colsnames, test_session);
@@ -1924,7 +1924,7 @@ TEST(TestingCacheTable, GetRowStringSameKey) {
 
     std::map<std::string, std::string> config;
     config["writer_par"] = "4";
-    config["writer_buffer"] = "20";
+    config["write_buffer_size"] = "20";
     config["cache_size"] = "10";
 
     TableMetadata *table_meta = new TableMetadata(particles_table, keyspace, keysnames, colsnames, test_session);
@@ -2012,7 +2012,7 @@ TEST(TestingCacheTable, PutRowStringC) {
 
     std::map<std::string, std::string> config;
     config["writer_par"] = "4";
-    config["writer_buffer"] = "20";
+    config["write_buffer_size"] = "20";
     config["cache_size"] = "10";
 
 
@@ -2154,7 +2154,7 @@ TEST(TestingPrefetch, GetNextC) {
 
     std::map<std::string, std::string> config;
     config["writer_par"] = "4";
-    config["writer_buffer"] = "20";
+    config["write_buffer_size"] = "20";
     config["cache_size"] = "10";
     config["prefetch_size"] = "100";
 
@@ -2262,7 +2262,7 @@ TEST(TestingPrefetch, GetNextAndUpdateCache) {
 
     std::map<std::string, std::string> config;
     config["writer_par"] = "4";
-    config["writer_buffer"] = "20";
+    config["write_buffer_size"] = "20";
     config["cache_size"] = "100";
     config["prefetch_size"] = "30";
     config["update_cache"] = "true";
@@ -2328,7 +2328,7 @@ TEST(TestingStorageInterfaceCpp, CreateAndDelCache) {
 
     std::map<std::string, std::string> config;
     config["writer_par"] = "4";
-    config["writer_buffer"] = "20";
+    config["write_buffer_size"] = "20";
     config["cache_size"] = "10";
 
     StorageInterface *StorageI = new StorageInterface(nodePort, contact_p);
@@ -2362,7 +2362,7 @@ TEST(TestingStorageInterfaceCpp, CreateAndDelCacheWrong) {
 
     std::map<std::string, std::string> config;
     config["writer_par"] = "4";
-    config["writer_buffer"] = "20";
+    config["write_buffer_size"] = "20";
     config["cache_size"] = "10";
 
     StorageInterface *StorageI = new StorageInterface(nodePort, contact_p);
@@ -2398,7 +2398,7 @@ TEST(TestingStorageInterfaceCpp, IteratePrefetch) {
 
     std::map<std::string, std::string> config;
     config["writer_par"] = "4";
-    config["writer_buffer"] = "20";
+    config["write_buffer_size"] = "20";
     config["cache_size"] = "10";
     config["prefetch_size"] = "100";
 
@@ -2451,7 +2451,7 @@ TEST(TestingCacheTable, DeleteRow) {
 
     std::map<std::string, std::string> config;
     config["writer_par"] = "4";
-    config["writer_buffer"] = "20";
+    config["write_buffer_size"] = "20";
     config["cache_size"] = "10";
 
 
