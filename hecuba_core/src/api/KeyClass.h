@@ -21,7 +21,7 @@ class KeyClass:public AttributeClass<K1,rest...> {
         KeyClass() = default;
 
         // Constructor without specifying names.
-        KeyClass(const K1& part, const rest&... clustering):AttributeClass<K1,rest...>("keyname",part,clustering...) {
+        KeyClass(const K1& part, const rest&... clustering):AttributeClass<K1,rest...>("key_",part,clustering...) {
             HecubaExtrae_event(HECUBAEV, HECUBA_SD_KEY|HECUBA_INSTANTIATION);
             setKeys(); // the first one of the attributes is the partition key, and the rest the clustering keys
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
@@ -71,14 +71,14 @@ class KeyClass:public AttributeClass<K1,rest...> {
 
         std::vector<std::pair<std::string, std::string>> getPartitionKeys() {
             if (this->managedValues == 0) {
-                this->generateAttrDescr("keyname");
+                this->generateAttrDescr("key_");
                 setKeys();
             }
             return this->partitionKeys;
         }
         std::vector<std::pair<std::string, std::string>> getClusteringKeys() {
             if (this->managedValues == 0) {
-                this->generateAttrDescr("keyname");
+                this->generateAttrDescr("key_");
                 setKeys();
             }
             return this->clusteringKeys;
