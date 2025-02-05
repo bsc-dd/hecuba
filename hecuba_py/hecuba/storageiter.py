@@ -12,7 +12,6 @@ class NamedIterator:
         return self
 
     def __next__(self):
-        print("NamedIterator", flush=True) 
         n = self.hiterator.get_next()
         if self.builder is not None:
             if self._storage_father._get_set_types() is not None:

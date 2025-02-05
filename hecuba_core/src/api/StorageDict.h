@@ -31,7 +31,7 @@ class StorageDict:virtual public IStorage {
             V v;
             partitionKeys=key.getPartitionKeys();
             clusteringKeys=key.getClusteringKeys();
-            valuesDesc=v.getValuesDesc("valuename");
+            valuesDesc=v.getValuesDesc("val_");
             ObjSpec dictSpec;
             dictSpec=ObjSpec(ObjSpec::valid_types::STORAGEDICT_TYPE, partitionKeys, clusteringKeys, valuesDesc,"");
             setObjSpec(dictSpec);

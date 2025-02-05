@@ -143,11 +143,10 @@ class Parser(object):
         # Parse Values...
         valueNamesList = []
         valueTypesList = []
-        offset = len(keyNamesList)
         for i,v in enumerate(valueList):
             myname,mytype = self._get_name_and_type(v)
-            if not myname: # Generate name "val_N+1","valN+2",...
-                myname = "val_" + str(i + offset)
+            if not myname: # Generate name "val_0","val_1",..."val_N"
+                myname = "val_" + str(i)
             valueNamesList.append(myname)
             valueTypesList.append(mytype)
 
