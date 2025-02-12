@@ -55,7 +55,7 @@ public:
     void enable_lazy_write(void);
     void disable_lazy_write(void);
 
-    CassStatement* bind_cassstatement(const TupleRow* keys, const TupleRow* values) const;
+    CassStatement* bind_cassstatement(const TupleRow* keys, const TupleRow* values) ;
     void finish_async_call();
     CassSession* get_session() const;
     bool is_write_completed() const;
@@ -87,8 +87,11 @@ private:
 
 /** ownership **/
 
+    /* Prepared query codes: To avoid doing them syncronously, we do the prepare, store the future and we do the synchronization at the first query */
     const CassPrepared *prepared_query = nullptr;
+    CassFuture * future_prepared_query = nullptr;
     std::map<const std::string, const CassPrepared*> prepared_partial_queries;
+    std::map<const std::string, CassFuture*>  future_prepared_partial_queries;
 
     TupleRowFactory *k_factory = nullptr;
     TupleRowFactory *v_factory = nullptr;

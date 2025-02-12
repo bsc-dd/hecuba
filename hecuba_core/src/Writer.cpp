@@ -28,27 +28,23 @@ Writer::Writer(const TableMetadata *table_meta, CassSession *session,
     this->v_factory = new TupleRowFactory(table_meta->get_values());
 
     HecubaExtrae_event(HECUBACASS, HBCASS_PREPARES);
-    CassFuture *future = cass_session_prepare(session, table_meta->get_insert_query());
-    CassError rc = cass_future_error_code(future);
-    CHECK_CASS("writer cannot prepare: ");
-    this->prepared_query = cass_future_get_prepared(future);
-    cass_future_free(future);
-
-    // Prepare partial queries for all values
-
+    try {
+        future_prepared_query = cass_session_prepare(session, table_meta->get_insert_query());
+    } catch (std::exception &e) {
+        std::string msg(e.what());
+        msg += " Problem in execute " + std::string(table_meta->get_insert_query());
+        throw ModuleException(msg);
+    }
     for (auto cm: *(table_meta->get_values()) ) {
         const char* insert_q = table_metadata->get_partial_insert_query(cm.info["name"]);
-        CassFuture *future = nullptr;
         try {
-            future = cass_session_prepare(session, insert_q);
+            future_prepared_partial_queries[cm.info["name"]] = cass_session_prepare(session, insert_q);
+            prepared_partial_queries[cm.info["name"]] = nullptr; // Default value!
         } catch (std::exception &e) {
             std::string msg(e.what());
             msg += " Problem in execute " + std::string(insert_q);
             throw ModuleException(msg);
         }
-        CassError rc = cass_future_error_code(future);
-        CHECK_CASS("writer cannot prepare: ");
-        prepared_partial_queries[cm.info["name"]] = cass_future_get_prepared(future);
     }
     HecubaExtrae_event(HECUBACASS, HBCASS_END);
     this->ncallbacks = 0;
@@ -75,11 +71,33 @@ Writer& Writer::operator = (const Writer& src) {
     this->k_factory = new TupleRowFactory(src.table_metadata->get_keys());
     this->v_factory = new TupleRowFactory(src.table_metadata->get_values());
 
-    CassFuture *future = cass_session_prepare(session, src.table_metadata->get_insert_query());
-    CassError rc = cass_future_error_code(future);
-    CHECK_CASS("writer cannot prepare: ");
-    this->prepared_query = cass_future_get_prepared(future);
-    cass_future_free(future);
+    HecubaExtrae_event(HECUBACASS, HBCASS_PREPARES);
+    if (this->prepared_query != nullptr) {
+        cass_prepared_free(prepared_query);
+        prepared_query = nullptr;
+    }
+    if (this->future_prepared_query != nullptr) {
+        cass_future_free(future_prepared_query);
+    }
+    future_prepared_query = cass_session_prepare(session, src.table_metadata->get_insert_query());
+    for (auto cm: prepared_partial_queries ) {
+        cass_prepared_free(cm.second);
+    }
+    for (auto cm: future_prepared_partial_queries ) {
+        cass_future_free(cm.second);
+    }
+    for (auto cm: *(src.table_metadata->get_values()) ) {
+        const char* insert_q = src.table_metadata->get_partial_insert_query(cm.info["name"]);
+        try {
+            future_prepared_partial_queries[cm.info["name"]] = cass_session_prepare(session, insert_q);
+            prepared_partial_queries[cm.info["name"]] = nullptr; // Default value!
+        } catch (std::exception &e) {
+            std::string msg(e.what());
+            msg += " Problem in execute " + std::string(insert_q);
+            throw ModuleException(msg);
+        }
+    }
+    HecubaExtrae_event(HECUBACASS, HBCASS_END);
     // if we copy the writer we copy the characteristics of the writer but we do not inherit the pending writes: we initialize both dirty_blocks and data, and we set to 0 the number of callbacks
     //this->data = src.data; // concurrent_bounded_queue implements copy assignment: this does not compile because concurrent bounded queue implements move assignment
     //this->dirty_blocks = src.dirty_blocks; //concurrent_hash_map implements copy assignment
@@ -115,10 +133,24 @@ Writer::~Writer() {
     if (this->prepared_query != NULL) {
         cass_prepared_free(this->prepared_query);
         prepared_query = NULL;
+    } else {
+        if (this->future_prepared_query != NULL) {
+            cass_future_free(future_prepared_query);
+            future_prepared_query = nullptr;
+        }
     }
     for(auto it: prepared_partial_queries) {
-        cass_prepared_free(it.second);
-        it.second = nullptr;
+        if (it.second != nullptr) {
+            cass_prepared_free(it.second);
+            it.second = nullptr;
+        }
+    }
+
+    for(auto it: future_prepared_partial_queries) {
+        if (it.second != nullptr) {
+            cass_future_free(it.second);
+            it.second = nullptr;
+        }
     }
 
     deleteKafkaProducer();
@@ -427,7 +459,7 @@ void Writer::write_to_cassandra(void *keys, void *values , const char *value_nam
 
 
 /* bind_cassstatement: Prepare an statement and bind it with the passed keys and values */
-CassStatement* Writer::bind_cassstatement(const TupleRow* keys, const TupleRow* values) const {
+CassStatement* Writer::bind_cassstatement(const TupleRow* keys, const TupleRow* values) {
     CassStatement *statement;
     // Check if it is writing the whole set of values or just a single one
     if (table_metadata->get_values()->size() > values->n_elem()) { // Single value written
@@ -435,6 +467,20 @@ CassStatement* Writer::bind_cassstatement(const TupleRow* keys, const TupleRow* 
             throw ModuleException("async_query_execute: only supports 1 or all attributes write");
 
         ColumnMeta cm = values->get_metadata_element(0);
+        if (prepared_partial_queries.at(cm.info["name"])==nullptr) { // Wait for synchronization of the prepared query
+            CassFuture * future = future_prepared_partial_queries.at(cm.info["name"]);
+            if ( future != nullptr) {
+                HecubaExtrae_event(HECUBACASS, HBCASS_PREPARES);
+                CassError rc = cass_future_error_code(future);
+                CHECK_CASS("writer cannot prepare: ");
+                prepared_partial_queries[cm.info["name"]] = cass_future_get_prepared(future);
+                cass_future_free(future);
+                future_prepared_partial_queries[cm.info["name"]] = nullptr;
+                HecubaExtrae_event(HECUBACASS, HBCASS_END);
+            } else {
+                throw ModuleException(" Writer: bind statement failed. Found an unexpected nullptr partial future");
+            }
+        }
         const CassPrepared *prepared_query = prepared_partial_queries.at(cm.info["name"]);
         statement = cass_prepared_bind(prepared_query);
         this->k_factory->bind(statement, keys, 0); //error
@@ -443,6 +489,19 @@ CassStatement* Writer::bind_cassstatement(const TupleRow* keys, const TupleRow* 
         delete(v_single_factory);
 
     } else { // Whole row written
+        if (prepared_query == nullptr) { // Wait for synchronization of the prepared query
+            if (future_prepared_query != nullptr ) {
+                HecubaExtrae_event(HECUBACASS, HBCASS_PREPARES);
+                CassError rc = cass_future_error_code(future_prepared_query);
+                CHECK_CASS("writer cannot prepare: ");
+                this->prepared_query = cass_future_get_prepared(future_prepared_query);
+                cass_future_free(future_prepared_query);
+                future_prepared_query = nullptr;
+                HecubaExtrae_event(HECUBACASS, HBCASS_END);
+            } else {
+                throw ModuleException(" Writer: bind statement failed. Found an unexpected nullptr future");
+            }
+        }
         statement = cass_prepared_bind(prepared_query);
         this->k_factory->bind(statement, keys, 0); //error
         this->v_factory->bind(statement, values, this->k_factory->n_elements());

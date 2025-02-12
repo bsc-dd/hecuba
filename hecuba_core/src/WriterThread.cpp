@@ -100,8 +100,8 @@ WriterThread::~WriterThread() {
 
 /* Queue a new pair {keys, values} into the 'data' queue to be executed later.
  * Args are copied, therefore they may be deleted after calling this method. */
-void WriterThread::queue_async_query( const Writer* w, const TupleRow *keys, const TupleRow *values) {
-    std::tuple<const Writer*, const TupleRow *, const TupleRow *> item = std::make_tuple(w, keys, new TupleRow(values));
+void WriterThread::queue_async_query( Writer* w, const TupleRow *keys, const TupleRow *values) {
+    std::tuple<Writer*, const TupleRow *, const TupleRow *> item = std::make_tuple(w, keys, new TupleRow(values));
 
     //std::cout<< "  Writer::flushing item created pair"<<std::endl;
     data.push(item);
@@ -133,7 +133,7 @@ void WriterThread::callback(CassFuture *future, void *ptr) {
     free(data);
 }
 
-void WriterThread::async_query_execute(const Writer* w, const TupleRow *keys, const TupleRow *values) {
+void WriterThread::async_query_execute(Writer* w, const TupleRow *keys, const TupleRow *values) {
 
     CassStatement *statement = w->bind_cassstatement(keys, values);
 
@@ -178,7 +178,7 @@ void WriterThread::set_error_occurred(std::string error, const void* writer_p, c
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
 
-    const Writer *w = (Writer*) writer_p;
+    Writer *w = (Writer*) writer_p;
     const TupleRow *keys = (TupleRow *) keys_p;
     const TupleRow *values = (TupleRow *) values_p;
 
@@ -190,7 +190,7 @@ void WriterThread::set_error_occurred(std::string error, const void* writer_p, c
 bool WriterThread::call_async() {
 
     //current write data
-    std::tuple<const Writer*, const TupleRow *, const TupleRow *> item;
+    std::tuple<Writer*, const TupleRow *, const TupleRow *> item;
     ncallbacks++; // Increase BEFORE try_pop to avoid race at 'wait_writes_completion'
     if (!data.try_pop(item)) {
         ncallbacks--;

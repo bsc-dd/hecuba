@@ -80,7 +80,9 @@ private:
     bool send_EOD = true;
     /* CASSANDRA INFORMATION FOR RETRIEVING DATA */
     CassSession *session = nullptr;
+    /* Prepared query codes: To avoid doing them syncronously, we do the prepare, store the future and we do the synchronization at the first query */
     const CassPrepared *prepared_query = nullptr, *delete_query = nullptr;
+    CassFuture * future_prepared_query = nullptr, *future_delete_query = nullptr;
 
     bool disable_timestamps;
     TimestampGenerator *timestamp_gen = nullptr;

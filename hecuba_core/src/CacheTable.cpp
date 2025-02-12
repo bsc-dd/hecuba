@@ -51,16 +51,9 @@ CacheTable::CacheTable(const TableMetadata *table_meta, CassSession *session,
 
     /** Parse names **/
     HecubaExtrae_event(HECUBACASS, HBCASS_PREPARES);
-    CassFuture *future = cass_session_prepare(session, table_meta->get_select_query());
-    CassError rc = cass_future_error_code(future);
-    CHECK_CASS("CacheTable: Select row query preparation failed " + table_meta->get_select_query());
-    this->prepared_query = cass_future_get_prepared(future);
-    cass_future_free(future);
-    future = cass_session_prepare(session, table_meta->get_delete_query());
-    rc = cass_future_error_code(future);
-    this->delete_query = cass_future_get_prepared(future);
-    CHECK_CASS("CacheTable: Delete row query preparation failed");
-    cass_future_free(future);
+    /* Prepare queries... will be checked before first query execution */
+    future_prepared_query = cass_session_prepare(session, table_meta->get_select_query());
+    future_delete_query = cass_session_prepare(session, table_meta->get_delete_query());
     HecubaExtrae_event(HECUBACASS, HBCASS_END);
     this->myCache = NULL;
     this->session = session;
@@ -93,16 +86,25 @@ CacheTable& CacheTable::operator = (const CacheTable& src) {
         this->session = src.session;
         if (this->table_metadata!=nullptr) { delete (this->table_metadata); }
         this->table_metadata = new TableMetadata(*src.table_metadata);
-        CassFuture *future = cass_session_prepare(session, table_metadata->get_select_query());
-        CassError rc = cass_future_error_code(future);
-        CHECK_CASS("CacheTable: Select row query preparation failed" + table_metadata->get_select_query());
-        this->prepared_query = cass_future_get_prepared(future);
-        cass_future_free(future);
-        future = cass_session_prepare(session, table_metadata->get_delete_query());
-        rc = cass_future_error_code(future);
-        this->delete_query = cass_future_get_prepared(future);
-        CHECK_CASS("CacheTable: Delete row query preparation failed");
-        cass_future_free(future);
+        HecubaExtrae_event(HECUBACASS, HBCASS_PREPARES);
+        if (this->prepared_query != nullptr) {
+            cass_prepared_free(this->prepared_query);
+            this->prepared_query = nullptr;
+        }
+        if (this->future_prepared_query != nullptr) {
+            cass_future_free(this->future_prepared_query);
+        }
+        future_prepared_query = cass_session_prepare(session, table_metadata->get_select_query());
+        if (this->delete_query != nullptr) {
+            cass_prepared_free(this->delete_query);
+            this->delete_query = nullptr;
+        }
+        if (this->future_delete_query != nullptr) {
+            cass_future_free(this->future_delete_query);
+        }
+        future_delete_query = cass_session_prepare(session, table_metadata->get_delete_query());
+        HecubaExtrae_event(HECUBACASS, HBCASS_END);
+
         this->myCache = NULL;
         if (this->writer!=nullptr) { delete (this->writer); }
         this->writer = new Writer(*src.writer);
@@ -155,10 +157,9 @@ CacheTable::~CacheTable() {
     }
     delete (keys_factory);
     delete (values_factory);
-    if (prepared_query != NULL) cass_prepared_free(prepared_query);
-    prepared_query = NULL;
-    if (delete_query != NULL) cass_prepared_free(delete_query);
-    delete_query = NULL;
+    if (prepared_query != NULL) {cass_prepared_free(prepared_query); prepared_query = NULL;}
+    if (future_prepared_query != nullptr) {cass_future_free(future_prepared_query); future_prepared_query = nullptr;}
+    if (delete_query != NULL) {cass_prepared_free(delete_query); delete_query = NULL;}
     DBG( this<< " table_metadata = "<< table_metadata);
     if (table_metadata != nullptr) {
         if (should_table_meta_be_freed) {
@@ -491,6 +492,20 @@ std::vector<const TupleRow *> CacheTable::retrieve_from_cassandra(const TupleRow
     flush_elements();
 
     /* Not present on cache, a query is performed */
+    if (prepared_query == nullptr) { // Wait for synchronization of the prepared query
+        if (future_prepared_query != nullptr ) {
+            HecubaExtrae_event(HECUBACASS, HBCASS_PREPARES);
+            CassError rc = cass_future_error_code(future_prepared_query);
+            CHECK_CASS("CacheTable: Select row query preparation failed " + table_metadata->get_select_query());
+            this->prepared_query = cass_future_get_prepared(future_prepared_query);
+            cass_future_free(future_prepared_query);
+            future_prepared_query = nullptr;
+            HecubaExtrae_event(HECUBACASS, HBCASS_END);
+        }else {
+                throw ModuleException(" Cachetable: retrieve_from_cassandra statement failed. Found an unexpected nullptr future");
+        }
+    }
+
     CassStatement *statement = cass_prepared_bind(prepared_query);
 
     this->keys_factory->bind(statement, keys, 0);
@@ -576,6 +591,19 @@ std::vector<const TupleRow *> CacheTable::get_crow(void *keys) {
 
 void CacheTable::delete_crow(const TupleRow *keys) {
 
+    if (delete_query == nullptr) { // Wait for synchronization of the delete query
+        if (future_delete_query != nullptr ) {
+            HecubaExtrae_event(HECUBACASS, HBCASS_PREPARES);
+            CassError rc = cass_future_error_code(future_delete_query);
+            CHECK_CASS("CacheTable: delete row query preparation failed " + table_metadata->get_delete_query());
+            this->delete_query = cass_future_get_prepared(future_delete_query);
+            cass_future_free(future_delete_query);
+            future_delete_query = nullptr;
+            HecubaExtrae_event(HECUBACASS, HBCASS_END);
+        }else {
+                throw ModuleException(" Cachetable: delete_crow statement failed. Found an unexpected nullptr future");
+        }
+    }
     //Remove row from Cassandra
     CassStatement *statement = cass_prepared_bind(delete_query);
 
