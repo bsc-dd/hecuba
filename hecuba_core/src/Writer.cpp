@@ -250,6 +250,7 @@ void Writer::send_event(const char* topic_name, char* event, const uint64_t size
                 topic_name, rd_kafka_err2str(rd_kafka_errno2err(errno)));
         throw ModuleException(b);
 	}
+	rd_kafka_poll(producer, 0 /*non-blocking*/);
     DBG("Writer::send_event. "<<size<<" bytes sent to "<<std::string(topic_name)<<"]");
 }
 

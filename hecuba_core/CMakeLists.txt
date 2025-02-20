@@ -200,8 +200,8 @@ if (NOT KAFKA)
     ExternalProject_Add(
         KAFKA   #KAFKA-prefix
         DOWNLOAD_DIR ${CMAKE_CURRENT_LIST_DIR}/dependencies
-        URL "https://github.com/edenhill/librdkafka/archive/refs/tags/v1.9.2.zip"
-        URL_HASH SHA256=4ecb0a3103022a7cab308e9fecd88237150901fa29980c99344218a84f497b86
+        URL "https://github.com/confluentinc/librdkafka/archive/refs/tags/v2.8.0.zip"
+        URL_HASH SHA256=5525efaad154e277e6ce30ab78bb00dbd882b5eeda6c69c9eeee69b7abee11a4
         INSTALL_DIR ${C_BINDING_INSTALL_PREFIX}
         CMAKE_COMMAND echo
         BUILD_COMMAND ./configure --prefix=${C_BINDING_INSTALL_PREFIX}
@@ -221,8 +221,8 @@ IF (NOT LIBUV)
     ExternalProject_Add(
             LIBUV
             DOWNLOAD_DIR ${CMAKE_CURRENT_LIST_DIR}/dependencies
-            URL "https://github.com/libuv/libuv/archive/v1.11.0.tar.gz"
-            URL_HASH SHA1=54f0972aa0d3f6a6036d477b381c01f030f9a2b5
+            URL "https://github.com/libuv/libuv/archive/refs/tags/v1.50.0.tar.gz"
+            URL_HASH SHA1=f79f488fbbf2846f3fd9ae2f75df993f9f33b838
             CMAKE_COMMAND echo
             BUILD_COMMAND sh autogen.sh COMMAND ./configure --prefix=${C_BINDING_INSTALL_PREFIX}
             BUILD_IN_SOURCE 1

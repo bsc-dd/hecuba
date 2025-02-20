@@ -141,7 +141,7 @@ uint64_t ZorderCurveGenerator::computeZorder(std::vector<uint32_t> cc) {
     uint32_t nbits = (sizeof(uint64_t) * CHAR_BIT) / ndims;
     for (uint64_t i = 0; i < nbits; ++i) {
         for (uint64_t dim_i = 0; dim_i < ndims; ++dim_i) {
-            if (cc[dim_i] & ((uint64_t) 1 << i)) answer |= 1 << (ndims * i + dim_i);
+            if (cc[dim_i] & ((uint64_t) 1 << i)) answer |= (((uint64_t)1) << (ndims * i + dim_i));
         }
     }
     //std::cout<< "} => " << answer << std::endl;
@@ -487,7 +487,7 @@ void ZorderCurveGenerator::merge_partitions(const ArrayMetadata &metas, std::vec
     //For each partition compute the future position inside the new array
     //Achieved using the cluster_id and block_id to recompute the ZorderId
     for (Partition chunk : chunks) {
-        uint64_t zorder_id = chunk.cluster_id << CLUSTER_SIZE | chunk.block_id;
+	uint64_t zorder_id = (uint64_t)chunk.cluster_id << CLUSTER_SIZE | (uint64_t)chunk.block_id;
         //Compute position in memory
         std::vector<uint32_t> ccs = zorderInverse(zorder_id, ndims); //Block coordinates
         //if any element of the ccs is equal to dim_split -> is a limit of the array -> recompute chunk
