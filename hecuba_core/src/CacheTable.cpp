@@ -308,48 +308,15 @@ void  CacheTable::enable_stream_consumer(const char* topic_name) {
             fprintf(stderr, "%% Failed to create new consumer: %s\n", errstr);
             exit(1);
         }
-	std::cout << "[ENRIC KAFKA] CacheTable::enable_stream_consumer; rd_kafka_new" << std::endl;
 
-	rd_kafka_poll_set_consumer(rk); //enric
-	std::cout << "[ENRIC KAFKA] CacheTable::enable_stream_consumer; rd_kafka_poll_set_consumer" << std::endl;
-
+        rd_kafka_poll_set_consumer(rk);
 
         rd_kafka_resp_err_t err;
         rd_kafka_topic_partition_list_t* topics = rd_kafka_topic_partition_list_new(1);
-	std::cout << "[ENRIC KAFKA] CacheTable::enable_stream_consumer; rd_kafka_topic_partition_list_new" << std::endl;
-        //rd_kafka_topic_partition_list_add(topics, topic_name, RD_KAFKA_PARTITION_UA);
         rd_kafka_topic_partition_list_add(topics, topic_name, 0);
-	std::cout << "[ENRIC KAFKA] CacheTable::enable_stream_consumer; rd_kafka_topic_partition_list_add" << std::endl;
-
-/*
-        if ((err = rd_kafka_subscribe(rk, topics))) {
-            fprintf(stderr, "%% Failed to start consuming topics: %s\n", rd_kafka_err2str(err));
-            exit(1);
-        }
-	std::cout << "[ENRIC KAFKA] CacheTable::enable_stream_consumer; rd_kafka_subscribe" << std::endl;
-*/
 
         rd_kafka_assign(rk, topics);
-        /*
-        rd_kafka_topic_partition_list_t* current_topics;
-        bool finish = false;
-        while(!finish) {
-            err = rd_kafka_subscription(rk, &current_topics);
-	std::cout << "[ENRIC KAFKA] CacheTable::enable_stream_consumer; rd_kafka_subscription" << std::endl;
-            if (err) {
-                fprintf(stderr, "%% Failed to get topics: %s\n", rd_kafka_err2str(err));
-                exit(1);
-            }
-            if (current_topics->cnt == 0) {
-                fprintf(stderr, "%% Failed to get topics: NO ELEMENTS\n");
-            } else{
-                //fprintf(stderr, "%% I got you \n");
-                // fprintf(stderr, "%% I got you %s\n", current_topics->elems[0].topic);
-                finish = true;
-            }
 
-            rd_kafka_topic_partition_list_destroy(current_topics);
-        }
         kafkaConsumer[topic] = rk;
     }
 

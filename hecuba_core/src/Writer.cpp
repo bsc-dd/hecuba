@@ -244,15 +244,13 @@ void Writer::send_event(const char* topic_name, char* event, const uint64_t size
                     RD_KAFKA_V_OPAQUE(NULL),
                     /* End sentinel */
                     RD_KAFKA_V_END);
-	std::cout << "[ENRIC KAFKA] Writer::send_event; rd_kafka_producev" << std::endl;
 	if (err) {
         char b[256];
         sprintf(b, "%% Failed to produce to topic %s: %s\n",
                 topic_name, rd_kafka_err2str(rd_kafka_errno2err(errno)));
         throw ModuleException(b);
 	}
-	rd_kafka_poll(producer, 0 /*non-blocking*/); //enric
-	std::cout << "[ENRIC KAFKA] Writer::send_event; rd_kafka_poll" << std::endl;
+	rd_kafka_poll(producer, 0 /*non-blocking*/);
     DBG("Writer::send_event. "<<size<<" bytes sent to "<<std::string(topic_name)<<"]");
 }
 
