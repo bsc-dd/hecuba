@@ -147,7 +147,8 @@ CacheTable::~CacheTable() {
        close_stream(x.first.c_str()); //send EOD to the consumer before deleting the writer
     }
 #endif
-    delete (writer);
+    if (writer != nullptr) 
+        delete (writer);
     if (myCache) {
         //stl tree calls deallocate for cache nodes on clear()->erase(), and later on destroy, which ends up calling the deleters
         myCache->clear();
@@ -300,7 +301,10 @@ void  CacheTable::enable_stream_consumer(const char* topic_name) {
     std::string topic = std::string(topic_name);
 
     if (kafkaConsumer.find(topic) != kafkaConsumer.end()) { // Topic already Exists
-        throw ModuleException(" Ooops. Stream "+topic+" already initialized.");
+        // yolandab: if the CacheTable is shared (numpy case) then it is possible to instantiate several times the same
+        // persistent object with the same topic and should not be a problem: change the throw by a return
+        //throw ModuleException(" Ooops. Stream "+topic+" already initialized.");
+        return;
     } else {
         /* Create Kafka consumer handle (1 consumer per topic) */
         rd_kafka_t *rk;

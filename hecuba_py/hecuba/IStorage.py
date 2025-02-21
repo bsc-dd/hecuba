@@ -93,6 +93,8 @@ class IStorage(object):
         if not self.storage_id:
             self.storage_id = storage_id_from_name(name)
 
+        print("Istorage.py: name: {} storage_id: {}".format(name,self.storage_id), flush=True)
+
         # If found data, replace the constructor data
         if not getattr(self,'_tokens', None) :
             metas = get_istorage_attrs(self.storage_id)
