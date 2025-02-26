@@ -22,8 +22,15 @@ MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
 source $HECUBA_ROOT/bin/cassandra4slurm/hecuba_debug.sh
 source $CFG_FILE    # To get CASSANDRA_LOG_DIR
 # Aggregate all logs in a single UNIQ_ID directory
-[ ! -z "$CASSANDRA_LOG_DIR" ] \
-    && export CASSANDRA_LOG_DIR="$CASSANDRA_LOG_DIR/$UNIQ_ID"
+[ -z "$LOG_PATH" ] \
+    && echo "ERROR: LOG_PATH not defined. Using default" \
+    && export LOG_PATH=$HOME/.c4s/logs
+
+[ -z "$CASSANDRA_LOG_DIR" ] \
+    && echo "WARNING: CASSANDRA_LOG_DIR not defined. Using default" \
+    && export CASSANDRA_LOG_DIR=$LOG_PATH
+
+export CASSANDRA_LOG_DIR="$CASSANDRA_LOG_DIR/$UNIQ_ID"
 
 function launch_arrow_helper () {
     ! is_HECUBA_ARROW_enabled  && return

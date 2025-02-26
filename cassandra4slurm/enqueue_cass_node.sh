@@ -24,8 +24,17 @@ source $CFG_FILE    # To get CASSANDRA_LOG_DIR
 HOSTNAMEIP=$(get_node_ip $(hostname) $CASS_IFACE)
 
 # Aggregate all logs in a single UNIQ_ID directory
-[ ! -z "$CASSANDRA_LOG_DIR" ] \
-    && export CASSANDRA_LOG_DIR="$CASSANDRA_LOG_DIR/$UNIQ_ID"
+[ -z "$LOG_PATH" ] \
+    && echo "ERROR: LOG_PATH not defined. Using default" \
+    && export LOG_PATH=$HOME/.c4s/logs
+
+[ -z "$CASSANDRA_LOG_DIR" ] \
+    && echo "WARNING: CASSANDRA_LOG_DIR not defined. Using default" \
+    && export CASSANDRA_LOG_DIR=$LOG_PATH
+
+export CASSANDRA_LOG_DIR="$CASSANDRA_LOG_DIR/$UNIQ_ID"
+
+DBG "enqueue_cass_node.sh: CASSANDRA_LOG_DIR=$CASSANDRA_LOG_DIR"
 
 if [ "$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips | grep $HOSTNAMEIP)" != "" ]; then
     INDEX=$(awk "/$HOSTNAMEIP/{ print NR; exit }" $C4S_HOME/casslist-"$UNIQ_ID".txt.ips)

@@ -163,22 +163,19 @@ fi
 
 echo "[INFO] Reading configuration file [$CFG_FILE]"
 source $CFG_FILE
-if [ "0$LOGS_DIR" == "0" ]; then
-	#yolandab
-    DEFAULT_LOGS_DIR=$(cat $CFG_FILE | grep "LOG_PATH=")
-    if [ $? -eq 1 ]; then
-            echo "[INFO] LOG_PATH not defined. Using current directory"
-            DEFAULT_LOGS_DIR=$PWD
-    else
-            DEFAULT_LOGS_DIR=$(echo $DEFAULT_LOGS_DIR| sed 's/LOG_PATH=//g' | sed 's/"//g')
-    fi
-    echo "[INFO] This execution will use $DEFAULT_LOGS_DIR as logging dir"
-    #was:
-    #DEFAULT_LOGS_DIR=$(cat $CFG_FILE | grep "LOG_PATH=" | sed 's/LOG_PATH=//g' | sed 's/"//g')
-    LOGS_DIR=$DEFAULT_LOGS_DIR
-fi
-LOGS_DIR=$LOGS_DIR/$UNIQ_ID
-mkdir ${LOGS_DIR} || die "[ERROR] ($(hostname)) Unable to create directory [${LOGS_DIR}]"
+[ -z "$LOG_PATH" ] \
+    && echo "ERROR: LOG_PATH not defined. Using default" \
+    && export LOG_PATH=$HOME/.c4s/logs
+
+[ -z "$CASSANDRA_LOG_DIR" ] \
+    && echo "WARNING: CASSANDRA_LOG_DIR not defined. Using default" \
+    && export CASSANDRA_LOG_DIR=$LOG_PATH
+
+export CASSANDRA_LOG_DIR="$CASSANDRA_LOG_DIR/$UNIQ_ID"
+# LOGS_DIR allows to have different outputs for jobs and cassandra outputs
+LOGS_DIR=$LOG_PATH/$UNIQ_ID
+mkdir -p ${LOGS_DIR} || die "[ERROR] ($(hostname)) Unable to create directory [${LOGS_DIR}]"
+mkdir -p ${CASSANDRA_LOG_DIR} || die "[ERROR] ($(hostname)) Unable to create directory [${CASSANDRA_LOG_DIR}]"
 
 export CASS_HOME
 export DATA_PATH
@@ -296,7 +293,7 @@ function launch_arrow_helpers () {
     UNIQ_ID=$1
     # Launch the 'arrow_helper' tool at each node in NODES, and leave their logs in LOGDIR
     NODES=$C4S_HOME/casslist-"$UNIQ_ID".txt
-    LOGDIR=$LOGS_DIR/$UNIQ_ID
+    LOGDIR=$CASSANDRA_LOG_DIR/arrow
     if [ ! -d $LOGDIR ]; then
         DBG " Creating directory to store Arrow helper logs at [$LOGDIR]:"
         mkdir -p $LOGDIR
