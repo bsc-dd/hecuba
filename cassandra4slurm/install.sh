@@ -23,7 +23,13 @@ mkdir -p ${INSTALL_DIR}/compss/ITF
 cp ${DIR}/scripts/* ${INSTALL_DIR}/bin/cassandra4slurm
 cp ${DIR}/enqueue_cass_node.sh ${INSTALL_DIR}/bin/cassandra4slurm
 cp ${DIR}/storage_home/* ${INSTALL_DIR}/bin/cassandra4slurm/storage_home
-ln -sf ${INSTALL_DIR}/bin/cassandra4slurm/storage_home ${INSTALL_DIR}/compss/scripts
+if [ -e ${INSTALL_DIR}/compss/scripts ] ; then
+    [ ! -L ${INSTALL_DIR}/compss/scripts ] \
+        &&  echo "WARNING: Already existing directory [${INSTALL_DIR}/compss/scripts ]"
+else
+    ln -sf ${INSTALL_DIR}/bin/cassandra4slurm/storage_home ${INSTALL_DIR}/compss/scripts
+fi
+
 ln -sf ${INSTALL_DIR}/bin/cassandra4slurm/launcher.sh  ${INSTALL_DIR}/bin/c4s
 ln -sf ${INSTALL_DIR}/bin/cassandra4slurm/execute.sh ${INSTALL_DIR}/bin/runapp
 cp ${DIR}/../storageAPI/storageItf/target/*jar ${INSTALL_DIR}/compss/ITF
