@@ -267,6 +267,7 @@ class StorageNumpy:virtual public IStorage {
             uint64_t total_size = numpy_metas.get_array_size();
             uint64_t offset = 0;
             uint64_t partition_size = 262144; //arbitrarily use a large power of two number: 2^18
+            char* tmp = (char*)data;
             uint64_t pending = total_size-offset;
             while (pending > 0) {
                 uint64_t actual_size;
@@ -276,10 +277,9 @@ class StorageNumpy:virtual public IStorage {
                 } else {
                     actual_size = partition_size;
                 }
-                char* tmp = (char*)data;
-                getDataWriter()->send_event(UUID::UUID2str(getStorageID()).c_str(), &data[offset], actual_size);
+                getDataWriter()->send_event(UUID::UUID2str(getStorageID()).c_str(), &tmp[offset], actual_size);
 
-                offset += partition_size;
+                offset += actual_size;
                 pending = total_size-offset;
             }
         }
