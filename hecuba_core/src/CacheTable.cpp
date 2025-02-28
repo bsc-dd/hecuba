@@ -313,6 +313,14 @@ void  CacheTable::enable_stream_consumer(const char* topic_name) {
 
         rd_kafka_resp_err_t err;
         rd_kafka_topic_partition_list_t* topics = rd_kafka_topic_partition_list_new(1);
+        /* Using a fixed partition avoids utilizing the configured
+         * partitioner function to select a target partition. 
+         * Always selecting a determined partition forces 
+         * every topic to have only one partition, which, in 
+         * this case, it is not a nuisance because for each 
+         * topic we only have one sender.
+         * By default we select the first available partition */
+        //esosa: si utilizamos otra partition o RD_KAFKA_PARTITION_UA no funciona  
         rd_kafka_topic_partition_list_add(topics, topic_name, 0);
 
         rd_kafka_assign(rk, topics);
