@@ -207,7 +207,10 @@ void Writer::enable_stream(const char* topic_name, std::map<std::string, std::st
 
     std::string topic = std::string(topic_name);
     if (kafkaTopics.find(topic) != kafkaTopics.end()) { // Topic already Exists
-        throw ModuleException(" Ooops. Stream "+topic+" already initialized.");
+        // yolandab: if the CacheTable is shared (numpy case) then it is possible to instantiate several times the same
+        // persistent object with the same topic and should not be a problem: change the throw by a return
+        //throw ModuleException(" Ooops. Stream "+topic+" already initialized.");
+        return;
     } else {
         // Create topic
         rd_kafka_topic_t *rkt = rd_kafka_topic_new(producer, topic_name, NULL);

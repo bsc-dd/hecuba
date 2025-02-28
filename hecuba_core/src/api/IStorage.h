@@ -55,6 +55,8 @@ class IStorage {
 
         virtual Writer * getDataWriter()const { return dataWriter;}
 
+        virtual void enableStreamConsumer(std::string topic) {DBG("VIRTUAL");}
+
         uint64_t* getStorageID();
         const std::string& getName() const;
 

@@ -17,7 +17,7 @@
 
 #define DBG(x...) \
         do {\
-            std::cout<< "DBG " << __func__ << ": " << x << std::endl;\
+            std::cerr<< "DBG [" << int(getpid()) << "] " << __func__ << ": " << x << std::endl;\
         } while(0)
 
 #define DBGHEXTOSTRING(_b, _size) \

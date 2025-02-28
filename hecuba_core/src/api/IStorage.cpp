@@ -371,10 +371,11 @@ bool IStorage::isStream() {
 }
 
 void IStorage::configureStream(std::string topic) {
-	enableStream();
+    enableStream();
+    enableStreamConsumer(topic); // only implemented for StorageNumpy
     this->getDataWriter()->enable_stream(topic.c_str(),(std::map<std::string, std::string>&)getCurrentSession().config);
-}
 
+}
 
 void IStorage::setClassName(std::string name) {
 	this->class_name = name;
@@ -461,7 +462,14 @@ void IStorage::make_persistent(const std::string  id_obj) {
     HecubaExtrae_event(HECUBAEV, HECUBA_IS|HECUBA_MK_PERSISTENT);
 
 	std::string id_object_str;
-	//if the object is not registered, i.e. the class_name is empty, we return error
+    //yolandab: move here the call to initialize class name 
+    int status;
+    std::string cl_name = abi::__cxa_demangle(typeid(*this).name(),NULL,NULL,&status);
+    initializeClassName(cl_name);
+    DBG("IStorage::make_persistent: registering class name ["<<cl_name<<"]");
+    //end yolandab
+
+	// this is not longer possible because we are registering before if the object is not registered, i.e. the class_name is empty, we return error
 
 	if (class_name.empty()) {
 		throw std::runtime_error("Trying to persist a non-registered object with name "+ id_obj);
@@ -612,14 +620,19 @@ void IStorage::setCache(CacheTable* cache) {
 void IStorage::getByAlias(const std::string& name) {
     HecubaExtrae_event(HECUBAEV, HECUBA_IS|HECUBA_GET_BY_ALIAS);
 	std::string FQname (getCurrentSession().config["execution_name"] + "." + name);
+    //yolandab: move here the call to initialize class name 
+    int status;
+    std::string cl_name = abi::__cxa_demangle(typeid(*this).name(),NULL,NULL,&status);
+    initializeClassName(cl_name);
+    //end yolandab
 	uint64_t *c_uuid=UUID::generateUUID5(FQname.c_str()); // UUID for the new object
+    DBG(" IStorage::getByAlias object with class_name ["<<cl_name<<"] name ["<<name<<"] using FQname [" <<FQname << "] to generate uuid ["<<UUID::UUID2str(c_uuid)<<"]");
 
 	setPersistence(c_uuid);
     if (isStream()) {
 		getObjSpec().enableStream();
 		configureStream(std::string(UUID::UUID2str(c_uuid)));
 	}
-    DBG(" IStorage::getByAlias object with name ["<<name<<"] and uuid ["<<UUID::UUID2str(c_uuid)<<"]");
     HecubaExtrae_event(HECUBAEV, HECUBA_END);
 }
 
@@ -639,5 +652,5 @@ void IStorage::initializeClassName(std::string class_name) {
 	}
 	setIdModel(FQname);
 	setClassName(class_name);
-    DBG(" IStorage::initializeClassName [" << FQname<<"] with name ["<<getName()<<"]");
+    DBG(" IStorage::initializeClassName [" << FQname<<"]");
 }
