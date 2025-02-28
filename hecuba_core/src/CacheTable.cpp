@@ -309,34 +309,22 @@ void  CacheTable::enable_stream_consumer(const char* topic_name) {
             exit(1);
         }
 
+        rd_kafka_poll_set_consumer(rk);
 
         rd_kafka_resp_err_t err;
         rd_kafka_topic_partition_list_t* topics = rd_kafka_topic_partition_list_new(1);
-        rd_kafka_topic_partition_list_add(topics, topic_name, RD_KAFKA_PARTITION_UA);
+        /* Using a fixed partition avoids utilizing the configured
+         * partitioner function to select a target partition. 
+         * Always selecting a determined partition forces 
+         * every topic to have only one partition, which, in 
+         * this case, it is not a nuisance because for each 
+         * topic we only have one sender.
+         * By default we select the first available partition */
+        //esosa: si utilizamos otra partition o RD_KAFKA_PARTITION_UA no funciona  
+        rd_kafka_topic_partition_list_add(topics, topic_name, 0);
 
-        if ((err = rd_kafka_subscribe(rk, topics))) {
-            fprintf(stderr, "%% Failed to start consuming topics: %s\n", rd_kafka_err2str(err));
-            exit(1);
-        }
+        rd_kafka_assign(rk, topics);
 
-        rd_kafka_topic_partition_list_t* current_topics;
-        bool finish = false;
-        while(!finish) {
-            err = rd_kafka_subscription(rk, &current_topics);
-            if (err) {
-                fprintf(stderr, "%% Failed to get topics: %s\n", rd_kafka_err2str(err));
-                exit(1);
-            }
-            if (current_topics->cnt == 0) {
-                fprintf(stderr, "%% Failed to get topics: NO ELEMENTS\n");
-            } else{
-                //fprintf(stderr, "%% I got you \n");
-                // fprintf(stderr, "%% I got you %s\n", current_topics->elems[0].topic);
-                finish = true;
-            }
-
-            rd_kafka_topic_partition_list_destroy(current_topics);
-        }
         kafkaConsumer[topic] = rk;
     }
 
@@ -368,15 +356,22 @@ rd_kafka_message_t * CacheTable::kafka_poll(const char* topic_name) {
 
 // If we are receiving a numpy, we already have the memory allocated. We just need to copy on that memory the message received
 void CacheTable::poll(const char *topic_name, char *data, const uint64_t size) {
-    rd_kafka_message_t *rkmessage = this->kafka_poll(topic_name);
-    if (size != rkmessage->len) {
-        char b[256];
-        sprintf(b, "Expected numpy of size %ld, received a buffer of size %ld",size,rkmessage->len);
-        throw ModuleException(b);
-    }
+    uint64_t offset = 0;
 
-    memcpy(data, rkmessage->payload, rkmessage->len);
-    rd_kafka_message_destroy(rkmessage);
+    while (offset < size) {
+        rd_kafka_message_t *rkmessage = this->kafka_poll(topic_name);
+
+        if (size < (rkmessage->len+offset)) {
+            char b[256];
+            sprintf(b, "Expected numpy of size %ld, received buffers for a total size of %ld",size,rkmessage->len+offset);
+            throw ModuleException(b);
+        }
+
+        memcpy(&data[offset], rkmessage->payload, rkmessage->len);
+        rd_kafka_message_destroy(rkmessage);
+
+        offset += rkmessage->len;
+    }
 }
 
 // If we are receiving a dictionary, we need to build the data structure to return and we need to add the key and the value to the cache

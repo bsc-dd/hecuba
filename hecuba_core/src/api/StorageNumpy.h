@@ -160,7 +160,7 @@ class StorageNumpy:virtual public IStorage {
         }
 
         Writer * getDataWriter() const {
-            std::cout<< "getDataWriter numpy" << std::endl;
+            //std::cout<< "getDataWriter numpy" << std::endl;
             return this->arrayStore->getWriteCache()->get_writer();
         }
 
@@ -216,7 +216,25 @@ class StorageNumpy:virtual public IStorage {
 
         void send(void) {
             DBG("DEBUG: IStorage::send: sending numpy. Size "<< numpy_metas.get_array_size());
-            getDataWriter()->send_event(UUID::UUID2str(getStorageID()).c_str(), (char *) data, numpy_metas.get_array_size());
+
+            uint64_t total_size = numpy_metas.get_array_size();
+            uint64_t offset = 0;
+            uint64_t partition_size = 262144; //arbitrarily use a large power of two number: 2^18
+            uint64_t pending = total_size-offset;
+            while (pending > 0) {
+                uint64_t actual_size;
+                //check if last partition is less than partition_size
+                if (pending < partition_size) {
+                    actual_size = pending;
+                } else {
+                    actual_size = partition_size;
+                }
+                char* tmp = (char*)data;
+                getDataWriter()->send_event(UUID::UUID2str(getStorageID()).c_str(), &data[offset], actual_size);
+
+                offset += partition_size;
+                pending = total_size-offset;
+            }
         }
 
         void writePythonSpec() {} // StorageNumpy do not have python specification

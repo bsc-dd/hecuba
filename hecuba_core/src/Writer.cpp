@@ -250,6 +250,21 @@ void Writer::send_event(const char* topic_name, char* event, const uint64_t size
                 topic_name, rd_kafka_err2str(rd_kafka_errno2err(errno)));
         throw ModuleException(b);
 	}
+
+
+    /* A producer application should continually serve
+     * the delivery report queue by calling rd_kafka_poll()
+     * at frequent intervals.
+     * Either put the poll call in your main loop, or in a
+     * dedicated thread, or call it after every
+     * rd_kafka_produce() call.
+     * Just make sure that rd_kafka_poll() is still called
+     * during periods where you are not producing any messages
+     * to make sure previously produced messages have their
+     * delivery report callback served (and any other callbacks
+     * you register). */
+	rd_kafka_poll(producer, 0 /*non-blocking*/);
+
     DBG("Writer::send_event. "<<size<<" bytes sent to "<<std::string(topic_name)<<"]");
 }
 
