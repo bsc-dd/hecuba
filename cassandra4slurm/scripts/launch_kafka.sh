@@ -20,7 +20,6 @@ update_kafka_configuration() {
     cat ${KAFKA_PATH}/config/server.properties \
         | sed "s/zookeeper.connect=localhost:/zookeeper.connect=${ZKNODE}:/" \
         | sed 's/broker.id=.$/broker.id.generation.enable=true/' \
-        | sed "s#log.dirs=/tmp/kafka-logs#log.dirs=/tmp/${UNIQ_ID}/kafka-logs#" \
         > ${C4S_HOME}/${UNIQ_ID}/server.properties
 
     cat  ${KAFKA_PATH}/config/zookeeper.properties \
@@ -54,6 +53,14 @@ launch_kafka () {
 
     # Prepare configuration files
     update_kafka_configuration "$ZKNODEIP"
+
+    [ -z "$LOG_PATH" ] \
+    && echo "ERROR: LOG_PATH not defined. Using default" \
+    && export LOG_PATH=$HOME/.c4s/logs
+
+    export LOG_DIR=${LOG_PATH}/${UNIQ_ID}/kafka-logs
+
+    mkdir -p $LOG_DIR
 
     # Start Zookeeper
     run srun  --overlap --mem=0 --nodelist $ZKNODE --ntasks=1 --nodes=1 --ntasks-per-node=1 --cpus-per-task=1 \
