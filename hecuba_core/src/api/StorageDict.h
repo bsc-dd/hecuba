@@ -357,7 +357,7 @@ class StorageDict:virtual public IStorage {
                     keyBuffer = valueToReturn;
                 } else { // more than one attribute
                     instance->extractMultiValuesFromQueryResult(valueFromQuery, &valueToReturn, KEYS);
-                    keyBuffer = (char *) &valueToReturn;
+                    keyBuffer = (char *) valueToReturn;
                 }
                 K* lastKeyClass = new  K(instance, keyBuffer); //instance a new KeyClass to be intitialize with the values in the buffer: case multiattribute
                 return *lastKeyClass;
