@@ -55,7 +55,7 @@ class StorageNumpy:virtual public IStorage {
             // 
             // yolandab: delay the initialization of the class name outside the constructor 
             // to get the actual name of the class. m
-            //initializeClassName("StorageNumpy");
+            initializeClassName("StorageNumpy");
         }
 
         StorageNumpy() {
