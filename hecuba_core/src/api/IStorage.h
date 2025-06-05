@@ -67,7 +67,7 @@ class IStorage {
 
         void enableStream();
         void configureStream(std::string topic);
-        bool isStream();
+        bool isStream() const;
 
 
         void writePythonSpec();

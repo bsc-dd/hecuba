@@ -181,7 +181,7 @@ public:
 #endif
 };
 
-void subclass_storageNumpy() {
+void subclass_storageNumpy(const std::string& tablename) {
     // createObject executes a 'new', therefore reference MUST be deleted by the user
 
     std::vector<uint32_t> metadata = {ROWS, COLS};
@@ -194,7 +194,7 @@ void subclass_storageNumpy() {
     myNumpy my_sn;
 	my_sn.setNumpy(data,metadata,'f');
 #endif
-	my_sn.make_persistent("mynpsubclass");
+	my_sn.make_persistent(tablename.c_str());
 
 	my_sn.sync();
 
@@ -215,6 +215,7 @@ int main() {
     dict_with_multiple_values();
     dict_with_multiple_values2();
     dict_with_string();
-    subclass_storageNumpy(); //TODO: Generate automatically myNumpy.py
+    subclass_storageNumpy(std::string("mynpsubclass")); //TODO: Generate automatically myNumpy.py
+    subclass_storageNumpy(std::string("mynpsubclass2")); //TODO: Generate automatically myNumpy.py
     std::cout<< "++++ REMEMBER TO LAUNCH: python3 ./consumer.py to test the streaming results"<<std::endl;
 }
