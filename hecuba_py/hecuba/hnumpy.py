@@ -280,16 +280,22 @@ class StorageNumpy(IStorage, np.ndarray):
         if not storage_id:  # StorageNumpy(None, name="xxxx", NONE)
             storage_id = storage_id_from_name(name)
 
-        # Load metadata
-        istorage_metas = get_istorage_attrs(storage_id)
-        if len(istorage_metas) == 0:
-            msg = "Instantiation of a non-existent persistent StorageNumpy Storage_id={}".format(storage_id)
-            if name:
+        # Load metadata # TODO: This should match the code in IStorage
+        first = True
+        table_found = False
+        while not table_found:
+            istorage_metas = get_istorage_attrs(storage_id)
+            if len(istorage_metas) == 0:
+                msg = "Instantiation of a non-existent persistent StorageNumpy Storage_id={}".format(storage_id)
                 if fromGetByAlias:
-                    msg = "StorageNumpy: get_by_alias on a non-existent object [{}]".format(name)
-                else:
-                    msg = msg + " name={}".format(name)
-            raise RuntimeError("{} ".format(msg))
+                    from .storagestream import StorageStream
+                    if not issubclass(cls, StorageStream):
+                        raise RuntimeError ("StorageNumpy: get_by_alias on a non-existent object [{}]".format(name))
+                    if first:
+                        print("IStorage.get_by_alias: Waiting for stream object name {} to be created.".format(name), flush=True)
+                        first = False
+            else:
+                table_found = True
         name = istorage_metas[0].name
         my_metas = istorage_metas[0].numpy_meta
         metas_to_reserve = my_metas

@@ -53,7 +53,9 @@ def consumer_with_new_classandNumpy():
     from DictWithNumpy import DictWithNumpy
     import numpy as np
 
-    o = DictWithNumpy("streaming_dict_with_numpy")
+    o = DictWithNumpy.get_by_alias("streaming_dict_with_numpy")
+    # o = DictWithNumpy("streaming_dict_with_numpy") ## THIS IS NOT ALLOWED AS A CONSUMER! IT CREATES A NEW OBJECT!!!
+    print("BEFORE POLL", flush=True)
     k,v=o.poll()
     print("AFTER POLL", flush=True)
     print("key ", k, flush=True)
@@ -78,7 +80,7 @@ def consumer_with_multiple_values():
     from DictWithMultValue import DictWithMultValue
     import numpy as np
 
-    o = DictWithMultValue("streaming_dict_with_multiplevalues")
+    o = DictWithMultValue.get_by_alias("streaming_dict_with_multiplevalues")
     passed=True
     for k,v1,v2 in o.items():
         print("AFTER POLL", flush=True)
@@ -105,7 +107,7 @@ def consumer_with_multiple_values2():
     from DictWithMultValue2 import DictWithMultValue2
     import numpy as np
 
-    o = DictWithMultValue2("streaming_dict_with_multiplevalues2")
+    o = DictWithMultValue2.get_by_alias("streaming_dict_with_multiplevalues2")
     passed=True
     #k,v1,v2=o.poll()
     for k,v1,v2 in o.items():
@@ -161,7 +163,7 @@ def consumer_subclass_storageNumpy():
 def consumer_with_multiple_basic_values():
     from DictWithMultipleBasicTypes import DictWithMultipleBasicTypes
 
-    o = DictWithMultipleBasicTypes("streaming_dict_with_multibasicvalues")
+    o = DictWithMultipleBasicTypes.get_by_alias("streaming_dict_with_multibasicvalues")
     k,v1,v2=o.poll()
     passed=True
     #for k,v in o.items():
@@ -191,6 +193,22 @@ def consumer_with_multiple_basic_values():
     print("=========================", flush=True)
 
 
+def consumer_subclass_storageNumpy2():
+    from myNumpy import myNumpy
+    import numpy as np
+
+    x = myNumpy.get_by_alias("mynpsubclass2") # Using 'get_by_alias' instead of constructor
+
+    v = x.poll()
+
+    if not np.array_equal(v, (np.arange(12,dtype=float).reshape(3, 4)+1)):
+        print("consumer_subclass_storageNumpy NOT PASSED", flush=True)
+        print("Expected: {} ".format(np.arange(12, dtype=float).reshape(3,4)+1), flush=True)
+        print("Received: {} ".format(v), flush=True)
+    else:
+        print("consumer_subclass_storageNumpy PASSED", flush=True)
+    print("=========================", flush=True)
+
 
 def main():
     consumer_with_new_classandNumpy()
@@ -199,6 +217,7 @@ def main():
     consumer_with_multiple_values2()
     consumer_with_new_class()
     consumer_subclass_storageNumpy()
+    consumer_subclass_storageNumpy2()
 
 
 

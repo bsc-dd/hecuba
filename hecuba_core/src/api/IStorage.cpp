@@ -366,7 +366,7 @@ void IStorage::enableStream() {
     streamEnabled=true;
 }
 
-bool IStorage::isStream() {
+bool IStorage::isStream() const {
     return streamEnabled;
 }
 
@@ -577,15 +577,33 @@ const struct IStorage::metadata_info IStorage::getMetaData(uint64_t* uuid) const
 
 	struct metadata_info res;
 
-	void * localuuid = malloc(2*sizeof(uint64_t));
-	memcpy(localuuid, uuid, 2*sizeof(uint64_t));
-	void * key = malloc(sizeof(char*));
-	memcpy(key, &localuuid, sizeof(uint64_t*));
 
     HecubaSession& currentSession = getCurrentSession();
-	std::vector <const TupleRow*> result = currentSession.getHecubaIstorageAccess()->retrieve_from_cassandra(key);
+    bool table_found = false;
+	std::vector <const TupleRow*> result;
+    do { // Streaming objects may have NOT been created. Therefore iterate until created.
+        //vvvv NOTE: These 'mallocs' are required INSIDE the loop, because the
+        //           retrieve_from_cassandra creates a TupleRow with the
+        //           'key'... and frees it at the end... In the best case we
+        //           will get the data after the first iteration, in the worst
+        //           (the stream object is not created yet) we will free and
+        //           create new memory regions each time... but we are waiting
+        //           anyway..
+        void * localuuid = malloc(2*sizeof(uint64_t));
+        memcpy(localuuid, uuid, 2*sizeof(uint64_t));
+        void * key = malloc(sizeof(char*));
+        memcpy(key, &localuuid, sizeof(uint64_t*));
+        //^^^^
+        result = currentSession.getHecubaIstorageAccess()->retrieve_from_cassandra(key);
 
-	if (result.empty()) throw ModuleException("IStorage uuid "+UUID::UUID2str(uuid)+" not found. Unable to get its metadata.");
+	    if (result.empty()) {
+            if (!this->isStream()) {
+                throw ModuleException("IStorage uuid "+UUID::UUID2str(uuid)+" not found. Unable to get its metadata.");
+            }
+        } else {
+            table_found = true;
+        }
+    } while (!table_found);
 
 	uint32_t pos = currentSession.getHecubaIstorageAccess()->get_metadata()->get_columnname_position("name");
 	char *keytable = *(char**)result[0]->get_element(pos); //Value retrieved from cassandra has 'keyspace.tablename' format

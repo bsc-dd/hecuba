@@ -29,25 +29,34 @@ class IStorage(object):
         given_name = kwargs.pop("name", None)
         fromGetByAlias = kwargs.pop("fromGetByAlias", False)
         if given_name:
-            try:
                 self._ksp, self._table = extract_ks_tab(given_name)
                 given_name = self._ksp + '.' + self._table
                 # Obtain metas for 'given_name'
                 #   metas are the same for all pieces of a splitted object but the storage_id and the tokens.
                 #   we get the metas from the entry of the object and for the build_remotely we keep
                 #   the storage_id and tokens that we receive in self
-                metas = get_istorage_attrs(storage_id_from_name(given_name)) # with split ALL splitted objects have the SAME name, but only 1 has the storage_id corresponding to its name!!
-                self._istorage_metas = metas[0] # To pass information retrieved from istorage to subojects to avoid further Cassandra accesses
-                given_name   = metas[0].name
-                if not self._built_remotely: # When build remotely due to a split, it uses the same table name but with a different storage_id! That is stored later in hecuba istorage.
-                    self.storage_id = metas[0].storage_id # Name has priority
-                    self._tokens = metas[0].tokens
-                if not getattr(self, '_tokens', None): #Tokens are received from kwargs or IStorage otherwise...
-                    self._tokens = generate_token_ring_ranges()
-            except IndexError:
-                if fromGetByAlias:
-                    raise RuntimeError ("IStorage: get_by_alias on a non-existent object [{}]".format(given_name))
-                pass
+                first = True;
+                table_found = False
+                while not table_found:
+                    try:
+                        metas = get_istorage_attrs(storage_id_from_name(given_name)) # with split ALL splitted objects have the SAME name, but only 1 has the storage_id corresponding to its name!!
+                        self._istorage_metas = metas[0] # To pass information retrieved from istorage to subojects to avoid further Cassandra accesses
+                        given_name   = metas[0].name
+                        if not self._built_remotely: # When build remotely due to a split, it uses the same table name but with a different storage_id! That is stored later in hecuba istorage.
+                            self.storage_id = metas[0].storage_id # Name has priority
+                            self._tokens = metas[0].tokens
+                        if not getattr(self, '_tokens', None): #Tokens are received from kwargs or IStorage otherwise...
+                            self._tokens = generate_token_ring_ranges()
+                        table_found = True
+                    except IndexError:
+                        if  fromGetByAlias:
+                            if not self._is_stream():
+                                raise RuntimeError ("IStorage: get_by_alias on a non-existent object [{}]".format(given_name))
+                            if first:
+                                print("IStorage.get_by_alias: Waiting for stream object name {} to be created.".format( given_name), flush=True)
+                                first = False
+                        else:
+                            table_found = True
         elif self.storage_id:
             try:
                 metas = get_istorage_attrs(self.storage_id)
