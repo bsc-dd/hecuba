@@ -232,9 +232,9 @@ void Writer::send_event(const char* topic_name, char* event, const uint64_t size
         throw ModuleException(" Writer::send_event: Ooops. Invalid topic_name [NULL]");
     }
 	rd_kafka_resp_err_t err;
-    int msgflags = 0;
-    msgflags |= RD_KAFKA_MSG_F_COPY;
-    msgflags |= RD_KAFKA_MSG_F_BLOCK;
+	int msgflags = 0;
+	msgflags |= RD_KAFKA_MSG_F_COPY;
+	msgflags |= RD_KAFKA_MSG_F_BLOCK;
 	err = rd_kafka_producev(
                     /* Producer handle */
                     producer,
