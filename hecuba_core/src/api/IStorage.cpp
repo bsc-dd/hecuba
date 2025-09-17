@@ -308,57 +308,71 @@ void IStorage::extractFromQueryResult(std::string value_type, uint32_t value_siz
     }
 }
 
-/* Given a result from a cassandra query, extract all elements into valuetoreturn buffer*/
-/* type = KEYS/COLUMNS TODO: add ALL to support the iteration for both keys and values (pythom items method) */
-
-void IStorage::extractMultiValuesFromQueryResult(void *query_result, void *valuetoreturn, int type) {
-    uint32_t attr_size;
+/* extractMultiValuesFromQueryResult: Given a result from a cassandra query, extract all elements into valuetoreturn buffer
+ * This function ALLOCATES memory for valuetoreturn1 and valuetoreturn2.
+ */
+/* type = HECUBA_KEYS/HECUBA_COLUMNS/HECUBA_ROWS: supports the iteration for keys, values and both (pythom items method) */
+void IStorage::extractMultiValuesFromQueryResult(void *query_result, int type, void *valuetoreturn1, void *valuetoreturn2) {
+    uint32_t attr_total_size;
     ObjSpec ospec = getObjSpec();
 
     const TableMetadata* writerMD = dataWriter->get_metadata();
+    int current_type = type;
+    uint64_t col_offset = 0; // to use when accessing columns in the query buffer in the row option. Take the size of the keys as value
+    bool completed = false;
+    void *res = valuetoreturn1;
 
-    uint64_t offset = 0; // offset in user buffer
-    std::shared_ptr<const std::vector<ColumnMeta> > metas;
-    if (type == COLUMNS) {
-        metas = writerMD->get_values();
-        attr_size = writerMD->get_values_size();
-    } else {
-        metas = writerMD->get_keys();
-        std::pair<uint16_t,uint16_t> keys_size = writerMD->get_keys_size();
-        attr_size=keys_size.first + keys_size.second;
-    }
+    // HECUBA_COLUMNS and HECUBA_KEYS execute just one iteration and fills only valuetoreturn1. Default value for valuetoreturn2 is null
+    // HECUBA_ROWS executes two iterations: the first one deals with HECUBA_KEYS and fills valuetoreturn1 and the second one deals with HECUBA_COLUMNS and fills valuetoreturn2. At the end of the iteration we check if we need the second iteration and update the pointer query_result and the current_type
+    while (!completed) {
+        uint64_t offset = 0; // offset in user buffer
+        std::shared_ptr<const std::vector<ColumnMeta> > metas;
 
-    char *valuetmp = (char*) malloc(attr_size);
-
-    std::string attr_name;
-    std::string attr_type;
-    const ColumnMeta *c;
-    for (uint64_t pos = 0; pos<metas->size(); pos++) {
-        if (type == COLUMNS) {
-            attr_name = ospec.getIDObjFromCol(pos);
-            attr_type = ospec.getIDModelFromCol(pos);
-            c = writerMD->get_single_column(attr_name);
+        if (current_type == _HECUBA_COLUMNS_) {
+            metas = writerMD->get_values();
+            attr_total_size = writerMD->get_values_size();
         } else {
-            attr_name = ospec.getIDObjFromKey(pos);
-            attr_type = ospec.getIDModelFromKey(pos);
-            c = writerMD->get_single_key(attr_name);
+            metas = writerMD->get_keys();
+            std::pair<uint16_t,uint16_t> keys_size = writerMD->get_keys_size();
+            attr_total_size=keys_size.first + keys_size.second;
         }
-        attr_size = c->size;
 
-        // c->position contains offset in query_result.
-        extractFromQueryResult(attr_type, attr_size, ((char*)query_result) + c->position, valuetmp+offset);
+        char *valuetmp = (char*) malloc(attr_total_size);
 
-        offset += attr_size;
-    }
+        std::string attr_name;
+        std::string attr_type;
+        const ColumnMeta *c;
 
-    // Copy Result to user:
-    //   If a single basic type value is returned then the user passes address
-    //   to store the value, otherwise we allocate the memory to store all the
-    //   values.
-    if (metas->size() == 1) {
-        memcpy(valuetoreturn, valuetmp, attr_size);
-    } else {
-        memcpy(valuetoreturn, &valuetmp, sizeof(char*));
+        for (uint64_t pos = 0; pos<metas->size(); pos++) {
+            if (current_type == _HECUBA_COLUMNS_) {
+                attr_name = ospec.getIDObjFromCol(pos);
+                attr_type = ospec.getIDModelFromCol(pos);
+                c = writerMD->get_single_column(attr_name);
+            } else {
+                attr_name = ospec.getIDObjFromKey(pos);
+                attr_type = ospec.getIDModelFromKey(pos);
+                c = writerMD->get_single_key(attr_name);
+            }
+            uint32_t attr_size = c->size;
+
+            // c->position contains offset in query_result.
+            extractFromQueryResult(attr_type, attr_size, ((char*)query_result) + c->position+col_offset, valuetmp+offset);
+            offset += attr_size;
+        }
+
+        // Copy Result to user:
+        memcpy(res, &valuetmp, sizeof(char*));
+        if (type != _HECUBA_ROWS_) {
+            completed = true;
+        } else {
+            if (current_type != _HECUBA_COLUMNS_) { // in the first iteration current_type == type == _HECUBA_ROWS_
+                current_type = _HECUBA_COLUMNS_;
+                col_offset = offset; // use key offset to access query result in the next iteration
+                res = valuetoreturn2;
+            } else { // Last iteration
+                completed = true;
+            }
+        }
     }
 }
 

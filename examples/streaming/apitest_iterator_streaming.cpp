@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include <StorageDict.h>
+#include <StorageStream.h>
 #include <KeyClass.h>
 #include <ValueClass.h>
 #define SIZE 3
@@ -10,47 +11,52 @@ using IntKeyClass = KeyClass<int32_t>;
 using FloatValueClass = ValueClass<float>;
 
 
-class MyDictClass: public StorageDict <IntKeyClass,FloatValueClass, MyDictClass> {
+class MyDictClass: public StorageDict <IntKeyClass,FloatValueClass, MyDictClass> , public StorageStream{
 
 };
 
 using MultipleKeyClass = KeyClass<std::string,int32_t>;
 
-class MultipleKeyDictClass: public StorageDict <MultipleKeyClass,FloatValueClass,MultipleKeyDictClass> {
+class MultipleKeyDictClass: public StorageDict <MultipleKeyClass,FloatValueClass,MultipleKeyDictClass>, public StorageStream {
 
 };
 
 using StringKeyClass = KeyClass<std::string>;
 
-class StringKeyDictClass: public StorageDict <StringKeyClass, FloatValueClass, StringKeyDictClass> {
+class StringKeyDictClass: public StorageDict <StringKeyClass, FloatValueClass, StringKeyDictClass>, public StorageStream {
 
 };
 
-void test_really_simple(const char *name) {
+void test_really_simple(const char *name, int is_producer) {
     MyDictClass mydict;
     int tss[SIZE] ={42, 43, 44};
     float lats[SIZE]={0.666, 0.777, 0.888};
 
-    mydict.make_persistent(name);
+    if (is_producer) {
 
-    for (int i=0; i<SIZE; i++) {
-	IntKeyClass k = IntKeyClass(tss[i]);
-	FloatValueClass v = FloatValueClass(lats[i]);
-        mydict[k] = v; 
+        mydict.make_persistent(name);
+
+        for (int i=0; i<SIZE; i++) {
+            IntKeyClass k = IntKeyClass(tss[i]);
+            FloatValueClass v = FloatValueClass(lats[i]);
+            mydict[k] = v;
+        }
+
+        mydict.sync();
+        return;
     }
 
-    mydict.sync();
-
+    // Instantiate object
+    mydict.getByAlias(name);
     int i = 0;
     bool ok=true;
     int ts;
-    	IntKeyClass pk;
+    IntKeyClass pk;
     FloatValueClass vl;
     // iterating on dict
-    for(auto it = mydict.begin(); it != mydict.end(); it++) {
-        std::cerr << " test_really_simple: iteration" << std::endl;
+    for(auto it = mydict.begin(); it != mydict.end(); it++, i++) {
         pk=it->first;
-	    ts = IntKeyClass::get<0>(pk);
+        ts = IntKeyClass::get<0>(pk);
         vl=it->second;
         float ls = FloatValueClass::get<0>(vl);
         if (i>=SIZE) {
@@ -83,8 +89,10 @@ void test_really_simple(const char *name) {
                 break;
             }
         }
-	i++;
-        std::cerr << " test_really_simple: iteration end" << std::endl;
+    }
+    if (i < 3) {
+        std::cerr << " test_really_simple: not enough elements read :(" << std::endl;
+        ok = false;
     }
     if (ok) {
         std::cout<<"Test really simple on keyiterator PASSED"<<std::endl;
@@ -93,39 +101,43 @@ void test_really_simple(const char *name) {
     }
 }
 
-void test_multiplekey(const char *name) {
+void test_multiplekey(const char *name, int is_producer) {
     MultipleKeyDictClass mydict;
 
-
-    mydict.make_persistent(name);
-
     const char *s[SIZE]={"how are you",
-                  "I am fine",
-                  "hope you are well" };
+        "I am fine",
+        "hope you are well" };
     int ts[SIZE]={42,43,44};
     float lats[SIZE]={0.666, 0.777, 0.888};
 
+    if (is_producer) {
+        mydict.make_persistent(name);
 
-    //setting values
-    for (int i=0; i<SIZE; i++) {
-	MultipleKeyClass k = MultipleKeyClass(s[i],ts[i]);
-	FloatValueClass v = FloatValueClass(lats[i]);
-        mydict[k] = v;
+
+
+        //setting values
+        for (int i=0; i<SIZE; i++) {
+            MultipleKeyClass k = MultipleKeyClass(s[i],ts[i]);
+            FloatValueClass v = FloatValueClass(lats[i]);
+            mydict[k] = v;
+        }
+        mydict.sync();
+        return;
     }
-    mydict.sync();
-    //Iterating on dict 
+    // Instantiate object
+    mydict.getByAlias(name);
+    //Iterating on dict
     int i = 0;
     bool ok=true;
     std::string it_s;
     int it_ts;
     MultipleKeyClass pk;
-    std::cout<< " SIZEOF MultipleKeyClass = "<<sizeof(pk)<<std::endl;
     FloatValueClass vl;
     float ls;
     for(auto it = mydict.begin(); it != mydict.end(); it++) {
         pk=it->first;
-	    it_s = MultipleKeyClass::get<0>(pk);
-        it_ts =MultipleKeyClass::get<1>(pk); 
+        it_s = MultipleKeyClass::get<0>(pk);
+        it_ts =MultipleKeyClass::get<1>(pk);
         vl=it->second;
         ls=FloatValueClass::get<0>(vl);
         if (i>=SIZE) {
@@ -175,26 +187,31 @@ void test_multiplekey(const char *name) {
     }
 }
 
-void test_string(const char *name) {
+void test_string(const char *name, int is_producer) {
     StringKeyDictClass mydict;
 
-    mydict.make_persistent(name);
-
-
     const char *s[SIZE]={"how are you",
-                  "I am fine",
-                  "hope you are well" };
+        "I am fine",
+        "hope you are well" };
 
     float lats[SIZE]={0.666, 0.777, 0.888};
 
-    for (int i=0; i<SIZE; i++) {
-	StringKeyClass key = StringKeyClass(s[i]);
-	FloatValueClass v = FloatValueClass(lats[i]);
-        mydict[key]=v;
+
+    if (is_producer) {
+        mydict.make_persistent(name);
+
+        for (int i=0; i<SIZE; i++) {
+            StringKeyClass key = StringKeyClass(s[i]);
+            FloatValueClass v = FloatValueClass(lats[i]);
+            mydict[key]=v;
+        }
+
+        mydict.sync();
+        return;
     }
 
-    mydict.sync();
-
+    // Instantiate object
+    mydict.getByAlias(name);
     //Iterate
     int i = 0;
     bool ok=false;
@@ -204,7 +221,7 @@ void test_string(const char *name) {
 
     for(auto it = mydict.begin(); it != mydict.end(); it++) {
         pk = it->first;
-	ts = StringKeyClass::get<0>(pk);
+        ts = StringKeyClass::get<0>(pk);
             bool found = false;
             for (int j = 0; j < SIZE && !found; j++) {
                 std::cout << " test_string s["<<j<<"] = "<<s[j]<<" == "<<ts<<" = ts"<<std::endl;
@@ -228,17 +245,26 @@ void test_string(const char *name) {
 }
 
 
-int main() {
+int main(int argc, char* argv[]) {
+    char buffer[128];
+    int producer = 0;
+    //THIS FILE CHANGES BEHAVIOUR DEPENDING ON THE NAME OF THE EXECUTABLE!! // Yolanda's eyes bleed a lot
+    producer = (strcmp(argv[0], "./apitest_iterator_streaming_producer")==0) ? 1 : 0;
+    if (producer == 1) {
+        std::cout<< "+ PRODUCER VERSION "<<std::endl;
+    } else {
+        std::cout<< "+ CONSUMER VERSION "<<std::endl;
+    }
     std::cout<< "+ STARTING C++ APP"<<std::endl;
     std::cout<< "+ Session started"<<std::endl;
 
     std::cout << "Starting test 1 " <<std::endl;
-    test_really_simple("mydict");
+    test_really_simple("mydict", producer);
 
     std::cout << "Starting test 3 " <<std::endl;
-    test_string("mydictString");
+    test_string("mydictString", producer);
     std::cout << "Starting test 2 " <<std::endl;
-    test_multiplekey("mydictmultiplekey");
+    test_multiplekey("mydictmultiplekey",producer);
 
 
     std::cout << "End tests " <<std::endl;

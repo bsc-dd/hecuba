@@ -388,6 +388,8 @@ std::vector<const TupleRow *>  CacheTable::poll(const char *topic_name) {
     // The received message contains a sequence containing:
     //      key_nullvalues + key + value_nullvalues + value
 
+    // TODO: refactor this code to use row_factory and improve the management of nulls
+
     TupleRow *k = keys_factory->decode((void*)rkmessage->payload);
 
     uint64_t keyslength = keys_factory->get_content_size(k);
@@ -456,26 +458,15 @@ void CacheTable::disable_send_EOD(void) {
 void  CacheTable::close_stream(const char *topic_name) {
     // Create empty TupleRows for Keys and Values
     if (this->writer != nullptr){
-    if (this->writer->is_stream_out_enable()){
-	    if (send_EOD) {
-    	uint64_t keyslength = keys_factory->get_nbytes();
-    	char * keys_b = (char*)malloc(keyslength);
-    	TupleRow *k = keys_factory->make_tuple(keys_b);
-    	for (uint32_t i = 0; i < k->n_elem(); i++) {
-        	k->setNull(i);
-    	}
+        if (this->writer->is_stream_out_enable()){
+            if (send_EOD) {
+                TupleRow *k = keys_factory->make_tuple((char*)nullptr);
+                TupleRow *v = values_factory->make_tuple((char*)nullptr);
 
-    	uint64_t valueslength = values_factory->get_nbytes();
-    	char * values_b = (char*)malloc(valueslength);
-    	TupleRow *v = values_factory->make_tuple(values_b);
-    	for (uint32_t i = 0; i < v->n_elem(); i++) {
-        	v->setNull(i);
-    	}
-
-    	// Send EOD
-    	this->writer->send_event(topic_name, k, v);
-	    }
-    }
+                // Send EOD
+                this->writer->send_event(topic_name, k, v);
+	        }
+        }
     }
 }
 

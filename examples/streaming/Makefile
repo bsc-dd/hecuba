@@ -3,6 +3,8 @@ OBJS= \
     producer \
 	consumer_singlenumpy \
 	producer_singlenumpy \
+	apitest_iterator_streaming_producer\
+	apitest_iterator_streaming_consumer\
 
 # DO NOT REMOVE THIS LINE (MARKS THE END OF THE 'OBJS' VARIABLE)
 
@@ -23,6 +25,15 @@ consumer_singlenumpy: consumer_singlenumpy.cpp
 
 producer_singlenumpy: producer_singlenumpy.cpp
 	g++ -o producer_singlenumpy  producer_singlenumpy.cpp    ${CPPFLAGS}
+
+.PHONY:apitest_iterator_streaming
+apitest_iterator_streaming_producer: apitest_iterator_streaming
+apitest_iterator_streaming_consumer: apitest_iterator_streaming
+apitest_iterator_streaming: apitest_iterator_streaming.cpp
+	g++ -o apitest_iterator_streaming  apitest_iterator_streaming.cpp    ${CPPFLAGS}
+	cp apitest_iterator_streaming apitest_iterator_streaming_producer
+	cp apitest_iterator_streaming apitest_iterator_streaming_consumer
+	rm apitest_iterator_streaming
 
 clean:
 	rm ${OBJS}

@@ -10,8 +10,9 @@
 
 //class HecubaSession; //Forward declaration
 
-#define KEYS    1
-#define COLUMNS 0
+#define _HECUBA_ROWS_    2
+#define _HECUBA_KEYS_    1
+#define _HECUBA_COLUMNS_ 0
 
 class IStorage {
     /* This class represents an instantiated object (StorageDict) and can be
@@ -55,7 +56,7 @@ class IStorage {
 
         virtual Writer * getDataWriter()const { return dataWriter;}
 
-        virtual void enableStreamConsumer(std::string topic) {DBG("VIRTUAL");}
+        virtual void enableStreamConsumer(std::string topic) {std::cerr<<"enableStreamConsumer not defined"<<std::endl;}
 
         uint64_t* getStorageID();
         const std::string& getName() const;
@@ -93,7 +94,7 @@ class IStorage {
         void getByAlias(const std::string& name) ;
         void get_by_alias(const std::string&);
 
-        void extractMultiValuesFromQueryResult(void *query_result, void *valuetoreturn, int type) ;
+        void extractMultiValuesFromQueryResult(void *query_result, int type, void *valuetoreturn1, void *valuetoreturn2=NULL);
     private:
 
         ObjSpec IStorageSpec;

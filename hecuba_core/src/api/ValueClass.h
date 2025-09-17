@@ -41,13 +41,7 @@ class ValueClass:public AttributeClass<V1,rest...>{
         }
 
         void complete_reading() {
-            if (this->managedValues == 1) {
-                this->valuesBuffer= (char *)malloc(this->total_size);
-                this->sd->getItem(this->pendingKeysBuffer,this->valuesBuffer);
-            } else {
-                //for more than one attribute getItem allocates the space
-                this->sd->getItem(this->pendingKeysBuffer,&this->valuesBuffer);
-            }
+            this->sd->getItem(this->pendingKeysBuffer,&this->valuesBuffer);
             this->template setTupleValues<0,V1,rest...>(this->sd, this->valuesBuffer);
 
         }
@@ -63,6 +57,20 @@ class ValueClass:public AttributeClass<V1,rest...>{
             this->managedValues=this->valuesDesc.size();
             this->valuesBuffer=nullptr;
             memcpy(this->pendingKeysBuffer, keysBuffer, bufferSize);
+            HecubaExtrae_event(HECUBAEV, HECUBA_END);
+        }
+
+        //Constructor called by the StorageDict iterator
+        ValueClass(IStorage *sd,char *valuesBuffer):AttributeClass<V1,rest...>() {
+            HecubaExtrae_event(HECUBAEV, HECUBA_SD_VALUE);
+            this->sd = sd;
+            this->pendingKeysBuffer = nullptr;
+            this->pendingKeysBufferSize = 0;
+            this->valuesDesc=sd->getValuesDesc();
+            this->total_size=sd->getDataWriter()->get_metadata()->get_values_size();
+            this->managedValues=this->valuesDesc.size();
+            this->valuesBuffer=valuesBuffer;
+            this->template setTupleValues<0,V1,rest...>(this->sd, this->valuesBuffer);
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 
@@ -106,7 +114,18 @@ class ValueClass:public AttributeClass<V1,rest...>{
                     this->valuesBuffer = (char *) malloc(this->total_size);
                     memcpy(this->valuesBuffer, w.valuesBuffer, this->total_size);
                     this->values = w.values;
-                } 
+                } else {
+                    // case v1 = v2
+                    this->pendingKeysBuffer = nullptr;
+                    this->pendingKeysBufferSize = 0;
+                    this->sd = w.sd;
+                    this->valuesDesc = w.valuesDesc;
+                    this->managedValues = w.managedValues;
+                    this->total_size = w.total_size;
+                    this->valuesBuffer = (char *) malloc(this->total_size);
+                    memcpy(this->valuesBuffer, w.valuesBuffer, this->total_size);
+                    this->values = w.values;
+                }
             }
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
 
