@@ -60,21 +60,21 @@ class StorageNumpy:virtual public IStorage {
 
         StorageNumpy() {
             HecubaExtrae_event(HECUBAEV, HECUBA_SN|HECUBA_INSTANTIATION);
-            initObjSpec('f'); // Float by default
+            initObjSpec('c'); // Float64 by default
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 
         /* Note: 'dtype' uses the array-interface api which is slightly different from Python
          *  array-interface:https://numpy.org/doc/1.21/reference/arrays.interface.html#arrays-interface
          *  python: https://numpy.org/doc/stable/reference/arrays.dtypes.html */
-        StorageNumpy(void *datasrc, const std::vector<uint32_t> &metas,char dtype='f') { // TODO: change 'dtype' type to string or better add another parameter with the size
+        StorageNumpy(void *datasrc, const std::vector<uint32_t> &metas,char dtype='c') { // TODO: change 'dtype' type to string or better add another parameter with the size
             HecubaExtrae_event(HECUBAEV, HECUBA_SN|HECUBA_INSTANTIATION);
             setNumpy(datasrc, metas, dtype);
             initObjSpec(dtype);
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 
-        void setNumpy(void *datasrc, const std::vector<uint32_t>&metas, char dtype='f') {
+        void setNumpy(void *datasrc, const std::vector<uint32_t>&metas, char dtype='c') {
             // Transform user metas to ArrayMetadata
             this->metas = metas; // make a copy of user 'metas'
             uint64_t numpy_size = extractNumpyMetaData(metas, dtype, this->numpy_metas );
@@ -300,8 +300,10 @@ class StorageNumpy:virtual public IStorage {
 
         uint32_t getDtypeSize(char dtype) const {
             switch(dtype) {
-                case 'f': //NPY_FLOAT
+                case 'c': //NPY_FLOAT
                           return sizeof(double);
+                case 'f': //NPY_FLOAT
+                          return sizeof(float);
                 case 'b': //NPY_BOOL
                           return sizeof(char);
                 case 'i': //NPY_INT
