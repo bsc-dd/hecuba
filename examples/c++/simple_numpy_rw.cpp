@@ -20,6 +20,20 @@ char * generateNumpyContent(const std::vector<uint32_t> &metas) {
     }
     return (char*) numpy;
 }
+char * generateNumpyContentFloat(const std::vector<uint32_t> &metas) {
+
+    float *numpy=(float*)malloc(sizeof(float)*metas[0]*metas[1]);
+    float *tmp = numpy;
+    float num = 1;
+    for (int i=0; i<metas[0]; i++) {
+        for (int j=0; j<metas[1]; j++) {
+            std::cout<< "++ "<<i<<","<<j<<std::endl;
+            *tmp = num++;
+            tmp+=1;
+        }
+    }
+    return (char*) numpy;
+}
 
 bool equalsNumpy(const StorageNumpy& s, double *data, std::vector<uint32_t> metas) {
 	// Check metas
@@ -46,12 +60,37 @@ bool equalsNumpy(const StorageNumpy& s, double *data, std::vector<uint32_t> meta
 	}
 	return true;
 }
+bool equalsNumpyFloat(const StorageNumpy& s, float *data, std::vector<uint32_t> metas) {
+	// Check metas
+	if (s.metas.size() != metas.size()) {
+		return false;
+	}
+	for (int i=0; i<metas.size(); i++) {
+		if (s.metas[i] != metas[i]) {
+			return false;
+		}
+	}
+	// Check Content
+	float* p = (float*)s.data;
+	float* q = data;
+	for (int i=0; i<metas[0]; i++) {
+		for (int j=0; j<metas[1]; j++) {
+			if (*p != *q) {
+				std::cout<< "++ "<<i<<","<<j<< "=" << *p << " == " << *q << std::endl;
+				return false;
+			}
+			p++;
+			q++;
+		}
+	}
+	return true;
+}
 
 
 void test_retrieve_simple(const char *name) {
     std::vector<uint32_t> metadata = {3, 4};
     char *data = generateNumpyContent(metadata);
-    StorageNumpy sn(data,metadata);
+    StorageNumpy sn(data,metadata); // 'c' by default == double == float64
 
     sn.make_persistent(name);
 
@@ -65,6 +104,23 @@ void test_retrieve_simple(const char *name) {
     }
 }
 
+void test_float(const char *name) {
+    std::vector<uint32_t> metadata = {3, 4};
+    char *data = generateNumpyContentFloat(metadata);
+    StorageNumpy sn(data,metadata, 'f'); //single floats
+
+    sn.make_persistent(name);
+
+    sn.sync();
+
+    StorageNumpy sn2;
+    sn2.getByAlias(name);
+
+    if (!equalsNumpyFloat(sn2, (float*)data, metadata)) {
+        std::cout << "Retrieved Numpy ["<< name<< "] contains unexpected content (differnt from stored). " <<std::endl;
+    }
+}
+
 
 
 int main() {
@@ -72,6 +128,10 @@ int main() {
 
     std::cout << "Starting test 1 " <<std::endl;
     test_retrieve_simple("mynumpytoread");
+
+    std::cout << "Starting test 2 " <<std::endl;
+    test_float("mynumpytoreadfloat");
+
 
     std::cout << "End tests " <<std::endl;
 }
