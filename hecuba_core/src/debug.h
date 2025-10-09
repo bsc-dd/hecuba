@@ -6,6 +6,8 @@
 #ifdef ENABLE_DEBUG
 
 #include <sstream>
+#include <sys/types.h>
+#include <unistd.h>
 
 #if __STDC_VERSION__ < 199901L
 # if __GNUC__ >= 2
