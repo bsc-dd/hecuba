@@ -56,6 +56,13 @@ public:
     inline bool isNull(uint32_t position) const {
         return this->payload->isNull(position);
     }
+    inline bool isNull() const {
+        bool isnull = true;
+        for (uint32_t i = 0; isnull && (i<metadatas->size()); i++) {
+            isnull &= this->payload->isNull(i);
+        }
+        return isnull;
+    }
 
     inline uint64_t get_timestamp() const {
         return this->payload->getTimestamp();

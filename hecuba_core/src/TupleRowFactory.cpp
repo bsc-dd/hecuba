@@ -55,7 +55,13 @@ TupleRowFactory::TupleRowFactory(std::shared_ptr<const std::vector<ColumnMeta> >
  * @post The TupleRow now owns the data and this cannot be freed
  */
 TupleRow *TupleRowFactory::make_tuple(void *data) const {
-    return new TupleRow(metadata, total_bytes, data);
+    TupleRow* res = new TupleRow(metadata, total_bytes, data);
+    if (data == nullptr) {
+        for (uint32_t i = 0; i < res->n_elem(); i++) {
+            res->setNull(i);
+        }
+    }
+    return res;
 }
 
 /***
