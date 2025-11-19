@@ -34,6 +34,8 @@ struct timeval diff;
 struct timeval acum;
 unsigned long num_changes=0;
 
+cpu_set_t cassCPU_ONE;  //HARDCODED mask with ALL cpus set
+cpu_set_t cassCPU_ZERO; //HARDCODED mask without any cpu
 
 
 #define PORT "6666"  // the port users will be connecting to
@@ -129,9 +131,21 @@ int setCassandraAffinityRecursive(int pid, const cpu_set_t* newMask)
 	char buff[10];
 	int n = childs_to_check_read->last_child;
 	int *ch = childs_to_check_read->childs;
+    cpu_set_t tmpmask;
+    CPU_XOR(&tmpmask, &cassCPU_ONE, newMask); // Negate all cpus from newMask 
+    if (CPU_EQUAL(&tmpmask, &cassCPU_ZERO)) {//There are NO available cpus
+        DBG(" --- setCassandraAffinityRecursive: unable to change mask as all of them are used");
+        return 0;
+    }
 	for (int i = 0; i < n; ++i){
 		num_changes++;
-		/*change the mask of all the threads*/
+		/*reset the mask of all the threads*/
+		error = sched_setaffinity(ch[i], sizeof(cpu_set_t), &tmpmask);
+		if (error && (errno != ESRCH)) {  // the pid vector is eventually updated and may contain pids that are no longer alive
+			perror("Error resetting the affinity mask\n");
+			return -1;
+        }
+		/*change the mask of all the threads (now to the desired mask forcing a migration)*/
 		error = sched_setaffinity(ch[i], sizeof(cpu_set_t), newMask);
 		if (error && (errno != ESRCH)) {  // the pid vector is eventually updated and may contain pids that are no longer alive
 			perror("Error changing the affinity mask\n");
@@ -345,6 +359,14 @@ void start_cassandra_snoopy() {
 	}
 }
 
+void initializeHardcodedMasks(void) {
+	long n = CPU_COUNT(&cassCPU_ONE);
+    for (int i=0; i<n; i++) {
+        CPU_SET(i, &cassCPU_ONE);
+    }
+    CPU_ZERO(&cassCPU_ZERO);
+}
+
 /* cass_mgr PID
  * 	PID	Cassandra PID
  * POLL code adapted from https://beej.us/guide/bgnet/html/index-wide.html
@@ -355,6 +377,8 @@ int main(int argc, char *argv[])
 		perror("gethostname");
 		exit(1);
 	}
+
+    initializeHardcodedMasks();
 
 	DBG("=== Starting Cassandra Manager:");
 	if (argc == 1) {
