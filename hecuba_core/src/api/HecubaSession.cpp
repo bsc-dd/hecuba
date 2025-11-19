@@ -226,16 +226,20 @@ int HecubaSession::waitCassandraMgr() const {
 cpu_set_t HecubaSession::addCassandraAffinity(cpu_set_t* newMask) {
    if (cassandraPID == 0) return currentCassandraMask; // Affinity is disabled
    if (newMask == NULL)   return currentCassandraMask;
+   HecubaExtrae_event(HECUBADBG, HECUBA_ADDCASSAFF);
    DBG(" Adding mask [" << CPUSET2INT(newMask) <<"]");
    sendCassandraMgr(ADD, newMask);
+   HecubaExtrae_event(HECUBADBG, HBCASS_END);
    return currentCassandraMask;
 }
 
 cpu_set_t HecubaSession::removeCassandraAffinity(cpu_set_t* newMask) {
    if (cassandraPID == 0) return currentCassandraMask; // Affinity is disabled
    DBG(" Removing mask [" << CPUSET2INT(newMask) <<"]");
+   HecubaExtrae_event(HECUBADBG, HECUBA_REMCASSAFF);
    sendCassandraMgr(REMOVE, newMask);
    //waitCassandraMgr(); // No wait is required as the cores for the app are unchanged and cassandra will eventually leave them alone
+   HecubaExtrae_event(HECUBADBG, HBCASS_END);
    return currentCassandraMask;
 }
 

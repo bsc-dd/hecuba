@@ -25,6 +25,8 @@
 
 #include "debug.h"
 #include <sys/time.h>
+#include <sys/time.h>
+#include "HecubaExtrae.h"
 
 
 
@@ -159,6 +161,7 @@ int setCassandraAffinityRecursive(int pid, const cpu_set_t* newMask)
 // Sets 'cassandraMask' as the cassandra mask
 int setCassandraAfinity(const cpu_set_t* cassandraMask) {
 	gettimeofday(&startTV, NULL);
+    HecubaExtrae_event(HECUBADBG, HECUBA_SETCASSAFFINITY);
 
 	if (setCassandraAffinityRecursive(cassandraPID, cassandraMask) < 0) {
 		char tmp[100];
@@ -179,6 +182,7 @@ int setCassandraAfinity(const cpu_set_t* cassandraMask) {
 	}
 	// cassandraMask = newMask;
 	memcpy(&currentCassandraMask, cassandraMask, sizeof(cpu_set_t));
+    HecubaExtrae_event(HECUBADBG, HECUBA_END);
 	gettimeofday(&stopTV, NULL);
 	timersub(&stopTV, &startTV, &diff);
 	timeradd(&diff, &acum, &acum);
