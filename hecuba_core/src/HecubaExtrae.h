@@ -59,6 +59,8 @@
 
 #define HECUBATHREADASYNC    45000
 
+#define HECUBACASS_RESPONSETIME     46000
+
 #ifdef EXTRAE
 #include <extrae.h>
 #include <unistd.h>
