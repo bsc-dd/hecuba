@@ -335,6 +335,7 @@ int cassandra_snoopy(void* arg) {
 						childs_to_check_write->childs[childs_to_check_write->last_child++] = th;
 					}
 				}
+                close(fd); //yolandab: to avoid crash due to too many open files
 			}
 		}
 		DBG(" Cassandra SNOOPY detected "<< childs_to_check_write->last_child<< "children ");
