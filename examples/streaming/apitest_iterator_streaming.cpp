@@ -224,7 +224,7 @@ void test_string(const char *name, int is_producer) {
         ts = StringKeyClass::get<0>(pk);
             bool found = false;
             for (int j = 0; j < SIZE && !found; j++) {
-                std::cout << " test_string s["<<j<<"] = "<<s[j]<<" == "<<ts<<" = ts"<<std::endl;
+                //std::cout << " test_string s["<<j<<"] = "<<s[j]<<" == "<<ts<<" = ts"<<std::endl;
                 if (strcmp(s[j],ts.c_str())==0) {
                     found = true;
                     ok = true;

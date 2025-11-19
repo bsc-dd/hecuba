@@ -465,6 +465,7 @@ void  CacheTable::close_stream(const char *topic_name) {
 
                 // Send EOD
                 this->writer->send_event(topic_name, k, v);
+                std::cout<<"SENT EOD to ["<<topic_name<<"]"<<std::endl;
 	        }
         }
     }
