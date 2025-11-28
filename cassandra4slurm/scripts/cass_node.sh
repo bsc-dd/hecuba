@@ -23,7 +23,7 @@ source $HECUBA_ROOT/bin/cassandra4slurm/hecuba_debug.sh
 source $CFG_FILE    # To get CASSANDRA_LOG_DIR
 # Aggregate all logs in a single UNIQ_ID directory
 [ ! -z "$CASSANDRA_LOG_DIR" ] \
-    && export CASSANDRA_LOG_DIR="$CASSANDRA_LOG_DIR/$UNIQ_ID"
+    && export CASSANDRA_LOG_DIR="$CASSANDRA_LOG_DIR/$UNIQ_ID/$(hostname)"
 
 function launch_arrow_helper () {
     ! is_HECUBA_ARROW_enabled  && return
