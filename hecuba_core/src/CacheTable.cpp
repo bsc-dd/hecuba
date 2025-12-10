@@ -190,8 +190,10 @@ void CacheTable::send_event(const char* topic_name, const TupleRow *keys, const 
 }
 
 void CacheTable::put_crow(const TupleRow *keys, const TupleRow *values) {
+        HecubaExtrae_event(HECUBACASS, HBCASS_PUTCROW);
     this->writer->write_to_cassandra(keys, values);
     if (myCache) this->myCache->add(*keys, values); //Inserts if not present, otherwise replaces
+        HecubaExtrae_event(HECUBACASS, HBCASS_END);
 }
 
 

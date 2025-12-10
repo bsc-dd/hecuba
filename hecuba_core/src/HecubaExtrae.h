@@ -39,6 +39,7 @@
 #define HBCASS_META             0x7
 #define HBCASS_PREPARES         0x8
 #define HBCASS_SENDDRIVER       0x9
+#define HBCASS_PUTCROW          0xA
 
 // HECUBADBG: Type to trace specific hecuba events
 #define HECUBADBG    44000
