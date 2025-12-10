@@ -437,6 +437,7 @@ int main(int argc, char *argv[])
 	std::cerr << " === Started cassandra manager [" << hostname << "]: Managing cassandra process ["<< cassandraPID<<"]"<<std::endl;
 	int new_fd;
 	int finish = 0;
+	int clients = 0;
 	socklen_t sin_size;
 	struct sockaddr_storage their_addr; // connector's address information
 	struct timeval timeout = {0, 1000}; //1ms
@@ -471,6 +472,7 @@ int main(int argc, char *argv[])
 								get_in_addr((struct sockaddr *)&their_addr),
 								s, sizeof(s));
 						DBG("server: got connection from "<< s << " ===> "<< new_fd);
+                        clients++;
 					}
 				} else {
 					// If not the listener, we're just a regular client
@@ -523,8 +525,13 @@ int main(int argc, char *argv[])
 									break;
 								}
 							case END:
-								finish = 1;
+                                {
+                                clients --;
+						        close(i); // Close socket
+						        del_from_pfds(&pfds, i, &fd_max);
+                                if (!clients) finish = 1;
 								break;
+                                }
 						}
 					}
 				}
