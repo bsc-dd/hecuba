@@ -73,6 +73,7 @@ class StorageNumpy:virtual public IStorage {
 
         void setNumpy(void *datasrc, const std::vector<uint32_t>&metas, char dtype='f') {
             // Transform user metas to ArrayMetadata
+            DBG("StorageNumpy:: setNumpy(data,metas)");
             this->metas = metas; // make a copy of user 'metas'
             uint64_t numpy_size = extractNumpyMetaData(metas, dtype, this->numpy_metas );
 
@@ -281,7 +282,6 @@ class StorageNumpy:virtual public IStorage {
 
             std::memcpy(keys, &c_uuid, sizeof(uint64_t *));
 
-
             char *c_name = (char *) std::malloc(name.length() + 1);
             std::memcpy(c_name, name.c_str(), name.length() + 1);
 
@@ -371,7 +371,7 @@ class StorageNumpy:virtual public IStorage {
                 //getCurrentSession().getNumpyMetaWriter()->write_to_cassandra(keys, values);
                 //getCurrentSession().getNumpyMetaWriter()->wait_writes_completion(); // Ensure hecuba.istorage get all updates SYNCHRONOUSLY (to avoid race conditions with poll that may request a build_remotely on this new object)!
                 arrayStore->getMetaDataCache()->get_writer()->write_to_cassandra(keys, values);
-                arrayStore->getMetaDataCache()->get_writer()->wait_writes_completion(); // Ensure hecuba.istorage get all updates SYNCHRONOUSLY (to avoid race conditions with poll that may request a build_remotely on this new object)!
+                // JJ arrayStore->getMetaDataCache()->get_writer()->wait_writes_completion(); // Ensure hecuba.istorage get all updates SYNCHRONOUSLY (to avoid race conditions with poll that may request a build_remotely on this new object)!
             }
             catch (std::exception &e) {
                 std::cerr << "HecubaSession::registerNumpy: Error writing" <<std::endl;
