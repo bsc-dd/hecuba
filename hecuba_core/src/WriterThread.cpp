@@ -1,5 +1,6 @@
 #include "WriterThread.h"
 #include "HecubaExtrae.h"
+#include "debug.h"
 #include <sys/wait.h>
 
 #ifndef CLONE
@@ -107,11 +108,15 @@ void WriterThread::queue_async_query( Writer* w, const TupleRow *keys, const Tup
 
     //std::cout<< "  Writer::flushing item created pair"<<std::endl;
     data.push(item);
+    if (data.size() ==  (data.capacity()-1)) {
+	    std::cerr<<"WARN: WriterThread::queue_async_query: data capacity is "<<data.size()<<" close to full. Maybe increasing WRITE_BUFFER_SIZE is required."<<std::endl;
+    }
     sempending_data->release(); //One more pending msg
 }
 
 void WriterThread::callback(CassFuture *future, void *ptr) {
     void **data = reinterpret_cast<void **>(ptr);
+    DBG("WriterThread::callback");
     assert(data != NULL && data[0] != NULL);
     WriterThread *WThread = (WriterThread *) data[0];
     WThread->semmaxcallbacks->release(); // Limit number of callbacks
@@ -119,6 +124,7 @@ void WriterThread::callback(CassFuture *future, void *ptr) {
     //std::cout<< "Writer::callback"<< std::endl;
     CassError rc = cass_future_error_code(future);
     if (rc != CASS_OK) {
+        DBG("WriterThread::callback. Cassandra returns KO");
         std::string message(cass_error_desc(rc));
         const char *dmsg;
         size_t l;
@@ -126,12 +132,11 @@ void WriterThread::callback(CassFuture *future, void *ptr) {
         std::string msg2(dmsg, l);
         WThread->set_error_occurred("Writer callback: " + message + "  " + msg2, data[1], data[2], data[3]);
     } else {
+        DBG("WriterThread::callback. Cassandra returns OK");
         delete ((TupleRow *) data[2]);
         delete ((TupleRow *) data[3]);
         WThread->ncallbacks--;
         ((Writer*) data[1])->finish_async_call(); //Notify Writer of another finished request.
-    }
-    HecubaExtrae_comm(EXTRAE_USER_RECV, (long long int)data[4]);
 #ifdef EXTRAE
     struct timespec t2;
     clock_gettime(CLOCK_REALTIME, &t2);
@@ -139,6 +144,8 @@ void WriterThread::callback(CassFuture *future, void *ptr) {
     accum = (((long long int)t2.tv_sec)*1000000000L+t2.tv_nsec) - accum;
     HecubaExtrae_event(HECUBACASS_RESPONSETIME, accum);
 #endif /* EXTRAE */
+    }
+    HecubaExtrae_comm(EXTRAE_USER_RECV, (long long int)data[4]);
     free(data);
 }
 
