@@ -53,9 +53,14 @@ get_first_node() {
 function get_node_ip() {
     local node="$1"
     local iface="$2"
-    local IPCMD=$(which ip) # Some 'ssh' clients may loose the PATH, therefore assume that it will be at the same place...
-    local IP=$(ssh $node "$IPCMD --brief address show dev $iface"| awk '{print $3}') #192.168.1.1/25
-    echo ${IP%/*} #Remove the last slashed content
+    local RES="NONE"
+    RES=$(grep ${node} /etc/hosts | grep ${iface} | awk '{print $1}')
+## vvvvv GENERIC (but SLOWER) SOLUTION vvvvvv
+#     local IPCMD=$(which ip) # Some 'ssh' clients may loose the PATH, therefore assume that it will be at the same place...
+#     local IP=$(ssh $node "$IPCMD --brief address show dev $iface"| awk '{print $3}') #192.168.1.1/25
+#     RES=${IP%/*} #Remove the last slashed content
+## ^^^^^  GENERIC (but SLOWER) SOLUTION ^^^^^
+    echo $RES
 }
 
 # Remove file passed as a parameter
