@@ -96,6 +96,7 @@ WriterThread::~WriterThread() {
     this->finish_async_query_thread = true; // Mark the async thread to finish BEFORE unblocking it.
     sempending_data->release();// Unblock the async_query_thread (which does not have any work)
     this->async_query_thread.join();
+    //waitpid(async_query_threadpid, NULL, 0); // TODO: CHECK ERRORS!
     delete(sempending_data);
     delete(semmaxcallbacks);
 }

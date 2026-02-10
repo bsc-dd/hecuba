@@ -35,6 +35,7 @@ class WriterThread {
 
         bool finish_async_query_thread = false;
         std::thread async_query_thread;
+        //int async_query_threadpid = -1;
 
         Semaphore* sempending_data;  // Synchronization semaphore to wait for new elements in 'data'
         Semaphore* semmaxcallbacks; //Resource limiting Semaphore to limit the number of in_flight callbacks.
