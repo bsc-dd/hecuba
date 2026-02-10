@@ -383,6 +383,7 @@ bool Writer::is_write_completed() const {
 
 // wait for callbacks execution for all sent write requests
 void Writer::wait_writes_completion(void) {
+    HecubaExtrae_event(HECUBACASS_NCALLBACKS, ncallbacks);
     HecubaExtrae_event(HECUBADBG, HECUBA_FLUSHELEMENTS);
     flush_dirty_blocks();
     //std::cout<< "Writer::wait_writes_completion * Waiting for "<< data.size() << " Pending "<<ncallbacks<<" callbacks" <<" inflight"<<std::endl;
@@ -390,6 +391,7 @@ void Writer::wait_writes_completion(void) {
         std::this_thread::yield();
     }
     HecubaExtrae_event(HECUBADBG, HECUBA_END);
+    HecubaExtrae_event(HECUBACASS_NCALLBACKS, 0);
     //std::cout<< "Writer::wait_writes_completion2* Waiting for "<< data.size() << " Pending "<<ncallbacks<<" callbacks" <<" inflight"<<std::endl;
 }
 

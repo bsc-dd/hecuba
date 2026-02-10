@@ -78,12 +78,14 @@ void WriterThread::create_working_threads() {
 
 // wait for callbacks execution for all sent write requests
 void WriterThread::wait_writes_completion(void) {
+    HecubaExtrae_event(HECUBACASS_NCALLBACKS, ncallbacks);
     HecubaExtrae_event(HECUBADBG, HECUBA_FLUSHELEMENTS);
     //std::cout<< "Writer::wait_writes_completion * Waiting for "<< data.size() << " Pending "<<ncallbacks<<" callbacks" <<" inflight"<<std::endl;
     while(!data.empty() || ncallbacks>0) {
         std::this_thread::yield();
     }
     HecubaExtrae_event(HECUBADBG, HECUBA_END);
+    HecubaExtrae_event(HECUBACASS_NCALLBACKS, 0);
 }
 
 WriterThread::~WriterThread() {

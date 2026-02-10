@@ -65,6 +65,8 @@
 
 #define HECUBACASS_RESPONSETIME     46000
 
+#define HECUBACASS_NCALLBACKS     47000
+
 #ifdef EXTRAE
 #include <extrae.h>
 #include <unistd.h>
