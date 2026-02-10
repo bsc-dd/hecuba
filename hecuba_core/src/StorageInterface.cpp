@@ -38,9 +38,11 @@ StorageInterface::StorageInterface(int nodePort, std::string contact_points, std
     cass_cluster_set_write_bytes_high_water_mark(cluster, bytes_high_watermark); //>128elements^3D * 8B_Double
 
 
-    //unsigned int uiRequestTimeoutInMS = 30000;
+    unsigned int uiRequestTimeoutInMS = 60000;
     //cass_cluster_set_core_connections_per_host (cluster, 4);
-    //cass_cluster_set_request_timeout (cluster, uiRequestTimeoutInMS);
+    cass_cluster_set_request_timeout (cluster, uiRequestTimeoutInMS);
+    /* Disable heartbeat requests */
+    cass_cluster_set_connection_heartbeat_interval(cluster, 0);
 
 
     // Provide the cluster object as configuration to connect the session

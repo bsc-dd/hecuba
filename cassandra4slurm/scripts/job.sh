@@ -270,8 +270,16 @@ cat $TEMPLATE_CASS_YAML_FILE \
     | sed "s/.*broadcast_address:.*/#broadcast_address: localhost/" \
     | sed "s/.*initial_token:.*/#initial_token:/" \
     | sed "s/.*concurrent_writes:.*/concurrent_writes: $CASS_CONCURRENT_WRITES/g" \
+    | sed "s/.*read_request_timeout_in_ms:.*/read_request_timeout_in_ms: 60000/g" \
+    | sed "s/.*range_request_timeout_in_ms:.*/range_request_timeout_in_ms: 60000/g" \
+    | sed "s/.*write_request_timeout_in_ms:.*/write_request_timeout_in_ms: 60000/g" \
+    | sed "s/^request_timeout_in_ms:.*/request_timeout_in_ms: 60000/g" \
+    | sed "s/.*commitlog_segment_size_in_mb:.*/commitlog_segment_size_in_mb: 128/g" \
     > ${CASS_YAML_FILE}
     echo "auto_bootstrap: false" >> ${CASS_YAML_FILE}
+
+# read_request_timeout_in_ms and range_request_timeout_in_ms increased to store big columns
+# commitlog_segment_size_in_mb increased to store big columns
 
 # Generate a configuration file for each cassandra node (used in recover)
 for i in $(cat $CASSFILE.ips); do
