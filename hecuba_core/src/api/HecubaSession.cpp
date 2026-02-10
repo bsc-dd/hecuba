@@ -641,6 +641,9 @@ numpyMetaWriter = numpyMetaAccess->get_writer();
 }
 
 int HecubaSession::wait_writes_completion(void) {
+    cpu_set_t app_mask; // Original APPLICATION mask 
+    sched_getaffinity(0, sizeof(app_mask), &app_mask);
+    addCassandraAffinity(&app_mask);
     std::lock_guard<decltype(mxalive_objects)> lock{mxalive_objects};
 
     for (std::list<std::shared_ptr<CacheTable>>::iterator it = alive_objects.begin(); it != alive_objects.end(); it++) {
@@ -661,6 +664,7 @@ int HecubaSession::wait_writes_completion(void) {
             DBG( "  LIST DEL AFTER: "<< t.get() <<" ("<<t.use_count()<<")");
         }
     }
+    removeCassandraAffinity(&app_mask);
     return 0;
 }
 
