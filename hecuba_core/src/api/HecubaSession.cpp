@@ -193,6 +193,7 @@ void HecubaSession::getCurrentCassandraAffinity(cpu_set_t* currentMask) const {
 int HecubaSession::sendCassandraMgr(int cmd, const cpu_set_t* newMask) const {
 	int numbytes;
 	struct message msg;
+    char buf[80];
 	msg.operation = cmd;
 	if (newMask == NULL) {
 		msg.cpusetsize = 0;
@@ -202,7 +203,9 @@ int HecubaSession::sendCassandraMgr(int cmd, const cpu_set_t* newMask) const {
 	}
 	numbytes = send(cass_MGR_socket, &msg, sizeof(msg), 0);
 	if (numbytes<0) {
-		perror("HecubaSession::sendCassandraMgr: send msg");
+        //yolandab to check if the error was when ending or we left something without writing
+        sprintf(buf, "HecubaSession::sendCassandraMgr: send msg %d",cmd);
+		perror(buf);
 		return -1;
 	}
 	DBG("Sent message to "<< cass_MGR_socket <<" with "<<std::dec<<sizeof(msg)<<" bytes using "<< std::dec<<numbytes << " bytes");

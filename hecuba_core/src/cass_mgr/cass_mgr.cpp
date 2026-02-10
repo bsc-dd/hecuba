@@ -166,6 +166,7 @@ int setCassandraAffinityRecursive(int pid, const cpu_set_t* newMask)
 // Sets 'cassandraMask' as the cassandra mask
 int setCassandraAfinity(const cpu_set_t* cassandraMask) {
 	gettimeofday(&startTV, NULL);
+    std::cerr<<"cass_mngr: setCassandraAfinity"<<std::endl;
     HecubaExtrae_event(HECUBADBG, HECUBA_SETCASSAFFINITY);
 
 	if (setCassandraAffinityRecursive(cassandraPID, cassandraMask) < 0) {
@@ -199,7 +200,7 @@ void addMask(const cpu_set_t* newMask) {
    if (cassandraPID == 0) return ; // Affinity is disabled
    DBG(" Adding mask [" << CPUSET2INT(newMask) <<"]");
    CPU_OR(&currentCassandraMask, newMask, &currentCassandraMask);
-   DBG(" Setting affinity [" << CPUSET2INT(&mask) <<"]");
+   DBG(" Setting affinity [" << CPUSET2INT(&currentCassandraMask) <<"]");
    change_mask = 1;
 }
 
@@ -211,7 +212,7 @@ void removeMask(const cpu_set_t* newMask) {
    cpu_set_t mask;
    CPU_XOR(&mask, &currentCassandraMask, newMask);
    CPU_AND(&currentCassandraMask, &currentCassandraMask, &mask);
-   DBG(" Setting affinity [" << CPUSET2INT(&mask) <<"]");
+   DBG(" Setting affinity [" << CPUSET2INT(&currentCassandraMask) <<"]");
    change_mask = 1;
 }
 
@@ -544,12 +545,10 @@ int main(int argc, char *argv[])
 		}
 		if (change_mask) {
 			DBG("server ["<<hostname<<"] changing mask ["<<CPUSET2INT(&currentCassandraMask) <<"]");
-			std::cerr<< "cass_mgr @"<<hostname<<" changing affinity. It has "<<num_adds<<" adds and "<<num_removes<<" removes "<<std::endl;
 			setCassandraAfinity(&currentCassandraMask);
-			num_adds = 0;
-			num_removes = 0;
 			change_mask = 0;
 		}
+        else std::cerr<<"cass_mngr: change_mask == False, skipping setCassandraAfinity"<<std::endl;
 	}
 
 	// Finish cassandra_snoopy
