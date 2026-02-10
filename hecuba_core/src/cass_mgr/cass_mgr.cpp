@@ -35,6 +35,7 @@ struct timeval stopTV;
 struct timeval diff;
 struct timeval acum;
 unsigned long num_changes=0;
+unsigned long num_failed_changes=0;
 
 cpu_set_t cassCPU_ONE;  //HARDCODED mask with ALL cpus set
 cpu_set_t cassCPU_ZERO; //HARDCODED mask without any cpu
@@ -149,10 +150,14 @@ int setCassandraAffinityRecursive(int pid, const cpu_set_t* newMask)
         }
 		/*change the mask of all the threads (now to the desired mask forcing a migration)*/
 		error = sched_setaffinity(ch[i], sizeof(cpu_set_t), newMask);
-		if (error && (errno != ESRCH)) {  // the pid vector is eventually updated and may contain pids that are no longer alive
-			perror("Error changing the affinity mask\n");
-			return -1;
-		}
+		if (error) {
+            if (errno != ESRCH) {  // the pid vector is eventually updated and may contain pids that are no longer alive
+			    perror("Error changing the affinity mask\n");
+			    return -1;
+		    } else {
+                num_failed_changes ++;
+            }
+        }
 		DBG("setCassandraAffinityRecursive: pid :"<<ch[i]);
 	}
 
@@ -554,6 +559,6 @@ int main(int argc, char *argv[])
 		if (FD_ISSET(i, &pfds)) close(i);
 	}
 
-	std::cerr << " === Finished cassandra manager[" << hostname << "]: Total Time = "<< acum.tv_sec <<"s "<< acum.tv_usec<<"us to execute "<<num_changes<<" sched_setaffinity" <<std::endl;
+	std::cerr << " === Finished cassandra manager[" << hostname << "]: Total Time = "<< acum.tv_sec <<"s "<< acum.tv_usec<<"us to execute "<<(num_changes-num_failed_changes)<<"/"<<num_changes<<" sched_setaffinity" <<std::endl;
 	return 0;
 }
