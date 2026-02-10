@@ -314,15 +314,25 @@ then
 fi       
 # Launching Cassandra in every node
 
-CASS_CORE_LIST=$( gen_mask LAST $C4S_CASSANDRA_CORES)
 
+CASS_CORE_LIST=$( gen_mask LAST $C4S_CASSANDRA_CORES)
 run srun --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST \
 	--ntasks=$N_NODES \
 	--ntasks-per-node=1 \
 	--nodes=$N_NODES \
 	--cpu-bind=verbose,mask_cpu:${CASS_CORE_LIST} \
 	$MODULE_PATH/cass_node.sh $UNIQ_ID &
+
 sleep 5
+
+run srun --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST \
+	--ntasks=$N_NODES \
+	--ntasks-per-node=1 \
+	--nodes=$N_NODES \
+    --cpu-bind=verbose \
+    --cpus-per-task=1 \
+    $MODULE_PATH/cass_mngr.sh $UNIQ_ID &
+
 
 if [ "X$STREAMING" != "X" ]; then
     if [ ${STREAMING,,} == "true" ]; then

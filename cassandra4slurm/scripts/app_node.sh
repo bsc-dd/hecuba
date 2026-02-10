@@ -43,6 +43,6 @@ if [ "$WITHDLB" == "1" ]; then
 fi
 # FOR SOME F.... REASON the 'srun' tool does not take into account the SLURM Environment VARIABLES
 BINDING="--cpu-bind=verbose"	# to show assigned cpu_mask
-srun --mem=0 --nodes=$SLURM_JOB_NUM_NODES --ntasks=$APP_NTASKS $BINDING --cpus-per-task=$C4S_APP_CORES $APP_PATH
+run srun --mem=0 --nodes=$SLURM_JOB_NUM_NODES --ntasks=$APP_NTASKS $BINDING --cpus-per-task=$C4S_APP_CORES $APP_PATH
 
 echo "[INFO] The application execution has stopped in node $(hostname)"
