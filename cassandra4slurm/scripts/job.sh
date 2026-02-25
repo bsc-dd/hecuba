@@ -333,13 +333,21 @@ run srun --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST \
 
 sleep 5
 
-run srun --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST \
-	--ntasks=$N_NODES \
-	--ntasks-per-node=1 \
-	--nodes=$N_NODES \
-    --cpu-bind=verbose \
-    --cpus-per-task=1 \
-    $MODULE_PATH/cass_mngr.sh $UNIQ_ID &
+
+if [ "X$DYNAMIC_AFFINITY" == "X" ]; then
+#if the user does not define the default is true
+    DYNAMIC_AFFINITY="true"
+fi
+
+if [ ${DYNAMIC_AFFINITY,,} == "true" ]; then
+    run srun --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST \
+	    --ntasks=$N_NODES \
+	    --ntasks-per-node=1 \
+	    --nodes=$N_NODES \
+        --cpu-bind=verbose \
+        --cpus-per-task=1 \
+        $MODULE_PATH/cass_mngr.sh $UNIQ_ID &
+fi
 
 
 if [ "X$STREAMING" != "X" ]; then

@@ -343,7 +343,7 @@ void HecubaSession::parse_environment(config_map &config) {
     if (replicationStrategyOptions == nullptr) {
         replicationStrategyOptions = "";
     }
-    config["replication_strategy_options"] = replicationStrategyOptions;
+    config["replication_strategy_options"] = std::string(replicationStrategyOptions);
 
     if (config["replication_strategy"] == "SimpleStrategy") {
         config["replication"] = std::string("{'class' : 'SimpleStrategy', 'replication_factor': ") + config["replica_factor"] + "}";
@@ -362,6 +362,18 @@ void HecubaSession::parse_environment(config_map &config) {
         }
     }
     config["hecuba_sn_single_table"] = hecubaSNSingleTable2;
+
+    char * dynamic_affinity = std::getenv("DYNAMIC_AFFINITY");
+    std::string dynamic_affinity2;
+    if (dynamic_affinity == nullptr) {
+        dynamic_affinity2 = std::string("true");
+    } else {
+        dynamic_affinity2 = std::string(dynamic_affinity);
+        for (long unsigned int i=0; i < dynamic_affinity2.size(); i++ ) {
+            dynamic_affinity2[i] = ::tolower(dynamic_affinity2[i]);
+        }
+    }
+    config["dynamic_affinity"] = dynamic_affinity2;
 }
 
 CassError HecubaSession::run_query(std::string query) const{
@@ -576,6 +588,7 @@ HecubaSession::HecubaSession() {
 	}
     }
 #else
+    if (config["dynamic_affinity"] == std::string("true"))
     {
 	bool affinityError = true;
 	try{
@@ -642,8 +655,11 @@ numpyMetaWriter = numpyMetaAccess->get_writer();
 
 int HecubaSession::wait_writes_completion(void) {
     cpu_set_t app_mask; // Original APPLICATION mask 
-    sched_getaffinity(0, sizeof(app_mask), &app_mask);
-    addCassandraAffinity(&app_mask);
+
+    if (config["dynamic_affinity"] == std::string("true")) {
+        sched_getaffinity(0, sizeof(app_mask), &app_mask);
+        addCassandraAffinity(&app_mask);
+    }
     std::lock_guard<decltype(mxalive_objects)> lock{mxalive_objects};
 
     for (std::list<std::shared_ptr<CacheTable>>::iterator it = alive_objects.begin(); it != alive_objects.end(); it++) {
@@ -664,7 +680,9 @@ int HecubaSession::wait_writes_completion(void) {
             DBG( "  LIST DEL AFTER: "<< t.get() <<" ("<<t.use_count()<<")");
         }
     }
-    removeCassandraAffinity(&app_mask);
+    if (config["dynamic_affinity"] == std::string("true")) {
+        removeCassandraAffinity(&app_mask);
+    }
     return 0;
 }
 
@@ -685,7 +703,11 @@ HecubaSession::~HecubaSession() {
     for (std::list<std::shared_ptr<ArrayDataStore>>::iterator it = alive_numpy_objects.begin(); it != alive_numpy_objects.end();) {
         it = alive_numpy_objects.erase(it);
     }
-    sendCassandraMgr(2, NULL);
+
+    if (config["dynamic_affinity"] == std::string("true")) {
+        sendCassandraMgr(2, NULL);
+    }
+
 
     HecubaExtrae_event(HECUBADBG, HECUBA_END);
 }
