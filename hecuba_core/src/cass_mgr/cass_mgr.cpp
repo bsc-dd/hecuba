@@ -30,8 +30,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 
-
-
+#include "cassandryn.h"
 
 struct timeval startTV;
 struct timeval stopTV;
@@ -58,7 +57,6 @@ const char * cmd_str[] = {
 
 int CHILDS_TO_CHECK_SIZE = -1;
 int* childs_to_check_read  = NULL;
-#define SHM_NAME "/hecuba_cassandryn_shm"
 
 /* Buffered vector END */
 int finish_cassandra_snoopy = 0 ;
@@ -136,9 +134,9 @@ int setCassandraAffinityRecursive(int pid, const cpu_set_t* newMask)
     }
 
 	for (int i = 0; i < CHILDS_TO_CHECK_SIZE ; ++i){
-		num_changes++;
 		/*reset the mask of all the threads*/
         if (ch[i] != -1) {
+		    num_changes++;
             error = sched_setaffinity(ch[i], sizeof(cpu_set_t), &tmpmask);
             if (error && (errno != ESRCH)) {  // the pid vector is eventually updated and may contain pids that are no longer alive
                 perror("Error resetting the affinity mask\n");
@@ -220,7 +218,9 @@ void initCassandraAffinity(void) {
 	} else {
 		CPU_ZERO(&cassandraMask);  // Clear the CPU set
 		if (sched_getaffinity(cassandraPID, sizeof(cpu_set_t), &cassandraMask) == -1) {
-			perror("sched_getaffinity");
+            char b[512];
+            sprintf(b, "cass_mgr: sched_getaffinity failed for PID [%d]", cassandraPID);
+			perror(b);
 			exit( -1);
 		}
 		DBG(" Cassandra Affinity for pid "<<cassandraPID);
@@ -235,44 +235,39 @@ void initCassandraAffinity(void) {
  * SHM_NAME, which is updated by *cassandryn*. */
 int* map_cassandra_snoopy() {
     char b[512];
-    // Abrir canal/fd compartido
-    int fd = shm_open(SHM_NAME, O_RDONLY, 0666);
-    if (fd == -1) {
-        sprintf("ERROR: cass_mgr: Unable to open shared memory [%s]!. Aborting.",SHM_NAME);
-        perror(b);
+    char *newID=NULL;
+    char SHM_NAME[255];
+
+    newID=getenv("UNIQ_ID");
+    if (newID == NULL) {
+        fprintf(stderr, "ERROR: cass_mgr: Required UNIQ_ID variable not found. Exitting.\n");
         return NULL;
     }
-    int *tids = (int*) mmap(NULL, sizeof(int),
-            PROT_READ, MAP_SHARED, fd, 0);
-    close(fd);
-    if (tids == MAP_FAILED) {
-        sprintf("ERROR: cass_mgr: Unable to mmap shared memory [%s]!. Aborting.",SHM_NAME);
-        perror(b);
-        return NULL;
+    sprintf(SHM_NAME, "%s_%s",SHM_NAME_PREFIX, newID);
+
+    int fd = shm_open(SHM_NAME,  O_RDONLY, 0);
+    while((fd < 0) && (errno == ENOENT)) { // Busy wait...
+        fd = shm_open(SHM_NAME,  O_RDONLY, 0);
     }
-    // Obtain array size...
-    CHILDS_TO_CHECK_SIZE = *tids;
-    if (CHILDS_TO_CHECK_SIZE<=0) {
-        sprintf("ERROR: cass_mgr: Shared memory Region [%s] contains 0 threads??. Aborting.", SHM_NAME);
-        std::cerr << b;
-        return NULL;
-    }
-    munmap(tids, sizeof(int));
-    // OK, with correct array size, map again...
-    tids = (int*) mmap(NULL, (CHILDS_TO_CHECK_SIZE+1)*sizeof(int),
-            PROT_READ, MAP_SHARED, fd, 0);
-    close(fd);
-    if (tids == MAP_FAILED) {
-        sprintf("ERROR: cass_mgr: Unable to mmap shared memory [%s]!. Aborting.",SHM_NAME);
+    if (fd < 0) {
+        sprintf(b, "ERROR: cass_mgr: Unable to open shared memory [%s]!. Aborting.",SHM_NAME);
         perror(b);
         return NULL;
     }
 
-    return tids+1; // (Skip Array size)
+    CHILDS_TO_CHECK_SIZE = MAX_THREADS;
+    int *tids = (int*) mmap(NULL, MAX_THREADS*sizeof(int),
+            PROT_READ, MAP_SHARED, fd, 0);
+    if (tids == MAP_FAILED) {
+        sprintf(b, "ERROR: cass_mgr: Unable to mmap shared memory [%s]!. Aborting.",SHM_NAME);
+        perror(b);
+        return NULL;
+    }
+    return tids;
 }
 void unmap_cassandra_snoopy(int* m) {
     if (!m) {
-        munmap(&m[-1], (CHILDS_TO_CHECK_SIZE+1)*sizeof(int));
+        munmap(m, CHILDS_TO_CHECK_SIZE*sizeof(int));
     }
 }
 
@@ -349,6 +344,7 @@ void initializeHardcodedMasks(void) {
  */
 int main(int argc, char *argv[])
 {
+    write(2, "CASS_MGR STARTED ========\n", 25);
 	if (gethostname(&hostname[0], 256) < 0) {
 		perror("gethostname");
 		exit(1);
@@ -374,6 +370,10 @@ int main(int argc, char *argv[])
 	initCassandraAffinity();
 
     childs_to_check_read = map_cassandra_snoopy();
+    if (childs_to_check_read == NULL) {
+		std::cerr << " Unable to map cassandra snoopy"<< std::endl;
+        exit(1);
+    }
 
 	int sockfd = get_listener_socket();
 	if (sockfd <0) {

@@ -14,7 +14,7 @@
 ###############################################################################################################
 
 export C4S_HOME=$HOME/.c4s
-UNIQ_ID=${1}
+export UNIQ_ID=${1}
 CFG_FILE=$C4S_HOME/conf/${UNIQ_ID}/cassandra4slurm.cfg
 
 MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
@@ -63,7 +63,14 @@ if [ "$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips | grep $HOSTNAMEIP)" != "" ]; 
     DBG " CASS_HOME="$CASS_HOME
     DBG " CASSANDDRA CONF $C4S_HOME/conf/${UNIQ_ID}/cassandra-${HOSTNAMEIP}.yaml"
     export CASSPIDFILE=$C4S_HOME/conf/${UNIQ_ID}/cassandra-${HOSTNAMEIP}.pid
-    LD_PRELOAD=/home/bsc/bsc031226/cassandryn/libtrace/libtrace.so $CASS_HOME/bin/cassandra \
+    if [ "X$DYNAMIC_AFFINITY" == "X" ]; then
+    #if the user does not define the default is true
+        DYNAMIC_AFFINITY="true"
+    fi
+    if [ ${DYNAMIC_AFFINITY,,} == "true" ]; then
+        export CASSANDRYN=$HECUBA_ROOT/lib/libcassandryn.so
+    fi
+    $CASS_HOME/bin/cassandra \
 	    -Dcassandra.consistent.rangemovement=false \
 	    -Dcassandra.config=file://$C4S_HOME/conf/${UNIQ_ID}/cassandra-${HOSTNAMEIP}.yaml \
 	    -p $CASSPIDFILE \
@@ -74,6 +81,7 @@ if [ "$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips | grep $HOSTNAMEIP)" != "" ]; 
     	echo "Waiting Cassandra writing PID @$(hostname)"
 	sleep 1
     done
+   echo "Cassandra @$(hostname) STARTED with PID $(cat $CASSPIDFILE)"
 
     #j # Launch cassandra manager
     #j # yolandab move the launching of cassandra manager to a separate script to allocate a dedicated core
