@@ -27,6 +27,9 @@
 #include <sys/time.h>
 #include <sys/time.h>
 #include "HecubaExtrae.h"
+#include <sys/mman.h>
+#include <sys/stat.h>
+
 
 
 
@@ -53,17 +56,9 @@ const char * cmd_str[] = {
 };
 
 
-#define CASSANDRA_SNOOPY_SLOT_SIZE_US 1000000		/* Slot of 1ms between updates of cassandra threads pids */
-/** Buffered vector for READ and WRITE. So we can read one while the other is written */
-#define CHILDS_TO_CHECK_SIZE 4096
-struct buffered_vector {
-	int childs[CHILDS_TO_CHECK_SIZE];
-	int last_child;
-};
-struct buffered_vector childs_to_check[2];
-
-struct buffered_vector* childs_to_check_read  = &childs_to_check[0];
-struct buffered_vector* childs_to_check_write = &childs_to_check[1];
+int CHILDS_TO_CHECK_SIZE = -1;
+int* childs_to_check_read  = NULL;
+#define SHM_NAME "/hecuba_cassandryn_shm"
 
 /* Buffered vector END */
 int finish_cassandra_snoopy = 0 ;
@@ -132,41 +127,42 @@ int setCassandraAffinityRecursive(int pid, const cpu_set_t* newMask)
 {
 	int error;
 	char buff[10];
-	int n = childs_to_check_read->last_child;
-	int *ch = childs_to_check_read->childs;
+	int *ch = childs_to_check_read;
     cpu_set_t tmpmask;
     CPU_XOR(&tmpmask, &cassCPU_ONE, newMask); // Negate all cpus from newMask 
     if (CPU_EQUAL(&tmpmask, &cassCPU_ZERO)) {//There are NO available cpus
         DBG(" --- setCassandraAffinityRecursive: unable to change mask as all of them are used");
         return 0;
     }
-	for (int i = 0; i < n; ++i){
+
+	for (int i = 0; i < CHILDS_TO_CHECK_SIZE ; ++i){
 		num_changes++;
 		/*reset the mask of all the threads*/
-		error = sched_setaffinity(ch[i], sizeof(cpu_set_t), &tmpmask);
-		if (error && (errno != ESRCH)) {  // the pid vector is eventually updated and may contain pids that are no longer alive
-			perror("Error resetting the affinity mask\n");
-			return -1;
-        }
-		/*change the mask of all the threads (now to the desired mask forcing a migration)*/
-		error = sched_setaffinity(ch[i], sizeof(cpu_set_t), newMask);
-		if (error) {
-            if (errno != ESRCH) {  // the pid vector is eventually updated and may contain pids that are no longer alive
-			    perror("Error changing the affinity mask\n");
-			    return -1;
-		    } else {
-                num_failed_changes ++;
+        if (ch[i] != -1) {
+            error = sched_setaffinity(ch[i], sizeof(cpu_set_t), &tmpmask);
+            if (error && (errno != ESRCH)) {  // the pid vector is eventually updated and may contain pids that are no longer alive
+                perror("Error resetting the affinity mask\n");
+                return -1;
             }
+            /*change the mask of all the threads (now to the desired mask forcing a migration)*/
+            error = sched_setaffinity(ch[i], sizeof(cpu_set_t), newMask);
+            if (error) {
+                if (errno != ESRCH) {  // the pid vector is eventually updated and may contain pids that are no longer alive
+                    perror("Error changing the affinity mask\n");
+                    return -1;
+                } else {
+                    num_failed_changes ++;
+                }
+            }
+            DBG("setCassandraAffinityRecursive: pid :"<<ch[i]);
         }
-		DBG("setCassandraAffinityRecursive: pid :"<<ch[i]);
 	}
-
 	return 0;
 }
+
 // Sets 'cassandraMask' as the cassandra mask
 int setCassandraAfinity(const cpu_set_t* cassandraMask) {
 	gettimeofday(&startTV, NULL);
-    std::cerr<<"cass_mngr: setCassandraAfinity"<<std::endl;
     HecubaExtrae_event(HECUBADBG, HECUBA_SETCASSAFFINITY);
 
 	if (setCassandraAffinityRecursive(cassandraPID, cassandraMask) < 0) {
@@ -234,6 +230,52 @@ void initCassandraAffinity(void) {
 	timerclear(&acum);
 }
 
+/* map_cassandra_snoopy: returns array [0..CHILDS_TO_CHECK_SIZE] integers with
+ * cassandra threads' PID. The array is managed by shared memory region named
+ * SHM_NAME, which is updated by *cassandryn*. */
+int* map_cassandra_snoopy() {
+    char b[512];
+    // Abrir canal/fd compartido
+    int fd = shm_open(SHM_NAME, O_RDONLY, 0666);
+    if (fd == -1) {
+        sprintf("ERROR: cass_mgr: Unable to open shared memory [%s]!. Aborting.",SHM_NAME);
+        perror(b);
+        return NULL;
+    }
+    int *tids = (int*) mmap(NULL, sizeof(int),
+            PROT_READ, MAP_SHARED, fd, 0);
+    close(fd);
+    if (tids == MAP_FAILED) {
+        sprintf("ERROR: cass_mgr: Unable to mmap shared memory [%s]!. Aborting.",SHM_NAME);
+        perror(b);
+        return NULL;
+    }
+    // Obtain array size...
+    CHILDS_TO_CHECK_SIZE = *tids;
+    if (CHILDS_TO_CHECK_SIZE<=0) {
+        sprintf("ERROR: cass_mgr: Shared memory Region [%s] contains 0 threads??. Aborting.", SHM_NAME);
+        std::cerr << b;
+        return NULL;
+    }
+    munmap(tids, sizeof(int));
+    // OK, with correct array size, map again...
+    tids = (int*) mmap(NULL, (CHILDS_TO_CHECK_SIZE+1)*sizeof(int),
+            PROT_READ, MAP_SHARED, fd, 0);
+    close(fd);
+    if (tids == MAP_FAILED) {
+        sprintf("ERROR: cass_mgr: Unable to mmap shared memory [%s]!. Aborting.",SHM_NAME);
+        perror(b);
+        return NULL;
+    }
+
+    return tids+1; // (Skip Array size)
+}
+void unmap_cassandra_snoopy(int* m) {
+    if (!m) {
+        munmap(&m[-1], (CHILDS_TO_CHECK_SIZE+1)*sizeof(int));
+    }
+}
+
 // Obtain a listening socket
 int get_listener_socket(void) {
 	int sockfd;  // listen on sock_fd
@@ -293,83 +335,6 @@ int get_listener_socket(void) {
 
 }
 
-int cassandra_snoopy(void* arg) {
-#define FILE_PATH_SIZE 100
-	char file_path[FILE_PATH_SIZE];
-	DIR* proc;
-
-	std::cerr << " Cassandra SNOOPY started!  Monitoring ["<<cassandraPID<<"]"<<std::endl;
-	// /proc/pid/task contains the list of all THREADS created by PID
-	sprintf(file_path, "/proc/%d/task", cassandraPID);
-	proc = opendir(file_path);
-	if (proc == NULL) {
-		perror("Failed to open the dir\n");
-		return -1;
-	}
-	while( ! finish_cassandra_snoopy ) {
-
-		childs_to_check_write->childs[0] = cassandraPID;
-		childs_to_check_write->last_child = 1;
-
-		rewinddir(proc);
-
-		struct dirent* dir_entry;
-		/*Iterate through all the directories*/
-		while ((dir_entry = readdir(proc))){
-			if (dir_entry->d_name[0] != '.') {
-				// Check that the thread pertains to some Cassandra 'Stage'
-				char tmpfile[150];
-				sprintf(tmpfile, "%s/%s/comm", file_path, dir_entry->d_name);
-				int fd = open(tmpfile, O_RDONLY);
-				if (fd<0) {
-					char msgfile[180];
-					sprintf(msgfile, "opening file [%s]", tmpfile);
-					perror(msgfile);
-					return -1;
-				}
-				char b[80];
-				int x = read(fd, b, sizeof(b)-1);
-				b[x] = '\0';
-
-				const int exists = strstr(b, "Stage") != NULL;
-				if (exists) {
-					int th = atoi(dir_entry->d_name);
-					DBG(" cassandra_snoopy:: " << th );
-					if (childs_to_check_write->last_child == CHILDS_TO_CHECK_SIZE) {
-						std::cerr << getpid()<<" cassandra_snoopy:: Maximum number of childs arrived... Ignoring." << std::endl;
-					} else {
-						childs_to_check_write->childs[childs_to_check_write->last_child++] = th;
-					}
-				}
-                close(fd); //yolandab: to avoid crash due to too many open files
-			}
-		}
-		DBG(" Cassandra SNOOPY detected "<< childs_to_check_write->last_child<< "children ");
-		// Swap buffered vectors
-		struct buffered_vector* tmp = childs_to_check_read;
-		childs_to_check_read = childs_to_check_write;
-		childs_to_check_write = tmp;
-		// Wait until next slot
-		usleep(CASSANDRA_SNOOPY_SLOT_SIZE_US);
-	}
-	closedir(proc);
-	DBG(" Cassandra SNOOPY finished! ");
-	return 0;
-}
-
-char stack[4096];
-/* start_cassandra_snoopy: Start a thread (cassandra_snoopy) sharing cass_mgr
- * memory to get the threads that Cassandra is using, updating the
- * 'childs_to_check_read' variable.
- */
-void start_cassandra_snoopy() {
-	int cassandra_snooppy_tid = clone(cassandra_snoopy, &stack[4096], CLONE_VM, NULL);
-	if (cassandra_snooppy_tid<0) {
-		perror("Creating cassandra_snoopy");
-		exit(1);
-	}
-}
-
 void initializeHardcodedMasks(void) {
 	long n = CPU_COUNT(&cassCPU_ONE);
     for (int i=0; i<n; i++) {
@@ -408,10 +373,7 @@ int main(int argc, char *argv[])
 
 	initCassandraAffinity();
 
-	start_cassandra_snoopy();
-
-
-
+    childs_to_check_read = map_cassandra_snoopy();
 
 	int sockfd = get_listener_socket();
 	if (sockfd <0) {
@@ -548,16 +510,14 @@ int main(int argc, char *argv[])
 			setCassandraAfinity(&currentCassandraMask);
 			change_mask = 0;
 		}
-        else std::cerr<<"cass_mngr: change_mask == False, skipping setCassandraAfinity"<<std::endl;
+        //else std::cerr<<"cass_mngr: change_mask == False, skipping setCassandraAfinity"<<std::endl;
 	}
-
-	// Finish cassandra_snoopy
-	finish_cassandra_snoopy = 1;
 
 	for(int i = 0; i < fd_max; i++) {
 		if (FD_ISSET(i, &pfds)) close(i);
 	}
 
+	unmap_cassandra_snoopy(childs_to_check_read);
 	std::cerr << " === Finished cassandra manager[" << hostname << "]: Total Time = "<< acum.tv_sec <<"s "<< acum.tv_usec<<"us to execute "<<(num_changes-num_failed_changes)<<"/"<<num_changes<<" sched_setaffinity" <<std::endl;
 	return 0;
 }

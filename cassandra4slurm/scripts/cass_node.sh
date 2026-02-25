@@ -25,6 +25,8 @@ source $CFG_FILE    # To get CASSANDRA_LOG_DIR
 [ ! -z "$CASSANDRA_LOG_DIR" ] \
     && export CASSANDRA_LOG_DIR="$CASSANDRA_LOG_DIR/$UNIQ_ID/$(hostname)"
 
+mkdir -p $CASSANDRA_LOG_DIR # Required for cassandryn
+
 function launch_arrow_helper () {
     ! is_HECUBA_ARROW_enabled  && return
 
@@ -61,7 +63,7 @@ if [ "$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips | grep $HOSTNAMEIP)" != "" ]; 
     DBG " CASS_HOME="$CASS_HOME
     DBG " CASSANDDRA CONF $C4S_HOME/conf/${UNIQ_ID}/cassandra-${HOSTNAMEIP}.yaml"
     export CASSPIDFILE=$C4S_HOME/conf/${UNIQ_ID}/cassandra-${HOSTNAMEIP}.pid
-    $CASS_HOME/bin/cassandra \
+    LD_PRELOAD=/home/bsc/bsc031226/cassandryn/libtrace/libtrace.so $CASS_HOME/bin/cassandra \
 	    -Dcassandra.consistent.rangemovement=false \
 	    -Dcassandra.config=file://$C4S_HOME/conf/${UNIQ_ID}/cassandra-${HOSTNAMEIP}.yaml \
 	    -p $CASSPIDFILE \
@@ -87,6 +89,8 @@ if [ "$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips | grep $HOSTNAMEIP)" != "" ]; 
 
 
     echo "Cassandra has stopped in node $(hostname)"
+
+    mv cassandryn_libtrace.log ~/.c4s/logs/cassandryn_libtrace.$(hostname).log
 
 else
     echo "Node $(hostname) is not part of the Cassandra node list."
