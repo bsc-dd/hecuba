@@ -1,6 +1,8 @@
 #include <ObjSpec.h>
 #include "ModuleException.h"
 
+namespace Hecuba {
+
 
 //Initialize static attributes
 // mapString2CassandraType : map to translate from a cassandra string type to a constant value
@@ -378,4 +380,5 @@ void ObjSpec::generateTableAttr() {
 // string2CassandraType : translate a cassandra string type to its constant value
 ObjSpec::cassandra_types ObjSpec::string2CassandraType(const std::string& cass_type) {
     return mapString2CassandraType.at(cass_type);
+}
 }

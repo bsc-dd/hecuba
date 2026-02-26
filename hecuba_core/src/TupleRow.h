@@ -14,6 +14,7 @@
 #include "TableMetadata.h"
 
 
+namespace Hecuba {
 class TupleRow {
 
 public:
@@ -201,12 +202,13 @@ private:
     std::shared_ptr<const std::vector<ColumnMeta>> metadatas;
 };
 
+};
 
 // Allows indexing TupleRows in a hash map. Trivial implementation, a custom hash should reduce overhead.
 namespace std {
     template<>
-    struct hash<TupleRow> {
-        std::size_t operator()(const TupleRow &k) const {
+    struct hash<Hecuba::TupleRow> {
+        std::size_t operator()(const Hecuba::TupleRow &k) const {
             return hash<std::string>()(std::string((char *) k.get_payload(), k.length()));
         }
     };

@@ -8,6 +8,7 @@
 #include "ArrayDataStore.h"
 #include <mutex>
 
+namespace Hecuba {
 class HecubaSession {
     /** Establish connection with Underlying storage system */
 public:
@@ -73,5 +74,6 @@ private:
     int waitCassandraMgr() const ;
 
 };
+}
 
 #endif /* HECUBA_SESSION_H */

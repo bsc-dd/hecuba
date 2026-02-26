@@ -1,6 +1,7 @@
 #include "PythonParser.h"
 
 
+namespace Hecuba {
 PythonParser::PythonParser(std::shared_ptr<StorageInterface> storage,
                            std::shared_ptr<const std::vector<ColumnMeta> > metadatas) {
     this->metas = metadatas;
@@ -98,4 +99,5 @@ PyObject *PythonParser::make_pylist(std::vector<const TupleRow *> &values) const
         }
     }
     return list;
+}
 }

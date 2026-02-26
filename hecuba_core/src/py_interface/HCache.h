@@ -39,6 +39,7 @@
 #include "../StorageInterface.h"
 
 
+namespace Hecuba {
 std::shared_ptr<StorageInterface> storage; //StorageInterface* storage;
 
 typedef struct {
@@ -90,5 +91,6 @@ void print_list_refc(PyObject *list) {
     std::cout << " >> Done check list " << std::endl;
 }
 
+}
 
 #endif //PREFETCHER_PREFETCHER_IMP_H

@@ -55,6 +55,8 @@
 #define PMEM_OFFSET 8
 #define MAX_RETRIES 5
 
+namespace Hecuba {
+
 CacheTable* ArrayDataStore::getStaticcache( const char *table_name, const char *keyspace_name,
                              std::vector<std::map<std::string, std::string>> &keys_names,
                              std::vector<std::map<std::string, std::string>> &columns_names,
@@ -1491,4 +1493,5 @@ void ArrayDataStore::read_numpy_from_cas_arrow(const uint64_t *storage_id, Array
 #else /* ARROW */
     throw ModuleException("ARROW DISABLED by user! Enable it using USE_ARROW=true flag");
 #endif /* ARROW */
+}
 }

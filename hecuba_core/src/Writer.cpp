@@ -4,6 +4,8 @@
 #include "HecubaExtrae.h"
 #include "WriterThread.h"
 
+namespace Hecuba {
+
 
 
 Writer::Writer(const TableMetadata *table_meta, CassSession *session,
@@ -546,4 +548,5 @@ void Writer::queue_async_query(const TupleRow* keys, const TupleRow* values){
 
 CassSession* Writer::get_session() const {
     return session;
+}
 }

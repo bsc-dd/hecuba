@@ -1,6 +1,8 @@
 #include "Prefetch.h"
 #include "HecubaExtrae.h"
 
+namespace Hecuba {
+
 #define MAX_TRIES 10
 #define default_prefetch_size 100
 
@@ -188,4 +190,5 @@ void Prefetch::consume_tokens() {
     //All token ranges fetched
     completed = true;
     data.abort();
+}
 }

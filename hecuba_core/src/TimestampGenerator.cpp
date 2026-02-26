@@ -1,5 +1,7 @@
 #include "TimestampGenerator.h"
 
+namespace Hecuba {
+
 
 using clock_type = std::chrono::steady_clock;
 
@@ -17,4 +19,5 @@ int64_t TimestampGenerator::next() {
     m.unlock();
 
     return last;
+}
 }

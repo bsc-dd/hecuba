@@ -17,6 +17,7 @@
 #include "UnitParser.h"
 
 
+namespace Hecuba {
 class PythonParser {
 
 public:
@@ -33,5 +34,6 @@ private:
     std::shared_ptr<const std::vector<ColumnMeta> > metas; //TODO To be removed
 };
 
+}
 
 #endif //PYTHON_PARSER_H

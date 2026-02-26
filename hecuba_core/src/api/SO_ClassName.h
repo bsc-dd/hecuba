@@ -5,10 +5,12 @@
 #include <string>
 #include "Hecuba_StorageObject.h"
 
+namespace Hecuba {
 class StorageObject; // forward declaration
 class SO_ClassName{
     public:
     SO_ClassName(StorageObject* so, const std::string& name);
 }; 
+}
 
 #endif /* __HECUBA_SO_CLASSNAME_H__ */

@@ -14,6 +14,7 @@
 #include "ModuleException.h"
 #include "SpaceFillingCurve.h"
 
+namespace Hecuba {
 struct ColumnMeta {
     ColumnMeta() = default;
 
@@ -139,5 +140,6 @@ private:
 
 };
 
+};
 
 #endif //HFETCH_TABLEMETADATA_H

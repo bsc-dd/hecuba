@@ -2,6 +2,8 @@
 #include "ModuleException.h"
 #include <math.h>
 
+namespace Hecuba {
+
 
 /**
  * Base method does not make any partition
@@ -1062,4 +1064,5 @@ Partition FortranOrderGeneratorFiltered::getNextPartition() {
     block_counter = getBlockCounter(coord.front(), blocks_dim);
     coord.erase(coord.begin());
     return FortranOrderGenerator::getNextPartition();
+}
 }

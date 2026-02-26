@@ -9,6 +9,7 @@
 #include "TupleRow.h"
 #include "Semaphore.h"
 
+namespace Hecuba {
 #define MAX_ERRORS 10
 
 #define CLONE
@@ -48,5 +49,6 @@ class WriterThread {
 
         tbb::concurrent_bounded_queue <std::tuple<Writer*, const TupleRow *, const TupleRow *>> data;
 
+};
 };
 #endif /* __WRITER_THREAD_H__ */

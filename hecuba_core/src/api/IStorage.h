@@ -8,6 +8,7 @@
 #include "ObjSpec.h"
 #include "HecubaExtrae.h"
 
+namespace Hecuba {
 //class HecubaSession; //Forward declaration
 
 #define KEYS    1
@@ -143,4 +144,5 @@ class IStorage {
         bool convert_IStorage_to_UUID(char * dst, const std::string& value_type, const void* src, int64_t src_size) const ;
         void initializeClassName(std::string class_name);
 };
+}
 #endif /* ISTORAGE_H */

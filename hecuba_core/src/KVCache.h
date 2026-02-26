@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <list>
 
+namespace Hecuba {
 /***
  * Simple implementation of an LRU Cache.
  * @tparam TKey Key indexing, must be hashable
@@ -102,5 +103,6 @@ private:
     std::unordered_map<TKey, value_it> cache_items_map;
 };
 
+};
 
 #endif // KVCache_INCLUDED

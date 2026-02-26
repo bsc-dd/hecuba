@@ -5,6 +5,8 @@
 #include <typeinfo>
 #include "HecubaExtrae.h"
 
+namespace Hecuba {
+
 #define ISKEY true
 
 
@@ -677,4 +679,5 @@ void IStorage::initializeClassName(std::string class_name) {
 	setIdModel(FQname);
 	setClassName(class_name);
     DBG(" IStorage::initializeClassName [" << FQname<<"]");
+}
 }

@@ -12,6 +12,7 @@
 
 #include <iostream>
 
+namespace Hecuba {
 class ObjSpec {
 
 public:
@@ -101,4 +102,5 @@ private:
     void generateTableAttr();
     std::string getCassandraType(std::string type);
 };
+}
 #endif /* OBJSPEC_H */

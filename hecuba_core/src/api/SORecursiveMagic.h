@@ -7,6 +7,7 @@
 #include <string>
 
 
+namespace Hecuba {
 #define EVAL(...) EVAL1024(__VA_ARGS__)
 #define EVAL1024(...) EVAL512(EVAL512(__VA_ARGS__))
 #define EVAL512(...) EVAL256(EVAL256(__VA_ARGS__))
@@ -75,3 +76,4 @@
 
 //recursive behaviour extracted from http://jhnet.co.uk/articles/cpp_magic
 
+}

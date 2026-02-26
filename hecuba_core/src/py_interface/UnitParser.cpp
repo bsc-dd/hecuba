@@ -1,6 +1,7 @@
 #include "UnitParser.h"
 #include <datetime.h>
 #include "debug.h"
+namespace Hecuba {
 
 
 int16_t UnitParser::py_to_c(PyObject *element, void *payload) const {
@@ -749,4 +750,5 @@ PyObject *TupleParser::c_to_py(const void *payload) const {
         }
     }
     return tuple;
+}
 }

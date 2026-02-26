@@ -15,6 +15,7 @@
 
 
 
+namespace Hecuba {
 template <class V1, class...rest>
 class AttributeClass {
 
@@ -276,5 +277,6 @@ class AttributeClass {
 
 
 };
+}
 
 #endif

@@ -20,6 +20,7 @@
 #include "configmap.h"
 
 
+namespace Hecuba {
 struct tokenHost {
     int64_t token;
     char *  host;
@@ -104,5 +105,6 @@ private:
 
 };
 
+};
 
 #endif //HFETCH_StorageInterface_H

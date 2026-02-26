@@ -16,6 +16,7 @@
 /***
  * Responsible to store a numpy to the keyspace.table_numpies, associating an attribute_name and a storage_id(uuid)
  */
+namespace Hecuba {
 
 class NumpyStorage : public ArrayDataStore {
 
@@ -48,5 +49,6 @@ private:
 
 };
 
+}
 
 #endif //HFETCH_NUMPYSTORAGE_H

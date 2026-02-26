@@ -2,6 +2,8 @@
 #include "debug.h"
 #include "HecubaExtrae.h"
 
+namespace Hecuba {
+
 // StringValue is used for easy comparing numpy metas
 enum StringValue {
 	evNotDefined,
@@ -1203,3 +1205,4 @@ TupleRow * TupleRowFactory::decode(const void *encoded_buff) const {
     return r;
 }
 
+}

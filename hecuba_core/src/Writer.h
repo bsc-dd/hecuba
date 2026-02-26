@@ -17,6 +17,7 @@
 #include "TupleRowFactory.h"
 
 
+namespace Hecuba {
 class Writer {
 public:
     Writer(const TableMetadata *table_meta, CassSession *session,
@@ -121,5 +122,6 @@ private:
     std::map<std::string, std::string>* myconfig; // A reference to config, I would like to be a reference to the WriterThread, but this causes a double reference Writer<->WriterThread, this avoids the reference by forcing a call to the static method WriterThread.get(myconfig).
 };
 
+};
 
 #endif //HFETCH_WRITER_H

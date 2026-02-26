@@ -3,6 +3,7 @@
 
 #undef ENABLE_DEBUG
 
+namespace Hecuba {
 #ifdef ENABLE_DEBUG
 
 #include <sstream>
@@ -40,5 +41,6 @@
 
 #endif
 
+};
 
 #endif /* __DEBUG_H__ */

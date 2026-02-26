@@ -3,6 +3,8 @@
 #include "HecubaExtrae.h"
 #include <thread>
 
+namespace Hecuba {
+
 /***
  * Returns the allocation number of bytes required to allocate a type of data
  * @param VT Cassandra Type
@@ -502,4 +504,5 @@ uint32_t TableMetadata::get_values_size(void) const {
 /** Return the size of column 'pos' element */
 uint32_t TableMetadata::get_values_size(int pos) const {
     return (*cols)[pos].size;
+}
 }

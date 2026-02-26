@@ -1,6 +1,7 @@
 #ifndef __HECUBA_EXTRAE_H
 #define __HECUBA_EXTRAE_H
 
+namespace Hecuba {
 // HECUBAEV: Type for selecting HECUBA API Events
 #define HECUBAEV    42000
 
@@ -118,5 +119,6 @@ inline void HecubaExtrae_comm(extrae_user_communication_types_t type, extrae_com
 #define HecubaExtrae_comm(...)
 
 #endif /* !EXTRAE */
+};
 
 #endif /* __HECUBA_EXTRAE_H */

@@ -12,6 +12,7 @@
 #include "HecubaExtrae.h"
 
 
+namespace Hecuba {
 template <class K1, class...rest>
 
 class KeyClass:public AttributeClass<K1,rest...> {
@@ -110,5 +111,6 @@ class KeyClass:public AttributeClass<K1,rest...> {
 
 
 };
+}
 
 #endif

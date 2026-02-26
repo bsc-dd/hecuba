@@ -13,6 +13,7 @@
 #include "StorageNumpy.h"
 #include "HecubaExtrae.h"
 
+namespace Hecuba {
 // C should be the class defined by the user
 // HecubaSession s; --> should be called just once in the user code and then shoul be accessible from all IStorages. How?
 // the new version of registerObject can be implemented in IStorage and receives as parametr the class_name that we extract from the template.
@@ -416,5 +417,6 @@ class StorageDict:virtual public IStorage {
 };
 
 
+}
 
 #endif

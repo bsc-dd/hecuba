@@ -10,6 +10,7 @@
 #include <list>
 #include <cstdint>
 
+namespace Hecuba {
 #define BLOCK_SIZE 4096
 #define CLUSTER_SIZE 2
 #define CLUSTER_END_FLAG INT_MAX-1
@@ -280,5 +281,6 @@ public:
 private:
     std::list<std::vector<uint32_t> > coord;
     bool done = false;
+};
 };
 #endif //HFETCH_SPACEFILLINGCURVE_H

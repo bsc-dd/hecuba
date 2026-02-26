@@ -3,6 +3,8 @@
 #include "debug.h"
 #include "HecubaExtrae.h"
 
+namespace Hecuba {
+
 
 // Example of definition of user class that implements a StorageObject
 // class mySOClass: public StorageObject {
@@ -245,3 +247,4 @@ ObjSpec& StorageObject::getObjSpec() {
     return IStorage::getObjSpec();
 }
 
+}

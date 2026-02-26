@@ -1,5 +1,7 @@
 #include "Semaphore.h"
 
+namespace Hecuba {
+
 Semaphore::Semaphore(int value){
     counter = value;
 }
@@ -23,3 +25,4 @@ Semaphore::acquire () {
     counter--;
 }
 
+}

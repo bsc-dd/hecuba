@@ -2,9 +2,6 @@
 #define PREFETCHER_MY_TUPLE_FACTORY_H
 
 
-#define CHECK_CASS(msg) if(rc != CASS_OK && rc != CASS_ERROR_LIB_NULL_VALUE){ \
-std::string error(cass_error_desc(rc));\
-throw ModuleException(error + ". " + msg);};\
 
 
 #include <cassert>
@@ -22,6 +19,12 @@ throw ModuleException(error + ". " + msg);};\
 #include "ModuleException.h"
 #include "TupleRow.h"
 
+
+namespace Hecuba {
+
+#define CHECK_CASS(msg) if(rc != CASS_OK && rc != CASS_ERROR_LIB_NULL_VALUE){ \
+std::string error(cass_error_desc(rc));\
+throw ModuleException(error + ". " + msg);};\
 
 class TupleRowFactory {
 
@@ -76,5 +79,6 @@ private:
 
 };
 
+};
 
 #endif //PREFETCHER_MY_TUPLE_FACTORY_H

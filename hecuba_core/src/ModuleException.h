@@ -1,9 +1,9 @@
-#include <string>
-
 #ifndef HFETCH_MODULEEXCEPTION_H
 #define HFETCH_MODULEEXCEPTION_H
 
+#include <string>
 
+namespace Hecuba {
 class ModuleException : public std::exception {
 public:
 
@@ -30,6 +30,7 @@ public:
 
     explicit TypeErrorException(const std::string &message);
 
+};
 };
 
 #endif //HFETCH_MODULEEXCEPTION_H

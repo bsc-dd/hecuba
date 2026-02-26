@@ -15,6 +15,7 @@
 #include <librdkafka/rdkafka.h>
 
 
+namespace Hecuba {
 class CacheTable {
 
 public:
@@ -102,6 +103,7 @@ private:
     rd_kafka_conf_t *kafka_conf = nullptr;
     std::map<std::string, rd_kafka_t*> kafkaConsumer; // [topic_name, consumer]
     bool should_table_meta_be_freed = false; //For cases where table_metadata is a static variable instead of a 'new' (numpys)
+};
 };
 
 #endif //PREFETCHER_CACHE_TABLE_H

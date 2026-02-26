@@ -7,6 +7,8 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 
+namespace Hecuba {
+
 uint64_t* UUID::generateUUID(void) {
     uint64_t *c_uuid; // UUID for the new object
     c_uuid = (uint64_t *) malloc(sizeof(uint64_t) * 2);
@@ -56,4 +58,5 @@ std::string UUID::UUID2str(const uint64_t* c_uuid) {
     }
     //std::cout<< "HecubaSession: uuid2str: "<<str<<std::endl;
     return std::string(str);
+}
 }

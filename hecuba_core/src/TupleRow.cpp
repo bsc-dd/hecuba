@@ -1,6 +1,8 @@
 #include "TupleRow.h"
 #include "UUID.h"
 
+namespace Hecuba {
+
 
 TupleRow::TupleRow(std::shared_ptr<const std::vector<ColumnMeta>> metas,
                    size_t payload_size, void *buffer) {
@@ -198,4 +200,5 @@ std::string TupleRow::show_content(void) const {
 
     }
     return result;
+}
 }

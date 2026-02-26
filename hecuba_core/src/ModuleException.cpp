@@ -1,5 +1,7 @@
 #include "ModuleException.h"
 
+namespace Hecuba {
+
 
 ModuleException::ModuleException(const std::string &message) : exc_msg(message) {
     //Logging action
@@ -7,4 +9,5 @@ ModuleException::ModuleException(const std::string &message) : exc_msg(message) 
 
 TypeErrorException::TypeErrorException(const std::string &message) : ModuleException(message) {
     //Type Error action
+}
 }

@@ -6,6 +6,7 @@
 #include "HecubaExtrae.h"
 
 
+namespace Hecuba {
 //class StorageObject; // forward declaration
 
 template <class T>
@@ -201,4 +202,5 @@ public:
         }
 
 };
+    }
 #endif /* __SO_ATTRIBUTE_H__ */

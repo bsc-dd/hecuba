@@ -2,6 +2,7 @@
 #include "NumpyStorage.h"
 #include <iostream>
 #include "debug.h"
+namespace Hecuba {
 
 
 #define BLOCK_MODE 1
@@ -201,3 +202,4 @@ ArrayMetadata *NumpyStorage::get_np_metadata(PyArrayObject *numpy) const {
     return shape_and_type;
 }
 */
+}

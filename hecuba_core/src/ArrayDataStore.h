@@ -11,6 +11,7 @@
 #include <string.h>
 
 
+namespace Hecuba {
 class ArrayDataStore {
 
 public:
@@ -89,4 +90,5 @@ private:
 };
 
 
+};
 #endif //HFETCH_ArrayDataStore_H

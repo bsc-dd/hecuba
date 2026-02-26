@@ -23,6 +23,7 @@
 #include "../StorageInterface.h"
 #include "NumpyStorage.h"
 
+namespace Hecuba {
 // Python flags describing the data types
 #define Py_STRING "s"
 #define Py_U_LONGLONG "K"
@@ -216,5 +217,6 @@ public:
 
     int64_t time_from_timezone(struct tm *timeinfo) const;
 };
+}
 
 #endif //HFETCH_UNITPARSER_H

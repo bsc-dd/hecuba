@@ -12,6 +12,7 @@
  * Generates a monotonic strictly increasing timestamp.
  */
 
+namespace Hecuba {
 class TimestampGenerator {
 public:
 
@@ -25,5 +26,6 @@ private:
     std::mutex m;
 };
 
+};
 
 #endif //HFETCH_TIMEGEN_H

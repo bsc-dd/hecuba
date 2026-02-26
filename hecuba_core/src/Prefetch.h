@@ -10,6 +10,7 @@
 #include "ModuleException.h"
 #include <map>
 
+namespace Hecuba {
 class Prefetch {
 
 public:
@@ -48,6 +49,7 @@ private:
     const CassPrepared *prepared_query;
     std::string type;
 
+};
 };
 
 #endif //PREFETCHER_PREFETCHER_H

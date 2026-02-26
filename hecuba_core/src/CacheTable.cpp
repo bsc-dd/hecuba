@@ -3,6 +3,8 @@
 #include "unistd.h"
 #include "HecubaExtrae.h"
 
+namespace Hecuba {
+
 #define default_cache_size 0
 
 
@@ -631,4 +633,5 @@ void CacheTable::delete_crow(const TupleRow *keys) {
 
     //Remove entry from cache
     if (myCache) myCache->remove(*keys);
+}
 }

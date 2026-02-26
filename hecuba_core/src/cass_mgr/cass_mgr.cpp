@@ -32,6 +32,8 @@
 
 #include "cassandryn.h"
 
+using namespace Hecuba;
+
 struct timeval startTV;
 struct timeval stopTV;
 struct timeval diff;

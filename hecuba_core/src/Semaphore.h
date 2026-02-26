@@ -4,6 +4,7 @@
 #include <mutex>
 #include <condition_variable>
 
+namespace Hecuba {
 class Semaphore {
 public:
 
@@ -19,5 +20,6 @@ private:
     std::condition_variable cv;
     std::mutex mx;
 
+};
 };
 #endif

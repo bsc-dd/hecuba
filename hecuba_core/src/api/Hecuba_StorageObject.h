@@ -7,6 +7,7 @@
 #include "SORecursiveMagic.h"
 
 
+namespace Hecuba {
 class StorageObject: virtual public IStorage{
 
     public:
@@ -54,5 +55,6 @@ class StorageObject: virtual public IStorage{
 
 };
 
+}
 
 #endif  // __HECUBA_STORAGE_OBJECT_H__

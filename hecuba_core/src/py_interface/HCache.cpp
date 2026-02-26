@@ -1,6 +1,7 @@
 #include "HCache.h"
 #include "debug.h"
 
+namespace Hecuba {
 
 /** MODULE METHODS **/
 
@@ -2066,4 +2067,5 @@ PyInit_hfetch(void) {
         PyErr_SetString(PyExc_ImportError, "numpy.core.multiarray failed to import");
     }
     return m;
+}
 }

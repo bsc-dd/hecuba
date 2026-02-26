@@ -6,6 +6,7 @@
 #ifndef CLONE
 #include <pthread.h>
 #endif
+namespace Hecuba {
 
 
 #define DEFAULT_WRITER_CALLBACKS 16
@@ -237,3 +238,4 @@ void WriterThread::async_query_thread_code()
 //    WriterThread * esto = (WriterThread*)p;
 //    esto->async_query_thread_code();
 //}
+}

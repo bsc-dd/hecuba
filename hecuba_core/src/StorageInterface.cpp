@@ -4,6 +4,8 @@
 #include <map>
 #include "HecubaExtrae.h"
 
+namespace Hecuba {
+
 #define default_io_threads 2
 #define default_low_watermark 20000
 #define default_high_watermark 17000000
@@ -325,4 +327,5 @@ char * StorageInterface::get_host_per_token(int64_t token) {
     }
     //printf("JCOSTA token found %ld -> %ld %s\n", token, th->token, th->host);
     return th->host;
+}
 }

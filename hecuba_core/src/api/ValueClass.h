@@ -14,6 +14,7 @@
 
 
 
+namespace Hecuba {
 template <class V1, class...rest>
 class ValueClass:public AttributeClass<V1,rest...>{ 
     //First _KeyClass;
@@ -124,5 +125,6 @@ class ValueClass:public AttributeClass<V1,rest...>{
         }
 
 };
+}
 
 #endif

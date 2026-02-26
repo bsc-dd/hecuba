@@ -41,6 +41,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+namespace Hecuba {
+
 
 
 
@@ -1223,4 +1225,5 @@ void HecubaSession::deallocateObjects() {
 
 std::string HecubaSession::getExecutionName() {
     return config["execution_name"];
+}
 }

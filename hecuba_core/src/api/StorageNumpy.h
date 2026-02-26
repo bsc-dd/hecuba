@@ -14,6 +14,7 @@
 
 #include "SpaceFillingCurve.h"
 //#include "numpy/arrayobject.h" // FIXME to use the numpy constants NPY_*
+namespace Hecuba {
 #define NPY_ARRAY_C_CONTIGUOUS    0x0001
 #define NPY_ARRAY_F_CONTIGUOUS    0x0002
 #define NPY_ARRAY_OWNDATA         0x0004
@@ -444,7 +445,7 @@ class StorageNumpy:virtual public IStorage {
             const char*  class_nameSRC = getIdModel().c_str();
             char *class_name=(char*)malloc(strlen(class_nameSRC)+1);
             strcpy(class_name, class_nameSRC);
-            std::cout<< "DEBUG: HecubaSession::registerNumpy &class_name = "<<class_name<<std::endl;
+            //std::cout<< "DEBUG: HecubaSession::registerNumpy &class_name = "<<class_name<<std::endl;
             memcpy(values+offset_values, &class_name, sizeof(unsigned char *)); //class_name
             DBG("StorageNumpy::registerNumpy after copying class_name");
             offset_values += sizeof(unsigned char *);
@@ -483,5 +484,6 @@ class StorageNumpy:virtual public IStorage {
         }
     
 };
+}
 
 #endif /* _STORAGENUMPY_ */
