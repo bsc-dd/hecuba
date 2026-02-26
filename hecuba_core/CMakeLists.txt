@@ -127,6 +127,8 @@ SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
 
 
 add_library(hfetch SHARED ${SOURCE_FILES} ${HEADER_FILES})
+add_executable(cass_mgr ${CORE_SRC_DIR}/cass_mgr/cass_mgr.cpp ${CORE_SRC_DIR}/cass_mgr/cassandryn.h)
+add_library(cassandryn SHARED ${CORE_SRC_DIR}/cass_mgr/cassandryn.c ${CORE_SRC_DIR}/cass_mgr/cassandryn.h)
 
 set_target_properties(hfetch
         PROPERTIES
@@ -140,6 +142,9 @@ set_target_properties(hfetch
 #set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall")
 target_compile_options(hfetch PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-Wall>)
 set_property(TARGET hfetch PROPERTY POSITION_INDEPENDENT_CODE ON) # Add -fPIC option
+
+find_package(Threads REQUIRED)
+target_link_libraries(cassandryn PRIVATE ${CMAKE_DL_LIBS} Threads::Threads)  # Add -dl and -pthread
 
 
 #Dependencies

@@ -14,7 +14,7 @@
 ###############################################################################################################
 
 export C4S_HOME=$HOME/.c4s
-UNIQ_ID=${1}
+export UNIQ_ID=${1}
 CFG_FILE=$C4S_HOME/conf/${UNIQ_ID}/cassandra4slurm.cfg
 
 MODULE_PATH=$HECUBA_ROOT/bin/cassandra4slurm
@@ -30,7 +30,9 @@ source $CFG_FILE    # To get CASSANDRA_LOG_DIR
     && echo "WARNING: CASSANDRA_LOG_DIR not defined. Using default" \
     && export CASSANDRA_LOG_DIR=$LOG_PATH
 
-export CASSANDRA_LOG_DIR="$CASSANDRA_LOG_DIR/$UNIQ_ID"
+export CASSANDRA_LOG_DIR="$CASSANDRA_LOG_DIR/$UNIQ_ID/$(hostname)"
+
+mkdir -p $CASSANDRA_LOG_DIR # Required for cassandryn
 
 function launch_arrow_helper () {
     ! is_HECUBA_ARROW_enabled  && return
@@ -68,6 +70,13 @@ if [ "$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips | grep $HOSTNAMEIP)" != "" ]; 
     DBG " CASS_HOME="$CASS_HOME
     DBG " CASSANDDRA CONF $C4S_HOME/conf/${UNIQ_ID}/cassandra-${HOSTNAMEIP}.yaml"
     export CASSPIDFILE=$C4S_HOME/conf/${UNIQ_ID}/cassandra-${HOSTNAMEIP}.pid
+    if [ "X$DYNAMIC_AFFINITY" == "X" ]; then
+    #if the user does not define the default is true
+        DYNAMIC_AFFINITY="true"
+    fi
+    if [ ${DYNAMIC_AFFINITY,,} == "true" ]; then
+        export CASSANDRYN=$HECUBA_ROOT/lib/libcassandryn.so
+    fi
     $CASS_HOME/bin/cassandra \
 	    -Dcassandra.consistent.rangemovement=false \
 	    -Dcassandra.config=file://$C4S_HOME/conf/${UNIQ_ID}/cassandra-${HOSTNAMEIP}.yaml \
@@ -79,10 +88,14 @@ if [ "$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips | grep $HOSTNAMEIP)" != "" ]; 
     	echo "Waiting Cassandra writing PID @$(hostname)"
 	sleep 1
     done
+   echo "Cassandra @$(hostname) STARTED with PID $(cat $CASSPIDFILE)"
 
-    # Launch cassandra manager
-    echo "Starting Cassandra manager for PID $(cat $CASSPIDFILE)"
-    $HECUBA_ROOT/bin/cass_mgr $(cat $CASSPIDFILE) &
+    #j # Launch cassandra manager
+    #j # yolandab move the launching of cassandra manager to a separate script to allocate a dedicated core
+    #j echo "Starting Cassandra manager for PID $(cat $CASSPIDFILE)"
+    #j EXTRAE_CONFIG_FILE=/home/bsc/bsc031226/hecuba-benchmarking/fake_fesom2/cass_mgr.xml $HECUBA_ROOT/bin/cass_mgr $(cat $CASSPIDFILE) &
+    #j #yolandab start snoopy_shell for debugging purposes
+    #j #$HECUBA_ROOT/bin/cassandra4slurm/snoopy_shell.sh $(cat $CASSPIDFILE) $CASSANDRA_LOG_DIR $HOSTNAMEIP&
 
     # Wait for termination --> 'wait' does not work :(
     while [ -f $CASSPIDFILE ]; do
@@ -91,6 +104,9 @@ if [ "$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips | grep $HOSTNAMEIP)" != "" ]; 
 
 
     echo "Cassandra has stopped in node $(hostname)"
+
+    mv cassandryn_libtrace.log ~/.c4s/logs/cassandryn_libtrace.$(hostname).log
+
 else
     echo "Node $(hostname) is not part of the Cassandra node list."
 fi

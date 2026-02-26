@@ -256,6 +256,8 @@ seeds=`head -n 1 $CASSFILE.ips`
 # GENERATE CASSANDRA CONFIGURATION FILES
 # Do NOT use hostname! There are machines that return a differnt name than the one used in SLURM.
 #only one node needs to do this, all the nodes share the same file
+
+CASS_CONCURRENT_WRITES=$((8*$C4S_CASSANDRA_CORES)) # recommended number of concurrent writes is 8 times the number of cores
 cat $TEMPLATE_CASS_YAML_FILE \
     | sed "s/.*cluster_name:.*/cluster_name: \'$CLUSTER\'/g" \
     | sed "s/.*num_tokens:.*/num_tokens: 256/g" \
@@ -267,8 +269,17 @@ cat $TEMPLATE_CASS_YAML_FILE \
     | sed "s/.*seeds:.*/          - seeds: \"$seeds\"/" \
     | sed "s/.*broadcast_address:.*/#broadcast_address: localhost/" \
     | sed "s/.*initial_token:.*/#initial_token:/" \
+    | sed "s/.*concurrent_writes:.*/concurrent_writes: $CASS_CONCURRENT_WRITES/g" \
+    | sed "s/.*read_request_timeout_in_ms:.*/read_request_timeout_in_ms: 60000/g" \
+    | sed "s/.*range_request_timeout_in_ms:.*/range_request_timeout_in_ms: 60000/g" \
+    | sed "s/.*write_request_timeout_in_ms:.*/write_request_timeout_in_ms: 60000/g" \
+    | sed "s/^request_timeout_in_ms:.*/request_timeout_in_ms: 60000/g" \
+    | sed "s/.*commitlog_segment_size_in_mb:.*/commitlog_segment_size_in_mb: 128/g" \
     > ${CASS_YAML_FILE}
     echo "auto_bootstrap: false" >> ${CASS_YAML_FILE}
+
+# read_request_timeout_in_ms and range_request_timeout_in_ms increased to store big columns
+# commitlog_segment_size_in_mb increased to store big columns
 
 # Generate a configuration file for each cassandra node (used in recover)
 for i in $(cat $CASSFILE.ips); do
@@ -320,6 +331,23 @@ run srun --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST \
 	--cpu-bind=verbose,mask_cpu:${CASS_CORE_LIST} \
 	$MODULE_PATH/cass_node.sh $UNIQ_ID &
 sleep 5
+
+
+if [ "X$DYNAMIC_AFFINITY" == "X" ]; then
+#if the user does not define the default is true
+    DYNAMIC_AFFINITY="true"
+fi
+
+if [ ${DYNAMIC_AFFINITY,,} == "true" ]; then
+    run srun --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST \
+	    --ntasks=$N_NODES \
+	    --ntasks-per-node=1 \
+	    --nodes=$N_NODES \
+        --cpu-bind=verbose \
+        --cpus-per-task=1 \
+        $MODULE_PATH/cass_mngr.sh $UNIQ_ID &
+fi
+
 
 if [ "X$STREAMING" != "X" ]; then
     if [ ${STREAMING,,} == "true" ]; then
@@ -472,7 +500,6 @@ then
     # Cleaning status files
     rm -f $C4S_HOME/snap-status-$SNAP_NAME-*-file.txt
 fi
-sleep 10
 
 DBG " Stopping CASSANDRA JOB"
 run srun  --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST --ntasks=$N_NODES --ntasks-per-node=1 --nodes=$N_NODES $MODULE_PATH/killer.sh

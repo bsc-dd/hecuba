@@ -118,7 +118,11 @@ const std::string& IStorage::getTableName() const {
 void
 IStorage::sync(void) {
     HecubaExtrae_event(HECUBAEV, HECUBA_IS|HECUBA_SYNC);
-    this->getDataWriter()->flush_elements();
+    Writer* w = this->getDataWriter();
+    if (w == NULL) {
+        throw ModuleException("IStorage:: Sync. Writer not found???");
+    }
+    w->flush_elements();
     HecubaExtrae_event(HECUBAEV, HECUBA_END);
 }
 
@@ -544,6 +548,8 @@ void IStorage::make_persistent(const std::string  id_obj) {
 		getObjSpec().enableStream();
 		configureStream(UUID::UUID2str(c_uuid));
 	}
+
+
 
     HecubaExtrae_event(HECUBADBG, HECUBA_PERSIST_METADATA);
 	persist_metadata(c_uuid); //depends on the type of persistent object

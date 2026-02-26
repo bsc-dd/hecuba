@@ -14,6 +14,7 @@ mkdir -p ${INSTALL_DIR}/bin/cassandra4slurm
 if [ $? -ne 0 ]
 then
     echo "Can't create install path ${INSTALL_DIR}/bin/cassandra4slurm" 1>&2
+    echo "Syntax: $0 INSTALL_DIR" 1>&2
     exit 1
 fi
 

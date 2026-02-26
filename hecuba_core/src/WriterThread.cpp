@@ -1,5 +1,6 @@
 #include "WriterThread.h"
 #include "HecubaExtrae.h"
+#include "debug.h"
 #include <sys/wait.h>
 
 #ifndef CLONE
@@ -26,30 +27,30 @@ WriterThread::WriterThread(std::map<std::string, std::string>& config):
 {
     HecubaExtrae_event(HECUBADBG, HECUBA_CREATEASYNCTHREAD);
     int32_t buff_size = DEFAULT_WRITER_BUFF;
-    if (config.find("writer_buffer") != config.end()) {
-        std::string buff_size_str = config["writer_buffer"];
+    if (config.find("write_buffer_size") != config.end()) {
+        std::string buff_size_str = config["write_buffer_size"];
         try {
             buff_size = std::stoi(buff_size_str);
             if (buff_size < 0) throw ModuleException("Writer buffer value must be >= 0");
         }
         catch (std::exception &e) {
             std::string msg(e.what());
-            msg += " Malformed value in config for writer_buffer";
+            msg += " Malformed value in config for write_buffer_size";
             throw ModuleException(msg);
         }
     }
     this->data.set_capacity(buff_size);
 
     int32_t max_callbacks = DEFAULT_WRITER_CALLBACKS;
-    if (config.find("writer_par") != config.end()) {
-        std::string max_callbacks_str = config["writer_par"];
+    if (config.find("write_callbacks_number") != config.end()) {
+        std::string max_callbacks_str = config["write_callbacks_number"];
         try {
             max_callbacks = std::stoi(max_callbacks_str);
             if (max_callbacks <= 0) throw ModuleException("Writer parallelism value must be > 0");
         }
         catch (std::exception &e) {
             std::string msg(e.what());
-            msg += " Malformed value in config for writer_par";
+            msg += " Malformed value in config for write_callbacks_number";
             throw ModuleException(msg);
         }
     }
@@ -78,12 +79,14 @@ void WriterThread::create_working_threads() {
 
 // wait for callbacks execution for all sent write requests
 void WriterThread::wait_writes_completion(void) {
+    HecubaExtrae_event(HECUBACASS_NCALLBACKS, ncallbacks);
     HecubaExtrae_event(HECUBADBG, HECUBA_FLUSHELEMENTS);
     //std::cout<< "Writer::wait_writes_completion * Waiting for "<< data.size() << " Pending "<<ncallbacks<<" callbacks" <<" inflight"<<std::endl;
     while(!data.empty() || ncallbacks>0) {
         std::this_thread::yield();
     }
     HecubaExtrae_event(HECUBADBG, HECUBA_END);
+    HecubaExtrae_event(HECUBACASS_NCALLBACKS, 0);
 }
 
 WriterThread::~WriterThread() {
@@ -93,6 +96,7 @@ WriterThread::~WriterThread() {
     this->finish_async_query_thread = true; // Mark the async thread to finish BEFORE unblocking it.
     sempending_data->release();// Unblock the async_query_thread (which does not have any work)
     this->async_query_thread.join();
+    //waitpid(async_query_threadpid, NULL, 0); // TODO: CHECK ERRORS!
     delete(sempending_data);
     delete(semmaxcallbacks);
 }
@@ -100,16 +104,20 @@ WriterThread::~WriterThread() {
 
 /* Queue a new pair {keys, values} into the 'data' queue to be executed later.
  * Args are copied, therefore they may be deleted after calling this method. */
-void WriterThread::queue_async_query( const Writer* w, const TupleRow *keys, const TupleRow *values) {
-    std::tuple<const Writer*, const TupleRow *, const TupleRow *> item = std::make_tuple(w, keys, new TupleRow(values));
+void WriterThread::queue_async_query( Writer* w, const TupleRow *keys, const TupleRow *values) {
+    std::tuple<Writer*, const TupleRow *, const TupleRow *> item = std::make_tuple(w, keys, new TupleRow(values));
 
     //std::cout<< "  Writer::flushing item created pair"<<std::endl;
     data.push(item);
+    if (data.size() ==  (data.capacity()-1)) {
+	    std::cerr<<"WARN: WriterThread::queue_async_query: data capacity is "<<data.size()<<" close to full. Maybe increasing WRITE_BUFFER_SIZE is required."<<std::endl;
+    }
     sempending_data->release(); //One more pending msg
 }
 
 void WriterThread::callback(CassFuture *future, void *ptr) {
     void **data = reinterpret_cast<void **>(ptr);
+    DBG("WriterThread::callback");
     assert(data != NULL && data[0] != NULL);
     WriterThread *WThread = (WriterThread *) data[0];
     WThread->semmaxcallbacks->release(); // Limit number of callbacks
@@ -117,6 +125,7 @@ void WriterThread::callback(CassFuture *future, void *ptr) {
     //std::cout<< "Writer::callback"<< std::endl;
     CassError rc = cass_future_error_code(future);
     if (rc != CASS_OK) {
+        DBG("WriterThread::callback. Cassandra returns KO");
         std::string message(cass_error_desc(rc));
         const char *dmsg;
         size_t l;
@@ -124,16 +133,24 @@ void WriterThread::callback(CassFuture *future, void *ptr) {
         std::string msg2(dmsg, l);
         WThread->set_error_occurred("Writer callback: " + message + "  " + msg2, data[1], data[2], data[3]);
     } else {
+        DBG("WriterThread::callback. Cassandra returns OK");
         delete ((TupleRow *) data[2]);
         delete ((TupleRow *) data[3]);
         WThread->ncallbacks--;
         ((Writer*) data[1])->finish_async_call(); //Notify Writer of another finished request.
+#ifdef EXTRAE
+    struct timespec t2;
+    clock_gettime(CLOCK_REALTIME, &t2);
+    long long int accum = (long long int )data[5];
+    accum = (((long long int)t2.tv_sec)*1000000000L+t2.tv_nsec) - accum;
+    HecubaExtrae_event(HECUBACASS_RESPONSETIME, accum);
+#endif /* EXTRAE */
     }
     HecubaExtrae_comm(EXTRAE_USER_RECV, (long long int)data[4]);
     free(data);
 }
 
-void WriterThread::async_query_execute(const Writer* w, const TupleRow *keys, const TupleRow *values) {
+void WriterThread::async_query_execute(Writer* w, const TupleRow *keys, const TupleRow *values) {
 
     CassStatement *statement = w->bind_cassstatement(keys, values);
 
@@ -141,7 +158,8 @@ void WriterThread::async_query_execute(const Writer* w, const TupleRow *keys, co
 
     HecubaExtrae_event(HECUBACASS, HBCASS_SENDDRIVER);
 #ifdef EXTRAE
-    const void **data = (const void **) malloc(sizeof(void *) * 5);
+    //const void **data = (const void **) malloc(sizeof(void *) * 5);
+    const void **data = (const void **) malloc(sizeof(void *) * 6);
 #else
     const void **data = (const void **) malloc(sizeof(void *) * 4);
 #endif
@@ -152,8 +170,10 @@ void WriterThread::async_query_execute(const Writer* w, const TupleRow *keys, co
 #ifdef EXTRAE
     msgid++;
     data[4] = (void*)((((long long int)getpid())<<32) | msgid);
-
     HecubaExtrae_comm(EXTRAE_USER_SEND, (long long int)data[4]); // parameter is used to  identify the callback (lower 12 bits from data will be zeroed and then the 12 lower bits from PID added)
+    struct timespec t2;
+    clock_gettime(CLOCK_REALTIME, &t2);
+    data[5] = (void*)(((long long int)t2.tv_sec)*1000000000L+t2.tv_nsec);
 #endif /* EXTRAE */
     CassFuture *query_future = cass_session_execute(w->get_session(), statement);
     HecubaExtrae_event(HECUBACASS, HBCASS_END);
@@ -178,7 +198,7 @@ void WriterThread::set_error_occurred(std::string error, const void* writer_p, c
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
 
-    const Writer *w = (Writer*) writer_p;
+    Writer *w = (Writer*) writer_p;
     const TupleRow *keys = (TupleRow *) keys_p;
     const TupleRow *values = (TupleRow *) values_p;
 
@@ -190,7 +210,7 @@ void WriterThread::set_error_occurred(std::string error, const void* writer_p, c
 bool WriterThread::call_async() {
 
     //current write data
-    std::tuple<const Writer*, const TupleRow *, const TupleRow *> item;
+    std::tuple<Writer*, const TupleRow *, const TupleRow *> item;
     ncallbacks++; // Increase BEFORE try_pop to avoid race at 'wait_writes_completion'
     if (!data.try_pop(item)) {
         ncallbacks--;

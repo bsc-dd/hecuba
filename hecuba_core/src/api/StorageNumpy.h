@@ -76,6 +76,7 @@ class StorageNumpy:virtual public IStorage {
 
         void setNumpy(void *datasrc, const std::vector<uint32_t>&metas, char dtype='c') {
             // Transform user metas to ArrayMetadata
+            DBG("StorageNumpy:: setNumpy(data,metas)");
             this->metas = metas; // make a copy of user 'metas'
             uint64_t numpy_size = extractNumpyMetaData(metas, dtype, this->numpy_metas );
 
@@ -359,7 +360,6 @@ class StorageNumpy:virtual public IStorage {
 
 
             std::memcpy(keys, &c_uuid, sizeof(uint64_t *));
-
 
             char *c_name = (char *) std::malloc(name.length() + 1);
             std::memcpy(c_name, name.c_str(), name.length() + 1);

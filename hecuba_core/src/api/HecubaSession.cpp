@@ -24,6 +24,60 @@
 #include <typeinfo>
 #include <algorithm>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include "cass_mgr/cass_mgr.h"
+
+
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif /* !_GNU_SOURCE */
+#include <sched.h>
+#include <sys/types.h>
+#include <ifaddrs.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+
+
+
+
+
+
+std::string HecubaSession::CPUSET2INT(const cpu_set_t *cpuset) const {
+	long n = CPU_COUNT(cpuset);
+	char cpus[CPU_SETSIZE];
+	long last = 0;
+	for (long i = 0; (n>0) && (i < CPU_SETSIZE); i++) {
+		if (CPU_ISSET(i, cpuset)) {
+			cpus[i] = '1';
+			n--;
+			last = i;
+		} else {
+			cpus[i] = '0';
+		}
+	}
+	cpus[last+1]='\0';
+	return std::string(cpus);
+}
+
+void HecubaSession::limitMaskToCores(cpu_set_t* mask, unsigned int cores) const {
+	unsigned int origCores = cores;
+	long n = CPU_COUNT(mask);
+	if (cores>n) {
+		std::cerr<<"WARNING. Trying to limit cassandra affinity mask to "<<cores<<" cores but the mask only has "<<n<<" cores"<<std::endl;
+	}
+	for (long i = 0; (n>0) && (i < CPU_SETSIZE); i++) {
+		if (CPU_ISSET(i, mask)) {
+			if (cores>0) cores --; // 1 bit less
+			else CPU_CLR(i, mask);
+			n--;
+		}
+	}
+}
 
 std::vector<std::string> HecubaSession::split (std::string s, std::string delimiter) const{
     size_t pos_start = 0, pos_end, delim_len = delimiter.length();
@@ -38,6 +92,33 @@ std::vector<std::string> HecubaSession::split (std::string s, std::string delimi
 
     res.push_back (s.substr (pos_start));
     return res;
+}
+
+
+std::string getIPAddress(){
+    std::string ipAddress="Unable to get IP Address";
+    struct ifaddrs *interfaces = NULL;
+    struct ifaddrs *temp_addr = NULL;
+    int success = 0;
+    // retrieve the current interfaces - returns 0 on success
+    success = getifaddrs(&interfaces);
+    if (success == 0) {
+        // Loop through linked list of interfaces
+        temp_addr = interfaces;
+        while(temp_addr != NULL) {
+            if(temp_addr->ifa_addr->sa_family == AF_INET) {
+                // Check if interface is en0 which is the wifi connection on the iPhone
+                if(!strcmp(temp_addr->ifa_name, "ib0")){
+                    ipAddress = inet_ntoa(((struct sockaddr_in*)temp_addr->ifa_addr)->sin_addr);
+		    break;
+                }
+            }
+            temp_addr = temp_addr->ifa_next;
+        }
+    }
+    // Free memory
+    freeifaddrs(interfaces);
+    return ipAddress;
 }
 
 /** contact_names_2_IP_addr: Given a string with a list of comma separated of
@@ -104,7 +185,76 @@ const {
     return contactips_str;
 }
 
+void HecubaSession::getCurrentCassandraAffinity(cpu_set_t* currentMask) const {
+   DBG(" HecubaSession: get current Cassandra Affinity for pid "<<cassandraPID<<" is ["<<CPUSET2INT(&currentCassandraMask)<<"]");
+   memcpy(currentMask, &currentCassandraMask, sizeof(cpu_set_t));
+}
+
+int HecubaSession::sendCassandraMgr(int cmd, const cpu_set_t* newMask) const {
+	int numbytes;
+	struct message msg;
+    char buf[80];
+	msg.operation = cmd;
+	if (newMask == NULL) {
+		msg.cpusetsize = 0;
+	} else {
+		msg.cpusetsize = sizeof(cpu_set_t);
+		memcpy(&msg.set, newMask, msg.cpusetsize);
+	}
+	numbytes = send(cass_MGR_socket, &msg, sizeof(msg), 0);
+	if (numbytes<0) {
+        //yolandab to check if the error was when ending or we left something without writing
+        sprintf(buf, "HecubaSession::sendCassandraMgr: send msg %d",cmd);
+		perror(buf);
+		return -1;
+	}
+	DBG("Sent message to "<< cass_MGR_socket <<" with "<<std::dec<<sizeof(msg)<<" bytes using "<< std::dec<<numbytes << " bytes");
+	return 1;
+}
+int HecubaSession::waitCassandraMgr() const {
+	int ack;
+	DBG("HecubaSession::waitCassandraMgr Waiting...");
+
+	int numbytes;
+	numbytes = recv(cass_MGR_socket, &ack, sizeof(ack), 0);
+	if (numbytes < 0) {
+		DBG("waitCassandraMgr2 at "<< cass_MGR_socket <<" with "<<std::dec<<sizeof(ack)<<" bytes getting "<< numbytes << " bytes");
+		perror("HecubaSession::waitCassandraMgr recv ACK");
+		//return -1;
+	}
+	DBG("HecubaSession::waitCassandraMgr Stop waiting... received "<< numbytes << "/" << sizeof(ack)<<"  bytes");
+	return 1;
+}
+
+cpu_set_t HecubaSession::addCassandraAffinity(cpu_set_t* newMask) {
+   if (cassandraPID == 0) return currentCassandraMask; // Affinity is disabled
+   if (newMask == NULL)   return currentCassandraMask;
+   HecubaExtrae_event(HECUBADBG, HECUBA_ADDCASSAFF);
+   DBG(" Adding mask [" << CPUSET2INT(newMask) <<"]");
+   sendCassandraMgr(ADD, newMask);
+   HecubaExtrae_event(HECUBADBG, HBCASS_END);
+   return currentCassandraMask;
+}
+
+cpu_set_t HecubaSession::removeCassandraAffinity(cpu_set_t* newMask) {
+   if (cassandraPID == 0) return currentCassandraMask; // Affinity is disabled
+   DBG(" Removing mask [" << CPUSET2INT(newMask) <<"]");
+   HecubaExtrae_event(HECUBADBG, HECUBA_REMCASSAFF);
+   sendCassandraMgr(REMOVE, newMask);
+   //waitCassandraMgr(); // No wait is required as the cores for the app are unchanged and cassandra will eventually leave them alone
+   HecubaExtrae_event(HECUBADBG, HBCASS_END);
+   return currentCassandraMask;
+}
+
 void HecubaSession::parse_environment(config_map &config) {
+    const char * c4s_cassandra_cores = std::getenv("C4S_CASSANDRA_CORES");
+    if (c4s_cassandra_cores != nullptr) {
+    	config["c4s_cassandra_cores"] = std::string(c4s_cassandra_cores);
+    }
+    const char * casspidfile = std::getenv("CASSPIDFILE");
+    if (casspidfile != nullptr) {
+    	config["casspidfile"] = std::string(casspidfile) + "/cassandra-" + getIPAddress() + ".pid";
+    }
     const char * nodePort = std::getenv("NODE_PORT");
     if (nodePort == nullptr) {
         nodePort = "9042";
@@ -157,14 +307,14 @@ void HecubaSession::parse_environment(config_map &config) {
     }
     config["timestamped_writes"] = timestampedWrites2;
 
-        //{"writer_buffer",      std::to_string(writer_queue)},??? == WRITE_BUFFER_SIZE?
+        //{"write_buffer_size",      std::to_string(writer_queue)},??? == WRITE_BUFFER_SIZE?
     const char * writeBufferSize = std::getenv("WRITE_BUFFER_SIZE");
     if (writeBufferSize == nullptr) {
         writeBufferSize = "1000";
     }
     config["write_buffer_size"] = std::string(writeBufferSize);
 
-        ///writer_par ==> 'WRITE_CALLBACKS_NUMBER'
+        ///write_callbacks_number ==> 'WRITE_CALLBACKS_NUMBER'
     const char *writeCallbacksNum = std::getenv("WRITE_CALLBACKS_NUMBER");
     if (writeCallbacksNum == nullptr) {
         writeCallbacksNum = "16";
@@ -193,7 +343,7 @@ void HecubaSession::parse_environment(config_map &config) {
     if (replicationStrategyOptions == nullptr) {
         replicationStrategyOptions = "";
     }
-    config["replication_strategy_options"] = replicationStrategyOptions;
+    config["replication_strategy_options"] = std::string(replicationStrategyOptions);
 
     if (config["replication_strategy"] == "SimpleStrategy") {
         config["replication"] = std::string("{'class' : 'SimpleStrategy', 'replication_factor': ") + config["replica_factor"] + "}";
@@ -212,6 +362,18 @@ void HecubaSession::parse_environment(config_map &config) {
         }
     }
     config["hecuba_sn_single_table"] = hecubaSNSingleTable2;
+
+    char * dynamic_affinity = std::getenv("DYNAMIC_AFFINITY");
+    std::string dynamic_affinity2;
+    if (dynamic_affinity == nullptr) {
+        dynamic_affinity2 = std::string("true");
+    } else {
+        dynamic_affinity2 = std::string(dynamic_affinity);
+        for (long unsigned int i=0; i < dynamic_affinity2.size(); i++ ) {
+            dynamic_affinity2[i] = ::tolower(dynamic_affinity2[i]);
+        }
+    }
+    config["dynamic_affinity"] = dynamic_affinity2;
 }
 
 CassError HecubaSession::run_query(std::string query) const{
@@ -316,6 +478,27 @@ HecubaSession& HecubaSession::get() {
     return currentSession;
 }
 
+int HecubaSession::setCassandraAfinity(const cpu_set_t* cassandraMask) {
+	// TODO setaffinity for all cassandra processes
+	if (sched_setaffinity(cassandraPID, sizeof(cpu_set_t), cassandraMask) == -1) {
+		char tmp[100];
+		sprintf(tmp, "HecubaSession::setCassandraAfinity CPU_SETSIZE=%d", CPU_SETSIZE);
+		std::string msg = tmp;
+		if (errno == EINVAL) {
+			DBG("SCHED_SET EINVAL");
+			msg += " request mask=[";
+			msg += CPUSET2INT(cassandraMask) + "] for pid ";
+			char pid[100];
+			sprintf(pid, "%d", cassandraPID);
+			msg += pid;
+			msg += " but current Mask is [";
+			msg += CPUSET2INT(&currentCassandraMask) + "]";
+		} 
+		perror(msg.c_str());
+		return -1;
+	}
+	return 0;
+}
 
 /* Constructor: Establish connection with underlying storage system */
 HecubaSession::HecubaSession() {
@@ -347,6 +530,121 @@ HecubaSession::HecubaSession() {
 // TODO: extend writer to support lists
 
 
+#if 0
+    {
+	bool affinityError = true;
+	try{
+    		std::string casspidfile = config.at("casspidfile");
+		DBG(" Reading cassandra pid file from ["<<casspidfile<<"]");
+		std::string tmp;
+    		int fd = open(casspidfile.c_str(), O_RDONLY);
+		if (fd < 0) {
+			tmp = "Error opening Cassandra pid file ";
+			tmp = tmp+ casspidfile;
+			perror(tmp.c_str());
+		}else {
+			char buff[1024];
+			int ret = read(fd, &buff, sizeof(buff));
+			if (ret <0) {
+				tmp = "Error getting Cassandra pid from ";
+				tmp = tmp+ casspidfile;
+				perror(tmp.c_str());
+			} else {
+				buff[ret]='\0';
+				cassandraPID = atoi(buff);
+				DBG("   Read cassandra pid ["<<cassandraPID<<"]");
+				if (cassandraPID > 0) affinityError = false; // A valid Cassandra PID has been read
+			}
+			close(fd);
+		}
+	} catch (std::out_of_range e) {
+		std::cerr << " 'CASSPIDFILE' not found" <<std::endl;
+	}
+	if (affinityError) {
+		std::cerr << " WARNING. Cassandra Affinity is DISABLED." <<std::endl;
+		cassandraPID = 0;
+	} else {
+   		CPU_ZERO(&cassandraMask);  // Clear the CPU set
+		CPU_ZERO(&currentCassandraMask);  // Clear the CPU set
+   		if (sched_getaffinity(cassandraPID, sizeof(cpu_set_t), &cassandraMask) == -1) {
+        		perror("sched_getaffinity");
+   		}
+		DBG(" Cassandra Affinity for pid "<<cassandraPID);
+	        DBG(" 	["<<CPUSET2INT(&cassandraMask)<<"]");
+		auto cores = config.find("c4s_cassandra_cores");
+		if (cores != config.end()) { // Affinity is required...
+			unsigned int c = atoi(cores->second.c_str());
+			unsigned int numcpus = CPU_COUNT(&cassandraMask);
+			if (numcpus > c) {
+				DBG(" Current Cassandra mask has "<<numcpus<< " cores. But C4S_CASSANDRA_CORES is set and lower. Limit Cassandra mask to "<< cores->second<< " cores" );
+				limitMaskToCores(&cassandraMask, c);
+				setCassandraAfinity(&cassandraMask);
+			} else if (numcpus < c) {
+				std::cerr<< " WARNING: Cassandra mask has less cores than the required C4S_CASSANDRA_CORES "<< numcpus<<"/"<<c<<std::endl;
+			}
+		}
+		DBG(" Cassandra mask set to ["<<CPUSET2INT(&cassandraMask)<<"]");
+		CPU_OR(&currentCassandraMask, &cassandraMask, &currentCassandraMask);
+	}
+    }
+#else
+    if (config["dynamic_affinity"] == std::string("true"))
+    {
+	bool affinityError = true;
+	try{
+    		std::string casspidfile = config.at("casspidfile");
+		DBG(" Reading cassandra pid file from ["<<casspidfile<<"]");
+		std::string tmp;
+    		int fd = open(casspidfile.c_str(), O_RDONLY);
+		if (fd < 0) {
+			tmp = "Error opening Cassandra pid file ";
+			tmp = tmp+ casspidfile;
+			perror(tmp.c_str());
+		}else {
+			char buff[1024];
+			int ret = read(fd, &buff, sizeof(buff));
+			if (ret <0) {
+				tmp = "Error getting Cassandra pid from ";
+				tmp = tmp+ casspidfile;
+				perror(tmp.c_str());
+			} else {
+				buff[ret]='\0';
+				cassandraPID = atoi(buff);
+				DBG("   Read cassandra pid ["<<cassandraPID<<"]");
+				if (cassandraPID > 0) affinityError = false; // A valid Cassandra PID has been read
+			}
+			close(fd);
+		}
+	} catch (std::out_of_range e) {
+		std::cerr << " 'CASSPIDFILE' not found" <<std::endl;
+	}
+	if (affinityError) {
+		std::cerr << " WARNING. Cassandra Affinity is DISABLED." <<std::endl;
+		cassandraPID = 0;
+	} else {
+		std::cerr << " Cassandra Affinity ENABLED." <<std::endl;
+	    	//Connect to cassandra manager
+		cass_MGR_socket = socket(PF_INET, SOCK_STREAM, 0);
+		if (cass_MGR_socket < 0 ) {
+			perror(" Unable to create a socket?!?.");
+			exit(-1);
+		}
+
+		struct sockaddr_in my_addr;
+
+		my_addr.sin_family = AF_INET;
+		my_addr.sin_port = htons(6666);     // short, network byte order
+		my_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+		memset(my_addr.sin_zero, '\0', sizeof my_addr.sin_zero);
+
+		if (connect(cass_MGR_socket, (struct sockaddr*)&my_addr, sizeof(my_addr))<0) {
+			perror(" Unable to connect to Cassandra Manager.");
+			exit(-1);
+		};
+		DBG( " Connected to Cassandra Manager " );
+	}
+    }
+#endif
 numpyMetaAccess = storageInterface->get_static_metadata_cache(config);
 numpyMetaWriter = numpyMetaAccess->get_writer();
 
@@ -356,6 +654,12 @@ numpyMetaWriter = numpyMetaAccess->get_writer();
 }
 
 int HecubaSession::wait_writes_completion(void) {
+    cpu_set_t app_mask; // Original APPLICATION mask 
+
+    if (config["dynamic_affinity"] == std::string("true")) {
+        sched_getaffinity(0, sizeof(app_mask), &app_mask);
+        addCassandraAffinity(&app_mask);
+    }
     std::lock_guard<decltype(mxalive_objects)> lock{mxalive_objects};
 
     for (std::list<std::shared_ptr<CacheTable>>::iterator it = alive_objects.begin(); it != alive_objects.end(); it++) {
@@ -375,6 +679,9 @@ int HecubaSession::wait_writes_completion(void) {
             t.get()->getWriteCache()->get_writer()->wait_writes_completion();
             DBG( "  LIST DEL AFTER: "<< t.get() <<" ("<<t.use_count()<<")");
         }
+    }
+    if (config["dynamic_affinity"] == std::string("true")) {
+        removeCassandraAffinity(&app_mask);
     }
     return 0;
 }
@@ -396,6 +703,11 @@ HecubaSession::~HecubaSession() {
     for (std::list<std::shared_ptr<ArrayDataStore>>::iterator it = alive_numpy_objects.begin(); it != alive_numpy_objects.end();) {
         it = alive_numpy_objects.erase(it);
     }
+
+    if (config["dynamic_affinity"] == std::string("true")) {
+        sendCassandraMgr(2, NULL);
+    }
+
 
     HecubaExtrae_event(HECUBADBG, HECUBA_END);
 }

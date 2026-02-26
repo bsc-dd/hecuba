@@ -222,7 +222,7 @@ int main(int argc, char *argv[])
                     bytesread = read(newfile, buf, MAXDATASIZE-1); 
                     total_bytes += bytesread; //TODO DEBUG only
                 }
-                printf("Sent File: %s\n", path_to_read);
+                printf("Sent File: %s\n", path_to_read.c_str());
                 printf("Total bytes sent to %s: %i. Total sends performed: %i\n\n", s, total_bytes, total_sends); //TODO DEBUG only
             } else {
                 char s[1000];

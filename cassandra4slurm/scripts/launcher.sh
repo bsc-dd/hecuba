@@ -281,6 +281,7 @@ reset_all_parameters(){
     unset input_snap
     unset LOGS_DIR
     unset SLURM_FLAGS
+    unset WITHDLB
     unset HECUBA_ARROW
     unset HECUBA_ARROW_PATH
     unset HECUBA_OPTANE
@@ -395,6 +396,10 @@ case $i in
     ;;
     -r=*|--restore=*)
     input_snap="${i#*=}"
+    shift
+    ;;
+    -dl|--dlb)
+    WITHDLB=1
     shift
     ;;
     *)
