@@ -97,6 +97,8 @@ class StorageDict:virtual public IStorage {
         }
 
 
+        ObjSpec generateObjSpec() {return getObjSpec(); }
+
         // It generates the python specification for the class during the registration of the object
         void generatePythonSpec() {
             std::string StreamPart="";

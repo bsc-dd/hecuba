@@ -617,7 +617,7 @@ HecubaSession::HecubaSession() {
 			}
 			close(fd);
 		}
-	} catch (std::out_of_range e) {
+	} catch (const std::out_of_range& e) {
 		std::cerr << " 'CASSPIDFILE' not found" <<std::endl;
 	}
 	if (affinityError) {

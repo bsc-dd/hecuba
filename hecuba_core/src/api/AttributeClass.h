@@ -141,6 +141,7 @@ class AttributeClass {
         }
 
         template <class V > char *cast2IStorageBuffer(const V& value,  typename std::enable_if<!std::is_base_of<IStorage, V>::value>::type* =0) {
+                return nullptr;
         }
         template <class V > char *cast2IStorageBuffer(const V& value,  typename std::enable_if<std::is_base_of<IStorage, V>::value>::type* =0) {
             char * buf;

@@ -147,7 +147,7 @@ std::string ObjSpec::cass_to_hecuba(const std::string& attr_type) {
     std::string res;
     try {
         res =  ObjSpec::cass_to_hecuba_conversion.at(attr_type);
-    } catch (std::out_of_range e) {
+    } catch (const std::out_of_range& e) {
         res = attr_type;
     }
     return res;

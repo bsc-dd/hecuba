@@ -154,6 +154,8 @@ class StorageNumpy:virtual public IStorage {
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 
+        ObjSpec generateObjSpec() {return getObjSpec(); }
+
         void generatePythonSpec() {
             std::string StreamPart="";
             if (isStream() ){

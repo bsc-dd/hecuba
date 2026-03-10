@@ -51,7 +51,7 @@ class IStorage {
         void set_pending_to_persist();
 
         virtual void getAttr(const std::string& attr_name, void * valuetoreturn) {};
-        virtual ObjSpec generateObjSpec() {};
+        virtual ObjSpec generateObjSpec() =0;
         virtual void getItem(const void* key, void * valuetoreturn) {};
 
         virtual Writer * getDataWriter()const { return dataWriter;}
@@ -86,9 +86,9 @@ class IStorage {
         virtual void persist_metadata(uint64_t * c_uuid) {};
         virtual void persist_data() {};
         virtual void setPersistence (uint64_t *uuid) {};
-        virtual std::vector<std::pair<std::string, std::string>> getValuesDesc() { };
-        virtual std::vector<std::pair<std::string, std::string>> getPartitionKeys() {};
-        virtual std::vector<std::pair<std::string, std::string>> getClusteringKeys() {};
+        virtual std::vector<std::pair<std::string, std::string>> getValuesDesc() {return {};}
+        virtual std::vector<std::pair<std::string, std::string>> getPartitionKeys() {return {};}
+        virtual std::vector<std::pair<std::string, std::string>> getClusteringKeys() {return {};}
         virtual void initialize_dataAcces() {};
 
         void getByAlias(const std::string& name) ;
