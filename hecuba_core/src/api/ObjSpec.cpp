@@ -129,7 +129,7 @@ std::string ObjSpec::c_to_cass(const std::string attr_type) {
 		else {
 		// To keep compatibility with the python layer of hecuba we register StorageNumpys as hecuba.hnumpy.StorageNumpy and we store any other Hecuba object with the
 		// fully qualified name. At this moment each class definition is stored in a separate file with the same name as the class, so the FQname is class.class
-			if (type == "StorageNumpy") {
+			if ((type=="Hecuba::StorageNumpy")||(type == "StorageNumpy")) {
 				// If the attribute is a StorageNumpy we store in cassandra the fully qualified name used in the python side of Hecuba
 				type = std::string("hecuba.hnumpy.StorageNumpy");
 			} else {

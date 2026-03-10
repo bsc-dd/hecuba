@@ -669,7 +669,7 @@ void IStorage::get_by_alias(const std::string& name) {
 void IStorage::initializeClassName(std::string class_name) {
 	std::string FQname;
 	bool new_element = true;
-	if (class_name == "StorageNumpy") {
+	if ((class_name == "Hecuba::StorageNumpy") || (class_name=="StorageNumpy")){
 		class_name="hecuba.hnumpy.StorageNumpy";
 		FQname=class_name;
 		new_element=false;
