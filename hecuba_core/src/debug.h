@@ -2,12 +2,12 @@
 #define __DEBUG_H__
 
 #undef ENABLE_DEBUG
+#include <sstream>
+#include <unistd.h>
 
 namespace Hecuba {
 #ifdef ENABLE_DEBUG
 
-#include <sstream>
-#include <unistd.h>
 
 #if __STDC_VERSION__ < 199901L
 # if __GNUC__ >= 2

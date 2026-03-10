@@ -1,6 +1,14 @@
 #ifndef __HECUBA_EXTRAE_H
 #define __HECUBA_EXTRAE_H
 
+#ifdef EXTRAE
+
+#include <extrae.h>
+#include <unistd.h>
+#include <dlfcn.h>
+
+#endif //EXTRAE
+
 namespace Hecuba {
 // HECUBAEV: Type for selecting HECUBA API Events
 #define HECUBAEV    42000
@@ -69,9 +77,6 @@ namespace Hecuba {
 #define HECUBACASS_NCALLBACKS     47000
 
 #ifdef EXTRAE
-#include <extrae.h>
-#include <unistd.h>
-#include <dlfcn.h>
 
 // HECUBA_MPI_COMM_WORLD should match MPI_COMM_WORLD from mpi.h (this avoids linking with the MPI library)
 #define  HECUBA_MPI_COMM_WORLD 0x44000000
