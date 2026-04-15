@@ -50,17 +50,17 @@ public:
         return metadata;
     }
 
-    inline const uint16_t n_elements() const {
+    inline uint16_t n_elements() const {
         return (uint16_t)
                 this->metadata->size();
     }
 
-    inline const uint16_t get_nbytes() const {
+    inline uint16_t get_nbytes() const {
         return total_bytes;
     }
 
     //get_content_size: Return the number of bytes to contain a 'serialized' TupleRow content
-    const uint64_t get_content_size(const TupleRow *row) const;
+    uint64_t get_content_size(const TupleRow *row) const;
     std::vector<uint32_t> get_content_sizes(const TupleRow* row) const;
     void encode(const TupleRow *row, void *dest) const;
     TupleRow * decode(const void *encoded_buff) const;

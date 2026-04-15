@@ -177,12 +177,12 @@ CacheTable::~CacheTable() {
 }
 
 
-const void CacheTable::flush_elements() const {
+void CacheTable::flush_elements() const {
     DBG(" Flushing "<<get_metadata()->get_table_name());
     this->writer->flush_elements();
 }
 
-const void CacheTable::wait_elements() const {
+void CacheTable::wait_elements() const {
     DBG(" Waiting "<<get_metadata()->get_table_name());
     this->writer->wait_writes_completion();
 }

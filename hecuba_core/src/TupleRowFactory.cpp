@@ -994,7 +994,7 @@ std::vector <uint32_t> TupleRowFactory::get_content_sizes(const TupleRow* row) c
     return elements_size;
 }
 
-const uint64_t TupleRowFactory::get_content_size(const TupleRow* row) const {
+uint64_t TupleRowFactory::get_content_size(const TupleRow* row) const {
     std::vector<uint32_t> s = get_content_sizes(row);
     uint64_t res = 0;
     for (uint32_t i: s) {

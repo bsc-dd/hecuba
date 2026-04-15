@@ -73,7 +73,7 @@ public:
         return this->payload->ptr_length;
     }
 
-    inline const uint16_t n_elem() const {
+    inline uint16_t n_elem() const {
         return (uint16_t) metadatas->size();
     }
 

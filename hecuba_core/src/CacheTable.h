@@ -31,8 +31,8 @@ public:
         return table_metadata;
     }
 
-    const void flush_elements() const;
-    const void wait_elements() const ;
+    void flush_elements() const;
+    void wait_elements() const ;
 
     /*** TupleRow ops ***/
 
