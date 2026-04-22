@@ -85,6 +85,10 @@ class StorageNumpy:virtual public IStorage {
             if (this->data != nullptr)
                 free(this->data);
             this->data = malloc(numpy_size);
+            if (this->data == NULL) {
+                std::cerr << "[ERROR] StorageNumpy::setNumpy(src, metas,dtype). Unable to allocate "<< numpy_size << " bytes" << std::endl;
+                exit(1);
+            }
             memcpy(this->data, datasrc, numpy_size);
         }
 
@@ -107,6 +111,10 @@ class StorageNumpy:virtual public IStorage {
             if (this->data != nullptr)
                 free(this->data);
             this->data = malloc(numpy_metas.get_array_size());
+            if (this->data == NULL) {
+                std::cerr << "[ERROR] StorageNumpy::setNumpy(). Unable to allocate "<< numpy_metas.get_array_size()<< " bytes" << std::endl;
+                exit(1);
+            }
             std::list<std::vector<uint32_t>> coord = {};
             DBG("StorageNumpy:setNumpy: launching read from cassandra ");
             arrayStore->read_numpy_from_cas_by_coords(getStorageID(), numpy_metas, coord, data);
@@ -122,6 +130,10 @@ class StorageNumpy:virtual public IStorage {
 
             // Make a copy of 'datasrc'
             this->data = malloc(numpy_size);
+            if (this->data == NULL) {
+                std::cerr << "[ERROR] StorageNumpy constructor copy. Unable to allocate "<< numpy_size << " bytes" << std::endl;
+                exit(1);
+            }
             memcpy(this->data, src.data, numpy_size);
 
 	    this->arrayStore = src.arrayStore;
@@ -137,6 +149,10 @@ class StorageNumpy:virtual public IStorage {
             this->numpy_metas=w.numpy_metas;
             uint64_t numpy_size = extractNumpyMetaData(metas, numpy_metas.typekind, this->numpy_metas);
             this->data = malloc(numpy_size);
+            if (this->data == NULL) {
+                std::cerr << "[ERROR] StorageNumpy assignment operator. Unable to allocate "<< numpy_size << " bytes" << std::endl;
+                exit(1);
+            }
             memcpy(this->data, w.data, numpy_size);
 	    this->arrayStore = w.arrayStore;
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
@@ -293,6 +309,10 @@ class StorageNumpy:virtual public IStorage {
             if (this->data)
                 free(this->data);
             this->data = malloc(numpy_metas.get_array_size());
+            if (this->data == NULL) {
+                std::cerr << "[ERROR] StorageNumpy poll. Unable to allocate "<< numpy_metas.get_array_size()<< " bytes" << std::endl;
+                exit(1);
+            }
             this->arrayStore->getReadCache()->poll(UUID::UUID2str(getStorageID()).c_str(), (char*)data, numpy_metas.get_array_size());
         }
 
@@ -356,15 +376,27 @@ class StorageNumpy:virtual public IStorage {
 
             //std::cout<< "DEBUG: HecubaSession::registerNumpy BEGIN "<< name << UUID::UUID2str(uuid)<<std::endl;
             DBG("StorageNumpy::registerNumpy: name: " << name <<" UUID " << UUID::UUID2str(uuid));
-            void *keys = std::malloc(sizeof(uint64_t *));
+            void *keys = malloc(sizeof(uint64_t *));
+            if (keys == NULL) {
+                std::cerr << "[ERROR] StorageNumpy registerNumpy. Unable to allocate "<< sizeof(uint64_t*) << " bytes for keys" << std::endl;
+                exit(1);
+            }
             uint64_t *c_uuid = (uint64_t *) malloc(sizeof(uint64_t) * 2);//new uint64_t[2];
+            if (c_uuid == NULL) {
+                std::cerr << "[ERROR] StorageNumpy registerNumpy. Unable to allocate "<< sizeof(uint64_t*)*2 << " bytes for uuid" << std::endl;
+                exit(1);
+            }
             c_uuid[0] = *uuid;
             c_uuid[1] = *(uuid + 1);
 
 
             std::memcpy(keys, &c_uuid, sizeof(uint64_t *));
 
-            char *c_name = (char *) std::malloc(name.length() + 1);
+            char *c_name = (char *) malloc(name.length() + 1);
+            if (c_name == NULL) {
+                std::cerr << "[ERROR] StorageNumpy registerNumpy. Unable to allocate "<< (name.length() + 1) << " bytes for name" << std::endl;
+                exit(1);
+            }
             std::memcpy(c_name, name.c_str(), name.length() + 1);
 
             //COPY VALUES
@@ -391,7 +423,15 @@ class StorageNumpy:virtual public IStorage {
 
             //allocate plus the bytes counter
             unsigned char *byte_array = (unsigned char *) malloc(size+ sizeof(uint64_t));
+            if (byte_array == NULL) {
+                std::cerr << "[ERROR] StorageNumpy registerNumpy. Unable to allocate "<< (size+sizeof(uint64_t))<< " bytes for byte_array" << std::endl;
+                exit(1);
+            }
             unsigned char *name_array = (unsigned char *) malloc(size_name);
+            if (name_array == NULL) {
+                std::cerr << "[ERROR] StorageNumpy registerNumpy. Unable to allocate "<< size_name << " bytes for name_array" << std::endl;
+                exit(1);
+            }
 
 
             // copy table name
@@ -433,8 +473,16 @@ class StorageNumpy:virtual public IStorage {
 
             int offset_values = 0;
             char *values = (char *) malloc(sizeof(char *)*4);
+            if (values == NULL) {
+                std::cerr << "[ERROR] StorageNumpy registerNumpy. Unable to allocate "<< sizeof(char*)*4<< " bytes for values" << std::endl;
+                exit(1);
+            }
 
             uint64_t *base_numpy = (uint64_t *) malloc(sizeof(uint64_t) * 2);//new uint64_t[2];
+            if (base_numpy == NULL) {
+                std::cerr << "[ERROR] StorageNumpy registerNumpy. Unable to allocate "<< sizeof(uint64_t)*2<< " bytes for base_numpy" << std::endl;
+                exit(1);
+            }
             memcpy(base_numpy, c_uuid, sizeof(uint64_t)*2);
             //std::cout<< "DEBUG: HecubaSession::registerNumpy &base_numpy = "<<base_numpy<<std::endl;
             std::memcpy(values, &base_numpy, sizeof(uint64_t *));  // base_numpy
@@ -446,6 +494,10 @@ class StorageNumpy:virtual public IStorage {
             DBG("StorageNumpy::registerNumpy before getClassName");
             const char*  class_nameSRC = getIdModel().c_str();
             char *class_name=(char*)malloc(strlen(class_nameSRC)+1);
+            if (class_name == NULL) {
+                std::cerr << "[ERROR] StorageNumpy registerNumpy. Unable to allocate "<< (strlen(class_nameSRC)+1)<< " bytes for class_name" << std::endl;
+                exit(1);
+            }
             strcpy(class_name, class_nameSRC);
             //std::cout<< "DEBUG: HecubaSession::registerNumpy &class_name = "<<class_name<<std::endl;
             memcpy(values+offset_values, &class_name, sizeof(unsigned char *)); //class_name
