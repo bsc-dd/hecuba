@@ -106,6 +106,7 @@ WriterThread::~WriterThread() {
 /* Queue a new pair {keys, values} into the 'data' queue to be executed later.
  * Args are copied, therefore they may be deleted after calling this method. */
 void WriterThread::queue_async_query( Writer* w, const TupleRow *keys, const TupleRow *values) {
+    try {
     std::tuple<Writer*, const TupleRow *, const TupleRow *> item = std::make_tuple(w, keys, new TupleRow(values));
 
     //std::cout<< "  Writer::flushing item created pair"<<std::endl;
@@ -114,6 +115,12 @@ void WriterThread::queue_async_query( Writer* w, const TupleRow *keys, const Tup
 	    std::cerr<<"WARN: WriterThread::queue_async_query: data capacity is "<<data.size()<<" close to full. Maybe increasing WRITE_BUFFER_SIZE is required."<<std::endl;
     }
     sempending_data->release(); //One more pending msg
+    }catch (std::exception &e) {
+            std::cerr << "WriterThread.cpp:: queue_async_query " <<std::endl;
+            std::cerr << e.what();
+            std::cerr << "I am process ID "<<  getpid() << std::endl;
+            throw e;
+    };
 }
 
 void WriterThread::callback(CassFuture *future, void *ptr) {

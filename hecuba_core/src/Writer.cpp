@@ -406,6 +406,7 @@ bool Writer::is_write_completed() const {
 
 // wait for callbacks execution for all sent write requests
 void Writer::wait_writes_completion(void) {
+    try{
     HecubaExtrae_event(HECUBACASS_NCALLBACKS, ncallbacks);
     HecubaExtrae_event(HECUBADBG, HECUBA_FLUSHELEMENTS);
     flush_dirty_blocks();
@@ -416,6 +417,12 @@ void Writer::wait_writes_completion(void) {
     HecubaExtrae_event(HECUBADBG, HECUBA_END);
     HecubaExtrae_event(HECUBACASS_NCALLBACKS, 0);
     //std::cout<< "Writer::wait_writes_completion2* Waiting for "<< data.size() << " Pending "<<ncallbacks<<" callbacks" <<" inflight"<<std::endl;
+    } catch (std::exception &e) {
+        std::cerr << "Writer.cpp:: wait_writes_completion 2Error writing" <<std::endl;
+        std::cerr << e.what();
+        std::cerr << "I am process ID "<<  getpid() << std::endl;
+        throw e;
+    };
 }
 
 
@@ -435,6 +442,7 @@ void Writer::disable_lazy_write(void) {
 
 void Writer::write_to_cassandra(const TupleRow *keys, const TupleRow *values) {
 
+    try{
     if (lazy_write_enabled) {
         //put into dirty_blocks. Skip the repeated 'keys' requests replacing the value.
         tbb::concurrent_hash_map <const TupleRow*, const TupleRow*, Writer::HashCompare>::accessor a;
@@ -457,6 +465,12 @@ void Writer::write_to_cassandra(const TupleRow *keys, const TupleRow *values) {
     } else {
         queue_async_query(keys, values);
     }
+    }catch (std::exception &e) {
+                std::cerr << "Writer.cpp::write_to_cassandra Error writing" <<std::endl;
+                std::cerr << e.what();
+                std::cerr << "I am process ID "<<  getpid() << std::endl;
+                throw e;
+    };
 }
 
 void Writer::write_to_cassandra(void *keys, void *values) {
@@ -543,7 +557,14 @@ void Writer::queue_async_query(const TupleRow* keys, const TupleRow* values){
     if (!disable_timestamps) queued_keys->set_timestamp(timestamp_gen->next()); // Set write time
 
     ncallbacks++;
+    try {
     WriterThread::get(*myconfig).queue_async_query(this, queued_keys, values);
+    } catch (std::exception &e) {
+                std::cerr << "Writer.cpp:: calling WriterThread::queue_async_query" <<std::endl;
+                std::cerr << e.what();
+                std::cerr << "I am process ID "<<  getpid() << std::endl;
+                throw e;
+    };
 }
 
 CassSession* Writer::get_session() const {
