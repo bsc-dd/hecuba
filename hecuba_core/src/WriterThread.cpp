@@ -20,7 +20,6 @@ WriterThread& WriterThread::get(std::map<std::string, std::string>&config) {
 WriterThread::WriterThread(std::map<std::string, std::string>& config):
     sempending_data(new Semaphore(0)),
     ncallbacks(0),
-    error_count(0),
 #ifdef EXTRAE
     msgid(0),
 #endif /* EXTRAE */
@@ -124,10 +123,10 @@ void WriterThread::queue_async_query( Writer* w, const TupleRow *keys, const Tup
 }
 
 void WriterThread::callback(CassFuture *future, void *ptr) {
-    void **data = reinterpret_cast<void **>(ptr);
+    struct callback_type *data = reinterpret_cast<struct callback_type*>(ptr);
     DBG("WriterThread::callback");
-    assert(data != NULL && data[0] != NULL);
-    WriterThread *WThread = (WriterThread *) data[0];
+    assert(data != NULL && data->writerTH != NULL);
+    WriterThread *WThread = data->writerTH;
     WThread->semmaxcallbacks->release(); // Limit number of callbacks
 
     //std::cout<< "Writer::callback"<< std::endl;
@@ -139,79 +138,72 @@ void WriterThread::callback(CassFuture *future, void *ptr) {
         size_t l;
         cass_future_error_message(future, &dmsg, &l);
         std::string msg2(dmsg, l);
-        WThread->set_error_occurred("Writer callback: " + message + "  " + msg2, data[1], data[2], data[3]);
+        WThread->set_error_occurred("Writer callback: " + message + "  " + msg2, data);
     } else {
         DBG("WriterThread::callback. Cassandra returns OK");
-        delete ((TupleRow *) data[2]);
-        delete ((TupleRow *) data[3]);
+        delete (data->keys);
+        delete (data->values);
         WThread->ncallbacks--;
-        ((Writer*) data[1])->finish_async_call(); //Notify Writer of another finished request.
+        data->w->finish_async_call(); //Notify Writer of another finished request.
 #ifdef EXTRAE
     struct timespec t2;
     clock_gettime(CLOCK_REALTIME, &t2);
-    long long int accum = (long long int )data[5];
+    long long int accum = data->start_time;
     accum = (((long long int)t2.tv_sec)*1000000000L+t2.tv_nsec) - accum;
     HecubaExtrae_event(HECUBACASS_RESPONSETIME, accum);
 #endif /* EXTRAE */
+        free(data); // 'data' is only released if successful (otherwise is reused)
     }
-    HecubaExtrae_comm(EXTRAE_USER_RECV, (long long int)data[4]);
-    free(data);
+    HecubaExtrae_comm(EXTRAE_USER_RECV, (long long int)data->msgid);
 }
 
-void WriterThread::async_query_execute(Writer* w, const TupleRow *keys, const TupleRow *values) {
-
-    CassStatement *statement = w->bind_cassstatement(keys, values);
+void WriterThread::async_query_execute(struct callback_type *data) {
+    CassStatement *statement = data->w->bind_cassstatement(data->keys, data->values);
 
     semmaxcallbacks->acquire(); // Limit number of callbacks
 
     HecubaExtrae_event(HECUBACASS, HBCASS_SENDDRIVER);
-#ifdef EXTRAE
-    //const void **data = (const void **) malloc(sizeof(void *) * 5);
-    const void **data = (const void **) malloc(sizeof(void *) * 6);
-#else
-    const void **data = (const void **) malloc(sizeof(void *) * 4);
-#endif
-    data[0] = this;
-    data[1] = w;
-    data[2] = keys;
-    data[3] = values;
-#ifdef EXTRAE
-    msgid++;
-    data[4] = (void*)((((long long int)getpid())<<32) | msgid);
-    HecubaExtrae_comm(EXTRAE_USER_SEND, (long long int)data[4]); // parameter is used to  identify the callback (lower 12 bits from data will be zeroed and then the 12 lower bits from PID added)
-    struct timespec t2;
-    clock_gettime(CLOCK_REALTIME, &t2);
-    data[5] = (void*)(((long long int)t2.tv_sec)*1000000000L+t2.tv_nsec);
-#endif /* EXTRAE */
-    CassFuture *query_future = cass_session_execute(w->get_session(), statement);
+    CassFuture *query_future = cass_session_execute(data->w->get_session(), statement);
     HecubaExtrae_event(HECUBACASS, HBCASS_END);
 
 
     cass_statement_free(statement);
 
 
-    cass_future_set_callback(query_future, callback, data);
+    cass_future_set_callback(query_future, callback, (void*)data);
     cass_future_free(query_future);
 }
 
-void WriterThread::set_error_occurred(std::string error, const void* writer_p, const void *keys_p, const void *values_p) {
-    ++error_count;
+void WriterThread::async_query_execute(Writer* w, const TupleRow *keys, const TupleRow *values) {
 
-    if (error_count > MAX_ERRORS) {
+    struct callback_type *data = (struct callback_type*) malloc(sizeof(struct callback_type));
+    data->writerTH = this;
+    data->w = w;
+    data->keys = keys;
+    data->values = values;
+    data->retries = 0; //number of retries
+#ifdef EXTRAE
+    msgid++;
+    data->msgid = ((((long long int)getpid())<<32) | msgid);
+    HecubaExtrae_comm(EXTRAE_USER_SEND, data->msgid); // parameter is used to  identify the callback (lower 12 bits from data will be zeroed and then the 12 lower bits from PID added)
+    struct timespec t2;
+    clock_gettime(CLOCK_REALTIME, &t2);
+    data->start_time = ((long long int)t2.tv_sec)*1000000000L+t2.tv_nsec;
+#endif /* EXTRAE */
+    async_query_execute(data);
+}
+
+void WriterThread::set_error_occurred(std::string error, struct callback_type* data) {
+    if (data->retries > MAX_ERRORS) {
         --ncallbacks;
         throw ModuleException("Try # " + std::to_string(MAX_ERRORS) + " :" + error);
     } else {
-        std::cerr << "Connectivity problems: " << error_count << " (" << error << std::endl;
-        std::cerr << "  WARNING: We can NOT ensure write requests (table: " << ((Writer *)writer_p)->get_metadata()->get_table_name() << ") order->POTENTIAL INCONSISTENCY"<<std::endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        std::cerr << "Connectivity problems: " << data->retries << " (" << error << std::endl;
+        std::cerr << "  WARNING: We can NOT ensure write requests (table: " << data->w->get_metadata()->get_table_name() << ") order->POTENTIAL INCONSISTENCY"<<std::endl;
+        data->retries ++;
     }
 
-    Writer *w = (Writer*) writer_p;
-    const TupleRow *keys = (TupleRow *) keys_p;
-    const TupleRow *values = (TupleRow *) values_p;
-
-    /** write the data which hasn't been written successfully **/
-    async_query_execute(w, keys, values);
+    async_query_execute(data);
 }
 
 /* Returns True if there is still work to do */

@@ -14,6 +14,20 @@ namespace Hecuba {
 
 #define CLONE
 
+class WriterThread;
+
+struct callback_type {  // Structure used to pass information in cassandra callback
+        WriterThread*   writerTH;       //'this'
+        Writer*         w;
+        const TupleRow* keys;
+        const TupleRow* values;
+        uint64_t        retries;
+#ifdef EXTRAE
+        uint32_t        msgid;
+        long long int   start_time;
+#endif /* EXTRAE */
+};
+
 class WriterThread {
     public:
         static WriterThread& get(std::map<std::string, std::string>& config);
@@ -28,9 +42,10 @@ class WriterThread {
         ~WriterThread();
         bool call_async();
         void async_query_thread_code();
-        void set_error_occurred(std::string error, const void *writer_p, const void *keys, const void *values);
+        void set_error_occurred(std::string error, struct callback_type* data);
         static void callback(CassFuture *future, void *ptr);
         void async_query_execute(Writer* w, const TupleRow *keys, const TupleRow *values);
+        void async_query_execute(struct callback_type *data);
         void wait_writes_completion(void);
         void create_working_threads(void);
 
@@ -40,7 +55,6 @@ class WriterThread {
 
         Semaphore* sempending_data;  // Synchronization semaphore to wait for new elements in 'data'
         Semaphore* semmaxcallbacks; //Resource limiting Semaphore to limit the number of in_flight callbacks.
-        uint32_t error_count;
         uint32_t max_calls;
         std::atomic<uint32_t> ncallbacks;
 #ifdef EXTRAE
