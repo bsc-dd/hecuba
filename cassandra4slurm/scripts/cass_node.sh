@@ -77,11 +77,12 @@ if [ "$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips | grep $HOSTNAMEIP)" != "" ]; 
     if [ ${DYNAMIC_AFFINITY,,} == "true" ]; then
         export CASSANDRYN=$HECUBA_ROOT/lib/libcassandryn.so
     fi
+    echo "Host $(hostname) storing Cassandra output in [$CASSANDRA_LOG_DIR/cassandra.out]"
     $CASS_HOME/bin/cassandra \
 	    -Dcassandra.consistent.rangemovement=false \
 	    -Dcassandra.config=file://$C4S_HOME/conf/${UNIQ_ID}/cassandra-${HOSTNAMEIP}.yaml \
 	    -p $CASSPIDFILE \
-	    | awk "{ print  \""$HOSTNAMEIP"\",\$0 }"
+	    | awk "{ print  \""$HOSTNAMEIP"\",\$0 }" > $CASSANDRA_LOG_DIR/cassandra.out
 	    #-f  \
     # Wait for cassandra to start up and write the PID file
     while [ ! -s $CASSPIDFILE ]; do
