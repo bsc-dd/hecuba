@@ -62,6 +62,7 @@ public:
     bool is_write_completed() const;
     bool is_stream_out_enable();
     std::map<std::string,rd_kafka_topic_t*>&getKafkaTopics();
+    const std::string& getConfigValue(const std::string& s) const;
 
 
 private:

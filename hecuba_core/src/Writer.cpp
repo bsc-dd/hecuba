@@ -128,6 +128,10 @@ std::map<std::string,rd_kafka_topic_t*>&Writer::getKafkaTopics() {
 	return kafkaTopics;
 }
 
+const std::string& Writer::getConfigValue(const std::string& s) const  {
+        return myconfig->at(s);
+}
+
 Writer::~Writer() {
     DBG( " WRITER: Destructor "<< table_metadata->get_keyspace()<<"."<<table_metadata->get_table_name()<<" @"<< this);
     wait_writes_completion(); // WARNING! It is necessary to wait for ALL CALLBACKS to finish, because the 'data' structure required by the callback will dissapear with this destructor

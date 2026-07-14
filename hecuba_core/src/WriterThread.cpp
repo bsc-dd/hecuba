@@ -97,6 +97,9 @@ WriterThread::~WriterThread() {
     sempending_data->release();// Unblock the async_query_thread (which does not have any work)
     this->async_query_thread.join();
     //waitpid(async_query_threadpid, NULL, 0); // TODO: CHECK ERRORS!
+    if (data_close_to_max_times>0) {
+	    std::cerr<<"WARN: WriterThread::queue_async_query: data capacity was close to "<<data.size()<<" "<< data_close_to_max_times<<" times. Maybe increasing WRITE_BUFFER_SIZE is required."<<std::endl;
+    }
     delete(sempending_data);
     delete(semmaxcallbacks);
 }
@@ -109,9 +112,25 @@ void WriterThread::queue_async_query( Writer* w, const TupleRow *keys, const Tup
     std::tuple<Writer*, const TupleRow *, const TupleRow *> item = std::make_tuple(w, keys, new TupleRow(values));
 
     //std::cout<< "  Writer::flushing item created pair"<<std::endl;
+#if 1
+    if (!data.try_push(item)) { // 'data' BLOCKS thread if full capacity is achieved, therefore yield the CPU to Cassandra (this is useful in the shared scenario when appl and cassandra are sharing nodes
+        HecubaExtrae_event(HECUBAFULLBUFFER, 1);
+        cpu_set_t app_mask; // Original APPLICATION mask
+        int is_remove_needed=0;
+        if (w->getConfigValue(std::string("dynamic_affinity")) == std::string("true")) {
+                sched_getaffinity(0, sizeof(app_mask), &app_mask);
+                if (HecubaSession::get().addCassandraAffinity(&app_mask) >=0) is_remove_needed = 1;
+        }
+        data.push(item);
+        if (is_remove_needed) HecubaSession::get().removeCassandraAffinity(&app_mask);
+        HecubaExtrae_event(HECUBAFULLBUFFER, 0);
+    }
+#else
     data.push(item);
+#endif
     if (data.size() ==  (data.capacity()-1)) {
-	    std::cerr<<"WARN: WriterThread::queue_async_query: data capacity is "<<data.size()<<" close to full. Maybe increasing WRITE_BUFFER_SIZE is required."<<std::endl;
+        data_close_to_max_times ++;
+	    //std::cerr<<"WARN: WriterThread::queue_async_query: data capacity is "<<data.size()<<" close to full. Maybe increasing WRITE_BUFFER_SIZE is required."<<std::endl;
     }
     sempending_data->release(); //One more pending msg
     }catch (std::exception &e) {
@@ -127,7 +146,7 @@ void WriterThread::callback(CassFuture *future, void *ptr) {
     DBG("WriterThread::callback");
     assert(data != NULL && data->writerTH != NULL);
     WriterThread *WThread = data->writerTH;
-    WThread->semmaxcallbacks->release(); // Limit number of callbacks
+    //WThread->semmaxcallbacks->release(); // Limit number of callbacks
 
     //std::cout<< "Writer::callback"<< std::endl;
     CassError rc = cass_future_error_code(future);
@@ -143,6 +162,7 @@ void WriterThread::callback(CassFuture *future, void *ptr) {
         DBG("WriterThread::callback. Cassandra returns OK");
         delete (data->keys);
         delete (data->values);
+        WThread->semmaxcallbacks->release(); // Limit number of callbacks. Release the semaphore only when the query ends ok
         WThread->ncallbacks--;
         data->w->finish_async_call(); //Notify Writer of another finished request.
 #ifdef EXTRAE
@@ -151,6 +171,9 @@ void WriterThread::callback(CassFuture *future, void *ptr) {
     long long int accum = data->start_time;
     accum = (((long long int)t2.tv_sec)*1000000000L+t2.tv_nsec) - accum;
     HecubaExtrae_event(HECUBACASS_RESPONSETIME, accum);
+    HecubaExtrae_event(HECUBACASS_RESPONSETIME, 0);
+    if (data->retries > 0)
+        HecubaExtrae_event(HECUBACASS_RETRY_NUMBER, data->retries);
 #endif /* EXTRAE */
         free(data); // 'data' is only released if successful (otherwise is reused)
     }
@@ -160,7 +183,7 @@ void WriterThread::callback(CassFuture *future, void *ptr) {
 void WriterThread::async_query_execute(struct callback_type *data) {
     CassStatement *statement = data->w->bind_cassstatement(data->keys, data->values);
 
-    semmaxcallbacks->acquire(); // Limit number of callbacks
+    //semmaxcallbacks->acquire(); // Limit number of callbacks. This function is called for the retries by the driver threads. Move the wait of the semaphore to the function that is called for the initial try and do the signal only when the query success
 
     HecubaExtrae_event(HECUBACASS, HBCASS_SENDDRIVER);
     CassFuture *query_future = cass_session_execute(data->w->get_session(), statement);
@@ -184,12 +207,13 @@ void WriterThread::async_query_execute(Writer* w, const TupleRow *keys, const Tu
     data->retries = 0; //number of retries
 #ifdef EXTRAE
     msgid++;
-    data->msgid = ((((long long int)getpid())<<32) | msgid);
+    data->msgid = ((((unsigned long long int)getpid())<<32) | msgid);
     HecubaExtrae_comm(EXTRAE_USER_SEND, data->msgid); // parameter is used to  identify the callback (lower 12 bits from data will be zeroed and then the 12 lower bits from PID added)
     struct timespec t2;
     clock_gettime(CLOCK_REALTIME, &t2);
-    data->start_time = ((long long int)t2.tv_sec)*1000000000L+t2.tv_nsec;
+    data->start_time = ((unsigned long long int)t2.tv_sec)*1000000000L+t2.tv_nsec;
 #endif /* EXTRAE */
+    semmaxcallbacks->acquire(); // Limit number of callbacks. Wait here on the semaphore to do it just once per query (not per retry)
     async_query_execute(data);
 }
 
@@ -198,8 +222,8 @@ void WriterThread::set_error_occurred(std::string error, struct callback_type* d
         --ncallbacks;
         throw ModuleException("Try # " + std::to_string(MAX_ERRORS) + " :" + error);
     } else {
-        std::cerr << "Connectivity problems: " << data->retries << " (" << error << std::endl;
-        std::cerr << "  WARNING: We can NOT ensure write requests (table: " << data->w->get_metadata()->get_table_name() << ") order->POTENTIAL INCONSISTENCY"<<std::endl;
+        //std::cerr << "Connectivity problems: " << data->retries << " (" << error << std::endl;
+        //std::cerr << "  WARNING: We can NOT ensure write requests (table: " << data->w->get_metadata()->get_table_name() << ") order->POTENTIAL INCONSISTENCY"<<std::endl;
         data->retries ++;
     }
 

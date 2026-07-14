@@ -62,6 +62,7 @@ class WriterThread {
 #endif /*EXTRAE*/
 
         tbb::concurrent_bounded_queue <std::tuple<Writer*, const TupleRow *, const TupleRow *>> data;
+        uint64_t data_close_to_max_times=0;      //Number of times the buffer was almost full (data.size() == (data.capacity()-1))
 
 };
 };

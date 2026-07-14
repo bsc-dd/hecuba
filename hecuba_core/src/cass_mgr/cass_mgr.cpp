@@ -40,6 +40,8 @@ struct timeval diff;
 struct timeval acum;
 unsigned long num_changes=0;
 unsigned long num_failed_changes=0;
+unsigned long num_adds=0;
+unsigned long num_removes=0;
 
 cpu_set_t cassCPU_ONE;  //HARDCODED mask with ALL cpus set
 cpu_set_t cassCPU_ZERO; //HARDCODED mask without any cpu
@@ -423,8 +425,9 @@ int main(int argc, char *argv[])
 		}
 
 		// Run through the existing connections looking for data to read
-		for(int i = 0; i < fd_max; i++) {
+		for(int i = 0; (i < fd_max) && (poll_count>0); i++) {
 			if (FD_ISSET(i, &read_fds)) {
+                                poll_count--;
 				if (i == sockfd) {
 					// If listener is ready to read, handle new connection
 					sin_size = sizeof their_addr;
@@ -466,12 +469,20 @@ int main(int argc, char *argv[])
 						del_from_pfds(&pfds, i, &fd_max);
 
 					} else {
+                        if (numbytes != sizeof(msg)) {
+                                //std::cerr<<" cass_mngr: Ooops... received an incomplete message ["<<numbytes<<"/"<<sizeof(msg)<<" bytes] IGNORED"<<std::endl;
+                                continue;
+                        }
+                        if (msg.magic != 0xDEADBEEF) {
+                                //std::cerr<<" cass_mngr: Ooops... received a malformed message IGNORED"<<std::endl;
+                                continue;
+                        }
 						// We got some good data from a client
 
 						new_fd = i;
 						int cmd = msg.operation;
 						if ( cmd > END ) {
-							DBG("ERROR: Unknown command received ["<< cmd << "]. Ignored.");
+							std::cerr<<"ERROR: Unknown command received ["<< cmd << "]. Ignored."<<std::endl;
 							continue;
 						}
 						DBG(" Received cmd: " << std::string(cmd_str[cmd]) << " from "<< new_fd);
@@ -479,6 +490,7 @@ int main(int argc, char *argv[])
 							case ADD:
 								{
 									int set_size;
+                                                                        num_adds++;
 									set_size = msg.cpusetsize;
 									DBG("server: received size "<<set_size<<"/"<<sizeof(cpu_set_t));
 									addMask(&msg.set);
@@ -487,6 +499,7 @@ int main(int argc, char *argv[])
 							case REMOVE:
 								{
 									int set_size;
+                                                                        num_removes++;
 									set_size = msg.cpusetsize;
 									DBG("server: received size "<<set_size<<"/"<<sizeof(cpu_set_t));
 									removeMask(&msg.set);
@@ -502,6 +515,11 @@ int main(int argc, char *argv[])
                                 if (!clients) finish = 1;
 								break;
                                 }
+                            default:
+                                {
+							    std::cerr<<"ERROR: Unknown command received ["<< cmd << "]. Ignored."<<std::endl;
+                                continue;
+						        }
 						}
 					}
 				}
@@ -520,6 +538,6 @@ int main(int argc, char *argv[])
 	}
 
 	unmap_cassandra_snoopy(childs_to_check_read);
-	std::cerr << " === Finished cassandra manager[" << hostname << "]: Total Time = "<< acum.tv_sec <<"s "<< acum.tv_usec<<"us to execute "<<(num_changes-num_failed_changes)<<"/"<<num_changes<<" sched_setaffinity" <<std::endl;
+	std::cerr << " === Finished cassandra manager[" << hostname << "]: Total Time = "<< acum.tv_sec <<"s Received ADDs="<<num_adds<<" Received DELs="<<num_removes<<" Used "<< acum.tv_usec<<"us to execute "<<(num_changes-num_failed_changes)<<"/"<<num_changes<<" sched_setaffinity" <<std::endl;
 	return 0;
 }

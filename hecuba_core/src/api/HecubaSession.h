@@ -33,8 +33,8 @@ public:
     bool registerClassName(const std::string& class_name);
     int wait_writes_completion(void); /* Wait for the finalization of any pending write operation */
     void getCurrentCassandraAffinity(cpu_set_t* currentMask) const ;
-    cpu_set_t addCassandraAffinity(cpu_set_t* newMask);
-    cpu_set_t removeCassandraAffinity(cpu_set_t* newMask);
+    int addCassandraAffinity(cpu_set_t* newMask);
+    int removeCassandraAffinity(cpu_set_t* newMask);
 private:
     int cass_MGR_socket; 	// Socket to connect to cassandra manager
 

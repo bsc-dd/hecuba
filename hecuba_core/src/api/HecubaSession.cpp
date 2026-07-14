@@ -17,6 +17,7 @@
 
 #include <iostream>
 
+ #include <sys/time.h>
  #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -205,11 +206,18 @@ int HecubaSession::sendCassandraMgr(int cmd, const cpu_set_t* newMask) const {
 	}
 	numbytes = send(cass_MGR_socket, &msg, sizeof(msg), 0);
 	if (numbytes<0) {
-        //yolandab to check if the error was when ending or we left something without writing
-        sprintf(buf, "HecubaSession::sendCassandraMgr: send msg %d",cmd);
-		perror(buf);
-		return -1;
+                if ((errno != EAGAIN) && (errno != EWOULDBLOCK)) {
+                        //yolandab to check if the error was when ending or we left something without writing
+                        sprintf(buf, "HecubaSession::sendCassandraMgr: send msg %d",cmd);
+                        perror(buf);
+                } else { // Send WOULD BLOCK! ignore send
+                }
+                return -1;
 	}
+        if (numbytes != sizeof(msg)) {
+	        //std::cerr<< "HecubaSession::sendCassandraMgr: Sent INCOMPLETE message ["<< numbytes<<"/"<<std::dec<<sizeof(msg)<<" bytes] "<<std::endl;
+                return -1;
+        }
 	DBG("Sent message to "<< cass_MGR_socket <<" with "<<std::dec<<sizeof(msg)<<" bytes using "<< std::dec<<numbytes << " bytes");
 	return 1;
 }
@@ -228,24 +236,24 @@ int HecubaSession::waitCassandraMgr() const {
 	return 1;
 }
 
-cpu_set_t HecubaSession::addCassandraAffinity(cpu_set_t* newMask) {
-   if (cassandraPID == 0) return currentCassandraMask; // Affinity is disabled
-   if (newMask == NULL)   return currentCassandraMask;
+int HecubaSession::addCassandraAffinity(cpu_set_t* newMask) {
+   if (cassandraPID == 0) return -1; // Affinity is disabled
+   if (newMask == NULL)   return -1;
    HecubaExtrae_event(HECUBADBG, HECUBA_ADDCASSAFF);
    DBG(" Adding mask [" << CPUSET2INT(newMask) <<"]");
-   sendCassandraMgr(ADD, newMask);
+   int status = sendCassandraMgr(ADD, newMask);
    HecubaExtrae_event(HECUBADBG, HBCASS_END);
-   return currentCassandraMask;
+   return status;
 }
 
-cpu_set_t HecubaSession::removeCassandraAffinity(cpu_set_t* newMask) {
-   if (cassandraPID == 0) return currentCassandraMask; // Affinity is disabled
+int HecubaSession::removeCassandraAffinity(cpu_set_t* newMask) {
+   if (cassandraPID == 0) return -1; // Affinity is disabled
    DBG(" Removing mask [" << CPUSET2INT(newMask) <<"]");
    HecubaExtrae_event(HECUBADBG, HECUBA_REMCASSAFF);
-   sendCassandraMgr(REMOVE, newMask);
+   int status = sendCassandraMgr(REMOVE, newMask);
    //waitCassandraMgr(); // No wait is required as the cores for the app are unchanged and cassandra will eventually leave them alone
    HecubaExtrae_event(HECUBADBG, HBCASS_END);
-   return currentCassandraMask;
+   return status;
 }
 
 void HecubaSession::parse_environment(config_map &config) {
@@ -644,6 +652,10 @@ HecubaSession::HecubaSession() {
 			exit(-1);
 		};
 		DBG( " Connected to Cassandra Manager " );
+                if (fcntl(cass_MGR_socket, F_SETFL, O_NONBLOCK) <0) {
+			perror(" Unable to change to a NON BLOCKING socket to Cassandra Manager.");
+			exit(-1);
+                }
 	}
     }
 #endif
@@ -657,10 +669,11 @@ numpyMetaWriter = numpyMetaAccess->get_writer();
 
 int HecubaSession::wait_writes_completion(void) {
     cpu_set_t app_mask; // Original APPLICATION mask 
+    int is_remove_needed=0;
 
     if (config["dynamic_affinity"] == std::string("true")) {
         sched_getaffinity(0, sizeof(app_mask), &app_mask);
-        addCassandraAffinity(&app_mask);
+        if (addCassandraAffinity(&app_mask) >=0) is_remove_needed = 1;
     }
     std::lock_guard<decltype(mxalive_objects)> lock{mxalive_objects};
 
@@ -682,17 +695,25 @@ int HecubaSession::wait_writes_completion(void) {
             DBG( "  LIST DEL AFTER: "<< t.get() <<" ("<<t.use_count()<<")");
         }
     }
-    if (config["dynamic_affinity"] == std::string("true")) {
-        removeCassandraAffinity(&app_mask);
-    }
+    if (is_remove_needed) removeCassandraAffinity(&app_mask);
     return 0;
 }
 
 HecubaSession::~HecubaSession() {
     DBG(" Destructor ");
     HecubaExtrae_event(HECUBADBG, HECUBA_SESSIONDESTROY);
+char hostname[256];
+	gethostname(&hostname[0], 256);
+    
+struct timeval startTV;
+struct timeval stopTV;
+struct timeval diff;
 
+	gettimeofday(&startTV, NULL);
     wait_writes_completion();
+	gettimeofday(&stopTV, NULL);
+	timersub(&stopTV, &startTV, &diff);
+	std::cerr << " HecubaSession::~HecubaSession: wait_writes_completion [" << hostname << "]: Total Time Used = "<< diff.tv_sec <<"s "<< diff.tv_usec<<"us to execute "<<std::endl;
 
     if (numpyMetaAccess->can_table_meta_be_freed()) { // TODO FIX THIS THING
         delete(numpyMetaAccess);

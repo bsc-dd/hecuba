@@ -76,6 +76,10 @@ namespace Hecuba {
 
 #define HECUBACASS_NCALLBACKS     47000
 
+#define HECUBACASS_RETRY_NUMBER     48000
+
+#define HECUBAFULLBUFFER    49000
+
 #ifdef EXTRAE
 
 // HECUBA_MPI_COMM_WORLD should match MPI_COMM_WORLD from mpi.h (this avoids linking with the MPI library)

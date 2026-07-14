@@ -20,6 +20,7 @@ enum cmd_state {
 extern const char * cmd_str[];
 
 struct message {
+	int 		magic=0xDEADBEEF;
 	int 		operation;
 	int 		cpusetsize;
 	cpu_set_t 	set;
