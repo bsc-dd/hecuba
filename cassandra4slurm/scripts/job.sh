@@ -156,11 +156,11 @@ hostnames2IP $APPFILE
 export APPNODELIST=$(cat $APPFILE | tr '\n' ',' | sed "s/,$//g")
 
 
-DBG " APP_NODES             ="$APP_NODES
-DBG "     CORES x PROCESS   ="$C4S_APP_CORES
-DBG " CASSANDRA_NODES       ="$CASSANDRA_NODES
-DBG "     CORES x CASS_NODE ="$C4S_CASSANDRA_CORES
-DBG " DISJOINT              ="$DISJOINT
+echo " APP_NODES             ="$APP_NODES
+echo "     CORES x PROCESS   ="$C4S_APP_CORES
+echo " CASSANDRA_NODES       ="$CASSANDRA_NODES
+echo "     CORES x CASS_NODE ="$C4S_CASSANDRA_CORES
+echo " DISJOINT              ="$DISJOINT
 
 N_NODES=$(cat $CASSFILE | wc -l)
 
@@ -362,12 +362,13 @@ echo "Checking..."
 RETRY_COUNTER=0
 get_nodes_up $firstnode
 while [ "$NODE_COUNTER" != "$N_NODES" ] && [ $RETRY_COUNTER -lt $RETRY_MAX ]; do
-    echo "$NODE_COUNTER/$N_NODES nodes UP. Retry #$RETRY_COUNTER"
-    echo "Checking..."
+    echo -ne "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b"
+    echo -n "$NODE_COUNTER/$N_NODES nodes UP. Retry #$RETRY_COUNTER"
     sleep 5
     get_nodes_up $firstnode
     ((RETRY_COUNTER++))
 done
+echo -e "\n$NODE_COUNTER/$N_NODES nodes UP."
 if [ "$NODE_COUNTER" == "$N_NODES" ]
 then
     TIME_END=`date +"%T.%3N"`
