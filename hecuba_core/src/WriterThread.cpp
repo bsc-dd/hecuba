@@ -98,7 +98,7 @@ WriterThread::~WriterThread() {
     this->async_query_thread.join();
     //waitpid(async_query_threadpid, NULL, 0); // TODO: CHECK ERRORS!
     if (data_close_to_max_times>0) {
-	    std::cerr<<"WARN: WriterThread::queue_async_query: data capacity was close to "<<data.size()<<" "<< data_close_to_max_times<<" times. Maybe increasing WRITE_BUFFER_SIZE is required."<<std::endl;
+	    std::cerr<<"WARN: WriterThread::queue_async_query: data capacity was close to "<<data.capacity()<<" "<< data_close_to_max_times<<" times. Maybe increasing WRITE_BUFFER_SIZE is required."<<std::endl;
     }
     delete(sempending_data);
     delete(semmaxcallbacks);
@@ -117,12 +117,18 @@ void WriterThread::queue_async_query( Writer* w, const TupleRow *keys, const Tup
         HecubaExtrae_event(HECUBAFULLBUFFER, 1);
         cpu_set_t app_mask; // Original APPLICATION mask
         int is_remove_needed=0;
+        uint32_t userID;
         if (w->getConfigValue(std::string("dynamic_affinity")) == std::string("true")) {
                 sched_getaffinity(0, sizeof(app_mask), &app_mask);
-                if (HecubaSession::get().addCassandraAffinity(&app_mask) >=0) is_remove_needed = 1;
+                try{
+                    userID = HecubaSession::get().getUserID();
+                    if (HecubaSession::get().addCassandraAffinity(userID, &app_mask) >=0) is_remove_needed = 1;
+                } catch(std::out_of_range e) {
+                    std::cerr<<"HecubaSession::getUserID: thread id " << std::this_thread::get_id()<< "is not registered at translation map to user ids" << std::endl;
+                }
         }
         data.push(item);
-        if (is_remove_needed) HecubaSession::get().removeCassandraAffinity(&app_mask);
+        if (is_remove_needed) HecubaSession::get().removeCassandraAffinity(userID, &app_mask);
         HecubaExtrae_event(HECUBAFULLBUFFER, 0);
     }
 #else
@@ -139,6 +145,7 @@ void WriterThread::queue_async_query( Writer* w, const TupleRow *keys, const Tup
             std::cerr << "I am process ID "<<  getpid() << std::endl;
             throw e;
     };
+
 }
 
 void WriterThread::callback(CassFuture *future, void *ptr) {

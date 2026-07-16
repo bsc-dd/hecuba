@@ -14,8 +14,10 @@
 #include <errno.h>
 #include <sys/mman.h>
 
-#include "cassandryn.h"
-char SHM_NAME[255] = SHM_NAME_PREFIX;
+#include "cass_utils.h"
+#include "shared_cass_mgr.h"
+
+char* SHM_NAME = NULL;
 
 // Original functions (real_)
 static int (*real_pthread_create)(pthread_t *, const pthread_attr_t *,
@@ -88,36 +90,12 @@ static void remove_tid(pid_t tid) {
  *  Returns `p`
  */
 static int* init_shared_memory() {
-    char b[512];
-
-    int fd = shm_open(SHM_NAME, O_CREAT |O_EXCL| O_RDWR, 0666);
-    int error = (fd < 0);
-    if (error) {
-        if (errno == EEXIST)  {
-            shm_unlink(SHM_NAME); // Remove shared memory object and create it again
-            fd = shm_open(SHM_NAME, O_CREAT |O_EXCL| O_RDWR, 0666);
-            error = (fd < 0);
-        }
-    }
-    if (error){
-        sprintf(b, "ERROR: cassandryn: Unable to create shared memory [%s]!. Aborting.",SHM_NAME);
-        perror(b);
+    SHM_NAME = get_region_name(SHM_NAME_SNOOPY_PREFIX);
+    int *shared_tids = (int*) map_shared_mem(SHM_NAME, MAX_THREADS*sizeof(int), PROT_WRITE, 1 );
+    if (shared_tids == NULL) {
+        fprintf(stderr, "ERROR: cassandryn: Unable to map shared memory region [%s]\n",SHM_NAME);
         return NULL;
     }
-    if (ftruncate(fd, MAX_THREADS * sizeof(int)) == -1) {
-        sprintf(b, "ERROR: cassandryn: Unable to truncate shared memory [%s]!. Aborting.",SHM_NAME);
-        perror(b);
-        close(fd);
-        return NULL;
-    }
-    shared_tids = mmap(NULL, MAX_THREADS * sizeof(int),
-                       PROT_WRITE, MAP_SHARED, fd, 0);
-    if (shared_tids == MAP_FAILED) {
-        sprintf(b, "ERROR: cassandryn: Unable to mmap shared memory [%s]!. Aborting.",SHM_NAME);
-        perror(b);
-        return NULL;
-    }
-    close(fd);
     for (int i = 0; i < MAX_THREADS; ++i) {
         shared_tids[i] = -1;
     }
@@ -168,13 +146,6 @@ static void __attribute__((constructor)) init() {
     char  log_name[1024];
     char *newID=NULL;
 
-    newID=getenv("UNIQ_ID");
-    if (newID == NULL) {
-        fprintf(stderr, "ERROR: cassandryn: Required UNIQ_ID variable not found. Exitting.\n");
-        return;
-    }
-    sprintf(SHM_NAME, "%s_%s",SHM_NAME_PREFIX, newID);
-
     log_dirname=getenv("CASSANDRA_LOG_DIR");
     if (log_dirname == NULL) {
         log_dirname=".";
@@ -187,12 +158,12 @@ static void __attribute__((constructor)) init() {
         return;
     }
 
+    shared_tids = init_shared_memory();
+    if (shared_tids == NULL) exit(1);
+
     char msg[100];
     sprintf(msg, "CASSANDRYN Started with shared region at [%s]\n", SHM_NAME);
     log_timestamp(msg);
-
-    shared_tids = init_shared_memory();
-    if (shared_tids == NULL) exit(1);
 
     real_pthread_create = intercept_call("pthread_create");
     real_pthread_exit = intercept_call("pthread_exit");
@@ -205,5 +176,6 @@ static void __attribute__((destructor)) finish() {
         munmap(&shared_tids[0], (MAX_THREADS)*sizeof(int));
     }
     shm_unlink(SHM_NAME); // Remove shared memory object
+    free(SHM_NAME);
     fprintf(stderr, "** CASSANDRYN stopped\n");
 }

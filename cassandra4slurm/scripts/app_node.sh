@@ -14,7 +14,7 @@
 ###############################################################################################################
 export C4S_HOME=$HOME/.c4s
 APP_NTASKS=${1}
-UNIQ_ID=${2}
+export UNIQ_ID=${2}
 WITHDLB=${3}
 APP_PATH=$(cat $C4S_HOME/app-"$UNIQ_ID".txt)
 

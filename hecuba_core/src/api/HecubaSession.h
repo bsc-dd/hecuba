@@ -7,6 +7,7 @@
 #include "configmap.h"
 #include "ArrayDataStore.h"
 #include <mutex>
+#include "shared_cass_mgr.h"
 
 namespace Hecuba {
 class HecubaSession {
@@ -33,10 +34,14 @@ public:
     bool registerClassName(const std::string& class_name);
     int wait_writes_completion(void); /* Wait for the finalization of any pending write operation */
     void getCurrentCassandraAffinity(cpu_set_t* currentMask) const ;
-    int addCassandraAffinity(cpu_set_t* newMask);
-    int removeCassandraAffinity(cpu_set_t* newMask);
+    int addCassandraAffinity(uint64_t id, const cpu_set_t* newMask=nullptr);
+    int removeCassandraAffinity(uint64_t id, const cpu_set_t* newMask=nullptr);
+    uint32_t getUserID() const;
 private:
-    int cass_MGR_socket; 	// Socket to connect to cassandra manager
+    struct shared_cass_mgr_data* shared_cass_mgr_region = NULL;
+    std::mutex mxix_shared_cass_mgr_region;
+    std::map<uint64_t, uint32_t> ix_shared_cass_mgr_region;
+    std::map<std::thread::id, uint32_t> thread_2userid;
 
     int setCassandraAfinity(const cpu_set_t* cassandraMask);
     std::mutex mxalive_objects;
@@ -70,8 +75,7 @@ private:
     uint32_t  cassandraPID=0;   // Cassandra process PID
     std::string CPUSET2INT(const cpu_set_t *cpuset) const;
     void limitMaskToCores(cpu_set_t* mask, unsigned int cores) const ;
-    int sendCassandraMgr(int cmd, const cpu_set_t* newMask) const;
-    int waitCassandraMgr() const ;
+    int sendCassandraMgr(uint64_t myid, enum cmd_state cmd, const cpu_set_t* newMask);
 
 };
 }

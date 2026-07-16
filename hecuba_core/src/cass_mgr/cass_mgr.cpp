@@ -22,6 +22,7 @@
 #include <dirent.h>
 
 #include "cass_mgr.h"
+#include "cass_utils.h"
 
 #include "debug.h"
 #include <sys/time.h>
@@ -29,8 +30,7 @@
 #include "HecubaExtrae.h"
 #include <sys/mman.h>
 #include <sys/stat.h>
-
-#include "cassandryn.h"
+#include <semaphore.h>
 
 using namespace Hecuba;
 
@@ -42,6 +42,7 @@ unsigned long num_changes=0;
 unsigned long num_failed_changes=0;
 unsigned long num_adds=0;
 unsigned long num_removes=0;
+char *shared_array_messages_name = NULL;
 
 cpu_set_t cassCPU_ONE;  //HARDCODED mask with ALL cpus set
 cpu_set_t cassCPU_ZERO; //HARDCODED mask without any cpu
@@ -51,16 +52,82 @@ cpu_set_t cassCPU_ZERO; //HARDCODED mask without any cpu
 
 #define BACKLOG 10   // how many pending connections queue will hold
 
-// Helper variable to print cmd value
-const char * cmd_str[] = {
-	"ADD",
-	"REMOVE",
-	"END"
-};
+#if 0
+CASO A (CHARM)                            CASO B (FESOM)
+==============                            ==============
+                       +-----+                                   +-----+
+                       | CM  |                                   | CM  |
+                ------ +-----+                            ------ +-----+
+               /                                         /         |     \
+       +-----+                                   +-----+       +-----+    +-----+
+       | HS  |                                   | HS  |       | HS  |    | HS  |
+       +-----+                                   +-----+       +-----+    +-----+
+        |  |  \                                   |              |            \
+        |  |   \                                  |              |             \
+        A  B    C                                 A              B              C
+        0  1    2                                 2              0              1
+
+CM necessita shared memory region with
+    LAST IDX used
+    cass_mgr_PID
+    lock
+    per thread/process (indexed by ix (map(thread_id))):
+            mask
+            operation_requested(ADD, REMOVE, END)
+            operation_finalized(ADD, REMOVE, END)
+
+1st time HS calls 'addCassandraAffinity' increases last IDX in CM using a lock
+        -> get lock
+        -> get lastIDX
+        -> inc lastIDX
+        -> release lock
+HS necesita map <threadID -> IDX>
+HS calls addCassandraAffinity
+        -> check map for threadID
+        --> nonexistent == 1st call
+        -> store
+
+                                REQ         FINAL               REQ
+                                -1          -1
+HS.addCassandraAffinity         -1          -1      -->>        ADD
+HS.addCassandraAffinity         -1          ADD     -->>  (x)   ADD
+HS.addCassandraAffinity         -1          REMOVE  -->>        ADD
+HS.addCassandraAffinity         ADD         -1      -->>  (x)   ADD
+HS.addCassandraAffinity         ADD         ADD     -->>  (x)   ADD
+HS.addCassandraAffinity         ADD         REMOVE  -->>  (x)   ADD
+HS.addCassandraAffinity         REMOVE      -1      *->>        ADD      (NO SE PUEDE DAR ESTE CASO)
+HS.addCassandraAffinity         REMOVE      ADD     -->>        ADD
+HS.addCassandraAffinity         REMOVE      REMOVE  -->>        ADD
+---
+HS.delCassandraAffinity         -1          -1      -->>  (x)   REMOVE
+HS.delCassandraAffinity         -1          ADD     -->>        REMOVE
+HS.delCassandraAffinity         -1          REMOVE  -->>  (x)   REMOVE
+HS.delCassandraAffinity         ADD         -1      -->>        REMOVE     (not enough time to process ADD+REMOVE)
+HS.delCassandraAffinity         ADD         ADD     -->>        REMOVE
+HS.delCassandraAffinity         ADD         REMOVE  -->>        REMOVE     (not enough time to process ADD+REMOVE)
+HS.delCassandraAffinity         REMOVE      -1      -->>  (x)   REMOVE
+HS.delCassandraAffinity         REMOVE      ADD     -->>        REMOVE
+HS.delCassandraAffinity         REMOVE      REMOVE  -->>        REMOVE
+
+CM al despertar
+
+                                REQ         FINAL               FINAL
+                                -1          -1          -->>    -1      (nothing done)
+                                -1          ADD         -->>    ADD     (nothing done)
+                                -1          REMOVE      -->>    REMOVE  (nothing done)
+                                ADD         -1          -->>    ADD     (change mask)
+                                ADD         ADD         -->>    ADD     (nothing done)
+                                ADD         REMOVE      -->>    ADD     (change mask)
+                                REMOVE      -1          -->>    -1      (nothing done) (error)
+                                REMOVE      ADD         -->>    REMOVE  (change mask)
+                                REMOVE      REMOVE      -->>    REMOVE  (nothing done)
+
+#endif
 
 
 int CHILDS_TO_CHECK_SIZE = -1;
 int* childs_to_check_read  = NULL;
+struct shared_cass_mgr_data *messages_from  = NULL;
 
 /* Buffered vector END */
 int finish_cassandra_snoopy = 0 ;
@@ -131,7 +198,7 @@ int setCassandraAffinityRecursive(int pid, const cpu_set_t* newMask)
 	char buff[10];
 	int *ch = childs_to_check_read;
     cpu_set_t tmpmask;
-    CPU_XOR(&tmpmask, &cassCPU_ONE, newMask); // Negate all cpus from newMask 
+    CPU_XOR(&tmpmask, &cassCPU_ONE, newMask); // Negate all cpus from newMask
     if (CPU_EQUAL(&tmpmask, &cassCPU_ZERO)) {//There are NO available cpus
         DBG(" --- setCassandraAffinityRecursive: unable to change mask as all of them are used");
         return 0;
@@ -200,6 +267,7 @@ void addMask(const cpu_set_t* newMask) {
    CPU_OR(&currentCassandraMask, newMask, &currentCassandraMask);
    DBG(" Setting affinity [" << CPUSET2INT(&currentCassandraMask) <<"]");
    change_mask = 1;
+   num_adds++;
 }
 
 // Removes cores in 'newMask' from currentCassandraMask
@@ -212,6 +280,7 @@ void removeMask(const cpu_set_t* newMask) {
    CPU_AND(&currentCassandraMask, &currentCassandraMask, &mask);
    DBG(" Setting affinity [" << CPUSET2INT(&currentCassandraMask) <<"]");
    change_mask = 1;
+   num_removes++;
 }
 
 // Obtain cassandra Mask
@@ -238,40 +307,36 @@ void initCassandraAffinity(void) {
  * cassandra threads' PID. The array is managed by shared memory region named
  * SHM_NAME, which is updated by *cassandryn*. */
 int* map_cassandra_snoopy() {
-    char b[512];
-    char *newID=NULL;
-    char SHM_NAME[255];
-
-    newID=getenv("UNIQ_ID");
-    if (newID == NULL) {
-        fprintf(stderr, "ERROR: cass_mgr: Required UNIQ_ID variable not found. Exitting.\n");
+    char* name = get_region_name(SHM_NAME_SNOOPY_PREFIX);
+    if (name == NULL) {
+		std::cerr << " ERROR:cass_mgr: Unable to get region name ["<<SHM_NAME_SNOOPY_PREFIX<<"]" <<std::endl;
         return NULL;
     }
-    sprintf(SHM_NAME, "%s_%s",SHM_NAME_PREFIX, newID);
-
-    int fd = shm_open(SHM_NAME,  O_RDONLY, 0);
-    while((fd < 0) && (errno == ENOENT)) { // Busy wait...
-        fd = shm_open(SHM_NAME,  O_RDONLY, 0);
-    }
-    if (fd < 0) {
-        sprintf(b, "ERROR: cass_mgr: Unable to open shared memory [%s]!. Aborting.",SHM_NAME);
-        perror(b);
-        return NULL;
-    }
-
     CHILDS_TO_CHECK_SIZE = MAX_THREADS;
-    int *tids = (int*) mmap(NULL, MAX_THREADS*sizeof(int),
-            PROT_READ, MAP_SHARED, fd, 0);
-    if (tids == MAP_FAILED) {
-        sprintf(b, "ERROR: cass_mgr: Unable to mmap shared memory [%s]!. Aborting.",SHM_NAME);
-        perror(b);
-        return NULL;
-    }
+    int *tids = (int *)map_shared_mem(name,  MAX_THREADS*sizeof(int), PROT_READ, 0);
+    free(name);
     return tids;
 }
-void unmap_cassandra_snoopy(int* m) {
+void unmap_cassandra_snoopy(void* m) {
     if (!m) {
-        munmap(m, CHILDS_TO_CHECK_SIZE*sizeof(int));
+        munmap(m, MAX_THREADS*sizeof(int));
+    }
+}
+
+struct shared_cass_mgr_data* map_array_messages() {
+    shared_array_messages_name = get_region_name(SHM_NAME_AFFINITY_PREFIX);
+    if (shared_array_messages_name == NULL) {
+		std::cerr << " ERROR:cass_mgr: Unable to get region name ["<<SHM_NAME_AFFINITY_PREFIX<<"]" <<std::endl;
+        return NULL;
+    }
+    struct shared_cass_mgr_data* region = (struct shared_cass_mgr_data*) map_shared_mem(shared_array_messages_name, sizeof(struct shared_cass_mgr_data), PROT_READ|PROT_WRITE, 1);
+    return region;
+}
+void unmap_array_messages(void* m) {
+    if (!m) {
+        munmap(m, sizeof(struct shared_cass_mgr_data));
+        shm_unlink(shared_array_messages_name);
+        free(shared_array_messages_name);
     }
 }
 
@@ -342,10 +407,16 @@ void initializeHardcodedMasks(void) {
     CPU_ZERO(&cassCPU_ZERO);
 }
 
+void sigusr1_h (int s) {
+        // Do nothing, signal only used to unblock thread
+}
+
 /* cass_mgr PID
  * 	PID	Cassandra PID
  * POLL code adapted from https://beej.us/guide/bgnet/html/index-wide.html
  */
+
+
 int main(int argc, char *argv[])
 {
     write(2, "CASS_MGR STARTED ========\n", 25);
@@ -353,6 +424,17 @@ int main(int argc, char *argv[])
 		perror("gethostname");
 		exit(1);
 	}
+    sigset_t m;
+    struct sigaction sa;
+    int n_ends = 0; // increments for each END operation read
+    int finish = 0; // turns to true when n_ends == last_idx
+    sigfillset(&m);
+    sigprocmask(SIG_BLOCK, &m ,NULL);
+    sigdelset(&m,SIGUSR1); // clients (HecubaSession) will send SIGUSR1 each time a new request is pending
+    sa.sa_handler = sigusr1_h;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGUSR1, &sa, NULL);
 
     initializeHardcodedMasks();
 
@@ -375,169 +457,69 @@ int main(int argc, char *argv[])
 
     childs_to_check_read = map_cassandra_snoopy();
     if (childs_to_check_read == NULL) {
-		std::cerr << " Unable to map cassandra snoopy"<< std::endl;
+        std::cerr << " ERROR: cass_mgr: Unable to map cassandra snoopy"<< std::endl;
         exit(1);
     }
 
-	int sockfd = get_listener_socket();
-	if (sockfd <0) {
-		std::cerr << " Unable to get a socket "<< std::endl;
-		exit(1);
-	}
+    messages_from = map_array_messages();
+    if (messages_from == NULL) {
+        std::cerr << " ERROR: cass_mgr: Unable to map buffer for messages from threads"<< std::endl;
+        exit(1);
+    }
 
-	// Start off with room for 5 connections
-	// (We'll realloc as necessary)
-	int fd_max = 0;
-	fd_set read_fds; // Modifiable set for select
-	fd_set pfds; //Connected file descriptors
-	FD_ZERO(&pfds);
 
-	// Add the listener to set
-	FD_SET(sockfd, &pfds);
-	fd_max = sockfd + 1; // For the listener
 
-	// CASSANDRA MGR
-	// 		waits a connection from a client,
-	// 		then receives a cmd and a cpuset
-	// 			int cmd
-	// 			int cpuset_size
-	// 			cpu_set_t cpuset
-	//	 	finally executes 'cmd':
-	//	 	ADD   : Adds mask to current mask
-	//	 	REMOVE: Removes mask from current mask
-	//	 	END   : Kill Cassandra mgr
-	std::cerr << " === Started cassandra manager [" << hostname << "]: Managing cassandra process ["<< cassandraPID<<"]"<<std::endl;
-	int new_fd;
-	int finish = 0;
-	int clients = 0;
-	socklen_t sin_size;
-	struct sockaddr_storage their_addr; // connector's address information
-	struct timeval timeout = {0, 1000}; //1ms
-	struct timeval restimeout = {0, 1000}; // Temporal copy for timeout (as select modifies it)
-	DBG("server ["<< hostname << "]: waiting for connections at port "<<PORT);
-	while(!finish) {  // main accept() loop
-		read_fds = pfds; //Copy connected fds to temporal variable as 'select' modifies resulting set
-		restimeout = timeout;
-		int poll_count = select(fd_max, &read_fds, NULL, NULL, NULL);
-		if (poll_count == -1) {
-			perror("poll");
-			exit(1);
-		}
+    // Initialize structure
+    messages_from->cass_mgr_PID = getpid();
+    messages_from->last_idx = 0;
+    sem_init(&messages_from->last_idx_sem, 1, 1); // Mutex to access `last_idx`
+    for (int i = 0; i< MAX_THREADS; i++) {
+        messages_from->affinity_ops_state[i].op_requested = INIT;
+        messages_from->affinity_ops_state[i].op_finalized = INIT;
+    }
 
-		// Run through the existing connections looking for data to read
-		for(int i = 0; (i < fd_max) && (poll_count>0); i++) {
-			if (FD_ISSET(i, &read_fds)) {
-                                poll_count--;
-				if (i == sockfd) {
-					// If listener is ready to read, handle new connection
-					sin_size = sizeof their_addr;
-					new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
+    while (!finish) {
+        //std::cerr<< "CASS_MGR: Waiting for a new message"<<std::endl;
+        sigsuspend(&m); // Wait a SIGUSR1 from HecubaSession
+        change_mask = 0;
+        for (int i = 0; i < messages_from->last_idx; i++){ // nos dejamos alguno por no recorrer siempre todos?
+            enum cmd_state *op_req = &messages_from->affinity_ops_state[i].op_requested;
+            enum cmd_state *op_fin = &messages_from->affinity_ops_state[i].op_finalized;
+            cpu_set_t* mask = &messages_from->affinity_ops_state[i].mask;
 
-					if (new_fd == -1) {
-						perror("accept");
-					} else {
+            if ((*op_req != INIT) && (*op_fin != END)) { // there is a request
+                switch (*op_req) {
+                    case ADD:      if (*op_fin != ADD) {
+                                       *op_fin =  ADD;
+                                       addMask(mask);
+                                       change_mask=1;
+                                   }
+                                   break;
+                    case REMOVE:   if (*op_fin == ADD) {
+                                       removeMask(mask);
+                                       *op_fin= REMOVE;
+                                       change_mask=1;
+                                   }
+                                   break;
+                    case END:      *op_fin=END;
+                                   n_ends++;
+                }
+            }
 
-						fcntl(new_fd, F_SETFL, O_NONBLOCK); // Set NON-Blocking
-						add_to_pfds(&pfds, new_fd, &fd_max);
+        }
 
-						char s[INET6_ADDRSTRLEN];
-						inet_ntop(their_addr.ss_family,
-								get_in_addr((struct sockaddr *)&their_addr),
-								s, sizeof(s));
-						DBG("server: got connection from "<< s << " ===> "<< new_fd);
-                        clients++;
-					}
-				} else {
-					// If not the listener, we're just a regular client
+        if (change_mask) {
+            DBG("server ["<<hostname<<"] changing mask ["<<CPUSET2INT(&currentCassandraMask) <<"]");
+            setCassandraAfinity(&currentCassandraMask);
+        }
+        finish = ((n_ends > 0) && (n_ends == messages_from->last_idx)); // coger lock sobre last_idx para compararlo? 
 
-					struct message msg;
-					int numbytes = recv(i, &msg, sizeof(msg), 0); // --> ntohs
-					DBG("server: received "<<numbytes<<"/"<<sizeof(msg)<<" bytes from message");
-					if (numbytes <= 0) {
-						// Got error or connection closed by client
-						if (numbytes == 0) {
-							// Connection closed
-							DBG("pollserver: socket "<< i << " hung up" );
-						} else {
-							if ((errno == EWOULDBLOCK)||(errno == EAGAIN)) {
-									continue; // This is a 'select' "Feature" it may block in the recv even it says it would not...
-							}
-							perror("recv");
-						}
+    }
+    unmap_cassandra_snoopy((void *) childs_to_check_read);
+    sem_destroy(&messages_from->last_idx_sem);
+    unmap_array_messages((void *) messages_from);
+std::cerr << " === Finished cassandra manager[" << hostname << "]: Total Time = "<< acum.tv_sec <<"s Received ADDs="<<num_adds<<" Received DELs="<<num_removes<<" Used "<< acum.tv_usec<<"us to execute "<<(num_changes-num_failed_changes)<<"/"<<num_changes<<" sched_setaffinity" <<std::endl;
 
-						close(i); // Close socket
-						del_from_pfds(&pfds, i, &fd_max);
 
-					} else {
-                        if (numbytes != sizeof(msg)) {
-                                //std::cerr<<" cass_mngr: Ooops... received an incomplete message ["<<numbytes<<"/"<<sizeof(msg)<<" bytes] IGNORED"<<std::endl;
-                                continue;
-                        }
-                        if (msg.magic != 0xDEADBEEF) {
-                                //std::cerr<<" cass_mngr: Ooops... received a malformed message IGNORED"<<std::endl;
-                                continue;
-                        }
-						// We got some good data from a client
-
-						new_fd = i;
-						int cmd = msg.operation;
-						if ( cmd > END ) {
-							std::cerr<<"ERROR: Unknown command received ["<< cmd << "]. Ignored."<<std::endl;
-							continue;
-						}
-						DBG(" Received cmd: " << std::string(cmd_str[cmd]) << " from "<< new_fd);
-						switch (cmd) {
-							case ADD:
-								{
-									int set_size;
-                                                                        num_adds++;
-									set_size = msg.cpusetsize;
-									DBG("server: received size "<<set_size<<"/"<<sizeof(cpu_set_t));
-									addMask(&msg.set);
-									break;
-								}
-							case REMOVE:
-								{
-									int set_size;
-                                                                        num_removes++;
-									set_size = msg.cpusetsize;
-									DBG("server: received size "<<set_size<<"/"<<sizeof(cpu_set_t));
-									removeMask(&msg.set);
-									//int ack='1';
-									//numbytes = send(new_fd, &ack, sizeof(ack), 0); // Acknowledge is not sent to ensure asynchrony
-									break;
-								}
-							case END:
-                                {
-                                clients --;
-						        close(i); // Close socket
-						        del_from_pfds(&pfds, i, &fd_max);
-                                if (!clients) finish = 1;
-								break;
-                                }
-                            default:
-                                {
-							    std::cerr<<"ERROR: Unknown command received ["<< cmd << "]. Ignored."<<std::endl;
-                                continue;
-						        }
-						}
-					}
-				}
-			}
-		}
-		if (change_mask) {
-			DBG("server ["<<hostname<<"] changing mask ["<<CPUSET2INT(&currentCassandraMask) <<"]");
-			setCassandraAfinity(&currentCassandraMask);
-			change_mask = 0;
-		}
-        //else std::cerr<<"cass_mngr: change_mask == False, skipping setCassandraAfinity"<<std::endl;
-	}
-
-	for(int i = 0; i < fd_max; i++) {
-		if (FD_ISSET(i, &pfds)) close(i);
-	}
-
-	unmap_cassandra_snoopy(childs_to_check_read);
-	std::cerr << " === Finished cassandra manager[" << hostname << "]: Total Time = "<< acum.tv_sec <<"s Received ADDs="<<num_adds<<" Received DELs="<<num_removes<<" Used "<< acum.tv_usec<<"us to execute "<<(num_changes-num_failed_changes)<<"/"<<num_changes<<" sched_setaffinity" <<std::endl;
 	return 0;
 }

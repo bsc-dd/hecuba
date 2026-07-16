@@ -18,7 +18,6 @@
 #include <iostream>
 
  #include <sys/time.h>
- #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
 
@@ -29,20 +28,22 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include "cass_mgr/cass_mgr.h"
+#include <signal.h>
 
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif /* !_GNU_SOURCE */
 #include <sched.h>
-#include <sys/types.h>
 #include <ifaddrs.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/mman.h>
 
 namespace Hecuba {
+#include "cass_mgr.h"
+#include "cass_utils.h"
 
 
 
@@ -193,65 +194,56 @@ void HecubaSession::getCurrentCassandraAffinity(cpu_set_t* currentMask) const {
    memcpy(currentMask, &currentCassandraMask, sizeof(cpu_set_t));
 }
 
-int HecubaSession::sendCassandraMgr(int cmd, const cpu_set_t* newMask) const {
-	int numbytes;
-	struct message msg;
-    char buf[80];
-	msg.operation = cmd;
-	if (newMask == NULL) {
-		msg.cpusetsize = 0;
-	} else {
-		msg.cpusetsize = sizeof(cpu_set_t);
-		memcpy(&msg.set, newMask, msg.cpusetsize);
-	}
-	numbytes = send(cass_MGR_socket, &msg, sizeof(msg), 0);
-	if (numbytes<0) {
-                if ((errno != EAGAIN) && (errno != EWOULDBLOCK)) {
-                        //yolandab to check if the error was when ending or we left something without writing
-                        sprintf(buf, "HecubaSession::sendCassandraMgr: send msg %d",cmd);
-                        perror(buf);
-                } else { // Send WOULD BLOCK! ignore send
-                }
-                return -1;
-	}
-        if (numbytes != sizeof(msg)) {
-	        //std::cerr<< "HecubaSession::sendCassandraMgr: Sent INCOMPLETE message ["<< numbytes<<"/"<<std::dec<<sizeof(msg)<<" bytes] "<<std::endl;
-                return -1;
+uint32_t HecubaSession::getUserID() const {
+        return thread_2userid.at(std::this_thread::get_id());
+}
+int HecubaSession::sendCassandraMgr(uint64_t myid, enum cmd_state cmd, const cpu_set_t* newMask)  {
+    cpu_set_t myMask;
+    int pos = -1;
+    std::lock_guard<decltype(mxix_shared_cass_mgr_region)> lock{mxix_shared_cass_mgr_region};
+    try {
+        pos = ix_shared_cass_mgr_region.at(myid);
+        thread_2userid[std::this_thread::get_id()] = pos;
+        if (newMask == nullptr) {
+            newMask = &shared_cass_mgr_region->affinity_ops_state[pos].mask;
         }
-	DBG("Sent message to "<< cass_MGR_socket <<" with "<<std::dec<<sizeof(msg)<<" bytes using "<< std::dec<<numbytes << " bytes");
-	return 1;
+    } catch (std::out_of_range e) {
+        //std::cerr<<"HECUBA SESSION: 1st case: getting a new IDX"<<std::endl;
+        sem_wait(&(shared_cass_mgr_region->last_idx_sem));
+        pos = shared_cass_mgr_region->last_idx;
+        shared_cass_mgr_region->last_idx++;
+        sem_post(&(shared_cass_mgr_region->last_idx_sem));
+        ix_shared_cass_mgr_region[myid] = pos;
+        thread_2userid[std::this_thread::get_id()] = pos;
+        if (newMask == nullptr) {
+            sched_getaffinity(0, sizeof(cpu_set_t), &myMask);
+            newMask = &myMask;
+        }
+        
+        memcpy(&shared_cass_mgr_region->affinity_ops_state[pos].mask, newMask, sizeof(cpu_set_t));
+        //std::cerr<<"HECUBA SESSION: 1st case: Assigned IDX "<< pos << " to thread "<< std::this_thread::get_id()<<std::endl;
+    }
+    shared_cass_mgr_region->affinity_ops_state[pos].op_requested = cmd;
+    kill(shared_cass_mgr_region->cass_mgr_PID, SIGUSR1);
+    return 1;
 }
-int HecubaSession::waitCassandraMgr() const {
-	int ack;
-	DBG("HecubaSession::waitCassandraMgr Waiting...");
 
-	int numbytes;
-	numbytes = recv(cass_MGR_socket, &ack, sizeof(ack), 0);
-	if (numbytes < 0) {
-		DBG("waitCassandraMgr2 at "<< cass_MGR_socket <<" with "<<std::dec<<sizeof(ack)<<" bytes getting "<< numbytes << " bytes");
-		perror("HecubaSession::waitCassandraMgr recv ACK");
-		//return -1;
-	}
-	DBG("HecubaSession::waitCassandraMgr Stop waiting... received "<< numbytes << "/" << sizeof(ack)<<"  bytes");
-	return 1;
-}
-
-int HecubaSession::addCassandraAffinity(cpu_set_t* newMask) {
+int HecubaSession::addCassandraAffinity(uint64_t id, const cpu_set_t* newMask) {
    if (cassandraPID == 0) return -1; // Affinity is disabled
-   if (newMask == NULL)   return -1;
+
    HecubaExtrae_event(HECUBADBG, HECUBA_ADDCASSAFF);
    DBG(" Adding mask [" << CPUSET2INT(newMask) <<"]");
-   int status = sendCassandraMgr(ADD, newMask);
+   int status = sendCassandraMgr(id, ADD, newMask);
    HecubaExtrae_event(HECUBADBG, HBCASS_END);
    return status;
 }
 
-int HecubaSession::removeCassandraAffinity(cpu_set_t* newMask) {
+int HecubaSession::removeCassandraAffinity(uint64_t id, const cpu_set_t* newMask) {
    if (cassandraPID == 0) return -1; // Affinity is disabled
    DBG(" Removing mask [" << CPUSET2INT(newMask) <<"]");
    HecubaExtrae_event(HECUBADBG, HECUBA_REMCASSAFF);
-   int status = sendCassandraMgr(REMOVE, newMask);
-   //waitCassandraMgr(); // No wait is required as the cores for the app are unchanged and cassandra will eventually leave them alone
+   int status = 0;
+   status = sendCassandraMgr(id, REMOVE, newMask);
    HecubaExtrae_event(HECUBADBG, HBCASS_END);
    return status;
 }
@@ -633,29 +625,20 @@ HecubaSession::HecubaSession() {
 		cassandraPID = 0;
 	} else {
 		std::cerr << " Cassandra Affinity ENABLED." <<std::endl;
-	    	//Connect to cassandra manager
-		cass_MGR_socket = socket(PF_INET, SOCK_STREAM, 0);
-		if (cass_MGR_socket < 0 ) {
-			perror(" Unable to create a socket?!?.");
-			exit(-1);
-		}
+	    	//Connect to cassandra manager: region should be a attribute of HecubaSession
+                char * name = get_region_name(SHM_NAME_AFFINITY_PREFIX);
+                if (name == NULL) {
+		            std::cerr << " ERROR. HecubaSession: Unable to get a name for the shared memory region ["<<SHM_NAME_AFFINITY_PREFIX<<"]" <<std::endl;
+                    exit(-1);
+                }
 
-		struct sockaddr_in my_addr;
-
-		my_addr.sin_family = AF_INET;
-		my_addr.sin_port = htons(6666);     // short, network byte order
-		my_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-		memset(my_addr.sin_zero, '\0', sizeof my_addr.sin_zero);
-
-		if (connect(cass_MGR_socket, (struct sockaddr*)&my_addr, sizeof(my_addr))<0) {
-			perror(" Unable to connect to Cassandra Manager.");
-			exit(-1);
-		};
-		DBG( " Connected to Cassandra Manager " );
-                if (fcntl(cass_MGR_socket, F_SETFL, O_NONBLOCK) <0) {
-			perror(" Unable to change to a NON BLOCKING socket to Cassandra Manager.");
+                shared_cass_mgr_region = (struct shared_cass_mgr_data*) map_shared_mem(name, sizeof(struct shared_cass_mgr_data), PROT_READ|PROT_WRITE, 0);
+                free(name);
+                if (shared_cass_mgr_region == NULL) {
+			perror("HecubaSession::HecubaSession: Unable to map the shared memory to communicate with the cass_mgr?!?.");
 			exit(-1);
                 }
+
 	}
     }
 #endif
@@ -672,8 +655,9 @@ int HecubaSession::wait_writes_completion(void) {
     int is_remove_needed=0;
 
     if (config["dynamic_affinity"] == std::string("true")) {
-        sched_getaffinity(0, sizeof(app_mask), &app_mask);
-        if (addCassandraAffinity(&app_mask) >=0) is_remove_needed = 1;
+        for(auto id: ix_shared_cass_mgr_region) {
+            if (addCassandraAffinity(id.first) >=0) is_remove_needed = 1;
+        }
     }
     std::lock_guard<decltype(mxalive_objects)> lock{mxalive_objects};
 
@@ -695,7 +679,11 @@ int HecubaSession::wait_writes_completion(void) {
             DBG( "  LIST DEL AFTER: "<< t.get() <<" ("<<t.use_count()<<")");
         }
     }
-    if (is_remove_needed) removeCassandraAffinity(&app_mask);
+    if (is_remove_needed) {
+        for(auto id: ix_shared_cass_mgr_region) {
+            removeCassandraAffinity(id.first);
+        }
+    }
     return 0;
 }
 
@@ -728,7 +716,16 @@ struct timeval diff;
     }
 
     if (config["dynamic_affinity"] == std::string("true")) {
-        sendCassandraMgr(2, NULL);
+        if (shared_cass_mgr_region) {
+            // Put an END to ALL threads in shared memory region
+            for (auto it = ix_shared_cass_mgr_region.begin(); it != ix_shared_cass_mgr_region.end(); it ++ ) {
+                int ix = it->second;
+
+                shared_cass_mgr_region->affinity_ops_state[ix].op_requested = END;
+            }
+            kill(shared_cass_mgr_region->cass_mgr_PID, SIGUSR1);
+            munmap(shared_cass_mgr_region,sizeof(struct  shared_cass_mgr_data));
+        }
     }
 
 

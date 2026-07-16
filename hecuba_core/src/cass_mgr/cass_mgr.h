@@ -5,29 +5,12 @@
 #define _GNU_SOURCE
 #endif /* !  _GNU_SOURCE */
 #include <sched.h>
+#include "shared_cass_mgr.h"
+
 
 extern int cassandraPID;
 extern cpu_set_t cassandraMask; /* Original cassandra mask */
 extern cpu_set_t currentCassandraMask; /* Current cassandra mask */
-
-/* PROTOCOL COMMANDS */
-enum cmd_state {
-	ADD,	//ADD mask
-	REMOVE,	//REMOVE mask
-	END	//END cassandra manager
-};
-
-extern const char * cmd_str[];
-
-struct message {
-	int 		magic=0xDEADBEEF;
-	int 		operation;
-	int 		cpusetsize;
-	cpu_set_t 	set;
-};
-
-/* PROTOCOL COMMANDS END */
-
 
 int setCassandraAfinity(const cpu_set_t* cassandraMask);
 void initCassandraAffinity(void);
