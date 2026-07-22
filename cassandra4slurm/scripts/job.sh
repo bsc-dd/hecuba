@@ -108,10 +108,12 @@ function hostnames2IP() {
     done
 }
 
-# gen_mask FIRST/LAST NUM_CORES: Generate a mask of NUM_CORES cores starting from the beginning or from the end
+# gen_mask FIRST/LAST NUM_CORES [OFFSET]: Generate a mask of NUM_CORES cores starting from the beginning or from the end (with OFFSET)
 function gen_mask () {
 	local BEGIN="$1"
 	local NUM_CORES="$2"
+	local OFFSET="$3"
+	[ "${OFFSET}" == "" ] && OFFSET=0
 	local CORES_TOT=$(get_numphyscores)
 
 	# 10 cores
@@ -126,14 +128,26 @@ function gen_mask () {
 	# 2	300	768	3*2^8	1100000000
 	# 3	380	896	7*2^7	1110000000
 	# ((2^NUM_CORES)-1)*(2^(CORES_TOT-NUM_CORES))
+	# gen_mask FIRST 4 2
+	# 1111 0000
+	# 1	001	1		0000000001    0000000100    // *2^OFFSET
+	# 2	003	3		0000000011    0000001100
+	# 3	007	7		0000000111    0000011100
+	# (2^NUM_CORES)-1
+	# gen_mask LAST 1 2
+	# 1	200	512	1*2^9	1000000000  0010000000  // /2^OFFSET
+	# 2	300	768	3*2^8	1100000000  0011000000
+	# 3	380	896	7*2^7	1110000000  0011100000
+	# ((2^NUM_CORES)-1)*(2^(CORES_TOT-NUM_CORES))
+
+	CALCULUS="(2^${NUM_CORES})-1)"
 	if [ "$BEGIN" == "FIRST" ]; then
-		MASK=$(echo "obase=16;(2^${NUM_CORES})-1"|bc)
-		#echo "Generated Mask using $NUM_CORES starting cores: = $MASK"
-	else # LAST
-		MASK=$(echo "obase=16;((2^${NUM_CORES})-1)*(2^(${CORES_TOT}-${NUM_CORES}))"|bc)
-		#echo "Generated Mask using last $NUM_CORES cores: = $MASK"
+		CALCULUS="$CALCULUS*(2^${OFFSET})"
+	else #LAST
+		CALCULUS="($CALCULUS*(2^(${CORES_TOT}-${NUM_CORES}))"
+		CALCULUS="$CALCULUS/(2^${OFFSET})"
 	fi
-	echo $MASK
+	echo "obase=16;$CALCULUS"|bc
 }
 
 # Generating nodefiles
@@ -321,9 +335,12 @@ then
     show_time "[STATS] Cluster recover process (copy files and set tokens for all nodes) took: " $RECOVERTIME1 $RECOVERTIME2
 fi       
 # Launching Cassandra in every node
+CASS_CORE_LIST=$( gen_mask LAST ${C4S_CASSANDRA_CORES})
+# Cassandra uses the FIRST cores and CASSMGR uses the following one
+CASSMGR_CORE_LIST=$( gen_mask LAST 1 ${C4S_CASSANDRA_CORES} )
 
-CASS_CORE_LIST=$( gen_mask LAST $C4S_CASSANDRA_CORES)
-
+echo CASS_CORE_LIST=$CASS_CORE_LIST
+echo CASSMGR_CORE_LIST=$CASSMGR_CORE_LIST
 run srun --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST \
 	--ntasks=$N_NODES \
 	--ntasks-per-node=1 \
@@ -343,8 +360,7 @@ if [ ${DYNAMIC_AFFINITY,,} == "true" ]; then
 	    --ntasks=$N_NODES \
 	    --ntasks-per-node=1 \
 	    --nodes=$N_NODES \
-        --cpu-bind=verbose \
-        --cpus-per-task=1 \
+	    --cpu-bind=verbose,mask_cpu:${CASSMGR_CORE_LIST} \
         $MODULE_PATH/cass_mngr.sh $UNIQ_ID &
 fi
 
