@@ -313,7 +313,7 @@ DBG $(ls -la ${CASS_YAML_FILE})
 DBG $(ls -la ${CASS_ENV_FILE})
 
 TIME_START=`date +"%T.%3N"`
-echo "Launching Cassandra in the following hosts: $casslist"
+echo -e "Launching Cassandra in the following hosts: \n$casslist"
 export CASSANDRA_NODELIST=$(echo $casslist | sed -e 's+ +,+g')
 
 DBG " CASSANDRA_NODELIST var: "$CASSANDRA_NODELIST
