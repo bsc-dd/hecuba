@@ -628,7 +628,7 @@ HecubaSession::HecubaSession() {
 		std::cerr << " WARNING. Cassandra Affinity is DISABLED." <<std::endl;
 		cassandraPID = 0;
 	} else {
-		std::cerr << " Cassandra Affinity ENABLED." <<std::endl;
+		//std::cerr << " Cassandra Affinity ENABLED." <<std::endl;
 	    	//Connect to cassandra manager: region should be a attribute of HecubaSession
                 char * name = get_region_name(SHM_NAME_AFFINITY_PREFIX);
                 if (name == NULL) {
