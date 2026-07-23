@@ -41,7 +41,7 @@ private:
     struct shared_cass_mgr_data* shared_cass_mgr_region = NULL;
     std::mutex mxix_shared_cass_mgr_region;
     std::map<uint64_t, uint32_t> ix_shared_cass_mgr_region;
-    std::map<std::thread::id, uint32_t> thread_2userid;
+    std::map<std::thread::id, uint64_t> thread_2userid;
 
     int setCassandraAfinity(const cpu_set_t* cassandraMask);
     std::mutex mxalive_objects;

@@ -117,7 +117,7 @@ void WriterThread::queue_async_query( Writer* w, const TupleRow *keys, const Tup
         HecubaExtrae_event(HECUBAFULLBUFFER, 1);
         cpu_set_t app_mask; // Original APPLICATION mask
         int is_remove_needed=0;
-        uint32_t userID;
+        uint64_t userID;
         if (w->getConfigValue(std::string("dynamic_affinity")) == std::string("true")) {
                 sched_getaffinity(0, sizeof(app_mask), &app_mask);
                 try{

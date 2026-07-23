@@ -203,18 +203,22 @@ int HecubaSession::sendCassandraMgr(uint64_t myid, enum cmd_state cmd, const cpu
     std::lock_guard<decltype(mxix_shared_cass_mgr_region)> lock{mxix_shared_cass_mgr_region};
     try {
         pos = ix_shared_cass_mgr_region.at(myid);
-        thread_2userid[std::this_thread::get_id()] = pos;
+        thread_2userid[std::this_thread::get_id()] = myid;  // TODO: Probar en CHARM que {myid,thread_id} NO cambia y entonces podemos BORRAR este mapa
         if (newMask == nullptr) {
             newMask = &shared_cass_mgr_region->affinity_ops_state[pos].mask;
         }
     } catch (std::out_of_range e) {
-        //std::cerr<<"HECUBA SESSION: 1st case: getting a new IDX"<<std::endl;
+        //std::cerr<<"HECUBA SESSION: 1st case: getting a new IDX for ID "<< myid<<" @thread="<< std::this_thread::get_id()<<std::endl;
         sem_wait(&(shared_cass_mgr_region->last_idx_sem));
         pos = shared_cass_mgr_region->last_idx;
+        if (pos == MAX_THREADS) {
+            std::cerr<<"HECUBA SESSION: sendCassandraMgr MAXIMUM NUMBER OF POSITIONS USED! "<< myid << " @thread="<< std::this_thread::get_id()<<std::endl;
+            return -1;
+        }
         shared_cass_mgr_region->last_idx++;
         sem_post(&(shared_cass_mgr_region->last_idx_sem));
         ix_shared_cass_mgr_region[myid] = pos;
-        thread_2userid[std::this_thread::get_id()] = pos;
+        thread_2userid[std::this_thread::get_id()] = myid;
         if (newMask == nullptr) {
             sched_getaffinity(0, sizeof(cpu_set_t), &myMask);
             newMask = &myMask;
