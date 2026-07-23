@@ -339,8 +339,8 @@ CASS_CORE_LIST=$( gen_mask LAST ${C4S_CASSANDRA_CORES})
 # Cassandra uses the FIRST cores and CASSMGR uses the following one
 CASSMGR_CORE_LIST=$( gen_mask LAST 1 ${C4S_CASSANDRA_CORES} )
 
-echo CASS_CORE_LIST=$CASS_CORE_LIST
-echo CASSMGR_CORE_LIST=$CASSMGR_CORE_LIST
+#echo CASS_CORE_LIST=$CASS_CORE_LIST
+#echo CASSMGR_CORE_LIST=$CASSMGR_CORE_LIST
 run srun --overlap --mem=0 --nodelist=$CASSANDRA_NODELIST \
 	--ntasks=$N_NODES \
 	--ntasks-per-node=1 \
