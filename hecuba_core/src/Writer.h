@@ -90,6 +90,7 @@ private:
 /** ownership **/
 
     /* Prepared query codes: To avoid doing them syncronously, we do the prepare, store the future and we do the synchronization at the first query */
+    std::mutex mxprepared_query;    // Allow Multithreaded accesses
     const CassPrepared *prepared_query = nullptr;
     CassFuture * future_prepared_query = nullptr;
     std::map<const std::string, const CassPrepared*> prepared_partial_queries;

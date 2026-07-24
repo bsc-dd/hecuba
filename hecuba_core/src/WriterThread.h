@@ -50,6 +50,8 @@ class WriterThread {
         void create_working_threads(void);
 
         bool finish_async_query_thread = false;
+
+        bool is_async_query_thread_enabled = true;
         std::thread async_query_thread;
         //int async_query_threadpid = -1;
 

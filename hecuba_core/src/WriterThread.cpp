@@ -39,6 +39,10 @@ WriterThread::WriterThread(std::map<std::string, std::string>& config):
             throw ModuleException(msg);
         }
     }
+    if (buff_size == 0) {
+        std::cerr<<" HECUBA BUFFERING is DISABLED! Direct calls to Cassandra driver."<< std::endl;
+        is_async_query_thread_enabled = false;
+    }
     this->data.set_capacity(buff_size);
 
     int32_t max_callbacks = DEFAULT_WRITER_CALLBACKS;
@@ -57,7 +61,9 @@ WriterThread::WriterThread(std::map<std::string, std::string>& config):
     this->max_calls = (uint32_t) max_callbacks;
 
     semmaxcallbacks = new Semaphore(max_callbacks);
-    create_working_threads();
+    if (is_async_query_thread_enabled) {
+        create_working_threads();
+    }
 
     HecubaExtrae_event(HECUBADBG, HECUBA_END);
 }
@@ -92,6 +98,10 @@ void WriterThread::wait_writes_completion(void) {
 WriterThread::~WriterThread() {
     // wait for remaining callbacks
     wait_writes_completion();
+
+    if (is_async_query_thread_enabled) {
+
+
     // Finish thread
     this->finish_async_query_thread = true; // Mark the async thread to finish BEFORE unblocking it.
     sempending_data->release();// Unblock the async_query_thread (which does not have any work)
@@ -100,6 +110,9 @@ WriterThread::~WriterThread() {
     if (data_close_to_max_times>0) {
 	    std::cerr<<"WARN: WriterThread::queue_async_query: data capacity was close to "<<data.capacity()<<" "<< data_close_to_max_times<<" times. Maybe increasing WRITE_BUFFER_SIZE is required."<<std::endl;
     }
+
+    }
+
     delete(sempending_data);
     delete(semmaxcallbacks);
 }
@@ -108,6 +121,12 @@ WriterThread::~WriterThread() {
 /* Queue a new pair {keys, values} into the 'data' queue to be executed later.
  * Args are copied, therefore they may be deleted after calling this method. */
 void WriterThread::queue_async_query( Writer* w, const TupleRow *keys, const TupleRow *values) {
+    if (!is_async_query_thread_enabled) {
+        ncallbacks++; // Increase BEFORE try_pop to avoid race at 'wait_writes_completion'
+        std::tuple<Writer*, const TupleRow *, const TupleRow *> item = std::make_tuple(w, keys, new TupleRow(values));
+        async_query_execute(std::get<0>(item), std::get<1>(item), std::get<2>(item));
+        return;
+    }
     try {
     std::tuple<Writer*, const TupleRow *, const TupleRow *> item = std::make_tuple(w, keys, new TupleRow(values));
 

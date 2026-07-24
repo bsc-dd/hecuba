@@ -510,13 +510,16 @@ CassStatement* Writer::bind_cassstatement(const TupleRow* keys, const TupleRow* 
             throw ModuleException("async_query_execute: only supports 1 or all attributes write");
 
         ColumnMeta cm = values->get_metadata_element(0);
-        if (prepared_partial_queries.at(cm.info["name"])==nullptr) { // Wait for synchronization of the prepared query
+        std::lock_guard<decltype(mxprepared_query)> lock{mxprepared_query};
+        const CassPrepared *prepared_query = prepared_partial_queries.at(cm.info["name"]);
+        if (prepared_query==nullptr) { // Wait for synchronization of the prepared query
             CassFuture * future = future_prepared_partial_queries.at(cm.info["name"]);
             if ( future != nullptr) {
                 HecubaExtrae_event(HECUBACASS, HBCASS_PREPARES);
                 CassError rc = cass_future_error_code(future);
                 CHECK_CASS("writer cannot prepare: ");
-                prepared_partial_queries[cm.info["name"]] = cass_future_get_prepared(future);
+                prepared_query = cass_future_get_prepared(future);
+                prepared_partial_queries[cm.info["name"]] = prepared_query;
                 cass_future_free(future);
                 future_prepared_partial_queries[cm.info["name"]] = nullptr;
                 HecubaExtrae_event(HECUBACASS, HBCASS_END);
@@ -524,7 +527,6 @@ CassStatement* Writer::bind_cassstatement(const TupleRow* keys, const TupleRow* 
                 throw ModuleException(" Writer: bind statement failed. Found an unexpected nullptr partial future");
             }
         }
-        const CassPrepared *prepared_query = prepared_partial_queries.at(cm.info["name"]);
         statement = cass_prepared_bind(prepared_query);
         this->k_factory->bind(statement, keys, 0); //error
         TupleRowFactory * v_single_factory = new TupleRowFactory(table_metadata->get_single_value(cm.info["name"].c_str()));
@@ -532,6 +534,7 @@ CassStatement* Writer::bind_cassstatement(const TupleRow* keys, const TupleRow* 
         delete(v_single_factory);
 
     } else { // Whole row written
+        std::lock_guard<decltype(mxprepared_query)> lock{mxprepared_query};
         if (prepared_query == nullptr) { // Wait for synchronization of the prepared query
             if (future_prepared_query != nullptr ) {
                 HecubaExtrae_event(HECUBACASS, HBCASS_PREPARES);
