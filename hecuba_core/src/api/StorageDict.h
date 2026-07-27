@@ -26,22 +26,6 @@ class StorageDict:virtual public IStorage {
 #define ISKEY true
 
     public:
-        void initObjSpec() {
-            K key;
-            V v;
-            partitionKeys=key.getPartitionKeys();
-            clusteringKeys=key.getClusteringKeys();
-            valuesDesc=v.getValuesDesc("val_");
-            ObjSpec dictSpec;
-            dictSpec=ObjSpec(ObjSpec::valid_types::STORAGEDICT_TYPE, partitionKeys, clusteringKeys, valuesDesc,"");
-            setObjSpec(dictSpec);
-            // extract class name from C and call the new registerObject. And the session??? HecubaSession::get() ?
-            //
-            int32_t status;
-            std::string class_name = abi::__cxa_demangle(typeid(C).name(),NULL,NULL,&status);
-            initializeClassName (class_name); // implemented in IStorage.cpp same code that current registerClassName of HecubaSession
-        }
-
         StorageDict() {
             HecubaExtrae_event(HECUBAEV, HECUBA_SD|HECUBA_INSTANTIATION);
             //std::cout << "StorageDict:: default constructor this "<< this <<std::endl;
@@ -471,6 +455,23 @@ class StorageDict:virtual public IStorage {
         std::vector<std::pair<std::string, std::string>> partitionKeys;
         std::vector<std::pair<std::string, std::string>> clusteringKeys;
         std::vector<std::pair<std::string, std::string>> valuesDesc;
+
+        void initObjSpec() {
+            K key;
+            V v;
+            partitionKeys=key.getPartitionKeys();
+            clusteringKeys=key.getClusteringKeys();
+            valuesDesc=v.getValuesDesc("val_");
+            ObjSpec dictSpec;
+            dictSpec=ObjSpec(ObjSpec::valid_types::STORAGEDICT_TYPE, partitionKeys, clusteringKeys, valuesDesc,"");
+            setObjSpec(dictSpec);
+            // extract class name from C and call the new registerObject. And the session??? HecubaSession::get() ?
+            //
+            int32_t status;
+            std::string class_name = abi::__cxa_demangle(typeid(C).name(),NULL,NULL,&status);
+            initializeClassName (class_name); // implemented in IStorage.cpp same code that current registerClassName of HecubaSession
+        }
+
     
 };
 
