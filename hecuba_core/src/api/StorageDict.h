@@ -303,9 +303,16 @@ class StorageDict:virtual public IStorage {
             return clusteringKeys;
         }
 
+        std::pair<K,V>* poll() {
+            std::string instance_uuid; // Calculated UUID (avoid calculating it each time)
+            instance_uuid = UUID::UUID2str(this->getStorageID());
+            const TupleRow* m_ptr = this->getDataAccess()->poll(instance_uuid.c_str())[0]; // poll returns a vector, the first element contains a TupleRow with the key and the value got
+            std::pair<K,V> *p = instantiateTupleRow(m_ptr, true);
+            return p;
+        }
+
 
         /* Iterators */
-
 
         // std::map c++ class only implements an iterator that returns pairs of
         // key-value, thus to respect the semantic in the case of StorageDict
