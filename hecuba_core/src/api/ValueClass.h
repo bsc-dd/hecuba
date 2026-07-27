@@ -61,7 +61,7 @@ class ValueClass:public AttributeClass<V1,rest...>{
         }
 
         //Constructor called by the StorageDict iterator
-        ValueClass(IStorage *sd,char *valuesBuffer):AttributeClass<V1,rest...>() {
+        ValueClass(IStorage *sd,char *valuesBuffer,bool doPoll = false):AttributeClass<V1,rest...>() {
             HecubaExtrae_event(HECUBAEV, HECUBA_SD_VALUE);
             this->sd = sd;
             this->pendingKeysBuffer = nullptr;
@@ -70,7 +70,7 @@ class ValueClass:public AttributeClass<V1,rest...>{
             this->total_size=sd->getDataWriter()->get_metadata()->get_values_size();
             this->managedValues=this->valuesDesc.size();
             this->valuesBuffer=valuesBuffer;
-            this->template setTupleValues<0,V1,rest...>(this->sd, this->valuesBuffer);
+            this->template setTupleValues<0,V1,rest...>(this->sd, this->valuesBuffer, doPoll);
             HecubaExtrae_event(HECUBAEV, HECUBA_END);
         }
 

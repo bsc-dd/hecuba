@@ -5,6 +5,8 @@
 #include <KeyClass.h>
 #include <ValueClass.h>
 #define SIZE 3
+#define ROWS 3
+#define COLS 4
 
 using IntKeyClass = KeyClass<int32_t>;
 
@@ -26,6 +28,106 @@ using StringKeyClass = KeyClass<std::string>;
 class StringKeyDictClass: public StorageDict <StringKeyClass, FloatValueClass, StringKeyDictClass>, public StorageStream {
 
 };
+
+using IntKeyClass = KeyClass<int32_t>;
+using NumpyValueClass = ValueClass<StorageNumpy>;
+
+class DictWithNumpy: public StorageDict <IntKeyClass, NumpyValueClass, DictWithNumpy>, public StorageStream {
+
+};
+
+char * generateNumpyContent(const std::vector<uint32_t> &metas, int from = 1) {
+
+    double *numpy=(double*)malloc(sizeof(double)*metas[0]*metas[1]);
+    double *tmp = numpy;
+    double num = from;
+    for (int i=0; i<metas[0]; i++) {
+        for (int j=0; j<metas[1]; j++) {
+            std::cout<< "++ "<<i<<","<<j<<std::endl;
+            *tmp = num++;
+            tmp+=1;
+        }
+    }
+    std::cout<< "+ Generated NUMPY ["<<metas[0]<<", "<<metas[1]<<"] using "<<sizeof(double)*metas[0]*metas[1]<<"bytes at "<<std::hex<<(void*)numpy<<std::endl;
+    return (char*) numpy;
+}
+
+void test_dict_with_numpy (const char *dictName, int producer) {
+
+	DictWithNumpy mydict;
+    std::string numpy_name;
+    IntKeyClass key;
+
+    std::vector<uint32_t> metadata = {ROWS, COLS};
+
+    if (producer) {
+	mydict.make_persistent(dictName );
+    std::cout<< "+ Dictionary "<<dictName<< " object created"<<std::endl;
+
+    // create a StorageNumpy and then add it to the StorageDict
+
+    for (int i = 0; i< 3 ; i++) {
+        char* data = generateNumpyContent(metadata,(i*metadata[0]*metadata[1])+1); // dummy calculation for the numbers of the numpys
+        std::cout<< "+ value created at "<<std::hex<<(void*)data<<std::endl;
+        // createObject executes a 'new', therefore reference MUST be deleted by the user
+        StorageNumpy my_sn(data, metadata);
+        numpy_name="mynpDict_"+i;
+	    my_sn.make_persistent(numpy_name.c_str());
+        std::cout<< "+  numpy persisted"<< numpy_name << std::endl;
+
+	    key = IntKeyClass(42+i);
+        std::cout<< "+  key created"<< std::endl;
+
+	    //value = NumpyValueClass(my_sn);
+        NumpyValueClass value(my_sn);
+        std::cout<< "+ value created at "<<std::hex<<(void*)my_sn.getStorageID()<<std::endl;
+        mydict[key] = value;
+
+        std::cout<< "+ mydict setitem completed "<<std::endl;
+    }
+    return;
+    }
+    // CONSUMER
+	mydict.getByAlias(dictName );
+    std::cout<< "+ mydict getByAlias completed "<<std::endl;
+
+
+    int nit = 0;
+    bool ok = true;
+    for(auto it = mydict.begin(); it != mydict.end(); it++, nit++) {
+
+        std::cout<< "+ Starting iteration "<< nit << std::endl;
+        key = it->first;
+        NumpyValueClass value = it->second;
+        StorageNumpy &sn_rcv=NumpyValueClass::get<0>(value);
+        int32_t key_rcv=IntKeyClass::get<0>(key);
+
+        //check received values are the expected
+        if (key_rcv != 42+nit) {
+            std::cout << "key "<< nit << "received is wrong: got " << key_rcv<< " expected " << 42+nit << std::endl;
+            ok=false;
+        }
+        double * data = (double *) generateNumpyContent(metadata,(nit*metadata[0]*metadata[1])+1); // dummy calculation for the numbers of the numpys
+        double *psn = (double *)sn_rcv.data;
+        for (int i = 0; i< metadata[0]; i++) {
+            for (int j = 0; j < metadata[1]; j++) {
+                    if (*psn != *data) {
+                        std::cout << "value "<< nit << "received is wrong: got " << *psn<< " expected " << *data << std::endl;
+                        ok = false;
+                    }
+                    psn++;
+                    data++;
+            }
+        }
+    }
+    if (ok) {
+        std::cout<< "+ End test without errors" << std::endl;
+    } else {
+        std::cout<< "+ Test FAILED" << std::endl;
+
+    }
+
+}
 
 void test_really_simple(const char *name, int is_producer) {
     MyDictClass mydict;
@@ -255,17 +357,21 @@ int main(int argc, char* argv[]) {
     } else {
         std::cout<< "+ CONSUMER VERSION "<<std::endl;
     }
+
     std::cout<< "+ STARTING C++ APP"<<std::endl;
     std::cout<< "+ Session started"<<std::endl;
 
     std::cout << "Starting test 1 " <<std::endl;
     test_really_simple("mydict", producer);
 
-    std::cout << "Starting test 3 " <<std::endl;
-    test_string("mydictString", producer);
     std::cout << "Starting test 2 " <<std::endl;
     test_multiplekey("mydictmultiplekey",producer);
 
+    std::cout << "Starting test 3 " <<std::endl;
+    test_string("mydictString", producer);
+
+    std::cout << "Starting test 4 " <<std::endl;
+    test_dict_with_numpy("dictWithNumpy", producer);
 
     std::cout << "End tests " <<std::endl;
 }

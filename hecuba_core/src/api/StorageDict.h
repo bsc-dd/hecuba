@@ -409,7 +409,7 @@ class StorageDict:virtual public IStorage {
 
             std::pair<K,V>* operator->() {
                 if (current != nullptr) return current;
-                current = instantiateCurrent(m_ptr);
+                    current = instantiateCurrent(m_ptr);
                 return current;
             }
 
@@ -437,7 +437,9 @@ class StorageDict:virtual public IStorage {
 
                 auto tmp = new std::pair<K,V>();
                 K* currentKey = new  K(instance, keyBuffer); //instance a new KeyClass to be initialized with the values in the buffer: case multiattribute
-                V* currentValue = new  V(instance, valueBuffer); //instance a new ValueClass to be initialized with the values in the buffer: case multiattribute } else {
+                // if P == nullptr we are not reading from Cassandra but from the stream. So we set the flag `doPoll` in the value instantiation for pooling the content of the object frome the stream
+                bool is_streaming = (P==nullptr);
+                V* currentValue = new  V(instance, valueBuffer,is_streaming); //instance a new ValueClass to be initialized with the values in the buffer: case multiattribute } else {
                 tmp->first  = *currentKey;
                 tmp->second = *currentValue;
                 return tmp;
