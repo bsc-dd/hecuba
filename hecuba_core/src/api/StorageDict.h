@@ -407,26 +407,8 @@ class StorageDict:virtual public IStorage {
 
             /* instantiateCurrent: Given a TupleRow* retrieves its content as a {key, value} pair. MUST BE 'inline'!!! Otherwise the parameter addresses changes!!*/
             inline std::pair<K,V>* instantiateCurrent(pointer m_ptr) {
-                if (m_ptr == nullptr) return nullptr;
-                // Retrieve TupleRow values...
-                //char *valueToReturn1=nullptr;
-                //char *valueToReturn2=nullptr;
-
-                char *valueFromQuery = (char *)(m_ptr->get_payload());
-                DBG(" BEFORE Extracting values...");
-                char *keyBuffer;
-                char *valueBuffer;
-
-                instance->extractMultiValuesFromQueryResult(valueFromQuery, _HECUBA_ROWS_, &keyBuffer, &valueBuffer);
-
-                auto tmp = new std::pair<K,V>();
-                K* currentKey = new  K(instance, keyBuffer); //instance a new KeyClass to be initialized with the values in the buffer: case multiattribute
-                // if P == nullptr we are not reading from Cassandra but from the stream. So we set the flag `doPoll` in the value instantiation for pooling the content of the object frome the stream
                 bool is_streaming = (P==nullptr);
-                V* currentValue = new  V(instance, valueBuffer,is_streaming); //instance a new ValueClass to be initialized with the values in the buffer: case multiattribute } else {
-                tmp->first  = *currentKey;
-                tmp->second = *currentValue;
-                return tmp;
+                return instance->instantiateTupleRow(m_ptr, is_streaming);
             }
         };
 
@@ -470,6 +452,28 @@ class StorageDict:virtual public IStorage {
             int32_t status;
             std::string class_name = abi::__cxa_demangle(typeid(C).name(),NULL,NULL,&status);
             initializeClassName (class_name); // implemented in IStorage.cpp same code that current registerClassName of HecubaSession
+        }
+
+        std::pair<K,V>* instantiateTupleRow(const TupleRow* m_ptr, bool doPoll) {
+            if (m_ptr == nullptr) return nullptr;
+            // Retrieve TupleRow values...
+            //char *valueToReturn1=nullptr;
+            //char *valueToReturn2=nullptr;
+
+            char *valueFromQuery = (char *)(m_ptr->get_payload());
+            DBG(" BEFORE Extracting values...");
+            char *keyBuffer;
+            char *valueBuffer;
+
+            this->extractMultiValuesFromQueryResult(valueFromQuery, _HECUBA_ROWS_, &keyBuffer, &valueBuffer);
+
+            auto tmp = new std::pair<K,V>();
+            K* currentKey = new  K(this, keyBuffer); //instance a new KeyClass to be initialized with the values in the buffer: case multiattribute
+            // if P == nullptr we are not reading from Cassandra but from the stream. So we set the flag `doPoll` in the value instantiation for pooling the content of the object frome the stream
+            V* currentValue = new  V(this, valueBuffer, doPoll); //instance a new ValueClass to be initialized with the values in the buffer: case multiattribute
+            tmp->first  = *currentKey;
+            tmp->second = *currentValue;
+            return tmp;
         }
 
     
