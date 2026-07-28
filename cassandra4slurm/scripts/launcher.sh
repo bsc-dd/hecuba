@@ -169,6 +169,19 @@ function get_job_info () {
     fi
 }
 
+function get_current_jobname() { # Modifies JOBNAME with the current jobname if there is a single one or fails
+        if [ $(cat $C4S_JOBLIST | wc -l) -gt 1 ]; then
+            echo "There are many Cassandra clusters running, specify which one do you want to check."
+            echo "e.g. $EXEC_NAME STATUS c4s1337"
+            squeue
+            exit
+        elif [ $(cat $C4S_JOBLIST | wc -l) -eq 1 ]; then
+            JOBNAME=$(cat $C4S_JOBLIST | awk '{ print $NF }')
+        else
+            exit_no_cluster
+        fi
+}
+
 function get_cluster_node () {
     # Gets the ID of the first node
     NODE_ID=$(head -n 1 $C4S_HOME/casslist-"$JOBNAME".txt)
@@ -637,16 +650,7 @@ elif [ "$ACTION" == "STATUS" ] || [ "$ACTION" == "status" ]
 then
     # If there is a running Cassandra Cluster it prints the information of the nodes
     if [ "0$JOBNAME" == "0" ]; then
-        if [ $(cat $C4S_JOBLIST | wc -l) -gt 1 ]; then
-            echo "There are many Cassandra clusters running, specify which one do you want to check."
-            echo "e.g. $EXEC_NAME STATUS c4s1337"
-            squeue
-            exit
-        elif [ $(cat $C4S_JOBLIST | wc -l) -eq 1 ]; then
-            JOBNAME=$(cat $C4S_JOBLIST | awk '{ print $NF }')
-        else
-            exit_no_cluster
-        fi
+        get_current_jobname
     fi
 
     DBG "[STATUS] JOBNAME: $JOBNAME"
@@ -768,23 +772,12 @@ elif [ "$ACTION" == "STOP" ] || [ "$ACTION" == "stop" ]
 then
     # If there is a running Cassandra Cluster it stops it
     if [ "0$JOBNAME" == "0" ]; then
-        if [ $(cat $C4S_JOBLIST | wc -l) -gt 1 ]; then
-            echo "There are many Cassandra clusters in the queuing system, specify which one do you want to stop."
-            echo "e.g. $EXEC_NAME STOP c4s1337"
-            squeue
-        elif [ $(cat $C4S_JOBLIST | wc -l) -eq 1 ]; then
-            JOBNAME=$(cat $C4S_JOBLIST | awk '{ print $NF }')
-            echo "[INFO] Stopping cluster "$JOBNAME", it may take a while..."
-            echo "1" > $C4S_HOME/stop."$JOBNAME".txt
-            sleep 5
-        else
-            exit_no_cluster
-        fi
-    elif [ $(cat $C4S_JOBLIST | grep " $JOBNAME " | wc -l) -eq 1 ]; then
+        get_current_jobname
+    fi
+    if [ $(cat $C4S_JOBLIST | grep " $JOBNAME " | wc -l) -eq 1 ]; then
         # This finishes the running job safely, after making a snapshot if it was created that way.
         echo "[INFO] Stopping cluster "$JOBNAME", it may take a while..."
         echo "1" > $C4S_HOME/stop."$JOBNAME".txt
-        sleep 10
     else
         echo "ERROR: Cluster with name "$JOBNAME" not found in the queuing system."
         if [ $(cat $C4S_JOBLIST | wc -l) -gt 0 ]; then
@@ -800,13 +793,7 @@ elif [ "$ACTION" == "KILL" ] || [ "$ACTION" == "kill" ]
 then
     # If there is a running Cassandra Cluster it kills it
     if [ "0$JOBNAME" == "0" ]; then
-        if [ $(cat $C4S_JOBLIST | wc -l) -gt 1 ]; then
-            echo "There are many Cassandra clusters in the queuing system, specify which one do you want to kill."
-            echo "e.g. $EXEC_NAME KILL c4s1337"
-            squeue
-        elif [ $(cat $C4S_JOBLIST | wc -l) -eq 1 ]; then
-            JOBNAME=$(cat $C4S_JOBLIST | awk '{ print $NF }')
-        fi
+        get_current_jobname
     fi
     get_job_info
     if [ "$JOB_ID" != "" ]
