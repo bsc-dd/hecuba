@@ -109,6 +109,9 @@ function usage () {
     echo "       Using --logs=<directory path> that will be the destination of the log files."
     echo "       NOTE: Any parameter not processed by C4S will be sent as it is to the job scheduler."
     echo " "
+    echo "       RUNAPP  [ -c cluster_id ] appl [args]:"
+    echo "       Runs application `appl` (with optional arguments `args`) using currently running Cassandra cluster (or `cluster_id`)."
+    echo " "
     echo "       RECOVER [ -s ]:"
     echo "       Shows a list of snapshots from previous Cassandra Clusters and restores the chosen one."
     echo "       Using -s it will save a new snapshot after the execution."
@@ -310,7 +313,12 @@ case $i in
     ;;
     run|RUN)
     ACTION="RUN"
-    echo "Action is RUN."
+    echo "Action is $ACTION."
+    shift
+    ;;
+    runapp|RUNAPP)
+    ACTION="RUNAPP"
+    echo "Action is $ACTION."
     shift
     ;;
     recover|RECOVER)
@@ -766,6 +774,22 @@ then
     echo "Launching $TOTAL_NODES nodes to recover snapshot $input_snap"
 
     launch_cassandra_and_app
+
+elif [ "$ACTION" == "RUNAPP" ]
+then
+    if [ "0$JOBNAME" == "0" ]; then
+        get_current_jobname
+    fi
+    get_job_info
+    if [ "$JOB_STATUS" != "R" ]; then
+        echo "Cassandra $JOBNAME is not running"
+        exit
+    fi
+    UNIQ_ID=$JOBNAME
+    CNAMES=$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips)
+    CNAMES=$(echo $CNAMES|sed "s/ /,/g")
+    echo "RUNAPP CONTACT_NAMES=$CNAMES ARGS=$@"
+    ( CONTACT_NAMES=$CNAMES $APP "$@" )
 
 
 elif [ "$ACTION" == "STOP" ] || [ "$ACTION" == "stop" ]
