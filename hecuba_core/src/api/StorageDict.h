@@ -116,11 +116,10 @@ class StorageDict:virtual public IStorage {
             this->setTableName( tablename ); //in the case of StorageObject this will be the name of the class
         }
 
-        void enableStreamConsumer(std::string topic) {
-            DBG ("StorageDict::enableStream Consumer");
+        void configureStream(std::string topic) {
+            DBG ("StorageDict::configureStream");
+            enableStream();
             this->getDataAccess()->enable_stream((std::map<std::string, std::string>&)getCurrentSession().config);
-            // yolandab: enable stream to poll this could be done with the first poll like in python
-            this->getDataAccess()->enable_stream_consumer(topic.c_str());
         }
 
         void persist_metadata(uint64_t* c_uuid) {
@@ -204,7 +203,13 @@ class StorageDict:virtual public IStorage {
             const TupleRow* trow_values = this->getDataAccess()->get_new_values_tuplerow(cc_val);
 #if 1
             if (this->isStream()) {
-                this->getDataWriter()->send_event(UUID::UUID2str(getStorageID()).c_str(), trow_key, trow_values); // stream value (storage_id/value)
+                Writer * w = getDataWriter();
+                std::string uuid = UUID::UUID2str(getStorageID());
+                if (!isStreamProducer()) {
+                    enableStreamProducer();
+                    w->enable_stream(uuid.c_str(),(std::map<std::string, std::string>&)getCurrentSession().config);
+                }
+                w->send_event(uuid.c_str(), trow_key, trow_values); // stream value (storage_id/value)
                 send_values(value); // If value is an IStorage type stream its contents also
             }
 #endif
@@ -306,6 +311,10 @@ class StorageDict:virtual public IStorage {
         std::pair<K,V>* poll() {
             std::string instance_uuid; // Calculated UUID (avoid calculating it each time)
             instance_uuid = UUID::UUID2str(this->getStorageID());
+            if (!isStreamConsumer()) {
+                enableStreamConsumer();
+                this->getDataAccess()->enable_stream_consumer(instance_uuid.c_str());
+            }
             const TupleRow* m_ptr = this->getDataAccess()->poll(instance_uuid.c_str())[0]; // poll returns a vector, the first element contains a TupleRow with the key and the value got
             std::pair<K,V> *p = instantiateTupleRow(m_ptr, true);
             return p;
@@ -347,6 +356,10 @@ class StorageDict:virtual public IStorage {
             itemsIterator(StorageDict *my_instance) {
                 instance = my_instance;
                 instance_uuid = UUID::UUID2str(instance->getStorageID());
+                if (!instance-> isStreamConsumer()) {
+                    instance->enableStreamConsumer();
+                    instance->getDataAccess()->enable_stream_consumer(instance_uuid.c_str());
+                }
                 m_ptr = instance->getDataAccess()->poll(instance_uuid.c_str())[0]; // poll returns a vector, the first element contains a TupleRow with the key and the value got
                 if (m_ptr->isNull()) {delete(m_ptr); m_ptr=nullptr;}
                 current = nullptr;

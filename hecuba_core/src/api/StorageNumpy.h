@@ -187,11 +187,10 @@ class StorageNumpy:virtual public IStorage {
             getCurrentSession().registerObject(arrayStore,getClassName());
         }
 
-        void enableStreamConsumer(std::string topic) {
-            DBG ("StorageNumpy::enableStream Consumer");
+        void configureStream(std::string topic) {
+            DBG ("StorageNumpy::configureStream ");
+            enableStream();
             this->arrayStore->getReadCache()->enable_stream((std::map<std::string, std::string>&)getCurrentSession().config);
-            // yolandab: enable stream to poll this could be done with the first poll like in python
-            this->arrayStore->getReadCache()->enable_stream_consumer(topic.c_str());
         }
 
         //TODO delete this specialization of getDataWrite
@@ -264,6 +263,13 @@ class StorageNumpy:virtual public IStorage {
         void send(void) {
             DBG("DEBUG: IStorage::send: sending numpy. Size "<< numpy_metas.get_array_size());
 
+            Writer * w = getDataWriter();
+            std::string uuid = UUID::UUID2str(getStorageID());
+            if (!isStreamProducer()) {
+                enableStreamProducer();
+                w->enable_stream(uuid.c_str(),(std::map<std::string, std::string>&)getCurrentSession().config);
+            }
+
             uint64_t total_size = numpy_metas.get_array_size();
             uint64_t offset = 0;
             uint64_t partition_size = 262144; //arbitrarily use a large power of two number: 2^18
@@ -277,7 +283,7 @@ class StorageNumpy:virtual public IStorage {
                 } else {
                     actual_size = partition_size;
                 }
-                getDataWriter()->send_event(UUID::UUID2str(getStorageID()).c_str(), &tmp[offset], actual_size);
+                w->send_event(uuid.c_str(), &tmp[offset], actual_size);
 
                 offset += actual_size;
                 pending = total_size-offset;
@@ -289,7 +295,13 @@ class StorageNumpy:virtual public IStorage {
             if (this->data)
                 free(this->data);
             this->data = malloc(numpy_metas.get_array_size());
-            this->arrayStore->getReadCache()->poll(UUID::UUID2str(getStorageID()).c_str(), (char*)data, numpy_metas.get_array_size());
+            CacheTable* mycachetable = this->arrayStore->getReadCache();
+            std::string uuid = UUID::UUID2str(getStorageID());
+            if (!isStreamConsumer()) {
+                enableStreamConsumer();
+                mycachetable->enable_stream_consumer(uuid.c_str());
+            }
+            mycachetable->poll(uuid.c_str(), (char*)data, numpy_metas.get_array_size());
         }
 
         void writePythonSpec() {} // StorageNumpy do not have python specification

@@ -8,6 +8,8 @@
 #define ROWS 3
 #define COLS 4
 
+std::string id;
+
 using IntKeyClass = KeyClass<int32_t>;
 
 using FloatValueClass = ValueClass<float>;
@@ -436,6 +438,21 @@ int main(int argc, char* argv[]) {
     } else {
         std::cout<< "+ CONSUMER VERSION "<<std::endl;
     }
+    if (argc>1) {
+
+        // There is a problem when consecutive instances of the same program
+        // are launched one after the other, as the name of the persistent
+        // objects (and therefore their UUIDs) are also the same. This is
+        // problematic in multiple ways. One of the problems is that KAFKA
+        // creates and destroys the same topics (UUIDs)... but as the group.id
+        // is the same then it does not behave correctly :( (mainly the first
+        // instance works, but the second receives a dummy value at the
+        // `poll`... which tries to instantiate and fails).
+        // Add this `id` argument to diferentiate different program
+        // invocations.
+        //
+        id = std::string(argv[1]);
+    }
 
     std::cout<< "+ STARTING C++ APP"<<std::endl;
     std::cout<< "+ Session started"<<std::endl;
@@ -450,10 +467,10 @@ int main(int argc, char* argv[]) {
     test_string("mydictString", producer);
 
     std::cout << "Starting test 4 " <<std::endl;
-    test_dict_with_numpy("dictWithNumpy_iterator", producer);
+    test_dict_with_numpy((id + "dictWithNumpy_iterator").c_str(), producer);
 
     std::cout << "Starting test 5 " <<std::endl;
-    test_dict_with_numpy_poll("dictWithNumpy_poll", producer);
+    test_dict_with_numpy_poll((id + "dictWithNumpy_poll").c_str(), producer);
 
     std::cout << "End tests " <<std::endl;
 }

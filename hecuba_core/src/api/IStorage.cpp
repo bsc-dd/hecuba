@@ -384,11 +384,23 @@ bool IStorage::isStream() const {
     return streamEnabled;
 }
 
-void IStorage::configureStream(std::string topic) {
-    enableStream();
-    enableStreamConsumer(topic); // only implemented for StorageNumpy
-    this->getDataWriter()->enable_stream(topic.c_str(),(std::map<std::string, std::string>&)getCurrentSession().config);
-
+void IStorage::enableStreamProducer() {
+    streamProducerEnabled = true;
+}
+void IStorage::disableStreamProducer() {
+    streamProducerEnabled = false;
+}
+void IStorage::enableStreamConsumer() {
+    streamConsumerEnabled = true;
+}
+void IStorage::disableStreamConsumer() {
+    streamConsumerEnabled = false;
+}
+bool IStorage::isStreamProducer() const {
+    return streamProducerEnabled;
+}
+bool IStorage::isStreamConsumer() const {
+    return streamConsumerEnabled;
 }
 
 void IStorage::setClassName(std::string name) {

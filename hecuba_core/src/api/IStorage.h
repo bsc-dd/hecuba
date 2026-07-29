@@ -56,7 +56,6 @@ class IStorage {
 
         virtual Writer * getDataWriter()const { return dataWriter;}
 
-        virtual void enableStreamConsumer(std::string topic) {std::cerr<<"enableStreamConsumer not defined"<<std::endl;}
 
         uint64_t* getStorageID();
         const std::string& getName() const;
@@ -67,8 +66,14 @@ class IStorage {
         void sync(void);
 
         void enableStream();
-        void configureStream(std::string topic);
+        virtual void configureStream(std::string topic) {std::cerr<<"configureStream not defined"<<std::endl;}
         bool isStream() const;
+        void enableStreamProducer();
+        void disableStreamProducer();
+        void enableStreamConsumer();
+        void disableStreamConsumer();
+        bool isStreamProducer() const;
+        bool isStreamConsumer() const;
 
 
         void writePythonSpec();
@@ -124,6 +129,8 @@ class IStorage {
         std::string class_name=""; // plain class name
 
         bool streamEnabled=false;
+        bool streamProducerEnabled=false;   // A send has been issued (therefore it has been used as a producer)
+        bool streamConsumerEnabled=false;   // A poll has been issued (therefore it has been used as a consumer)
 
         Writer* dataWriter = nullptr; /* Writer for entries in the object. EXTRACTED from 'dataAccess' */
         std::shared_ptr<CacheTable> dataAccess = nullptr; /* Cache of written/read elements */
