@@ -369,11 +369,9 @@ void HecubaSession::parse_environment(config_map &config) {
     }
     config["hecuba_sn_single_table"] = hecubaSNSingleTable2;
 
+    std::string dynamic_affinity2 = std::string("false");
     char * dynamic_affinity = std::getenv("DYNAMIC_AFFINITY");
-    std::string dynamic_affinity2;
-    if (dynamic_affinity == nullptr) {
-        dynamic_affinity2 = std::string("true");
-    } else {
+    if (dynamic_affinity != nullptr) {
         dynamic_affinity2 = std::string(dynamic_affinity);
         for (long unsigned int i=0; i < dynamic_affinity2.size(); i++ ) {
             dynamic_affinity2[i] = ::tolower(dynamic_affinity2[i]);
