@@ -8,7 +8,6 @@
 namespace Hecuba {
 #ifdef ENABLE_DEBUG
 
-
 #if __STDC_VERSION__ < 199901L
 # if __GNUC__ >= 2
 #  define __func__ __FUNCTION__

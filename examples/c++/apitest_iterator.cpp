@@ -45,11 +45,16 @@ void test_really_simple(const char *name) {
     bool ok=true;
     int ts;
     	IntKeyClass pk;
+    FloatValueClass vl;
     // iterating on dict
     for(auto it = mydict.begin(); it != mydict.end(); it++) {
-	    pk=*it;
+        std::cerr << " test_really_simple: iteration" << std::endl;
+        pk=it->first;
 	    ts = IntKeyClass::get<0>(pk);
+        vl=it->second;
+        float ls = FloatValueClass::get<0>(vl);
         if (i>=SIZE) {
+        std::cerr << " test_really_simple: oops... too many items" << std::endl;
             ok=false;
             break;
         } else {
@@ -59,19 +64,27 @@ void test_really_simple(const char *name) {
                 if (tss[j] == ts){
                     found = true;
                     // double check that the retrieved key is a working key
+                    if (lats[j] != ls) { // Check that iterator's value also is ok
+                        std::cerr << " test_really_simple: oops... obtained value ["<<ls<<"] does not correspond to assigned value ["<<lats[j]<<"]" << std::endl;
+                        ok = false;
+                        break;
+                    }
                     v_read=mydict[pk];
                     if (lats[j] != FloatValueClass::get<0>(v_read)) {
-                        ok =false;
+                        std::cerr << " test_really_simple: oops... obtained key does not contain assigned value [" <<lats[j]<<"]"<< std::endl;
+                        ok = false;
                         break;
                     }
                 }
             }
             if (!found) {
+                std::cerr << " test_really_simple: oops... obtained key ["<<ts<<"] does not exist" << std::endl;
                 ok = found;
                 break;
             }
         }
 	i++;
+        std::cerr << " test_really_simple: iteration end" << std::endl;
     }
     if (ok) {
         std::cout<<"Test really simple on keyiterator PASSED"<<std::endl;
@@ -89,8 +102,8 @@ void test_multiplekey(const char *name) {
     const char *s[SIZE]={"how are you",
                   "I am fine",
                   "hope you are well" };
-    float lats[SIZE]={0.666, 0.777, 0.888};
     int ts[SIZE]={42,43,44};
+    float lats[SIZE]={0.666, 0.777, 0.888};
 
 
     //setting values
@@ -106,33 +119,52 @@ void test_multiplekey(const char *name) {
     std::string it_s;
     int it_ts;
     MultipleKeyClass pk;
+    std::cout<< " SIZEOF MultipleKeyClass = "<<sizeof(pk)<<std::endl;
+    FloatValueClass vl;
+    float ls;
     for(auto it = mydict.begin(); it != mydict.end(); it++) {
-	pk=*it;
-	it_s = MultipleKeyClass::get<0>(pk);
+        pk=it->first;
+	    it_s = MultipleKeyClass::get<0>(pk);
         it_ts =MultipleKeyClass::get<1>(pk); 
+        vl=it->second;
+        ls=FloatValueClass::get<0>(vl);
         if (i>=SIZE) {
             ok=false;
         } else {
             bool found = false;
             for (int j = 0; j < SIZE && !found; j++) {
-                if (strcmp(s[j],it_s.c_str())) {
+                if (strcmp(s[j],it_s.c_str())==0) {
                     found = true;
                 }
             }
             if (!found) {
+                std::cerr << " test_multiplekey: oops... obtained key [_"<<it_s<<"_, "<<it_ts<<"] does not exist (with value ["<<ls<<"])" << std::endl;
                 ok = found;
                 break;
             } else {
-                for (int j = 0; j < SIZE && !found; j++) {
+                found = false;
+                int j;
+                for (j = 0; j < SIZE && !found; j++) {
                     if (ts[j]==it_ts) {
                         found = true;
                     }
                 }
                 if (!found) {
+                    std::cerr << " test_multiplekey: oops... obtained key ["<<it_s<<", _"<<it_ts<<"_] does not exist" << std::endl;
                     ok = found;
                     break;
                 }
-
+                // double check that the retrieved key is a working value
+                FloatValueClass stored;
+                stored=mydict[pk];
+                if (lats[j-1] != FloatValueClass::get<0>(stored)) { // At this point 'ok' == true;
+                    std::cerr << " test_multiplekey: oops... obtained key does not contain assigned value [" <<lats[j-1]<<"]"<< std::endl;
+                    ok = false;
+                }
+                if (lats[j-1] != ls) {
+                    std::cerr << " test_multiplekey: oops... obtained value ["<<ls<<"] does not correspond to assigned value ["<<lats[j-1]<<"]" << std::endl;
+                    ok = false;
+                }
             }
         }
     }
@@ -165,29 +197,29 @@ void test_string(const char *name) {
 
     //Iterate
     int i = 0;
-    bool ok=true;
+    bool ok=false;
     std::string ts;
 
     StringKeyClass pk;
 
     for(auto it = mydict.begin(); it != mydict.end(); it++) {
-	pk = *it;
+        pk = it->first;
 	ts = StringKeyClass::get<0>(pk);
-        if (i>=SIZE) {
-            ok=false;
-        } else {
             bool found = false;
             for (int j = 0; j < SIZE && !found; j++) {
-                if (strcmp(s[j],ts.c_str())) {
+                std::cout << " test_string s["<<j<<"] = "<<s[j]<<" == "<<ts<<" = ts"<<std::endl;
+                if (strcmp(s[j],ts.c_str())==0) {
                     found = true;
+                    ok = true;
                 }
             }
             if (!found) {
-                ok = found;
+                ok = false;
                 break;
             }
-        }
+            i++;
     }
+    if (i!=SIZE) ok = false;
     if (ok) {
         std::cout<<"Test string key on keyterator PASSED"<<std::endl;
     } else {
@@ -203,11 +235,11 @@ int main() {
     std::cout << "Starting test 1 " <<std::endl;
     test_really_simple("mydict");
 
+    std::cout << "Starting test 3 " <<std::endl;
+    test_string("mydictString");
     std::cout << "Starting test 2 " <<std::endl;
     test_multiplekey("mydictmultiplekey");
 
-    std::cout << "Starting test 3 " <<std::endl;
-    test_string("mydictString");
 
     std::cout << "End tests " <<std::endl;
 }

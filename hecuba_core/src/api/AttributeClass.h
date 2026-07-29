@@ -91,27 +91,31 @@ class AttributeClass {
         void manageRest(std::string attrBaseName) {
         }
 
-        template < class V1alt> V1alt& instantiateIStorage(IStorage* sd,  uint64_t* uuid,
+        template < class V1alt> V1alt& instantiateIStorage(IStorage* sd,  uint64_t* uuid, bool doPoll = false,
                 typename std::enable_if<!std::is_base_of<IStorage, V1alt>::value>::type* =0 ) {
             // DUMMY FUNCTION SFINAE enters into action
         }
 
-        template < class V1alt> V1alt& instantiateIStorage(IStorage* sd,  uint64_t* uuid,
+        template < class V1alt> V1alt& instantiateIStorage(IStorage* sd,  uint64_t* uuid, bool doPoll = false,
                 typename std::enable_if<std::is_base_of<IStorage, V1alt>::value>::type* =0 ) {
             V1alt *v = new V1alt();
-            //sd->getCurrentSession().registerObject(v); move to setPersistence and object constructor
-            v->setPersistence(uuid);
-            // enable stream
+            if (doPoll && !v->isStream()) { // Nested objects inherits Streaming
+                v->enableStream();
+            }
+            v->setPersistence(uuid); // if SN is an stream avoids setNumpy to load the content from disk
+            // configure stream
             if (v->isStream()){
                 v->getObjSpec().enableStream();
                 v->configureStream(UUID::UUID2str(uuid));
+                if (doPoll)
+                    v->poll();
             }
 
             return *v;
         }
 
         // NOTE: we need the hecuba session, therefore pass through the IStorage containing it (sd)
-        template <std::size_t ix, class V1alt, class...restalt> void setTupleValues(IStorage* sd, void *buffer) {
+        template <std::size_t ix, class V1alt, class...restalt> void setTupleValues(IStorage* sd, void *buffer, bool doPoll=false) {
 
             size_t tam = 0;
             if (ObjSpec::isBasicType(valuesDesc[ix].second) ) {
@@ -128,15 +132,15 @@ class AttributeClass {
                 // but this is not known at compile time. So compiler complains
                 // telling that 'newinstance' does not have the 'setPersistence'
                 // method. Thus we call a 'templatized function' to hide this.
-                std::get<ix>(values) = instantiateIStorage<V1alt>(sd, uuid);
+                std::get<ix>(values) = instantiateIStorage<V1alt>(sd, uuid,doPoll);
                 // END TRICK.^^^
                 tam = sizeof(V1alt);
             }
 
-            setTupleValues<ix+1, restalt...>(sd, (void *)((char*)buffer+tam));
+            setTupleValues<ix+1, restalt...>(sd, (void *)((char*)buffer+tam), doPoll);
         }
 
-        template <std::size_t ix> void setTupleValues(IStorage* sd, void *buffer) {
+        template <std::size_t ix> void setTupleValues(IStorage* sd, void *buffer, bool doPoll=false) {
 
         }
 

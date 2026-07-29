@@ -27,22 +27,6 @@ class StorageDict:virtual public IStorage {
 #define ISKEY true
 
     public:
-        void initObjSpec() {
-            K key;
-            V v;
-            partitionKeys=key.getPartitionKeys();
-            clusteringKeys=key.getClusteringKeys();
-            valuesDesc=v.getValuesDesc("val_");
-            ObjSpec dictSpec;
-            dictSpec=ObjSpec(ObjSpec::valid_types::STORAGEDICT_TYPE, partitionKeys, clusteringKeys, valuesDesc,"");
-            setObjSpec(dictSpec);
-            // extract class name from C and call the new registerObject. And the session??? HecubaSession::get() ?
-            //
-            int32_t status;
-            std::string class_name = abi::__cxa_demangle(typeid(C).name(),NULL,NULL,&status);
-            initializeClassName (class_name); // implemented in IStorage.cpp same code that current registerClassName of HecubaSession
-        }
-
         StorageDict() {
             HecubaExtrae_event(HECUBAEV, HECUBA_SD|HECUBA_INSTANTIATION);
             //std::cout << "StorageDict:: default constructor this "<< this <<std::endl;
@@ -84,7 +68,6 @@ class StorageDict:virtual public IStorage {
         //copy assignment
         StorageDict<K,V,C> &operator = (const StorageDict<K,V,C> &sdsrc){
             HecubaExtrae_event(HECUBAEV, HECUBA_SD|HECUBA_ASSIGNMENT);
-            std::cout<< "StorageDict : operator =" << std::endl;
             if (this != &sdsrc) {
                 this->IStorage::operator=(sdsrc); //Inherit IStorage attributes
                 sd = sdsrc.sd;
@@ -134,6 +117,12 @@ class StorageDict:virtual public IStorage {
             size_t pos = id_obj.find_first_of(".");
             std::string tablename =id_obj.substr(pos+1, id_obj.size());
             this->setTableName( tablename ); //in the case of StorageObject this will be the name of the class
+        }
+
+        void configureStream(std::string topic) {
+            DBG ("StorageDict::configureStream");
+            enableStream();
+            this->getDataAccess()->enable_stream((std::map<std::string, std::string>&)getCurrentSession().config);
         }
 
         void persist_metadata(uint64_t* c_uuid) {
@@ -217,7 +206,13 @@ class StorageDict:virtual public IStorage {
             const TupleRow* trow_values = this->getDataAccess()->get_new_values_tuplerow(cc_val);
 #if 1
             if (this->isStream()) {
-                this->getDataWriter()->send_event(UUID::UUID2str(getStorageID()).c_str(), trow_key, trow_values); // stream value (storage_id/value)
+                Writer * w = getDataWriter();
+                std::string uuid = UUID::UUID2str(getStorageID());
+                if (!isStreamProducer()) {
+                    enableStreamProducer();
+                    w->enable_stream(uuid.c_str(),(std::map<std::string, std::string>&)getCurrentSession().config);
+                }
+                w->send_event(uuid.c_str(), trow_key, trow_values); // stream value (storage_id/value)
                 send_values(value); // If value is an IStorage type stream its contents also
             }
 #endif
@@ -246,7 +241,7 @@ class StorageDict:virtual public IStorage {
             // NOT be the same! Traverse the TableMetadata and construct the User
             // buffer with the same order as the ospec. FIXME
 
-            extractMultiValuesFromQueryResult(query_result, valuetoreturn, COLUMNS);
+            extractMultiValuesFromQueryResult(query_result, _HECUBA_COLUMNS_, valuetoreturn);
 
             // TODO this works only for dictionaries of one element. We should traverse the whole vector of values
             // TODO delete the vector of tuple rows and the tuple rows
@@ -316,98 +311,148 @@ class StorageDict:virtual public IStorage {
             return clusteringKeys;
         }
 
+        std::pair<K,V>* poll() {
+            std::string instance_uuid; // Calculated UUID (avoid calculating it each time)
+            instance_uuid = UUID::UUID2str(this->getStorageID());
+            if (!isStreamConsumer()) {
+                enableStreamConsumer();
+                this->getDataAccess()->enable_stream_consumer(instance_uuid.c_str());
+            }
+            const TupleRow* m_ptr = this->getDataAccess()->poll(instance_uuid.c_str())[0]; // poll returns a vector, the first element contains a TupleRow with the key and the value got
+            std::pair<K,V> *p = instantiateTupleRow(m_ptr, true);
+            return p;
+        }
+
 
         /* Iterators */
-        struct keysIterator {
-            // TODO : instrument this struct (destroy should finish the instrumentation)
+
+        // std::map c++ class only implements an iterator that returns pairs of
+        // key-value, thus to respect the semantic in the case of StorageDict
+        // we do the same and iterate on items
+        struct itemsIterator{
             using iterator_category = std::input_iterator_tag;
             using difference_type   = std::ptrdiff_t;   // Is it really needed?
-            //using value_type        = TupleRow;
-            using pointer           = TupleRow*;  // or also value_type*
-            //using reference         = K*;  // or also value_type&
-            //using reference         = std::unique_ptr<K>;  // or also value_type&
-            using reference         = K&;   // or also value_type&
-
+            using pointer           = const TupleRow*;  // or also value_type*
+            using reference         = std::pair<K,V>&;   // or also value_type&
             // Constructor
-            keysIterator(void) : m_ptr(nullptr) {}
-            //keysIterator(void) : lastKeyClass(std::make_shared<K>()) {}
-            //keysIterator(pointer ptr) : m_ptr(ptr) {}
-            //keysIterator(IStorage *my_instance, Prefetch *my_P) : instance(my_instance), P(my_P) {m_ptr = P->get_cnext();}
-            keysIterator(StorageDict *my_instance, Prefetch *my_P) {
-                P = my_P;
+            itemsIterator() : m_ptr(nullptr), current(nullptr) {}
+
+            itemsIterator(StorageDict *my_instance, Prefetch *my_P) {
+                P = std::shared_ptr<Prefetch>(my_P);
                 instance = my_instance;
+                instance_uuid = UUID::UUID2str(instance->getStorageID());
                 m_ptr = P->get_cnext();
+                current = nullptr; // It will be recovered at access
                 DBG(" m_ptr == " << (uint64_t)m_ptr);
                 DBG( " PAYLOAD == "<<(int64_t)m_ptr->get_payload());
             }
 
-            // Operators
-            reference operator*() const {
-                char *valueToReturn=nullptr;
-                DBG(" m_ptr == " << (uint64_t)m_ptr);
-                DBG(" BEFORE Get Payload...");
-                char *valueFromQuery = (char *)(m_ptr->get_payload());
-                DBG(" BEFORE Extracting values...");
-                char *keyBuffer;
-                // if the key only have one attribute, valueToReturn contains that attribute
-                // if the key has several attributes, valueToReturn is a pointer to the memory containing the attributes
-                if ((instance->partitionKeys.size() + instance->clusteringKeys.size()) == 1) {
-                    std::pair<uint16_t, uint16_t> keySize = instance->getDataWriter()->get_metadata()->get_keys_size();
-                    uint64_t partKeySize = keySize.first;
-                    uint64_t clustKeySize = keySize.second;
-                    valueToReturn = (char *) malloc (partKeySize+clustKeySize);
-                    instance->extractMultiValuesFromQueryResult(valueFromQuery, valueToReturn, KEYS);
-                    keyBuffer = valueToReturn;
-                } else { // more than one attribute
-                    instance->extractMultiValuesFromQueryResult(valueFromQuery, &valueToReturn, KEYS);
-                    keyBuffer = (char *) valueToReturn;
-                }
-                K* lastKeyClass = new  K(instance, keyBuffer); //instance a new KeyClass to be intitialize with the values in the buffer: case multiattribute
-                return *lastKeyClass;
+            itemsIterator(const itemsIterator& src) {
+                m_ptr = nullptr; //Ask the prefetcher
+                current = nullptr; // Avoid the copy, If iterator is accessed, then it will be recovered
+                instance = src.instance;
+                instance_uuid = src.instance_uuid;
+                P = src.P; // WARNING! both iterators will SHARE the prefetcher!! HERE BE DRAGONS! (advancing one iterator will act on the elements obtained in the other)
             }
-            //pointer operator->() {
-            //    /* TODO: return the pointer to the processed payload from the current TupleRow */
-            //     return m_ptr;
-            //}
+
+            // if streaming is set we do not use prefetcher
+            itemsIterator(StorageDict *my_instance) {
+                instance = my_instance;
+                instance_uuid = UUID::UUID2str(instance->getStorageID());
+                if (!instance-> isStreamConsumer()) {
+                    instance->enableStreamConsumer();
+                    instance->getDataAccess()->enable_stream_consumer(instance_uuid.c_str());
+                }
+                m_ptr = instance->getDataAccess()->poll(instance_uuid.c_str())[0]; // poll returns a vector, the first element contains a TupleRow with the key and the value got
+                if (m_ptr->isNull()) {delete(m_ptr); m_ptr=nullptr;}
+                current = nullptr;
+            }
+            ~itemsIterator() {
+                if (m_ptr!=nullptr){
+                    delete m_ptr;
+                }
+                if (current!=nullptr){
+                    delete(current);
+                }
+            }
+
+            // Operators
 
             // Prefix increment
-            keysIterator& operator++() {
-                m_ptr = P->get_cnext();
-
-
+            itemsIterator& operator++() {
+                if (m_ptr != nullptr) {
+                    delete(m_ptr);
+                    m_ptr=nullptr;
+                }
+                if (current != nullptr) { // Remove previous instance
+                    delete(current);
+                    current = nullptr;
+                }
+                if (instance->isStream()) {
+                    m_ptr = instance->getDataAccess()->poll(instance_uuid.c_str())[0]; // poll returns a vector, the first element contains a TupleRow with the key and the value got
+                    if (m_ptr->isNull()) m_ptr=nullptr;
+                } else {
+                    m_ptr = P->get_cnext(); //CUANDO LLEGA AL FINAL ESTO DEVUELVE NULL..... m_ptr->get_payload deberia estar fallando...... y las comparaciones == y != tampoco entiendo que detecten el fin
+                }
+                DBG(" m_ptr == " << (uint64_t)m_ptr);
                 return *this;
             }
-            // Postfix increment
-            keysIterator operator++(int) { keysIterator tmp = *this; ++(*this); return tmp; }
 
-            friend bool operator== (const keysIterator& a, const keysIterator& b) { return a.m_ptr == b.m_ptr; };
-            friend bool operator!= (const keysIterator& a, const keysIterator& b) { return a.m_ptr != b.m_ptr; };
+            // Postfix increment
+            itemsIterator operator++(int) { itemsIterator tmp = *this; ++(*this); return tmp; } // This creates a NEW iterator that is autodestroyed when exits operator in the case 's++;'. To ensure that the PREFETCHER is destroyed just once, we have defined it as a shared pointer
+
+            friend bool operator== (const itemsIterator& a, const itemsIterator& b) {
+                return a.m_ptr == b.m_ptr;
+            };
+            friend bool operator!= (const itemsIterator& a, const itemsIterator& b) {
+                return a.m_ptr != b.m_ptr;
+            };
+
+            std::pair<K,V>& operator*() {
+                if (current != nullptr) return *current; //Already accessed, return current directly
+                current = instantiateCurrent(m_ptr);//It is not guaranteed to be dereferenceable (for example by trying to access beyond the end).
+                return *current;
+            }
+
+            std::pair<K,V>* operator->() {
+                if (current != nullptr) return current;
+                    current = instantiateCurrent(m_ptr);
+                return current;
+            }
 
             private:
 
-            pointer m_ptr;
-            Prefetch *P;
+            pointer m_ptr =nullptr;
+            std::pair<K,V>* current;    // Temporal storage for K,V for current element
+            std::shared_ptr<Prefetch> P = nullptr;
             StorageDict *instance;
+            std::string instance_uuid; // Calculated UUID (avoid calculating it each time)
+
+            /* instantiateCurrent: Given a TupleRow* retrieves its content as a {key, value} pair. MUST BE 'inline'!!! Otherwise the parameter addresses changes!!*/
+            inline std::pair<K,V>* instantiateCurrent(pointer m_ptr) {
+                bool is_streaming = (P==nullptr);
+                return instance->instantiateTupleRow(m_ptr, is_streaming);
+            }
         };
 
         /***
           d = //dictionary [int, float]:[values]
           for (keysIterator s = d.begin(); s != d.end(); s ++) {
-          (*s)        <== buffer con int+float (*m_ptr)
-          (s)         <== Iterador
-          (s->xxx)    <== NOT SUPPORTED
+          (*s)        <== pair with key and value (current)
+          (s)         <== Iterador (accessed like s->first and s->second)
           }
          ***/
-        keysIterator begin() {
-            // Create thread and ask Casandra for data
-
+        itemsIterator begin() {
+            if (isStream()) return itemsIterator(this);
+            // Create prefetcher thread to ask Casandra for data
             config_map iterator_config = getCurrentSession().config;
-            iterator_config["type"]="keys"; // Request a prefetcher for 'keys' only
-            return keysIterator(this,
-                    getCurrentSession().getStorageInterface()->get_iterator(getDataAccess()->get_metadata(), iterator_config));
+            iterator_config["type"]="items"; // Request a prefetcher for 'keys' and values
+            return itemsIterator(this,
+                getCurrentSession().getStorageInterface()->get_iterator(getDataAccess()->get_metadata(), iterator_config));
         }
 
-        keysIterator end()   { return keysIterator(); } // NULL is the placeholder for last element
+        itemsIterator end()   { return itemsIterator(); } // NULL is the placeholder for last element in case of using Prefetch, and a null tuple (all values set to null) in case of streaming
+
 
     private:
         //Istorage * sd;
@@ -415,6 +460,45 @@ class StorageDict:virtual public IStorage {
         std::vector<std::pair<std::string, std::string>> partitionKeys;
         std::vector<std::pair<std::string, std::string>> clusteringKeys;
         std::vector<std::pair<std::string, std::string>> valuesDesc;
+
+        void initObjSpec() {
+            K key;
+            V v;
+            partitionKeys=key.getPartitionKeys();
+            clusteringKeys=key.getClusteringKeys();
+            valuesDesc=v.getValuesDesc("val_");
+            ObjSpec dictSpec;
+            dictSpec=ObjSpec(ObjSpec::valid_types::STORAGEDICT_TYPE, partitionKeys, clusteringKeys, valuesDesc,"");
+            setObjSpec(dictSpec);
+            // extract class name from C and call the new registerObject. And the session??? HecubaSession::get() ?
+            //
+            int32_t status;
+            std::string class_name = abi::__cxa_demangle(typeid(C).name(),NULL,NULL,&status);
+            initializeClassName (class_name); // implemented in IStorage.cpp same code that current registerClassName of HecubaSession
+        }
+
+        std::pair<K,V>* instantiateTupleRow(const TupleRow* m_ptr, bool doPoll) {
+            if (m_ptr == nullptr) return nullptr;
+            // Retrieve TupleRow values...
+            //char *valueToReturn1=nullptr;
+            //char *valueToReturn2=nullptr;
+
+            char *valueFromQuery = (char *)(m_ptr->get_payload());
+            DBG(" BEFORE Extracting values...");
+            char *keyBuffer;
+            char *valueBuffer;
+
+            this->extractMultiValuesFromQueryResult(valueFromQuery, _HECUBA_ROWS_, &keyBuffer, &valueBuffer);
+
+            auto tmp = new std::pair<K,V>();
+            K* currentKey = new  K(this, keyBuffer); //instance a new KeyClass to be initialized with the values in the buffer: case multiattribute
+            // if P == nullptr we are not reading from Cassandra but from the stream. So we set the flag `doPoll` in the value instantiation for pooling the content of the object frome the stream
+            V* currentValue = new  V(this, valueBuffer, doPoll); //instance a new ValueClass to be initialized with the values in the buffer: case multiattribute
+            tmp->first  = *currentKey;
+            tmp->second = *currentValue;
+            return tmp;
+        }
+
     
 };
 

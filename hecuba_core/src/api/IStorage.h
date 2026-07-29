@@ -11,8 +11,9 @@
 namespace Hecuba {
 //class HecubaSession; //Forward declaration
 
-#define KEYS    1
-#define COLUMNS 0
+#define _HECUBA_ROWS_    2
+#define _HECUBA_KEYS_    1
+#define _HECUBA_COLUMNS_ 0
 
 class IStorage {
     /* This class represents an instantiated object (StorageDict) and can be
@@ -56,7 +57,6 @@ class IStorage {
 
         virtual Writer * getDataWriter()const { return dataWriter;}
 
-        virtual void enableStreamConsumer(std::string topic) {DBG("VIRTUAL");}
 
         uint64_t* getStorageID();
         const std::string& getName() const;
@@ -67,8 +67,14 @@ class IStorage {
         void sync(void);
 
         void enableStream();
-        void configureStream(std::string topic);
+        virtual void configureStream(std::string topic) {std::cerr<<"configureStream not defined"<<std::endl;}
         bool isStream() const;
+        void enableStreamProducer();
+        void disableStreamProducer();
+        void enableStreamConsumer();
+        void disableStreamConsumer();
+        bool isStreamProducer() const;
+        bool isStreamConsumer() const;
 
 
         void writePythonSpec();
@@ -94,7 +100,7 @@ class IStorage {
         void getByAlias(const std::string& name) ;
         void get_by_alias(const std::string&);
 
-        void extractMultiValuesFromQueryResult(void *query_result, void *valuetoreturn, int type) ;
+        void extractMultiValuesFromQueryResult(void *query_result, int type, void *valuetoreturn1, void *valuetoreturn2=NULL);
     private:
 
         ObjSpec IStorageSpec;
@@ -124,6 +130,8 @@ class IStorage {
         std::string class_name=""; // plain class name
 
         bool streamEnabled=false;
+        bool streamProducerEnabled=false;   // A send has been issued (therefore it has been used as a producer)
+        bool streamConsumerEnabled=false;   // A poll has been issued (therefore it has been used as a consumer)
 
         Writer* dataWriter = nullptr; /* Writer for entries in the object. EXTRACTED from 'dataAccess' */
         std::shared_ptr<CacheTable> dataAccess = nullptr; /* Cache of written/read elements */
