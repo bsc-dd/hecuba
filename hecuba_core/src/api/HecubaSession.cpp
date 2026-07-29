@@ -534,64 +534,6 @@ HecubaSession::HecubaSession() {
 // TODO: extend writer to support lists
 
 
-#if 0
-    {
-	bool affinityError = true;
-	try{
-    		std::string casspidfile = config.at("casspidfile");
-		DBG(" Reading cassandra pid file from ["<<casspidfile<<"]");
-		std::string tmp;
-    		int fd = open(casspidfile.c_str(), O_RDONLY);
-		if (fd < 0) {
-			tmp = "Error opening Cassandra pid file ";
-			tmp = tmp+ casspidfile;
-			perror(tmp.c_str());
-		}else {
-			char buff[1024];
-			int ret = read(fd, &buff, sizeof(buff));
-			if (ret <0) {
-				tmp = "Error getting Cassandra pid from ";
-				tmp = tmp+ casspidfile;
-				perror(tmp.c_str());
-			} else {
-				buff[ret]='\0';
-				cassandraPID = atoi(buff);
-				DBG("   Read cassandra pid ["<<cassandraPID<<"]");
-				if (cassandraPID > 0) affinityError = false; // A valid Cassandra PID has been read
-			}
-			close(fd);
-		}
-	} catch (std::out_of_range e) {
-		std::cerr << " 'CASSPIDFILE' not found" <<std::endl;
-	}
-	if (affinityError) {
-		std::cerr << " WARNING. Cassandra Affinity is DISABLED." <<std::endl;
-		cassandraPID = 0;
-	} else {
-   		CPU_ZERO(&cassandraMask);  // Clear the CPU set
-		CPU_ZERO(&currentCassandraMask);  // Clear the CPU set
-   		if (sched_getaffinity(cassandraPID, sizeof(cpu_set_t), &cassandraMask) == -1) {
-        		perror("sched_getaffinity");
-   		}
-		DBG(" Cassandra Affinity for pid "<<cassandraPID);
-	        DBG(" 	["<<CPUSET2INT(&cassandraMask)<<"]");
-		auto cores = config.find("c4s_cassandra_cores");
-		if (cores != config.end()) { // Affinity is required...
-			unsigned int c = atoi(cores->second.c_str());
-			unsigned int numcpus = CPU_COUNT(&cassandraMask);
-			if (numcpus > c) {
-				DBG(" Current Cassandra mask has "<<numcpus<< " cores. But C4S_CASSANDRA_CORES is set and lower. Limit Cassandra mask to "<< cores->second<< " cores" );
-				limitMaskToCores(&cassandraMask, c);
-				setCassandraAfinity(&cassandraMask);
-			} else if (numcpus < c) {
-				std::cerr<< " WARNING: Cassandra mask has less cores than the required C4S_CASSANDRA_CORES "<< numcpus<<"/"<<c<<std::endl;
-			}
-		}
-		DBG(" Cassandra mask set to ["<<CPUSET2INT(&cassandraMask)<<"]");
-		CPU_OR(&currentCassandraMask, &cassandraMask, &currentCassandraMask);
-	}
-    }
-#else
     if (config["dynamic_affinity"] == std::string("true"))
     {
 	bool affinityError = true;
@@ -643,7 +585,6 @@ HecubaSession::HecubaSession() {
 
 	}
     }
-#endif
 numpyMetaAccess = storageInterface->get_static_metadata_cache(config);
 numpyMetaWriter = numpyMetaAccess->get_writer();
 
