@@ -98,9 +98,11 @@ class AttributeClass {
         template < class V1alt> V1alt& instantiateIStorage(IStorage* sd,  uint64_t* uuid, bool doPoll = false,
                 typename std::enable_if<std::is_base_of<IStorage, V1alt>::value>::type* =0 ) {
             V1alt *v = new V1alt();
-            //sd->getCurrentSession().registerObject(v); move to setPersistence and object constructor
-            v->setPersistence(uuid);
-            // enable stream
+            if (doPoll && !v->isStream()) { // Nested objects inherits Streaming
+                v->enableStream();
+            }
+            v->setPersistence(uuid); // if SN is an stream avoids setNumpy to load the content from disk
+            // configure stream
             if (v->isStream()){
                 v->getObjSpec().enableStream();
                 v->configureStream(UUID::UUID2str(uuid));
