@@ -314,11 +314,13 @@ class StorageDict:virtual public IStorage {
         std::pair<K,V>* poll() {
             std::string instance_uuid; // Calculated UUID (avoid calculating it each time)
             instance_uuid = UUID::UUID2str(this->getStorageID());
+            DBG("polling..."<< instance_uuid);
             if (!isStreamConsumer()) {
                 enableStreamConsumer();
                 this->getDataAccess()->enable_stream_consumer(instance_uuid.c_str());
             }
             const TupleRow* m_ptr = this->getDataAccess()->poll(instance_uuid.c_str())[0]; // poll returns a vector, the first element contains a TupleRow with the key and the value got
+            if (m_ptr->isNull()) return nullptr;
             std::pair<K,V> *p = instantiateTupleRow(m_ptr, true);
             return p;
         }

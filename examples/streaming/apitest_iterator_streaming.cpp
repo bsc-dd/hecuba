@@ -180,6 +180,11 @@ void test_dict_with_numpy_poll (const char *dictName, int producer) {
 
         std::cout<< "+ Starting iteration "<< nit << std::endl;
         auto it = mydict.poll();
+        if (it == nullptr) {
+            std::cerr<< " POll: EOD received. Exitting" << std::endl;
+            ok = false;
+            break;
+        }
         key = it->first;
         NumpyValueClass value = it->second;
         StorageNumpy &sn_rcv=NumpyValueClass::get<0>(value);
