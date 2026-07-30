@@ -633,18 +633,8 @@ int HecubaSession::wait_writes_completion(void) {
 HecubaSession::~HecubaSession() {
     DBG(" Destructor ");
     HecubaExtrae_event(HECUBADBG, HECUBA_SESSIONDESTROY);
-char hostname[256];
-	gethostname(&hostname[0], 256);
-    
-struct timeval startTV;
-struct timeval stopTV;
-struct timeval diff;
 
-	gettimeofday(&startTV, NULL);
     wait_writes_completion();
-	gettimeofday(&stopTV, NULL);
-	timersub(&stopTV, &startTV, &diff);
-	std::cerr << " HecubaSession::~HecubaSession: wait_writes_completion [" << hostname << "]: Total Time Used = "<< diff.tv_sec <<"s "<< diff.tv_usec<<"us to execute "<<std::endl;
 
     if (numpyMetaAccess->can_table_meta_be_freed()) { // TODO FIX THIS THING
         delete(numpyMetaAccess);

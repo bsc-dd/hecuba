@@ -483,6 +483,7 @@ void  CacheTable::close_stream(const char *topic_name) {
  */
 std::vector<const TupleRow *> CacheTable::retrieve_from_cassandra(const TupleRow *keys, const char* attr_name) {
 
+    DBG( "retrieving attribute ["<< ((attr_name==nullptr)?"NULL":attr_name) <<"] from  "<< table_metadata->get_table_name()<<"."<<table_metadata->get_keyspace()) ;
     // To avoid consistency problems we flush the elements pending to be written
     flush_elements();
 

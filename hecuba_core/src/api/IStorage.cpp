@@ -563,7 +563,7 @@ void IStorage::make_persistent(const std::string  id_obj) {
                     }
                 }
             } else {
-                std::string msg = std::string("IStorage::make_persistent: Error executing query ") + query;
+                std::string msg = std::string("IStorage::make_persistent: Error executing query ") + query + std::string(" error = ") + std::string(cass_error_desc(rc));
                 throw ModuleException(msg);
             }
         }
