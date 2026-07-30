@@ -2,6 +2,7 @@
 #include "HecubaExtrae.h"
 #include "debug.h"
 #include <sys/wait.h>
+#include "HecubaSession.h"
 
 #ifndef CLONE
 #include <pthread.h>
