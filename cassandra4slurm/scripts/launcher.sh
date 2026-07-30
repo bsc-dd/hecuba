@@ -219,7 +219,17 @@ function test_if_cluster_up () {
         echo "Launching..."
     fi
 }
-
+function wait_cluster_up() {
+	while [ ! -f "$C4S_HOME/casslistDONE-"$UNIQ_ID".txt" ]; do
+        echo "Checking for Cassandra cluster up... "
+        get_job_info
+        if [ "$JOB_STATUS" == "" ]
+        then
+            exit_no_cluster
+        fi
+        sleep 5
+	done
+}
 
 function get_max_of_two () {
     if [ $1 -gt $2 ]; then
@@ -264,15 +274,8 @@ function launch_cassandra_and_app () {
     if [ "no${APP}" == "no" ]; then
         echo "Please, be patient. It may take a while until it shows a correct status (and it may show some harmless errors during this process)."
 
-	while [ ! -f "$C4S_HOME/casslistDONE-"$UNIQ_ID".txt" ]; do
-        echo "Checking for Cassandra cluster up... "
-        get_job_info
-        if [ "$JOB_STATUS" == "" ]
-        then
-            exit_no_cluster
-        fi
-        sleep 5
-	done
+    wait_cluster_up
+
         echo "Cassandra Cluster with "$CASSANDRA_NODES" node(s) started successfully."
         CNAMES=$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips)
         CNAMES=$(echo $CNAMES|sed "s/ /,/g")
@@ -791,6 +794,8 @@ then
         exit
     fi
     UNIQ_ID=$JOBNAME
+    wait_cluster_up
+
     CNAMES=$(cat $C4S_HOME/casslist-"$UNIQ_ID".txt.ips)
     CNAMES=$(echo $CNAMES|sed "s/ /,/g")
     echo "RUNAPP CONTACT_NAMES=$CNAMES ARGS=$@"
