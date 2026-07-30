@@ -5,6 +5,9 @@
 #include <ValueClass.h>
 #include <iostream>
 
+
+using namespace Hecuba;
+
 char * generateKey(int ts) {
 
     char * key = (char*) malloc (sizeof(int));
@@ -95,6 +98,35 @@ void dict_with_multiple_values2() {
 
     std::cout<< "+ AFTER sync "<<std::endl;
 }
+void dict_with_multiple_values2_persist_at_end() {
+	
+	std::string dictName = "dict_with_multiplevalues2_persist_at_end";
+	
+	DictWithMultValue2 mydict;
+
+    std::cout<< "+ Volatile Dictionary  object created"<<std::endl;
+
+    // create a StorageNumpy and then add it to the StorageDict
+    std::vector<uint32_t> metadata = {ROWS, COLS};
+    char* data = generateNumpyContent(metadata);
+    std::cout<< "+ value created at "<<std::hex<<(void*)data<<std::endl;
+
+    // createObject executes a 'new', therefore reference MUST be deleted by the user
+    StorageNumpy my_sn(data, metadata);
+	my_sn.make_persistent("mynp");
+
+	IntKeyClass key(42);
+    std::cout<< "+  key created"<< std::endl;
+
+	MultAttrValueClass2 my_value = MultAttrValueClass2(my_sn,43);
+    mydict[key] = my_value;
+
+    std::cout<< "+ value created at "<<std::hex<<(void*)my_sn.getStorageID()<<std::endl;
+	mydict.make_persistent( dictName );
+    std::cout<< "+ Dictionary "<<dictName<< " object created"<<std::endl;
+
+    std::cout<< "+ AFTER sync "<<std::endl;
+}
 
 
 int main() {
@@ -102,4 +134,5 @@ int main() {
 
     dict_with_multiple_values();
     dict_with_multiple_values2();
+    dict_with_multiple_values2_persist_at_end();
 }

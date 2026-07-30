@@ -8,6 +8,8 @@
 #define COLS 3
 #define ROWS 4
 
+using namespace Hecuba;
+
 using IntKeyClass = KeyClass <int32_t>;
 
 using nestedValue = ValueClass <StorageNumpy>;

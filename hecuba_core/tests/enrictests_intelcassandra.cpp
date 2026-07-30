@@ -23,6 +23,8 @@
 #include <fcntl.h>
 
 using namespace std;
+using namespace Hecuba;
+
 
 #define PY_ERR_CHECK if (PyErr_Occurred()){PyErr_Print(); PyErr_Clear();}
 #define PMEM_OFFSET 8

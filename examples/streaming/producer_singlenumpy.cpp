@@ -6,6 +6,8 @@
 #define ROWS 3
 #define COLS 4
 
+using namespace Hecuba;
+
 class mynumpyclass: public StorageNumpy, public StorageStream {
 
 };

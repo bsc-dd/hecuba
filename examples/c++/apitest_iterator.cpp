@@ -5,6 +5,8 @@
 #include <ValueClass.h>
 #define SIZE 3
 
+using namespace Hecuba;
+
 using IntKeyClass = KeyClass<int32_t>;
 
 using FloatValueClass = ValueClass<float>;

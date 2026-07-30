@@ -5,6 +5,8 @@
 #include <ValueClass.h>
 #include <iostream>
 
+using namespace Hecuba;
+
 char * generateKey(int ts) {
 
     char * key = (char*) malloc (sizeof(int));

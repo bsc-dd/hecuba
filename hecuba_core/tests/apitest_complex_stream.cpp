@@ -2,6 +2,9 @@
 #include <hecuba/IStorage.h>
 #include <iostream>
 
+using namespace Hecuba;
+
+
 #define ROWS 4
 #define COLS 3
 char * generateKey(float lat, int ts) {

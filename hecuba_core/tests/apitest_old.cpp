@@ -2,6 +2,9 @@
 #include <hecuba/IStorage.h>
 #include <iostream>
 
+using namespace Hecuba;
+
+
 char * generateKey(float lat, int ts) {
 
     char * key = (char*) malloc (sizeof(float) + sizeof(int));

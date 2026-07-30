@@ -4,6 +4,8 @@
 #define COLS 3
 #define ROWS 4
 
+using namespace Hecuba;
+
 
 char * generateNumpyContent(const std::vector<uint32_t> &metas) {
 

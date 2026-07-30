@@ -3,6 +3,8 @@
 #include <StorageStream.h>
 #include <iostream>
 
+using namespace Hecuba;
+
 class mynumpyclass: public StorageNumpy, public StorageStream {
 
 };

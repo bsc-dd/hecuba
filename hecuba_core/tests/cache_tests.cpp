@@ -4,6 +4,9 @@
 #include "../src/KVCache.h"
 #include "../src/TupleRow.h"
 
+using namespace Hecuba;
+
+
 /** TEST SETUP **/
 
 

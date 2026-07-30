@@ -8,6 +8,8 @@
 #define ROWS 3
 #define COLS 4
 
+using namespace Hecuba;
+
 std::string id;
 
 using IntKeyClass = KeyClass<int32_t>;
